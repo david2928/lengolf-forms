@@ -32,7 +32,7 @@ jobs:
         _GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}",\
         _NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}",\
         _NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}",\
-        _GOOGLE_SHEETS_ID="${{ secrets.GOOGLE_SHEETS_ID }}"
+        _GOOGLE_SHEET_ID="${{ secrets.GOOGLE_SHEET_ID }}"
 
     - name: Deploy to Cloud Run
       run: |
