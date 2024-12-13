@@ -10,6 +10,8 @@ steps:
       '--build-arg', 'NEXTAUTH_SECRET=${_NEXTAUTH_SECRET}',
       '--build-arg', 'NEXTAUTH_URL=${_NEXTAUTH_URL}',
       '--build-arg', 'GOOGLE_SHEET_ID=${_GOOGLE_SHEET_ID}',
+      '--build-arg', 'GOOGLE_CLIENT_EMAIL=${_GOOGLE_CLIENT_EMAIL}',
+      '--build-arg', 'GOOGLE_PRIVATE_KEY=${_GOOGLE_PRIVATE_KEY}',
       '-t', 'gcr.io/lengolf-forms/lengolf-forms',
       '.'
     ]
