@@ -1,17 +1,18 @@
-'use client';
+'use client'
 
-import { Button } from "@/components/ui/button";
-import { signOut } from "next-auth/react";
+import { signOut } from 'next-auth/react'
+import { Button } from './ui/button'
 
 export function LogoutButton() {
   return (
-    <Button 
-      variant="ghost" 
-      size="sm"
-      onClick={() => signOut({ callbackUrl: '/auth/signin' })}
-      className="absolute top-4 right-4 text-gray-600 hover:text-gray-900"
-    >
-      Sign Out
-    </Button>
-  );
+    <div className="absolute top-2 right-4 z-10">
+      <Button
+        variant="outline"
+        onClick={() => signOut()}
+        className="text-sm px-3 bg-white hover:bg-gray-50"
+      >
+        Sign Out
+      </Button>
+    </div>
+  )
 }

@@ -217,10 +217,12 @@ export default function PackageForm() {
   }
 
   return (
-    <div className="container max-w-lg mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold text-[#005a32] mb-8 text-center">
-        LENGOLF Package Creation
-      </h1>
+    <div className="container max-w-lg mx-auto pt-16 pb-8 px-4">
+      <div className="relative">
+        <h1 className="text-3xl font-bold text-[#005a32] mb-8 text-center">
+          Package Creation
+        </h1>
+      </div>
       
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-400 text-red-700 rounded-lg">

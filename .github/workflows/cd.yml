@@ -31,12 +31,14 @@ jobs:
         _GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}",\
         _GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}",\
         _NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}",\
-        _NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}"
+        _NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}",\
+        _GOOGLE_SHEETS_ID="${{ secrets.GOOGLE_SHEETS_ID }}"
 
     - name: Deploy to Cloud Run
       run: |
+        IMAGE_URL="gcr.io/lengolf-forms/lengolf-forms:latest"
         gcloud run deploy lengolf-forms \
-          --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/lengolf-forms \
+          --image $IMAGE_URL \
           --platform managed \
           --region asia-southeast1 \
           --allow-unauthenticated
