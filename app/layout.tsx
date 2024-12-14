@@ -1,27 +1,30 @@
-import './globals.css'
 import { Inter } from 'next/font/google'
-import { Providers } from './providers'
-import { LogoutButton } from '../src/components/logout-button'
+import { NavMenu } from '../src/components/nav-menu'
+import { Toaster } from '@/components/ui/toaster'
+import './globals.css'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-config'
+import { SessionProvider } from '@/components/session-provider'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata = {
-  title: 'LENGOLF Forms',
-  description: 'Create packages for LENGOLF customers',
-}
-
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const session = await getServerSession(authOptions)
+
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Providers>
-          <LogoutButton />
-          {children}
-        </Providers>
+        <SessionProvider session={session}>
+          <div className="min-h-screen bg-background flex flex-col relative">
+            <NavMenu />
+            <main className="flex-1">{children}</main>
+            <Toaster />
+          </div>
+        </SessionProvider>
       </body>
     </html>
   )

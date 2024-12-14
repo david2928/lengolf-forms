@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
@@ -15,10 +15,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Customer, PackageType, PackageFormData, EMPLOYEES } from '../../types/package-form'
-import { CustomerSearch } from './package-form/customer-search'
-import { DatePicker } from './package-form/date-picker'
-import { ConfirmationDialog } from './package-form/confirmation-dialog'
+import { Customer, PackageType, PackageFormData, EMPLOYEES } from '@/types/package-form'
+import { CustomerSearch } from './customer-search'
+import { DatePicker } from '../ui/date-picker'
+import { ConfirmationDialog } from './confirmation-dialog'
 
 export default function PackageForm() {
   const [packageTypes, setPackageTypes] = useState<PackageType[]>([])
@@ -217,13 +217,7 @@ export default function PackageForm() {
   }
 
   return (
-    <div className="container max-w-lg mx-auto pt-16 pb-8 px-4">
-      <div className="relative">
-        <h1 className="text-3xl font-bold text-[#005a32] mb-8 text-center">
-          Package Creation
-        </h1>
-      </div>
-      
+    <div className="w-full max-w-2xl mx-auto">
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-400 text-red-700 rounded-lg">
           <p>{error}</p>
@@ -232,7 +226,7 @@ export default function PackageForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-700">
+          <Label>
             Employee Name
           </Label>
           <input
@@ -264,7 +258,7 @@ export default function PackageForm() {
         </div>
 
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-700">
+          <Label>
             Customer Name
           </Label>
           <input
@@ -289,7 +283,7 @@ export default function PackageForm() {
         </div>
 
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-700">
+          <Label>
             Package Type
           </Label>
           <input
@@ -304,15 +298,14 @@ export default function PackageForm() {
               trigger('packageTypeId')
             }}
           >
-            <SelectTrigger className="w-full px-3 py-2 border border-gray-200 focus:border-[#005a32] focus:outline-none focus:ring-1 focus:ring-[#005a32] hover:border-gray-300 transition-colors bg-white data-[placeholder]:text-gray-500">
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Select package type" />
             </SelectTrigger>
-            <SelectContent className="bg-white border border-gray-200">
+            <SelectContent>
               {packageTypes.map((type) => (
                 <SelectItem 
                   key={type.id} 
                   value={type.id.toString()}
-                  className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 outline-none"
                 >
                   {type.name}
                 </SelectItem>
@@ -326,13 +319,13 @@ export default function PackageForm() {
 
         <div className="space-y-2">
           <DatePicker
-            label="Purchase Date"
-            selected={selectedPurchaseDate}
-            onSelect={(date) => {
+            value={selectedPurchaseDate}
+            onChange={(date) => {
               setSelectedPurchaseDate(date)
               if (date) setValue('purchaseDate', date)
               trigger('purchaseDate')
             }}
+            label="Purchase Date"
           />
           {errors.purchaseDate && (
             <p className="text-red-500 text-sm mt-1">{errors.purchaseDate.message}</p>
@@ -341,13 +334,13 @@ export default function PackageForm() {
 
         <div className="space-y-2">
           <DatePicker
-            label="First Use Date"
-            selected={selectedFirstUseDate}
-            onSelect={(date) => {
+            value={selectedFirstUseDate}
+            onChange={(date) => {
               setSelectedFirstUseDate(date)
               if (date) setValue('firstUseDate', date)
               trigger('firstUseDate')
             }}
+            label="First Use Date"
           />
           {errors.firstUseDate && (
             <p className="text-red-500 text-sm mt-1">{errors.firstUseDate.message}</p>
@@ -356,7 +349,8 @@ export default function PackageForm() {
 
         <Button 
           type="submit" 
-          className="w-full bg-[#005a32] text-white hover:bg-[#004a29] transition-colors"
+          className="w-full"
+          variant="default"
           disabled={isLoading}
         >
           {isLoading ? (

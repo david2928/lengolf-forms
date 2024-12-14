@@ -8,7 +8,7 @@ A modern web application for managing LENGOLF customer packages and usage tracki
 - ✓ Employee Management
   - Employee selection radio interface
   - Four preset employees (Dolly, May, Net, Winnie)
-  - Employee tracking for package creation
+  - Employee tracking for package creation and usage
 
 - ✓ Customer Management
   - Google Sheets integration for customer data
@@ -20,12 +20,26 @@ A modern web application for managing LENGOLF customer packages and usage tracki
   - Managed through Supabase
   - Ordered display by priority
   - Easy selection interface
+  - Hours and validity period tracking
 
-- ✓ Date Management
+- ✓ Package Creation Form
+  - Employee selection
+  - Customer search and selection
+  - Package type selection
   - Purchase date selection
   - First use date selection
-  - Calendar interface for both dates
+  - Calendar interface for dates
   - Enhanced date validation
+  - Confirmation dialog before submission
+
+- ✓ Package Usage Form
+  - Employee selection
+  - Available package search with remaining hours
+  - Used hours input with validation (0.5 minimum)
+  - Used date selection
+  - Package information display
+  - Expiration date tracking
+  - Confirmation dialog before submission
 
 - ✓ Authentication & Authorization
   - Google OAuth integration
@@ -33,17 +47,22 @@ A modern web application for managing LENGOLF customer packages and usage tracki
   - Secure access control
   - Session persistence
   - Role-based access control
+  - Protected routes
+  - Mobile-friendly navigation
+  - Responsive design
 
-- ✓ UI/UX
+- ✓ User Interface
   - Modern, clean interface using shadcn/ui
   - LENGOLF brand colors and styling
   - Responsive design for all screen sizes
   - Loading states and error handling
-  - Form validation
-  - Confirmation dialog for review before submission
+  - Form validation with error messages
+  - Confirmation dialogs
+  - Mobile-optimized navigation
+  - Toast notifications for user feedback
 
 ### Tech Stack
-- Next.js 14
+- Next.js 14 with App Router
 - TypeScript
 - Tailwind CSS
 - shadcn/ui components
@@ -52,37 +71,54 @@ A modern web application for managing LENGOLF customer packages and usage tracki
 - NextAuth.js for authentication
 - Google OAuth for user authentication
 - Cloud Run for deployment
+- GitHub Actions for CI/CD
 
-## Planned Features
+## Project Structure
+```
+.
+├── .github/                   # GitHub Actions workflows
+├── app/                      # Next.js app directory
+│   ├── api/                  # API routes
+│   ├── auth/                 # Auth pages
+│   ├── create-package/       # Package creation page
+│   └── update-package/       # Package usage page
+├── src/
+│   ├── components/           # React components
+│   │   ├── ui/              # UI components
+│   │   ├── package-form/    # Package creation components
+│   │   └── package-usage/   # Package usage components
+│   ├── lib/                 # Utilities and configurations
+│   │   ├── auth.ts         # Authentication utilities
+│   │   └── supabase.ts     # Supabase client
+│   └── types/              # TypeScript types
+```
 
-### High Priority
-- [ ] Git CI/CD Pipeline
-  - Automated testing
-  - Automated deployment
-  - Environment management
+## Database Schema
+```sql
+-- Packages table
+CREATE TABLE packages (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  created_at timestamptz DEFAULT now(),
+  customer_name varchar,
+  package_type_id int4 REFERENCES package_types(id),
+  purchase_date date,
+  first_use_date date,
+  employee_name varchar,
+  expiration_date date
+);
 
-- [ ] Data Migration
-  - Import historical data from previous system
-  - Data validation and cleaning
-  - Migration scripts
-
-- [ ] Package Usage Tracking
-  - New form for tracking package usage
-  - Usage history
-  - Remaining sessions calculation
-  - Usage patterns analysis
-
-- [ ] Enhanced Reporting
-  - Integrated reporting with new data source
-  - Custom report generation
-  - Data visualization
-  - Export capabilities
-
-### Future Enhancements
-- [ ] Enhanced Analytics
-- [ ] Customer Portal
-- [ ] Mobile App
-- [ ] Automated Notifications
+-- Package usage table
+CREATE TABLE package_usage (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  package_id uuid REFERENCES packages(id),
+  package_type_id int4 REFERENCES package_types(id),
+  employee_name varchar,
+  used_hours numeric(4,1) CHECK (used_hours >= 0.5 AND used_hours <= 30),
+  used_date date,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+```
 
 ## Setup Instructions
 
@@ -95,6 +131,9 @@ A modern web application for managing LENGOLF customer packages and usage tracki
    # Google OAuth
    GOOGLE_CLIENT_ID=your-client-id
    GOOGLE_CLIENT_SECRET=your-client-secret
+   GOOGLE_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
+   GOOGLE_PRIVATE_KEY=your-private-key
+   GOOGLE_SHEET_ID=your-sheet-id
 
    # NextAuth.js
    NEXTAUTH_URL=your-app-url
@@ -112,53 +151,7 @@ A modern web application for managing LENGOLF customer packages and usage tracki
    ```
 
 ## Deployment
-
-### Cloud Run Deployment
-```bash
-# Build and submit to Cloud Build
-gcloud builds submit --config=cloudbuild.yaml \
---substitutions=_NEXT_PUBLIC_SUPABASE_URL="url",\
-_NEXT_PUBLIC_SUPABASE_ANON_KEY="key",\
-_GOOGLE_CLIENT_ID="id",\
-_GOOGLE_CLIENT_SECRET="secret",\
-_NEXTAUTH_SECRET="secret",\
-_NEXTAUTH_URL="url"
-
-# Deploy to Cloud Run
-gcloud run deploy lengolf-forms \
-  --image gcr.io/lengolf-forms/lengolf-forms \
-  --platform managed \
-  --region asia-southeast1
-```
-
-## Project Structure
-
-```
-src/
-  ├── app/                      # Next.js app directory
-  ├── components/               # React components
-  │   ├── ui/                  # shadcn/ui components
-  │   └── package-form/        # Package form components
-  ├── lib/                     # Utilities and configurations
-  │   ├── auth.ts             # Authentication utilities
-  │   └── supabase.ts         # Supabase client
-  └── types/                   # TypeScript types
-```
-
-## Documentation
-
-### Authentication Flow
-1. User accesses the application
-2. Redirected to Google Sign-in
-3. Email verified against allowed users in Supabase
-4. Session persisted for 30 days
-5. Manual logout available
-
-### Data Flow
-1. Customer data sourced from Google Sheets
-2. Package types managed in Supabase
-3. Form submissions stored in Supabase
-4. Real-time updates and validation
+The project is deployed on Google Cloud Run with automated deployments through GitHub Actions. For detailed deployment instructions, refer to the CI/CD configuration in `.github/workflows/`.
 
 ## Support
 For any issues or questions, contact:
