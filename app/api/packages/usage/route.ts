@@ -2,6 +2,16 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+interface AvailablePackage {
+  id: string;
+  customer_name: string;
+  package_type_name: string;
+  first_use_date: string;
+  expiration_date: string;
+  remaining_hours: number | null;
+  package_type_id: number;
+}
+
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
@@ -32,9 +42,12 @@ export async function POST(request: Request) {
       )
     }
 
+    // Type assertion since we know the structure from our function
+    const pkg = packageData as AvailablePackage
+
     // For non-unlimited packages, check if there are enough hours remaining
-    if (packageData.remaining_hours !== null) {
-      if (usedHours > packageData.remaining_hours) {
+    if (pkg.remaining_hours !== null) {
+      if (usedHours > pkg.remaining_hours) {
         return NextResponse.json(
           { error: 'Not enough hours remaining in package' },
           { status: 400 }
@@ -50,7 +63,7 @@ export async function POST(request: Request) {
         employee_name: employeeName,
         used_hours: usedHours,
         used_date: usedDate,
-        package_type_id: packageData.package_type_id // Include package type for reference
+        package_type_id: pkg.package_type_id // Include package type for reference
       })
       .select()
       .single()
