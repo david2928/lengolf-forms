@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { EmployeeSection } from './employee-section'
 import { PackageSelector } from './package-selector'
@@ -13,11 +13,13 @@ import { PackageUsageFormData, UsageFormState } from '@/types/package-usage'
 import { Loader2 } from 'lucide-react'
 
 export function UsageForm() {
+  const formRef = useRef<HTMLFormElement>(null);
+  
   const [formData, setFormData] = useState<PackageUsageFormData>({
     employeeName: null,
     packageId: null,
     usedHours: null,
-    usedDate: null,
+    usedDate: new Date(),
   })
 
   const [formState, setFormState] = useState<UsageFormState>({
@@ -29,9 +31,25 @@ export function UsageForm() {
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [selectedPackageName, setSelectedPackageName] = useState<string | null>(null)
 
+  const resetForm = () => {
+    // Reset React state completely
+    setFormData({
+      employeeName: null,
+      packageId: null,
+      usedHours: null,
+      usedDate: new Date(),
+    });
+
+    // Reset selected package name
+    setSelectedPackageName(null);
+
+    // Reset the actual form element
+    if (formRef.current) {
+      formRef.current.reset();
+    }
+  }
+
   const validateForm = () => {
-    console.log('Validating form data:', formData);
-    
     if (!formData.employeeName) {
       toast({
         title: 'Validation Error',
@@ -64,24 +82,19 @@ export function UsageForm() {
       })
       return false;
     }
-    console.log('Form validation passed');
     return true;
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted');
-    
+    setFormState(prev => ({ ...prev, error: null }));
     if (validateForm()) {
-      console.log('Opening confirmation dialog');
       setShowConfirmation(true);
     }
   }
 
   const handleConfirm = async () => {
-    console.log('Confirming submission');
-    setFormState({ ...formState, isLoading: true, error: null })
-    setShowConfirmation(false)
+    setFormState({ ...formState, isLoading: true, error: null });
 
     try {
       const response = await fetch('/api/packages/usage', {
@@ -93,43 +106,38 @@ export function UsageForm() {
           usedHours: formData.usedHours,
           usedDate: formData.usedDate?.toISOString().split('T')[0],
         }),
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to record package usage')
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to record package usage');
       }
 
       toast({
         title: 'Success',
         description: 'Package usage has been recorded.',
-      })
+      });
 
       // Reset form
-      setFormData({
-        employeeName: null,
-        packageId: null,
-        usedHours: null,
-        usedDate: null,
-      })
-      setSelectedPackageName(null)
-      setFormState({ isLoading: false, error: null, success: true })
+      resetForm();
+      
+      setShowConfirmation(false);
+      setFormState({ isLoading: false, error: null, success: true });
     } catch (error) {
-      console.error('Error submitting form:', error)
+      console.error('Error submitting form:', error);
       setFormState({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to record package usage',
         success: false,
-      })
+      });
+      setShowConfirmation(false);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to record package usage',
         variant: 'destructive',
-      })
+      });
     }
   }
-
-  console.log('Current form state:', { formData, showConfirmation });
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -139,18 +147,19 @@ export function UsageForm() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <EmployeeSection
+          key={formState.success ? 'reset' : 'employee'} // Force re-render on success
           value={formData.employeeName}
           onChange={(name) => setFormData((prev) => ({ ...prev, employeeName: name }))}
         />
         
         <PackageSelector
+          key={formState.success ? 'reset' : 'package'} // Force re-render on success
           value={formData.packageId}
           onChange={(id, name) => {
-            console.log('Package selected:', { id, name });
-            setFormData((prev) => ({ ...prev, packageId: id }))
-            setSelectedPackageName(name)
+            setFormData((prev) => ({ ...prev, packageId: id }));
+            setSelectedPackageName(name);
           }}
           isLoading={formState.isLoading}
         />
@@ -163,6 +172,7 @@ export function UsageForm() {
         )}
 
         <HoursInput
+          key={formState.success ? 'reset' : 'hours'} // Force re-render on success
           value={formData.usedHours}
           onChange={(hours) => setFormData((prev) => ({ ...prev, usedHours: hours }))}
           isDisabled={!formData.packageId || formState.isLoading}

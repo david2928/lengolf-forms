@@ -21,6 +21,17 @@ A modern web application for managing LENGOLF customer packages and usage tracki
   - Ordered display by priority
   - Easy selection interface
   - Hours and validity period tracking
+  - Automatic expiration date calculation
+  - Package duration rules:
+    - Gold (30H): 6 months
+    - Silver (15H): 3 months
+    - Bronze (5H): 1 month
+    - Early Bird (10H): 6 months
+    - Diamond (Unlimited, 1 month): 1 month
+    - Diamond+ (Unlimited, 3 months): 3 months
+    - Coaching (10H): 1 year
+    - Coaching (5H): 6 months
+    - Starter: 6 months
 
 - ✓ Package Creation Form
   - Employee selection
@@ -30,16 +41,26 @@ A modern web application for managing LENGOLF customer packages and usage tracki
   - First use date selection
   - Calendar interface for dates
   - Enhanced date validation
+  - Automatic expiration date calculation
   - Confirmation dialog before submission
 
 - ✓ Package Usage Form
   - Employee selection
   - Available package search with remaining hours
+  - Smart package filtering:
+    - Excludes Diamond packages
+    - Shows only non-expired packages
+    - Sorts by customer name ascending
+    - Shows remaining hours
   - Used hours input with validation (0.5 minimum)
-  - Used date selection
+  - Used date selection (defaults to today)
   - Package information display
+  - Form state management:
+    - Partial form reset after submission
+    - Maintains package selection
+    - Clears employee and hours inputs
   - Expiration date tracking
-  - Confirmation dialog before submission
+  - Confirmation dialog with detailed package info
 
 - ✓ Authentication & Authorization
   - Google OAuth integration
@@ -48,17 +69,18 @@ A modern web application for managing LENGOLF customer packages and usage tracki
   - Session persistence
   - Role-based access control
   - Protected routes
-  - Mobile-friendly navigation
-  - Responsive design
 
 - ✓ User Interface
   - Modern, clean interface using shadcn/ui
   - LENGOLF brand colors and styling
   - Responsive design for all screen sizes
+  - Mobile-optimized navigation:
+    - Simplified navigation for mobile users
+    - Essential buttons (Home, Sign Out)
+    - Full navigation on desktop
   - Loading states and error handling
   - Form validation with error messages
   - Confirmation dialogs
-  - Mobile-optimized navigation
   - Toast notifications for user feedback
 
 ### Tech Stack
@@ -94,6 +116,8 @@ A modern web application for managing LENGOLF customer packages and usage tracki
 ```
 
 ## Database Schema
+
+### Tables
 ```sql
 -- Packages table
 CREATE TABLE packages (
@@ -118,6 +142,58 @@ CREATE TABLE package_usage (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
+```
+
+### Functions and Triggers
+```sql
+-- Calculate expiration date based on package type
+CREATE OR REPLACE FUNCTION calculate_expiration_date(package_type_name text, first_use_date date)
+RETURNS date AS $$
+BEGIN
+    RETURN CASE 
+        WHEN package_type_name = 'Gold (30H)' THEN 
+            first_use_date + INTERVAL '6 months' - INTERVAL '1 day'
+        WHEN package_type_name = 'Silver (15H)' THEN 
+            first_use_date + INTERVAL '3 months' - INTERVAL '1 day'
+        -- ... [other package types] ...
+    END;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Automatic expiration date calculation trigger
+CREATE OR REPLACE TRIGGER tr_set_expiration_date
+    BEFORE INSERT OR UPDATE OF first_use_date, package_type_id
+    ON packages
+    FOR EACH ROW
+    EXECUTE FUNCTION set_expiration_date();
+
+-- Get available packages for usage form
+CREATE OR REPLACE FUNCTION get_available_packages()
+RETURNS TABLE (
+    id uuid,
+    customer_name varchar(255),
+    package_type_name varchar(255),
+    first_use_date date,
+    expiration_date date,
+    remaining_hours numeric
+) AS $$
+BEGIN
+    RETURN QUERY
+    WITH package_hours AS (...)
+    SELECT 
+        p.id,
+        p.customer_name,
+        pt.name as package_type_name,
+        p.first_use_date,
+        p.expiration_date,
+        -- Calculate remaining hours
+    FROM packages p
+    WHERE 
+        p.expiration_date >= CURRENT_DATE
+        AND NOT (pt.name LIKE '%Diamond%')
+    ORDER BY p.customer_name ASC, p.first_use_date DESC;
+END;
+$$ LANGUAGE plpgsql;
 ```
 
 ## Setup Instructions

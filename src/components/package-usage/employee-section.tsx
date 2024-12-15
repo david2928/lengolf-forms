@@ -1,9 +1,7 @@
 'use client'
 
-import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-
-const EMPLOYEES = ['Dolly', 'May', 'Net', 'Winnie']
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
 
 interface EmployeeSectionProps {
   value: string | null
@@ -13,22 +11,28 @@ interface EmployeeSectionProps {
 export function EmployeeSection({ value, onChange }: EmployeeSectionProps) {
   return (
     <div className="space-y-2">
-      <Label className="text-sm font-medium text-gray-700">
-        Employee Name
-      </Label>
+      <Label>Employee Name</Label>
       <RadioGroup
+        value={value || undefined}
         onValueChange={onChange}
         className="grid grid-cols-2 gap-4"
-        value={value || undefined}
       >
-        {EMPLOYEES.map((employee) => (
-          <div key={employee} className="flex items-center space-x-2">
-            <RadioGroupItem value={employee} id={employee} />
-            <Label htmlFor={employee} className="font-normal">
-              {employee}
-            </Label>
-          </div>
-        ))}
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="Dolly" id="dolly" />
+          <Label htmlFor="dolly">Dolly</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="May" id="may" />
+          <Label htmlFor="may">May</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="Net" id="net" />
+          <Label htmlFor="net">Net</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="Winnie" id="winnie" />
+          <Label htmlFor="winnie">Winnie</Label>
+        </div>
       </RadioGroup>
     </div>
   )
