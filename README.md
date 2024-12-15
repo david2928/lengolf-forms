@@ -46,19 +46,28 @@ A modern web application for managing LENGOLF customer packages and usage tracki
 
 - ✓ Package Usage Form
   - Employee selection
-  - Available package search with remaining hours
-  - Smart package filtering:
-    - Excludes Diamond packages
-    - Shows only non-expired packages
-    - Sorts by customer name ascending
-    - Shows remaining hours
+  - Advanced package selection interface:
+    - Full-screen mobile interface with optimized layout
+    - Search functionality with instant filtering
+    - Clear package information display (Customer Name, Package Type, Dates)
+    - Smart package filtering:
+      - Excludes Diamond packages
+      - Shows only non-expired packages
+      - Sorts by customer name ascending
+      - Shows remaining hours
   - Used hours input with validation (0.5 minimum)
   - Used date selection (defaults to today)
-  - Package information display
+  - Package information display:
+    - Customer details
+    - Package type
+    - Purchase and first use dates
+    - Remaining hours
+    - Expiration date
   - Form state management:
-    - Partial form reset after submission
-    - Maintains package selection
-    - Clears employee and hours inputs
+    - Complete form reset after submission
+    - Date defaults to current day
+    - State persistence during screen orientation changes
+  - Clear validation messages
   - Expiration date tracking
   - Confirmation dialog with detailed package info
 
@@ -82,6 +91,7 @@ A modern web application for managing LENGOLF customer packages and usage tracki
   - Form validation with error messages
   - Confirmation dialogs
   - Toast notifications for user feedback
+  - Mobile-optimized modals and dropdowns
 
 ### Tech Stack
 - Next.js 14 with App Router
@@ -101,18 +111,23 @@ A modern web application for managing LENGOLF customer packages and usage tracki
 ├── .github/                   # GitHub Actions workflows
 ├── app/                      # Next.js app directory
 │   ├── api/                  # API routes
-│   ├── auth/                 # Auth pages
-│   ├── create-package/       # Package creation page
-│   └── update-package/       # Package usage page
+│   │   ├── packages/        # Package management endpoints
+│   │   └── customers/       # Customer data endpoints
+│   ├── auth/                # Auth pages
+│   ├── create-package/      # Package creation page
+│   └── update-package/      # Package usage page
 ├── src/
-│   ├── components/           # React components
-│   │   ├── ui/              # UI components
-│   │   ├── package-form/    # Package creation components
-│   │   └── package-usage/   # Package usage components
-│   ├── lib/                 # Utilities and configurations
-│   │   ├── auth.ts         # Authentication utilities
-│   │   └── supabase.ts     # Supabase client
-│   └── types/              # TypeScript types
+│   ├── components/          # React components
+│   │   ├── ui/             # UI components
+│   │   ├── package-form/   # Package creation components
+│   │   └── package-usage/  # Package usage components
+│   ├── hooks/              # Custom React hooks
+│   │   ├── usePackages.ts  # Package data management
+│   │   └── usePackageForm.ts # Form state management
+│   ├── lib/                # Utilities and configurations
+│   │   ├── auth.ts        # Authentication utilities
+│   │   └── supabase.ts    # Supabase client
+│   └── types/             # TypeScript types
 ```
 
 ## Database Schema
@@ -142,6 +157,17 @@ CREATE TABLE package_usage (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
+
+-- Package types table
+CREATE TABLE package_types (
+  id serial PRIMARY KEY,
+  name varchar NOT NULL,
+  hours numeric(4,1),
+  validity_months int,
+  display_order int,
+  is_active boolean DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
 ```
 
 ### Functions and Triggers
@@ -150,13 +176,11 @@ CREATE TABLE package_usage (
 CREATE OR REPLACE FUNCTION calculate_expiration_date(package_type_name text, first_use_date date)
 RETURNS date AS $$
 BEGIN
-    RETURN CASE 
-        WHEN package_type_name = 'Gold (30H)' THEN 
-            first_use_date + INTERVAL '6 months' - INTERVAL '1 day'
-        WHEN package_type_name = 'Silver (15H)' THEN 
-            first_use_date + INTERVAL '3 months' - INTERVAL '1 day'
-        -- ... [other package types] ...
-    END;
+    RETURN first_use_date + 
+           (SELECT (validity_months || ' months')::interval 
+            FROM package_types 
+            WHERE name = package_type_name) - 
+           INTERVAL '1 day';
 END;
 $$ LANGUAGE plpgsql;
 
@@ -171,26 +195,42 @@ CREATE OR REPLACE TRIGGER tr_set_expiration_date
 CREATE OR REPLACE FUNCTION get_available_packages()
 RETURNS TABLE (
     id uuid,
-    customer_name varchar(255),
-    package_type_name varchar(255),
+    customer_name varchar,
+    package_type_name varchar,
     first_use_date date,
     expiration_date date,
-    remaining_hours numeric
+    remaining_hours numeric,
+    label text
 ) AS $$
 BEGIN
     RETURN QUERY
-    WITH package_hours AS (...)
     SELECT 
         p.id,
         p.customer_name,
         pt.name as package_type_name,
         p.first_use_date,
         p.expiration_date,
-        -- Calculate remaining hours
+        CASE 
+            WHEN pt.name LIKE '%Diamond%' THEN NULL
+            ELSE pt.hours - COALESCE(
+                (SELECT SUM(used_hours) 
+                 FROM package_usage pu 
+                 WHERE pu.package_id = p.id), 0)
+        END as remaining_hours,
+        p.customer_name || ' - ' || pt.name || ' - ' || 
+        to_char(p.first_use_date, 'MM/DD/YYYY') as label
     FROM packages p
+    JOIN package_types pt ON p.package_type_id = pt.id
     WHERE 
         p.expiration_date >= CURRENT_DATE
         AND NOT (pt.name LIKE '%Diamond%')
+        AND (
+            pt.hours IS NULL OR 
+            pt.hours - COALESCE(
+                (SELECT SUM(used_hours) 
+                 FROM package_usage pu 
+                 WHERE pu.package_id = p.id), 0) > 0
+        )
     ORDER BY p.customer_name ASC, p.first_use_date DESC;
 END;
 $$ LANGUAGE plpgsql;
@@ -230,5 +270,5 @@ $$ LANGUAGE plpgsql;
 The project is deployed on Google Cloud Run with automated deployments through GitHub Actions. For detailed deployment instructions, refer to the CI/CD configuration in `.github/workflows/`.
 
 ## Support
-For any issues or questions, contact:
+For any issues or questions, contact:  
 Email: dgeiger@stc-global.com

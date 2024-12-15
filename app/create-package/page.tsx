@@ -1,11 +1,16 @@
 import { Metadata } from 'next'
-import PackageForm from '@/components/package-form'
+import dynamic from 'next/dynamic'
+
+const PackageForm = dynamic(() => import('@/components/package-form'), {
+  ssr: false,
+})
 
 export const metadata: Metadata = {
   title: 'Create Package | LENGOLF',
   description: 'Create new package for customers',
 }
 
+// Using a client component to force re-fetching of data on each visit
 export default function CreatePackagePage() {
   return (
     <div className="container py-6 md:py-10">
@@ -15,7 +20,7 @@ export default function CreatePackagePage() {
           Create new package for customers
         </p>
       </div>
-      <PackageForm />
+      <PackageForm key={new Date().getTime()} />
     </div>
   )
 }
