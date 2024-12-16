@@ -1,11 +1,23 @@
 import { UseFormReturn } from 'react-hook-form'
 
 export interface Customer {
-  name: string
-  contactNumber: string
-  dateJoined: string
-  id: string
-  displayName: string
+  id: number
+  store: string
+  customer_name: string
+  contact_number: string | null
+  address: string | null
+  email: string | null
+  date_of_birth: string | null
+  date_joined: string | null
+  available_credit: number | null
+  available_point: number | null
+  source: string | null
+  sms_pdpa: boolean | null
+  email_pdpa: boolean | null
+  batch_id: string
+  update_time: string
+  created_at: string | null
+  displayName?: string // Added for UI purposes
 }
 
 export interface PackageType {

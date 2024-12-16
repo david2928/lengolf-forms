@@ -50,8 +50,8 @@ export function CustomerSearch({
   }, [showCustomerDialog, isMobile])
 
   const filteredCustomers = customers.filter(customer => 
-    customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.contactNumber.includes(searchQuery)
+    customer.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (customer.contact_number?.includes(searchQuery) ?? false)
   );
 
   // Format customer display
@@ -59,14 +59,16 @@ export function CustomerSearch({
     if (isList) {
       return (
         <div className="flex flex-col">
-          <span className="font-medium">{customer.name}</span>
+          <span className="font-medium">{customer.customer_name}</span>
           <span className="text-sm text-muted-foreground">
-            {customer.contactNumber}
+            {customer.contact_number || 'No contact number'}
           </span>
         </div>
       )
     }
-    return `${customer.name} (${customer.contactNumber})`
+    return customer.contact_number 
+      ? `${customer.customer_name} (${customer.contact_number})`
+      : customer.customer_name
   }
 
   return (
@@ -132,11 +134,11 @@ export function CustomerSearch({
                     }}
                     className={cn(
                       "flex w-full items-center justify-between px-4 py-3 border-b hover:bg-accent cursor-pointer text-left",
-                      selectedCustomerId === customer.id && "bg-accent"
+                      selectedCustomerId === customer.id.toString() && "bg-accent"
                     )}
                   >
                     {formatCustomerDisplay(customer, true)}
-                    {selectedCustomerId === customer.id && (
+                    {selectedCustomerId === customer.id.toString() && (
                       <Check className="h-5 w-5 shrink-0 text-primary ml-2" />
                     )}
                   </button>
@@ -196,11 +198,11 @@ export function CustomerSearch({
                     }}
                     className={cn(
                       "flex w-full items-center justify-between px-4 py-3 border-b hover:bg-accent cursor-pointer text-left",
-                      selectedCustomerId === customer.id && "bg-accent"
+                      selectedCustomerId === customer.id.toString() && "bg-accent"
                     )}
                   >
                     {formatCustomerDisplay(customer, true)}
-                    {selectedCustomerId === customer.id && (
+                    {selectedCustomerId === customer.id.toString() && (
                       <Check className="h-5 w-5 shrink-0 text-primary ml-2" />
                     )}
                   </button>

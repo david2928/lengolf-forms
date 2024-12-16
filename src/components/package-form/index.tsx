@@ -15,25 +15,32 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Customer, PackageType, PackageFormData, EMPLOYEES } from '@/types/package-form'
+import { Customer, PackageType, PackageFormData, EMPLOYEES, FormState } from '@/types/package-form'
 import { CustomerSearch } from './customer-search'
 import { DatePicker } from '../ui/date-picker'
 import { ConfirmationDialog } from './confirmation-dialog'
 
 export default function PackageForm() {
-  const [packageTypes, setPackageTypes] = useState<PackageType[]>([])
-  const [rawCustomers, setRawCustomers] = useState<Customer[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isLoadingTypes, setIsLoadingTypes] = useState(true)
-  const [isLoadingCustomers, setIsLoadingCustomers] = useState(true)
-  const [selectedPurchaseDate, setSelectedPurchaseDate] = useState<Date | null>(null)
-  const [selectedFirstUseDate, setSelectedFirstUseDate] = useState<Date | null>(null)
-  const [showConfirmation, setShowConfirmation] = useState(false)
-  const [formData, setFormData] = useState<PackageFormData | null>(null)
-  const [showCustomerDialog, setShowCustomerDialog] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
+  const [formState, setFormState] = useState<FormState>({
+    packageTypes: [],
+    customers: [],
+    isLoading: false,
+    error: null,
+    selectedCustomerId: '',
+    showCustomerDialog: false,
+    searchQuery: '',
+    showConfirmation: false,
+    formData: null,
+    selectedDates: {
+      purchase: null,
+      firstUse: null
+    }
+  })
+
+  const [isLoadingInitial, setIsLoadingInitial] = useState({
+    types: true,
+    customers: true
+  })
 
   const defaultValues: PackageFormData = {
     employeeName: '',
@@ -67,31 +74,40 @@ export default function PackageForm() {
           .order('display_order', { ascending: true })
 
         if (packageError) throw packageError
-        setPackageTypes(packageData || [])
 
         // Fetch customers
-        const customersResponse = await fetch('/api/customers')
-        const customersData = await customersResponse.json()
+        const { data: customersData, error: customersError } = await supabase
+          .from('customers')
+          .select('*')
+          .order('customer_name', { ascending: true })
+
+        if (customersError) throw customersError
         
-        if (!customersResponse.ok) throw new Error(customersData.error)
-        
-        // Transform the customers data to match the Customer interface
-        const transformedCustomers: Customer[] = customersData.customers.map((customer: any) => ({
-          name: customer.name,
-          contactNumber: customer.contactNumber,
-          dateJoined: customer.dateJoined || new Date().toISOString(),
-          id: `${customer.name}-${customer.contactNumber}`,
-          displayName: `${customer.name} (${customer.contactNumber})`
+        // Transform and enrich customer data for UI
+        const transformedCustomers = customersData.map(customer => ({
+          ...customer,
+          displayName: customer.contact_number 
+            ? `${customer.customer_name} (${customer.contact_number})`
+            : customer.customer_name
         }))
         
-        setRawCustomers(transformedCustomers)
+        setFormState(prev => ({
+          ...prev,
+          packageTypes: packageData || [],
+          customers: transformedCustomers
+        }))
 
       } catch (error) {
+        setFormState(prev => ({
+          ...prev,
+          error: 'Failed to load data. Please refresh the page.'
+        }))
         console.error('Failed to fetch data:', error)
-        setError('Failed to load data. Please refresh the page.')
       } finally {
-        setIsLoadingTypes(false)
-        setIsLoadingCustomers(false)
+        setIsLoadingInitial({
+          types: false,
+          customers: false
+        })
       }
     }
 
@@ -99,41 +115,32 @@ export default function PackageForm() {
   }, [])
 
   useEffect(() => {
-    if (selectedPurchaseDate && selectedFirstUseDate) {
-      if (selectedFirstUseDate < selectedPurchaseDate) {
-        setError('First use date must be after purchase date')
+    if (formState.selectedDates.purchase && formState.selectedDates.firstUse) {
+      if (formState.selectedDates.firstUse < formState.selectedDates.purchase) {
+        setFormState(prev => ({ ...prev, error: 'First use date must be after purchase date' }))
       } else {
-        setError(null)
+        setFormState(prev => ({ ...prev, error: null }))
         clearErrors(['purchaseDate', 'firstUseDate'])
       }
     }
-  }, [selectedPurchaseDate, selectedFirstUseDate, clearErrors])
-
-  const customers = useMemo(() => {
-    return rawCustomers.map(customer => ({
-      ...customer,
-      id: customer.id || `${customer.name}-${customer.contactNumber}`,
-      displayName: customer.displayName || `${customer.name} (${customer.contactNumber})`,
-      dateJoined: customer.dateJoined
-    }))
-  }, [rawCustomers])
+  }, [formState.selectedDates.purchase, formState.selectedDates.firstUse, clearErrors])
 
   const validateForm = async () => {
     const isValid = await trigger()
     if (!isValid) return false
     
-    if (!selectedPurchaseDate) {
-      setError('Purchase date is required')
+    if (!formState.selectedDates.purchase) {
+      setFormState(prev => ({ ...prev, error: 'Purchase date is required' }))
       return false
     }
     
-    if (!selectedFirstUseDate) {
-      setError('First use date is required')
+    if (!formState.selectedDates.firstUse) {
+      setFormState(prev => ({ ...prev, error: 'First use date is required' }))
       return false
     }
     
-    if (selectedFirstUseDate < selectedPurchaseDate) {
-      setError('First use date must be after purchase date')
+    if (formState.selectedDates.firstUse < formState.selectedDates.purchase) {
+      setFormState(prev => ({ ...prev, error: 'First use date must be after purchase date' }))
       return false
     }
     
@@ -142,40 +149,50 @@ export default function PackageForm() {
 
   const resetForm = () => {
     reset(defaultValues)
-    setSelectedPurchaseDate(null)
-    setSelectedFirstUseDate(null)
-    setSelectedCustomerId('')
-    setFormData(null)
-    setError(null)
+    setFormState(prev => ({
+      ...prev,
+      selectedCustomerId: '',
+      showCustomerDialog: false,
+      searchQuery: '',
+      showConfirmation: false,
+      formData: null,
+      error: null,
+      selectedDates: {
+        purchase: null,
+        firstUse: null
+      }
+    }))
   }
 
   const onSubmit = async (data: PackageFormData) => {
     const isValid = await validateForm()
     if (!isValid) return
 
-    setFormData({
-      ...data,
-      purchaseDate: selectedPurchaseDate,
-      firstUseDate: selectedFirstUseDate
-    })
-    setShowConfirmation(true)
+    setFormState(prev => ({
+      ...prev,
+      formData: {
+        ...data,
+        purchaseDate: prev.selectedDates.purchase,
+        firstUseDate: prev.selectedDates.firstUse
+      },
+      showConfirmation: true
+    }))
   }
 
   const handleConfirm = async () => {
-    if (!formData || !formData.purchaseDate || !formData.firstUseDate) return
+    if (!formState.formData || !formState.selectedDates.purchase || !formState.selectedDates.firstUse) return
 
-    setIsLoading(true)
-    setShowConfirmation(false)
+    setFormState(prev => ({ ...prev, isLoading: true, showConfirmation: false }))
 
     try {
       const { error } = await supabase
         .from('packages')
         .insert([{
-          employee_name: formData.employeeName,
-          customer_name: formData.customerName,
-          package_type_id: formData.packageTypeId,
-          purchase_date: format(formData.purchaseDate, 'yyyy-MM-dd'),
-          first_use_date: format(formData.firstUseDate, 'yyyy-MM-dd')
+          employee_name: formState.formData.employeeName,
+          customer_name: formState.formData.customerName,
+          package_type_id: formState.formData.packageTypeId,
+          purchase_date: format(formState.selectedDates.purchase!, 'yyyy-MM-dd'),
+          first_use_date: format(formState.selectedDates.firstUse!, 'yyyy-MM-dd')
         }])
 
       if (error) throw error
@@ -185,29 +202,35 @@ export default function PackageForm() {
       
     } catch (error) {
       console.error('Error creating package:', error)
-      alert('Error creating package. Please try again.')
+      setFormState(prev => ({
+        ...prev,
+        error: 'Error creating package. Please try again.'
+      }))
     } finally {
-      setIsLoading(false)
+      setFormState(prev => ({ ...prev, isLoading: false }))
     }
   }
 
   const getPackageTypeName = (id: number) => {
-    return packageTypes.find(type => type.id === id)?.name || ''
+    return formState.packageTypes.find(type => type.id === id)?.name || ''
   }
 
-  const getSelectedCustomerDisplay = () => {
-    const customer = customers.find(c => c.id === selectedCustomerId)
-    return customer ? customer.displayName : 'Select customer'
+  const getSelectedCustomerDisplay = (): string => {
+    const customer = formState.customers.find(c => c.id.toString() === formState.selectedCustomerId)
+    return customer?.displayName || 'Select customer'
   }
 
   const handleCustomerSelect = (customer: Customer) => {
-    setSelectedCustomerId(customer.id || '')
-    setValue('customerName', customer.name)
-    setShowCustomerDialog(false)
-    setSearchQuery('')
+    setFormState(prev => ({
+      ...prev,
+      selectedCustomerId: customer.id.toString(),
+      showCustomerDialog: false,
+      searchQuery: ''
+    }))
+    setValue('customerName', customer.customer_name)
   }
 
-  if (isLoadingTypes || isLoadingCustomers) {
+  if (isLoadingInitial.types || isLoadingInitial.customers) {
     return (
       <div className="flex items-center justify-center p-6">
         <Loader2 className="h-6 w-4 animate-spin text-[#005a32]" />
@@ -218,9 +241,9 @@ export default function PackageForm() {
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      {error && (
+      {formState.error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-400 text-red-700 rounded-lg">
-          <p>{error}</p>
+          <p>{formState.error}</p>
         </div>
       )}
 
@@ -268,13 +291,13 @@ export default function PackageForm() {
             })}
           />
           <CustomerSearch 
-            customers={customers}
-            selectedCustomerId={selectedCustomerId}
-            showCustomerDialog={showCustomerDialog}
-            searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
+            customers={formState.customers}
+            selectedCustomerId={formState.selectedCustomerId}
+            showCustomerDialog={formState.showCustomerDialog}
+            searchQuery={formState.searchQuery}
+            onSearchQueryChange={(query) => setFormState(prev => ({ ...prev, searchQuery: query }))}
             onCustomerSelect={handleCustomerSelect}
-            onDialogOpenChange={setShowCustomerDialog}
+            onDialogOpenChange={(open) => setFormState(prev => ({ ...prev, showCustomerDialog: open }))}
             getSelectedCustomerDisplay={getSelectedCustomerDisplay}
           />
           {errors.customerName && (
@@ -302,7 +325,7 @@ export default function PackageForm() {
               <SelectValue placeholder="Select package type" />
             </SelectTrigger>
             <SelectContent>
-              {packageTypes.map((type) => (
+              {formState.packageTypes.map((type) => (
                 <SelectItem 
                   key={type.id} 
                   value={type.id.toString()}
@@ -319,9 +342,12 @@ export default function PackageForm() {
 
         <div className="space-y-2">
           <DatePicker
-            value={selectedPurchaseDate}
+            value={formState.selectedDates.purchase}
             onChange={(date) => {
-              setSelectedPurchaseDate(date)
+              setFormState(prev => ({
+                ...prev,
+                selectedDates: { ...prev.selectedDates, purchase: date }
+              }))
               if (date) setValue('purchaseDate', date)
               trigger('purchaseDate')
             }}
@@ -334,9 +360,12 @@ export default function PackageForm() {
 
         <div className="space-y-2">
           <DatePicker
-            value={selectedFirstUseDate}
+            value={formState.selectedDates.firstUse}
             onChange={(date) => {
-              setSelectedFirstUseDate(date)
+              setFormState(prev => ({
+                ...prev,
+                selectedDates: { ...prev.selectedDates, firstUse: date }
+              }))
               if (date) setValue('firstUseDate', date)
               trigger('firstUseDate')
             }}
@@ -351,9 +380,9 @@ export default function PackageForm() {
           type="submit" 
           className="w-full"
           variant="default"
-          disabled={isLoading}
+          disabled={formState.isLoading}
         >
-          {isLoading ? (
+          {formState.isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Creating...
@@ -365,9 +394,9 @@ export default function PackageForm() {
       </form>
 
       <ConfirmationDialog
-        open={showConfirmation}
-        onOpenChange={setShowConfirmation}
-        formData={formData}
+        open={formState.showConfirmation}
+        onOpenChange={(open) => setFormState(prev => ({ ...prev, showConfirmation: open }))}
+        formData={formState.formData}
         onConfirm={handleConfirm}
         getPackageTypeName={getPackageTypeName}
       />

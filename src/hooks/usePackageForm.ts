@@ -54,19 +54,20 @@ export function usePackageForm() {
 
         if (packageError) throw packageError
 
-        // Fetch customers
-        const customersResponse = await fetch('/api/customers')
-        const customersData = await customersResponse.json()
-        
-        if (!customersResponse.ok) throw new Error(customersData.error)
+        // Fetch customers from Supabase
+        const { data: customersData, error: customersError } = await supabase
+          .from('customers')
+          .select('*')
+          .order('customer_name', { ascending: true })
+
+        if (customersError) throw customersError
         
         // Transform the customers data
-        const transformedCustomers: Customer[] = customersData.customers.map((customer: any) => ({
-          name: customer.name,
-          contactNumber: customer.contactNumber,
-          dateJoined: customer.dateJoined || new Date().toISOString(),
-          id: `${customer.name}-${customer.contactNumber}`,
-          displayName: `${customer.name} (${customer.contactNumber})`
+        const transformedCustomers = customersData.map(customer => ({
+          ...customer,
+          displayName: customer.contact_number 
+            ? `${customer.customer_name} (${customer.contact_number})`
+            : customer.customer_name
         }))
 
         setState(prev => ({
@@ -184,11 +185,11 @@ export function usePackageForm() {
   const handleCustomerSelect = useCallback((customer: Customer) => {
     setState(prev => ({
       ...prev,
-      selectedCustomerId: customer.id || '',
+      selectedCustomerId: customer.id.toString(), // Ensure it's always a string
       showCustomerDialog: false,
       searchQuery: ''
     }))
-    setValue('customerName', customer.name)
+    setValue('customerName', customer.customer_name) // Update to use customer_name
   }, [setValue])
 
   const handleDateChange = useCallback((type: 'purchase' | 'firstUse', date: Date | null) => {
