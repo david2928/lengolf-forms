@@ -168,10 +168,19 @@ export default function PackageForm() {
     const isValid = await validateForm()
     if (!isValid) return
 
+    const selectedCustomer = formState.customers.find(c => c.id.toString() === formState.selectedCustomerId)
+    if (!selectedCustomer) return
+
+    // Use the displayName which includes the phone number
+    const customerDisplay = selectedCustomer.contact_number 
+      ? `${selectedCustomer.customer_name} (${selectedCustomer.contact_number})`
+      : selectedCustomer.customer_name
+
     setFormState(prev => ({
       ...prev,
       formData: {
         ...data,
+        customerName: customerDisplay, // Use the formatted name with phone number
         purchaseDate: prev.selectedDates.purchase,
         firstUseDate: prev.selectedDates.firstUse
       },
@@ -189,7 +198,7 @@ export default function PackageForm() {
         .from('packages')
         .insert([{
           employee_name: formState.formData.employeeName,
-          customer_name: formState.formData.customerName,
+          customer_name: formState.formData.customerName, // This now contains the name with phone number
           package_type_id: formState.formData.packageTypeId,
           purchase_date: format(formState.selectedDates.purchase!, 'yyyy-MM-dd'),
           first_use_date: format(formState.selectedDates.firstUse!, 'yyyy-MM-dd')
@@ -227,7 +236,11 @@ export default function PackageForm() {
       showCustomerDialog: false,
       searchQuery: ''
     }))
-    setValue('customerName', customer.customer_name)
+    // Use the formatted name with phone number
+    const formattedName = customer.contact_number 
+      ? `${customer.customer_name} (${customer.contact_number})`
+      : customer.customer_name
+    setValue('customerName', formattedName)
   }
 
   if (isLoadingInitial.types || isLoadingInitial.customers) {

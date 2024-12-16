@@ -11,10 +11,17 @@ A modern web application for managing LENGOLF customer packages and usage tracki
   - Employee tracking for package creation and usage
 
 - ✓ Customer Management
-  - Google Sheets integration for customer data
+  - Direct Supabase integration for customer data
   - Real-time customer search
-  - Mobile-friendly customer selection interface
-  - Periodic data refresh for up-to-date information
+  - Mobile-friendly customer selection interface:
+    - Full-screen modal on mobile devices
+    - Instant search filtering
+    - Clear display of customer details
+  - Manual refresh button to sync latest customer data:
+    - Integration with Cloud Run service
+    - Authenticated API calls
+    - Progress tracking with batch information
+    - User feedback throughout the process
 
 - ✓ Package Types
   - Managed through Supabase
@@ -49,7 +56,7 @@ A modern web application for managing LENGOLF customer packages and usage tracki
   - Advanced package selection interface:
     - Full-screen mobile interface with optimized layout
     - Search functionality with instant filtering
-    - Clear package information display (Customer Name, Package Type, Dates)
+    - Clear package information display
     - Smart package filtering:
       - Excludes Diamond packages
       - Shows only non-expired packages
@@ -57,16 +64,8 @@ A modern web application for managing LENGOLF customer packages and usage tracki
       - Shows remaining hours
   - Used hours input with validation (0.5 minimum)
   - Used date selection (defaults to today)
-  - Package information display:
-    - Customer details
-    - Package type
-    - Purchase and first use dates
-    - Remaining hours
-    - Expiration date
-  - Form state management:
-    - Complete form reset after submission
-    - Date defaults to current day
-    - State persistence during screen orientation changes
+  - Package information display
+  - Form state management
   - Clear validation messages
   - Expiration date tracking
   - Confirmation dialog with detailed package info
@@ -78,55 +77,68 @@ A modern web application for managing LENGOLF customer packages and usage tracki
   - Session persistence
   - Role-based access control
   - Protected routes
+  - Service account authentication for Cloud Run services
 
 - ✓ User Interface
   - Modern, clean interface using shadcn/ui
   - LENGOLF brand colors and styling
   - Responsive design for all screen sizes
-  - Mobile-optimized navigation:
-    - Simplified navigation for mobile users
+  - Mobile-optimized components:
+    - Full-screen modals for selection interfaces
+    - Simplified navigation
     - Essential buttons (Home, Sign Out)
-    - Full navigation on desktop
+    - Optimized button text and spacing
   - Loading states and error handling
   - Form validation with error messages
   - Confirmation dialogs
   - Toast notifications for user feedback
-  - Mobile-optimized modals and dropdowns
 
 ### Tech Stack
 - Next.js 14 with App Router
 - TypeScript
 - Tailwind CSS
 - shadcn/ui components
-- Supabase for database and user management
-- Google Sheets API for customer data
-- NextAuth.js for authentication
-- Google OAuth for user authentication
-- Cloud Run for deployment
+- Supabase for database and customer management
+- Google Auth Library for service authentication
+- Cloud Run for customer data sync service
 - GitHub Actions for CI/CD
 
 ## Project Structure
+
+### Key Files and Their Purposes
+| File/Directory | Purpose |
+|---------------|----------|
+| `/app/page.tsx` | Homepage with main navigation and customer data refresh |
+| `/app/create-package/page.tsx` | Package creation page layout and routing |
+| `/app/update-package/page.tsx` | Package usage update page layout and routing |
+| `/app/api/auth/cloud-run-token/route.ts` | API endpoint for Cloud Run authentication |
+| `/app/api/crm/update-customers/route.ts` | API endpoint for customer data synchronization |
+| `/src/components/package-form/index.tsx` | Main package creation form component |
+| `/src/components/package-form/customer-search.tsx` | Customer search and selection modal |
+| `/src/components/package-usage/usage-form.tsx` | Package usage tracking form |
+| `/src/components/package-usage/package-selector.tsx` | Package selection modal for usage tracking |
+| `/src/hooks/usePackages.ts` | Hook for package data management |
+| `/src/hooks/usePackageForm.ts` | Hook for package form state management |
+| `/src/types/package-form.ts` | TypeScript types for package-related features |
+| `/src/lib/supabase.ts` | Supabase client configuration |
+
+### Directory Structure
 ```
 .
 ├── .github/                   # GitHub Actions workflows
 ├── app/                      # Next.js app directory
-│   ├── api/                  # API routes
-│   │   ├── packages/        # Package management endpoints
-│   │   └── customers/       # Customer data endpoints
-│   ├── auth/                # Auth pages
-│   ├── create-package/      # Package creation page
-│   └── update-package/      # Package usage page
+│   ├── api/                 # API routes
+│   │   ├── auth/           # Authentication endpoints
+│   │   └── crm/            # Customer data sync endpoints
+│   ├── create-package/     # Package creation page
+│   └── update-package/     # Package usage page
 ├── src/
-│   ├── components/          # React components
-│   │   ├── ui/             # UI components
-│   │   ├── package-form/   # Package creation components
-│   │   └── package-usage/  # Package usage components
-│   ├── hooks/              # Custom React hooks
-│   │   ├── usePackages.ts  # Package data management
-│   │   └── usePackageForm.ts # Form state management
-│   ├── lib/                # Utilities and configurations
-│   │   ├── auth.ts        # Authentication utilities
-│   │   └── supabase.ts    # Supabase client
+│   ├── components/         # React components
+│   │   ├── ui/            # shadcn/ui components
+│   │   ├── package-form/  # Package creation components
+│   │   └── package-usage/ # Package usage components
+│   ├── hooks/             # Custom React hooks
+│   ├── lib/               # Utilities and configurations
 │   └── types/             # TypeScript types
 ```
 
@@ -134,6 +146,26 @@ A modern web application for managing LENGOLF customer packages and usage tracki
 
 ### Tables
 ```sql
+-- Customers table
+CREATE TABLE customers (
+  id bigint PRIMARY KEY,
+  store varchar(100) NOT NULL,
+  customer_name varchar(200) NOT NULL,
+  contact_number varchar(50),
+  address text,
+  email varchar(255),
+  date_of_birth date,
+  date_joined date,
+  available_credit numeric DEFAULT 0,
+  available_point numeric DEFAULT 0,
+  source text,
+  sms_pdpa boolean DEFAULT false,
+  email_pdpa boolean DEFAULT false,
+  batch_id varchar(50) NOT NULL,
+  update_time timestamptz NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
 -- Packages table
 CREATE TABLE packages (
   id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -238,37 +270,55 @@ $$ LANGUAGE plpgsql;
 
 ## Setup Instructions
 
-1. Environment Variables
-   ```env
-   # Supabase
-   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-key
+### Prerequisites
+- Node.js 18 or higher
+- npm or yarn
+- Access to Supabase project
+- Google Cloud project with necessary APIs enabled
+- Service account with appropriate permissions
 
-   # Google OAuth
-   GOOGLE_CLIENT_ID=your-client-id
-   GOOGLE_CLIENT_SECRET=your-client-secret
-   GOOGLE_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
-   GOOGLE_PRIVATE_KEY=your-private-key
-   GOOGLE_SHEET_ID=your-sheet-id
+### Environment Variables
+Create a `.env.local` file with:
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-key
 
-   # NextAuth.js
-   NEXTAUTH_URL=your-app-url
-   NEXTAUTH_SECRET=your-secret-key
-   ```
+# Google Cloud Service Account
+GOOGLE_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY=your-private-key
+GOOGLE_PROJECT_ID=your-project-id
 
-2. Dependencies Installation
-   ```bash
-   npm install
-   ```
+# NextAuth.js
+NEXTAUTH_URL=your-app-url
+NEXTAUTH_SECRET=your-secret-key
+```
 
-3. Development Server
-   ```bash
-   npm run dev
-   ```
+### Installation Steps
+1. Clone the repository
+```bash
+git clone [repository-url]
+cd lengolf_package_automation
+```
+
+2. Install dependencies
+```bash
+npm install
+```
+
+3. Run development server
+```bash
+npm run dev
+```
+
+4. Build for production
+```bash
+npm run build
+```
 
 ## Deployment
 The project is deployed on Google Cloud Run with automated deployments through GitHub Actions. For detailed deployment instructions, refer to the CI/CD configuration in `.github/workflows/`.
 
-## Support
+## Support and Maintenance
 For any issues or questions, contact:  
 Email: dgeiger@stc-global.com
