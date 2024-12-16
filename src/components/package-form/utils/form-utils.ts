@@ -1,115 +1,52 @@
-import { format, isAfter, isBefore, isEqual } from 'date-fns'
-import { Customer, PackageType, PackageFormData } from '@/types/package-form'
+import { Customer } from "@/types/package-form"
 
-export const validateDates = (purchaseDate: Date | null, firstUseDate: Date | null): string | null => {
-  if (!purchaseDate || !firstUseDate) return null
-  
-  if (isBefore(firstUseDate, purchaseDate)) {
-    return 'First use date must be after purchase date'
-  }
-  
-  if (isEqual(firstUseDate, purchaseDate)) {
-    return 'First use date must be different from purchase date'
-  }
-  
-  return null
+/**
+ * Validates if the provided date exists and is valid
+ */
+export function isValidDate(date: any) {
+  return date && !isNaN(date)
 }
 
-export const formatFormDataForSubmission = (formData: PackageFormData) => {
+/**
+ * Checks if the first use date is after purchase date
+ */
+export function isFirstUseDateValid(purchaseDate: Date | null, firstUseDate: Date | null) {
+  if (!purchaseDate || !firstUseDate) return false
+  return firstUseDate >= purchaseDate
+}
+
+/**
+ * Formats API error message for display
+ */
+export function formatErrorMessage(error: any): string {
+  if (typeof error === 'string') return error
+  if (error?.message) return error.message
+  return 'An unexpected error occurred'
+}
+
+/**
+ * Maps raw customer data from API to Customer type
+ */
+export function transformCustomer(rawCustomer: any): Customer {
   return {
-    employee_name: formData.employeeName,
-    customer_name: formData.customerName,
-    package_type_id: formData.packageTypeId,
-    purchase_date: formData.purchaseDate ? format(formData.purchaseDate, 'yyyy-MM-dd') : null,
-    first_use_date: formData.firstUseDate ? format(formData.firstUseDate, 'yyyy-MM-dd') : null
+    id: rawCustomer.id,
+    store: rawCustomer.store,
+    customer_name: rawCustomer.customer_name,
+    contact_number: rawCustomer.contact_number,
+    address: rawCustomer.address,
+    email: rawCustomer.email,
+    date_of_birth: rawCustomer.date_of_birth,
+    date_joined: rawCustomer.date_joined,
+    available_credit: rawCustomer.available_credit,
+    available_point: rawCustomer.available_point,
+    source: rawCustomer.source,
+    sms_pdpa: rawCustomer.sms_pdpa,
+    email_pdpa: rawCustomer.email_pdpa,
+    batch_id: rawCustomer.batch_id,
+    update_time: rawCustomer.update_time,
+    created_at: rawCustomer.created_at,
+    displayName: rawCustomer.contact_number 
+      ? `${rawCustomer.customer_name} (${rawCustomer.contact_number})`
+      : rawCustomer.customer_name
   }
-}
-
-export const transformCustomerData = (rawCustomer: any): Customer => {
-  return {
-    name: rawCustomer.name,
-    contactNumber: rawCustomer.contactNumber,
-    dateJoined: rawCustomer.dateJoined || new Date().toISOString(),
-    id: `${rawCustomer.name}-${rawCustomer.contactNumber}`,
-    displayName: `${rawCustomer.name} (${rawCustomer.contactNumber})`
-  }
-}
-
-export const filterCustomers = (customers: Customer[], searchQuery: string): Customer[] => {
-  const query = searchQuery.toLowerCase().trim()
-  if (!query) return customers
-
-  return customers.filter(customer => 
-    customer.name.toLowerCase().includes(query) ||
-    customer.contactNumber.includes(query)
-  )
-}
-
-export const getDisplayNameForCustomer = (
-  customerId: string, 
-  customers: Customer[]
-): string => {
-  const customer = customers.find(c => c.id === customerId)
-  return customer ? customer.displayName : 'Select customer'
-}
-
-export const getPackageTypeName = (
-  packageTypeId: number,
-  packageTypes: PackageType[]
-): string => {
-  const packageType = packageTypes.find(type => type.id === packageTypeId)
-  return packageType ? packageType.name : ''
-}
-
-export const resetFormState = (defaultValues: PackageFormData) => {
-  return {
-    formData: defaultValues,
-    selectedDates: { purchase: null, firstUse: null },
-    selectedCustomerId: '',
-    searchQuery: '',
-    showCustomerDialog: false,
-    showConfirmation: false,
-    error: null
-  }
-}
-
-export const validateForm = (formData: PackageFormData): string[] => {
-  const errors: string[] = []
-
-  if (!formData.employeeName) {
-    errors.push('Employee name is required')
-  }
-
-  if (!formData.customerName) {
-    errors.push('Customer name is required')
-  }
-
-  if (!formData.packageTypeId) {
-    errors.push('Package type is required')
-  }
-
-  if (!formData.purchaseDate) {
-    errors.push('Purchase date is required')
-  }
-
-  if (!formData.firstUseDate) {
-    errors.push('First use date is required')
-  }
-
-  const dateError = validateDates(formData.purchaseDate, formData.firstUseDate)
-  if (dateError) {
-    errors.push(dateError)
-  }
-
-  return errors
-}
-
-export const formatErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message
-  }
-  if (typeof error === 'string') {
-    return error
-  }
-  return 'An unknown error occurred'
 }
