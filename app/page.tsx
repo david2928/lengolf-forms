@@ -29,7 +29,6 @@ export default function Home() {
         throw new Error(data.error || 'Failed to update customers')
       }
 
-      // Show batch details in success message
       toast({
         title: "Update Started",
         description: `Customer data update has been initiated (Batch ID: ${data.batch_id}). ${data.records_processed} records will be processed. This takes about 30 seconds to complete.`,
@@ -79,7 +78,7 @@ export default function Home() {
                 {isUpdating ? 'Updating Customer Data...' : 'Update Customer Data'}
               </span>
               <span className="text-sm text-muted-foreground">
-                {isUpdating ? 'This will take about 30 seconds' : 'Click to refresh customer data from CRM'}
+                {isUpdating ? 'This will take about 30 seconds' : 'Click to refresh customer list'}
               </span>
             </div>
           </Button>
