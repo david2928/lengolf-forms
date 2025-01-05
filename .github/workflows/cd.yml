@@ -2,7 +2,7 @@ name: CD
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, dev ]
 
 jobs:
   deploy:
@@ -39,7 +39,8 @@ jobs:
     - name: Deploy to Cloud Run
       run: |
         IMAGE_URL="gcr.io/lengolf-forms/lengolf-forms:latest"
-        gcloud run deploy lengolf-forms \
+        SERVICE_NAME=${{ github.ref == 'refs/heads/dev' && 'lengolf-forms-dev' || 'lengolf-forms' }}
+        gcloud run deploy $SERVICE_NAME \
           --image $IMAGE_URL \
           --platform managed \
           --region asia-southeast1 \
