@@ -20,6 +20,12 @@ import { CustomerSearch } from './customer-search'
 import { DatePicker } from '../ui/date-picker'
 import { ConfirmationDialog } from './confirmation-dialog'
 
+interface SimpleCustomer {
+  id: number;
+  customer_name: string;
+  contact_number: string | null;
+}
+
 export default function PackageForm() {
   const [formState, setFormState] = useState<FormState>({
     packageTypes: [],
@@ -171,7 +177,6 @@ export default function PackageForm() {
     const selectedCustomer = formState.customers.find(c => c.id.toString() === formState.selectedCustomerId)
     if (!selectedCustomer) return
 
-    // Use the displayName which includes the phone number
     const customerDisplay = selectedCustomer.contact_number 
       ? `${selectedCustomer.customer_name} (${selectedCustomer.contact_number})`
       : selectedCustomer.customer_name
@@ -180,7 +185,7 @@ export default function PackageForm() {
       ...prev,
       formData: {
         ...data,
-        customerName: customerDisplay, // Use the formatted name with phone number
+        customerName: customerDisplay,
         purchaseDate: prev.selectedDates.purchase,
         firstUseDate: prev.selectedDates.firstUse
       },
@@ -198,7 +203,7 @@ export default function PackageForm() {
         .from('packages')
         .insert([{
           employee_name: formState.formData.employeeName,
-          customer_name: formState.formData.customerName, // This now contains the name with phone number
+          customer_name: formState.formData.customerName,
           package_type_id: formState.formData.packageTypeId,
           purchase_date: format(formState.selectedDates.purchase!, 'yyyy-MM-dd'),
           first_use_date: format(formState.selectedDates.firstUse!, 'yyyy-MM-dd')
@@ -224,23 +229,25 @@ export default function PackageForm() {
     return formState.packageTypes.find(type => type.id === id)?.name || ''
   }
 
-  const getSelectedCustomerDisplay = (): string => {
+  const getSelectedCustomerDisplay = () => {
     const customer = formState.customers.find(c => c.id.toString() === formState.selectedCustomerId)
     return customer?.displayName || 'Select customer'
   }
 
-  const handleCustomerSelect = (customer: Customer) => {
+  const mappedCustomers = useMemo(() => formState.customers.map(customer => ({
+    id: customer.id,
+    customer_name: customer.customer_name,
+    contact_number: customer.contact_number
+  })), [formState.customers])
+
+  const handleCustomerSelect = (customer: SimpleCustomer) => {
     setFormState(prev => ({
       ...prev,
       selectedCustomerId: customer.id.toString(),
       showCustomerDialog: false,
       searchQuery: ''
     }))
-    // Use the formatted name with phone number
-    const formattedName = customer.contact_number 
-      ? `${customer.customer_name} (${customer.contact_number})`
-      : customer.customer_name
-    setValue('customerName', formattedName)
+    setValue('customerName', customer.customer_name)
   }
 
   if (isLoadingInitial.types || isLoadingInitial.customers) {
@@ -304,7 +311,7 @@ export default function PackageForm() {
             })}
           />
           <CustomerSearch 
-            customers={formState.customers}
+            customers={mappedCustomers}
             selectedCustomerId={formState.selectedCustomerId}
             showCustomerDialog={formState.showCustomerDialog}
             searchQuery={formState.searchQuery}

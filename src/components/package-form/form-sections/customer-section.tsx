@@ -1,6 +1,16 @@
-import { Label } from "@/components/ui/label"
-import { CustomerSearch } from "../customer-search"
-import { CustomerSectionProps } from "@/types/package-form"
+'use client'
+
+import { CustomerSearch } from '@/components/package-form/customer-search'
+import { Label } from '@/components/ui/label'
+import type { CustomerSectionProps } from '@/types/package-form'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
+
+interface SimpleCustomer {
+  id: number;
+  customer_name: string;
+  contact_number: string | null;
+}
 
 export function CustomerSection({
   form,
@@ -10,37 +20,54 @@ export function CustomerSection({
   searchQuery,
   onSearchQueryChange,
   onCustomerSelect,
-  onDialogOpenChange,
+  onDialogOpenChange
 }: CustomerSectionProps) {
-  const { register, formState: { errors } } = form;
+  const displayCustomer = customers.find(c => c.id === parseInt(selectedCustomerId))
+  
+  const getSelectedCustomerDisplay = () => {
+    if (!displayCustomer) return 'Select customer'
+    return displayCustomer.contact_number 
+      ? `${displayCustomer.customer_name} (${displayCustomer.contact_number})`
+      : displayCustomer.customer_name
+  }
+
+  const handleCustomerSelect = (simpleCustomer: SimpleCustomer) => {
+    const originalCustomer = customers.find(c => c.id === simpleCustomer.id)
+    if (originalCustomer) {
+      onCustomerSelect(originalCustomer)
+    }
+  }
+
+  const mappedCustomers = customers.map(customer => ({
+    id: customer.id,
+    customer_name: customer.customer_name,
+    contact_number: customer.contact_number
+  }))
 
   return (
-    <div className="space-y-2">
-      <Label>
-        Customer Name
-      </Label>
-      <input
-        type="hidden"
-        {...register('customerName', { 
-          required: "Customer name is required" 
-        })}
-      />
-      <CustomerSearch 
-        customers={customers}
-        selectedCustomerId={selectedCustomerId}
-        showCustomerDialog={showCustomerDialog}
-        searchQuery={searchQuery}
-        onSearchQueryChange={onSearchQueryChange}
-        onCustomerSelect={onCustomerSelect}
-        onDialogOpenChange={onDialogOpenChange}
-        getSelectedCustomerDisplay={() => {
-          const customer = customers.find(c => c.id.toString() === selectedCustomerId)
-          return customer?.displayName || 'Select customer'
-        }}
-      />
-      {errors.customerName && (
-        <p className="text-red-500 text-sm mt-1">{errors.customerName.message}</p>
-      )}
+    <div className="space-y-6">
+      <div>
+        <Label>Customer</Label>
+        <CustomerSearch
+          customers={mappedCustomers}
+          selectedCustomerId={selectedCustomerId}
+          showCustomerDialog={showCustomerDialog}
+          searchQuery={searchQuery}
+          onSearchQueryChange={onSearchQueryChange}
+          onCustomerSelect={handleCustomerSelect}
+          onDialogOpenChange={onDialogOpenChange}
+          getSelectedCustomerDisplay={getSelectedCustomerDisplay}
+        />
+        {form.formState.errors.customerName && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Invalid Customer</AlertTitle>
+            <AlertDescription>
+              {form.formState.errors.customerName.message}
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
     </div>
-  );
+  )
 }
