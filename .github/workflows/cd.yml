@@ -23,6 +23,12 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
+    - name: Debug Environment Variables
+      run: |
+        echo "Checking Secret Availability:"
+        echo "GOOGLE_CLIENT_EMAIL exists: ${{ !!secrets.GOOGLE_CLIENT_EMAIL }}"
+        echo "GOOGLE_PRIVATE_KEY exists: ${{ !!secrets.GOOGLE_PRIVATE_KEY }}"
+
     - name: Build and push to Container Registry
       run: |
         gcloud builds submit --config=cloudbuild.yaml \
@@ -34,7 +40,7 @@ jobs:
         _NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}",\
         _GOOGLE_SHEET_ID="${{ secrets.GOOGLE_SHEET_ID }}",\
         _GOOGLE_CLIENT_EMAIL="${{ secrets.GOOGLE_CLIENT_EMAIL }}",\
-        _GOOGLE_PRIVATE_KEY="${{ secrets.GOOGLE_PRIVATE_KEY }}"
+        _GOOGLE_PRIVATE_KEY='${{ secrets.GOOGLE_PRIVATE_KEY }}'
 
     - name: Deploy to Cloud Run
       run: |
