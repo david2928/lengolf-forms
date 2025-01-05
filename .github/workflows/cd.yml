@@ -23,12 +23,6 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
-    - name: Debug Environment Variables
-      run: |
-        echo "Checking Secret Availability:"
-        echo "GOOGLE_CLIENT_EMAIL exists: ${{ !!secrets.GOOGLE_CLIENT_EMAIL }}"
-        echo "GOOGLE_PRIVATE_KEY exists: ${{ !!secrets.GOOGLE_PRIVATE_KEY }}"
-
     - name: Build and push to Container Registry
       run: |
         gcloud builds submit --config=cloudbuild.yaml \
@@ -37,7 +31,7 @@ jobs:
         _GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}",\
         _GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}",\
         _NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}",\
-        _NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}",\
+        _NEXTAUTH_URL="${{ github.ref == 'refs/heads/dev' && 'https://lengolf-forms-dev-1071951248692.asia-southeast1.run.app' || secrets.NEXTAUTH_URL }}",\
         _GOOGLE_SHEET_ID="${{ secrets.GOOGLE_SHEET_ID }}",\
         _GOOGLE_CLIENT_EMAIL="${{ secrets.GOOGLE_CLIENT_EMAIL }}",\
         _GOOGLE_PRIVATE_KEY='${{ secrets.GOOGLE_PRIVATE_KEY }}'
