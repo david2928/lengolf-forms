@@ -25,13 +25,16 @@ jobs:
 
     - name: Build and push to Container Registry
       run: |
+        NEXTAUTH_SECRET_ESCAPED=$(echo "${{ secrets.NEXTAUTH_SECRET }}" | sed 's/"/\\"/g')
+        NEXTAUTH_URL_DEV="https://lengolf-forms-dev-1071951248692.asia-southeast1.run.app"
+        
         gcloud builds submit --config=cloudbuild.yaml \
         --substitutions=_NEXT_PUBLIC_SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}",\
         _NEXT_PUBLIC_SUPABASE_ANON_KEY="${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}",\
         _GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}",\
         _GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}",\
-        _NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}",\
-        _NEXTAUTH_URL="${{ github.ref == 'refs/heads/dev' && 'https://lengolf-forms-dev-1071951248692.asia-southeast1.run.app' || secrets.NEXTAUTH_URL }}",\
+        _NEXTAUTH_SECRET="$NEXTAUTH_SECRET_ESCAPED",\
+        _NEXTAUTH_URL="${{ github.ref == 'refs/heads/dev' && env.NEXTAUTH_URL_DEV || secrets.NEXTAUTH_URL }}",\
         _GOOGLE_SHEET_ID="${{ secrets.GOOGLE_SHEET_ID }}",\
         _GOOGLE_CLIENT_EMAIL="${{ secrets.GOOGLE_CLIENT_EMAIL }}",\
         _GOOGLE_PRIVATE_KEY='${{ secrets.GOOGLE_PRIVATE_KEY }}'
