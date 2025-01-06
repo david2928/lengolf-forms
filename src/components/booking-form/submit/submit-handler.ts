@@ -69,11 +69,9 @@ function formatLineMessage(booking: Booking): string {
     day: 'numeric'
   });
 
-  const bookingType = booking.package_name 
-    ? `${booking.booking_type} (${booking.package_name})`
-    : booking.booking_type;
+  const notesInfo = booking.notes ? ` (${booking.notes})` : '';
 
-  return `New Booking: ${customerStatus} ${booking.customer_name} (${booking.contact_number}), ${bookingType}, ${booking.number_of_pax} PAX at ${booking.bay_number} on ${dateStr} from ${booking.start_time.slice(0,5)} - ${booking.end_time.slice(0,5)}. Customer contacted via ${booking.booking_source}, submitted by ${booking.employee_name}.`;
+  return `New Booking: ${customerStatus} ${booking.customer_name} (${booking.contact_number}), ${booking.booking_type}, ${booking.number_of_pax} PAX at ${booking.bay_number} on ${dateStr} from ${booking.start_time.slice(0,5)} - ${booking.end_time.slice(0,5)}${notesInfo}. Customer contacted via ${booking.booking_source}, submitted by ${booking.employee_name}.`;
 }
 
 export async function handleFormSubmit(formData: FormData): Promise<SubmitResponse> {
