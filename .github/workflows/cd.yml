@@ -27,6 +27,8 @@ jobs:
       env:
         DEPLOY_URL: ${{ github.ref == 'refs/heads/dev' && 'https://lengolf-forms-dev-1071951248692.asia-southeast1.run.app' || secrets.NEXTAUTH_URL }}
       run: |
+        echo "${{ secrets.GOOGLE_PRIVATE_KEY }}" > private_key.txt
+        PRIVATE_KEY=$(cat private_key.txt)
         gcloud builds submit --config=cloudbuild.yaml \
         --substitutions=_NEXT_PUBLIC_SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}",\
         _NEXT_PUBLIC_SUPABASE_ANON_KEY="${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}",\
@@ -36,12 +38,14 @@ jobs:
         _NEXTAUTH_URL="$DEPLOY_URL",\
         _GOOGLE_SHEET_ID="${{ secrets.GOOGLE_SHEET_ID }}",\
         _GOOGLE_CLIENT_EMAIL="${{ secrets.GOOGLE_CLIENT_EMAIL }}",\
-        _GOOGLE_PRIVATE_KEY='${{ secrets.GOOGLE_PRIVATE_KEY }}'
+        _GOOGLE_PRIVATE_KEY="${PRIVATE_KEY}"
 
     - name: Deploy to Cloud Run
       run: |
         IMAGE_URL="gcr.io/lengolf-forms/lengolf-forms:latest"
         SERVICE_NAME=${{ github.ref == 'refs/heads/dev' && 'lengolf-forms-dev' || 'lengolf-forms' }}
+        echo "${{ secrets.GOOGLE_PRIVATE_KEY }}" > private_key.txt
+        PRIVATE_KEY=$(cat private_key.txt)
         gcloud run deploy $SERVICE_NAME \
           --image $IMAGE_URL \
           --platform managed \
@@ -56,4 +60,4 @@ jobs:
           NEXTAUTH_URL=${{ github.ref == 'refs/heads/dev' && 'https://lengolf-forms-dev-1071951248692.asia-southeast1.run.app' || secrets.NEXTAUTH_URL }},\
           GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID }},\
           GOOGLE_CLIENT_EMAIL=${{ secrets.GOOGLE_CLIENT_EMAIL }},\
-          GOOGLE_PRIVATE_KEY='${{ secrets.GOOGLE_PRIVATE_KEY }}'"
+          GOOGLE_PRIVATE_KEY=${PRIVATE_KEY}"
