@@ -38,7 +38,7 @@ export function CustomerDetails({
 
   const getSelectedCustomerDisplay = () => {
     if (!selectedCustomerId) return 'Select customer'
-    const customer = customers.find(c => c.id === Number(selectedCustomerId))
+    const customer = customers.find(c => c.id.toString() === selectedCustomerId)
     if (!customer) return 'Select customer'
     return customer.contact_number 
       ? `${customer.customer_name} (${customer.contact_number})`

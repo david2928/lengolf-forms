@@ -60,4 +60,5 @@ jobs:
           NEXTAUTH_URL=${{ github.ref == 'refs/heads/dev' && 'https://lengolf-forms-dev-1071951248692.asia-southeast1.run.app' || secrets.NEXTAUTH_URL }},\
           GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID }},\
           GOOGLE_CLIENT_EMAIL=${{ secrets.GOOGLE_CLIENT_EMAIL }},\
-          GOOGLE_PRIVATE_KEY=${PRIVATE_KEY}"
+          GOOGLE_PRIVATE_KEY=${PRIVATE_KEY},\
+          TZ=Asia/Bangkok"
