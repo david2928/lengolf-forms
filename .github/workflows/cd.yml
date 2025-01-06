@@ -23,11 +23,6 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
-    - name: Debug Environment
-      run: |
-        echo "Build for branch: ${GITHUB_REF##*/}"
-        echo "Has NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET != '' }}"
-
     - name: Build and push to Container Registry
       env:
         DEPLOY_URL: ${{ github.ref == 'refs/heads/dev' && 'https://lengolf-forms-dev-1071951248692.asia-southeast1.run.app' || secrets.NEXTAUTH_URL }}
@@ -52,4 +47,4 @@ jobs:
           --platform managed \
           --region asia-southeast1 \
           --allow-unauthenticated \
-          --update-env-vars NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}",NEXTAUTH_URL="${{ github.ref == 'refs/heads/dev' && 'https://lengolf-forms-dev-1071951248692.asia-southeast1.run.app' || secrets.NEXTAUTH_URL }}"
+          --set-env-vars="NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},NEXTAUTH_URL=${{ github.ref == 'refs/heads/dev' && 'https://lengolf-forms-dev-1071951248692.asia-southeast1.run.app' || secrets.NEXTAUTH_URL }},GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}"
