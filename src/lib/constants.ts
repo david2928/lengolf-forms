@@ -1,4 +1,3 @@
-// Bay calendar IDs and configurations
 export type BayName = "Bay 1 (Bar)" | "Bay 2" | "Bay 3 (Entrance)";
 export type BookingType = "Coaching (Boss)" | "Coaching (Boss - Ratchavin)";
 
@@ -13,16 +12,17 @@ export const COACHING_CALENDARS: Record<BookingType, string> = {
   "Coaching (Boss - Ratchavin)": "880463b6afee92b7de81545f6c25a002a26c1729ddaa5f1e291ece9e49366da1@group.calendar.google.com"
 };
 
-export const BAY_COLORS: Record<BayName | "VR 1" | "VR 2", string> = {
-  "Bay 1 (Bar)": "7",
-  "Bay 2": "6",
-  "Bay 3 (Entrance)": "4",
-  "VR 1": "8",
-  "VR 2": "9"
+export const BAY_COLORS: Record<BayName, string> = {
+  "Bay 1 (Bar)": "7", 
+  "Bay 2": "6",       
+  "Bay 3 (Entrance)": "4", 
 };
 
 export const LINE_TOKENS = {
-  default: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG",
-  coaching: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG",
-  ratchavin: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG"
+  default: "YRINS1gJ5RWzoA28SSAeWzcaD6CWy1UPvizQKgZ6huU",
+  coaching: "5lVtdAxEQMyBbGlrDpbFGZvXmAovFxh9zpga3YhFxZ3",
+  ratchavin: "SCsuluAwM81JhP4N3RvfqG3y6GGqnFWz5ZSn6NPKM93"
+  // default: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG",
+  // coaching: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG",
+  // ratchavin: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG"
 } as const;

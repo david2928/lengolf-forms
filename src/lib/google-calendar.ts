@@ -3,12 +3,7 @@ import { DateTime } from 'luxon';
 import { BAY_CALENDARS, COACHING_CALENDARS, BAY_COLORS } from './constants';
 import type { calendar_v3 } from 'googleapis';
 import type { Booking } from '@/types/booking';
-
-// Types for calendar operations
-export interface CalendarEvent {
-  calendarId: string;
-  eventData: calendar_v3.Schema$Event;
-}
+import type { BayName, BookingType } from './constants';
 
 export interface CalendarEventResult {
   eventId: string;
@@ -21,12 +16,34 @@ export function formatCalendarEvent(booking: Booking): calendar_v3.Schema$Event 
   const startDateTime = DateTime.fromISO(`${booking.booking_date}T${booking.start_time}`, { zone: 'Asia/Bangkok' });
   const endDateTime = DateTime.fromISO(`${booking.booking_date}T${booking.end_time}`, { zone: 'Asia/Bangkok' });
 
+  // Format event summary with package if available
+  const bookingType = booking.package_name 
+    ? `${booking.booking_type} (${booking.package_name})`
+    : booking.booking_type;
+
+  // Set color based on bay number
+  const colorId = BAY_COLORS[booking.bay_number as BayName]?.toString();
+
   return {
-    summary: `${booking.customer_name} (${booking.number_of_pax}) - ${booking.booking_type} at ${booking.bay_number}`,
-    description: `Booking for ${booking.is_new_customer ? 'New Customer ' : 'Existing Customer '}${booking.customer_name} at ${booking.bay_number}${booking.notes ? `\nNotes: ${booking.notes}` : ''}`,
-    start: { dateTime: startDateTime.toISO() },
-    end: { dateTime: endDateTime.toISO() },
-    colorId: BAY_COLORS[booking.bay_number as keyof typeof BAY_COLORS]
+    summary: `${booking.customer_name} (${booking.contact_number}) (${booking.number_of_pax}) - ${bookingType} at ${booking.bay_number}`,
+    description: `Name: ${booking.customer_name}
+Contact: ${booking.contact_number}
+Type: ${bookingType}
+Pax: ${booking.number_of_pax}
+Bay: ${booking.bay_number}
+Date: ${startDateTime.toFormat('cccc, MMMM d')}
+Time: ${startDateTime.toFormat('HH:mm')} - ${endDateTime.toFormat('HH:mm')}
+Booked by: ${booking.employee_name}
+Via: ${booking.booking_source}${booking.notes ? `\n\nNotes: ${booking.notes}` : ''}`.trim(),
+    start: { 
+      dateTime: startDateTime.toISO(),
+      timeZone: 'Asia/Bangkok'
+    },
+    end: { 
+      dateTime: endDateTime.toISO(),
+      timeZone: 'Asia/Bangkok'
+    },
+    colorId
   };
 }
 
@@ -35,16 +52,14 @@ export function getRelevantCalendarIds(booking: Booking): string[] {
   const calendarIds: string[] = [];
   
   // Add bay calendar
-  const bayCalendarId = BAY_CALENDARS[booking.bay_number as keyof typeof BAY_CALENDARS];
+  const bayCalendarId = BAY_CALENDARS[booking.bay_number as BayName];
   if (bayCalendarId) {
     calendarIds.push(bayCalendarId);
   }
 
-  // Add coaching calendars if applicable
-  if (booking.booking_type === "Coaching (Boss)") {
-    calendarIds.push(COACHING_CALENDARS["Coaching (Boss)"]);
-  } else if (booking.booking_type === "Coaching (Boss - Ratchavin)") {
-    calendarIds.push(COACHING_CALENDARS["Coaching (Boss - Ratchavin)"]);
+  // Add coaching calendar if applicable
+  if (booking.booking_type in COACHING_CALENDARS) {
+    calendarIds.push(COACHING_CALENDARS[booking.booking_type as BookingType]);
   }
 
   return calendarIds;
@@ -86,7 +101,7 @@ export async function getBayAvailability(
   bayNumber: string,
   date: string
 ) {
-  const calendarId = BAY_CALENDARS[bayNumber as keyof typeof BAY_CALENDARS];
+  const calendarId = BAY_CALENDARS[bayNumber as BayName];
   if (!calendarId) {
     throw new Error('Invalid bay number');
   }
@@ -111,56 +126,6 @@ export async function getBayAvailability(
     }));
   } catch (error) {
     console.error(`Error fetching availability for bay ${bayNumber}:`, error);
-    throw error;
-  }
-}
-
-// Update calendar event
-export async function updateCalendarEvent(
-  calendar: calendar_v3.Calendar,
-  calendarId: string,
-  eventId: string,
-  booking: Booking
-): Promise<CalendarEventResult> {
-  const eventData = formatCalendarEvent(booking);
-
-  try {
-    const response = await calendar.events.update({
-      calendarId,
-      eventId,
-      requestBody: eventData,
-    });
-
-    return {
-      eventId: response.data.id!,
-      calendarId,
-      status: response.data.status!,
-    };
-  } catch (error) {
-    console.error(`Error updating event ${eventId} in calendar ${calendarId}:`, error);
-    throw error;
-  }
-}
-
-// Delete calendar event
-export async function deleteCalendarEvent(
-  calendar: calendar_v3.Calendar,
-  calendarId: string,
-  eventId: string
-): Promise<CalendarEventResult> {
-  try {
-    await calendar.events.delete({
-      calendarId,
-      eventId,
-    });
-
-    return {
-      eventId,
-      calendarId,
-      status: 'cancelled',
-    };
-  } catch (error) {
-    console.error(`Error deleting event ${eventId} from calendar ${calendarId}:`, error);
     throw error;
   }
 }
