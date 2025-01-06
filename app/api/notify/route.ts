@@ -37,15 +37,13 @@ export async function POST(req: Request) {
     notifications.push(sendLineNotification(message, LINE_TOKENS.default));
     console.log('Queued default notification');
 
-    // For coaching bookings, send additional notifications
-    if (bookingType?.toLowerCase().includes('coaching')) {
-      console.log('Booking is coaching type, sending to coaching group');
+    // Handle specific coaching notifications
+    if (bookingType === "Coaching (Boss - Ratchavin)") {
+      console.log('Booking is Ratchavin coaching, sending to Ratchavin group');
+      notifications.push(sendLineNotification(message, LINE_TOKENS.ratchavin));
+    } else if (bookingType === "Coaching (Boss)") {
+      console.log('Booking is regular coaching, sending to coaching group');
       notifications.push(sendLineNotification(message, LINE_TOKENS.coaching));
-
-      if (bookingType?.toLowerCase().includes('ratchavin')) {
-        console.log('Booking is Ratchavin coaching, sending to Ratchavin group');
-        notifications.push(sendLineNotification(message, LINE_TOKENS.ratchavin));
-      }
     }
 
     // Wait for all notifications to complete
