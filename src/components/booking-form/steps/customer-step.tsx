@@ -1,9 +1,11 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useFormContext } from '../context/form-context'
 import { CustomerDetails } from '../customer-details'
 import { PackageSelector } from '../package-selector'
 import { PackageInfoCard } from '@/components/package-usage/package-info-card'
+import { mutate } from 'swr'
 
 export function CustomerStep() {
   const { 
@@ -15,6 +17,10 @@ export function CustomerStep() {
     isSubmitting,
     customers 
   } = useFormContext();
+
+  useEffect(() => {
+    mutate('/api/customers')
+  }, [])
 
   // Add debug logs
   console.log('CustomerStep received from context:', {
