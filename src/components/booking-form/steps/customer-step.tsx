@@ -7,6 +7,8 @@ import { PackageSelector } from '../package-selector'
 import { PackageInfoCard } from '@/components/package-usage/package-info-card'
 import { mutate } from 'swr'
 
+const PACKAGE_TYPES = ['Package', 'Coaching (Boss)', 'Coaching (Boss - Ratchavin)']
+
 export function CustomerStep() {
   const { 
     formData, 
@@ -22,12 +24,9 @@ export function CustomerStep() {
     mutate('/api/customers')
   }, [])
 
-  // Add debug logs
-  console.log('CustomerStep received from context:', {
-    customersLength: customers?.length,
-    isNewCustomer: formData.isNewCustomer,
-    sampleCustomer: customers?.[0]
-  });
+  const showPackageSelector = !formData.isNewCustomer && 
+    formData.customerName && 
+    PACKAGE_TYPES.includes(formData.bookingType!)
 
   return (
     <div className="space-y-6">
@@ -47,7 +46,7 @@ export function CustomerStep() {
         }}
       />
 
-      {!formData.isNewCustomer && formData.customerName && formData.bookingType === 'Package' && (
+      {showPackageSelector && (
         <div className="space-y-2">
           <PackageSelector
             customerName={formData.customerName}
@@ -56,7 +55,7 @@ export function CustomerStep() {
             onChange={handlePackageSelection}
             error={errors.packageId}
           />
-          {formData.packageId && (
+          {formData.packageId && formData.packageId !== '' && (
             <PackageInfoCard packageId={formData.packageId} isLoading={isSubmitting} />
           )}
         </div>

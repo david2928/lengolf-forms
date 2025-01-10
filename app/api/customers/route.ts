@@ -3,10 +3,12 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    const { data: customers, error } = await supabase
+    // Using range instead of limit to get all records
+    const { data: customers, error, count } = await supabase
       .from('customers')
-      .select('id, customer_name, contact_number')
-      .order('customer_name');
+      .select('id, customer_name, contact_number', { count: 'exact' })
+      .order('customer_name')
+      .range(0, 2999);  // This will get up to 3000 records (0 to 2999 inclusive)
 
     if (error) throw error;
 
@@ -20,7 +22,8 @@ export async function GET() {
       contact_number: customer.contact_number
     }));
 
-    console.log('API Response:', formattedCustomers);
+    // Only log the counts
+    console.log(`Customers: ${formattedCustomers.length} of ${count} total`);
 
     return NextResponse.json(formattedCustomers);
   } catch (error) {

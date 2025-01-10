@@ -35,12 +35,19 @@ function formatBookingData(formData: FormData): Booking {
                     formData.bayNumber === 'Bay 3' ? 'Bay 3 (Entrance)' : 
                     formData.bayNumber;
 
+  // Handle package name for both selected package and "will buy" case
+  let packageName = formData.packageName;
+  if (formData.bookingType === 'Package' && !formData.packageId && packageName) {
+    // If it's "will buy package" case, make sure we use the entered package name
+    packageName = packageName.trim();
+  }
+
   const booking: Booking = {
     employee_name: formData.employeeName!,
     customer_name: formData.customerName!,
     contact_number: formData.customerPhone,
     booking_type: formData.bookingType!,
-    package_name: formData.packageName,
+    package_name: packageName,  // Use the processed package name
     number_of_pax: formData.numberOfPax!,
     booking_date: format(formData.bookingDate!, 'yyyy-MM-dd'),
     start_time: getTimeString(formData.startTime!),
@@ -69,9 +76,14 @@ function formatLineMessage(booking: Booking): string {
     day: 'numeric'
   });
 
+  // Format booking type to match Google Calendar format
+  const bookingType = booking.package_name 
+    ? `${booking.booking_type} (${booking.package_name})`
+    : booking.booking_type;
+
   const notesInfo = booking.notes ? ` (${booking.notes})` : '';
 
-  return `New Booking: ${customerStatus} ${booking.customer_name} (${booking.contact_number}), ${booking.booking_type}, ${booking.number_of_pax} PAX at ${booking.bay_number} on ${dateStr} from ${booking.start_time.slice(0,5)} - ${booking.end_time.slice(0,5)}${notesInfo}. Customer contacted via ${booking.booking_source}, submitted by ${booking.employee_name}.`;
+  return `New Booking: ${customerStatus} ${booking.customer_name} (${booking.contact_number}), ${bookingType}, ${booking.number_of_pax} PAX at ${booking.bay_number} on ${dateStr} from ${booking.start_time.slice(0,5)} - ${booking.end_time.slice(0,5)}${notesInfo}. Customer contacted via ${booking.booking_source}, submitted by ${booking.employee_name}.`;
 }
 
 export async function handleFormSubmit(formData: FormData): Promise<SubmitResponse> {

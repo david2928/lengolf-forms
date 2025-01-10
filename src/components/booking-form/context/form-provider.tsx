@@ -39,8 +39,13 @@ export function validateStep2(formData: FormData) {
     if (!formData.customerId) {
       errors.customerId = 'Please select a customer'
     }
-    if (formData.bookingType === 'Package' && !formData.packageId) {
-      errors.packageId = 'Please select a package'
+    if (formData.bookingType === 'Package') {
+      // For "Will buy Package", we need packageId to be null and packageName to be filled
+      if (formData.packageId === '') {
+        errors.packageId = 'Please select a package'
+      } else if (formData.packageId === null && !formData.packageName) {
+        errors.packageId = 'Please enter package name'
+      }
     }
   } else {
     if (!formData.customerName) {

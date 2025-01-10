@@ -4,12 +4,14 @@ import { Card } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useCustomerPackages } from "@/hooks/useCustomerPackages"
 import { cn } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
+import { useState } from "react"
 
 interface PackageSelectorProps {
   value: string
   customerName: string
   customerPhone?: string
-  onChange: (value: string, packageName: string) => void
+  onChange: (value: string | null, packageName: string) => void
   error?: string
 }
 
@@ -21,6 +23,7 @@ export function PackageSelector({
   error
 }: PackageSelectorProps) {
   const { packages, isLoading, error: packagesError } = useCustomerPackages(customerName, customerPhone)
+  const [newPackageName, setNewPackageName] = useState("")
 
   if (!customerName) {
     return <div className="text-muted-foreground">Select a customer first</div>
@@ -39,17 +42,6 @@ export function PackageSelector({
     )
   }
 
-  if (!packages || packages.length === 0) {
-    const displayName = customerPhone 
-      ? `${customerName} (${customerPhone})`
-      : customerName
-    return (
-      <div className="p-4 bg-yellow-50 rounded">
-        No active packages available for {displayName}
-      </div>
-    )
-  }
-
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -59,12 +51,62 @@ export function PackageSelector({
   }
 
   const handleValueChange = (selectedId: string) => {
-    const selectedPackage = packages.find(pkg => pkg.id === selectedId)
-    if (selectedPackage) {
-      onChange(selectedId, selectedPackage.details.packageTypeName)
+    if (selectedId === 'will-buy') {
+      onChange(null, newPackageName ? `Will buy ${newPackageName}` : '')
+    } else {
+      const selectedPackage = packages?.find(pkg => pkg.id === selectedId)
+      if (selectedPackage) {
+        onChange(selectedId, selectedPackage.details.packageTypeName)
+      }
     }
   }
 
+  const handleNewPackageNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value
+    setNewPackageName(name)
+    // Only update if "will-buy" is already selected
+    if (value === 'will-buy' || (!packages || packages.length === 0)) {
+      onChange(null, name ? `Will buy ${name}` : '')
+    }
+  }
+
+  // If no packages available, show only "will-buy" option
+  if (!packages || packages.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="relative">
+          <Card className="relative p-4">
+            <div className="flex items-start">
+              <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-primary ring-offset-background">
+                <div className="h-2 w-2 rounded-full bg-primary" />
+              </div>
+              <div className="ml-4 flex-1">
+                <div className="font-medium">
+                  Will buy Package
+                </div>
+                <div className="mt-2">
+                  <Input
+                    placeholder="Enter package name"
+                    value={newPackageName}
+                    onChange={handleNewPackageNameChange}
+                    className="max-w-md"
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+        
+        {error && (
+          <div className="text-sm text-red-500 mt-1">
+            {error}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // If packages available, show regular radio group
   return (
     <div className="space-y-4">
       <RadioGroup
@@ -113,6 +155,12 @@ export function PackageSelector({
           </div>
         ))}
       </RadioGroup>
+      
+      {error && (
+        <div className="text-sm text-red-500 mt-1">
+          {error}
+        </div>
+      )}
     </div>
   )
 }
