@@ -19,10 +19,10 @@ export const BAY_COLORS: Record<BayName, string> = {
 };
 
 export const LINE_TOKENS = {
-  // default: "YRINS1gJ5RWzoA28SSAeWzcaD6CWy1UPvizQKgZ6huU",
-  // coaching: "5lVtdAxEQMyBbGlrDpbFGZvXmAovFxh9zpga3YhFxZ3",
-  // ratchavin: "SCsuluAwM81JhP4N3RvfqG3y6GGqnFWz5ZSn6NPKM93"
-  default: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG",
-  coaching: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG",
-  ratchavin: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG"
+  default: "YRINS1gJ5RWzoA28SSAeWzcaD6CWy1UPvizQKgZ6huU",
+  coaching: "5lVtdAxEQMyBbGlrDpbFGZvXmAovFxh9zpga3YhFxZ3",
+  ratchavin: "SCsuluAwM81JhP4N3RvfqG3y6GGqnFWz5ZSn6NPKM93"
+  // default: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG",
+  // coaching: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG",
+  // ratchavin: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG"
 } as const;

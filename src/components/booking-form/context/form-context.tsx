@@ -7,7 +7,7 @@ export interface FormContextType {
   errors: FormErrors;
   setFormValue: (field: string, value: any) => void;
   handleCustomerSelect: (customer: Customer) => void;
-  handlePackageSelection: (id: string, name: string) => void;
+  handlePackageSelection: (id: string | null, name: string) => void;
   isSubmitting: boolean;
   customers: Customer[];
 }

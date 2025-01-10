@@ -35,30 +35,16 @@ export function BookingForm() {
   const [canProgress, setCanProgress] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
 
-  // Debug log for initial render
-  console.log('BookingForm initial render - isNewCustomer:', formData.isNewCustomer);
-
   useEffect(() => {
     const fetchCustomers = async () => {
-      console.log('Fetching customers...');
       try {
         const response = await fetch('/api/customers');
-        console.log('Response status:', response.status);
-        
         if (!response.ok) {
           throw new Error(`Failed to fetch customers: ${response.status}`);
         }
-        
         const data = await response.json();
-        console.log('Received customer data:', {
-          length: data?.length,
-          firstCustomer: data?.[0],
-          lastCustomer: data?.[data.length - 1]
-        });
-        
         if (Array.isArray(data)) {
           setCustomers(data);
-          console.log('Customers state set with', data.length, 'customers');
         } else {
           console.error('Received non-array data:', data);
         }
@@ -86,16 +72,10 @@ export function BookingForm() {
   }, [formData, currentStep]);
 
   const setFormValue = (field: string, value: any) => {
-    console.log('Setting form value:', { field, value });
-    setFormData(prev => {
-      const newData = { ...prev, [field]: value };
-      console.log('New form data:', newData);
-      return newData;
-    });
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleCustomerSelect = (customer: Customer) => {
-    console.log('Selected customer:', customer);
     setFormData(prev => ({
       ...prev,
       customerId: customer.id.toString(),
@@ -104,11 +84,10 @@ export function BookingForm() {
     }));
   };
 
-  const handlePackageSelection = (id: string, name: string) => {
-    console.log('Selected package:', { id, name });
+  const handlePackageSelection = (id: string | null, name: string) => {
     setFormData(prev => ({
       ...prev,
-      packageId: id,
+      packageId: id || undefined,  // Convert null to undefined
       packageName: name,
     }));
   };
@@ -158,14 +137,6 @@ export function BookingForm() {
     setCurrentStep(1);
   };
 
-  // Debug logs before context creation
-  console.log('About to create context value:', {
-    currentStep,
-    isNewCustomer: formData.isNewCustomer,
-    customersLength: customers.length,
-    sampleCustomers: customers.slice(0, 2)
-  });
-
   const contextValue = {
     formData,
     errors,
@@ -175,13 +146,6 @@ export function BookingForm() {
     isSubmitting,
     customers,
   };
-
-  // Debug log after context creation
-  console.log('Created context value:', {
-    formDataIsNewCustomer: contextValue.formData.isNewCustomer,
-    customersLength: contextValue.customers.length,
-    sampleCustomer: contextValue.customers[0]
-  });
 
   return (
     <StepProvider 

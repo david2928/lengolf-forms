@@ -25,7 +25,7 @@ export function CustomerStep() {
   }, [])
 
   const showPackageSelector = !formData.isNewCustomer && 
-    formData.customerName && 
+    Boolean(formData.customerName) && 
     PACKAGE_TYPES.includes(formData.bookingType!)
 
   return (
@@ -46,7 +46,7 @@ export function CustomerStep() {
         }}
       />
 
-      {showPackageSelector && (
+      {showPackageSelector && formData.customerName && (
         <div className="space-y-2">
           <PackageSelector
             customerName={formData.customerName}
