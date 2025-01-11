@@ -53,6 +53,14 @@ export function TimeSlotStep() {
     setFormValue('endTime', endTime);
   };
 
+  const convertToDateTime = (timeString: string | null) => {
+    if (!timeString) return null;
+    const [hours, minutes] = timeString.split(':');
+    const date = new Date(bookingDate);
+    date.setHours(parseInt(hours), parseInt(minutes));
+    return date;
+  };
+
   return (
     <div className="space-y-6">
       <PaxSelector
@@ -92,15 +100,32 @@ export function TimeSlotStep() {
       />
 
       {!formData.isManualMode ? (
-        <BookingTimeSelector
-          selectedDate={bookingDate}
-          selectedTime={typeof formData.startTime === 'string' ? null : formData.startTime}
-          onTimeSelect={(time) => {
-            setFormValue('startTime', time);
-            setFormValue('endTime', addHours(time, 1));
-          }}
-          error={errors.startTime}
-        />
+        <>
+          <BookingTimeSelector
+            selectedDate={bookingDate}
+            selectedTime={typeof formData.startTime === 'string' ? null : formData.startTime}
+            onTimeSelect={(time) => {
+              setFormValue('startTime', time);
+              setFormValue('endTime', addHours(time, 1));
+            }}
+            error={errors.startTime}
+          />
+          {formData.startTime && (
+            <TimeSlots
+              startTime={typeof formData.startTime === 'string' ? 
+                (() => {
+                  const [hours, minutes] = formData.startTime.split(':');
+                  const date = new Date(bookingDate);
+                  date.setHours(parseInt(hours), parseInt(minutes));
+                  return date;
+                })() : 
+                formData.startTime}
+              endTime={typeof formData.endTime === 'string' ? convertToDateTime(formData.endTime) : formData.endTime}
+              onEndTimeSelect={(time) => setFormValue('endTime', time)}
+              error={errors.endTime}
+            />
+          )}
+        </>
       ) : (
         <ManualTimeInput
           bookingDate={bookingDate}

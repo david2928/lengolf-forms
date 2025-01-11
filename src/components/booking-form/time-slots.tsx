@@ -27,6 +27,10 @@ export function TimeSlots({ startTime, endTime, onEndTimeSelect, error }: TimeSl
     const slotEndTime = addHours(currentTime, i);
     const isSelected = endTime && 
       format(new Date(endTime), 'HH:mm') === format(slotEndTime, 'HH:mm');
+      
+    const durationText = i === 1 
+      ? '60min (1 hour)'
+      : `${i * 60}min (${i} hours)`;
 
     slots.push(
       <Button
@@ -38,7 +42,7 @@ export function TimeSlots({ startTime, endTime, onEndTimeSelect, error }: TimeSl
       >
         <div>
           <div className="text-sm">{format(currentTime, 'h:mm a')} - {format(slotEndTime, 'h:mm a')}</div>
-          <div className="text-xs mt-1 opacity-75">{i * 60} mins</div>
+          <div className="text-xs mt-1 opacity-75">{durationText}</div>
         </div>
       </Button>
     );
@@ -52,5 +56,5 @@ export function TimeSlots({ startTime, endTime, onEndTimeSelect, error }: TimeSl
       </div>
       {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
-  ) : null
+  ) : null;
 }
