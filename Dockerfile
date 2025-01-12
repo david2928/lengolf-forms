@@ -12,6 +12,10 @@ ARG GOOGLE_SHEET_ID
 ARG GOOGLE_CLIENT_EMAIL
 ARG GOOGLE_PRIVATE_KEY
 
+# Debug environment variables
+RUN echo "NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}"
+RUN echo "NEXTAUTH_URL: ${NEXTAUTH_URL}"
+
 # Set environment variables from build arguments
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -59,6 +63,10 @@ WORKDIR /app
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+
+# Debug in runner
+RUN echo "Runner NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}"
+RUN echo "Runner NEXTAUTH_URL: ${NEXTAUTH_URL}"
 
 # Expose port
 EXPOSE 3000

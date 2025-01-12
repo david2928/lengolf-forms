@@ -6,18 +6,24 @@ import { useState } from "react";
 
 export default function SignIn() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSignIn = async () => {
     try {
       setLoading(true);
+      setError('');
       console.log('Starting Google sign in...');
-      const result = await signIn('google', { 
+      
+      await signIn('google', { 
         callbackUrl: '/',
-        redirect: true
+      }).catch((error) => {
+        console.error('Sign in promise error:', error);
+        setError('Failed to sign in with Google');
       });
-      console.log('Sign in result:', result);
+      
     } catch (error) {
-      console.error('Sign in error:', error);
+      console.error('Sign in try-catch error:', error);
+      setError('An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -33,6 +39,11 @@ export default function SignIn() {
           <p className="mt-2 text-sm text-gray-600">
             Please sign in with your authorized Google account
           </p>
+          {error && (
+            <p className="mt-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
         </div>
         <div className="mt-8">
           <Button

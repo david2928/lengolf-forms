@@ -1,18 +1,23 @@
-"use client"
+'use client'
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Search, X, Check, ChevronsUpDown } from 'lucide-react'
-import { Customer } from '@/types/package-form'
 import { cn } from "@/lib/utils"
 
+interface SimpleCustomer {
+  id: number;
+  customer_name: string;
+  contact_number: string | null;
+}
+
 interface CustomerSearchProps {
-  customers: Customer[];
-  selectedCustomerId: string;
+  customers: SimpleCustomer[];
+  selectedCustomerId?: string;
   showCustomerDialog: boolean;
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
-  onCustomerSelect: (customer: Customer) => void;
+  onCustomerSelect: (customer: SimpleCustomer) => void;
   onDialogOpenChange: (open: boolean) => void;
   getSelectedCustomerDisplay: () => string;
 }
@@ -29,7 +34,6 @@ export function CustomerSearch({
 }: CustomerSearchProps) {
   const [isMobile, setIsMobile] = useState(false)
 
-  // Check if we're on mobile
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
@@ -39,7 +43,6 @@ export function CustomerSearch({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Handle body scroll when modal is open
   useEffect(() => {
     if (isMobile && showCustomerDialog) {
       document.body.style.overflow = 'hidden'
@@ -54,8 +57,7 @@ export function CustomerSearch({
     (customer.contact_number?.includes(searchQuery) ?? false)
   );
 
-  // Format customer display
-  const formatCustomerDisplay = (customer: Customer, isList: boolean = false) => {
+  const formatCustomerDisplay = (customer: SimpleCustomer, isList: boolean = false) => {
     if (isList) {
       return (
         <div className="flex flex-col">
@@ -87,9 +89,8 @@ export function CustomerSearch({
       {showCustomerDialog && isMobile && (
         <div 
           className="fixed inset-0 bg-background z-50 flex flex-col"
-          style={{ height: '100vh' }}
+          style={{ height: '100dvh' }}
         >
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b bg-background shadow-sm">
             <h2 className="text-lg font-semibold">Select Customer</h2>
             <Button 
@@ -102,7 +103,6 @@ export function CustomerSearch({
             </Button>
           </div>
 
-          {/* Search */}
           <div className="p-2 border-b bg-background">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -115,7 +115,6 @@ export function CustomerSearch({
             </div>
           </div>
 
-          {/* Results */}
           <div className="flex-1 overflow-y-auto p-0">
             <div className="h-full">
               {filteredCustomers.length === 0 && (
@@ -149,13 +148,11 @@ export function CustomerSearch({
         </div>
       )}
 
-      {/* Desktop Dialog */}
       {showCustomerDialog && !isMobile && (
         <div className="fixed inset-0 z-50 flex items-start justify-center">
           <div className="fixed inset-0 bg-background/80" onClick={() => onDialogOpenChange(false)} />
           <div className="relative bg-background rounded-lg shadow-lg w-full max-w-md mt-[10vh]">
             <div className="flex flex-col max-h-[80vh]">
-              {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b">
                 <h2 className="text-lg font-semibold">Select Customer</h2>
                 <Button 
@@ -168,7 +165,6 @@ export function CustomerSearch({
                 </Button>
               </div>
 
-              {/* Search */}
               <div className="p-2 border-b">
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -181,7 +177,6 @@ export function CustomerSearch({
                 </div>
               </div>
 
-              {/* Results */}
               <div className="overflow-y-auto max-h-[calc(80vh-8.5rem)]">
                 {filteredCustomers.length === 0 && (
                   <div className="py-6 text-center text-sm text-muted-foreground">

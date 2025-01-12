@@ -1,121 +1,86 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { FileSpreadsheet, Clock, RefreshCw } from 'lucide-react'
-import { useState } from 'react'
-import { toast } from '@/components/ui/use-toast'
+import { Button } from "@/components/ui/button"
+import { RefreshCw, FileText, Clock, CalendarRange } from "lucide-react"
+import Link from "next/link"
+import { useEffect, useState } from "react"
 
 export default function Home() {
-  const router = useRouter()
-  const [isUpdating, setIsUpdating] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const handleCustomerUpdate = async () => {
+  async function refreshCustomers() {
+    setIsRefreshing(true)
     try {
-      setIsUpdating(true)
-      console.log('Starting customer update process...')
-
       const response = await fetch('/api/crm/update-customers', {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
+        method: 'POST',
       })
-
-      const data = await response.json()
-      
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to update customers')
+        throw new Error('Failed to refresh customers')
       }
-
-      toast({
-        title: "Update Started",
-        description: `Customer data update has been initiated (Batch ID: ${data.batch_id}). ${data.records_processed} records will be processed. This takes about 30 seconds to complete.`,
-      })
-
-      setTimeout(() => {
-        setIsUpdating(false)
-        toast({
-          title: "Update Complete",
-          description: "Customer data has been refreshed. You may now proceed to create packages.",
-        })
-      }, 30000)
-
     } catch (error) {
-      console.error('Error updating customers:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error 
-          ? `Failed to update customers: ${error.message}`
-          : "Failed to start customer update. Please try again.",
-        variant: "destructive"
-      })
-      setIsUpdating(false)
+      console.error('Error refreshing customers:', error)
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
   return (
-    <div className="container mx-auto py-6 md:py-10">
-      <div className="flex flex-col items-center gap-6 md:gap-8">
-        <div className="text-center">
-          <h1 className="text-2xl md:text-3xl font-bold">LENGOLF Forms System</h1>
-          <p className="text-muted-foreground mt-2">
-            Select a form to get started
-          </p>
+    <div className="container max-w-6xl py-6 space-y-8">
+      <div className="space-y-2 text-center">
+        <h1 className="text-3xl font-bold">LENGOLF Forms System</h1>
+        <p className="text-muted-foreground">Select a form to get started</p>
+      </div>
+
+      {/* Update Customer Data */}
+      <Button
+        variant="outline"
+        className="w-full py-8 h-auto"
+        onClick={refreshCustomers}
+        disabled={isRefreshing}
+      >
+        <RefreshCw className={`mr-2 h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+        <div className="flex flex-col items-start">
+          <span className="text-lg font-semibold">Update Customer Data</span>
+          <span className="text-sm text-muted-foreground">Click to refresh customer list</span>
+        </div>
+      </Button>
+
+      {/* Forms Grid */}
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* Create Package */}
+        <div className="flex flex-col space-y-4 p-6 border rounded-lg">
+          <FileText className="h-12 w-12 mx-auto" />
+          <div className="space-y-2 text-center">
+            <h2 className="text-xl font-semibold">Create Package</h2>
+            <p className="text-sm text-muted-foreground">Create new packages for customers</p>
+          </div>
+          <Link href="/create-package" className="mt-auto">
+            <Button className="w-full" variant="secondary">Create Package</Button>
+          </Link>
         </div>
 
-        <div className="w-full max-w-4xl">
-          <Button 
-            variant="outline" 
-            className="w-full mb-6 py-6 flex items-center gap-2"
-            onClick={handleCustomerUpdate}
-            disabled={isUpdating}
-          >
-            <RefreshCw className={`h-5 w-5 text-primary ${isUpdating ? 'animate-spin' : ''}`} />
-            <div className="flex flex-col items-center">
-              <span className="font-medium">
-                {isUpdating ? 'Updating Customer Data...' : 'Update Customer Data'}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                {isUpdating ? 'This will take about 30 seconds' : 'Click to refresh customer list'}
-              </span>
-            </div>
-          </Button>
-          
-          <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-            <Card className="cursor-pointer transition-all hover:shadow-lg" 
-                  onClick={() => router.push('/create-package')}>
-              <CardHeader className="text-center space-y-2 md:space-y-3 py-4 md:py-6">
-                <FileSpreadsheet className="w-8 h-8 md:w-12 md:h-12 mx-auto mb-1 md:mb-2 text-primary" />
-                <CardTitle className="text-lg md:text-xl">Create Package</CardTitle>
-                <CardDescription className="text-sm">
-                  Create new packages for customers
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pb-4 md:pb-6">
-                <Button className="w-full" variant="secondary">
-                  Create Package
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer transition-all hover:shadow-lg"
-                  onClick={() => router.push('/update-package')}>
-              <CardHeader className="text-center space-y-2 md:space-y-3 py-4 md:py-6">
-                <Clock className="w-8 h-8 md:w-12 md:h-12 mx-auto mb-1 md:mb-2 text-primary" />
-                <CardTitle className="text-lg md:text-xl">Update Package Usage</CardTitle>
-                <CardDescription className="text-sm">
-                  Record package usage for customers
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pb-4 md:pb-6">
-                <Button className="w-full" variant="secondary">
-                  Update Package
-                </Button>
-              </CardContent>
-            </Card>
+        {/* Update Package Usage */}
+        <div className="flex flex-col space-y-4 p-6 border rounded-lg">
+          <Clock className="h-12 w-12 mx-auto" />
+          <div className="space-y-2 text-center">
+            <h2 className="text-xl font-semibold">Update Package Usage</h2>
+            <p className="text-sm text-muted-foreground">Record package usage for customers</p>
           </div>
+          <Link href="/update-package" className="mt-auto">
+            <Button className="w-full" variant="secondary">Update Package</Button>
+          </Link>
+        </div>
+
+        {/* Create Booking */}
+        <div className="flex flex-col space-y-4 p-6 border rounded-lg">
+          <CalendarRange className="h-12 w-12 mx-auto" />
+          <div className="space-y-2 text-center">
+            <h2 className="text-xl font-semibold">Create Booking</h2>
+            <p className="text-sm text-muted-foreground">Book bays and manage appointments</p>
+          </div>
+          <Link href="/create-booking" className="mt-auto">
+            <Button className="w-full" variant="secondary">Create Booking</Button>
+          </Link>
         </div>
       </div>
     </div>

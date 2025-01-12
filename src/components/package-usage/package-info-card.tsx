@@ -4,7 +4,25 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PackageDetails, PackageInfoCardProps } from '@/types/package-usage'
+
+interface PackageDetails {
+  id: string
+  customer_name: string
+  package_types: {
+    name: string
+  }
+  purchase_date: string
+  first_use_date: string
+  expiration_date: string
+  totalUsedHours: number
+  remainingHours: number | null
+  daysRemaining: number
+}
+
+interface PackageInfoCardProps {
+  packageId: string
+  isLoading?: boolean
+}
 
 export function PackageInfoCard({ packageId, isLoading = false }: PackageInfoCardProps) {
   const [packageDetails, setPackageDetails] = useState<PackageDetails | null>(null)
@@ -34,26 +52,39 @@ export function PackageInfoCard({ packageId, isLoading = false }: PackageInfoCar
     }
   }, [packageId])
 
-  // Return a placeholder card with the same height when loading or no data
-  const emptyCard = (
-    <Card>
-      <CardContent className="pt-6 min-h-[240px] flex items-center justify-center">
-        {isLoading || loadingDetails ? (
-          <div className="space-y-3 w-full">
+  if (isLoading || loadingDetails) {
+    return (
+      <Card>
+        <CardContent className="pt-6 min-h-[240px]">
+          <div className="space-y-3">
             <Skeleton className="h-4 w-[250px]" />
             <Skeleton className="h-4 w-[200px]" />
             <Skeleton className="h-4 w-[300px]" />
           </div>
-        ) : error ? (
-          <p className="text-red-500">{error}</p>
-        ) : (
-          <p className="text-muted-foreground">Select a package to view details</p>
-        )}
-      </CardContent>
-    </Card>
-  )
+        </CardContent>
+      </Card>
+    )
+  }
 
-  if (!packageDetails) return emptyCard
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="pt-6 min-h-[240px] flex items-center justify-center">
+          <p className="text-red-500">{error}</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!packageDetails) {
+    return (
+      <Card>
+        <CardContent className="pt-6 min-h-[240px] flex items-center justify-center">
+          <p className="text-muted-foreground">Select a package to view details</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>
@@ -65,7 +96,7 @@ export function PackageInfoCard({ packageId, isLoading = false }: PackageInfoCar
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Package Type</p>
-            <p className="text-sm font-semibold">{packageDetails.package_types?.name}</p>
+            <p className="text-sm font-semibold">{packageDetails.package_types.name}</p>
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Purchase Date</p>
@@ -77,9 +108,7 @@ export function PackageInfoCard({ packageId, isLoading = false }: PackageInfoCar
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Hours Used</p>
-            <p className="text-sm font-semibold">
-              {packageDetails.totalUsedHours}
-            </p>
+            <p className="text-sm font-semibold">{packageDetails.totalUsedHours}</p>
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Remaining Hours</p>

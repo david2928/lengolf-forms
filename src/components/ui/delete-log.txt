@@ -1,0 +1,7 @@
+The following files can be safely deleted:
+
+1. src/components/nav-menu.tsx - Unused navigation menu component
+2. src/components/ui/navigation-menu.tsx - Unused shadcn/ui component
+
+Also remove from package.json:
+- @radix-ui/react-navigation-menu

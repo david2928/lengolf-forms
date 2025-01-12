@@ -1,103 +1,95 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut } from 'lucide-react'
+import * as React from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle,
+} from "@/components/ui/navigation-menu"
+import { Package2, Clock, CalendarRange } from "lucide-react"
+
+const components: { title: string; href: string; description: string; icon: React.ReactNode }[] = [
+  {
+    title: "Create Package",
+    href: "/create-package",
+    description: "Create new packages for customers",
+    icon: <Package2 className="h-6 w-6" />,
+  },
+  {
+    title: "Update Package",
+    href: "/update-package",
+    description: "Record package usage for customers",
+    icon: <Clock className="h-6 w-6" />,
+  },
+  {
+    title: "Create Booking",
+    href: "/create-booking",
+    description: "Book bays and manage appointments",
+    icon: <CalendarRange className="h-6 w-6" />,
+  },
+]
 
 export function NavMenu() {
   const pathname = usePathname()
-  const { status } = useSession()
-
-  // Don't render anything if not authenticated
-  if (status !== 'authenticated') {
-    return null;
-  }
-
-  // Full menu for desktop
-  const DesktopMenu = () => (
-    <div className="flex items-center w-full">
-      <div className="flex items-center space-x-4">
-        <Link href="/">
-          <Button 
-            variant={pathname === '/' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="gap-2"
-          >
-            <Home className="h-4 w-4" />
-            Home
-          </Button>
-        </Link>
-        <Link href="/create-package">
-          <Button 
-            variant={pathname === '/create-package' ? 'secondary' : 'ghost'}
-            size="sm"
-          >
-            Create Package
-          </Button>
-        </Link>
-        <Link href="/update-package">
-          <Button 
-            variant={pathname === '/update-package' ? 'secondary' : 'ghost'}
-            size="sm"
-          >
-            Update Package
-          </Button>
-        </Link>
-      </div>
-      <div className="ml-auto">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => signOut()}
-          className="border border-gray-200"
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign Out
-        </Button>
-      </div>
-    </div>
-  )
-
-  // Simple menu for mobile
-  const MobileMenu = () => (
-    <>
-      <Link href="/" className="flex-1">
-        <Button 
-          variant={pathname === '/' ? 'secondary' : 'ghost'}
-          size="sm"
-          className="w-full gap-2"
-        >
-          <Home className="h-4 w-4" />
-          Home
-        </Button>
-      </Link>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => signOut()}
-        className="flex-1 border border-gray-200"
-      >
-        <LogOut className="h-4 w-4 mr-2" />
-        Sign Out
-      </Button>
-    </>
-  )
 
   return (
-    <div className="border-b">
-      <div className="container h-14 flex items-center">
-        {/* Hide desktop menu on mobile, show on desktop */}
-        <div className="hidden md:flex items-center w-full">
-          <DesktopMenu />
-        </div>
-        {/* Show mobile menu on mobile, hide on desktop */}
-        <div className="flex md:hidden items-center space-x-2 w-full">
-          <MobileMenu />
-        </div>
-      </div>
-    </div>
+    <NavigationMenu>
+      <NavigationMenuList>
+        <NavigationMenuItem>
+          <NavigationMenuTrigger>Forms</NavigationMenuTrigger>
+          <NavigationMenuContent>
+            <ul className="grid w-[400px] gap-3 p-4 md:grid-cols-1">
+              {components.map((component) => (
+                <ListItem
+                  key={component.title}
+                  title={component.title}
+                  href={component.href}
+                  active={pathname === component.href}
+                >
+                  <div className="flex items-center gap-2">
+                    {component.icon}
+                    <span>{component.description}</span>
+                  </div>
+                </ListItem>
+              ))}
+            </ul>
+          </NavigationMenuContent>
+        </NavigationMenuItem>
+      </NavigationMenuList>
+    </NavigationMenu>
   )
 }
+
+const ListItem = React.forwardRef<
+  React.ElementRef<"a">,
+  React.ComponentPropsWithoutRef<"a"> & { active?: boolean }
+>(({ className, title, children, active, ...props }, ref) => {
+  return (
+    <li>
+      <NavigationMenuLink asChild>
+        <a
+          ref={ref}
+          className={cn(
+            "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+            active && "bg-accent",
+            className
+          )}
+          {...props}
+        >
+          <div className="text-sm font-medium leading-none">{title}</div>
+          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+            {children}
+          </p>
+        </a>
+      </NavigationMenuLink>
+    </li>
+  )
+})
+ListItem.displayName = "ListItem"

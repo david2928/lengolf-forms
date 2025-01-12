@@ -77,7 +77,7 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
       >
         Failed to load packages
       </Button>
-    );
+    )
   }
 
   return (
@@ -103,9 +103,7 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
 
       {open && (
         isMobile ? (
-          // Mobile fullscreen view
           <div className="fixed inset-0 bg-background z-50 flex flex-col">
-            {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b bg-background shadow-sm">
               <h2 className="text-lg font-semibold">Select Package</h2>
               <Button 
@@ -122,7 +120,6 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
               </Button>
             </div>
 
-            {/* Search Input */}
             <div className="p-2 border-b bg-background">
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -139,7 +136,6 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
               </div>
             </div>
 
-            {/* Package List */}
             <div className="flex-1 overflow-y-auto">
               {isLoading ? (
                 <div className="flex items-center px-4 py-3">
@@ -175,7 +171,6 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
             </div>
           </div>
         ) : (
-          // Desktop modal view
           <>
             <div className="fixed inset-0 z-50 flex items-start justify-center">
               <div className="fixed inset-0 bg-background/80" onClick={() => {
@@ -184,7 +179,6 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
               }} />
               <div className="relative bg-background rounded-lg shadow-lg w-full max-w-md mt-[10vh]">
                 <div className="flex flex-col max-h-[80vh]">
-                  {/* Header */}
                   <div className="flex items-center justify-between px-4 py-3 border-b">
                     <h2 className="text-lg font-semibold">Select Package</h2>
                     <Button 
@@ -200,7 +194,6 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
                     </Button>
                   </div>
 
-                  {/* Search */}
                   <div className="p-2 border-b">
                     <div className="relative">
                       <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -217,7 +210,6 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
                     </div>
                   </div>
 
-                  {/* Package List */}
                   <div className="overflow-y-auto max-h-[calc(80vh-8.5rem)]">
                     {isLoading ? (
                       <div className="px-4 py-3">
