@@ -5,6 +5,14 @@ import { Button } from '@/components/ui/button'
 import { FileText, Clock, RefreshCw, CalendarRange } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from '@/components/ui/use-toast'
+import { LucideIcon } from 'lucide-react'
+
+interface MenuItemProps {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  onClick: () => void;
+}
 
 export default function Home() {
   const router = useRouter()
@@ -54,65 +62,94 @@ export default function Home() {
     }
   }
 
+  const MobileMenuItem = ({ icon: Icon, title, description, onClick }: MenuItemProps) => (
+    <div 
+      className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
+      onClick={onClick}
+    >
+      <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
+      <div>
+        <h2 className="font-medium">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  )
+
+  const DesktopMenuItem = ({ icon: Icon, title, description, onClick }: MenuItemProps) => (
+    <div 
+      className="flex flex-col space-y-4 p-6 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+      onClick={onClick}
+    >
+      <Icon className="h-12 w-12 mx-auto text-primary" />
+      <div className="space-y-2 text-center">
+        <h2 className="text-xl font-semibold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <Button className="mt-auto" variant="secondary">{title}</Button>
+    </div>
+  )
+
   return (
-    <div className="container max-w-lg mx-auto px-4 py-4 space-y-4">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold">LENGOLF Forms System</h1>
-        <p className="text-sm text-muted-foreground mt-1">Select a form to get started</p>
+    <div className="container max-w-6xl py-6">
+      <div className="text-center mb-6">
+        <h1 className="text-2xl font-bold">LENGOLF Forms System</h1>
+        <p className="text-muted-foreground mt-1">Select a form to get started</p>
       </div>
 
-      {/* Update Customer Data Tool */}
       <div className="mb-6">
         <Button
           variant="outline"
           size="sm"
-          className="w-auto"
+          className="w-full flex items-center gap-2 md:w-auto"
           onClick={handleCustomerUpdate}
           disabled={isUpdating}
         >
-          <RefreshCw className={`mr-2 h-4 w-4 ${isUpdating ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${isUpdating ? 'animate-spin' : ''}`} />
           <span>{isUpdating ? 'Updating Customer Data...' : 'Update Customer Data'}</span>
         </Button>
         <p className="text-xs text-muted-foreground mt-1">Click to refresh customer list</p>
       </div>
 
-      {/* Forms List */}
-      <div className="space-y-3">
-        {/* Create Booking */}
-        <div 
-          className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
+      <div className="space-y-3 md:hidden">
+        <MobileMenuItem
+          icon={CalendarRange}
+          title="Create Booking"
+          description="Book bays and manage appointments"
           onClick={() => router.push('/create-booking')}
-        >
-          <CalendarRange className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <h2 className="font-medium">Create Booking</h2>
-            <p className="text-sm text-muted-foreground">Book bays and manage appointments</p>
-          </div>
-        </div>
-
-        {/* Create Package */}
-        <div 
-          className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
+        />
+        <MobileMenuItem
+          icon={FileText}
+          title="Create Package"
+          description="Create new packages for customers"
           onClick={() => router.push('/create-package')}
-        >
-          <FileText className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <h2 className="font-medium">Create Package</h2>
-            <p className="text-sm text-muted-foreground">Create new packages for customers</p>
-          </div>
-        </div>
-
-        {/* Update Package Usage */}
-        <div 
-          className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
+        />
+        <MobileMenuItem
+          icon={Clock}
+          title="Update Package Usage"
+          description="Record package usage for customers"
           onClick={() => router.push('/update-package')}
-        >
-          <Clock className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <h2 className="font-medium">Update Package Usage</h2>
-            <p className="text-sm text-muted-foreground">Record package usage for customers</p>
-          </div>
-        </div>
+        />
+      </div>
+
+      <div className="hidden md:grid md:grid-cols-3 md:gap-6">
+        <DesktopMenuItem
+          icon={CalendarRange}
+          title="Create Booking"
+          description="Book bays and manage appointments"
+          onClick={() => router.push('/create-booking')}
+        />
+        <DesktopMenuItem
+          icon={FileText}
+          title="Create Package"
+          description="Create new packages for customers"
+          onClick={() => router.push('/create-package')}
+        />
+        <DesktopMenuItem
+          icon={Clock}
+          title="Update Package Usage"
+          description="Record package usage for customers"
+          onClick={() => router.push('/update-package')}
+        />
       </div>
     </div>
   )
