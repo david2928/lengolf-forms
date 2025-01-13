@@ -7,18 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { format } from 'date-fns'
 import { Loader2 } from 'lucide-react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Customer, PackageType, PackageFormData, EMPLOYEES, FormState } from '@/types/package-form'
 import { CustomerSearch } from './customer-search'
 import { DatePicker } from '../ui/date-picker'
 import { ConfirmationDialog } from './confirmation-dialog'
+import { PackageTypeSection } from './form-sections/package-type-section'
 
 interface SimpleCustomer {
   id: number;
@@ -56,6 +50,11 @@ export default function PackageForm() {
     firstUseDate: null
   }
 
+  const form = useForm<PackageFormData>({
+    defaultValues,
+    mode: 'onBlur'
+  })
+
   const { 
     register, 
     handleSubmit, 
@@ -65,10 +64,7 @@ export default function PackageForm() {
     formState: { errors },
     trigger,
     clearErrors
-  } = useForm<PackageFormData>({
-    defaultValues,
-    mode: 'onBlur'
-  })
+  } = form
 
   useEffect(() => {
     async function fetchData() {
@@ -325,40 +321,10 @@ export default function PackageForm() {
           )}
         </div>
 
-        <div className="space-y-2">
-          <Label>
-            Package Type
-          </Label>
-          <input
-            type="hidden"
-            {...register('packageTypeId', { 
-              required: "Package type is required" 
-            })}
-          />
-          <Select 
-            onValueChange={(value) => {
-              setValue('packageTypeId', parseInt(value))
-              trigger('packageTypeId')
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select package type" />
-            </SelectTrigger>
-            <SelectContent>
-              {formState.packageTypes.map((type) => (
-                <SelectItem 
-                  key={type.id} 
-                  value={type.id.toString()}
-                >
-                  {type.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.packageTypeId && (
-            <p className="text-red-500 text-sm mt-1">{errors.packageTypeId.message}</p>
-          )}
-        </div>
+        <PackageTypeSection
+          form={form}
+          packageTypes={formState.packageTypes}
+        />
 
         <div className="space-y-2">
           <DatePicker
