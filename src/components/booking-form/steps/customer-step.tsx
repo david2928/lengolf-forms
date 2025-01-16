@@ -5,7 +5,6 @@ import { useFormContext } from '../context/form-context'
 import { CustomerDetails } from '../customer-details'
 import { PackageSelector } from '../package-selector'
 import { PackageInfoCard } from '@/components/package-usage/package-info-card'
-import { mutate } from 'swr'
 
 const PACKAGE_TYPES = ['Package', 'Coaching (Boss)', 'Coaching (Boss - Ratchavin)']
 
@@ -17,12 +16,16 @@ export function CustomerStep() {
     handleCustomerSelect,
     handlePackageSelection,
     isSubmitting,
-    customers 
+    customers,
+    mutateCustomers 
   } = useFormContext();
 
   useEffect(() => {
-    mutate('/api/customers')
-  }, [])
+    // Only call mutateCustomers if it exists
+    if (mutateCustomers) {
+      mutateCustomers().catch(console.error);
+    }
+  }, [mutateCustomers]);
 
   const showPackageSelector = !formData.isNewCustomer && 
     Boolean(formData.customerName) && 

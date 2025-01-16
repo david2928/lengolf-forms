@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    // Using range instead of limit to get all records
     const { data: customers, error, count } = await supabase
       .from('customers')
       .select('id, customer_name, contact_number', { count: 'exact' })
@@ -13,7 +12,11 @@ export async function GET() {
     if (error) throw error;
 
     if (!customers) {
-      return NextResponse.json([]);
+      return new NextResponse(JSON.stringify([]), {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+        },
+      });
     }
 
     const formattedCustomers = customers.map(customer => ({
@@ -25,12 +28,21 @@ export async function GET() {
     // Only log the counts
     console.log(`Customers: ${formattedCustomers.length} of ${count} total`);
 
-    return NextResponse.json(formattedCustomers);
+    return new NextResponse(JSON.stringify(formattedCustomers), {
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+      },
+    });
   } catch (error) {
     console.error('Error fetching customers:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch customers' },
-      { status: 500 }
+    return new NextResponse(
+      JSON.stringify({ error: 'Failed to fetch customers' }),
+      { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+        },
+      }
     );
   }
 }
