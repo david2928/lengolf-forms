@@ -10,6 +10,7 @@ export interface FormContextType {
   handlePackageSelection: (id: string | null, name: string) => void;
   isSubmitting: boolean;
   customers: Customer[];
+  mutateCustomers?: () => Promise<any>;
 }
 
 export const FormContext = createContext<FormContextType | null>(null);

@@ -3,18 +3,15 @@
 import { useEffect, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Clock } from 'lucide-react'
 import { DateTime } from 'luxon'
 import { cn } from '@/lib/utils'
+import { format } from 'date-fns'
 
 const BAYS = [
   { id: 'Bay 1 (Bar)', name: 'Bay 1 (Bar)' },
   { id: 'Bay 2', name: 'Bay 2' },
   { id: 'Bay 3 (Entrance)', name: 'Bay 3 (Entrance)' }
 ];
-
-const BUSINESS_START = '10:00';
-const BUSINESS_END = '22:00';
 
 interface BusyTime {
   start: string;
@@ -24,8 +21,8 @@ interface BusyTime {
 interface BaySelectorProps {
   selectedDate: Date;
   selectedBay: string | null;
-  selectedStartTime: string | null;
-  selectedEndTime: string | null;
+  selectedStartTime: string | null | Date;
+  selectedEndTime: string | null | Date;
   onBaySelect: (bay: string) => void;
   onTimeSelect: (start: string, end: string) => void;
   isManualMode?: boolean;
@@ -56,10 +53,10 @@ export function BaySelector({
   }, [selectedDate, isManualMode]);
 
   useEffect(() => {
-    if (selectedStartTime && !isManualMode) {
+    if (selectedStartTime && selectedEndTime && !isManualMode) {
       updateAvailableBays();
     }
-  }, [selectedStartTime, busyTimesByBay, isManualMode]);
+  }, [selectedStartTime, selectedEndTime, busyTimesByBay, isManualMode, selectedDate]);
 
   const fetchAllBaysAvailability = async () => {
     setLoading(true);
@@ -90,10 +87,25 @@ export function BaySelector({
   };
 
   const updateAvailableBays = () => {
-    if (!selectedStartTime) return;
+    if (!selectedStartTime || !selectedEndTime || !selectedDate) return;
 
-    const startTime = DateTime.fromFormat(selectedStartTime, 'HH:mm');
-    const endTime = startTime.plus({ hours: 1 });
+    // Convert start time
+    const startTime = selectedStartTime instanceof Date 
+      ? DateTime.fromJSDate(selectedStartTime).setZone('Asia/Bangkok')
+      : DateTime.fromFormat(selectedStartTime, 'HH:mm').set({
+          year: selectedDate.getFullYear(),
+          month: selectedDate.getMonth() + 1,
+          day: selectedDate.getDate()
+        }).setZone('Asia/Bangkok');
+
+    // Convert end time
+    const endTime = selectedEndTime instanceof Date
+      ? DateTime.fromJSDate(selectedEndTime).setZone('Asia/Bangkok')
+      : DateTime.fromFormat(selectedEndTime, 'HH:mm').set({
+          year: selectedDate.getFullYear(),
+          month: selectedDate.getMonth() + 1,
+          day: selectedDate.getDate()
+        }).setZone('Asia/Bangkok');
 
     const available = BAYS.filter(bay => {
       const busyTimesForBay = busyTimesByBay[bay.id] || [];

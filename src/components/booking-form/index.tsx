@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import { FormProvider, validateStep1, validateStep2, validateStep3 } from './context/form-provider';
 import { StepProvider } from './navigation/step-context';
 import StepContent from './steps/step-content';
@@ -27,34 +28,30 @@ const initialFormData: FormData = {
   numberOfPax: 1
 };
 
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch customers: ${response.status}`);
+  }
+  return response.json();
+};
+
 export function BookingForm() {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [canProgress, setCanProgress] = useState(false);
-  const [customers, setCustomers] = useState<Customer[]>([]);
 
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const response = await fetch('/api/customers');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch customers: ${response.status}`);
-        }
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setCustomers(data);
-        } else {
-          console.error('Received non-array data:', data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch customers:', error);
-      }
-    };
-
-    fetchCustomers();
-  }, []);
+  const { data: customers = [], mutate: mutateCustomers } = useSWR<Customer[]>(
+    '/api/customers',
+    fetcher,
+    {
+      revalidateOnFocus: true,
+      revalidateOnMount: true,
+      dedupingInterval: 0
+    }
+  );
 
   useEffect(() => {
     let stepErrors = {};
@@ -115,6 +112,8 @@ export function BookingForm() {
         if (result.success) {
           setFormData(initialFormData);
           setCurrentStep(1);
+          // Refresh customers list after successful submission
+          await mutateCustomers();
         }
       } catch (error) {
         console.error('Submission error:', error);
@@ -145,6 +144,7 @@ export function BookingForm() {
     handlePackageSelection,
     isSubmitting,
     customers,
+    mutateCustomers
   };
 
   return (
