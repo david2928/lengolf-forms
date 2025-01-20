@@ -43,15 +43,16 @@ export function BookingForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [canProgress, setCanProgress] = useState(false);
 
+  // Add forceRefresh parameter to the URL
   const { data: customers = [], mutate: mutateCustomers } = useSWR<Customer[]>(
-    '/api/customers',
-    fetcher,
-    {
-      revalidateOnFocus: true,
-      revalidateOnMount: true,
-      dedupingInterval: 0
-    }
+    '/api/customers?forceRefresh=true',
+    fetcher
   );
+
+  useEffect(() => {
+    // Force refresh customers list when component mounts
+    mutateCustomers();
+  }, [mutateCustomers]);
 
   useEffect(() => {
     let stepErrors = {};
@@ -84,9 +85,18 @@ export function BookingForm() {
   const handlePackageSelection = (id: string | null, name: string) => {
     setFormData(prev => ({
       ...prev,
-      packageId: id || undefined,  // Convert null to undefined
+      packageId: id || undefined,
       packageName: name,
     }));
+  };
+
+  const refreshCustomers = async () => {
+    try {
+      await fetch('/api/refresh-customers', { method: 'POST' });
+      await mutateCustomers();
+    } catch (error) {
+      console.error('Error refreshing customers:', error);
+    }
   };
 
   const handleNext = async () => {
@@ -113,7 +123,7 @@ export function BookingForm() {
           setFormData(initialFormData);
           setCurrentStep(1);
           // Refresh customers list after successful submission
-          await mutateCustomers();
+          await refreshCustomers();
         }
       } catch (error) {
         console.error('Submission error:', error);
