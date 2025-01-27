@@ -15,7 +15,7 @@ const STEPS = {
   3: TimeSlotStep,
 } as const;
 
-interface StepContentProps {
+export interface StepContentProps {
   currentStep: number
   formData: BookingFormData
   setFormData: (data: BookingFormData) => void
@@ -24,6 +24,8 @@ interface StepContentProps {
   onSuccess: () => void
   onNext: () => void
   onPrev: () => void
+  onNavigateToStep: (step: number) => void
+  onReset: () => void
 }
 
 const initialFormData: BookingFormData = {
@@ -38,7 +40,13 @@ const initialFormData: BookingFormData = {
   isManualMode: false,
   bayNumber: undefined,
   notes: '',
-  numberOfPax: 1
+  numberOfPax: 1,
+  isSubmitted: false,
+  submissionStatus: {
+    booking: false,
+    calendar: false,
+    notification: false
+  }
 };
 
 const StepContent = ({ 
@@ -49,7 +57,9 @@ const StepContent = ({
   setIsSubmitting,
   onSuccess,
   onNext,
-  onPrev
+  onPrev,
+  onNavigateToStep,
+  onReset
 }: StepContentProps) => {
   const [showConfirmation, setShowConfirmation] = React.useState(false);
 
@@ -89,13 +99,21 @@ const StepContent = ({
         return;
       }
     }
-    onNext();
+    onNavigateToStep(currentStep + 1);
   };
 
   const handleReset = () => {
-    setFormData(initialFormData);
+    setFormData({
+      ...initialFormData,
+      isSubmitted: false,
+      submissionStatus: {
+        booking: false,
+        calendar: false,
+        notification: false
+      }
+    });
     setShowConfirmation(false);
-    onNext();
+    onNavigateToStep(1);
   };
 
   const handleSubmitSuccess = () => {
@@ -108,14 +126,16 @@ const StepContent = ({
     handleReset();
   };
 
-  if (currentStep === 4) {
+  // Show SubmitStep when form is submitted
+  if (formData.isSubmitted) {
     return (
       <SubmitStep 
         formData={formData}
         isSubmitting={isSubmitting}
         setIsSubmitting={setIsSubmitting}
         onSuccess={handleSubmitSuccess}
-        onReset={handleReset}
+        onReset={onReset}
+        onNavigateToStep={onNavigateToStep}
       />
     );
   }

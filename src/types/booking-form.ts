@@ -1,24 +1,30 @@
-export type BookingSource = 'LINE' | 'Walk-in' | 'Phone' | 'Whatsapp' | 'Instagram/Facebook' | 'Website / ResOS' | 'ClassPass' | 'Other';
+export type BookingSource = 'LINE' | 'Facebook' | 'Instagram' | 'Walk-in' | 'Phone';
 
-export type BookingType = 'Package' | 'Coaching (Boss)' | 'Coaching (Boss - Ratchavin)' | 'Normal Bay Rate' | 'ClassPass' | 'VR' | 'Others (e.g. Events)';
+export type BookingType = 'Normal Bay Rate' | 'Package' | 'Event' | 'Class';
 
 export interface BookingFormData {
   employeeName: string | null;
   customerContactedVia: string | null;
   bookingType: string | null;
   isNewCustomer: boolean;
+  bookingDate: Date | null;
+  startTime: string | null;
+  endTime: string | null;
+  duration: number;
+  isManualMode: boolean;
+  bayNumber?: string;
+  notes: string;
+  numberOfPax: number;
   customerId?: string;
   customerName?: string;
-  customerPhone?: string | undefined;
+  customerPhone?: string;
   packageId?: string;
   packageName?: string;
-  errors?: {[key: string]: string};
-  bookingDate: Date | null;
-  numberOfPax: number | null;
-  isManualMode?: boolean;
-  startTime: Date | string | null;
-  endTime: string | null;
-  duration?: number;
-  bayNumber?: string;
-  notes?: string;
+  errors?: { [key: string]: string };
+  isSubmitted?: boolean;
+  submissionStatus?: {
+    booking: boolean;
+    calendar: boolean;
+    notification: boolean;
+  };
 }
