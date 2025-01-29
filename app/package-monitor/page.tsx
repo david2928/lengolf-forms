@@ -1,7 +1,7 @@
 'use client';
 
 import { PackageGrid } from '@/components/package-monitor/package-grid';
-import CustomerSelector from '@/components/package-monitor/customer-selector';
+import { CustomerSelector } from '@/components/package-monitor/customer-selector';
 import { usePackageMonitor } from '@/hooks/use-package-monitor';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';

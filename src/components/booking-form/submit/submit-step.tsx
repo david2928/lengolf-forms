@@ -48,6 +48,35 @@ const getFormattedDate = (date: Date | null): string => {
   return `${weekday}, ${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
 };
 
+function getOrdinalNum(n: number) {
+  return n + (["st","nd","rd"][((n+90)%100-10)%10-1] || "th");
+}
+
+const thaiWeekdays: { [key: string]: string } = {
+  'Monday': 'จันทร์',
+  'Tuesday': 'อังคาร',
+  'Wednesday': 'พุธ',
+  'Thursday': 'พฤหัสบดี',
+  'Friday': 'ศุกร์',
+  'Saturday': 'เสาร์',
+  'Sunday': 'อาทิตย์'
+};
+
+const thaiMonths: { [key: string]: string } = {
+  'January': 'มกราคม',
+  'February': 'กุมภาพันธ์',
+  'March': 'มีนาคม',
+  'April': 'เมษายน',
+  'May': 'พฤษภาคม',
+  'June': 'มิถุนายน',
+  'July': 'กรกฎาคม',
+  'August': 'สิงหาคม',
+  'September': 'กันยายน',
+  'October': 'ตุลาคม',
+  'November': 'พฤศจิกายน',
+  'December': 'ธันวาคม'
+};
+
 export function SubmitStep({ 
   formData, 
   isSubmitting, 
@@ -61,20 +90,36 @@ export function SubmitStep({
   const [copied, setCopied] = React.useState(false);
 
   const messages = React.useMemo(() => {
-    const dateStr = formData.bookingDate?.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric'
-    });
+    const date = formData.bookingDate;
+    if (!date) return {
+      thShort: '',
+      thLong: '',
+      enShort: '',
+      enLong: ''
+    };
+
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const month = date.toLocaleDateString('en-US', { month: 'long' });
+    const day = getOrdinalNum(date.getDate());
+    
     const startTime = formData.startTime && new Date(formData.startTime)
       .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const endTime = formData.endTime && new Date(formData.endTime)
       .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    // English format
+    const dateTimeStr = `${weekday}, ${month} ${day} at ${startTime} - ${endTime}`;
+    
+    // Thai format
+    const thaiWeekday = thaiWeekdays[weekday];
+    const thaiMonth = thaiMonths[month];
+    const thaiDateTimeStr = `วัน${thaiWeekday}ที่ ${date.getDate()} ${thaiMonth} เวลา ${startTime} - ${endTime}`;
+
     return {
-      thShort: `ยืนยันการจองสำหรับวันที่ ${dateStr} เวลา ${startTime} - ${endTime} เรียบร้อยค่ะ  🙏⛳`,
-      thLong: `ยืนยันการจองสำหรับวันที่ ${dateStr} เวลา ${startTime} - ${endTime} เรียบร้อยค่ะ  🙏⛳\nหากต้องการเปลี่ยนแปลงการจอง กรุณาแจ้งให้ทราบอย่างน้อย 2 ชม. ก่อนเวลาที่จองค่ะ 🙏`,
-      enShort: `Your booking is confirmed for ${dateStr} at ${startTime} - ${endTime}.`,
-      enLong: `Your booking is confirmed for ${dateStr} at ${startTime} - ${endTime}. If you need to make any changes to your booking, please let us know at least 2 hours before your scheduled time.`
+      thShort: `ยืนยันการจองสำหรับ${thaiDateTimeStr} เรียบร้อยค่ะ  🙏⛳`,
+      thLong: `ยืนยันการจองสำหรับ${thaiDateTimeStr} เรียบร้อยค่ะ  🙏⛳\nหากต้องการเปลี่ยนแปลงการจอง กรุณาแจ้งให้ทราบอย่างน้อย 2 ชม. ก่อนเวลาที่จองค่ะ 🙏`,
+      enShort: `Your booking is confirmed for ${dateTimeStr}.`,
+      enLong: `Your booking is confirmed for ${dateTimeStr}. If you need to make any changes to your booking, please let us know at least 2 hours before your scheduled time.`
     };
   }, [formData]);
 

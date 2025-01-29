@@ -33,7 +33,7 @@ interface CustomerSelectorProps {
   onCustomerSelect: (customerId: string) => void;
 }
 
-export default function CustomerSelector({ onCustomerSelect }: CustomerSelectorProps) {
+export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSelect }) => {
   const [showDialog, setShowDialog] = useState(false)
   const [showActive, setShowActive] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<string>()
