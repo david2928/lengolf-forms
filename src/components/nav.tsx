@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
 import { Home, LogOut } from 'lucide-react'
+import { PackageMonitorNavButton } from './package-monitor/nav-button'
 
 export function Nav() {
   const pathname = usePathname()
@@ -36,6 +37,7 @@ export function Nav() {
             Create Booking
           </Button>
         </Link>
+        <PackageMonitorNavButton />
       </div>
       <div className="ml-auto">
         <Button variant="outline" size="sm" onClick={() => signOut()} className="border border-gray-200">
@@ -54,6 +56,7 @@ export function Nav() {
           Home
         </Button>
       </Link>
+      <PackageMonitorNavButton />
       <Button variant="outline" size="sm" onClick={() => signOut()} className="flex-1 border border-gray-200">
         <LogOut className="h-4 w-4 mr-2" />
         Sign Out

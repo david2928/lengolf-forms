@@ -13,7 +13,7 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import { Package2, Clock, CalendarRange } from "lucide-react"
+import { Package2, Clock, CalendarRange, Diamond } from "lucide-react"
 
 const components: { title: string; href: string; description: string; icon: React.ReactNode }[] = [
   {
@@ -33,6 +33,12 @@ const components: { title: string; href: string; description: string; icon: Reac
     href: "/create-booking",
     description: "Book bays and manage appointments",
     icon: <CalendarRange className="h-6 w-6" />,
+  },
+  {
+    title: "Package Monitor",
+    href: "/package-monitor",
+    description: "Monitor Diamond and expiring packages",
+    icon: <Diamond className="h-6 w-6" />,
   },
 ]
 
