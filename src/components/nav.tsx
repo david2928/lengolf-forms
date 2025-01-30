@@ -22,22 +22,26 @@ export function Nav() {
             Home
           </Button>
         </Link>
+        <Link href="/create-booking">
+          <Button variant={pathname === '/create-booking' ? 'secondary' : 'ghost'} size="sm">
+            Booking Creation
+          </Button>
+        </Link>
         <Link href="/create-package">
           <Button variant={pathname === '/create-package' ? 'secondary' : 'ghost'} size="sm">
-            Create Package
+            Package Creation
           </Button>
         </Link>
         <Link href="/update-package">
           <Button variant={pathname === '/update-package' ? 'secondary' : 'ghost'} size="sm">
-            Update Package
+            Package Usage
           </Button>
         </Link>
-        <Link href="/create-booking">
-          <Button variant={pathname === '/create-booking' ? 'secondary' : 'ghost'} size="sm">
-            Create Booking
+        <Link href="/package-monitor">
+          <Button variant={pathname === '/package-monitor' ? 'secondary' : 'ghost'} size="sm">
+            Package Monitor
           </Button>
         </Link>
-        <PackageMonitorNavButton />
       </div>
       <div className="ml-auto">
         <Button variant="outline" size="sm" onClick={() => signOut()} className="border border-gray-200">

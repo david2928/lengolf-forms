@@ -17,6 +17,12 @@ import { Package2, Clock, CalendarRange, Diamond } from "lucide-react"
 
 const components: { title: string; href: string; description: string; icon: React.ReactNode }[] = [
   {
+    title: "Create Booking",
+    href: "/create-booking",
+    description: "Book bays and manage appointments",
+    icon: <CalendarRange className="h-6 w-6" />,
+  },
+  {
     title: "Create Package",
     href: "/create-package",
     description: "Create new packages for customers",
@@ -27,12 +33,6 @@ const components: { title: string; href: string; description: string; icon: Reac
     href: "/update-package",
     description: "Record package usage for customers",
     icon: <Clock className="h-6 w-6" />,
-  },
-  {
-    title: "Create Booking",
-    href: "/create-booking",
-    description: "Book bays and manage appointments",
-    icon: <CalendarRange className="h-6 w-6" />,
   },
   {
     title: "Package Monitor",

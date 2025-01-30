@@ -68,7 +68,7 @@ export default function Home() {
   }
 
   const packageInfo = packageData && (
-    <div className="text-sm font-medium flex gap-3">
+    <div className="text-sm font-medium flex gap-3 mt-2">
       <span className="inline-flex items-center gap-1 text-blue-600">
         <Diamond className="h-3 w-3" />
         {packageData.diamond.count}
@@ -87,9 +87,20 @@ export default function Home() {
     >
       <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
       <div className="flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between">
           <h2 className="font-medium">{title}</h2>
-          {extraInfo}
+          {extraInfo && (
+            <div className="text-base font-medium flex gap-4">
+              <span className="inline-flex items-center gap-1.5 text-blue-600">
+                <Diamond className="h-4 w-4" />
+                {packageData?.diamond.count}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-amber-600">
+                <Clock className="h-4 w-4" />
+                {packageData?.expiring.count}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -100,11 +111,11 @@ export default function Home() {
       className="flex flex-col p-6 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
       onClick={onClick}
     >
-      <div className="flex flex-col items-center text-center">
+      <div className="flex flex-col items-center text-center flex-1">
         <Icon className="h-12 w-12 mb-4 text-primary" />
         <h2 className="text-xl font-semibold">{title}</h2>
-        {extraInfo}
         {description && <p className="text-sm text-muted-foreground mt-2">{description}</p>}
+        {extraInfo}
       </div>
       <Button className="w-full mt-6" variant="secondary">{title}</Button>
     </div>
@@ -113,26 +124,26 @@ export default function Home() {
   const menuItems = [
     {
       icon: CalendarRange,
-      title: "Create Booking",
-      description: !isMobile ? "Book bays and manage appointments" : undefined,
+      title: "Booking Creation",
+      description: !isMobile ? "Manage bay appointments" : undefined,
       path: '/create-booking'
     },
     {
       icon: FileText,
-      title: "Create Package",
-      description: !isMobile ? "Create new packages for customers" : undefined,
+      title: "Package Creation",
+      description: !isMobile ? "New customer packages" : undefined,
       path: '/create-package'
     },
     {
       icon: Clock,
-      title: "Update Package Usage",
-      description: !isMobile ? "Record package usage for customers" : undefined,
+      title: "Package Usage",
+      description: !isMobile ? "Record customer usage" : undefined,
       path: '/update-package'
     },
     {
       icon: Package2,
       title: "Package Monitor",
-      description: !isMobile ? "Monitor Diamond and expiring packages" : undefined,
+      description: !isMobile ? "Track package status" : undefined,
       path: '/package-monitor',
       extraInfo: packageInfo
     }
@@ -172,7 +183,7 @@ export default function Home() {
         ))}
       </div>
 
-      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6">
+      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
         {menuItems.map((item) => (
           <DesktopMenuItem
             key={item.title}
