@@ -24,17 +24,17 @@ export function Nav() {
         </Link>
         <Link href="/create-booking">
           <Button variant={pathname === '/create-booking' ? 'secondary' : 'ghost'} size="sm">
-            Booking Creation
+            Create Booking
           </Button>
         </Link>
         <Link href="/create-package">
           <Button variant={pathname === '/create-package' ? 'secondary' : 'ghost'} size="sm">
-            Package Creation
+            Create Package
           </Button>
         </Link>
         <Link href="/update-package">
           <Button variant={pathname === '/update-package' ? 'secondary' : 'ghost'} size="sm">
-            Package Usage
+            Update Package
           </Button>
         </Link>
         <Link href="/package-monitor">

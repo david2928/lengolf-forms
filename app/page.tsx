@@ -88,7 +88,11 @@ export default function Home() {
       <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
       <div className="flex-1">
         <div className="flex items-center justify-between">
-          <h2 className="font-medium">{title}</h2>
+          <h2 className="font-medium">
+            {title === "Package Monitor" ? "View Packages" : 
+             title === "Package Usage" ? "Update Package" :
+             `Create ${title.split(' ')[0]}`}
+          </h2>
           {extraInfo && (
             <div className="text-base font-medium flex gap-4">
               <span className="inline-flex items-center gap-1.5 text-blue-600">
@@ -117,7 +121,11 @@ export default function Home() {
         {description && <p className="text-sm text-muted-foreground mt-2">{description}</p>}
         {extraInfo}
       </div>
-      <Button className="w-full mt-6" variant="secondary">{title}</Button>
+      <Button className="w-full mt-6" variant="secondary">
+        {title === "Package Monitor" ? "View Packages" : 
+         title === "Package Usage" ? "Update Package" :
+         `Create ${title.split(' ')[0]}`}
+      </Button>
     </div>
   )
 
