@@ -102,25 +102,32 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
   }
 
   const getSelectedCustomerDisplay = () => {
-    if (!selectedCustomer) return "Search customers..."
-    const customer = customers?.find(c => c.customer_name === selectedCustomer)
-    if (!customer) return "Search customers..."
-    const lastParenIndex = customer.customer_name.lastIndexOf('(')
-    const displayName = lastParenIndex > -1 ? customer.customer_name.substring(0, lastParenIndex).trim() : customer.customer_name
-    return displayName
+    if (!selectedCustomer) return "Search customers...";
+    const customer = customers?.find(c => c.customer_name === selectedCustomer);
+    if (!customer) return "Search customers...";
+    
+    const phoneMatch = customer.customer_name.match(/\((\d+)\)$/);
+    return phoneMatch 
+      ? customer.customer_name.slice(0, customer.customer_name.lastIndexOf('(')).trim()
+      : customer.customer_name;
   }
 
   const formatCustomerDisplay = (customerName: string) => {
-    const lastParenIndex = customerName.lastIndexOf('(')
-    const name = lastParenIndex > -1 ? customerName.substring(0, lastParenIndex).trim() : customerName
-    const phone = lastParenIndex > -1 ? customerName.substring(lastParenIndex + 1, customerName.length - 1) : ''
+    // Find the last phone number in parentheses
+    const phoneMatch = customerName.match(/\((\d+)\)$/);
+    const phone = phoneMatch ? phoneMatch[1] : '';
+    
+    // Remove the phone number part from the name
+    const nameWithNickname = phoneMatch 
+      ? customerName.slice(0, customerName.lastIndexOf('(')).trim() 
+      : customerName;
     
     return (
       <div className="flex flex-col">
-        <span className="font-medium">{name}</span>
+        <span className="font-medium">{nameWithNickname}</span>
         {phone && <span className="text-sm text-muted-foreground">{phone}</span>}
       </div>
-    )
+    );
   }
 
   const renderPackageList = () => {
@@ -130,10 +137,14 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
       <div className="space-y-2">
         {filteredPackages.map((pkg) => {
           const isExpanded = expandedPackages.has(pkg.id);
-          const isExpired = differenceInDays(new Date(pkg.expiration_date), new Date()) < 0;
+          const daysRemaining = differenceInDays(new Date(pkg.expiration_date), new Date()) + 1;
+          const isExpired = daysRemaining < 0;
           
           // Extract base package name without parentheses
           const baseName = pkg.package_type_name.split('(')[0].trim();
+          
+          // Format days text
+          const daysText = daysRemaining === 1 ? 'last day' : `${daysRemaining} days`;
           
           return (
             <Card key={pkg.id} className={cn(
@@ -187,7 +198,8 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                       <div className="text-sm text-muted-foreground">First Used</div>
                       <div>{pkg.first_use_date ? new Date(pkg.first_use_date).toLocaleDateString() : 'Not used'}</div>
                     </div>
-                    {pkg.remaining_hours !== null && (
+                    {/* Remove Hours Used and Remaining Hours for Diamond packages */}
+                    {pkg.remaining_hours !== null && !pkg.package_type_name.toLowerCase().includes('diamond') && (
                       <>
                         <div>
                           <div className="text-sm text-muted-foreground">Hours Used</div>
@@ -202,25 +214,28 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                     {!isExpired && (
                       <div className="col-span-2">
                         <div className="text-sm text-muted-foreground">Days Remaining</div>
-                        <div>{differenceInDays(new Date(pkg.expiration_date), new Date()) + 1} days</div>
+                        <div>{daysText}</div>
                       </div>
                     )}
                   </div>
                   
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setSelectedPackageId(pkg.id)
-                      }}
-                    >
-                      <History className="h-4 w-4" />
-                      View Usage History
-                    </Button>
-                  </div>
+                  {/* Only show Usage History button for non-Diamond packages */}
+                  {!pkg.package_type_name.toLowerCase().includes('diamond') && (
+                    <div className="mt-4 flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedPackageId(pkg.id)
+                        }}
+                      >
+                        <History className="h-4 w-4" />
+                        View Usage History
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               )}
             </Card>
