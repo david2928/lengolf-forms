@@ -25,15 +25,13 @@ const initialFormData: FormData = {
   isManualMode: false,
   bayNumber: undefined,
   notes: '',
-  numberOfPax: 1
-};
-
-const fetcher = async (url: string) => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch customers: ${response.status}`);
+  numberOfPax: 1,
+  isSubmitted: false,
+  submissionStatus: {
+    booking: false,
+    calendar: false,
+    notification: false
   }
-  return response.json();
 };
 
 export function BookingForm() {
@@ -43,34 +41,51 @@ export function BookingForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [canProgress, setCanProgress] = useState(false);
 
-  // Add forceRefresh parameter to the URL
   const { data: customers = [], mutate: mutateCustomers } = useSWR<Customer[]>(
     '/api/customers?forceRefresh=true',
-    fetcher
+    async (url: string) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch customers');
+      return response.json();
+    }
   );
 
   useEffect(() => {
-    // Force refresh customers list when component mounts
     mutateCustomers();
   }, [mutateCustomers]);
 
   useEffect(() => {
     let stepErrors = {};
-    
-    if (currentStep === 1) {
-      stepErrors = validateStep1(formData);
-    } else if (currentStep === 2) {
-      stepErrors = validateStep2(formData);
-    } else if (currentStep === 3) {
-      stepErrors = validateStep3(formData);
-    }
+    if (currentStep === 1) stepErrors = validateStep1(formData);
+    else if (currentStep === 2) stepErrors = validateStep2(formData);
+    else if (currentStep === 3) stepErrors = validateStep3(formData);
     
     setErrors(stepErrors);
     setCanProgress(Object.keys(stepErrors).length === 0);
   }, [formData, currentStep]);
 
-  const setFormValue = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleReset = () => {
+    setFormData({
+      ...initialFormData,
+      isSubmitted: false,
+      submissionStatus: {
+        booking: false,
+        calendar: false,
+        notification: false
+      }
+    });
+    setCurrentStep(1);
+    setErrors({});
+    setCanProgress(false);
+    setIsSubmitting(false);
+    mutateCustomers();
+  };
+
+  const handleNavigateToStep = (step: number) => {
+    // Only allow navigation between valid steps
+    if (step >= 1 && step <= TOTAL_STEPS) {
+      setCurrentStep(step);
+    }
   };
 
   const handleCustomerSelect = (customer: Customer) => {
@@ -90,25 +105,11 @@ export function BookingForm() {
     }));
   };
 
-  const refreshCustomers = async () => {
-    try {
-      await fetch('/api/refresh-customers', { method: 'POST' });
-      await mutateCustomers();
-    } catch (error) {
-      console.error('Error refreshing customers:', error);
-    }
-  };
-
   const handleNext = async () => {
     let stepErrors = {};
-    
-    if (currentStep === 1) {
-      stepErrors = validateStep1(formData);
-    } else if (currentStep === 2) {
-      stepErrors = validateStep2(formData);
-    } else if (currentStep === 3) {
-      stepErrors = validateStep3(formData);
-    }
+    if (currentStep === 1) stepErrors = validateStep1(formData);
+    else if (currentStep === 2) stepErrors = validateStep2(formData);
+    else if (currentStep === 3) stepErrors = validateStep3(formData);
 
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
@@ -120,36 +121,37 @@ export function BookingForm() {
       try {
         const result = await handleFormSubmit(formData);
         if (result.success) {
-          setFormData(initialFormData);
-          setCurrentStep(1);
-          // Refresh customers list after successful submission
-          await refreshCustomers();
+          setFormData(prev => ({
+            ...prev,
+            isSubmitted: true,
+            submissionStatus: {
+              booking: true,
+              calendar: !!result.calendarEvents?.length,
+              notification: true
+            }
+          }));
+          await mutateCustomers();
         }
       } catch (error) {
         console.error('Submission error:', error);
       } finally {
         setIsSubmitting(false);
       }
-    } else if (currentStep < TOTAL_STEPS) {
-      setCurrentStep(prev => prev + 1);
+    } else {
+      handleNavigateToStep(currentStep + 1);
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
-      setCurrentStep(prev => prev - 1);
+      handleNavigateToStep(currentStep - 1);
     }
-  };
-
-  const handleSuccess = () => {
-    setFormData(initialFormData);
-    setCurrentStep(1);
   };
 
   const contextValue = {
     formData,
     errors,
-    setFormValue,
+    setFormValue: (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value })),
     handleCustomerSelect,
     handlePackageSelection,
     isSubmitting,
@@ -167,7 +169,7 @@ export function BookingForm() {
     >
       <FormProvider value={contextValue}>
         <div className="w-full max-w-4xl mx-auto">
-          <StepHeader currentStep={currentStep} />
+          {!formData.isSubmitted && <StepHeader currentStep={currentStep} />}
           <div className="p-6">
             <StepContent 
               currentStep={currentStep} 
@@ -175,19 +177,23 @@ export function BookingForm() {
               setFormData={setFormData}
               isSubmitting={isSubmitting}
               setIsSubmitting={setIsSubmitting}
-              onSuccess={handleSuccess}
+              onSuccess={handleReset}
+              onReset={handleReset}
+              onNavigateToStep={handleNavigateToStep}
               onNext={handleNext}
               onPrev={handleBack}
             />
-            <StepNavigation
-              currentStep={currentStep}
-              totalSteps={TOTAL_STEPS}
-              onNext={handleNext}
-              onPrevious={handleBack}
-              canProgress={canProgress}
-              isSubmitting={isSubmitting}
-              className="mt-6"
-            />
+            {!formData.isSubmitted && (
+              <StepNavigation
+                currentStep={currentStep}
+                totalSteps={TOTAL_STEPS}
+                onNext={handleNext}
+                onPrevious={handleBack}
+                canProgress={canProgress}
+                isSubmitting={isSubmitting}
+                className="mt-6"
+              />
+            )}
           </div>
         </div>
       </FormProvider>

@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import { BookingProvider } from '@/contexts/booking-context'
+import { BookingProvider } from '@/components/booking-form/context/booking-context'
 import { BookingForm } from '@/components/booking-form'
 
 export const metadata: Metadata = {

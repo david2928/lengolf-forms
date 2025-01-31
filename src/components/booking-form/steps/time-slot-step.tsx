@@ -34,7 +34,7 @@ export function TimeSlotStep() {
   useEffect(() => {
     const startTimeValid = formData.isManualMode ? 
       typeof formData.startTime === 'string' && formData.startTime.length === 5 :
-      formData.startTime instanceof Date;
+      formData.startTime ? true : false;
 
     const hasRequiredFields = formData.numberOfPax && 
                             formData.bookingDate && 
