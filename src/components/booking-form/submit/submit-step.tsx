@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { AlertCircle, CheckCircle2, Calendar, MessageCircle, Clipboard, Check } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Calendar, MessageCircle, Clipboard } from 'lucide-react';
 import { handleFormSubmit } from './submit-handler';
+import { generateMessages } from './booking-messages';
 import type { BookingFormData } from '@/types/booking-form';
 
 interface SubmitStepProps {
@@ -89,39 +90,7 @@ export function SubmitStep({
   const [showSuccessDialog, setShowSuccessDialog] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
 
-  const messages = React.useMemo(() => {
-    const date = formData.bookingDate;
-    if (!date) return {
-      thShort: '',
-      thLong: '',
-      enShort: '',
-      enLong: ''
-    };
-
-    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
-    const month = date.toLocaleDateString('en-US', { month: 'long' });
-    const day = getOrdinalNum(date.getDate());
-    
-    const startTime = formData.startTime && new Date(formData.startTime)
-      .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const endTime = formData.endTime && new Date(formData.endTime)
-      .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    // English format
-    const dateTimeStr = `${weekday}, ${month} ${day} at ${startTime} - ${endTime}`;
-    
-    // Thai format
-    const thaiWeekday = thaiWeekdays[weekday];
-    const thaiMonth = thaiMonths[month];
-    const thaiDateTimeStr = `วัน${thaiWeekday}ที่ ${date.getDate()} ${thaiMonth} เวลา ${startTime} - ${endTime}`;
-
-    return {
-      thShort: `ยืนยันการจองสำหรับ${thaiDateTimeStr} เรียบร้อยค่ะ  🙏⛳`,
-      thLong: `ยืนยันการจองสำหรับ${thaiDateTimeStr} เรียบร้อยค่ะ  🙏⛳\nหากต้องการเปลี่ยนแปลงการจอง กรุณาแจ้งให้ทราบอย่างน้อย 2 ชม. ก่อนเวลาที่จองค่ะ 🙏`,
-      enShort: `Your booking is confirmed for ${dateTimeStr}.`,
-      enLong: `Your booking is confirmed for ${dateTimeStr}. If you need to make any changes to your booking, please let us know at least 2 hours before your scheduled time.`
-    };
-  }, [formData]);
+  const messages = React.useMemo(() => generateMessages(formData), [formData]);
 
   const handleSubmit = async () => {
     try {
@@ -163,7 +132,7 @@ export function SubmitStep({
     }
   };
 
-  if (formData.isSubmitted) {
+  if (formData.isSubmitted && messages) {
     return (
       <div className="space-y-6">
         <Alert className="bg-green-50 border-green-200">
@@ -191,7 +160,7 @@ export function SubmitStep({
               <span>{formData.numberOfPax}</span>
               
               <span className="text-muted-foreground">Date:</span>
-              <span>{getFormattedDate(formData.bookingDate)}</span>
+              <span>{formData.bookingDate?.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
               
               <span className="text-muted-foreground">Time:</span>
               <span>
@@ -271,7 +240,7 @@ export function SubmitStep({
               <span>{formData.numberOfPax}</span>
               
               <span className="text-muted-foreground">Date:</span>
-              <span>{getFormattedDate(formData.bookingDate)}</span>
+              <span>{formData.bookingDate?.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
               
               <span className="text-muted-foreground">Time:</span>
               <span>
