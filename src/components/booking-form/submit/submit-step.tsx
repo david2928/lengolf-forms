@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertCircle, CheckCircle2, Calendar, MessageCircle, Clipboard } from 'lucide-react';
 import { handleFormSubmit } from './submit-handler';
-import { generateMessages } from '@/components/booking-form/submit/booking-messages';
+import { generateMessages } from './booking-messages';
 import type { BookingFormData } from '@/types/booking-form';
 
 interface SubmitStepProps {
