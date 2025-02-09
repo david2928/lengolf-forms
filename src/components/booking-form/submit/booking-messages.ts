@@ -112,9 +112,6 @@ export function generateMessages(formData: BookingFormData) {
     ``,
     `วันที่: ${thaiDate}`,
     `เวลา: ${details.time}`,
-    `ลูกค้า: ${details.customer}`,
-    details.contact ? `ติดต่อ: ${details.contact}` : '',
-    `ผู้เล่น: ${thaiPlayers}`,
     ``,
     `แล้วพบกันค่ะ ⛳`
   ].filter(Boolean).join('\n');
