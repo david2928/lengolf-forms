@@ -78,6 +78,35 @@ const thaiMonths: { [key: string]: string } = {
   'December': 'ธันวาคม'
 };
 
+function formatTimeDisplay(time: string | null): string {
+  if (!time) return '';
+  
+  // If it's already in HH:mm format, return it
+  if (time.match(/^\d{2}:\d{2}$/)) {
+    return time;
+  }
+  
+  try {
+    // For manual time input in HH:mm format
+    if (time.includes(':')) {
+      const [hours, minutes] = time.split(':');
+      if (hours && minutes) {
+        return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+      }
+    }
+    
+    // For date objects
+    const date = new Date(time);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+  } catch (error) {
+    console.error('Error formatting time:', error);
+  }
+  
+  return '';
+}
+
 export function SubmitStep({ 
   formData, 
   isSubmitting, 
@@ -164,9 +193,7 @@ export function SubmitStep({
               
               <span className="text-muted-foreground">Time:</span>
               <span>
-                {formData.startTime && new Date(formData.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
-                - 
-                {formData.endTime && new Date(formData.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {formatTimeDisplay(formData.startTime)} - {formatTimeDisplay(formData.endTime)}
               </span>
               
               <span className="text-muted-foreground">Bay:</span>
@@ -244,9 +271,7 @@ export function SubmitStep({
               
               <span className="text-muted-foreground">Time:</span>
               <span>
-                {formData.startTime && new Date(formData.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
-                - 
-                {formData.endTime && new Date(formData.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {formatTimeDisplay(formData.startTime)} - {formatTimeDisplay(formData.endTime)}
               </span>
               
               <span className="text-muted-foreground">Bay:</span>

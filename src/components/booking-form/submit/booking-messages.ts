@@ -38,7 +38,32 @@ interface BookingDetails {
 
 function formatTime(time: string | null): string {
   if (!time) return '';
-  return new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
+  // If it's already in HH:mm format, return it
+  if (time.match(/^\d{2}:\d{2}$/)) {
+    return time;
+  }
+  
+  // If it's a full date string, try to parse it
+  try {
+    // For manual time input in HH:mm format
+    if (time.includes(':')) {
+      const [hours, minutes] = time.split(':');
+      if (hours && minutes) {
+        return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+      }
+    }
+    
+    // For date objects
+    const date = new Date(time);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+  } catch (error) {
+    console.error('Error formatting time:', error);
+  }
+  
+  return '';
 }
 
 function getBookingDetails(formData: BookingFormData): BookingDetails | null {
@@ -85,9 +110,6 @@ export function generateMessages(formData: BookingFormData) {
     ``,
     `Date: ${details.date}`,
     `Time: ${details.time}`,
-    `Customer: ${details.customer}`,
-    details.contact ? `Contact: ${details.contact}` : '',
-    `Players: ${details.players}`,
     ``,
     `See you soon! ⛳`
   ].filter(Boolean).join('\n');

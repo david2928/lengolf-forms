@@ -139,6 +139,9 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
           const isExpanded = expandedPackages.has(pkg.id);
           const daysRemaining = differenceInDays(new Date(pkg.expiration_date), new Date()) + 1;
           const isExpired = daysRemaining < 0;
+          const isFullyUsed = !pkg.package_type_name.toLowerCase().includes('diamond') && 
+                            pkg.remaining_hours === 0 && 
+                            !isExpired;
           
           // Extract base package name without parentheses
           const baseName = pkg.package_type_name.split('(')[0].trim();
@@ -160,10 +163,10 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                   <div className="flex items-center gap-3">
                     <span className="font-medium">{baseName}</span>
                     <Badge 
-                      variant={isExpired ? "destructive" : "default"}
+                      variant={isExpired ? "destructive" : isFullyUsed ? "secondary" : "default"}
                       className="text-xs"
                     >
-                      {isExpired ? "Expired" : "Active"}
+                      {isExpired ? "EXPIRED" : isFullyUsed ? "FULLY USED" : "ACTIVE"}
                     </Badge>
                   </div>
                   <div className="text-sm text-muted-foreground">

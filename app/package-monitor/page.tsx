@@ -51,11 +51,14 @@ export default function PackageMonitorPage() {
             type="expiring"
           />
           
-          <CustomerSelector
-            onCustomerSelect={(customerId) => {
-              console.log('Selected customer:', customerId);
-            }}
-          />
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Package List</h2>
+            <CustomerSelector
+              onCustomerSelect={(customerId) => {
+                console.log('Selected customer:', customerId);
+              }}
+            />
+          </div>
         </>
       )}
     </div>

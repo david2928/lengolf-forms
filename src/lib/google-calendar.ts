@@ -53,14 +53,34 @@ export function getRelevantCalendarIds(booking: Booking): string[] {
   
   // Add bay calendar
   const bayCalendarId = BAY_CALENDARS[booking.bay_number as BayName];
-  if (bayCalendarId) {
+  if (!bayCalendarId) {
+    console.error('Bay calendar ID not found:', {
+      bayNumber: booking.bay_number,
+      availableBays: Object.keys(BAY_CALENDARS)
+    });
+  } else {
     calendarIds.push(bayCalendarId);
   }
 
   // Add coaching calendar if applicable
   if (booking.booking_type in COACHING_CALENDARS) {
-    calendarIds.push(COACHING_CALENDARS[booking.booking_type as BookingType]);
+    const coachingCalendarId = COACHING_CALENDARS[booking.booking_type as BookingType];
+    if (!coachingCalendarId) {
+      console.error('Coaching calendar ID not found:', {
+        bookingType: booking.booking_type,
+        availableTypes: Object.keys(COACHING_CALENDARS)
+      });
+    } else {
+      calendarIds.push(coachingCalendarId);
+    }
   }
+
+  // Log all calendar IDs for debugging
+  console.log('Retrieved calendar IDs:', {
+    bayNumber: booking.bay_number,
+    bookingType: booking.booking_type,
+    calendarIds
+  });
 
   return calendarIds;
 }
@@ -74,8 +94,25 @@ export async function createCalendarEvents(
   const calendarIds = getRelevantCalendarIds(booking);
   const results: CalendarEventResult[] = [];
 
+  console.log('Creating calendar events with data:', {
+    eventData,
+    calendarIds,
+    bayNumber: booking.bay_number,
+    bookingType: booking.booking_type
+  });
+
   for (const calendarId of calendarIds) {
     try {
+      if (!calendarId) {
+        console.error('Invalid calendar ID:', {
+          bayNumber: booking.bay_number,
+          bookingType: booking.booking_type,
+          calendarId
+        });
+        continue;
+      }
+
+      console.log(`Attempting to create event in calendar: ${calendarId}`);
       const response = await calendar.events.insert({
         calendarId,
         requestBody: eventData,
@@ -87,9 +124,18 @@ export async function createCalendarEvents(
         status: response.data.status!,
       });
     } catch (error) {
-      console.error(`Error creating event in calendar ${calendarId}:`, error);
+      console.error(`Error creating event in calendar ${calendarId}:`, {
+        error,
+        bayNumber: booking.bay_number,
+        bookingType: booking.booking_type,
+        eventData
+      });
       throw error;
     }
+  }
+
+  if (results.length === 0) {
+    throw new Error('No calendar events were created. Check calendar IDs and permissions.');
   }
 
   return results;

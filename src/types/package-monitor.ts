@@ -7,6 +7,7 @@ export interface Package {
   expiration_date: string;
   employee_name: string;
   remaining_hours?: number;
+  used_hours?: number;
 }
 
 export interface PackageMonitorData {

@@ -11,7 +11,14 @@ interface SubmitResponse {
 }
 
 function formatTime(date: Date | string): string {
-  return typeof date === 'string' ? date : format(date, 'HH:mm:ss');
+  if (typeof date === 'string') {
+    // If it's already in HH:mm format, append :00
+    if (date.match(/^\d{2}:\d{2}$/)) {
+      return `${date}:00`;
+    }
+    return date;
+  }
+  return format(date, 'HH:mm:ss');
 }
 
 function formatBookingData(formData: FormData): Booking {
@@ -22,6 +29,11 @@ function formatBookingData(formData: FormData): Booking {
   console.log('Formatting booking data from:', formData);
   const getTimeString = (date: Date | string) => {
     if (typeof date === 'string') {
+      // If it's already in HH:mm format, just use formatTime
+      if (date.match(/^\d{2}:\d{2}$/)) {
+        return formatTime(date);
+      }
+      // Otherwise, parse and format
       const [hours, minutes] = date.split(':');
       const time = new Date();
       time.setHours(parseInt(hours), parseInt(minutes), 0);
@@ -64,14 +76,9 @@ function formatBookingData(formData: FormData): Booking {
 }
 
 function formatLineMessage(booking: Booking): string {
-  console.log('Formatting LINE message for booking:', booking);
-  const customerStatus = booking.is_new_customer ? 'New Customer' : 'Existing Customer';
-  
-  const [year, month, day] = booking.booking_date.split('-');
-  const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12);
-  
-  const dateStr = dateObj.toLocaleDateString('en-US', {
+  const dateStr = new Date(booking.booking_date).toLocaleDateString('en-US', {
     weekday: 'long',
+    year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
@@ -81,9 +88,16 @@ function formatLineMessage(booking: Booking): string {
     ? `${booking.booking_type} (${booking.package_name})`
     : booking.booking_type;
 
-  const notesInfo = booking.notes ? ` (${booking.notes})` : '';
-
-  return `New Booking: ${customerStatus} ${booking.customer_name} (${booking.contact_number}), ${bookingType}, ${booking.number_of_pax} PAX at ${booking.bay_number} on ${dateStr} from ${booking.start_time.slice(0,5)} - ${booking.end_time.slice(0,5)}${notesInfo}. Customer contacted via ${booking.booking_source}, submitted by ${booking.employee_name}.`;
+  return `Booking Notification
+Name: ${booking.customer_name}
+Phone: ${booking.contact_number}
+Date: ${dateStr}
+Time: ${booking.start_time.slice(0,5)} - ${booking.end_time.slice(0,5)}
+Bay: ${booking.bay_number}
+Type: ${bookingType}
+People: ${booking.number_of_pax}
+Channel: ${booking.booking_source}
+Created by: ${booking.employee_name}${booking.notes ? `\nNotes: ${booking.notes}` : ''}`.trim();
 }
 
 export async function handleFormSubmit(formData: FormData): Promise<SubmitResponse> {
