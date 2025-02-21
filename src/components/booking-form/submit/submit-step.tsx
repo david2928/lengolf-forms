@@ -78,15 +78,15 @@ const thaiMonths: { [key: string]: string } = {
   'December': 'ธันวาคม'
 };
 
-function formatTimeDisplay(time: string | null): string {
+function formatTimeDisplay(time: string | Date | null): string {
   if (!time) return '';
   
-  // If it's already in HH:mm format, return it
-  if (time.match(/^\d{2}:\d{2}$/)) {
-    return time;
-  }
-  
-  try {
+  // If it's a string in HH:mm format, return it
+  if (typeof time === 'string') {
+    if (time.match(/^\d{2}:\d{2}$/)) {
+      return time;
+    }
+    
     // For manual time input in HH:mm format
     if (time.includes(':')) {
       const [hours, minutes] = time.split(':');
@@ -94,9 +94,11 @@ function formatTimeDisplay(time: string | null): string {
         return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
       }
     }
-    
-    // For date objects
-    const date = new Date(time);
+  }
+  
+  // For date objects or date strings
+  try {
+    const date = time instanceof Date ? time : new Date(time);
     if (!isNaN(date.getTime())) {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
     }
