@@ -42,14 +42,14 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
         className="p-3 cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex justify-between items-start">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <h3 className="font-medium leading-none">{nameWithNickname}</h3>
+        <div className="flex justify-between items-start gap-2">
+          <div className="space-y-0.5 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-medium leading-none truncate">{nameWithNickname}</h3>
               {(isExpired || isFullyUsed || (type !== 'diamond' && !isExpired && !isFullyUsed)) && (
                 <Badge 
                   variant={isExpired ? "destructive" : isFullyUsed ? "secondary" : "default"}
-                  className="text-xs"
+                  className="text-xs shrink-0"
                 >
                   {isExpired ? "EXPIRED" : isFullyUsed ? "FULLY USED" : "ACTIVE"}
                 </Badge>
@@ -58,14 +58,14 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
             {phone && <div className="text-sm text-muted-foreground">{phone}</div>}
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <div>{pkg.package_type_name}</div>
-              {hasRemainingHours && (
+              {type === 'expiring' && !isDiamond && !isFullyUsed && !isExpired && (pkg.remaining_hours ?? 0) > 0 && (
                 <div className="text-emerald-600 font-medium">
                   {pkg.remaining_hours?.toFixed(1)} hours remaining
                 </div>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <span className={`text-sm font-medium ${isExpiring ? 'text-red-500' : 'text-muted-foreground'}`}>
               {daysText}
             </span>

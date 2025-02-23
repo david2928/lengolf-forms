@@ -88,11 +88,8 @@ function getOrdinalSuffix(day: number): string {
 function formatLineMessage(booking: Booking): string {
   const date = new Date(booking.booking_date);
   const day = date.getDate();
-  const dateStr = date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'long',
-  });
-  const [weekday, month] = dateStr.split(', ');
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+  const month = date.toLocaleDateString('en-US', { month: 'long' });
   const formattedDate = `${weekday}, ${day}${getOrdinalSuffix(day)} ${month}`;
 
   // Format booking type to match Google Calendar format
