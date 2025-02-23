@@ -75,13 +75,25 @@ function formatBookingData(formData: FormData): Booking {
   return booking;
 }
 
+function getOrdinalSuffix(day: number): string {
+  if (day > 3 && day < 21) return 'th';
+  switch (day % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
+}
+
 function formatLineMessage(booking: Booking): string {
-  const dateStr = new Date(booking.booking_date).toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
+  const date = new Date(booking.booking_date);
+  const day = date.getDate();
+  const dateStr = date.toLocaleDateString('en-US', {
+    weekday: 'short',
     month: 'long',
-    day: 'numeric'
   });
+  const [weekday, month] = dateStr.split(', ');
+  const formattedDate = `${weekday}, ${day}${getOrdinalSuffix(day)} ${month}`;
 
   // Format booking type to match Google Calendar format
   const bookingType = booking.package_name 
@@ -91,7 +103,7 @@ function formatLineMessage(booking: Booking): string {
   return `Booking Notification
 Name: ${booking.customer_name}
 Phone: ${booking.contact_number}
-Date: ${dateStr}
+Date: ${formattedDate}
 Time: ${booking.start_time.slice(0,5)} - ${booking.end_time.slice(0,5)}
 Bay: ${booking.bay_number}
 Type: ${bookingType}
