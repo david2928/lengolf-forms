@@ -24,7 +24,38 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
   const totalHours = (pkg.used_hours ?? 0) + (pkg.remaining_hours ?? 0);
   const isFullyUsed = !isDiamond && pkg.used_hours === totalHours && totalHours > 0 && !isExpired;
   
-  const hasRemainingHours = !isDiamond && (pkg.remaining_hours ?? 0) > 0;
+  // Debug logging
+  console.log('Package card debug:', {
+    name: pkg.customer_name,
+    type,
+    isDiamond,
+    isFullyUsed,
+    isExpired,
+    remaining_hours: pkg.remaining_hours,
+    used_hours: pkg.used_hours,
+    totalHours,
+    package_type: pkg.package_type_name
+  });
+
+  // Show remaining hours for non-diamond packages in expiring section
+  const shouldShowRemainingHours = type === 'expiring' && 
+                                 !isDiamond && 
+                                 !isFullyUsed && 
+                                 !isExpired && 
+                                 typeof pkg.remaining_hours === 'number' &&
+                                 pkg.remaining_hours > 0;
+
+  console.log('Should show remaining hours:', {
+    name: pkg.customer_name,
+    shouldShowRemainingHours,
+    conditions: {
+      isExpiringSection: type === 'expiring',
+      notDiamond: !isDiamond,
+      notFullyUsed: !isFullyUsed,
+      notExpired: !isExpired,
+      hasRemainingHours: typeof pkg.remaining_hours === 'number' && pkg.remaining_hours > 0
+    }
+  });
   
   // Update name parsing to handle multiple parentheses
   const phoneMatch = pkg.customer_name.match(/\((\d+)\)$/);
@@ -58,9 +89,9 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
             {phone && <div className="text-sm text-muted-foreground">{phone}</div>}
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <div>{pkg.package_type_name}</div>
-              {type === 'expiring' && !isDiamond && !isFullyUsed && !isExpired && (pkg.remaining_hours ?? 0) > 0 && (
+              {shouldShowRemainingHours && pkg.remaining_hours !== undefined && (
                 <div className="text-emerald-600 font-medium">
-                  {pkg.remaining_hours?.toFixed(1)} hours remaining
+                  {pkg.remaining_hours.toFixed(1)} hours remaining
                 </div>
               )}
             </div>

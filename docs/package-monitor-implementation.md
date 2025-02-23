@@ -75,7 +75,19 @@ BEGIN
           'purchase_date', p.purchase_date,
           'first_use_date', p.first_use_date,
           'expiration_date', p.expiration_date,
-          'employee_name', p.employee_name
+          'employee_name', p.employee_name,
+          'remaining_hours', COALESCE(
+            (SELECT pt.hours - COALESCE(SUM(pu.used_hours), 0)
+             FROM package_usage pu
+             WHERE pu.package_id = p.id),
+            pt.hours
+          ),
+          'used_hours', COALESCE(
+            (SELECT SUM(pu.used_hours)
+             FROM package_usage pu
+             WHERE pu.package_id = p.id),
+            0
+          )
         )
       ) as expiring_packages
     FROM packages p
