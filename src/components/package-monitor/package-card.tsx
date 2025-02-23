@@ -19,7 +19,11 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
   const isExpiring = daysRemaining <= 7;
   const isExpired = daysRemaining < 0;
   const isDiamond = pkg.package_type_name.toLowerCase().includes('diamond');
-  const isFullyUsed = !isDiamond && (pkg.remaining_hours ?? 0) === 0 && !isExpired;
+  
+  // Check if all hours have been used by comparing used_hours with total hours (used + remaining)
+  const totalHours = (pkg.used_hours ?? 0) + (pkg.remaining_hours ?? 0);
+  const isFullyUsed = !isDiamond && pkg.used_hours === totalHours && totalHours > 0 && !isExpired;
+  
   const hasRemainingHours = !isDiamond && (pkg.remaining_hours ?? 0) > 0;
   
   // Update name parsing to handle multiple parentheses
