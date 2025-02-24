@@ -97,8 +97,13 @@ function formatLineMessage(booking: Booking): string {
     ? `${booking.booking_type} (${booking.package_name})`
     : booking.booking_type;
 
+  // Format customer name with new customer indicator
+  const customerName = booking.is_new_customer 
+    ? `${booking.customer_name} (New Customer)`
+    : booking.customer_name;
+
   return `Booking Notification
-Name: ${booking.customer_name}
+Name: ${customerName}
 Phone: ${booking.contact_number}
 Date: ${formattedDate}
 Time: ${booking.start_time.slice(0,5)} - ${booking.end_time.slice(0,5)}
