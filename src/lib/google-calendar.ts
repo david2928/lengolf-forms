@@ -228,3 +228,73 @@ export function getAvailableTimeSlots(
   
   return availableSlots;
 }
+
+// Fetch events for a bay on a specific date
+export async function fetchBayEvents(
+  calendar: calendar_v3.Calendar,
+  bayNumber: string,
+  date: string
+) {
+  const calendarId = BAY_CALENDARS[bayNumber as BayName];
+  if (!calendarId) {
+    throw new Error('Invalid bay number');
+  }
+
+  const startOfDay = DateTime.fromISO(`${date}T00:00:00`, { zone: 'Asia/Bangkok' }).toUTC().toISO();
+  const endOfDay = DateTime.fromISO(`${date}T23:59:59`, { zone: 'Asia/Bangkok' }).toUTC().toISO();
+
+  try {
+    const response = await calendar.events.list({
+      calendarId,
+      timeMin: startOfDay,
+      timeMax: endOfDay,
+      singleEvents: true,
+      orderBy: 'startTime',
+    } as calendar_v3.Params$Resource$Events$List);
+
+    const events = response.data?.items || [];
+    
+    // Transform events to a simpler format
+    return events.map((event: calendar_v3.Schema$Event) => {
+      // Parse event description to extract customer information
+      const description = event.description || '';
+      const nameLine = description.match(/Name: ([^\n]+)/);
+      const contactLine = description.match(/Contact: ([^\n]+)/);
+      const typeLine = description.match(/Type: ([^\n]+)/);
+      const paxLine = description.match(/Pax: ([^\n]+)/);
+      
+      const customerName = nameLine ? nameLine[1] : 'Unknown';
+      
+      // Parse booking type and package if present
+      let bookingType = '';
+      let packageName = '';
+      
+      if (typeLine) {
+        const typeMatch = typeLine[1].match(/^(.+?)( \((.+)\))?$/);
+        if (typeMatch) {
+          bookingType = typeMatch[1];
+          packageName = typeMatch[3] || '';
+        } else {
+          bookingType = typeLine[1];
+        }
+      }
+
+      return {
+        id: event.id,
+        summary: event.summary,
+        description: event.description,
+        start: event.start?.dateTime,
+        end: event.end?.dateTime,
+        customer_name: customerName,
+        contact_number: contactLine ? contactLine[1] : '',
+        booking_type: bookingType,
+        package_name: packageName,
+        number_of_pax: paxLine ? paxLine[1] : '',
+        color: event.colorId
+      };
+    });
+  } catch (error) {
+    console.error(`Error fetching events for bay ${bayNumber}:`, error);
+    throw error;
+  }
+}

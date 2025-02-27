@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { FileText, Clock, RefreshCw, CalendarRange, Package2, Diamond } from 'lucide-react'
+import { FileText, Clock, RefreshCw, CalendarRange, Package2, Diamond, Calendar } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from '@/components/ui/use-toast'
 import { LucideIcon } from 'lucide-react'
@@ -91,6 +91,7 @@ export default function Home() {
           <h2 className="font-medium">
             {title === "Package Monitor" ? "View Packages" : 
              title === "Package Usage" ? "Update Package" :
+             title === "Bookings Calendar" ? "View Calendar" :
              `Create ${title.split(' ')[0]}`}
           </h2>
           {extraInfo && (
@@ -124,6 +125,7 @@ export default function Home() {
       <Button className="w-full mt-6" variant="secondary">
         {title === "Package Monitor" ? "View Packages" : 
          title === "Package Usage" ? "Update Package" :
+         title === "Bookings Calendar" ? "View Calendar" :
          `Create ${title.split(' ')[0]}`}
       </Button>
     </div>
@@ -135,6 +137,12 @@ export default function Home() {
       title: "Booking Creation",
       description: !isMobile ? "Manage bay appointments" : undefined,
       path: '/create-booking'
+    },
+    {
+      icon: Calendar,
+      title: "Bookings Calendar",
+      description: !isMobile ? "View bay availability" : undefined,
+      path: '/bookings-calendar'
     },
     {
       icon: FileText,

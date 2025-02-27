@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut } from 'lucide-react'
+import { Home, LogOut, Calendar } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
 
 export function Nav() {
@@ -25,6 +25,16 @@ export function Nav() {
         <Link href="/create-booking">
           <Button variant={pathname === '/create-booking' ? 'secondary' : 'ghost'} size="sm">
             Create Booking
+          </Button>
+        </Link>
+        <Link href="/bookings-calendar">
+          <Button 
+            variant={pathname === '/bookings-calendar' ? 'secondary' : 'ghost'} 
+            size="sm"
+            className="gap-2"
+          >
+            <Calendar className="h-4 w-4" />
+            Calendar
           </Button>
         </Link>
         <Link href="/create-package">
@@ -55,15 +65,22 @@ export function Nav() {
   const MobileMenu = () => (
     <>
       <Link href="/" className="flex-1">
-        <Button variant={pathname === '/' ? 'secondary' : 'ghost'} size="sm" className="w-full gap-2">
-          <Home className="h-4 w-4" />
-          Home
+        <Button variant={pathname === '/' ? 'secondary' : 'ghost'} size="sm" className="w-full">
+          <Home className="h-3.5 w-3.5" />
+        </Button>
+      </Link>
+      <Link href="/bookings-calendar" className="flex-1">
+        <Button 
+          variant={pathname === '/bookings-calendar' ? 'secondary' : 'ghost'} 
+          size="sm" 
+          className="w-full flex justify-center"
+        >
+          <Calendar className="h-3.5 w-3.5" />
         </Button>
       </Link>
       <PackageMonitorNavButton />
       <Button variant="outline" size="sm" onClick={() => signOut()} className="flex-1 border border-gray-200">
-        <LogOut className="h-4 w-4 mr-2" />
-        Sign Out
+        <LogOut className="h-3.5 w-3.5" />
       </Button>
     </>
   )
