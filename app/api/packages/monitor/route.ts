@@ -12,9 +12,7 @@ export async function GET() {
     const { data, error } = await supabase
       .rpc('get_package_monitor_data');
 
-    console.log('Package monitor data:', data);
     if (error) {
-      console.error('Supabase RPC error:', error);
       throw error;
     }
 

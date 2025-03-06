@@ -18,11 +18,13 @@ export const BAY_COLORS: Record<BayName, string> = {
   "Bay 3 (Entrance)": "4", 
 };
 
-export const LINE_TOKENS = {
-  default: process.env.LINE_TOKEN_DEFAULT || "",
-  coaching: process.env.LINE_TOKEN_COACHING || "",
-  ratchavin: process.env.LINE_TOKEN_RATCHAVIN || ""
-  // default: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG",
-  // coaching: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG",
-  // ratchavin: "APXGbayv3wLNRIWhGxy3g82PLwZQLSQmsxcTD55WcNG"
+// LINE Messaging API configuration
+export const LINE_MESSAGING = {
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || "",
+  channelSecret: process.env.LINE_CHANNEL_SECRET || "",
+  groups: {
+    default: process.env.LINE_GROUP_ID || "",
+    ratchavin: process.env.LINE_GROUP_RATCHAVIN_ID || "",
+    coaching: process.env.LINE_GROUP_COACHING_ID || ""
+  }
 } as const;

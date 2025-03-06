@@ -1,4 +1,3 @@
-import { LINE_TOKENS } from '@/lib/constants';
 import type { FormData } from '../types';
 import type { Booking } from '@/types/booking';
 import { format } from 'date-fns';

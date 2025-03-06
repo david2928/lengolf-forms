@@ -1,26 +1,54 @@
 import { NextResponse } from 'next/server';
-import { LINE_TOKENS } from '@/lib/constants';
+import { LINE_MESSAGING } from '@/lib/constants';
+import { createLineClient } from '@/lib/line-messaging';
 
-async function sendLineNotification(message: string, token: string) {
-  console.log('Sending LINE notification with data:', { message, token });
-  const response = await fetch('https://notify-api.line.me/api/notify', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: new URLSearchParams({
-      message,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('LINE API Error:', errorText);
-    throw new Error('LINE notification failed: ' + errorText);
+// LINE Messaging API function
+async function sendLineMessage(message: string, bookingType?: string) {
+  if (!LINE_MESSAGING.channelAccessToken) {
+    console.error('Missing LINE Messaging API credentials');
+    throw new Error('LINE Messaging API configuration is incomplete');
   }
 
-  return response;
+  // Determine which groups should receive the message
+  const groups = [];
+  
+  // Always send to default group
+  if (LINE_MESSAGING.groups.default) {
+    groups.push(LINE_MESSAGING.groups.default);
+    console.log('Will send to default group');
+  } else {
+    console.warn('Default group ID not configured');
+  }
+  
+  // Handle specific coaching notifications
+  if (bookingType === "Coaching (Boss - Ratchavin)" && LINE_MESSAGING.groups.ratchavin) {
+    console.log('Booking is Ratchavin coaching, will send to Ratchavin group');
+    groups.push(LINE_MESSAGING.groups.ratchavin);
+  } else if (bookingType === "Coaching (Boss)" && LINE_MESSAGING.groups.coaching) {
+    console.log('Booking is regular coaching, will send to coaching group');
+    groups.push(LINE_MESSAGING.groups.coaching);
+  }
+  
+  if (groups.length === 0) {
+    console.error('No valid group IDs configured');
+    throw new Error('No LINE group IDs available to send message');
+  }
+  
+  try {
+    const client = createLineClient(LINE_MESSAGING.channelAccessToken);
+    const promises = groups.map(groupId => {
+      console.log(`Sending LINE message to group: ${groupId}`);
+      return client.pushTextMessage(groupId, message);
+    });
+    
+    // Wait for all messages to be sent
+    await Promise.all(promises);
+    console.log(`LINE messages sent successfully to ${groups.length} groups`);
+    return true;
+  } catch (error) {
+    console.error('LINE Messaging API Error:', error);
+    throw error;
+  }
 }
 
 export async function POST(req: Request) {
@@ -31,24 +59,9 @@ export async function POST(req: Request) {
     const { message, bookingType } = body;
     console.log('Processing LINE notification for:', { message, bookingType });
 
-    const notifications = [];
-
-    // Always send to default group
-    notifications.push(sendLineNotification(message, LINE_TOKENS.default));
-    console.log('Queued default notification');
-
-    // Handle specific coaching notifications
-    if (bookingType === "Coaching (Boss - Ratchavin)") {
-      console.log('Booking is Ratchavin coaching, sending to Ratchavin group');
-      notifications.push(sendLineNotification(message, LINE_TOKENS.ratchavin));
-    } else if (bookingType === "Coaching (Boss)") {
-      console.log('Booking is regular coaching, sending to coaching group');
-      notifications.push(sendLineNotification(message, LINE_TOKENS.coaching));
-    }
-
-    // Wait for all notifications to complete
-    await Promise.all(notifications);
-    console.log('All notifications sent successfully');
+    // Send message via LINE Messaging API
+    await sendLineMessage(message, bookingType);
+    console.log('LINE Messaging API notifications sent successfully');
 
     return NextResponse.json({ success: true });
   } catch (error) {
