@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServiceAccountAuth } from '@/lib/google-auth';
-import { initializeCalendar, fetchBayEvents } from '@/lib/google-calendar';
+import { initializeCalendar, getBayAvailability } from '@/lib/google-calendar';
 import { BAY_CALENDARS } from '@/lib/constants';
 import type { BayName } from '@/lib/constants';
 import { DateTime } from 'luxon';
@@ -22,22 +22,25 @@ export async function POST(request: Request) {
     const calendar = initializeCalendar(auth);
 
     try {
-      // Use the fetchBayEvents function from our library
-      const events = await fetchBayEvents(calendar, bayNumber, date);
+      // Use the getBayAvailability function (renamed)
+      // Note: getBayAvailability returns busy times, not all events.
+      // Renaming the variable for clarity.
+      const busyTimes = await getBayAvailability(calendar, bayNumber, date);
       
       return NextResponse.json({
         success: true,
-        events
+        // Return busy times, the client can interpret these
+        busyTimes: busyTimes 
       });
     } catch (error) {
-      console.error('Error fetching calendar events:', error);
+      console.error('Error fetching bay availability:', error);
       return NextResponse.json({
         success: false,
-        error: 'Failed to fetch calendar events'
+        error: 'Failed to fetch bay availability'
       }, { status: 500 });
     }
   } catch (error) {
-    console.error('Error in calendar events API:', error);
+    console.error('Error in bay availability API:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred'
