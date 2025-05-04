@@ -1,6 +1,9 @@
 import type { FormData } from '../types';
 import type { Booking } from '@/types/booking';
-import { format } from 'date-fns';
+import { format, parse, differenceInHours, getDate } from 'date-fns';
+import { generateBookingId } from '@/lib/booking-utils';
+import type { CalendarFormatInput } from '@/lib/google-calendar';
+import { parseISO } from 'date-fns';
 
 interface SubmitResponse {
   success: boolean;
@@ -21,171 +24,307 @@ function formatTime(date: Date | string): string {
 }
 
 function formatBookingData(formData: FormData): Booking {
-  if (!formData.bayNumber) {
-    throw new Error('Bay number is required');
+  // Ensure formData is defined and has the necessary properties
+  if (!formData || typeof formData !== 'object') {
+    throw new Error('Invalid formData provided to formatBookingData.');
+  }
+  // Explicitly check required fields are not null/undefined
+  if (!formData.bookingDate || formData.startTime === undefined || formData.startTime === null || formData.endTime === undefined || formData.endTime === null) {
+      throw new Error('Missing required date/time fields in formData.');
   }
 
-  console.log('Formatting booking data from:', formData);
-  const getTimeString = (date: Date | string) => {
-    if (typeof date === 'string') {
-      // If it's already in HH:mm format, just use formatTime
-      if (date.match(/^\d{2}:\d{2}$/)) {
-        return formatTime(date);
+  console.log('Formatting booking data for DB insert from:', formData);
+
+  // Ensure bookingDate is a valid Date or parseable string
+  let bookingDateObj: Date;
+  if (typeof formData.bookingDate === 'object' && formData.bookingDate !== null && typeof formData.bookingDate.getMonth === 'function') {
+      bookingDateObj = formData.bookingDate as Date; // Use type assertion after check
+  } else if (typeof formData.bookingDate === 'string') {
+      try {
+          bookingDateObj = parse(formData.bookingDate, 'yyyy-MM-dd', new Date());
+          if (isNaN(bookingDateObj.getTime())) throw new Error('Parsed date is invalid');
+      } catch (e) {
+          throw new Error(`Invalid booking date format or type: ${formData.bookingDate}. Expected yyyy-MM-dd string or Date object. Error: ${e}`);
       }
-      // Otherwise, parse and format
-      const [hours, minutes] = date.split(':');
-      const time = new Date();
-      time.setHours(parseInt(hours), parseInt(minutes), 0);
-      return formatTime(time);
-    }
-    return formatTime(date);
-  };
+  } else {
+      throw new Error(`Invalid booking date type: ${typeof formData.bookingDate}. Expected Date object or yyyy-MM-dd string.`);
+  }
+  const dateStr = format(bookingDateObj, 'yyyy-MM-dd');
 
-  // Convert bay number to display format
-  const bayDisplay = formData.bayNumber === 'Bay 1' ? 'Bay 1 (Bar)' :
-                    formData.bayNumber === 'Bay 3' ? 'Bay 3 (Entrance)' : 
-                    formData.bayNumber;
+  // Ensure startTime and endTime are parsed correctly
+  let startTimeObj: Date;
+  let endTimeObj: Date;
 
-  // Handle package name for both selected package and "will buy" case
-  let packageName = formData.packageName;
-  if (formData.bookingType === 'Package' && !formData.packageId && packageName) {
-    // If it's "will buy package" case, make sure we use the entered package name
-    packageName = packageName.trim();
+  // Handle startTime - Check if it looks like a Date object by checking for a method
+  if (typeof formData.startTime === 'object' && typeof (formData.startTime as any).getHours === 'function') {
+      startTimeObj = formData.startTime as Date; // Use assertion
+  } else if (typeof formData.startTime === 'string' && formData.startTime.match(/^\d{2}:\d{2}$/)) {
+      startTimeObj = parse(formData.startTime, 'HH:mm', new Date());
+      if (isNaN(startTimeObj.getTime())) throw new Error('Parsed start time is invalid');
+  } else {
+      throw new Error(`Invalid start time format or type: ${formData.startTime}. Expected HH:mm string or Date object.`);
   }
 
-  const booking: Booking = {
-    employee_name: formData.employeeName!,
-    customer_name: formData.customerName!,
-    contact_number: formData.customerPhone,
-    booking_type: formData.bookingType!,
-    package_name: packageName,  // Use the processed package name
-    number_of_pax: formData.numberOfPax!,
-    booking_date: format(formData.bookingDate!, 'yyyy-MM-dd'),
-    start_time: getTimeString(formData.startTime!),
-    end_time: getTimeString(formData.endTime!),
-    bay_number: bayDisplay,
-    notes: formData.notes,
-    booking_source: formData.customerContactedVia!,
-    is_new_customer: formData.isNewCustomer!,
-    package_id: formData.packageId
+  // Handle endTime - Check if it looks like a Date object by checking for a method
+  if (typeof formData.endTime === 'object' && typeof (formData.endTime as any).getHours === 'function') {
+      endTimeObj = formData.endTime as Date; // Use assertion
+  } else if (typeof formData.endTime === 'string' && formData.endTime.match(/^\d{2}:\d{2}$/)) {
+      endTimeObj = parse(formData.endTime, 'HH:mm', new Date());
+      if (isNaN(endTimeObj.getTime())) throw new Error('Parsed end time is invalid');
+  } else {
+      throw new Error(`Invalid end time format or type: ${formData.endTime}. Expected HH:mm string or Date object.`);
+  }
+
+  // Now calculate duration using the parsed Date objects
+  const startDateTime = parse(`${dateStr}T${format(startTimeObj, 'HH:mm:ss')}`, "yyyy-MM-dd'T'HH:mm:ss", new Date());
+  const endDateTime = parse(`${dateStr}T${format(endTimeObj, 'HH:mm:ss')}`, "yyyy-MM-dd'T'HH:mm:ss", new Date());
+
+  // Adjust for potential overnight scenario if endTime < startTime
+  if (endDateTime <= startDateTime) {
+      console.warn('End time is on or before start time. Assuming simple same-day calculation. Review if multi-day bookings are needed.');
+  }
+
+  const durationHours = differenceInHours(endDateTime, startDateTime);
+  if (!Number.isInteger(durationHours) || durationHours <= 0) {
+    console.error(`Invalid duration calculated: ${durationHours} hours from ${format(startTimeObj, 'HH:mm')} to ${format(endTimeObj, 'HH:mm')}`);
+    throw new Error('Calculated duration is invalid. Must be a positive whole number of hours.');
+  }
+
+  // 2. Map Bay Name
+  let bayId: string | null;
+  switch (formData.bayNumber) {
+      case 'Bay 1 (Bar)':
+          bayId = 'Bay 1';
+          break;
+      case 'Bay 3 (Entrance)':
+          bayId = 'Bay 3';
+          break;
+      case 'Bay 2':
+          bayId = 'Bay 2';
+          break;
+      default:
+          console.warn(`Unknown bay display name: ${formData.bayNumber}. Setting bay to null.`);
+          bayId = null;
+  }
+
+  // 3. Generate Booking ID
+  const bookingId = generateBookingId();
+
+  // 4. Format Start Time (HH:mm) using the parsed startTimeObj
+  const formattedStartTime = format(startTimeObj, 'HH:mm');
+
+  // 5. Assemble the Booking object for DB insertion
+  const formattedDate = format(bookingDateObj, 'yyyy-MM-dd'); // Use bookingDateObj
+
+  const bookingForDb: Booking = {
+    id: bookingId,
+    user_id: '059090f8-2d76-4f10-81de-5efe4d2d0fd8',
+    name: formData.customerName || 'Unknown Customer',
+    email: 'info@len.golf',
+    phone_number: formData.customerPhone || 'N/A',
+    date: formattedDate,
+    start_time: formattedStartTime,
+    duration: durationHours,
+    number_of_people: formData.numberOfPax || 1,
+    status: 'confirmed',
+    bay: bayId,
+    customer_notes: formData.notes || null,
   };
-  
-  console.log('Formatted booking:', booking);
-  return booking;
+
+  console.log('Formatted booking for DB insertion:', bookingForDb);
+  return bookingForDb;
 }
 
 function getOrdinalSuffix(day: number): string {
-  if (day > 3 && day < 21) return 'th';
-  switch (day % 10) {
-    case 1: return 'st';
-    case 2: return 'nd';
-    case 3: return 'rd';
-    default: return 'th';
-  }
+  const j = day % 10, k = day % 100;
+  if (j == 1 && k != 11) { return "st"; }
+  if (j == 2 && k != 12) { return "nd"; }
+  if (j == 3 && k != 13) { return "rd"; }
+  return "th";
 }
 
-function formatLineMessage(booking: Booking): string {
-  const date = new Date(booking.booking_date);
-  const day = date.getDate();
-  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
-  const month = date.toLocaleDateString('en-US', { month: 'long' });
-  const formattedDate = `${weekday}, ${day}${getOrdinalSuffix(day)} ${month}`;
+function formatLineMessage(formData: FormData, bookingId?: string): string {
+  console.log('Formatting LINE message from formData:', formData);
 
-  // Format booking type to match Google Calendar format
-  const bookingType = booking.package_name 
-    ? `${booking.booking_type} (${booking.package_name})`
-    : booking.booking_type;
+  // Check required fields first
+  if (!formData.bookingDate || !formData.startTime || !formData.endTime || !formData.bayNumber || !formData.employeeName || !formData.customerName || !formData.customerPhone || !formData.numberOfPax) {
+    console.error('Missing required data for LINE message formatting.', formData);
+    return 'Error: Could not format booking notification due to missing data.';
+  }
 
-  // Format customer name with new customer indicator
-  const customerName = booking.is_new_customer 
-    ? `${booking.customer_name} (New Customer)`
-    : booking.customer_name;
+  // Format Date
+  let formattedDate: string;
+  try {
+      const dateObj = typeof formData.bookingDate === 'string' ? parseISO(formData.bookingDate) : formData.bookingDate;
+      if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
+          throw new Error('Invalid bookingDate type or value');
+      }
+      const day = getDate(dateObj);
+      const weekday = format(dateObj, 'EEE');
+      const month = format(dateObj, 'MMMM');
+      formattedDate = `${weekday}, ${day}${getOrdinalSuffix(day)} ${month}`;
+  } catch (e) {
+      console.error('Error formatting date for LINE message:', formData.bookingDate, e);
+      formattedDate = 'Invalid Date'; // Provide fallback
+  }
 
-  return `Booking Notification
-Name: ${customerName}
-Phone: ${booking.contact_number}
-Date: ${formattedDate}
-Time: ${booking.start_time.slice(0,5)} - ${booking.end_time.slice(0,5)}
-Bay: ${booking.bay_number}
-Type: ${bookingType}
-People: ${booking.number_of_pax}
-Channel: ${booking.booking_source}
-Created by: ${booking.employee_name}${booking.notes ? `\nNotes: ${booking.notes}` : ''}`.trim();
+  // Format Time (HH:mm)
+  let formattedStartTime: string;
+  let formattedEndTime: string;
+
+  try {
+    // Handle Start Time
+    if (typeof formData.startTime === 'object' && typeof (formData.startTime as any).getHours === 'function') {
+      formattedStartTime = format(formData.startTime as Date, 'HH:mm');
+    } else if (typeof formData.startTime === 'string' && formData.startTime.match(/^\d{2}:\d{2}$/)) {
+      formattedStartTime = formData.startTime;
+    } else {
+      throw new Error(`Invalid start time format or type: ${formData.startTime}`);
+    }
+
+    // Handle End Time
+    if (typeof formData.endTime === 'object' && typeof (formData.endTime as any).getHours === 'function') {
+      formattedEndTime = format(formData.endTime as Date, 'HH:mm');
+    } else if (typeof formData.endTime === 'string' && formData.endTime.match(/^\d{2}:\d{2}$/)) {
+      formattedEndTime = formData.endTime;
+    } else {
+      throw new Error(`Invalid end time format or type: ${formData.endTime}`);
+    }
+  } catch (e) {
+    console.error('Error formatting time for LINE message:', { start: formData.startTime, end: formData.endTime }, e);
+    // Fallback or rethrow depending on desired strictness
+    return `Error: Could not format time for booking notification. ${e instanceof Error ? e.message : 'Unknown error'}`;
+  }
+
+
+  const bookingTypeDisplay = formData.packageName ? `${formData.bookingType} (${formData.packageName})` : formData.bookingType;
+
+  const customerNameDisplay = formData.isNewCustomer ? `${formData.customerName} (New Customer)` : formData.customerName;
+
+  // Use the original bay display name from the form
+  const bayDisplay = formData.bayNumber;
+
+  let message = 'Booking Notification';
+  if (bookingId) {
+    message += ` (ID: ${bookingId})`;
+  }
+  message += `\nName: ${customerNameDisplay}\nPhone: ${formData.customerPhone}\nDate: ${formattedDate}\nTime: ${formattedStartTime} - ${formattedEndTime}\nBay: ${bayDisplay}\nType: ${bookingTypeDisplay}\nPeople: ${formData.numberOfPax}\nChannel: ${formData.customerContactedVia || 'N/A'}\nCreated by: ${formData.employeeName}`;
+
+  if (formData.notes) {
+    message += `\nNotes: ${formData.notes}`;
+  }
+
+  console.log('Formatted LINE message:', message);
+  return message.trim();
 }
 
 export async function handleFormSubmit(formData: FormData): Promise<SubmitResponse> {
+  let bookingId: string | undefined = undefined;
   try {
     console.log('Starting form submission with data:', formData);
-    const booking = formatBookingData(formData);
-    console.log('Booking data for submission:', booking);
     
-    // Create booking record
-    const bookingResponse = await fetch('/api/bookings/create', {
+    // 1. Format data SPECIFICALLY for the database insert using the refactored function
+    const dbBookingData = formatBookingData(formData); 
+    bookingId = dbBookingData.id;
+    console.log('Data formatted for DB insert:', dbBookingData);
+    
+    // 2. Create booking record using the NEW API endpoint and NEW client (Update in BKM-T4)
+    // IMPORTANT: This fetch call needs updating in BKM-T4 to use the new endpoint 
+    // and pass dbBookingData.
+    const bookingResponse = await fetch('/api/bookings/create', { // TODO: Update URL in BKM-T4
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(booking)
+      body: JSON.stringify(dbBookingData) // Send the DB-formatted data
     });
 
     if (!bookingResponse.ok) {
-      throw new Error('Failed to create booking record');
+      let errorBody = '';
+      try { errorBody = await bookingResponse.text(); } catch (_) { /* Ignore */ }
+      console.error('Failed to create booking record. Status:', bookingResponse.status, 'Body:', errorBody);
+      throw new Error(`Failed to create booking record: ${bookingResponse.statusText}`);
     }
 
-    const { bookingId } = await bookingResponse.json();
+    // We expect the new endpoint (BKM-T4) to return { success: true, bookingId: data.id }
+    const bookingResult = await bookingResponse.json(); 
+    if (bookingResult.bookingId !== bookingId) {
+      console.warn(`API returned bookingId ${bookingResult.bookingId} which differs from generated ID ${bookingId}`);
+    }
+    console.log('Booking record created successfully. Booking ID:', bookingId);
 
-    // Format dates for calendar
-    const date = format(formData.bookingDate!, 'yyyy-MM-dd');
-    const calendarBooking = {
-      ...booking,
-      start_date: date,
-      end_date: date
+    // --- Step 3: Prepare Data for Calendar Formatting ---
+    // Construct the CalendarFormatInput object required by formatCalendarEvent (BKM-T6)
+    const calendarInputData: CalendarFormatInput = {
+      id: dbBookingData.id,
+      name: dbBookingData.name,
+      phone_number: dbBookingData.phone_number,
+      date: dbBookingData.date, // yyyy-MM-dd
+      start_time: dbBookingData.start_time, // HH:mm
+      duration: dbBookingData.duration, // hours (number)
+      number_of_people: dbBookingData.number_of_people,
+      bay: dbBookingData.bay, // Simple bay name/ID or null
+      bayDisplayName: formData.bayNumber, // Pass the original display name
+      customer_notes: dbBookingData.customer_notes, // Notes or null
+      employeeName: formData.employeeName || 'Unknown Employee', // Ensure non-null
+      bookingType: formData.bookingType || 'Unknown Type', // Ensure non-null
+      packageName: formData.packageName,
     };
-    console.log('Calendar booking data:', calendarBooking);
+    console.log('Data prepared for calendar API:', calendarInputData);
 
-    // Create calendar events
+    // --- Step 4: Create Calendar Events via API ---
+    console.log('Attempting to create calendar event(s)...');
     const calendarResponse = await fetch('/api/bookings/calendar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         operation: 'create',
-        booking: calendarBooking
+        booking: calendarInputData
       })
     });
 
     if (!calendarResponse.ok) {
-      console.error('Calendar response:', await calendarResponse.text());
-      throw new Error('Failed to create calendar events');
+      let errorBody = '';
+      try { errorBody = await calendarResponse.text(); } catch (_) { /* Ignore */ }
+      console.warn('Failed to create calendar event(s). Status:', calendarResponse.status, 'Body:', errorBody);
+    } else {
+      console.log('Calendar event creation request successful.');
     }
 
-    const calendarEvents = await calendarResponse.json();
-
-    // Format and send LINE notification
-    const message = formatLineMessage(booking);
-    console.log('Sending LINE notification with message:', message);
+    // --- Step 5: Format LINE Notification ---
+    const message = formatLineMessage(formData, bookingId);
+    console.log('Sending LINE notification...');
     
-    const notifyResponse = await fetch('/api/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        bookingType: booking.booking_type
-      })
-    });
+    // --- Step 6: Send LINE notification via API ---
+    if (message.startsWith('Error:')) {
+      console.error('Skipping LINE notification due to formatting error.', message);
+    } else {
+      const notifyResponse = await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          bookingType: formData.bookingType
+        })
+      });
 
-    if (!notifyResponse.ok) {
-      console.error('Notification response:', await notifyResponse.text());
-      throw new Error('Failed to send LINE notification');
+      if (!notifyResponse.ok) {
+        let errorBody = '';
+        try { errorBody = await notifyResponse.text(); } catch (_) { /* Ignore */ }
+        console.warn('Failed to send LINE notification. Status:', notifyResponse.status, 'Body:', errorBody);
+      } else {
+        console.log('LINE notification request successful.');
+      }
     }
 
     return {
       success: true,
-      calendarEvents: calendarEvents.data,
       bookingId
     };
   } catch (error) {
-    console.error('Form submission error:', error);
+    console.error('Form submission failed:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'An unexpected error occurred'
+      error: error instanceof Error ? error.message : 'An unexpected error occurred during submission.',
+      bookingId
     };
   }
 }
