@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { parse, addHours, format, getDay, differenceInMinutes, addMinutes, compareAsc, parseISO, formatISO } from 'date-fns';
-import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { BAY_CALENDARS, COACHING_CALENDARS, BAY_COLORS } from './constants';
 import type { calendar_v3 } from 'googleapis';
 import type { FormData } from '@/components/booking-form/types';
@@ -41,7 +41,7 @@ export function formatCalendarEvent(inputData: CalendarFormatInput): calendar_v3
       throw new Error(`Failed to parse start date/time: ${startDateTimeStr}`);
   }
 
-  const startDateTimeUTC = zonedTimeToUtc(localParsedDate, TIMEZONE);
+  const startDateTimeUTC = fromZonedTime(localParsedDate, TIMEZONE);
 
   const endDateTimeUTC = addHours(startDateTimeUTC, inputData.duration);
 
