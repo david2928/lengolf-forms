@@ -49,41 +49,36 @@ export function BaySelector({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [availableBays, setAvailableBays] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (selectedDate && !isManualMode) {
-      fetchAllBaysAvailability(selectedDate);
-    }
-  }, [selectedDate, isManualMode]);
-
-  useEffect(() => {
-    if (selectedStartTime && selectedEndTime && !isManualMode) {
-      updateAvailableBays();
-    }
-  }, [selectedStartTime, selectedEndTime, busyTimesByBay, isManualMode, selectedDate]);
-
   const fetchAllBaysAvailability = useCallback(async (date: Date | string | null) => {
     if (!date) return;
-    setLoading(true);
+    setIsLoading(true);
     const formattedDate = typeof date === 'string' ? date : format(date, 'yyyy-MM-dd');
     const availabilities: Record<string, BusyTime[]> = {};
-    const bayKeys = Object.keys(BAYS) as string[];
 
-    await Promise.all(bayKeys.map(async (bayKey) => {
+    await Promise.all(BAYS.map(async (bay) => {
+      const bayId = bay.id;
       try {
         const response = await fetch('/api/bookings/availability', {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({
-            bayNumber: bayKey,
+            bayNumber: bayId,
             date: formattedDate,
           }),
-        }).then(res => res.json());
+        });
+
         if (!response.ok) {
-          throw new Error(`Failed to fetch for ${bayKey}`);
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch for ${bayId}. Status: ${response.status}. Message: ${errorText}`);
         }
-        availabilities[bayKey] = response.busyTimes;
+        
+        const data = await response.json();
+        availabilities[bayId] = data.busyTimes || [];
       } catch (error) {
-        console.error(`Error fetching availability for bay ${bayKey}:`, error);
-        availabilities[bayKey] = [];
+        console.error(`Error fetching availability for bay ${bayId}:`, error);
+        availabilities[bayId] = [];
       }
     }));
 
@@ -94,9 +89,9 @@ export function BaySelector({
   const updateAvailableBays = useCallback(() => {
     if (!selectedStartTime || !selectedEndTime || !selectedDate) return;
 
-    const startTime = selectedStartTime instanceof Date 
+    const startTime = selectedStartTime instanceof Date
       ? DateTime.fromJSDate(selectedStartTime).setZone('Asia/Bangkok')
-      : DateTime.fromFormat(selectedStartTime, 'HH:mm').set({
+      : DateTime.fromFormat(selectedStartTime as string, 'HH:mm').set({
           year: selectedDate.getFullYear(),
           month: selectedDate.getMonth() + 1,
           day: selectedDate.getDate()
@@ -104,7 +99,7 @@ export function BaySelector({
 
     const endTime = selectedEndTime instanceof Date
       ? DateTime.fromJSDate(selectedEndTime).setZone('Asia/Bangkok')
-      : DateTime.fromFormat(selectedEndTime, 'HH:mm').set({
+      : DateTime.fromFormat(selectedEndTime as string, 'HH:mm').set({
           year: selectedDate.getFullYear(),
           month: selectedDate.getMonth() + 1,
           day: selectedDate.getDate()
@@ -112,15 +107,42 @@ export function BaySelector({
 
     const available = BAYS.filter(bay => {
       const busyTimesForBay = busyTimesByBay[bay.id] || [];
-      return !busyTimesForBay.some(busy => {
-        const busyStart = DateTime.fromISO(busy.start);
-        const busyEnd = DateTime.fromISO(busy.end);
-        return (startTime < busyEnd && endTime > busyStart);
+      const isBusy = busyTimesForBay.some(busy => {
+        let busyStart: DateTime, busyEnd: DateTime;
+        try {
+          busyStart = DateTime.fromISO(busy.start);
+          busyEnd = DateTime.fromISO(busy.end);
+          
+          if (!busyStart.isValid || !busyEnd.isValid) {
+            console.warn(`Invalid busy time format encountered for bay ${bay.id}:`, busy);
+            return true;
+          }
+
+          return (startTime < busyEnd && endTime > busyStart);
+        } catch (e) {
+          console.error(`Error processing busy time for Bay ${bay.id}:`, busy, e);
+          return true;
+        }
       });
+      return !isBusy;
     });
 
     setAvailableBaysForTime(available.map(bay => bay.id));
   }, [selectedStartTime, selectedEndTime, busyTimesByBay, selectedDate]);
+
+  useEffect(() => {
+    if (selectedDate && !isManualMode) {
+      fetchAllBaysAvailability(selectedDate);
+    }
+  }, [selectedDate, isManualMode, fetchAllBaysAvailability]);
+
+  useEffect(() => {
+    if (selectedStartTime && selectedEndTime && !isManualMode) {
+      if (Object.keys(busyTimesByBay).some(key => BAYS.some(b => b.id === key))) {
+        updateAvailableBays();
+      }
+    }
+  }, [selectedStartTime, selectedEndTime, busyTimesByBay, isManualMode, selectedDate, updateAvailableBays]);
 
   const isBayAvailable = (bayId: string) => {
     if (isManualMode) return true;

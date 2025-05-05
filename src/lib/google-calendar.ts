@@ -50,7 +50,9 @@ export function formatCalendarEvent(inputData: CalendarFormatInput): calendar_v3
     : inputData.bookingType;
 
   const bayDisplay = inputData.bayDisplayName || inputData.bay || 'Unknown Bay';
-  const colorId = inputData.bay ? BAY_COLORS[inputData.bay as BayName]?.toString() : undefined;
+  const colorId = bayDisplay && bayDisplay in BAY_COLORS
+    ? BAY_COLORS[bayDisplay as BayName]
+    : undefined;
 
   const summary = `${inputData.name} (${inputData.phone_number}) (${inputData.number_of_people}) - ${packageInfo} at ${bayDisplay}`;
 
