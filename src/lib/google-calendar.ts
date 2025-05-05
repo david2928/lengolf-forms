@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { parse, addHours, format, getDay, differenceInMinutes, addMinutes, compareAsc, parseISO, formatISO } from 'date-fns';
-import { formatInTimeZone } from 'date-fns-tz';
+import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz';
 import { BAY_CALENDARS, COACHING_CALENDARS, BAY_COLORS } from './constants';
 import type { calendar_v3 } from 'googleapis';
 import type { FormData } from '@/components/booking-form/types';
@@ -32,16 +32,18 @@ const TIMEZONE = 'Asia/Bangkok';
 
 export function formatCalendarEvent(inputData: CalendarFormatInput): calendar_v3.Schema$Event {
   const startDateTimeStr = `${inputData.date}T${inputData.start_time}:00`;
-  let startDateTime: Date;
+  let localParsedDate: Date;
   try {
-      startDateTime = parse(startDateTimeStr, "yyyy-MM-dd'T'HH:mm:ss", new Date());
-      if (isNaN(startDateTime.getTime())) throw new Error('Parsed start date is invalid');
+      localParsedDate = parse(startDateTimeStr, "yyyy-MM-dd'T'HH:mm:ss", new Date());
+      if (isNaN(localParsedDate.getTime())) throw new Error('Parsed start date is invalid');
   } catch(e) {
       console.error(`Error parsing start date/time string: ${startDateTimeStr}`, e);
       throw new Error(`Failed to parse start date/time: ${startDateTimeStr}`);
   }
 
-  const endDateTime = addHours(startDateTime, inputData.duration);
+  const startDateTimeUTC = zonedTimeToUtc(localParsedDate, TIMEZONE);
+
+  const endDateTimeUTC = addHours(startDateTimeUTC, inputData.duration);
 
   const packageInfo = inputData.packageName
     ? `${inputData.bookingType} (${inputData.packageName})`
@@ -58,15 +60,15 @@ Contact: ${inputData.phone_number}
 Type: ${packageInfo}
 Pax: ${inputData.number_of_people}
 Bay: ${bayDisplay}
-Date: ${formatInTimeZone(startDateTime, TIMEZONE, 'EEEE, MMMM d')}
-Time: ${formatInTimeZone(startDateTime, TIMEZONE, 'HH:mm')} - ${formatInTimeZone(endDateTime, TIMEZONE, 'HH:mm')}
+Date: ${formatInTimeZone(startDateTimeUTC, TIMEZONE, 'EEEE, MMMM d')}
+Time: ${formatInTimeZone(startDateTimeUTC, TIMEZONE, 'HH:mm')} - ${formatInTimeZone(endDateTimeUTC, TIMEZONE, 'HH:mm')}
 Via: Backoffice
 Booking ID: ${inputData.id}
 Booked By: ${inputData.employeeName}
 ${inputData.customer_notes ? `\nNotes: ${inputData.customer_notes}` : ''}`.trim();
 
-  const startDateTimeISO = formatInTimeZone(startDateTime, TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX");
-  const endDateTimeISO = formatInTimeZone(endDateTime, TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX");
+  const startDateTimeISO = formatInTimeZone(startDateTimeUTC, TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX");
+  const endDateTimeISO = formatInTimeZone(endDateTimeUTC, TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX");
 
   return {
     summary,

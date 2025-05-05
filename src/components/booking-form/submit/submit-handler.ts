@@ -271,6 +271,7 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
     console.log('Data prepared for calendar API:', calendarInputData);
 
     // --- Step 4: Create Calendar Events via API ---
+    let calendarResultData: any = null; // Variable to store calendar API response data
     console.log('Attempting to create calendar event(s)...');
     const calendarResponse = await fetch('/api/bookings/calendar', {
       method: 'POST',
@@ -284,9 +285,42 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
     if (!calendarResponse.ok) {
       let errorBody = '';
       try { errorBody = await calendarResponse.text(); } catch (_) { /* Ignore */ }
+      // Log as warning, don't necessarily fail the whole submission
       console.warn('Failed to create calendar event(s). Status:', calendarResponse.status, 'Body:', errorBody);
     } else {
-      console.log('Calendar event creation request successful.');
+      try {
+        calendarResultData = await calendarResponse.json();
+        console.log('Calendar event creation request successful. Response:', calendarResultData);
+        
+        // --- Step 4.1: Update Booking with Event ID ---
+        // Extract the first eventId if available
+        const eventId = calendarResultData?.data?.[0]?.eventId;
+        
+        if (bookingId && eventId) {
+            console.log(`Attempting to update booking ${bookingId} with eventId ${eventId}...`);
+            const updateResponse = await fetch('/api/bookings/update-calendar-id', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bookingId, eventId })
+            });
+
+            if (!updateResponse.ok) {
+                let updateErrorBody = '';
+                try { updateErrorBody = await updateResponse.text(); } catch (_) { /* Ignore */ }
+                // Log as warning, the main booking & calendar might still be ok
+                console.warn(`Failed to update booking ${bookingId} with eventId ${eventId}. Status:`, updateResponse.status, 'Body:', updateErrorBody);
+            } else {
+                const updateResult = await updateResponse.json();
+                console.log(`Successfully sent update request for booking ${bookingId}. Response:`, updateResult);
+            }
+        } else {
+            console.warn('Could not update booking with eventId: Missing bookingId or eventId.', { bookingId, eventId });
+        }
+        // --- End Step 4.1 ---
+
+      } catch (parseError) {
+         console.error('Error parsing calendar API response:', parseError);
+      }
     }
 
     // --- Step 5: Format LINE Notification ---

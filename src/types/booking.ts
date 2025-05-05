@@ -13,6 +13,7 @@ export interface Booking {
   customer_notes: string | null; // text, nullable
   created_at?: string;        // timestamptz, nullable (DB default)
   updated_at?: string;        // timestamptz, nullable (DB default)
+  calendar_event_id?: string | null; // Google Calendar event ID
 }
 
 export interface CalendarEvent {
