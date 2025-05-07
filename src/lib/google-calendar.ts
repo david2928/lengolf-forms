@@ -315,3 +315,100 @@ export function getAvailableTimeSlots(
   
   return availableSlots;
 }
+
+export async function fetchBayEvents(
+  calendar: calendar_v3.Calendar,
+  bayNumber: string,
+  date: string
+) {
+  if (!(bayNumber in BAY_CALENDARS)) {
+    console.error('Invalid bay number for event fetching:', bayNumber);
+    throw new Error(`Invalid bay number provided: ${bayNumber}`);
+  }
+  const calendarId = BAY_CALENDARS[bayNumber as BayName];
+
+  const parsedDate = parse(date, "yyyy-MM-dd", new Date());
+  if (isNaN(parsedDate.getTime())) {
+    console.error('Invalid date format for event fetching:', date);
+    throw new Error(`Invalid date format provided: ${date}. Expected YYYY-MM-DD.`);
+  }
+
+  const startOfDay = fromZonedTime(parsedDate, TIMEZONE);
+  const endOfDayDate = addMinutes(addHours(startOfDay, 23), 59);
+
+  const timeMin = formatISO(startOfDay);
+  const timeMax = formatISO(endOfDayDate);
+
+  try {
+    const response = await calendar.events.list({
+      calendarId,
+      timeMin: timeMin,
+      timeMax: timeMax,
+      singleEvents: true,
+      orderBy: 'startTime',
+      timeZone: TIMEZONE,
+    } as calendar_v3.Params$Resource$Events$List);
+
+    const events = response.data?.items || [];
+
+    return events.map((event: calendar_v3.Schema$Event) => {
+      const description = event.description || '';
+      const nameLine = description.match(/Name: ([^\n]+)/) || description.match(/Customer Name: ([^\n]+)/);
+      const contactLine = description.match(/Contact: ([^\n]+)/);
+      const typeLine = description.match(/Type: ([^\n]+)/);
+      const paxLine = description.match(/Pax: ([^\n]+)/);
+      const summary = event.summary || '';
+
+      let customerName = 'Unknown';
+      if (nameLine && nameLine[1]) {
+        customerName = nameLine[1];
+      } else {
+        const summaryMatch = summary.match(/^([^\(]+)\s*\(/);
+        if (summaryMatch && summaryMatch[1]) {
+          customerName = summaryMatch[1].trim();
+        }
+      }
+
+      let bookingType = '';
+      let packageName = '';
+      if (typeLine && typeLine[1]) {
+        const typeFull = typeLine[1];
+        const packageMatch = typeFull.match(/^(.*?)\s*\((.*?)\)$/);
+        if (packageMatch && packageMatch[1] && packageMatch[2]) {
+          bookingType = packageMatch[1].trim();
+          packageName = packageMatch[2].trim();
+        } else {
+          bookingType = typeFull.trim();
+        }
+      } else {
+        const summaryTypeMatch = summary.match(/-\s*(.+?)\s*at\s*/i);
+        if (summaryTypeMatch && summaryTypeMatch[1]) {
+          const fullTypeFromSummary = summaryTypeMatch[1];
+          const packageInSummaryMatch = fullTypeFromSummary.match(/^(.*?)\s*\((.*?)\)$/);
+          if (packageInSummaryMatch && packageInSummaryMatch[1] && packageInSummaryMatch[2]) {
+            bookingType = packageInSummaryMatch[1].trim();
+            packageName = packageInSummaryMatch[2].trim();
+          } else {
+            bookingType = fullTypeFromSummary.trim();
+          }
+        }
+      }
+
+      return {
+        id: event.id || undefined,
+        summary: event.summary || undefined,
+        description: event.description || undefined,
+        start: event.start?.dateTime || undefined,
+        end: event.end?.dateTime || undefined,
+        customer_name: customerName,
+        booking_type: bookingType,
+        package_name: packageName || undefined,
+        number_of_pax: paxLine && paxLine[1] ? paxLine[1] : '',
+        color: event.colorId || undefined,
+      };
+    });
+  } catch (error) {
+    console.error(`Error fetching events for bay ${bayNumber} on date ${date}:`, error);
+    throw error;
+  }
+}

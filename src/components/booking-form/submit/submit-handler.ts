@@ -80,14 +80,25 @@ function formatBookingData(formData: FormData): Booking {
   const endDateTime = parse(`${dateStr}T${format(endTimeObj, 'HH:mm:ss')}`, "yyyy-MM-dd'T'HH:mm:ss", new Date());
 
   // Adjust for potential overnight scenario if endTime < startTime
-  if (endDateTime <= startDateTime) {
+  if (endDateTime <= startDateTime && !(formData.duration && formData.duration >= 24 * 60)) { // also check formData.duration if available and not indicating a multi-day booking
       console.warn('End time is on or before start time. Assuming simple same-day calculation. Review if multi-day bookings are needed.');
   }
 
-  const durationHours = differenceInHours(endDateTime, startDateTime);
-  if (!Number.isInteger(durationHours) || durationHours <= 0) {
-    console.error(`Invalid duration calculated: ${durationHours} hours from ${format(startTimeObj, 'HH:mm')} to ${format(endTimeObj, 'HH:mm')}`);
-    throw new Error('Calculated duration is invalid. Must be a positive whole number of hours.');
+  // Use formData.duration (in minutes) as the source of truth for duration
+  if (formData.duration === undefined || formData.duration === null || typeof formData.duration !== 'number' || formData.duration <= 0) {
+    console.error(`Invalid formData.duration: ${formData.duration}`);
+    throw new Error('Duration is missing or invalid in form data. It must be a positive number of minutes.');
+  }
+
+  const durationInMinutes = formData.duration;
+
+  const durationHours = durationInMinutes / 60;
+
+  // Allow fractional hours, just ensure it's positive.
+  if (durationHours <= 0) {
+    // This specific error message might be hit if durationInMinutes was valid but somehow durationHours isn't positive.
+    console.error(`Calculated durationHours (${durationHours}) is not positive. Original minutes: ${durationInMinutes}. Start: ${format(startTimeObj, 'HH:mm')}, End: ${format(endTimeObj, 'HH:mm')}`);
+    throw new Error('Calculated duration must be a positive number of hours.');
   }
 
   // 2. Map Bay Name

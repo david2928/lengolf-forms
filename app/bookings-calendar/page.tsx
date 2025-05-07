@@ -116,8 +116,9 @@ export default function BookingsCalendarPage() {
                 const startTime = DateTime.fromISO(event.start);
                 const endTime = DateTime.fromISO(event.end);
                 
-                // Calculate duration in hours
-                const durationHours = endTime.diff(startTime, 'hours').hours;
+                // Calculate duration in hours (allowing for fractional hours)
+                const durationInMinutes = endTime.diff(startTime, 'minutes').minutes;
+                const durationHours = durationInMinutes / 60;
                 
                 return {
                   ...event,
