@@ -9,6 +9,7 @@ import { HoursInput } from './hours-input'
 import { DatePicker } from '@/components/ui/date-picker'
 import { toast } from '@/components/ui/use-toast'
 import { ConfirmationDialog } from './confirmation-dialog'
+import { AcknowledgmentDialog } from './acknowledgment-dialog'
 import { PackageUsageFormData, UsageFormState } from '@/types/package-usage'
 import { Loader2 } from 'lucide-react'
 
@@ -20,6 +21,7 @@ export function UsageForm() {
     packageId: null,
     usedHours: null,
     usedDate: new Date(),
+    customerSignature: null,
   })
 
   const [formState, setFormState] = useState<UsageFormState>({
@@ -30,6 +32,9 @@ export function UsageForm() {
 
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [selectedPackageName, setSelectedPackageName] = useState<string | null>(null)
+  const [currentPackageRemainingHours, setCurrentPackageRemainingHours] = useState<number | null>(null);
+  const [currentPackageExpirationDate, setCurrentPackageExpirationDate] = useState<string | null>(null);
+  const [showAcknowledgmentDialog, setShowAcknowledgmentDialog] = useState(false);
 
   const resetForm = () => {
     // Reset React state completely
@@ -38,10 +43,13 @@ export function UsageForm() {
       packageId: null,
       usedHours: null,
       usedDate: new Date(),
+      customerSignature: null,
     });
 
     // Reset selected package name
     setSelectedPackageName(null);
+    setCurrentPackageRemainingHours(null); // Reset remaining hours
+    setCurrentPackageExpirationDate(null); // Reset expiration date
 
     // Reset the actual form element
     if (formRef.current) {
@@ -93,7 +101,11 @@ export function UsageForm() {
     }
   }
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (signature: string | null) => {
+    // Set the signature in formData right before submitting
+    // This ensures the latest signature from the dialog is used
+    const updatedFormData = { ...formData, customerSignature: signature };
+
     setFormState({ ...formState, isLoading: true, error: null });
 
     try {
@@ -101,10 +113,11 @@ export function UsageForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          packageId: formData.packageId,
-          employeeName: formData.employeeName,
-          usedHours: formData.usedHours,
-          usedDate: formData.usedDate?.toISOString().split('T')[0],
+          packageId: updatedFormData.packageId,
+          employeeName: updatedFormData.employeeName,
+          usedHours: updatedFormData.usedHours,
+          usedDate: updatedFormData.usedDate?.toISOString().split('T')[0],
+          customerSignature: updatedFormData.customerSignature,
         }),
       });
 
@@ -122,7 +135,9 @@ export function UsageForm() {
       resetForm();
       
       setShowConfirmation(false);
-      setFormState({ isLoading: false, error: null, success: true });
+      setShowAcknowledgmentDialog(true);
+      
+      setFormState(prev => ({ ...prev, isLoading: false, error: null, success: true }));
     } catch (error) {
       console.error('Error submitting form:', error);
       setFormState({
@@ -138,6 +153,11 @@ export function UsageForm() {
       });
     }
   }
+
+  const handleAcknowledgmentDismiss = () => {
+    resetForm();
+    setShowAcknowledgmentDialog(false);
+  };
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -160,6 +180,8 @@ export function UsageForm() {
           onChange={(id, name) => {
             setFormData((prev) => ({ ...prev, packageId: id }));
             setSelectedPackageName(name);
+            setCurrentPackageRemainingHours(null); // Reset here
+            setCurrentPackageExpirationDate(null); // Reset here too
           }}
           isLoading={formState.isLoading}
         />
@@ -168,6 +190,10 @@ export function UsageForm() {
           <PackageInfoCard 
             packageId={formData.packageId}
             isLoading={formState.isLoading}
+            onDataLoaded={({ remainingHours, expiration_date }) => {
+              setCurrentPackageRemainingHours(remainingHours);
+              setCurrentPackageExpirationDate(expiration_date);
+            }}
           />
         )}
 
@@ -208,9 +234,18 @@ export function UsageForm() {
           employeeName: formData.employeeName,
           packageName: selectedPackageName,
           usedHours: formData.usedHours,
-          usedDate: formData.usedDate
+          currentPackageRemainingHours: currentPackageRemainingHours,
+          currentPackageExpirationDate: currentPackageExpirationDate,
         }}
         onConfirm={handleConfirm}
+      />
+
+      <AcknowledgmentDialog
+        open={showAcknowledgmentDialog}
+        onOpenChange={setShowAcknowledgmentDialog}
+        title="Usage Recorded"
+        description="The package usage has been successfully recorded."
+        onConfirm={handleAcknowledgmentDismiss}
       />
     </div>
   )

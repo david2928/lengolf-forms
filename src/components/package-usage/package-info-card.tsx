@@ -22,9 +22,10 @@ interface PackageDetails {
 interface PackageInfoCardProps {
   packageId: string
   isLoading?: boolean
+  onDataLoaded?: (data: { remainingHours: number | null; expiration_date: string | null }) => void;
 }
 
-export function PackageInfoCard({ packageId, isLoading = false }: PackageInfoCardProps) {
+export function PackageInfoCard({ packageId, isLoading = false, onDataLoaded }: PackageInfoCardProps) {
   const [packageDetails, setPackageDetails] = useState<PackageDetails | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loadingDetails, setLoadingDetails] = useState(true)
@@ -39,6 +40,12 @@ export function PackageInfoCard({ packageId, isLoading = false }: PackageInfoCar
         const data = await response.json()
         setPackageDetails(data)
         setError(null)
+        if (onDataLoaded && data) {
+          onDataLoaded({ 
+            remainingHours: data.remainingHours,
+            expiration_date: data.expiration_date 
+          });
+        }
       } catch (err) {
         console.error('Error fetching package details:', err)
         setError('Failed to load package details')
@@ -50,7 +57,7 @@ export function PackageInfoCard({ packageId, isLoading = false }: PackageInfoCar
     if (packageId) {
       fetchPackageDetails()
     }
-  }, [packageId])
+  }, [packageId, onDataLoaded])
 
   if (isLoading || loadingDetails) {
     return (

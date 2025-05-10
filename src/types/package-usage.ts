@@ -55,6 +55,7 @@ export interface PackageUsageFormData {
   packageId: string | null
   usedHours: number | null
   usedDate: Date | null
+  customerSignature?: string | null
 }
 
 export interface UsageFormState {
