@@ -141,8 +141,7 @@ export default function Home() {
   return (
     <div className="container max-w-6xl py-6">
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold">LENGOLF Forms System</h1>
-        <p className="text-muted-foreground mt-1">Select a form to get started</p>
+        <h1 className="text-2xl font-bold">LENGOLF Backoffice</h1>
       </div>
 
       <div className="mb-6">
