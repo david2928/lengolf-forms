@@ -21,7 +21,7 @@ export interface CalendarFormatInput {
   duration: number;
   number_of_people: number;
   bay: string | null;
-  bayDisplayName?: string;
+  bayDisplayName?: string | null;
   customer_notes: string | null;
   employeeName: string;
   bookingType: string;
@@ -410,5 +410,116 @@ export async function fetchBayEvents(
   } catch (error) {
     console.error(`Error fetching events for bay ${bayNumber} on date ${date}:`, error);
     throw error;
+  }
+}
+
+export async function findCalendarEventsByBookingId(
+  auth: any, // Should be the same auth object used for initializeCalendar
+  bookingId: string,
+  allPossibleCalendarIds: string[]
+): Promise<{ eventId: string; calendarId: string }[]> {
+  const calendar = initializeCalendar(auth);
+  const foundEvents: { eventId: string; calendarId: string }[] = [];
+
+  console.log(`Searching for calendar events with Booking ID: ${bookingId} in calendars:`, allPossibleCalendarIds);
+
+  for (const calId of allPossibleCalendarIds) {
+    if (!calId) {
+      console.warn('Skipping search in an undefined or null calendar ID.');
+      continue;
+    }
+    try {
+      const response = await calendar.events.list({
+        calendarId: calId,
+        q: `Booking ID: ${bookingId}`, // Searches within event details (summary, description, etc.)
+        singleEvents: true, // Important for recurring events, though likely not used here
+        showDeleted: false,
+      });
+
+      if (response.data.items) {
+        for (const event of response.data.items) {
+          if (event.id) {
+            // Ensure description contains the booking ID to be more precise, though q should handle it
+            if (event.description && event.description.includes(`Booking ID: ${bookingId}`)){
+                 foundEvents.push({ eventId: event.id, calendarId: calId });
+            } else if (!event.description) {
+                // If there's no description, but q matched it, consider it a potential match.
+                // This case might be rare if booking ID is always in description.
+                console.warn(`Event ${event.id} in calendar ${calId} matched by query "Booking ID: ${bookingId}" but has no description. Adding it based on query match.`);
+                foundEvents.push({ eventId: event.id, calendarId: calId });
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error searching for events in calendar ${calId} for booking ID ${bookingId}:`, error);
+      // Continue to other calendars instead of failing all
+    }
+  }
+  console.log(`Found ${foundEvents.length} events for Booking ID ${bookingId}:`, foundEvents);
+  return foundEvents;
+}
+
+export async function updateCalendarEvent(
+  auth: any, // Should be the same auth object used for initializeCalendar
+  calendarId: string,
+  eventId: string,
+  eventData: calendar_v3.Schema$Event // This should be the complete event resource
+): Promise<calendar_v3.Schema$Event | null> {
+  const calendar = initializeCalendar(auth);
+  console.log(`Attempting to update event ${eventId} in calendar ${calendarId} with data:`, eventData);
+  try {
+    const response = await calendar.events.update({
+      calendarId: calendarId,
+      eventId: eventId,
+      requestBody: eventData,
+    });
+    console.log(`Successfully updated event ${eventId} in calendar ${calendarId}. Response:`, response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating event ${eventId} in calendar ${calendarId}:`, error);
+    throw error; // Re-throw to allow caller to handle
+  }
+}
+
+export async function deleteCalendarEvent(
+  auth: any, // Should be the same auth object used for initializeCalendar
+  calendarId: string,
+  eventId: string
+): Promise<void> { // Google API delete typically returns empty or 204 No Content
+  const calendar = initializeCalendar(auth);
+  try {
+    await calendar.events.delete({
+      calendarId: calendarId,
+      eventId: eventId,
+    });
+    console.log(`Successfully deleted GCal event ${eventId} from calendar ${calendarId}`);
+  } catch (error) {
+    console.error(`Error deleting GCal event ${eventId} from calendar ${calendarId}:`, error);
+    throw error; // Re-throw to allow caller to handle
+  }
+}
+
+export async function getCalendarEventDetails(
+  auth: any, // Should be the same auth object used for initializeCalendar
+  calendarId: string,
+  eventId: string
+): Promise<calendar_v3.Schema$Event | null> {
+  const calendar = initializeCalendar(auth);
+  try {
+    const response = await calendar.events.get({
+      calendarId: calendarId,
+      eventId: eventId,
+    });
+    if (response.data) {
+      console.log(`Successfully fetched GCal event ${eventId} from calendar ${calendarId}`);
+      return response.data;
+    }
+    return null;
+  } catch (error) {
+    console.error(`Error fetching GCal event ${eventId} from calendar ${calendarId}:`, error);
+    // Depending on how critical this is, you might want to re-throw or handle differently
+    // For now, returning null indicates failure to fetch for any reason including not found.
+    return null;
   }
 }

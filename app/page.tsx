@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/use-toast'
 import { LucideIcon } from 'lucide-react'
 import { usePackageMonitor } from '@/hooks/use-package-monitor'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { menuItems as appMenuItems, type MenuItem as AppMenuItemType } from '@/config/menu-items'
 
 interface MenuItemProps {
   icon: LucideIcon;
@@ -16,6 +17,14 @@ interface MenuItemProps {
   onClick: () => void;
   extraInfo?: React.ReactNode;
 }
+
+const bookingItems = appMenuItems.filter(item => 
+  item.title === "Create Booking" || item.title === "Manage Bookings"
+);
+
+const packageItems = appMenuItems.filter(item => 
+  item.title === "Create Package" || item.title === "Update Package Usage" || item.title === "Package Monitor"
+);
 
 export default function Home() {
   const router = useRouter()
@@ -89,10 +98,9 @@ export default function Home() {
       <div className="flex-1">
         <div className="flex items-center justify-between">
           <h2 className="font-medium">
-            {title === "Package Monitor" ? "View Packages" : 
-             title === "Package Usage" ? "Update Package" :
-             title === "Bookings Calendar" ? "View Calendar" :
-             `Create ${title.split(' ')[0]}`}
+            {title === "Package Monitor" ? "View Packages" :
+             title === "Update Package Usage" ? "Update Package" :
+             title}
           </h2>
           {extraInfo && (
             <div className="text-base font-medium flex gap-4">
@@ -113,57 +121,22 @@ export default function Home() {
 
   const DesktopMenuItem = ({ icon: Icon, title, description, onClick, extraInfo }: MenuItemProps) => (
     <div 
-      className="flex flex-col p-6 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+      className="flex flex-col p-6 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer h-full"
       onClick={onClick}
     >
       <div className="flex flex-col items-center text-center flex-1">
         <Icon className="h-12 w-12 mb-4 text-primary" />
         <h2 className="text-xl font-semibold">{title}</h2>
-        {description && <p className="text-sm text-muted-foreground mt-2">{description}</p>}
+        {description && <p className="text-sm text-muted-foreground mt-2 flex-grow">{description}</p>}
         {extraInfo}
       </div>
       <Button className="w-full mt-6" variant="secondary">
-        {title === "Package Monitor" ? "View Packages" : 
-         title === "Package Usage" ? "Update Package" :
-         title === "Bookings Calendar" ? "View Calendar" :
-         `Create ${title.split(' ')[0]}`}
+        {title === "Package Monitor" ? "View Packages" :
+         title === "Update Package Usage" ? "Update Package" :
+         title}
       </Button>
     </div>
   )
-
-  const menuItems = [
-    {
-      icon: CalendarRange,
-      title: "Booking Creation",
-      description: !isMobile ? "Manage bay appointments" : undefined,
-      path: '/create-booking'
-    },
-    {
-      icon: Calendar,
-      title: "Bookings Calendar",
-      description: !isMobile ? "View bay availability" : undefined,
-      path: '/bookings-calendar'
-    },
-    {
-      icon: FileText,
-      title: "Package Creation",
-      description: !isMobile ? "New customer packages" : undefined,
-      path: '/create-package'
-    },
-    {
-      icon: Clock,
-      title: "Package Usage",
-      description: !isMobile ? "Record customer usage" : undefined,
-      path: '/update-package'
-    },
-    {
-      icon: Package2,
-      title: "Package Monitor",
-      description: !isMobile ? "Track package status" : undefined,
-      path: '/package-monitor',
-      extraInfo: packageInfo
-    }
-  ]
 
   return (
     <div className="container max-w-6xl py-6">
@@ -186,31 +159,70 @@ export default function Home() {
         <p className="text-xs text-muted-foreground mt-1">Click to refresh customer list</p>
       </div>
 
-      <div className="space-y-3 md:hidden">
-        {menuItems.map((item) => (
-          <MobileMenuItem
-            key={item.title}
-            icon={item.icon}
-            title={item.title}
-            description={item.description}
-            onClick={() => router.push(item.path)}
-            extraInfo={item.extraInfo}
-          />
-        ))}
+      <div className="space-y-6 md:hidden">
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Booking Management</h2>
+          <div className="space-y-3">
+            {bookingItems.map((item: AppMenuItemType) => (
+              <MobileMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Package Management</h2>
+          <div className="space-y-3">
+            {packageItems.map((item: AppMenuItemType) => (
+              <MobileMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+                onClick={() => router.push(item.path)}
+                extraInfo={item.title === "Package Monitor" ? packageInfo : undefined}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
-        {menuItems.map((item) => (
-          <DesktopMenuItem
-            key={item.title}
-            icon={item.icon}
-            title={item.title}
-            description={item.description}
-            onClick={() => router.push(item.path)}
-            extraInfo={item.extraInfo}
-          />
-        ))}
+      <div className="hidden md:block space-y-8">
+        <div>
+          <h2 className="text-2xl font-semibold mb-4 text-center md:text-left">Booking Management</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
+            {bookingItems.map((item: AppMenuItemType) => (
+              <DesktopMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={isMobile ? undefined : item.description}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
+        <div>
+          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Package Management</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
+            {packageItems.map((item: AppMenuItemType) => (
+              <DesktopMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={isMobile ? undefined : item.description}
+                onClick={() => router.push(item.path)}
+                extraInfo={item.title === "Package Monitor" ? packageInfo : undefined}
+              />
+            ))}
+          </div>
+        </div>
       </div>
+
     </div>
   )
 }

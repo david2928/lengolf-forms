@@ -4,8 +4,19 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut, Calendar } from 'lucide-react'
+import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle,
+} from "@/components/ui/navigation-menu"
+import { cn } from "@/lib/utils"
+import React from 'react'
 
 export function Nav() {
   const pathname = usePathname()
@@ -15,44 +26,69 @@ export function Nav() {
 
   const DesktopMenu = () => (
     <div className="flex items-center w-full">
-      <div className="flex items-center space-x-4">
-        <Link href="/">
-          <Button variant={pathname === '/' ? 'secondary' : 'ghost'} size="sm" className="gap-2">
-            <Home className="h-4 w-4" />
-            Home
-          </Button>
-        </Link>
-        <Link href="/create-booking">
-          <Button variant={pathname === '/create-booking' ? 'secondary' : 'ghost'} size="sm">
-            Create Booking
-          </Button>
-        </Link>
-        <Link href="/bookings-calendar">
-          <Button 
-            variant={pathname === '/bookings-calendar' ? 'secondary' : 'ghost'} 
-            size="sm"
-            className="gap-2"
-          >
-            <Calendar className="h-4 w-4" />
-            Calendar
-          </Button>
-        </Link>
-        <Link href="/create-package">
-          <Button variant={pathname === '/create-package' ? 'secondary' : 'ghost'} size="sm">
-            Create Package
-          </Button>
-        </Link>
-        <Link href="/update-package">
-          <Button variant={pathname === '/update-package' ? 'secondary' : 'ghost'} size="sm">
-            Update Package
-          </Button>
-        </Link>
-        <Link href="/package-monitor">
-          <Button variant={pathname === '/package-monitor' ? 'secondary' : 'ghost'} size="sm">
-            Package Monitor
-          </Button>
-        </Link>
-      </div>
+      <NavigationMenu>
+        <NavigationMenuList>
+          <NavigationMenuItem>
+            <Link href="/" legacyBehavior passHref>
+              <NavigationMenuLink className={cn(navigationMenuTriggerStyle(), pathname === '/' ? "bg-accent text-accent-foreground" : "hover:bg-accent/50")}>
+                <Home className="h-4 w-4 mr-2" />
+                Home
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+
+          <NavigationMenuItem>
+            <NavigationMenuTrigger className={cn(pathname.startsWith('/create-booking') || pathname.startsWith('/manage-bookings') ? "bg-accent text-accent-foreground" : "hover:bg-accent/50")}>
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Bookings
+            </NavigationMenuTrigger>
+            <NavigationMenuContent>
+              <ul className="grid w-[200px] gap-3 p-4 md:w-[250px]">
+                <ListItem href="/create-booking" title="Create Booking" active={pathname === '/create-booking'}>
+                  <PlusCircle className="h-5 w-5 mr-2" />
+                  New appointment
+                </ListItem>
+                <ListItem href="/manage-bookings" title="Manage Bookings" active={pathname === '/manage-bookings'}>
+                  <Edit className="h-5 w-5 mr-2" />
+                  View & edit existing
+                </ListItem>
+              </ul>
+            </NavigationMenuContent>
+          </NavigationMenuItem>
+
+          <NavigationMenuItem>
+            <Link href="/bookings-calendar" legacyBehavior passHref>
+              <NavigationMenuLink className={cn(navigationMenuTriggerStyle(), pathname === '/bookings-calendar' ? "bg-accent text-accent-foreground" : "hover:bg-accent/50")}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Calendar
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+
+          <NavigationMenuItem>
+            <NavigationMenuTrigger className={cn(pathname.startsWith('/create-package') || pathname.startsWith('/update-package') || pathname.startsWith('/package-monitor') ? "bg-accent text-accent-foreground" : "hover:bg-accent/50")}>
+              <Package className="h-4 w-4 mr-2" />
+              Packages
+            </NavigationMenuTrigger>
+            <NavigationMenuContent>
+              <ul className="grid w-[200px] gap-3 p-4 md:w-[250px]">
+                <ListItem href="/create-package" title="Create Package" active={pathname === '/create-package'}>
+                  <PlusCircle className="h-5 w-5 mr-2" />
+                  New customer package
+                </ListItem>
+                <ListItem href="/update-package" title="Update Package" active={pathname === '/update-package'}>
+                  <PackageCheck className="h-5 w-5 mr-2" />
+                  Record package usage
+                </ListItem>
+                <ListItem href="/package-monitor" title="Package Monitor" active={pathname === '/package-monitor'}>
+                  <PackageSearch className="h-5 w-5 mr-2" />
+                  Track active packages
+                </ListItem>
+              </ul>
+            </NavigationMenuContent>
+          </NavigationMenuItem>
+        </NavigationMenuList>
+      </NavigationMenu>
       <div className="ml-auto">
         <Button variant="outline" size="sm" onClick={() => signOut()} className="border border-gray-200">
           <LogOut className="h-4 w-4 mr-2" />
@@ -78,6 +114,15 @@ export function Nav() {
           <Calendar className="h-3.5 w-3.5" />
         </Button>
       </Link>
+      <Link href="/manage-bookings" className="flex-1">
+        <Button 
+          variant={pathname === '/manage-bookings' ? 'secondary' : 'ghost'} 
+          size="sm" 
+          className="w-full flex justify-center"
+        >
+          <ClipboardList className="h-3.5 w-3.5" />
+        </Button>
+      </Link>
       <PackageMonitorNavButton />
       <Button variant="outline" size="sm" onClick={() => signOut()} className="flex-1 border border-gray-200">
         <LogOut className="h-3.5 w-3.5" />
@@ -98,3 +143,32 @@ export function Nav() {
     </div>
   )
 }
+
+const ListItem = React.forwardRef<
+  React.ElementRef<"a">,
+  React.ComponentPropsWithoutRef<"a"> & { active?: boolean }
+>(({ className, title, children, active, ...props }, ref) => {
+  return (
+    <li>
+      <NavigationMenuLink asChild>
+        <Link href={props.href || "#"} legacyBehavior passHref>
+          <a
+            ref={ref}
+            className={cn(
+              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+              active && "bg-accent text-accent-foreground font-semibold",
+              className
+            )}
+            {...props}
+          >
+            <div className="text-sm font-medium leading-none">{title}</div>
+            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+              {children}
+            </p>
+          </a>
+        </Link>
+      </NavigationMenuLink>
+    </li>
+  )
+})
+ListItem.displayName = "ListItem"

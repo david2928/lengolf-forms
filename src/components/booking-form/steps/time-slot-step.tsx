@@ -12,7 +12,7 @@ import { BaySelector } from '../bay-selector'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { addHours, addMinutes, format } from 'date-fns'
+import { addHours, addMinutes, format, differenceInMinutes, parse as parseDateFns } from 'date-fns'
 import { DateTime } from 'luxon'
 
 export function TimeSlotStep() {
@@ -40,13 +40,61 @@ export function TimeSlotStep() {
                             formData.bookingDate && 
                             formData.bayNumber &&
                             startTimeValid &&
-                            (formData.isManualMode ? formData.duration : true);
+                            (formData.isManualMode ? formData.duration && formData.duration > 0 : formData.endTime ? true : false);
 
     setCanProgress(!!hasRequiredFields);
   }, [formData, setCanProgress]);
 
   // Ensure bookingDate is always a Date
   const bookingDate = formData.bookingDate || new Date();
+
+  // Effect to synchronize duration with startTime and endTime
+  useEffect(() => {
+    if (formData.isManualMode) return; // In manual mode, duration is set directly
+
+    if (formData.startTime && formData.endTime) {
+      let startDateTime: Date | null = null;
+      let endDateTime: Date | null = null;
+
+      if (formData.startTime instanceof Date) {
+        startDateTime = formData.startTime;
+      } else if (typeof formData.startTime === 'string') {
+        try {
+          startDateTime = parseDateFns(formData.startTime, 'HH:mm', bookingDate);
+        } catch (e) { console.error("Error parsing startTime string:", e); }
+      }
+
+      if (formData.endTime instanceof Date) {
+        endDateTime = formData.endTime;
+      } else if (typeof formData.endTime === 'string') {
+        try {
+          endDateTime = parseDateFns(formData.endTime, 'HH:mm', bookingDate);
+        } catch (e) { console.error("Error parsing endTime string:", e); }
+      }
+      
+      // Ensure dates are on the same day as bookingDate for correct comparison / diff
+      if (startDateTime) {
+        startDateTime.setFullYear(bookingDate.getFullYear(), bookingDate.getMonth(), bookingDate.getDate());
+      }
+      if (endDateTime) {
+        endDateTime.setFullYear(bookingDate.getFullYear(), bookingDate.getMonth(), bookingDate.getDate());
+      }
+
+      if (startDateTime && endDateTime && endDateTime > startDateTime) {
+        const durationInMinutes = differenceInMinutes(endDateTime, startDateTime);
+        if (formData.duration !== durationInMinutes) {
+          setFormValue('duration', durationInMinutes);
+        }
+      } else if (startDateTime && !endDateTime && !formData.isManualMode) {
+        // If only startTime is set (e.g. from BookingTimeSelector) and not manual mode, default to 1hr duration
+        // This provides an initial valid state before TimeSlots might be used.
+        const defaultEndTime = addHours(startDateTime, 1);
+        setFormValue('endTime', defaultEndTime);
+        setFormValue('duration', 60);
+      }
+    }
+  // Listen to bookingDate as well, because HH:mm strings for startTime/endTime are relative to it.
+  }, [formData.startTime, formData.endTime, formData.isManualMode, bookingDate, setFormValue, formData.duration]);
 
   const handleTimeSelect = (startTime: string, endTime: string) => {
     setFormValue('startTime', startTime);
@@ -106,22 +154,18 @@ export function TimeSlotStep() {
             selectedTime={typeof formData.startTime === 'string' ? null : formData.startTime}
             onTimeSelect={(time) => {
               setFormValue('startTime', time);
-              setFormValue('endTime', addHours(time, 1));
+              const initialEndTime = addHours(time, 1);
+              setFormValue('endTime', initialEndTime);
             }}
             error={errors.startTime}
           />
           {formData.startTime && (
             <TimeSlots
-              startTime={typeof formData.startTime === 'string' ? 
-                (() => {
-                  const [hours, minutes] = formData.startTime.split(':');
-                  const date = new Date(bookingDate);
-                  date.setHours(parseInt(hours), parseInt(minutes));
-                  return date;
-                })() : 
-                formData.startTime}
-              endTime={typeof formData.endTime === 'string' ? convertToDateTime(formData.endTime) : formData.endTime}
-              onEndTimeSelect={(time) => setFormValue('endTime', time)}
+              startTime={formData.startTime instanceof Date ? formData.startTime : parseDateFns(formData.startTime, 'HH:mm', bookingDate) }
+              endTime={formData.endTime instanceof Date ? formData.endTime : formData.endTime ? parseDateFns(formData.endTime, 'HH:mm', bookingDate) : null}
+              onEndTimeSelect={(time) => {
+                setFormValue('endTime', time);
+              }}
               error={errors.endTime}
             />
           )}

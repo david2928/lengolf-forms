@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { refacSupabase } from '@/lib/refac-supabase'; // Assuming this is the correct path to the client initialized with Anon key
 
 export async function POST(request: Request) {
+  console.warn("DEPRECATION WARNING: The endpoint POST /api/bookings/update-calendar-id is deprecated. Please use PUT /api/bookings/{bookingId}/link-calendar-events instead.");
   try {
     const body = await request.json();
     const { bookingId, eventId } = body;

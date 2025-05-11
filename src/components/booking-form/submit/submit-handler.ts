@@ -140,6 +140,8 @@ function formatBookingData(formData: FormData): Booking {
     status: 'confirmed',
     bay: bayId,
     customer_notes: formData.notes || null,
+    booking_type: formData.bookingType || null,
+    package_name: formData.packageName || null,
   };
 
   console.log('Formatted booking for DB insertion:', bookingForDb);
@@ -303,34 +305,45 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
         calendarResultData = await calendarResponse.json();
         console.log('Calendar event creation request successful. Response:', calendarResultData);
         
-        // --- Step 4.1: Update Booking with Event ID ---
-        // Extract the first eventId if available
-        const eventId = calendarResultData?.data?.[0]?.eventId;
-        
-        if (bookingId && eventId) {
-            console.log(`Attempting to update booking ${bookingId} with eventId ${eventId}...`);
-            const updateResponse = await fetch('/api/bookings/update-calendar-id', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ bookingId, eventId })
-            });
+        // --- Step 4.1: Link Google Calendar Events to Booking ---
+        const calendarEventsToLink = calendarResultData?.data; // Assuming .data contains CalendarEventResult[]
 
-            if (!updateResponse.ok) {
-                let updateErrorBody = '';
-                try { updateErrorBody = await updateResponse.text(); } catch (_) { /* Ignore */ }
-                // Log as warning, the main booking & calendar might still be ok
-                console.warn(`Failed to update booking ${bookingId} with eventId ${eventId}. Status:`, updateResponse.status, 'Body:', updateErrorBody);
-            } else {
-                const updateResult = await updateResponse.json();
-                console.log(`Successfully sent update request for booking ${bookingId}. Response:`, updateResult);
+        if (bookingId && Array.isArray(calendarEventsToLink) && calendarEventsToLink.length > 0) {
+          // Validate structure of each event object (basic check)
+          const isValidStructure = calendarEventsToLink.every(
+            (event: any) => event && typeof event.eventId === 'string' && typeof event.calendarId === 'string' && typeof event.status === 'string'
+          );
+
+          if (isValidStructure) {
+            console.log(`Attempting to link ${calendarEventsToLink.length} calendar event(s) to booking ${bookingId}...`);
+            try {
+              const linkEventsResponse = await fetch(`/api/bookings/${bookingId}/link-calendar-events`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ calendar_events: calendarEventsToLink })
+              });
+
+              if (!linkEventsResponse.ok) {
+                let linkErrorBody = '';
+                try { linkErrorBody = await linkEventsResponse.text(); } catch (_) { /* Ignore */ }
+                console.warn(`Failed to link calendar events for booking ${bookingId}. Status:`, linkEventsResponse.status, 'Body:', linkErrorBody);
+              } else {
+                const linkResult = await linkEventsResponse.json();
+                console.log(`Successfully sent link calendar events request for booking ${bookingId}. Response:`, linkResult);
+              }
+            } catch (linkError) {
+              console.error(`Error calling link-calendar-events endpoint for booking ${bookingId}:`, linkError);
             }
-        } else {
-            console.warn('Could not update booking with eventId: Missing bookingId or eventId.', { bookingId, eventId });
+          } else {
+            console.warn('Could not link calendar events: Invalid structure in calendarEventResultsArray for bookingId:', bookingId, calendarEventsToLink);
+          }
+        } else if (bookingId) { // bookingId exists, but calendarEventsToLink is not a valid array
+          console.warn('No valid calendar events found to link for bookingId:', bookingId, 'calendarEventResultsArray:', calendarEventsToLink);
         }
         // --- End Step 4.1 ---
 
       } catch (parseError) {
-         console.error('Error parsing calendar API response:', parseError);
+         console.error('Error parsing calendar API response or linking events:', parseError);
       }
     }
 

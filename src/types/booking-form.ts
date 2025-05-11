@@ -8,8 +8,8 @@ export interface BookingFormData {
   bookingType: string | null;
   isNewCustomer: boolean;
   bookingDate: Date | null;
-  startTime: string | null;
-  endTime: string | null;
+  startTime: string | Date | null;
+  endTime: string | Date | null;
   duration: number;
   isManualMode: boolean;
   bayNumber?: string;

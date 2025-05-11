@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2 } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -32,5 +32,11 @@ export const menuItems: MenuItem[] = [
     title: "Package Monitor",
     path: '/package-monitor',
     description: "Monitor Diamond and expiring packages"
+  },
+  {
+    icon: ListOrdered,
+    title: "Manage Bookings",
+    path: '/manage-bookings',
+    description: "Amend or cancel existing bookings"
   }
 ] 

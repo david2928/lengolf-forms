@@ -15,6 +15,33 @@ Lengolf Forms is a full-featured booking and management system built for golf tr
 - **User Authentication**: Secure staff login system
 - **Responsive Design**: Works on desktop and mobile devices
 
+## Core Features & Modules
+
+This application is composed of several key modules that provide its core functionality:
+
+*   **User Authentication**: Secure sign-in using Google accounts, managed via NextAuth.js. (See `app/auth/`, `src/lib/auth-config.ts`)
+*   **Booking Management**:
+    *   **Booking Creation**: A dedicated form (`app/create-booking/`, `src/components/booking-form/`) allows users to create new bookings.
+    *   **Bookings Calendar**: A visual calendar (`app/bookings-calendar/`) displays bookings across different bays, with daily navigation and real-time updates.
+    *   **API**: Backend logic for creating and retrieving bookings (`app/api/bookings/`).
+*   **Package Management**:
+    *   **Package Creation**: A form (`app/create-package/`, `src/components/package-form/`, `src/hooks/usePackageForm.ts`) for creating new customer packages.
+    *   **Package Usage**: Functionality to record and update the usage of customer packages (`app/update-package/`, `src/components/package-usage/`).
+    *   **Package Monitoring**: A dashboard (`app/package-monitor/`, `src/hooks/use-package-monitor.ts`) to track active "Diamond" packages and those nearing expiration.
+    *   **API**: Endpoints for package data (`app/api/packages/`).
+*   **Customer Data Management**:
+    *   **CRM Integration**: An API endpoint (`app/api/crm/update-customers/`) triggers a Google Cloud Run service to refresh customer data.
+    *   **Data Hooks**: Custom hooks (`src/hooks/useCustomers.ts`, `src/hooks/use-customers.ts`) for fetching customer lists.
+*   **Notifications**: Integration with LINE Messaging API (`src/lib/line-messaging.ts`) for sending real-time notifications, likely triggered via API routes in `app/api/notify/`.
+*   **Google Services Integration**:
+    *   **Google Calendar**: Synchronization for bookings (`src/lib/google-calendar.ts`).
+    *   **Google Sheets**: Potential data exchange with Google Sheets (`src/lib/google-sheets-service.ts`).
+*   **Navigation & UI**:
+    *   **Main Navigation**: A responsive navigation bar (`src/components/nav.tsx`) provides access to all features.
+    *   **UI Components**: A rich set of reusable UI components is available in `src/components/ui/`, based on Shadcn/UI principles.
+
+For a more detailed breakdown of the entire codebase structure, refer to the [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) file.
+
 ## Tech Stack
 
 - **Frontend**: Next.js, TypeScript, Tailwind CSS, React Hook Form
@@ -24,6 +51,10 @@ Lengolf Forms is a full-featured booking and management system built for golf tr
 - **Calendar**: Google Calendar API
 - **Messaging**: LINE Messaging API
 - **Deployment**: Vercel
+
+## Project Structure
+
+For a detailed explanation of the codebase structure, please refer to the [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) file.
 
 ## Recent Changes
 

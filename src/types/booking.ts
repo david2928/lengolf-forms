@@ -13,7 +13,16 @@ export interface Booking {
   customer_notes: string | null; // text, nullable
   created_at?: string;        // timestamptz, nullable (DB default)
   updated_at?: string;        // timestamptz, nullable (DB default)
-  calendar_event_id?: string | null; // Google Calendar event ID
+  updated_by_type?: string | null;      // TEXT, nullable
+  updated_by_identifier?: string | null; // TEXT, nullable
+  cancelled_by_type?: string | null;    // TEXT, nullable
+  cancelled_by_identifier?: string | null; // TEXT, nullable
+  cancellation_reason?: string | null;  // TEXT, nullable
+  google_calendar_sync_status?: string | null; // TEXT, nullable
+  calendar_event_id?: string | null; // Google Calendar event ID (to be deprecated)
+  calendar_events?: { eventId: string; calendarId: string; status: string }[] | null; // JSONB from P0
+  booking_type?: string | null; // TEXT, nullable, Added for storing booking type
+  package_name?: string | null; // TEXT, nullable, Added for storing package name
 }
 
 export interface CalendarEvent {
