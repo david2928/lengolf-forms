@@ -83,3 +83,10 @@
     --removed-body-scroll-bar-size: 0px !important;
   }
 }
+
+/* Disable text selection on buttons to prevent accidental search on long press */
+button {
+  -webkit-user-select: none; /* Safari */
+  -ms-user-select: none; /* IE 10 and IE 11 */
+  user-select: none; /* Standard syntax */
+}

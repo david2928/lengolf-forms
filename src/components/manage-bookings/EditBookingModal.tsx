@@ -51,7 +51,7 @@ interface EditBookingFormData {
   bay: string;
   date: Date; // Store date as Date object for DatePicker
   start_time: string; // HH:mm
-  duration: number; // in hours
+  duration: number; // in minutes
   number_of_people: number;
   customer_notes: string;
   employee_name: string;
@@ -115,11 +115,16 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
         } else console.warn('Booking date is undefined or null');
       } catch (e) { console.error("Error parsing booking date:", booking.date, e); }
 
+      // Convert duration to minutes if needed (assume booking.duration is in hours if <= 12, else already in minutes)
+      let durationInMinutes = 60;
+      if (typeof booking.duration === 'number') {
+        durationInMinutes = booking.duration <= 12 ? booking.duration * 60 : booking.duration;
+      }
       const initialFormData: Partial<EditBookingFormData> = {
         bay: booking.bay || '',
         date: initialDate,
         start_time: booking.start_time || '',
-        duration: booking.duration || 1,
+        duration: durationInMinutes, // always minutes
         number_of_people: booking.number_of_people || 1,
         customer_notes: booking.customer_notes || '',
         employee_name: booking?.updated_by_identifier || '',
@@ -174,14 +179,22 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
     const { name, value } = e.target;
     let processedValue: string | number = value;
     if (name === 'duration' || name === 'number_of_people') {
-      processedValue = parseFloat(value);
-      if (isNaN(processedValue)) processedValue = name === 'duration' ? 0.5 : 1;
+      processedValue = parseInt(value);
+      if (isNaN(processedValue)) processedValue = name === 'duration' ? 60 : 1;
     }
-    setFormData(prev => ({ ...prev, [name]: processedValue as any }));
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: processedValue as any,
+      ...(name === 'start_time' || name === 'duration' ? { bay: '' } : {}) // Deselect bay on time or duration change
+    }));
   };
 
   const handleDateChange = (date: Date | null) => {
-    setFormData(prev => ({ ...prev, date: date || new Date() }));
+    setFormData(prev => ({ 
+      ...prev, 
+      date: date || new Date(),
+      bay: '' // Deselect bay on date change
+    }));
   };
 
   const handleBayButtonClick = (bayName: string) => {
@@ -281,10 +294,10 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       toast({ title: "Validation Error", description: "Valid start time (HH:mm) is required.", variant: "destructive" });
       return;
     }
-    const durationHours = parseFloat(formData.duration?.toString() || '0');
-    if (isNaN(durationHours) || durationHours <= 0) {
-      setError("Valid duration (must be > 0 hours) is required.");
-      toast({ title: "Validation Error", description: "Valid duration (must be > 0 hours) is required.", variant: "destructive" });
+    const durationMinutes = parseInt(formData.duration?.toString() || '0');
+    if (isNaN(durationMinutes) || durationMinutes < 30) {
+      setError("Valid duration (must be at least 30 minutes) is required.");
+      toast({ title: "Validation Error", description: "Valid duration (must be at least 30 minutes) is required.", variant: "destructive" });
       return;
     }
     const numberOfPeople = parseInt(formData.number_of_people?.toString() || '0', 10);
@@ -307,8 +320,6 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
     
     setIsSubmitting(true);
 
-    const durationInMinutes = durationHours * 60;
-
     const payload: any = {
       employee_name: formData.employee_name.trim(),
     };
@@ -316,7 +327,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
     if (formData.bay) payload.bay = formData.bay;
     if (formData.date) payload.date = format(formData.date, 'yyyy-MM-dd');
     if (formData.start_time) payload.start_time = formData.start_time;
-    payload.duration = durationInMinutes;
+    payload.duration = durationMinutes;
     if (formData.number_of_people) payload.number_of_people = numberOfPeople;
     if (formData.customer_notes !== undefined && formData.customer_notes !== null) {
       payload.customer_notes = formData.customer_notes;
@@ -353,14 +364,14 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
             if (payload.date && originalSlot.date !== payload.date) changesSummary.push(`Date: ${originalSlot.date} -> ${payload.date}`);
             if (payload.start_time && originalSlot.start_time !== payload.start_time) changesSummary.push(`Time: ${originalSlot.start_time} -> ${payload.start_time}`);
             if (payload.bay && originalSlot.bay !== payload.bay) changesSummary.push(`Bay: ${originalSlot.bay} -> ${payload.bay}`);
-            if (payload.duration && (originalSlot.duration * 60) !== payload.duration) changesSummary.push(`Duration: ${originalSlot.duration}h -> ${payload.duration/60}h`);
+            if (payload.duration && (originalSlot.duration * 60) !== payload.duration) changesSummary.push(`Duration: ${originalSlot.duration}m -> ${payload.duration/60}m`);
           }
           if (payload.number_of_people && booking.number_of_people !== payload.number_of_people) changesSummary.push(`Pax: ${booking.number_of_people} -> ${payload.number_of_people}`);
           if (payload.customer_notes !== undefined && (booking.customer_notes || '') !== (payload.customer_notes || '')) changesSummary.push('Notes updated');
 
           const summaryText = changesSummary.length > 0 ? changesSummary.join(', ') : 'Details updated';
 
-          const lineMessage = `ℹ️ BOOKING MODIFIED (ID: ${updatedBookingData.id}) 🔄\n----------------------------------\n👤 Customer: ${updatedBookingData.name}\n📞 Phone: ${updatedBookingData.phone_number || 'N/A'}\n👥 Pax: ${updatedBookingData.number_of_people || 1}\n🗓️ Date: ${format(new Date(updatedBookingData.date), 'EEE, MMM dd')}\n⏰ Time: ${updatedBookingData.start_time} (Duration: ${updatedBookingData.duration}h)\n⛳ Bay: ${updatedBookingData.bay || 'N/A'}\n💡 Type: ${updatedBookingData.booking_type || 'N/A'}${updatedBookingData.package_name ? ` (${updatedBookingData.package_name})` : ''}\n----------------------------------\n🛠️ Changes: ${summaryText}\n🧑‍💼 By: ${formData.employee_name?.trim() || 'Staff'}`;
+          const lineMessage = `ℹ️ BOOKING MODIFIED (ID: ${updatedBookingData.id}) 🔄\n----------------------------------\n👤 Customer: ${updatedBookingData.name}\n📞 Phone: ${updatedBookingData.phone_number || 'N/A'}\n👥 Pax: ${updatedBookingData.number_of_people || 1}\n🗓️ Date: ${format(new Date(updatedBookingData.date), 'EEE, MMM dd')}\n⏰ Time: ${updatedBookingData.start_time} (Duration: ${updatedBookingData.duration}m)\n⛳ Bay: ${updatedBookingData.bay || 'N/A'}\n💡 Type: ${updatedBookingData.booking_type || 'N/A'}${updatedBookingData.package_name ? ` (${updatedBookingData.package_name})` : ''}\n----------------------------------\n🛠️ Changes: ${summaryText}\n🧑‍💼 By: ${formData.employee_name?.trim() || 'Staff'}`;
 
           const notifyResponse = await fetch('/api/notify', {
             method: 'POST',
@@ -446,8 +457,8 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
 
           {/* Duration */}
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="duration" className="text-right">Duration (hrs)</Label>
-            <Input id="duration" name="duration" type="number" value={formData.duration === undefined ? '' : formData.duration} onChange={handleInputChange} className="col-span-3" min="0.5" step="0.5" disabled={!isBookingEditable} />
+            <Label htmlFor="duration" className="text-right">Duration (minutes)</Label>
+            <Input id="duration" name="duration" type="number" value={formData.duration === undefined ? '' : formData.duration} onChange={handleInputChange} className="col-span-3" min="30" step="15" disabled={!isBookingEditable} />
           </div>
           
           {/* Availability Status Display (for selected bay/time) */}
@@ -481,16 +492,12 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
               )}
             </div>
           </div>
-          {/* Display for selected bay's specific status if needed, or rely on button visual state */}
-          {/* 
-          {formData.bay && availabilityStatus !== 'idle' && availabilityStatus !== 'checking' && availabilityStatus !== 'not_applicable' && (
-             <div className="text-center">
-                <p className={`text-sm ${isSlotAvailable ? 'text-green-500' : 'text-red-500'}`}>
-                    {formData.bay}: {isSlotAvailable ? 'Available' : 'Not Available'}
-                </p>
-             </div>
+          {/* Show a message if no bay is selected */}
+          {(!formData.bay || formData.bay === '') && (
+            <div className="text-sm text-yellow-700 text-center mb-2">
+              Please select a bay for the new time/date.
+            </div>
           )}
-          */}
 
           {/* Number of People */}
           <div className="grid grid-cols-4 items-center gap-4">

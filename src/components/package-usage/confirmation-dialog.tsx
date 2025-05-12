@@ -89,7 +89,7 @@ export function ConfirmationDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="w-full h-full overflow-y-auto p-4 
-                              sm:h-auto sm:w-auto sm:max-w-lg md:max-w-xl lg:max-w-2xl 
+                              sm:h-auto sm:w-auto sm:max-w-xl md:max-w-3xl lg:max-w-4xl 
                               sm:rounded-lg sm:p-6">
         <DialogHeader className="mb-4">
           <DialogTitle className="text-xl sm:text-2xl">Confirm Package Usage & Sign</DialogTitle>
@@ -130,24 +130,18 @@ export function ConfirmationDialog({
           
           <div className="pt-4 space-y-2">
             <p className="text-base font-semibold text-gray-700 text-center">Customer Signature</p>
-            <div ref={signaturePadContainerRef} className="w-full flex justify-center">
+            <p className="text-xs font-semibold text-yellow-900 bg-yellow-100 rounded px-2 py-1 text-center max-w-md mx-auto" aria-live="polite">
+              Please sign in the area below using your finger. Tap 'Clear Signature' to retry.
+            </p>
+            <div ref={signaturePadContainerRef} className="w-full">
               <SignaturePad 
                 ref={signaturePadRef} 
-                width={signaturePadSize.width} 
-                height={signaturePadSize.height} 
+                height={220}
+                className="bg-yellow-50 border-2 border-yellow-200 shadow-sm p-2 rounded-md"
+                onEnd={() => setIsSignatureEmpty(signaturePadRef.current?.isEmpty() ?? true)}
+                onClear={() => setIsSignatureEmpty(true)}
               />
             </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="w-full mt-1 text-xs text-muted-foreground hover:text-accent-foreground"
-              onClick={() => {
-                const isEmpty = signaturePadRef.current?.isEmpty() ?? true;
-                setIsSignatureEmpty(isEmpty);
-              }}
-            >
-              Tap here or Clear Signature if Confirm button is disabled
-            </Button>
           </div>
         </div>
 

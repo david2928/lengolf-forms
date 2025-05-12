@@ -45,12 +45,10 @@ export function Nav() {
             <NavigationMenuContent>
               <ul className="grid w-[200px] gap-3 p-4 md:w-[250px]">
                 <ListItem href="/create-booking" title="Create Booking" active={pathname === '/create-booking'}>
-                  <PlusCircle className="h-5 w-5 mr-2" />
-                  New appointment
+                  <PlusCircle className="h-5 w-5" />
                 </ListItem>
                 <ListItem href="/manage-bookings" title="Manage Bookings" active={pathname === '/manage-bookings'}>
-                  <Edit className="h-5 w-5 mr-2" />
-                  View & edit existing
+                  <Edit className="h-5 w-5" />
                 </ListItem>
               </ul>
             </NavigationMenuContent>
@@ -73,16 +71,13 @@ export function Nav() {
             <NavigationMenuContent>
               <ul className="grid w-[200px] gap-3 p-4 md:w-[250px]">
                 <ListItem href="/create-package" title="Create Package" active={pathname === '/create-package'}>
-                  <PlusCircle className="h-5 w-5 mr-2" />
-                  New customer package
+                  <PlusCircle className="h-5 w-5" />
                 </ListItem>
                 <ListItem href="/update-package" title="Update Package" active={pathname === '/update-package'}>
-                  <PackageCheck className="h-5 w-5 mr-2" />
-                  Record package usage
+                  <PackageCheck className="h-5 w-5" />
                 </ListItem>
                 <ListItem href="/package-monitor" title="Package Monitor" active={pathname === '/package-monitor'}>
-                  <PackageSearch className="h-5 w-5 mr-2" />
-                  Track active packages
+                  <PackageSearch className="h-5 w-5" />
                 </ListItem>
               </ul>
             </NavigationMenuContent>
@@ -155,16 +150,16 @@ const ListItem = React.forwardRef<
           <a
             ref={ref}
             className={cn(
-              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+              "block select-none rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
               active && "bg-accent text-accent-foreground font-semibold",
               className
             )}
             {...props}
           >
-            <div className="text-sm font-medium leading-none">{title}</div>
-            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+            <div className="flex items-center text-sm font-medium leading-none">
               {children}
-            </p>
+              <span className="ml-2">{title}</span>
+            </div>
           </a>
         </Link>
       </NavigationMenuLink>

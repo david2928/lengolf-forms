@@ -12,6 +12,7 @@ import { CancelBookingModal } from '@/components/manage-bookings/CancelBookingMo
 import { EditBookingModal } from '@/components/manage-bookings/EditBookingModal'; // Import the Edit modal
 import { BookingHistoryModal } from '@/components/manage-bookings/BookingHistoryModal'; // Import the History modal
 import { useToast } from "@/components/ui/use-toast"; // For showing success/error messages
+import { Checkbox } from '@/components/ui/checkbox'; // Add Checkbox import
 
 // Helper function to calculate end_time
 const calculateEndTime = (date: string, startTime: string, duration: number): string => {
@@ -35,14 +36,14 @@ const calculateEndTime = (date: string, startTime: string, duration: number): st
   }
 };
 
-// Helper function to get CSS classes for bay cell based on bay name
-const getBayCellClasses = (simpleBayName: string | null): string => {
-  if (!simpleBayName) return 'border-l-4 border-transparent'; // Default transparent border
+// Helper function to get bay badge classes and color
+const getBayBadgeClasses = (simpleBayName: string | null): string => {
+  if (!simpleBayName) return 'bg-gray-100 text-gray-500';
   switch(simpleBayName) {
-    case 'Bay 1': return 'border-l-4 border-[#009ae1]'; // Custom hex for Bay 1
-    case 'Bay 2': return 'border-l-4 border-[#fc5228]'; // Custom hex for Bay 2
-    case 'Bay 3': return 'border-l-4 border-[#ec7c74]'; // Custom hex for Bay 3
-    default: return 'border-l-4 border-transparent';
+    case 'Bay 1': return 'bg-[#009ae1]/10 text-[#009ae1]';
+    case 'Bay 2': return 'bg-[#fc5228]/10 text-[#fc5228]';
+    case 'Bay 3': return 'bg-[#ec7c74]/10 text-[#ec7c74]';
+    default: return 'bg-gray-100 text-gray-500';
   }
 };
 
@@ -52,7 +53,8 @@ export default function ManageBookingsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState(''); // State for search term
-  const [statusFilter, setStatusFilter] = useState('all'); // State for status filter: 'all', 'confirmed', 'cancelled'
+  const [statusFilter, setStatusFilter] = useState('confirmed'); // State for status filter: 'all', 'confirmed', 'cancelled'
+  const [showPastBookings, setShowPastBookings] = useState<boolean>(true);
 
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [selectedBookingForCancel, setSelectedBookingForCancel] = useState<Booking | null>(null);
@@ -64,6 +66,18 @@ export default function ManageBookingsPage() {
   const [selectedBookingIdForHistory, setSelectedBookingIdForHistory] = useState<string | null>(null);
 
   const { toast } = useToast();
+
+  // Helper to check if selected date is today
+  const isToday = selectedDate ? format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') : false;
+
+  // On date change, set showPastBookings default
+  useEffect(() => {
+    if (isToday) {
+      setShowPastBookings(false); // Hide past bookings by default for today
+    } else {
+      setShowPastBookings(true); // Show all bookings for other days
+    }
+  }, [selectedDate]);
 
   const isBookingInPast = (booking: Booking): boolean => {
     if (booking.date && booking.start_time) {
@@ -181,12 +195,17 @@ export default function ManageBookingsPage() {
         const idMatch = booking.id.toLowerCase().includes(searchTermLower);
         const searchMatch = nameMatch || phoneMatch || idMatch;
 
-        if (statusFilter === 'all') {
-          return searchMatch;
+        // Filter by status
+        if (statusFilter !== 'all' && booking.status !== statusFilter) {
+          return false;
         }
-        return searchMatch && booking.status === statusFilter;
+        // Filter out past bookings for today if flag is off
+        if (isToday && !showPastBookings && isBookingInPast(booking)) {
+          return false;
+        }
+        return searchMatch;
       });
-  }, [bookings, searchTerm, statusFilter]);
+  }, [bookings, searchTerm, statusFilter, isToday, showPastBookings]);
 
   return (
     <div className="container mx-auto p-4">
@@ -219,6 +238,12 @@ export default function ManageBookingsPage() {
               </SelectContent>
             </Select>
           </div>
+          {isToday && (
+            <div className="mb-4 flex items-center space-x-2">
+              <Checkbox id="showPastBookings" checked={showPastBookings} onCheckedChange={checked => setShowPastBookings(!!checked)} />
+              <label htmlFor="showPastBookings" className="text-sm">Show past bookings</label>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -235,7 +260,31 @@ export default function ManageBookingsPage() {
             <CardTitle>Bookings for {selectedDate ? format(selectedDate, 'PPP') : ''}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            {/* Mobile: Card/List layout */}
+            <div className="block md:hidden space-y-4">
+              {bookingsForDisplay.map((booking) => (
+                <div key={booking.id} className={`rounded-lg border p-4 shadow-sm ${booking.status === 'cancelled' ? 'bg-red-50 opacity-70' : 'bg-white'}`}> 
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-gray-900">{booking.name}</span>
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : booking.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{booking.status}</span>
+                  </div>
+                  <div className="flex flex-col gap-1 text-sm text-gray-700 mb-2">
+                    <div><span className="font-medium">Time:</span> {booking.start_time} - {booking.display_end_time}</div>
+                    <div>
+                      <span className="font-medium">Bay:</span> 
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ml-1 ${getBayBadgeClasses(booking.bay)}`}>{booking.bay || 'N/A'}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenEditModal(booking)} disabled={booking.status === 'cancelled' || isBookingInPast(booking)}>Edit</Button>
+                    <Button variant="destructive" size="sm" className="flex-1" onClick={() => handleOpenCancelModal(booking)} disabled={booking.status === 'cancelled' || isBookingInPast(booking)}>Cancel</Button>
+                    <Button variant="ghost" size="sm" className="flex-1" onClick={() => handleOpenHistoryModal(booking.id)}>History</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop/Tablet: Table layout */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -243,7 +292,6 @@ export default function ManageBookingsPage() {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bay</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GCal Sync</th> */}
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -252,17 +300,10 @@ export default function ManageBookingsPage() {
                     <tr key={booking.id} className={booking.status === 'cancelled' ? 'bg-red-50 opacity-70' : ''}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{booking.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.start_time} - {booking.display_end_time}</td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${getBayCellClasses(booking.bay)}`}>{booking.bay || 'N/A'}</td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${getBayBadgeClasses(booking.bay)}`}>{booking.bay || 'N/A'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : booking.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
-                          {booking.status}
-                        </span>
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : booking.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{booking.status}</span>
                       </td>
-                      {/* 
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${booking.google_calendar_sync_status === 'error_syncing' ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
-                        {booking.google_calendar_sync_status || 'N/A'}
-                      </td>
-                      */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                         <Button variant="outline" size="sm" onClick={() => handleOpenEditModal(booking)} disabled={booking.status === 'cancelled' || isBookingInPast(booking)}>Edit</Button>
                         <Button variant="destructive" size="sm" onClick={() => handleOpenCancelModal(booking)} disabled={booking.status === 'cancelled' || isBookingInPast(booking)}>Cancel</Button>

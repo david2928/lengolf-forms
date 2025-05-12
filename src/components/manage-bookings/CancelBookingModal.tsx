@@ -115,7 +115,10 @@ export function CancelBookingModal({ isOpen, onClose, booking, onSuccess }: Canc
           const notifyResponse = await fetch('/api/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: lineMessage, bookingType: undefined /* Or determine from booking if needed */ })
+            body: JSON.stringify({ 
+              message: lineMessage, 
+              bookingType: cancelledBookingData.booking_type // Pass booking_type for correct channel selection
+            })
           });
           if (!notifyResponse.ok) {
             const notifyErrorText = await notifyResponse.text();
