@@ -131,7 +131,7 @@ export function ConfirmationDialog({
           <div className="pt-4 space-y-2">
             <p className="text-base font-semibold text-gray-700 text-center">Customer Signature</p>
             <p className="text-xs font-semibold text-yellow-900 bg-yellow-100 rounded px-2 py-1 text-center max-w-md mx-auto" aria-live="polite">
-              Please sign in the area below using your finger. Tap 'Clear Signature' to retry.
+              Please sign in the area below using your finger. Tap &apos;Clear Signature&apos; to retry.
             </p>
             <div ref={signaturePadContainerRef} className="w-full">
               <SignaturePad 
