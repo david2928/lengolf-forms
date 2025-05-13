@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     if (!proposedSlotStart) {
       return NextResponse.json({ error: 'Invalid date or start_time format.' }, { status: 400 });
     }
-    const proposedSlotEnd = proposedSlotStart.plus({ minutes: duration * 60 });
+    const proposedSlotEnd = proposedSlotStart.plus({ minutes: duration });
 
     const dayStart = proposedSlotStart.startOf('day');
     const dayEnd = proposedSlotStart.endOf('day');
