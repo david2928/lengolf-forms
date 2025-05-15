@@ -27,7 +27,7 @@ export function Nav() {
   const DesktopMenu = () => (
     <div className="flex items-center w-full">
       <NavigationMenu>
-        <NavigationMenuList>
+        <NavigationMenuList className="justify-start">
           <NavigationMenuItem>
             <Link href="/" legacyBehavior passHref>
               <NavigationMenuLink className={cn(navigationMenuTriggerStyle(), pathname === '/' ? "bg-accent text-accent-foreground" : "hover:bg-accent/50")}>

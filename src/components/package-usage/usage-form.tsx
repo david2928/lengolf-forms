@@ -238,6 +238,7 @@ export function UsageForm() {
           currentPackageExpirationDate: currentPackageExpirationDate,
         }}
         onConfirm={handleConfirm}
+        isLoading={formState.isLoading}
       />
 
       <AcknowledgmentDialog

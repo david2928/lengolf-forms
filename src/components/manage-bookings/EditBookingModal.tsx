@@ -364,7 +364,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
             if (payload.date && originalSlot.date !== payload.date) changesSummary.push(`Date: ${originalSlot.date} -> ${payload.date}`);
             if (payload.start_time && originalSlot.start_time !== payload.start_time) changesSummary.push(`Time: ${originalSlot.start_time} -> ${payload.start_time}`);
             if (payload.bay && originalSlot.bay !== payload.bay) changesSummary.push(`Bay: ${originalSlot.bay} -> ${payload.bay}`);
-            if (payload.duration && (originalSlot.duration * 60) !== payload.duration) changesSummary.push(`Duration: ${originalSlot.duration}m -> ${payload.duration/60}m`);
+            if (payload.duration && (originalSlot.duration * 60) !== payload.duration) changesSummary.push(`Duration: ${originalSlot.duration}h -> ${payload.duration/60}h`);
           }
           if (payload.number_of_people && booking.number_of_people !== payload.number_of_people) changesSummary.push(`Pax: ${booking.number_of_people} -> ${payload.number_of_people}`);
           if (payload.customer_notes !== undefined && (booking.customer_notes || '') !== (payload.customer_notes || '')) changesSummary.push('Notes updated');

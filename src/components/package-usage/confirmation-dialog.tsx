@@ -25,6 +25,7 @@ interface ConfirmationDialogProps {
     currentPackageExpirationDate?: string | null; // Added for expiration date display
   };
   onConfirm: (signature: string | null) => void;
+  isLoading?: boolean; // Add isLoading prop
 }
 
 export function ConfirmationDialog({
@@ -32,6 +33,7 @@ export function ConfirmationDialog({
   onOpenChange,
   data,
   onConfirm,
+  isLoading, // Destructure isLoading
 }: ConfirmationDialogProps) {
   const signaturePadRef = useRef<SignaturePadRef>(null);
   const [isSignatureEmpty, setIsSignatureEmpty] = useState(true);
@@ -146,11 +148,11 @@ export function ConfirmationDialog({
         </div>
 
         <DialogFooter className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2 sm:gap-0">
-          <Button variant="outline" onClick={() => handleOpenChange(false)} className="w-full sm:w-auto">
+          <Button variant="outline" onClick={() => handleOpenChange(false)} className="w-full sm:w-auto" disabled={isLoading}>
             Cancel
           </Button>
-          <Button onClick={handleConfirmClick} disabled={isSignatureEmpty} className="w-full sm:w-auto">
-            Confirm & Save Signature
+          <Button onClick={handleConfirmClick} disabled={isSignatureEmpty || isLoading} className="w-full sm:w-auto">
+            {isLoading ? 'Saving...' : 'Confirm & Save Signature'}
           </Button>
         </DialogFooter>
       </DialogContent>
