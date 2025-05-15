@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import { PenSquare } from "lucide-react";
 import { Booking } from '@/types/booking';
 import { format, parseISO, isValid, parse, addMinutes, isWithinInterval, isEqual, startOfDay, endOfDay, subHours, isBefore } from 'date-fns';
@@ -93,9 +94,10 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const [allowOverwrite, setAllowOverwrite] = useState(false);
 
   // State for individual slot availability (currently selected bay)
-  const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable' | 'error' | 'not_applicable'>('idle');
+  const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable' | 'error' | 'not_applicable' | 'overridden'>('idle');
   const [isSlotAvailable, setIsSlotAvailable] = useState<boolean>(false);
 
   // New state for dynamic bay loading
@@ -141,6 +143,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       setIsSlotAvailable(false);
       setBayAvailabilityData([]);
       setIsCheckingAllBays(false);
+      setAllowOverwrite(false);
 
       // Check if booking is in the past (older than 2 hours from its start_time)
       let isPastBooking = false;
@@ -172,6 +175,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       setBayAvailabilityData([]);
       setIsCheckingAllBays(false);
       setIsSlotAvailable(false);
+      setAllowOverwrite(false);
     }
   }, [booking, isOpen]);
 
@@ -199,13 +203,21 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
 
   const handleBayButtonClick = (bayName: string) => {
     const selectedBayInfo = bayAvailabilityData.find(b => b.name === bayName);
-    if (selectedBayInfo && selectedBayInfo.isAvailable) {
+
+    if (allowOverwrite || (selectedBayInfo && selectedBayInfo.isAvailable)) {
       setFormData(prev => ({ ...prev, bay: bayName }));
-      setAvailabilityStatus('available');
-      setIsSlotAvailable(true);
+      // If overwriting an unavailable slot, mark as overridden
+      if (allowOverwrite && !(selectedBayInfo && selectedBayInfo.isAvailable)) {
+        setAvailabilityStatus('overridden');
+        setIsSlotAvailable(true); // Allow saving
+        toast({ title: "Availability Overridden", description: `${bayName} selected by overriding standard availability checks.`, variant: "default", className: "bg-orange-100 border-orange-300 text-orange-700" });
+      } else {
+        setAvailabilityStatus('available');
+        setIsSlotAvailable(true);
+      }
     } else {
       toast({ title: "Bay Not Available", description: `${bayName} is not available for the selected time/duration.`, variant: "destructive" });
-      if (formData.bay === bayName) {
+      if (formData.bay === bayName) { // If this unavailable bay was already selected and we are NOT overwriting
         setAvailabilityStatus('unavailable');
         setIsSlotAvailable(false);
       }
@@ -281,7 +293,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
     setError(null);
     if (!formData.bay) {
       setError("Bay selection is required.");
-      toast({ title: "Validation Error", description: "Please select an available bay.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Please select a bay.", variant: "destructive" });
       return;
     }
     if (!formData.date) {
@@ -312,9 +324,9 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       return;
     }
 
-    if (!isSlotAvailable) {
-      setError('Selected bay and time slot is not available. Please choose a different slot or bay.');
-      toast({ title: "Availability Error", description: "The selected bay/time is not available.", variant: "destructive" });
+    if (!isSlotAvailable && !allowOverwrite) {
+      setError('Selected bay and time slot is not available. Please choose a different slot or bay, or enable overwrite.');
+      toast({ title: "Availability Error", description: "The selected bay/time is not available without overwrite.", variant: "destructive" });
       return;
     }
     
@@ -322,6 +334,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
 
     const payload: any = {
       employee_name: formData.employee_name.trim(),
+      availability_overridden: allowOverwrite && availabilityStatus === 'overridden',
     };
 
     if (formData.bay) payload.bay = formData.bay;
@@ -370,8 +383,9 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           if (payload.customer_notes !== undefined && (booking.customer_notes || '') !== (payload.customer_notes || '')) changesSummary.push('Notes updated');
 
           const summaryText = changesSummary.length > 0 ? changesSummary.join(', ') : 'Details updated';
+          const overriddenText = (payload.availability_overridden) ? "\n⚠️ AVAILABILITY OVERRIDDEN ⚠️" : "";
 
-          const lineMessage = `ℹ️ BOOKING MODIFIED (ID: ${updatedBookingData.id}) 🔄\n----------------------------------\n👤 Customer: ${updatedBookingData.name}\n📞 Phone: ${updatedBookingData.phone_number || 'N/A'}\n👥 Pax: ${updatedBookingData.number_of_people || 1}\n🗓️ Date: ${format(new Date(updatedBookingData.date), 'EEE, MMM dd')}\n⏰ Time: ${updatedBookingData.start_time} (Duration: ${updatedBookingData.duration}H)\n⛳ Bay: ${updatedBookingData.bay || 'N/A'}\n💡 Type: ${updatedBookingData.booking_type || 'N/A'}${updatedBookingData.package_name ? ` (${updatedBookingData.package_name})` : ''}\n----------------------------------\n🛠️ Changes: ${summaryText}\n🧑‍💼 By: ${formData.employee_name?.trim() || 'Staff'}`;
+          const lineMessage = `ℹ️ BOOKING MODIFIED (ID: ${updatedBookingData.id}) 🔄\n----------------------------------\n👤 Customer: ${updatedBookingData.name}\n📞 Phone: ${updatedBookingData.phone_number || 'N/A'}\n👥 Pax: ${updatedBookingData.number_of_people || 1}\n🗓️ Date: ${format(new Date(updatedBookingData.date), 'EEE, MMM dd')}\n⏰ Time: ${updatedBookingData.start_time} (Duration: ${updatedBookingData.duration}H)\n⛳ Bay: ${updatedBookingData.bay || 'N/A'}\n💡 Type: ${updatedBookingData.booking_type || 'N/A'}${(updatedBookingData.package_name) ? ` (${updatedBookingData.package_name})` : ''}${overriddenText}\n----------------------------------\n🛠️ Changes: ${summaryText}\n🧑‍💼 By: ${formData.employee_name?.trim() || 'Staff'}`;
 
           const notifyResponse = await fetch('/api/notify', {
             method: 'POST',
@@ -464,9 +478,23 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           {/* Availability Status Display (for selected bay/time) */}
           {generalAvailabilityMessage &&
             <div className="text-center">
-              <p className={`text-sm ${availabilityStatus === 'error' ? 'text-red-500' : 'text-yellow-600'}`}>{generalAvailabilityMessage}</p>
+              <p className={`text-sm ${availabilityStatus === 'error' ? 'text-red-500' : availabilityStatus === 'overridden' ? 'text-orange-500' : 'text-yellow-600'}`}>{generalAvailabilityMessage}</p>
             </div>
           }
+
+          {/* Overwrite Switch */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="allow-overwrite" className="text-right">Overwrite Availability</Label>
+            <div className="col-span-3 flex items-center">
+              <Switch
+                id="allow-overwrite"
+                checked={allowOverwrite}
+                onCheckedChange={setAllowOverwrite}
+                disabled={!isBookingEditable}
+              />
+              {allowOverwrite && <span className="ml-2 text-sm text-orange-600">Warning: Availability checks bypassed!</span>}
+            </div>
+          </div>
 
           {/* Bay Selection Buttons */}
           <div className="grid grid-cols-4 items-start gap-4">
@@ -481,10 +509,13 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
                     type="button"
                     variant={formData.bay === bayInfo.name ? 'default' : 'outline'}
                     onClick={() => handleBayButtonClick(bayInfo.name)}
-                    disabled={!bayInfo.isAvailable || !isBookingEditable}
-                    className={`w-full ${!bayInfo.isAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={(!bayInfo.isAvailable && !allowOverwrite) || !isBookingEditable}
+                    className={`w-full ${(!bayInfo.isAvailable && !allowOverwrite) ? 'opacity-50 cursor-not-allowed' : ''} ${
+                      formData.bay === bayInfo.name && availabilityStatus === 'overridden' ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''
+                    }`}
                   >
                     {bayInfo.name}
+                    {formData.bay === bayInfo.name && availabilityStatus === 'overridden' && " (Overridden)"}
                   </Button>
                 ))
               ) : (
@@ -546,7 +577,13 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           <Button 
             type="button" 
             onClick={handleSubmit} 
-            disabled={isSubmitting || !isSlotAvailable || !formData.bay || isCheckingAllBays || !isBookingEditable}
+            disabled={
+              isSubmitting || 
+              (!isSlotAvailable && !allowOverwrite) ||
+              !formData.bay || 
+              isCheckingAllBays || 
+              !isBookingEditable
+            }
           >
             {isSubmitting ? 'Saving...' : 'Save Changes'}
           </Button>
