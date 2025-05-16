@@ -15,7 +15,7 @@ import {
     getCalendarEventDetails // Added import
 } from '@/lib/google-calendar';
 import { getServiceAccountAuth } from '@/lib/google-auth';
-import { parse as parseDateFns, addMinutes, format as formatDateFns, parseISO } from 'date-fns';
+import { parse as parseDateFns, addMinutes, format as formatDateFns, parseISO, startOfDay, endOfDay, isBefore, isEqual } from 'date-fns';
 import { formatLineModificationMessage } from '@/lib/line-formatting';
 // We will need types for the payload and booking
 // import { getRelevantCalendarIds, formatCalendarEvent, updateCalendarEvent, deleteCalendarEvent, findCalendarEventsByBookingId, initializeCalendar } from '@/lib/google-calendar';
@@ -82,6 +82,12 @@ function generateChangesSummary(oldBooking: Booking, newBookingData: Partial<Boo
   if (changes.length === 0) return 'No direct field changes detected (audit fields updated).';
   return changes.join(', ') + ` by ${payload.employee_name}.`;
 }
+
+const getBookingIdFromDescription = (description: string | null | undefined): string | null => {
+  if (!description) return null;
+  const match = description.match(/Booking ID: (BK[A-Z0-9]+)/i);
+  return match ? match[1] : null;
+};
 
 export async function PUT(
   request: Request,
@@ -198,33 +204,68 @@ export async function PUT(
         return NextResponse.json({ error: 'Invalid bay for availability check.' }, { status: 400 });
       }
 
-      // Call getBayAvailability directly instead of fetch
       try {
         const auth = await getServiceAccountAuth();
-        const calendar = initializeCalendar(auth); // Ensure calendar is initialized with auth
-        const busyTimes = await getBayAvailability(calendar, apiBayName, proposedDate);
-        // The rest of the availability check logic using busyTimes remains largely the same
-        // but ensure date/time comparisons are consistent with what getBayAvailability returns.
-        // getBayAvailability returns { start: string; end: string }[] with ISO strings in 'Asia/Bangkok'
-        // isTimeSlotAvailable expects slotStart: Date, slotEnd: Date
+        const calendar = initializeCalendar(auth);
+
+        const proposedDayStart = startOfDay(parseDateFns(proposedDate, "yyyy-MM-dd", new Date()));
+        const proposedDayEnd = endOfDay(parseDateFns(proposedDate, "yyyy-MM-dd", new Date()));
+        
+        const calendarIdForBay = getRelevantCalendarIds({ bay: proposedBay } as CalendarFormatInput)[0]; // Assuming first is the bay calendar
+        if (!calendarIdForBay) {
+            console.error(`No calendar ID found for bay: ${proposedBay}`);
+            return NextResponse.json({ error: 'Configuration error: Bay calendar ID not found.' }, { status: 500 });
+        }
+
+        const eventsResponse = await calendar.events.list({
+            calendarId: calendarIdForBay,
+            timeMin: proposedDayStart.toISOString(),
+            timeMax: proposedDayEnd.toISOString(),
+            singleEvents: true,
+            orderBy: 'startTime',
+            timeZone: 'Asia/Bangkok', // Explicitly set timezone, though ISO strings should be unambiguous
+        });
+
+        const events = eventsResponse.data?.items;
+        let isProposedSlotActuallyAvailable = true;
 
         const slotStartDateTime = parseDateFns(`${proposedDate}T${proposedStartTime}`, "yyyy-MM-dd'T'HH:mm", new Date());
         const slotEndDateTime = parseDateFns(`${proposedDate}T${proposedEndTime}`, "yyyy-MM-dd'T'HH:mm", new Date());
 
-        if (!isTimeSlotAvailable(slotStartDateTime, slotEndDateTime, busyTimes)) {
-          const isSameSlotAsCurrent = 
-              proposedDate === currentBooking.date && 
-              proposedStartTime === currentBooking.start_time && 
-              proposedEndTime === currentEndTime && 
-              proposedBay === currentBooking.bay;
+        if (events) {
+          for (const event of events) {
+            if (event.status === 'cancelled') continue;
 
-          if (!isSameSlotAsCurrent) {
-            return NextResponse.json({ error: 'The proposed new time slot is not available.' }, { status: 409 });
+            const eventBookingId = getBookingIdFromDescription(event.description);
+            if (eventBookingId === bookingId) { // bookingId is from params
+              continue; // This is the event associated with the booking being modified, skip it.
+            }
+
+            const eventStartStr = event.start?.dateTime;
+            const eventEndStr = event.end?.dateTime;
+
+            if (eventStartStr && eventEndStr) {
+              // Google Calendar events are often in ISO format. date-fns parseISO can handle this.
+              const eventStart = parseISO(eventStartStr);
+              const eventEnd = parseISO(eventEndStr);
+
+              // Check for overlap: (ProposedStart < EventEnd) and (ProposedEnd > EventStart)
+              // isBefore(slotStartDateTime, eventEnd) && isBefore(eventStart, slotEndDateTime)
+              if (isBefore(slotStartDateTime, eventEnd) && isBefore(eventStart, slotEndDateTime)) {
+                isProposedSlotActuallyAvailable = false;
+                break; 
+              }
+            }
           }
-          console.log('Proposed slot is busy, but it matches the current booking slot. Allowing non-time changes.');
         }
+
+        if (!isProposedSlotActuallyAvailable) {
+          return NextResponse.json({ error: 'The proposed new time slot is not available.' }, { status: 409 });
+        }
+        console.log('Proposed slot is available after checking existing calendar events.');
+
       } catch (availabilityError: any) {
-        console.error('Availability check failed via direct call:', availabilityError);
+        console.error('Availability check failed using events.list:', availabilityError);
         return NextResponse.json({ error: 'Failed to check availability for the new slot.', details: availabilityError.message }, { status: 500 });
       }
     }

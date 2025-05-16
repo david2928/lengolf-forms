@@ -581,6 +581,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
               isSubmitting || 
               (!isSlotAvailable && !allowOverwrite) ||
               !formData.bay || 
+              !formData.employee_name?.trim() ||
               isCheckingAllBays || 
               !isBookingEditable
             }
