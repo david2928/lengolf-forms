@@ -13,6 +13,7 @@ import { EditBookingModal } from '@/components/manage-bookings/EditBookingModal'
 import { BookingHistoryModal } from '@/components/manage-bookings/BookingHistoryModal'; // Import the History modal
 import { useToast } from "@/components/ui/use-toast"; // For showing success/error messages
 import { Checkbox } from '@/components/ui/checkbox'; // Add Checkbox import
+import { Info } from 'lucide-react'; // Import Info icon
 
 // Helper function to calculate end_time
 const calculateEndTime = (date: string, startTime: string, duration: number): string => {
@@ -268,6 +269,12 @@ export default function ManageBookingsPage() {
                     <span className="font-semibold text-gray-900">{booking.name}</span>
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : booking.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{booking.status}</span>
                   </div>
+                  {booking.customer_notes && (
+                    <div className="flex items-start text-xs text-gray-600 mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                      <Info size={16} className="mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <span className="whitespace-pre-wrap">{booking.customer_notes}</span>
+                    </div>
+                  )}
                   <div className="flex flex-col gap-1 text-sm text-gray-700 mb-2">
                     <div><span className="font-medium">Time:</span> {booking.start_time} - {booking.display_end_time}</div>
                     <div>
@@ -298,7 +305,14 @@ export default function ManageBookingsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {bookingsForDisplay.map((booking) => (
                     <tr key={booking.id} className={booking.status === 'cancelled' ? 'bg-red-50 opacity-70' : ''}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{booking.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {booking.name}
+                        {booking.customer_notes && (
+                          <span title={booking.customer_notes} className="ml-2">
+                            <Info size={16} className="inline text-blue-500 cursor-pointer" />
+                          </span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.start_time} - {booking.display_end_time}</td>
                       <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${getBayBadgeClasses(booking.bay)}`}>{booking.bay || 'N/A'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

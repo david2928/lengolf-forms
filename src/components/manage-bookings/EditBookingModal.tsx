@@ -390,7 +390,11 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           const notifyResponse = await fetch('/api/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: lineMessage, bookingType: updatedBookingData.booking_type || undefined })
+            body: JSON.stringify({ 
+              message: lineMessage, 
+              bookingType: updatedBookingData.booking_type || undefined,
+              customer_notes: updatedBookingData.customer_notes
+            })
           });
 
           if (!notifyResponse.ok) {

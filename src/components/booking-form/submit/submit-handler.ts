@@ -360,7 +360,8 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message,
-          bookingType: formData.bookingType
+          bookingType: formData.bookingType,
+          customer_notes: formData.notes
         })
       });
 

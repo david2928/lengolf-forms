@@ -117,7 +117,8 @@ export function CancelBookingModal({ isOpen, onClose, booking, onSuccess }: Canc
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               message: lineMessage, 
-              bookingType: cancelledBookingData.booking_type // Pass booking_type for correct channel selection
+              bookingType: cancelledBookingData.booking_type, // Pass booking_type for correct channel selection
+              customer_notes: cancelledBookingData.customer_notes // Add customer_notes
             })
           });
           if (!notifyResponse.ok) {

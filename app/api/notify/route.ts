@@ -3,7 +3,7 @@ import { LINE_MESSAGING } from '@/lib/constants';
 import { createLineClient } from '@/lib/line-messaging';
 
 // LINE Messaging API function
-async function sendLineMessage(message: string, bookingType?: string) {
+async function sendLineMessage(message: string, bookingType?: string, customerNotes?: string) {
   if (!LINE_MESSAGING.channelAccessToken) {
     console.error('Missing LINE Messaging API credentials');
     throw new Error('LINE Messaging API configuration is incomplete');
@@ -36,9 +36,15 @@ async function sendLineMessage(message: string, bookingType?: string) {
   
   try {
     const client = createLineClient(LINE_MESSAGING.channelAccessToken);
+    
+    let finalMessage = message;
+    if (customerNotes && customerNotes.trim() !== "") {
+      finalMessage += `\n\nNote: ${customerNotes}`;
+    }
+
     const promises = groups.map(groupId => {
       console.log(`Sending LINE message to group: ${groupId}`);
-      return client.pushTextMessage(groupId, message);
+      return client.pushTextMessage(groupId, finalMessage);
     });
     
     // Wait for all messages to be sent
@@ -56,11 +62,11 @@ export async function POST(req: Request) {
     const body = await req.json();
     console.log('Received notification request body:', body);
 
-    const { message, bookingType } = body;
-    console.log('Processing LINE notification for:', { message, bookingType });
+    const { message, bookingType, customer_notes } = body;
+    console.log('Processing LINE notification for:', { message, bookingType, customer_notes });
 
     // Send message via LINE Messaging API
-    await sendLineMessage(message, bookingType);
+    await sendLineMessage(message, bookingType, customer_notes);
     console.log('LINE Messaging API notifications sent successfully');
 
     return NextResponse.json({ success: true });
