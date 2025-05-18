@@ -238,8 +238,10 @@ export async function PUT(
         const events = eventsResponse.data?.items;
         let isProposedSlotActuallyAvailable = true;
 
-        const slotStartDateTime = parseDateFns(`${proposedDate}T${proposedStartTime}`, "yyyy-MM-dd'T'HH:mm", new Date());
-        const slotEndDateTime = parseDateFns(`${proposedDate}T${proposedEndTime}`, "yyyy-MM-dd'T'HH:mm", new Date());
+        const slotStartDateTime = parseISO(`${proposedDate}T${proposedStartTime}:00+07:00`); // Use parseISO with explicit offset
+        const slotEndDateTime = parseISO(`${proposedDate}T${proposedEndTime}:00+07:00`);   // Use parseISO with explicit offset
+
+        console.log(`Constructed Slot for Check: Start=${slotStartDateTime.toISOString()}, End=${slotEndDateTime.toISOString()}`);
 
         if (events) {
           for (const event of events) {
@@ -247,6 +249,7 @@ export async function PUT(
 
             const eventBookingId = getBookingIdFromDescription(event.description);
             if (eventBookingId === bookingId) { // bookingId is from params
+              console.log(`Skipping event for current booking ID: ${eventBookingId}`);
               continue; // This is the event associated with the booking being modified, skip it.
             }
 
@@ -257,10 +260,12 @@ export async function PUT(
               const eventStart = parseISO(eventStartStr);
               const eventEnd = parseISO(eventEndStr);
 
+              console.log(`Comparing with Event: Summary=${event.summary}, Start=${eventStart.toISOString()}, End=${eventEnd.toISOString()}`);
+
               // Check for overlap: (SlotStart < EventEnd) and (SlotEnd > EventStart)
               if (isBefore(slotStartDateTime, eventEnd) && isBefore(eventStart, slotEndDateTime)) {
                 isProposedSlotActuallyAvailable = false;
-                console.log(`Conflict detected with event: ${event.summary} (${eventStartStr} - ${eventEndStr})`);
+                console.log(`Conflict detected with event: ${event.summary} (ID: ${event.id})`);
                 break; 
               }
             }
