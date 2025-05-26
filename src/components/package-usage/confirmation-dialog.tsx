@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { SignaturePad, type SignaturePadRef } from '@/components/ui/signature-pad'
+import { Maximize2, Minimize2 } from 'lucide-react'
 
 interface ConfirmationDialogProps {
   open: boolean
@@ -39,6 +40,9 @@ export function ConfirmationDialog({
   const [isSignatureEmpty, setIsSignatureEmpty] = useState(true);
   const signaturePadContainerRef = useRef<HTMLDivElement>(null);
   const [signaturePadSize, setSignaturePadSize] = useState({ width: 300, height: 150 });
+  const [signatureHeight, setSignatureHeight] = useState(220);
+  const [isTabletMode, setIsTabletMode] = useState(false);
+  const [isFullscreenSignature, setIsFullscreenSignature] = useState(false);
 
   useEffect(() => {
     function handleResize() {
@@ -47,6 +51,37 @@ export function ConfirmationDialog({
         const newWidth = Math.min(containerWidth - 20, 450); 
         const newHeight = Math.max(newWidth * 0.4, 120); 
         setSignaturePadSize({ width: newWidth > 0 ? newWidth : 300, height: newHeight > 0 ? newHeight : 150 });
+        
+        // Set adaptive signature height based on screen size
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
+        // Determine device type and set appropriate signature heights
+        if (screenWidth >= 768 && screenWidth <= 1200 && screenHeight >= 600) {
+          // Tablet devices
+          setIsTabletMode(true);
+          if (isFullscreenSignature) {
+            setSignatureHeight(Math.min(screenHeight * 0.7, 600)); // 70% of screen height in fullscreen
+          } else {
+            setSignatureHeight(Math.min(screenHeight * 0.4, 450)); // 40% of screen height, max 450px
+          }
+        } else if (screenWidth > 1200) {
+          // Desktop/large screens
+          setIsTabletMode(false);
+          if (isFullscreenSignature) {
+            setSignatureHeight(Math.min(screenHeight * 0.4, 400)); // 40% of screen height in fullscreen, max 400px
+          } else {
+            setSignatureHeight(300); // Standard desktop height
+          }
+        } else {
+          // Mobile devices
+          setIsTabletMode(false);
+          if (isFullscreenSignature) {
+            setSignatureHeight(Math.min(screenHeight * 0.4, 350)); // 40% of screen height in fullscreen
+          } else {
+            setSignatureHeight(220); // Standard mobile height
+          }
+        }
       }
     }
     if (open) {
@@ -54,7 +89,7 @@ export function ConfirmationDialog({
       window.addEventListener('resize', handleResize);
     }
     return () => window.removeEventListener('resize', handleResize);
-  }, [open]);
+  }, [open, isFullscreenSignature]);
 
   // Ensure usedHours is not null before proceeding with dialog display if it's critical
   if (!data.employeeName || !data.packageName || data.usedHours === null || data.usedHours === undefined) return null;
@@ -91,8 +126,8 @@ export function ConfirmationDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="w-full h-full overflow-y-auto p-4 
-                              sm:h-auto sm:w-auto sm:max-w-xl md:max-w-3xl lg:max-w-4xl 
-                              sm:rounded-lg sm:p-6">
+                              sm:h-auto sm:w-auto sm:max-w-xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl 
+                              sm:rounded-lg sm:p-6 sm:max-h-[90vh]">
         <DialogHeader className="mb-4">
           <DialogTitle className="text-xl sm:text-2xl">Confirm Package Usage & Sign</DialogTitle>
           <DialogDescription>
@@ -100,8 +135,8 @@ export function ConfirmationDialog({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-3">
+        <div className={`space-y-4 ${isFullscreenSignature ? 'space-y-2' : 'space-y-4'}`}>
+          <div className={`grid grid-cols-2 gap-x-4 gap-y-3 mb-3 ${isFullscreenSignature ? 'text-sm' : ''}`}>
             <div>
               <p className="text-sm font-semibold text-gray-600">Customer Name</p>
               <p className="text-sm text-gray-800">{customerInfo}</p>
@@ -131,15 +166,36 @@ export function ConfirmationDialog({
           )}
           
           <div className="pt-4 space-y-2">
-            <p className="text-base font-semibold text-gray-700 text-center">Customer Signature</p>
+            <div className="flex items-center justify-between">
+              <p className="text-base font-semibold text-gray-700">Customer Signature</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFullscreenSignature(!isFullscreenSignature)}
+                className="text-xs px-3 py-1 font-medium hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors"
+              >
+                {isFullscreenSignature ? (
+                  <>
+                    <Minimize2 className="w-3 h-3 mr-1" />
+                    Minimize
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="w-3 h-3 mr-1" />
+                    Expand Signature
+                  </>
+                )}
+              </Button>
+            </div>
             <p className="text-xs font-semibold text-yellow-900 bg-yellow-100 rounded px-2 py-1 text-center max-w-md mx-auto" aria-live="polite">
-              Please sign in the area below using your finger. Tap &apos;Clear Signature&apos; to retry.
+              Please sign in the area below using your finger. {!isFullscreenSignature && 'Tap "Expand Signature" for a larger signing area.'} {isFullscreenSignature && 'Expanded signature mode - use the full area to sign.'}
             </p>
             <div ref={signaturePadContainerRef} className="w-full">
               <SignaturePad 
                 ref={signaturePadRef} 
-                height={220}
-                className="bg-yellow-50 border-2 border-yellow-200 shadow-sm p-2 rounded-md"
+                height={signatureHeight}
+                className="bg-yellow-50 border-2 border-yellow-200 shadow-sm p-2 rounded-md w-full transition-all duration-300"
                 onEnd={() => setIsSignatureEmpty(signaturePadRef.current?.isEmpty() ?? true)}
                 onClear={() => setIsSignatureEmpty(true)}
               />

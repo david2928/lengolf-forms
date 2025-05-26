@@ -39,19 +39,21 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
       }
     }));
 
-    // Responsive width: 100% of parent, max 600px
+    // Responsive width: 100% of parent, with adaptive max width based on device
     const containerStyle = {
       width: '100%',
-      maxWidth: 600,
+      maxWidth: '100%', // Allow full width on tablets
     };
     const canvasStyle = {
       width: '100%',
       height: height,
-      border: `2px solid ${isActive ? '#2563eb' : '#fde68a'}`,
-      borderRadius: '8px',
+      border: `3px solid ${isActive ? '#2563eb' : '#fde68a'}`,
+      borderRadius: '12px',
       background: '#fffde7',
-      boxShadow: isActive ? '0 0 0 2px #2563eb33' : '0 1px 2px 0 #0001',
+      boxShadow: isActive ? '0 0 0 3px #2563eb33' : '0 2px 4px 0 #0002',
       display: 'block',
+      cursor: 'crosshair',
+      transition: 'all 0.2s ease-in-out',
     };
 
     return (
@@ -75,10 +77,15 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
             }}
           />
         </div>
-        <Button variant="outline" size="sm" onClick={() => {
-          sigCanvas.current?.clear();
-          if (onClear) onClear();
-        }}>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => {
+            sigCanvas.current?.clear();
+            if (onClear) onClear();
+          }}
+          className="px-4 py-2 text-sm font-medium hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-colors"
+        >
           Clear Signature
         </Button>
       </div>
