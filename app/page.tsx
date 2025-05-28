@@ -26,6 +26,10 @@ const packageItems = appMenuItems.filter(item =>
   item.title === "Create Package" || item.title === "Update Package Usage" || item.title === "Package Monitor"
 );
 
+const operationsItems = appMenuItems.filter(item => 
+  item.title === "Inventory Management"
+);
+
 export default function Home() {
   const router = useRouter()
   const [isUpdating, setIsUpdating] = useState(false)
@@ -188,6 +192,20 @@ export default function Home() {
             ))}
           </div>
         </div>
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Daily Operations</h2>
+          <div className="space-y-3">
+            {operationsItems.map((item: AppMenuItemType) => (
+              <MobileMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="hidden md:block space-y-8">
@@ -216,6 +234,20 @@ export default function Home() {
                 description={isMobile ? undefined : item.description}
                 onClick={() => router.push(item.path)}
                 extraInfo={item.title === "Package Monitor" ? packageInfo : undefined}
+              />
+            ))}
+          </div>
+        </div>
+        <div>
+          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Daily Operations</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
+            {operationsItems.map((item: AppMenuItemType) => (
+              <DesktopMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={isMobile ? undefined : item.description}
+                onClick={() => router.push(item.path)}
               />
             ))}
           </div>

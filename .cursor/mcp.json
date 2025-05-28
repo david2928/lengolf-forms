@@ -1,6 +1,6 @@
 {
     "mcpServers": {
-      "supabase": {
+      "supabase_booking": {
         "command": "cmd",
         "args": [
           "/c",
@@ -9,6 +9,19 @@
           "@supabase/mcp-server-supabase@latest",
           "--access-token",
           "sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+        ]
+      }
+    ,
+    
+      "supabase_forms": {
+        "command": "cmd",
+        "args": [
+          "/c",
+          "npx",
+          "-y",
+          "@supabase/mcp-server-supabase@latest",
+          "--access-token",
+          "sbp_2f0878f74260b6ca9e682711f928d6a31c04c937"
         ]
       }
     }

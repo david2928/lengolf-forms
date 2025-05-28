@@ -95,8 +95,9 @@ As a frontend developer, I need API endpoints to fetch products and submit inven
 - [ ] API responses match defined TypeScript interfaces
 
 **Tasks:**
-- [ ] Create `/api/inventory/products` GET endpoint
-- [ ] Create `/api/inventory/submissions` POST endpoint
+- [ ] Create `app/api/inventory/products/route.ts` GET endpoint (following existing pattern)
+- [ ] Create `app/api/inventory/submissions/route.ts` POST endpoint (following existing pattern)
+- [ ] Create `app/api/inventory/submissions/latest/route.ts` GET endpoint for prefilling
 - [ ] Implement input validation and error handling
 - [ ] Add TypeScript interfaces for API responses
 - [ ] Test API endpoints with Postman or similar tool
@@ -127,10 +128,11 @@ As a developer, I need TypeScript interfaces for inventory data so that the code
 - [ ] Ensure types match database schema
 
 **Tasks:**
-- [ ] Create inventory.ts types file
-- [ ] Define all necessary interfaces
-- [ ] Import types in API routes
+- [ ] Create `src/types/inventory.ts` file (following existing pattern like `package-form.ts`)
+- [ ] Define all necessary interfaces (InventoryCategory, InventoryProduct, InventorySubmission)
+- [ ] Import types in API route files
 - [ ] Import types in component files
+- [ ] Follow existing type patterns from other modules
 
 **Definition of Done:**
 - All inventory-related data has proper TypeScript types
@@ -159,12 +161,13 @@ As a staff member, I want to fill out inventory on a tablet using a simple form 
 - [ ] Tablet-optimized layout with touch-friendly controls
 
 **Tasks:**
-- [ ] Create main InventoryForm component
-- [ ] Build CategorySection component for each category
-- [ ] Create ProductInput component with dynamic input rendering
-- [ ] Implement staff selector dropdown
-- [ ] Add form validation with react-hook-form
-- [ ] Style for tablet use with larger touch targets
+- [ ] Create `src/components/inventory/index.tsx` main component (following package-form pattern)
+- [ ] Build `src/components/inventory/category-section.tsx` component
+- [ ] Create `src/components/inventory/product-input.tsx` component with dynamic input rendering
+- [ ] Implement `src/components/inventory/staff-selector.tsx` dropdown component
+- [ ] Create `src/components/inventory/utils/form-helpers.ts` utility functions
+- [ ] Add form validation with react-hook-form (following existing patterns)
+- [ ] Style for tablet use with larger touch targets using existing Tailwind classes
 - [ ] Add form submission handling
 
 **Definition of Done:**
@@ -194,10 +197,11 @@ As a staff member, I want to access the inventory form from the main navigation 
 - [ ] Mobile/tablet responsive navigation
 
 **Tasks:**
-- [ ] Update `src/config/menu-items.ts` with inventory menu item
-- [ ] Add inventory route to navigation component
+- [ ] Update `src/config/menu-items.ts` with inventory menu item (following existing MenuItem pattern)
+- [ ] Add appropriate Lucide icon (e.g., ClipboardList, Package, Warehouse)
+- [ ] Verify navigation integration in main nav component
 - [ ] Test navigation on tablet devices
-- [ ] Ensure consistent styling
+- [ ] Ensure consistent styling with existing menu items
 
 **Definition of Done:**
 - "Inventory Management" appears in main navigation
@@ -225,10 +229,11 @@ As a staff member, I want a main inventory page that loads the form so that I ca
 - [ ] Loading states handled gracefully
 
 **Tasks:**
-- [ ] Create inventory page route
-- [ ] Import and render InventoryForm component
-- [ ] Add proper page metadata
-- [ ] Handle loading and error states
+- [ ] Create `app/inventory/page.tsx` route (following existing page patterns)
+- [ ] Use dynamic import for client component like other pages
+- [ ] Import and render InventoryForm component from `src/components/inventory`
+- [ ] Add proper page metadata and titles
+- [ ] Handle loading and error states following existing patterns
 
 **Definition of Done:**
 - `/inventory` route displays the inventory form
@@ -255,10 +260,10 @@ As a developer, I need reusable hooks for inventory operations so that component
 - [ ] Hooks use SWR for caching
 
 **Tasks:**
-- [ ] Create `src/hooks/useInventoryProducts.ts`
-- [ ] Create `src/hooks/useInventorySubmission.ts`
-- [ ] Implement SWR for data fetching
-- [ ] Add error handling and loading states
+- [ ] Create `src/hooks/use-inventory-products.ts` (following kebab-case pattern)
+- [ ] Create `src/hooks/use-inventory-submission.ts` (following kebab-case pattern)
+- [ ] Implement SWR for data fetching (following use-package-monitor.ts pattern)
+- [ ] Add error handling and loading states following existing hook patterns
 
 **Definition of Done:**
 - Hooks successfully fetch and submit data

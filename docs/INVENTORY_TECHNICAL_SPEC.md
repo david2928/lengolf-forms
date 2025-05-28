@@ -25,11 +25,48 @@ The inventory management system will be built using the existing LenGolf technol
 ### 1.2 Integration Architecture
 
 The system will follow the existing application patterns:
-- App Router structure: `app/inventory/`
-- Component architecture: `src/components/inventory/`
-- Type definitions: `src/types/inventory.ts`
-- API routes: `app/api/inventory/`
-- Custom hooks: `src/hooks/useInventory*.ts`
+- **App Router structure**: `app/inventory/` (following pattern of `app/create-booking/`, `app/package-monitor/`)
+- **Component architecture**: `src/components/inventory/` (following pattern of `src/components/booking-form/`, `src/components/package-form/`)
+- **Type definitions**: `src/types/inventory.ts` (following pattern of existing types like `booking.ts`, `package-form.ts`)
+- **API routes**: `app/api/inventory/` (already exists, following pattern of `app/api/bookings/`, `app/api/packages/`)
+- **Custom hooks**: `src/hooks/use-inventory-*.ts` (following kebab-case pattern like `use-package-monitor.ts`, `use-customers.ts`)
+- **Configuration**: Update `src/config/menu-items.ts` to add inventory menu item
+
+### 1.3 File Structure Implementation
+
+Complete file structure following existing patterns:
+
+```
+Project Structure for Inventory Module:
+
+app/
+├── inventory/
+│   └── page.tsx                    # Main inventory page (like create-booking/page.tsx)
+
+app/api/inventory/                  # API routes (directory already exists)
+├── products/
+│   └── route.ts                    # GET products endpoint
+└── submissions/
+    ├── route.ts                    # GET/POST submissions endpoint
+    └── latest/
+        └── route.ts                # GET latest submission for prefilling
+
+src/
+├── components/inventory/           # Component directory
+│   ├── index.tsx                   # Main InventoryForm component
+│   ├── category-section.tsx        # Category section component
+│   ├── product-input.tsx           # Individual product input
+│   ├── staff-selector.tsx          # Staff dropdown component
+│   └── utils/
+│       └── form-helpers.ts         # Form utility functions
+├── hooks/
+│   ├── use-inventory-products.ts   # Products fetching hook
+│   └── use-inventory-submission.ts # Form submission hook
+├── types/
+│   └── inventory.ts                # TypeScript type definitions
+└── config/
+    └── menu-items.ts               # Updated with inventory menu item
+```
 
 ---
 
@@ -118,8 +155,11 @@ CREATE INDEX idx_inventory_products_active ON inventory_products(is_active);
 
 ### 3.1 Products Management
 
-#### GET `/api/inventory/products`
+#### GET `/api/inventory/products/route.ts`
+Following the existing API structure pattern:
+
 ```typescript
+// app/api/inventory/products/route.ts (following app/api/packages/monitor/route.ts pattern)
 // Returns all active products grouped by category
 interface ProductsResponse {
   categories: {
@@ -131,8 +171,9 @@ interface ProductsResponse {
 }
 ```
 
-#### POST `/api/inventory/products` (Admin only)
+#### POST `/api/inventory/products/route.ts` (Future - Admin only)
 ```typescript
+// Future enhancement for admin product management
 interface CreateProductRequest {
   category_id: string;
   name: string;
@@ -147,8 +188,11 @@ interface CreateProductRequest {
 
 ### 3.2 Inventory Submissions
 
-#### GET `/api/inventory/submissions`
+#### GET `/api/inventory/submissions/route.ts`
+Following the existing API structure pattern:
+
 ```typescript
+// app/api/inventory/submissions/route.ts (following app/api/bookings pattern)
 interface SubmissionsRequest {
   date?: string; // YYYY-MM-DD format
   staff_name?: string;
@@ -162,8 +206,9 @@ interface SubmissionsResponse {
 }
 ```
 
-#### POST `/api/inventory/submissions`
+#### POST `/api/inventory/submissions/route.ts`
 ```typescript
+// app/api/inventory/submissions/route.ts (following app/api/bookings/create/route.ts pattern)
 interface SubmissionRequest {
   staff_name: string;
   submission_date: string; // YYYY-MM-DD
@@ -172,8 +217,9 @@ interface SubmissionRequest {
 }
 ```
 
-#### GET `/api/inventory/submissions/latest`
+#### GET `/api/inventory/submissions/latest/route.ts`
 ```typescript
+// app/api/inventory/submissions/latest/route.ts
 // Returns the most recent submission for pre-filling forms
 interface LatestSubmissionResponse {
   submission: InventorySubmission | null;
@@ -205,26 +251,38 @@ interface DashboardData {
 
 ### 4.1 Page Components
 
+Following the existing app structure pattern:
+
 ```
 app/inventory/
 ├── page.tsx                 # Main inventory form (Phase 1)
-└── submit/page.tsx          # Daily inventory submission form
+└── (future routes for later phases)
 ```
+
+**Implementation Notes:**
+- Follows same pattern as `app/create-booking/page.tsx`, `app/package-monitor/page.tsx`
+- Single page for Phase 1, expandable for future features
+- Uses dynamic imports for client components like other pages
 
 ### 4.2 Component Structure
 
+Following the existing component organization pattern:
+
 ```
 src/components/inventory/
-├── submission-form/
-│   ├── index.tsx           # Main form component
-│   ├── category-section.tsx # Form section per category
-│   ├── product-input.tsx   # Individual product input
-│   └── form-navigation.tsx # Previous/Next section buttons
-└── shared/
-    ├── inventory-layout.tsx
-    ├── staff-selector.tsx   # Simple dropdown: Net, Dolly, May
-    └── date-selector.tsx
+├── index.tsx               # Main InventoryForm component (like package-form/index.tsx)
+├── category-section.tsx    # Form section per category
+├── product-input.tsx       # Individual product input component
+├── staff-selector.tsx      # Simple dropdown: Net, Dolly, May
+└── utils/                  # Utility functions (following package-form pattern)
+    └── form-helpers.ts     # Form validation and processing helpers
 ```
+
+**Implementation Notes:**
+- Follows same pattern as `src/components/package-form/` and `src/components/booking-form/`
+- Main component in `index.tsx` for consistency
+- Shared utilities in `/utils/` subdirectory like other components
+- No separate layout component needed for Phase 1
 
 ### 4.3 Type Definitions
 
@@ -293,10 +351,12 @@ export interface InventoryFormData {
 
 ## 5. Custom Hooks
 
-### 5.1 useInventorySubmission
+### 5.1 use-inventory-submission Hook
+
+Following the kebab-case naming pattern:
 
 ```typescript
-// src/hooks/useInventorySubmission.ts
+// src/hooks/use-inventory-submission.ts (following use-package-monitor.ts pattern)
 export function useInventorySubmission() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -319,10 +379,10 @@ export function useInventorySubmission() {
 }
 ```
 
-### 5.2 useInventoryProducts
+### 5.2 use-inventory-products Hook
 
 ```typescript
-// src/hooks/useInventoryProducts.ts
+// src/hooks/use-inventory-products.ts (following use-customers.ts pattern)
 export function useInventoryProducts() {
   const { data, error, mutate } = useSWR('/api/inventory/products', fetcher);
 
