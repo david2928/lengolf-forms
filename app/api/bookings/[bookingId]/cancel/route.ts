@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { refacSupabase } from '@/lib/refac-supabase';
+import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import type { Booking } from '@/types/booking';
 import { getServiceAccountAuth } from '@/lib/google-auth';
 import { deleteCalendarEvent, initializeCalendar } from '@/lib/google-calendar';
@@ -50,7 +50,7 @@ export async function POST(
     console.log(`Attempting to cancel booking ${bookingId} by ${payload.employee_name}`);
 
     // 2. Fetch current booking to ensure it exists and isn't already cancelled
-    const { data: currentBookingUntyped, error: fetchError } = await refacSupabase
+    const { data: currentBookingUntyped, error: fetchError } = await refacSupabaseAdmin
       .from('bookings')
       .select('*') // Select all for audit log and GCal linking later
       .eq('id', bookingId)
@@ -86,7 +86,7 @@ export async function POST(
       cancellation_reason: payload.cancellation_reason // Will be null/undefined if not provided, which is fine
     };
 
-    const { data: cancelledBooking, error: updateError } = await refacSupabase
+    const { data: cancelledBooking, error: updateError } = await refacSupabaseAdmin
       .from('bookings')
       .update(updatePayload)
       .eq('id', bookingId)
@@ -121,7 +121,7 @@ export async function POST(
     };
 
     try {
-      const { error: historyError } = await refacSupabase.from('booking_history').insert(historyEntry);
+      const { error: historyError } = await refacSupabaseAdmin.from('booking_history').insert(historyEntry);
       if (historyError) {
         console.error(`Cancel booking: Failed to create booking history entry for ${bookingId}:`, historyError);
         // MVP: Log error and continue. Future: consider transactionality.
@@ -152,7 +152,7 @@ export async function POST(
         if (!allGCalDeletionsSuccessful) {
           console.warn(`Cancel booking: Not all GCal events were deleted successfully for ${bookingId}. Manual check may be needed.`);
           // Optionally, update google_calendar_sync_status on the already cancelled booking if needed for tracking.
-          // Example: await refacSupabase.from('bookings').update({ google_calendar_sync_status: 'cancelled_gcal_deletion_error' }).eq('id', bookingId);
+          // Example: await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'cancelled_gcal_deletion_error' }).eq('id', bookingId);
         } else {
           console.log(`Cancel booking: All linked GCal events deleted successfully for ${bookingId}.`);
         }
@@ -160,7 +160,7 @@ export async function POST(
       } catch (gcalAuthError) {
         console.error(`Cancel booking: Error obtaining Google Auth or initializing calendar for deletion for booking ${bookingId}:`, gcalAuthError);
         // Update sync status to reflect this broader GCal issue
-        // await refacSupabase.from('bookings').update({ google_calendar_sync_status: 'cancelled_gcal_auth_error' }).eq('id', bookingId);
+        // await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'cancelled_gcal_auth_error' }).eq('id', bookingId);
       }
     } else {
       console.log(`Cancel booking: No Google Calendar events linked to booking ${bookingId} to delete.`);

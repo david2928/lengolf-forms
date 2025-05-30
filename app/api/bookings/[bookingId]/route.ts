@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { refacSupabase } from '@/lib/refac-supabase';
+import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import type { Booking } from '@/types/booking'; 
 import { 
     isTimeSlotAvailable, 
@@ -143,7 +143,7 @@ export async function PUT(
     // TODO: Add more granular authorization if/when customer self-service is implemented
 
     // Fetch Current Booking from Supabase
-    const { data: currentBookingUntyped, error: fetchError } = await refacSupabase
+    const { data: currentBookingUntyped, error: fetchError } = await refacSupabaseAdmin
       .from('bookings')
       .select('*') // Select all fields to have full data for comparison and GCal formatting
       .eq('id', bookingId)
@@ -315,7 +315,7 @@ export async function PUT(
     console.log('Data for Supabase update:', updateDataForSupabase);
 
     // Update booking in Supabase
-    const { data: updatedBookingUntyped, error: updateError } = await refacSupabase
+    const { data: updatedBookingUntyped, error: updateError } = await refacSupabaseAdmin
       .from('bookings')
       .update(updateDataForSupabase)
       .eq('id', bookingId)
@@ -342,7 +342,7 @@ export async function PUT(
     };
 
     try {
-      const { error: historyError } = await refacSupabase.from('booking_history').insert(historyEntry);
+      const { error: historyError } = await refacSupabaseAdmin.from('booking_history').insert(historyEntry);
       if (historyError) {
         console.error('Failed to create booking history entry:', historyError);
         // MVP: Log error and continue. Future: consider transactionality.
@@ -408,7 +408,7 @@ export async function PUT(
         finalCalendarEventsForDB = newLinkedEvents;
 
         // 3. Update Supabase with the new calendar_events array
-        const { error: updateCalendarLinksError } = await refacSupabase
+        const { error: updateCalendarLinksError } = await refacSupabaseAdmin
           .from('bookings')
           .update({ calendar_events: finalCalendarEventsForDB, google_calendar_sync_status: 'synced' })
           .eq('id', bookingId);
@@ -416,7 +416,7 @@ export async function PUT(
         if (updateCalendarLinksError) {
           console.error('Failed to update booking with new calendar_events links:', updateCalendarLinksError);
           // This is a divergence, flag it
-          await refacSupabase.from('bookings').update({ google_calendar_sync_status: 'error_syncing' }).eq('id', bookingId);
+          await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'error_syncing' }).eq('id', bookingId);
         } else {
            updatedBookingUntyped.calendar_events = finalCalendarEventsForDB; // reflect in current object for response
            updatedBookingUntyped.google_calendar_sync_status = 'synced';
@@ -431,24 +431,24 @@ export async function PUT(
             } catch (updError) {
               console.warn(`Failed to update GCal event ${eventToUpdate.eventId} in calendar ${eventToUpdate.calendarId}:`, updError);
               // Update sync status for this booking to 'error_syncing'
-              await refacSupabase.from('bookings').update({ google_calendar_sync_status: 'error_syncing' }).eq('id', bookingId);
+              await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'error_syncing' }).eq('id', bookingId);
               updatedBookingUntyped.google_calendar_sync_status = 'error_syncing'; 
             }
           }
           if(updatedBookingUntyped.google_calendar_sync_status !== 'error_syncing'){
-             await refacSupabase.from('bookings').update({ google_calendar_sync_status: 'synced' }).eq('id', bookingId);
+             await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'synced' }).eq('id', bookingId);
              updatedBookingUntyped.google_calendar_sync_status = 'synced';
           }
         } else {
           console.warn('No calendar_events found on booking to update, though slot did not change.');
           // Potentially try to find events via fallback if this is an old booking? For now, mark as pending_link or error.
-          await refacSupabase.from('bookings').update({ google_calendar_sync_status: 'pending_link' }).eq('id', bookingId);
+          await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'pending_link' }).eq('id', bookingId);
           updatedBookingUntyped.google_calendar_sync_status = 'pending_link';
         }
       }
     } catch (gcalError) {
       console.error('Overall error during Google Calendar update process:', gcalError);
-      await refacSupabase.from('bookings').update({ google_calendar_sync_status: 'error_syncing' }).eq('id', bookingId);
+      await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'error_syncing' }).eq('id', bookingId);
       updatedBookingUntyped.google_calendar_sync_status = 'error_syncing';
     }
     // --- End Google Calendar Update Logic ---

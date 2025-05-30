@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { refacSupabase } from '@/lib/refac-supabase'; // Corrected import path
+import { refacSupabaseAdmin } from '@/lib/refac-supabase'; // Corrected import path
 import { Booking } from '@/types/booking';
 
 // Define a type for the data selected from Supabase
@@ -18,7 +18,7 @@ interface FetchedBookingData {
 }
 
 export async function GET(request: NextRequest) {
-  // const supabase = createClient(); // refacSupabase is already an initialized client
+  // const supabase = createClient(); // refacSupabaseAdmin is already an initialized client
   const { searchParams } = new URL(request.url);
   const date = searchParams.get('date');
 
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data, error } = await refacSupabase
+    const { data, error } = await refacSupabaseAdmin
       .from('bookings')
       .select('id, name, date, start_time, duration, bay, status, number_of_people, customer_notes, google_calendar_sync_status') // Added field to select
       .eq('date', date)
