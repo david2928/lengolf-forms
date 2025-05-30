@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import { useScreenSize } from '@/hooks/use-screen-size'
-import { Monitor, Tablet, Smartphone, Eye, EyeOff, Edit3 } from 'lucide-react'
+import { Monitor, Tablet, Smartphone, Eye, EyeOff, Edit3, TestTube } from 'lucide-react'
 import { Button } from './button'
 
 export function ScreenSizeIndicator() {
   const screenSize = useScreenSize()
   const [isVisible, setIsVisible] = useState(false)
+  const [showTestSignature, setShowTestSignature] = useState(false)
 
   const getDeviceIcon = () => {
     switch (screenSize.deviceType) {
@@ -40,7 +41,7 @@ export function ScreenSizeIndicator() {
     const { width, height, deviceType } = screenSize
     
     if (deviceType === 'mobile') {
-      return Math.min(height * 0.25, 250) // 25% of screen height, max 250px
+      return Math.min(height * 0.25, 280) // 25% of screen height, max 280px
     } else if (deviceType === 'tablet') {
       return Math.min(height * 0.35, 450) // 35% of screen height, max 450px
     } else {
@@ -48,9 +49,23 @@ export function ScreenSizeIndicator() {
     }
   }
 
+  // Calculate fullscreen signature height
+  const getFullscreenSignatureHeight = () => {
+    const { width, height, deviceType } = screenSize
+    
+    if (deviceType === 'mobile') {
+      return Math.min(height * 0.6, 600) // 60% of screen height for mobile fullscreen
+    } else if (deviceType === 'tablet') {
+      return Math.min(height * 0.7, 600) // 70% of screen height for tablet fullscreen
+    } else {
+      return Math.min(height * 0.5, 500) // 50% of screen height for desktop fullscreen
+    }
+  }
+
   const getSignatureRecommendation = () => {
     const { width, height, deviceType, isLandscape } = screenSize
     const optimalHeight = getOptimalSignatureHeight()
+    const fullscreenHeight = getFullscreenSignatureHeight()
     
     let recommendation = ''
     if (deviceType === 'mobile') {
@@ -63,13 +78,58 @@ export function ScreenSizeIndicator() {
       recommendation = 'Desktop: Good signing area, standard height works well'
     }
     
-    return { recommendation, optimalHeight: Math.round(optimalHeight) }
+    return { recommendation, optimalHeight: Math.round(optimalHeight), fullscreenHeight: Math.round(fullscreenHeight) }
   }
 
-  const { recommendation, optimalHeight } = getSignatureRecommendation()
+  const { recommendation, optimalHeight, fullscreenHeight } = getSignatureRecommendation()
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
+      {/* Test signature preview */}
+      {showTestSignature && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Signature Test Preview</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowTestSignature(false)}
+                className="h-6 w-6 p-0"
+              >
+                ×
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-2">Standard Height: {optimalHeight}px</p>
+                <div 
+                  className="border-2 border-yellow-400 bg-yellow-50 rounded-lg flex items-center justify-center text-sm text-gray-600"
+                  style={{ height: `${optimalHeight}px` }}
+                >
+                  Standard Signature Area
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium mb-2">Fullscreen Height: {fullscreenHeight}px</p>
+                <div 
+                  className="border-2 border-blue-400 bg-blue-50 rounded-lg flex items-center justify-center text-sm text-gray-600"
+                  style={{ height: `${fullscreenHeight}px` }}
+                >
+                  Fullscreen Signature Area
+                </div>
+              </div>
+              
+              <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                <strong>Note:</strong> These are the optimized heights that will be used in the actual package usage form based on your current screen size.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toggle button */}
       <Button
         variant="ghost"
@@ -107,11 +167,25 @@ export function ScreenSizeIndicator() {
               <span className="font-semibold text-xs">Signature Optimization</span>
             </div>
             <div className="text-xs space-y-1">
-              <div>Optimal height: {optimalHeight}px</div>
+              <div>Standard: {optimalHeight}px</div>
+              <div>Fullscreen: {fullscreenHeight}px</div>
               <div className="text-xs opacity-90 leading-tight">
                 {recommendation}
               </div>
             </div>
+          </div>
+
+          {/* Test signature button */}
+          <div className="border-t pt-2 mt-2 border-current border-opacity-20">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTestSignature(true)}
+              className="w-full text-xs py-1 h-auto"
+            >
+              <TestTube className="h-3 w-3 mr-1" />
+              Test Signature Size
+            </Button>
           </div>
 
           {/* Development note */}
