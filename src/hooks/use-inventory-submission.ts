@@ -10,6 +10,7 @@ export const useInventorySubmission = (): UseInventorySubmissionReturn => {
     setError(null)
 
     try {
+      // Use the new simplified API endpoint
       const response = await fetch('/api/inventory/submissions', {
         method: 'POST',
         headers: {

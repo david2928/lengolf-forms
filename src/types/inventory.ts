@@ -23,13 +23,28 @@ export interface InventoryProduct {
   reorder_threshold?: number;
   supplier?: string;
   display_order: number;
-  is_required: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
+// Simplified submission structure
 export interface InventorySubmission {
+  id: string;
+  date: string; // YYYY-MM-DD format (submission date)
+  staff: string; // staff member name
+  product_id: string;
+  category_id: string;
+  value_numeric?: number; // For numeric values (counts, amounts)
+  value_text?: string; // For text values (notes, status) 
+  value_json?: any; // For complex values (glove sizes breakdown)
+  note?: string; // individual product note
+  created_at: string;
+  updated_at: string;
+}
+
+// Legacy submission interface for backward compatibility
+export interface LegacyInventorySubmission {
   id: string;
   staff_name: string;
   submission_date: string; // YYYY-MM-DD format
@@ -103,17 +118,40 @@ export interface CategorySectionProps {
   errors?: Record<string, string>;
 }
 
-// API request/response types for submissions
+// API request/response types for redesigned submissions
 export interface CreateSubmissionRequest {
+  staff_name: string;
+  submission_date: string;
+  products: ProductSubmissionData[];
+  general_notes?: string; // Overall submission notes
+}
+
+export interface ProductSubmissionData {
+  product_id: string;
+  category_id: string;
+  value_numeric?: number;
+  value_text?: string;
+  value_json?: any;
+  note?: string; // Individual product note
+}
+
+export interface CreateSubmissionResponse {
+  success: boolean;
+  submissions?: InventorySubmission[]; // Array since we create one per product
+  error?: string;
+}
+
+// Legacy API types for backward compatibility
+export interface LegacyCreateSubmissionRequest {
   staff_name: string;
   submission_date: string;
   inventory_data: Record<string, string | number>;
   notes?: string;
 }
 
-export interface CreateSubmissionResponse {
+export interface LegacyCreateSubmissionResponse {
   success: boolean;
-  submission?: InventorySubmission;
+  submission?: LegacyInventorySubmission;
   error?: string;
 }
 

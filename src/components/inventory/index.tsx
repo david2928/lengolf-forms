@@ -159,7 +159,8 @@ export default function InventoryForm() {
         formState.formData,
         formState.selectedStaff,
         getTodayFormatted(),
-        notes || undefined
+        notes || undefined,
+        formState.products // Pass products for category_id mapping and validation
       )
 
       const result = await submit(submissionData)

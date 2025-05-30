@@ -16,6 +16,11 @@ export const getTodayFormatted = (): string => {
   return formatDateForSubmission(new Date())
 }
 
+// Check if a product is a slider type (these are optional)
+export const isSliderProduct = (product: InventoryProduct): boolean => {
+  return product.input_type === 'stock_slider'
+}
+
 // Count total fields including individual glove sizes
 export const countTotalFields = (products: InventoryProduct[]): number => {
   let total = 0
@@ -29,7 +34,7 @@ export const countTotalFields = (products: InventoryProduct[]): number => {
   return total
 }
 
-// Count empty fields
+// Count empty fields - now enforcing that all non-slider products must have values
 export const countEmptyFields = (
   products: InventoryProduct[],
   formData: Record<string, string | number | GloveSizeData>
@@ -40,8 +45,13 @@ export const countEmptyFields = (
   products.forEach(product => {
     const value = formData[product.id]
     
+    // Skip slider products as they are optional
+    if (isSliderProduct(product)) {
+      return
+    }
+    
     if (product.input_type === 'glove_sizes') {
-      // Check each individual glove size
+      // Check each individual glove size - ALL must have values for non-slider products
       const gloveData = value as GloveSizeData | undefined
       GLOVE_SIZES.forEach(size => {
         const sizeValue = gloveData?.[size]
@@ -51,7 +61,7 @@ export const countEmptyFields = (
         }
       })
     } else {
-      // Regular field
+      // Regular field - ALL non-slider products must have values
       if (!value || value === '') {
         emptyCount++
         emptyFields.push(product.name)
@@ -74,18 +84,20 @@ export const shouldShowInlineErrors = (
   return emptyPercentage > 0.5 // More than 50% empty = show inline errors
 }
 
-// Validate product input based on type
+// Validate product input based on type - now enforcing required values for non-slider products
 export const validateProductInput = (
   product: InventoryProduct,
   value: string | number | GloveSizeData | undefined
 ): string | null => {
-  // Check if required field is empty
-  if (product.is_required && (!value || value === '')) {
-    return `${product.name} is required`
+  const isSlider = isSliderProduct(product)
+  
+  // All non-slider products are now required to have values (since is_required is removed)
+  if (!isSlider && (!value || value === '')) {
+    return `${product.name} is required (all products except sliders must have values)`
   }
 
-  // Skip validation if field is not required and empty
-  if (!value || value === '') {
+  // Skip validation if field is a slider and empty (sliders are optional)
+  if (isSlider && (!value || value === '')) {
     return null
   }
 
@@ -111,16 +123,16 @@ export const validateProductInput = (
     }
   }
 
-  // Validate stock slider (Change #2)
+  // Validate stock slider (Change #2) - these are optional but if provided must be valid
   if (product.input_type === 'stock_slider') {
     const stringValue = String(value)
     const validValues = Object.values(STOCK_LEVEL_VALUES)
-    if (!validValues.includes(stringValue as any)) {
+    if (value && !validValues.includes(stringValue as any)) {
       return `${product.name} has an invalid stock level selection`
     }
   }
 
-  // Validate glove sizes (Change #3)
+  // Validate glove sizes (Change #3) - for non-sliders, all sizes must have values
   if (product.input_type === 'glove_sizes') {
     try {
       let gloveSizeData: GloveSizeData
@@ -133,9 +145,12 @@ export const validateProductInput = (
         return `${product.name} has invalid glove size data`
       }
 
-      // Validate that all required sizes are present and are valid numbers
+      // Validate that all sizes are present and are valid numbers for non-slider products
       for (const size of GLOVE_SIZES) {
         const quantity = gloveSizeData[size]
+        if (!isSlider && (quantity === undefined || quantity === null)) {
+          return `${product.name} size ${size} is required`
+        }
         if (quantity !== undefined && (isNaN(quantity) || quantity < 0)) {
           return `${product.name} size ${size} must be a valid number (0 or greater)`
         }
@@ -173,8 +188,56 @@ export const validateFormData = (
   return errors
 }
 
-// Transform form data for API submission
+// Transform form data for new API submission structure
 export const transformFormDataForSubmission = (
+  formData: Record<string, string | number | GloveSizeData>,
+  staffName: string,
+  submissionDate: string,
+  generalNotes?: string,
+  products?: InventoryProduct[]
+) => {
+  // Transform to API structure (removed inventory_date)
+  const productSubmissions = Object.entries(formData)
+    .map(([productId, value]) => {
+      const product = products?.find(p => p.id === productId)
+      
+      const submission = {
+        product_id: productId,
+        category_id: product?.category_id || '', // Will be validated on server
+        note: undefined as string | undefined
+      }
+
+      // Handle different value types
+      if (value === null || value === undefined || value === '') {
+        // For sliders, skip empty values. For others, should be caught by validation
+        if (product && isSliderProduct(product)) {
+          return null // Skip empty slider values - will be filtered out
+        }
+        // For non-sliders, default to 0 to satisfy constraint
+        return { ...submission, value_numeric: 0 }
+      } else if (product?.input_type === 'glove_sizes' || (typeof value === 'object' && value !== null)) {
+        // JSON data (glove sizes or other complex data)
+        return { ...submission, value_json: typeof value === 'string' ? JSON.parse(value) : value }
+      } else if (typeof value === 'number' || !isNaN(Number(value))) {
+        // Numeric data
+        return { ...submission, value_numeric: Number(value) }
+      } else {
+        // Text data
+        return { ...submission, value_text: String(value) }
+      }
+    })
+    .filter((submission): submission is NonNullable<typeof submission> => submission !== null) // Type-safe filter
+
+  return {
+    staff_name: staffName,
+    submission_date: submissionDate,
+    products: productSubmissions,
+    general_notes: generalNotes || undefined
+  }
+}
+
+// Legacy transform function for backward compatibility
+export const transformFormDataForLegacySubmission = (
   formData: Record<string, string | number | GloveSizeData>,
   staffName: string,
   submissionDate: string,
