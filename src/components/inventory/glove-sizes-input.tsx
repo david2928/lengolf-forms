@@ -76,6 +76,7 @@ export function GloveSizesInput({ id, value, onChange, productName, error }: Glo
               <Input
                 id={`${id}-${size}`}
                 type="number"
+                inputMode="numeric"
                 min="0"
                 max="99"
                 value={currentData[size] || ''}
@@ -97,6 +98,7 @@ export function GloveSizesInput({ id, value, onChange, productName, error }: Glo
               <Input
                 id={`${id}-${size}`}
                 type="number"
+                inputMode="numeric"
                 min="0"
                 max="99"
                 value={currentData[size] || ''}

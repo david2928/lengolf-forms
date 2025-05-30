@@ -16,6 +16,64 @@ export const getTodayFormatted = (): string => {
   return formatDateForSubmission(new Date())
 }
 
+// Count total fields including individual glove sizes
+export const countTotalFields = (products: InventoryProduct[]): number => {
+  let total = 0
+  products.forEach(product => {
+    if (product.input_type === 'glove_sizes') {
+      total += GLOVE_SIZES.length // Each glove size counts as a separate field
+    } else {
+      total += 1
+    }
+  })
+  return total
+}
+
+// Count empty fields
+export const countEmptyFields = (
+  products: InventoryProduct[],
+  formData: Record<string, string | number | GloveSizeData>
+): { emptyCount: number; emptyFields: string[] } => {
+  let emptyCount = 0
+  const emptyFields: string[] = []
+
+  products.forEach(product => {
+    const value = formData[product.id]
+    
+    if (product.input_type === 'glove_sizes') {
+      // Check each individual glove size
+      const gloveData = value as GloveSizeData | undefined
+      GLOVE_SIZES.forEach(size => {
+        const sizeValue = gloveData?.[size]
+        if (!sizeValue || sizeValue === 0) {
+          emptyCount++
+          emptyFields.push(`${product.name} - Size ${size}`)
+        }
+      })
+    } else {
+      // Regular field
+      if (!value || value === '') {
+        emptyCount++
+        emptyFields.push(product.name)
+      }
+    }
+  })
+
+  return { emptyCount, emptyFields }
+}
+
+// Check if we should show inline errors (>50% empty) or modal (<= 50% empty)
+export const shouldShowInlineErrors = (
+  products: InventoryProduct[],
+  formData: Record<string, string | number | GloveSizeData>
+): boolean => {
+  const totalFields = countTotalFields(products)
+  const { emptyCount } = countEmptyFields(products, formData)
+  const emptyPercentage = emptyCount / totalFields
+  
+  return emptyPercentage > 0.5 // More than 50% empty = show inline errors
+}
+
 // Validate product input based on type
 export const validateProductInput = (
   product: InventoryProduct,

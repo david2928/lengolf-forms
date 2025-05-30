@@ -12,10 +12,14 @@ import { useInventorySubmission } from '@/hooks/use-inventory-submission'
 import { InventoryFormState, GloveSizeData } from '@/types/inventory'
 import { StaffSelector } from './staff-selector'
 import { CategorySection } from './category-section'
+import { ConfirmationModal } from './confirmation-modal'
+import { SuccessModal } from './success-modal'
 import { 
   validateFormData, 
   transformFormDataForSubmission, 
-  getTodayFormatted 
+  getTodayFormatted,
+  shouldShowInlineErrors,
+  countEmptyFields
 } from './utils/form-helpers'
 
 export default function InventoryForm() {
@@ -36,7 +40,9 @@ export default function InventoryForm() {
 
   const [notes, setNotes] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [successMessage, setSuccessMessage] = useState('')
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [pendingEmptyFields, setPendingEmptyFields] = useState<string[]>([])
 
   // Update form state when products data is loaded
   useEffect(() => {
@@ -97,21 +103,53 @@ export default function InventoryForm() {
 
   // Validate and submit form
   const handleSubmit = async () => {
-    setSuccessMessage('')
+    setShowSuccessModal(false)
     
-    // Validate form
+    // First validate required fields and data types
     const validationErrors = validateFormData(
       formState.products,
       formState.formData,
       formState.selectedStaff
     )
 
+    // Check if we should show inline errors or modal based on 50% rule
+    const showInline = shouldShowInlineErrors(formState.products, formState.formData)
+    
     if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors)
-      setFormState(prev => ({ ...prev, error: 'Please fix the errors above before submitting.' }))
-      return
+      if (showInline) {
+        // More than 50% empty - show inline errors
+        setErrors(validationErrors)
+        setFormState(prev => ({ ...prev, error: 'Please fill out more fields before submitting.' }))
+        return
+      } else {
+        // Less than 50% empty - check if there are any empty fields for confirmation
+        const { emptyFields } = countEmptyFields(formState.products, formState.formData)
+        if (emptyFields.length > 0) {
+          setPendingEmptyFields(emptyFields)
+          setShowConfirmModal(true)
+          return
+        }
+      }
     }
 
+    // Proceed with submission
+    await performSubmission()
+  }
+
+  // Handle modal confirmation
+  const handleModalConfirm = async () => {
+    setShowConfirmModal(false)
+    await performSubmission()
+  }
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setShowConfirmModal(false)
+    setPendingEmptyFields([])
+  }
+
+  // Actual submission logic
+  const performSubmission = async () => {
     // Clear errors and prepare submission
     setErrors({})
     setFormState(prev => ({ ...prev, error: null, isSubmitting: true }))
@@ -127,7 +165,7 @@ export default function InventoryForm() {
       const result = await submit(submissionData)
 
       if (result.success) {
-        setSuccessMessage('Inventory submitted successfully!')
+        setShowSuccessModal(true)
         // Reset form
         setFormState(prev => ({
           ...prev,
@@ -190,14 +228,12 @@ export default function InventoryForm() {
 
   return (
     <div className="space-y-6">
-      {/* Success Message */}
-      {successMessage && (
-        <Alert className="border-green-200 bg-green-50">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800">
-            {successMessage}
-          </AlertDescription>
-        </Alert>
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <SuccessModal
+          isOpen={showSuccessModal}
+          onClose={() => setShowSuccessModal(false)}
+        />
       )}
 
       {/* Error Message */}
@@ -275,6 +311,15 @@ export default function InventoryForm() {
           )}
         </Button>
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        onClose={handleModalClose}
+        onConfirm={handleModalConfirm}
+        emptyFields={pendingEmptyFields}
+        isSubmitting={isSubmitting}
+      />
     </div>
   )
 } 

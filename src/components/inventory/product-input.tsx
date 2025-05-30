@@ -76,6 +76,7 @@ export function ProductInput({ product, value, onChange, error }: ProductInputPr
               <Input
                 id={fieldId}
                 type="text"
+                inputMode="decimal"
                 value={formattedValue}
                 onChange={(e) => handleCashChange(e.target.value)}
                 placeholder="0"
@@ -95,6 +96,7 @@ export function ProductInput({ product, value, onChange, error }: ProductInputPr
             <Input
               id={fieldId}
               type="number"
+              inputMode="numeric"
               min="0"
               step="1"
               value={displayValue}
