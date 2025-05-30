@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { refacSupabase } from '@/lib/refac-supabase';
+import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import type { Booking } from '@/types/booking';
 
 export async function POST(req: Request) {
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { data: insertedData, error: insertError } = await refacSupabase
+    const { data: insertedData, error: insertError } = await refacSupabaseAdmin
       .from('bookings')
       .insert(bookingDataForDb)
       .select()

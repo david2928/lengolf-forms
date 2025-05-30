@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 // Ensure environment variables are defined (consider adding runtime checks if needed)
 const supabaseUrl = process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl) {
   console.error('Error: Missing environment variable NEXT_PUBLIC_REFAC_SUPABASE_URL');
@@ -20,6 +21,18 @@ if (!supabaseAnonKey) {
 export const refacSupabase = createClient(
   supabaseUrl || '', // Provide default empty string to satisfy type, error logged above
   supabaseAnonKey || '' // Provide default empty string to satisfy type, error logged above
+);
+
+// Create a service role client for server-side operations that need to bypass RLS
+export const refacSupabaseAdmin = createClient(
+  supabaseUrl || '',
+  supabaseServiceRoleKey || supabaseAnonKey || '', // Fallback to anon key if service role not available
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
 );
 
 // Optional: Add a simple check function to verify connection if needed later
