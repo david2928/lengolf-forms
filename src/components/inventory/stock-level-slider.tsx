@@ -28,6 +28,13 @@ export function StockLevelSlider({ id, value, onChange, productName, error }: St
     onChange(values[0])
   }
 
+  // Stock level descriptions
+  const descriptions = {
+    1: 'Nothing left. Must reorder immediately.',
+    2: 'Will last less than 2 weeks. Should reorder soon.',
+    3: 'Will last more than 2 weeks. No action needed.'
+  }
+
   return (
     <div className="space-y-4">
       {/* Current value display */}
@@ -45,7 +52,7 @@ export function StockLevelSlider({ id, value, onChange, productName, error }: St
         <Slider
           id={id}
           min={1}
-          max={4}
+          max={3}
           step={1}
           value={[currentValue]}
           onValueChange={handleValueChange}
@@ -53,20 +60,20 @@ export function StockLevelSlider({ id, value, onChange, productName, error }: St
         />
       </div>
 
-      {/* Labels */}
-      <div className="flex justify-between text-xs text-muted-foreground px-3">
-        <span className={`text-center ${currentValue === 1 ? 'font-semibold text-red-600' : ''}`}>
-          Out of Stock
-        </span>
-        <span className={`text-center ${currentValue === 2 ? 'font-semibold text-amber-600' : ''}`}>
-          Need to Order
-        </span>
-        <span className={`text-center ${currentValue === 3 ? 'font-semibold text-blue-600' : ''}`}>
-          Enough
-        </span>
-        <span className={`text-center ${currentValue === 4 ? 'font-semibold text-green-600' : ''}`}>
-          Plenty
-        </span>
+      {/* Labels with descriptions */}
+      <div className="flex justify-between text-xs px-3">
+        <div className={`text-center flex-1 ${currentValue === 1 ? 'font-semibold text-red-600' : 'text-muted-foreground'}`}>
+          <div className="font-medium">Out of Stock</div>
+          <div className="italic mt-1">{descriptions[1]}</div>
+        </div>
+        <div className={`text-center flex-1 ${currentValue === 2 ? 'font-semibold text-amber-600' : 'text-muted-foreground'}`}>
+          <div className="font-medium">Need to Order</div>
+          <div className="italic mt-1">{descriptions[2]}</div>
+        </div>
+        <div className={`text-center flex-1 ${currentValue === 3 ? 'font-semibold text-green-600' : 'text-muted-foreground'}`}>
+          <div className="font-medium">Enough Stock</div>
+          <div className="italic mt-1">{descriptions[3]}</div>
+        </div>
       </div>
 
       {error && (

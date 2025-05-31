@@ -173,8 +173,7 @@ export interface UseInventorySubmissionReturn {
 export const STOCK_LEVEL_VALUES = {
   1: 'Out of Stock',
   2: 'Need to Order', 
-  3: 'Enough',
-  4: 'Plenty'
+  3: 'Enough Stock'
 } as const;
 
 export type StockLevelValue = keyof typeof STOCK_LEVEL_VALUES;
