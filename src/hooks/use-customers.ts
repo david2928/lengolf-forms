@@ -4,6 +4,7 @@ export interface Customer {
   id: string;
   customer_name: string;
   contact_number: string;
+  stable_hash_id: string | null;
 }
 
 const fetcher = async (url: string) => {

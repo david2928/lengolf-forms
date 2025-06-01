@@ -45,6 +45,7 @@ export function transformCustomer(rawCustomer: any): Customer {
     batch_id: rawCustomer.batch_id,
     update_time: rawCustomer.update_time,
     created_at: rawCustomer.created_at,
+    stable_hash_id: rawCustomer.stable_hash_id,
     displayName: rawCustomer.contact_number 
       ? `${rawCustomer.customer_name} (${rawCustomer.contact_number})`
       : rawCustomer.customer_name
