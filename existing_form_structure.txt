@@ -1,0 +1,114 @@
+here is current list of fields / setup of the current form we're using: 
+Form Title: Inventory Tracker
+Description: 
+Is Quiz: false
+Questions:
+1. Untitled Section (PAGE_BREAK)
+2. Staff Name (MULTIPLE_CHOICE)
+- Net
+- Dolly
+- May
+3. Beer (PAGE_BREAK)
+4. Asahi (TEXT)
+5. Singha (TEXT)
+6. Hoegaarden (TEXT)
+7. Craft beer (various brands) (TEXT)
+8. Heineken (TEXT)
+9. Chatri IPA (TEXT)
+10. Liquor (PAGE_BREAK)
+11. Absolute Vodka (TEXT)
+12. Bacardi Rum (TEXT)
+13. Chita Whiskey (TEXT)
+14. Regency Whiskey (TEXT)
+15. Hibiki Whiskey (TEXT)
+16. Kakubin Whiskey (TEXT)
+17. Black Label Whiskey (TEXT)
+18. Chivas Whiskey (TEXT)
+19. Tequila (TEXT)
+20. Gin (Bombay Sapphire) (TEXT)
+21. Gin (House Gin) (TEXT)
+22. Vodka (House Vodka) (TEXT)
+23. Wine (PAGE_BREAK)
+24. Red Wine (Most Expensive) (TEXT)
+25. Red Wine (Middle Expensive) (TEXT)
+26. Red Wine (Least Expensive) (TEXT)
+27. White wine (Most Expensive) (TEXT)
+28. White wine (Middle Expensive) (TEXT)
+29. White wine (Least Expensive) (TEXT)
+30. Sparkling Wine (TEXT)
+31. Non-Alcoholic (PAGE_BREAK)
+32. Red Bull (TEXT)
+33. Coke Zero (TEXT)
+34. Coke Original (TEXT)
+35. Sprite (TEXT)
+36. Tonic water (Schweppes) (TEXT)
+37. Soda water (Singha) (TEXT)
+38. Still water  (TEXT)
+39. Gatorade - Blue (TEXT)
+40. Gatorade - Lime (TEXT)
+41. Zuza (Lime) (TEXT)
+42. Zuza (Passion Fruit) (TEXT)
+43. Zuza (Lychee) (TEXT)
+44. Festilia (Lime) (TEXT)
+45. Festilia (Orange) (TEXT)
+46. Tea Bags (TEXT)
+47. Coke Regular (Big Bottle) (TEXT)
+48. Coke Zero (Big Bottle) (TEXT)
+49. Sprite (Big Bottle) (TEXT)
+50. Water (Big Bottle) (TEXT)
+51. Ice (CHECKBOX)
+- Plenty
+- Enough for this week
+- Need to order
+52. Food & Supplies (PAGE_BREAK)
+53. Garbage bags (TEXT)
+54. Popcorn (TEXT)
+55. Nuts (TEXT)
+56. POS paper rolls (TEXT)
+57. Credit Card paper rolls (TEXT)
+58. Straws (CHECKBOX)
+- Plenty of stock
+- Enough for this week (at least 30)
+- Need to order
+59. Paper towels (CHECKBOX)
+- Plenty of stock
+- Enough for this week (at least 5 packs)
+- Need to order
+60. Cleaning Supply (Floor Cleaner) (CHECKBOX)
+- Plenty of stock
+- Enough for this week
+- Need to order
+61. Cleaning Supply (General Cleaner) (CHECKBOX)
+- Plenty of stock
+- Enough for this week
+- Need to order
+62. Cleaning Supply (Handwash) (CHECKBOX)
+- Plenty of stock
+- Enough for this week
+- Need to order
+63. Cleaning Supply (Dishwashing Liquid) (CHECKBOX)
+- Plenty of stock
+- Enough for this week
+- Need to order
+64. Napkins (normal) (CHECKBOX)
+- Plenty of stock
+- Enough for this week
+- Need to order
+65. Napkins (wet) (CHECKBOX)
+- Plenty of stock
+- Enough for this week
+- Need to order
+66. Paper Plates (CHECKBOX)
+- Plenty of stock
+- Enough for this week
+- Need to order
+67. Fork/Knives/Spoons (CHECKBOX)
+- Plenty of stock
+- Enough for this week
+- Need to order
+68. Other (PAGE_BREAK)
+69. Golf gloves (PARAGRAPH_TEXT)
+70. Cash (only Bills) (TEXT)
+71. Golf Balls (only Inventory) (TEXT)
+72. Damaged Golf Balls (TEXT)
+73. Golf Tees (Rubber) (TEXT)
