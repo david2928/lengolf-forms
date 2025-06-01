@@ -1,18 +1,16 @@
 import useSWR from 'swr'
 
 export interface Customer {
-  name: string;
-  contactNumber: string;
-  dateJoined: string;
-  id?: string;
-  displayName?: string;
+  id: string;
+  customer_name: string;
+  contact_number: string;
 }
 
 const fetcher = async (url: string) => {
   const res = await fetch(url)
   if (!res.ok) throw new Error('Failed to fetch customers')
   const data = await res.json()
-  return data.customers as Customer[]
+  return data as Customer[]
 }
 
 export function useCustomers() {

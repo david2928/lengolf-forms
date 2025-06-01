@@ -284,68 +284,140 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
     console.log('Data prepared for calendar API:', calendarInputData);
 
     // --- Step 4: Create Calendar Events via API ---
-    let calendarResultData: any = null; // Variable to store calendar API response data
+    let calendarEventCreationSuccessful = false;
+    let calendarEventsToLink: any[] = [];
+    
     console.log('Attempting to create calendar event(s)...');
-    const calendarResponse = await fetch('/api/bookings/calendar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        operation: 'create',
-        booking: calendarInputData
-      })
-    });
+    try {
+      const calendarResponse = await fetch('/api/bookings/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          operation: 'create',
+          booking: calendarInputData
+        })
+      });
 
-    if (!calendarResponse.ok) {
-      let errorBody = '';
-      try { errorBody = await calendarResponse.text(); } catch (_) { /* Ignore */ }
-      // Log as warning, don't necessarily fail the whole submission
-      console.warn('Failed to create calendar event(s). Status:', calendarResponse.status, 'Body:', errorBody);
-    } else {
+      if (!calendarResponse.ok) {
+        let errorBody = '';
+        try { errorBody = await calendarResponse.text(); } catch (_) { /* Ignore */ }
+        console.error('Calendar API returned error. Status:', calendarResponse.status, 'Body:', errorBody);
+        throw new Error(`Calendar API failed: ${calendarResponse.status} - ${errorBody}`);
+      }
+
+      const calendarResultData = await calendarResponse.json();
+      console.log('Calendar event creation request successful. Response:', calendarResultData);
+      
+      if (calendarResultData.success && Array.isArray(calendarResultData.data) && calendarResultData.data.length > 0) {
+        calendarEventsToLink = calendarResultData.data;
+        calendarEventCreationSuccessful = true;
+        console.log(`Successfully created ${calendarEventsToLink.length} calendar event(s)`);
+      } else {
+        console.warn('Calendar API returned success but no events created:', calendarResultData);
+        throw new Error('No calendar events were created despite successful API response');
+      }
+    } catch (calendarError) {
+      console.error('Calendar event creation failed:', calendarError);
+      calendarEventCreationSuccessful = false;
+      
+      // Mark the booking with failed sync status
       try {
-        calendarResultData = await calendarResponse.json();
-        console.log('Calendar event creation request successful. Response:', calendarResultData);
+        const syncStatusResponse = await fetch(`/api/bookings/${bookingId}/link-calendar-events`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            calendar_events: [],
+            google_calendar_sync_status: 'error_syncing'
+          })
+        });
         
-        // --- Step 4.1: Link Google Calendar Events to Booking ---
-        const calendarEventsToLink = calendarResultData?.data; // Assuming .data contains CalendarEventResult[]
-
-        if (bookingId && Array.isArray(calendarEventsToLink) && calendarEventsToLink.length > 0) {
-          // Validate structure of each event object (basic check)
-          const isValidStructure = calendarEventsToLink.every(
-            (event: any) => event && typeof event.eventId === 'string' && typeof event.calendarId === 'string' && typeof event.status === 'string'
-          );
-
-          if (isValidStructure) {
-            console.log(`Attempting to link ${calendarEventsToLink.length} calendar event(s) to booking ${bookingId}...`);
-            try {
-              const linkEventsResponse = await fetch(`/api/bookings/${bookingId}/link-calendar-events`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ calendar_events: calendarEventsToLink })
-              });
-
-              if (!linkEventsResponse.ok) {
-                let linkErrorBody = '';
-                try { linkErrorBody = await linkEventsResponse.text(); } catch (_) { /* Ignore */ }
-                console.warn(`Failed to link calendar events for booking ${bookingId}. Status:`, linkEventsResponse.status, 'Body:', linkErrorBody);
-              } else {
-                const linkResult = await linkEventsResponse.json();
-                console.log(`Successfully sent link calendar events request for booking ${bookingId}. Response:`, linkResult);
-              }
-            } catch (linkError) {
-              console.error(`Error calling link-calendar-events endpoint for booking ${bookingId}:`, linkError);
-            }
-          } else {
-            console.warn('Could not link calendar events: Invalid structure in calendarEventResultsArray for bookingId:', bookingId, calendarEventsToLink);
-          }
-        } else if (bookingId) { // bookingId exists, but calendarEventsToLink is not a valid array
-          console.warn('No valid calendar events found to link for bookingId:', bookingId, 'calendarEventResultsArray:', calendarEventsToLink);
+        if (!syncStatusResponse.ok) {
+          console.error('Failed to mark booking with error sync status');
+        } else {
+          console.log('Marked booking with error sync status due to calendar creation failure');
         }
-        // --- End Step 4.1 ---
-
-      } catch (parseError) {
-         console.error('Error parsing calendar API response or linking events:', parseError);
+      } catch (statusError) {
+        console.error('Error updating sync status after calendar failure:', statusError);
       }
     }
+
+    // --- Step 4.1: Link Google Calendar Events to Booking ---
+    if (calendarEventCreationSuccessful && calendarEventsToLink.length > 0) {
+      // Validate structure of each event object (basic check)
+      const isValidStructure = calendarEventsToLink.every(
+        (event: any) => event && typeof event.eventId === 'string' && typeof event.calendarId === 'string' && typeof event.status === 'string'
+      );
+
+      if (isValidStructure) {
+        console.log(`Attempting to link ${calendarEventsToLink.length} calendar event(s) to booking ${bookingId}...`);
+        try {
+          const linkEventsResponse = await fetch(`/api/bookings/${bookingId}/link-calendar-events`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              calendar_events: calendarEventsToLink,
+              google_calendar_sync_status: 'synced'
+            })
+          });
+
+          if (!linkEventsResponse.ok) {
+            let linkErrorBody = '';
+            try { linkErrorBody = await linkEventsResponse.text(); } catch (_) { /* Ignore */ }
+            console.error(`Failed to link calendar events for booking ${bookingId}. Status:`, linkEventsResponse.status, 'Body:', linkErrorBody);
+            
+            // Mark as error_syncing if linking fails
+            try {
+              await fetch(`/api/bookings/${bookingId}/link-calendar-events`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  calendar_events: [],
+                  google_calendar_sync_status: 'error_syncing'
+                })
+              });
+            } catch (fallbackError) {
+              console.error('Failed to mark booking with error status after link failure');
+            }
+          } else {
+            const linkResult = await linkEventsResponse.json();
+            console.log(`Successfully linked calendar events for booking ${bookingId}. Response:`, linkResult);
+          }
+        } catch (linkError) {
+          console.error(`Error calling link-calendar-events endpoint for booking ${bookingId}:`, linkError);
+          
+          // Mark as error_syncing if linking throws an error
+          try {
+            await fetch(`/api/bookings/${bookingId}/link-calendar-events`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                calendar_events: [],
+                google_calendar_sync_status: 'error_syncing'
+              })
+            });
+          } catch (fallbackError) {
+            console.error('Failed to mark booking with error status after link exception');
+          }
+        }
+      } else {
+        console.warn('Could not link calendar events: Invalid structure in calendarEventsArray for bookingId:', bookingId, calendarEventsToLink);
+        
+        // Mark as error_syncing due to invalid structure
+        try {
+          await fetch(`/api/bookings/${bookingId}/link-calendar-events`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              calendar_events: [],
+              google_calendar_sync_status: 'error_syncing'
+            })
+          });
+        } catch (fallbackError) {
+          console.error('Failed to mark booking with error status after structure validation failure');
+        }
+      }
+    }
+    // --- End Step 4.1 ---
 
     // --- Step 5: Format LINE Notification ---
     const message = formatLineMessage(formData, bookingId);

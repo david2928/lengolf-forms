@@ -10,10 +10,11 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api/auth (auth API routes)
+     * - api (all API routes)
      * - _next
      * - public (static files)
+     * - auth (auth pages)
      */
-    "/((?!api/auth|_next|public|auth).*)",
+    "/((?!api|_next|public|auth).*)",
   ],
 };
