@@ -2,18 +2,18 @@ import { NextResponse } from 'next/server';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 
 // LINE Messaging API configuration for inventory reports
-// Updated to use normal LINE group instead of specific inventory group (task 2)
-const LINE_GROUP_ID = process.env.LINE_GROUP_ID; // Normal group ID
+// Using dedicated group ID specifically for weekly inventory reports
+const INVENTORY_REPORT_GROUP_ID = "C6a28e92972002dd392e8cc4f005afce2"; // Hardcoded for inventory reports
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
 async function sendLineMessage(message: string) {
-  if (!LINE_CHANNEL_ACCESS_TOKEN || !LINE_GROUP_ID) {
+  if (!LINE_CHANNEL_ACCESS_TOKEN || !INVENTORY_REPORT_GROUP_ID) {
     console.error('Missing LINE Channel Access Token or Group ID');
     throw new Error('LINE Messaging API configuration is incomplete');
   }
 
   try {
-    console.log(`Sending LINE message to group: ${LINE_GROUP_ID}`);
+    console.log(`Sending LINE message to group: ${INVENTORY_REPORT_GROUP_ID}`);
     
     const response = await fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
@@ -22,7 +22,7 @@ async function sendLineMessage(message: string) {
         'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
       },
       body: JSON.stringify({
-        to: LINE_GROUP_ID,
+        to: INVENTORY_REPORT_GROUP_ID,
         messages: [
           {
             type: 'text',

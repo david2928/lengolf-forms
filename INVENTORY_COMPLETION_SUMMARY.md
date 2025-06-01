@@ -9,8 +9,8 @@
 - ✅ Script: `scripts/import-historical-inventory.js` (fixed date parsing)
 - ✅ **Date format issue resolved**: Fixed parseDate function to handle 4-digit years correctly
 
-### **Task 2: Weekly LINE Reports to Normal Group - ENHANCED**
-- ✅ **Reports now send to normal `LINE_GROUP_ID`** instead of specific inventory group
+### **Task 2: Weekly LINE Reports to Dedicated Group - ENHANCED**
+- ✅ **Reports now send to hardcoded group** `C6a28e92972002dd392e8cc4f005afce2` (separate from general LINE_GROUP_ID)
 - ✅ **API endpoint working**: `app/api/inventory/weekly-report/route.ts`
 - ✅ **ENHANCED OUTPUT FORMAT** with modern design:
   ```
@@ -86,59 +86,44 @@ The system currently identifies these items for reorder:
 ## 📋 Next Steps for You
 
 ### 1. Enable Supabase Cron (Required)
-Follow the guide in `docs/SUPABASE_CRON_SETUP.md`:
+Follow the simplified guide in `docs/SUPABASE_CRON_SETUP.md`:
 
 1. **Go to**: https://bisimqmtxjsptehhqpeg.supabase.co
 2. **Navigate to**: Integrations > Cron
 3. **Enable**: Cron Postgres Module
-4. **Execute this SQL**:
-   ```sql
-   CREATE OR REPLACE FUNCTION trigger_weekly_inventory_report()
-   RETURNS void
-   LANGUAGE plpgsql
-   SECURITY DEFINER
-   AS $$
-   DECLARE
-       response_status int;
-       response_body text;
-       api_url text;
-   BEGIN
-       -- REPLACE WITH YOUR ACTUAL DOMAIN
-       api_url := 'https://your-app-domain.vercel.app/api/inventory/weekly-report';
-       
-       SELECT status, content INTO response_status, response_body
-       FROM http_post(api_url, '{}', 'application/json');
-       
-       IF response_status = 200 THEN
-           RAISE NOTICE 'Weekly inventory report triggered successfully';
-       ELSE
-           RAISE WARNING 'Weekly inventory report failed with status: %, body: %', response_status, response_body;
-       END IF;
-   EXCEPTION WHEN OTHERS THEN
-       RAISE WARNING 'Error triggering weekly inventory report: %', SQLERRM;
-   END;
-   $$;
-   ```
-
-5. **Schedule the job**:
+4. **Execute this simple SQL**:
    ```sql
    SELECT cron.schedule(
        'weekly-inventory-report',
        '0 2 * * 1',
-       'SELECT trigger_weekly_inventory_report();'
+       $$
+       SELECT net.http_post(
+           url := 'https://your-app-domain.vercel.app/api/inventory/weekly-report',
+           headers := jsonb_build_object('Content-Type', 'application/json'),
+           body := '{}',
+           timeout_milliseconds := 10000
+       );
+       $$
+   );
+   ```
+
+5. **Test manually**:
+   ```sql
+   SELECT net.http_post(
+       url := 'https://your-app-domain.vercel.app/api/inventory/weekly-report',
+       headers := jsonb_build_object('Content-Type', 'application/json'),
+       body := '{}',
+       timeout_milliseconds := 10000
    );
    ```
 
 ### 2. Update API URL
-**IMPORTANT**: Replace `https://your-app-domain.vercel.app` with your actual deployment URL in the SQL function above.
+**IMPORTANT**: Replace `https://your-app-domain.vercel.app` with your actual deployment URL in the SQL above.
 
-### 3. Test the Setup
+### 3. Verify the Setup
 ```sql
--- Test manually
-SELECT trigger_weekly_inventory_report();
-
--- Verify the job is scheduled
-SELECT * FROM cron.job;
+-- Check scheduled jobs
+SELECT jobid, jobname, schedule, command FROM cron.job;
 ```
 
 ## 🔧 Environment Variables in Production
@@ -148,7 +133,8 @@ Ensure these are set in your deployment:
 NEXT_PUBLIC_REFAC_SUPABASE_URL="https://bisimqmtxjsptehhqpeg.supabase.co"
 REFAC_SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
 LINE_CHANNEL_ACCESS_TOKEN="your-line-token"
-LINE_GROUP_ID="C5029951a062583150a67db2eb6a2a38b"
+# Note: Inventory reports use hardcoded group ID C6a28e92972002dd392e8cc4f005afce2
+# LINE_GROUP_ID is used for other notifications, not inventory reports
 ```
 
 ## 📅 Schedule

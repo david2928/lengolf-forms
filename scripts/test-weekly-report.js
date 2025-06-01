@@ -245,4 +245,4 @@ const categories = [...new Set(sampleInventoryDataMay26.map(item => item.categor
 console.log(`Categories with items: ${categories.join(', ')}`);
 console.log(`Total items needing attention: ${lowStockCount} out of ${sampleInventoryDataMay26.length} items checked`);
 console.log(`Special handling: Cash collection required`);
-console.log('\nThis enhanced report would be sent to LINE group with improved formatting!'); 
+console.log('\nThis enhanced report would be sent to LINE group: C6a28e92972002dd392e8cc4f005afce2 with improved formatting!'); 
