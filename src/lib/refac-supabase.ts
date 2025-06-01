@@ -33,7 +33,6 @@ export const refacSupabase = createClient(
 );
 
 // Create a service role client for server-side operations that need to bypass RLS
-=======
 // For now, let's temporarily fall back to the anon key if service role is missing
 // so we can see if the RLS policies are the issue or the key itself
 export const refacSupabaseAdmin = supabaseServiceRoleKey ? 
