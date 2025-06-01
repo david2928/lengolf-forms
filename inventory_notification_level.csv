@@ -1,0 +1,61 @@
+product_name,order_from,notification_level
+Asahi,Tops,40
+Singha,Tops,50
+Hoegaarden,Tops,12
+Heineken,Tops,20
+Chatri IPA,Tops,12
+Absolute Vodka,IWS,1
+Bacardi Rum,IWS,1
+Chita Whiskey,TBD,1
+Hibiki Whiskey,TBD,0.5
+Kakubin Whiskey,TBD,1.5
+Black Label Whiskey,IWS,1
+ Expensive Red wine,IWS,1
+Expensive White wine,IWS,1
+Coke Zero,Makro,20
+Coke Original,Makro,20
+Sprite,Makro,10
+Tonic water (Schweppes),Makro,10
+Soda water (Singha),Makro,15
+Still water,Makro,75
+Gatorade - Blue,Makro,10
+Gatorade - Lime,Makro,10
+Zuza (Lime),Zuza,10
+Ice,Ice Supplier,Need to order
+Garbage bags,Makro,15
+POS paper rolls,Shopee,20
+Straws,Makro,Need to order
+Paper towels,Makro,Need to order
+Red Bull,Makro,2
+Gin (Bombay Sapphire),IWS,0.5
+Popcorn,Shopee,6
+Nuts,Shopee,1
+Cash (only Bills),,30000
+Golf gloves,,x
+Golf Balls (only Inventory),,50
+Festilia (Lime),Festilia,6
+Festilia (Orange),Festilia,6
+Red Wine (Middle Expensive),IWS,2
+Red Wine (Least Expensive),IWS,2
+White wine (Middle Expensive),IWS,2
+White wine (Least Expensive),IWS,2
+Gin (House Gin),IWS,2
+Vodka (House Vodka),IWS,2
+Cleaning Supply (Floor Cleaner),Makro,Need to order
+Cleaning Supply (General Cleaner),Makro,Need to order
+Cleaning Supply (Handwash),Makro,Need to order
+Zuza (Passion Fruit),Zuza,5
+Zuza (Lychee),Zuza,5
+Golf Tees (Rubber),Bravo,4
+Napkins (normal),Makro,Need to order
+Napkins (wet),Makro,Need to order
+Paper Plates,Makro,Need to order
+Fork/Knives/Spoons,Makro,Need to order
+Sparkling Wine,IWS,1
+Coke Regular (Big Bottle),Makro,1
+Coke Zero (Big Bottle),Makro,1
+Sprite (Big Bottle),Makro,1
+Water (Big Bottle),Makro,1
+Tea Bags,Makro,6
+Cleaning Supply (Dishwashing Liquid),Makro,Need to order
+Credit Card paper rolls,KBiz,20
