@@ -20,6 +20,11 @@
 
   🚨 ITEMS REQUIRING ACTION:
 
+  🍽️ FOOD & SUPPLIES
+  ───────────────────
+  • Ice: Need to order (Re-order from Ice Vendor)
+  • Napkins (wet): Need to order (Re-order from Makro)
+
   🍷 WINE
   ────────
   • Red Wine (Middle Expensive): 2 in stock (Re-order from IWS)

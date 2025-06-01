@@ -190,7 +190,13 @@ function generateWeeklyReport(inventoryData, reportDate) {
         const supplierText = supplier && supplier.trim() !== '' 
           ? ` (Re-order from ${supplier})` 
           : ' (Supplier: TBD)';
-        message += `• ${product_name}: ${valueDisplay} in stock${supplierText}\n`;
+        
+        // Handle slider products differently - don't add "in stock"
+        if (input_type === 'stock_slider') {
+          message += `• ${product_name}: ${valueDisplay}${supplierText}\n`;
+        } else {
+          message += `• ${product_name}: ${valueDisplay} in stock${supplierText}\n`;
+        }
       }
     });
     
