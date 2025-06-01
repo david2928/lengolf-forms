@@ -8,10 +8,11 @@ import { PackageInfoCard } from './package-info-card'
 import { HoursInput } from './hours-input'
 import { DatePicker } from '@/components/ui/date-picker'
 import { toast } from '@/components/ui/use-toast'
-import { ConfirmationDialog } from './confirmation-dialog'
+import { FullscreenSignature } from './fullscreen-signature'
 import { AcknowledgmentDialog } from './acknowledgment-dialog'
 import { PackageUsageFormData, UsageFormState } from '@/types/package-usage'
 import { Loader2 } from 'lucide-react'
+import { format } from 'date-fns'
 
 export function UsageForm() {
   const formRef = useRef<HTMLFormElement>(null);
@@ -30,11 +31,12 @@ export function UsageForm() {
     success: false,
   })
 
-  const [showConfirmation, setShowConfirmation] = useState(false)
   const [selectedPackageName, setSelectedPackageName] = useState<string | null>(null)
   const [currentPackageRemainingHours, setCurrentPackageRemainingHours] = useState<number | null>(null);
   const [currentPackageExpirationDate, setCurrentPackageExpirationDate] = useState<string | null>(null);
   const [showAcknowledgmentDialog, setShowAcknowledgmentDialog] = useState(false);
+  const [showFullscreenSignature, setShowFullscreenSignature] = useState(false);
+  const [pendingSubmission, setPendingSubmission] = useState(false);
 
   const resetForm = () => {
     // Reset React state completely
@@ -97,15 +99,26 @@ export function UsageForm() {
     e.preventDefault();
     setFormState(prev => ({ ...prev, error: null }));
     if (validateForm()) {
-      setShowConfirmation(true);
+      // Skip confirmation dialog, go directly to signature
+      setShowFullscreenSignature(true);
     }
   }
 
-  const handleConfirm = async (signature: string | null) => {
-    // Set the signature in formData right before submitting
-    // This ensures the latest signature from the dialog is used
-    const updatedFormData = { ...formData, customerSignature: signature };
+  const handleSignatureSave = async (signature: string | null) => {
+    setShowFullscreenSignature(false);
+    
+    if (!signature) {
+      toast({
+        title: 'Signature Required',
+        description: 'Please provide a customer signature to continue.',
+        variant: 'destructive',
+      })
+      return;
+    }
 
+    // Set the signature and submit immediately
+    const updatedFormData = { ...formData, customerSignature: signature };
+    setPendingSubmission(true);
     setFormState({ ...formState, isLoading: true, error: null });
 
     try {
@@ -128,13 +141,12 @@ export function UsageForm() {
 
       toast({
         title: 'Success',
-        description: 'Package usage has been recorded.',
+        description: 'Package usage has been recorded successfully.',
       });
 
       // Reset form
       resetForm();
       
-      setShowConfirmation(false);
       setShowAcknowledgmentDialog(true);
       
       setFormState(prev => ({ ...prev, isLoading: false, error: null, success: true }));
@@ -145,13 +157,19 @@ export function UsageForm() {
         error: error instanceof Error ? error.message : 'Failed to record package usage',
         success: false,
       });
-      setShowConfirmation(false);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to record package usage',
         variant: 'destructive',
       });
+    } finally {
+      setPendingSubmission(false);
     }
+  }
+
+  const handleSignatureCancel = () => {
+    setShowFullscreenSignature(false);
+    // Don't reset form, just return to form state
   }
 
   const handleAcknowledgmentDismiss = () => {
@@ -159,95 +177,98 @@ export function UsageForm() {
     setShowAcknowledgmentDialog(false);
   };
 
+  // Parse package name for fullscreen signature
+  const packageParts = selectedPackageName?.split(' - ') || [];
+  const customerInfo = packageParts[0] || 'Unknown Customer';
+  const packageType = packageParts[1] || 'Unknown Package';
+
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      {formState.error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-400 text-red-700 rounded-lg">
-          <p>{formState.error}</p>
-        </div>
-      )}
-
-      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-        <EmployeeSection
-          key={formState.success ? 'reset' : 'employee'} // Force re-render on success
-          value={formData.employeeName}
-          onChange={(name) => setFormData((prev) => ({ ...prev, employeeName: name }))}
-        />
-        
-        <PackageSelector
-          key={formState.success ? 'reset' : 'package'} // Force re-render on success
-          value={formData.packageId}
-          onChange={(id, name) => {
-            setFormData((prev) => ({ ...prev, packageId: id }));
-            setSelectedPackageName(name);
-            setCurrentPackageRemainingHours(null); // Reset here
-            setCurrentPackageExpirationDate(null); // Reset here too
-          }}
-          isLoading={formState.isLoading}
-        />
-
-        {formData.packageId && (
-          <PackageInfoCard 
-            packageId={formData.packageId}
-            isLoading={formState.isLoading}
-            onDataLoaded={({ remainingHours, expiration_date }) => {
-              setCurrentPackageRemainingHours(remainingHours);
-              setCurrentPackageExpirationDate(expiration_date);
-            }}
-          />
+    <>
+      <div className="w-full max-w-2xl mx-auto">
+        {formState.error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-400 text-red-700 rounded-lg">
+            <p>{formState.error}</p>
+          </div>
         )}
 
-        <HoursInput
-          key={formState.success ? 'reset' : 'hours'} // Force re-render on success
-          value={formData.usedHours}
-          onChange={(hours) => setFormData((prev) => ({ ...prev, usedHours: hours }))}
-          isDisabled={!formData.packageId || formState.isLoading}
-        />
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+          <EmployeeSection
+            key={formState.success ? 'reset' : 'employee'} // Force re-render on success
+            value={formData.employeeName}
+            onChange={(name) => setFormData((prev) => ({ ...prev, employeeName: name }))}
+          />
+          
+          <PackageSelector
+            key={formState.success ? 'reset' : 'package'} // Force re-render on success
+            value={formData.packageId}
+            onChange={(id, name) => {
+              setFormData((prev) => ({ ...prev, packageId: id }));
+              setSelectedPackageName(name);
+              setCurrentPackageRemainingHours(null); // Reset here
+              setCurrentPackageExpirationDate(null); // Reset here too
+            }}
+            isLoading={formState.isLoading}
+          />
 
-        <DatePicker
-          value={formData.usedDate}
-          onChange={(date) => setFormData((prev) => ({ ...prev, usedDate: date }))}
-          label="Used Date"
-          disabled={formState.isLoading}
-        />
-
-        <Button 
-          type="submit"
-          className="w-full"
-          disabled={formState.isLoading}
-        >
-          {formState.isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Recording...
-            </>
-          ) : (
-            'Record Usage'
+          {formData.packageId && (
+            <PackageInfoCard 
+              packageId={formData.packageId}
+              isLoading={formState.isLoading}
+              onDataLoaded={({ remainingHours, expiration_date }) => {
+                setCurrentPackageRemainingHours(remainingHours);
+                setCurrentPackageExpirationDate(expiration_date);
+              }}
+            />
           )}
-        </Button>
-      </form>
 
-      <ConfirmationDialog
-        open={showConfirmation}
-        onOpenChange={setShowConfirmation}
-        data={{
-          employeeName: formData.employeeName,
-          packageName: selectedPackageName,
-          usedHours: formData.usedHours,
-          currentPackageRemainingHours: currentPackageRemainingHours,
-          currentPackageExpirationDate: currentPackageExpirationDate,
-        }}
-        onConfirm={handleConfirm}
-        isLoading={formState.isLoading}
-      />
+          <HoursInput
+            key={formState.success ? 'reset' : 'hours'} // Force re-render on success
+            value={formData.usedHours}
+            onChange={(hours) => setFormData((prev) => ({ ...prev, usedHours: hours }))}
+            isDisabled={!formData.packageId || formState.isLoading}
+          />
 
-      <AcknowledgmentDialog
-        open={showAcknowledgmentDialog}
-        onOpenChange={setShowAcknowledgmentDialog}
-        title="Usage Recorded"
-        description="The package usage has been successfully recorded."
-        onConfirm={handleAcknowledgmentDismiss}
+          <DatePicker
+            value={formData.usedDate}
+            onChange={(date) => setFormData((prev) => ({ ...prev, usedDate: date }))}
+            label="Used Date"
+            disabled={formState.isLoading}
+          />
+
+          <Button 
+            type="submit"
+            className="w-full"
+            disabled={formState.isLoading || pendingSubmission}
+          >
+            {formState.isLoading || pendingSubmission ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Recording...
+              </>
+            ) : (
+              'Record Usage & Get Signature'
+            )}
+          </Button>
+        </form>
+
+        <AcknowledgmentDialog
+          open={showAcknowledgmentDialog}
+          onOpenChange={setShowAcknowledgmentDialog}
+          title="Usage Recorded"
+          description="The package usage has been successfully recorded with customer signature."
+          onConfirm={handleAcknowledgmentDismiss}
+        />
+      </div>
+
+      {/* Fullscreen Signature Component */}
+      <FullscreenSignature
+        isOpen={showFullscreenSignature}
+        customerName={customerInfo}
+        packageType={packageType}
+        usedHours={formData.usedHours || 0}
+        onSave={handleSignatureSave}
+        onCancel={handleSignatureCancel}
       />
-    </div>
+    </>
   )
 }

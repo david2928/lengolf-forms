@@ -9,6 +9,7 @@ import { LucideIcon } from 'lucide-react'
 import { usePackageMonitor } from '@/hooks/use-package-monitor'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { menuItems as appMenuItems, type MenuItem as AppMenuItemType } from '@/config/menu-items'
+import { ScreenSizeIndicator } from '@/components/ui/screen-size-indicator'
 
 interface MenuItemProps {
   icon: LucideIcon;
@@ -254,6 +255,8 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Screen Size Indicator - Only show in development */}
+      <ScreenSizeIndicator />
     </div>
   )
 }

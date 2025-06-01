@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { refacSupabase } from '@/lib/refac-supabase';
+import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 interface BookingHistoryEntry {
   history_id: string;
@@ -25,7 +25,7 @@ export async function GET(
   }
 
   try {
-    const { data, error } = await refacSupabase
+    const { data, error } = await refacSupabaseAdmin
       .from('booking_history')
       .select(
         'history_id, booking_id, changed_at, action_type, changed_by_type, changed_by_identifier, changes_summary, notes'
