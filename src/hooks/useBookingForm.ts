@@ -57,6 +57,7 @@ export function useBookingForm(): UseBookingFormReturn {
       customerId: customer.id.toString(),
       customerName: formattedName,
       customerPhone: customer.contact_number?.trim() || '',
+      customerStableHashId: customer.stable_hash_id,
       // Clear package-related data when switching customers
       packageId: undefined,
       packageName: undefined

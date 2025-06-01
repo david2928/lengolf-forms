@@ -17,6 +17,7 @@ export interface Customer {
   batch_id: string
   update_time: string
   created_at: string | null
+  stable_hash_id: string | null
   displayName?: string // Added for UI purposes
 }
 

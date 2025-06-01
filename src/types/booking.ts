@@ -23,6 +23,7 @@ export interface Booking {
   calendar_events?: { eventId: string; calendarId: string; status: string }[] | null; // JSONB from P0
   booking_type?: string | null; // TEXT, nullable, Added for storing booking type
   package_name?: string | null; // TEXT, nullable, Added for storing package name
+  stable_hash_id?: string | null; // TEXT, nullable, Stores the stable_hash_id of the CRM customer
 }
 
 export interface CalendarEvent {

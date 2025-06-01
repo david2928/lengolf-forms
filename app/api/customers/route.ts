@@ -7,7 +7,7 @@ const CACHE_KEY = 'customers_list';
 async function fetchCustomers() {
   const { data: customers, error, count } = await supabase
     .from('customers')
-    .select('id, customer_name, contact_number', { count: 'exact' })
+    .select('id, customer_name, contact_number, stable_hash_id', { count: 'exact' })
     .order('customer_name')
     .range(0, 2999);
 
@@ -18,7 +18,8 @@ async function fetchCustomers() {
   const formattedCustomers = customers.map(customer => ({
     id: customer.id.toString(),
     customer_name: customer.customer_name,
-    contact_number: customer.contact_number
+    contact_number: customer.contact_number,
+    stable_hash_id: customer.stable_hash_id
   }));
 
   console.log(`Customers: ${formattedCustomers.length} of ${count} total`);

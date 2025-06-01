@@ -93,7 +93,8 @@ export function BookingForm() {
       ...prev,
       customerId: customer.id.toString(),
       customerName: customer.customer_name,
-      customerPhone: customer.contact_number || undefined
+      customerPhone: customer.contact_number || undefined,
+      customerStableHashId: customer.stable_hash_id
     }));
   };
 

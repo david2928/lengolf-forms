@@ -18,6 +18,7 @@ export interface BookingFormData {
   customerId?: string;
   customerName?: string;
   customerPhone?: string;
+  customerStableHashId?: string | null;
   packageId?: string;
   packageName?: string;
   errors?: { [key: string]: string };

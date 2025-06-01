@@ -142,6 +142,7 @@ function formatBookingData(formData: FormData): Booking {
     customer_notes: formData.notes || null,
     booking_type: formData.bookingType || null,
     package_name: formData.packageName || null,
+    stable_hash_id: formData.customerStableHashId || null,
   };
 
   console.log('Formatted booking for DB insertion:', bookingForDb);
