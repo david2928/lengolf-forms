@@ -198,7 +198,6 @@ export function ProductInput({ product, value, onChange, error }: ProductInputPr
         <div className="flex items-center gap-2">
           <Label htmlFor={fieldId} className="text-base font-medium">
             {product.name}
-            {product.is_required && <span className="text-red-500 ml-1">*</span>}
           </Label>
           {showReorderAlert && (
             <div className="flex items-center gap-1 text-amber-600">

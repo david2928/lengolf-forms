@@ -28,23 +28,50 @@ export function StockLevelSlider({ id, value, onChange, productName, error }: St
     onChange(values[0])
   }
 
-  // Stock level descriptions
-  const descriptions = {
-    1: 'Nothing left. Must reorder immediately.',
-    2: 'Will last less than 2 weeks. Should reorder soon.',
-    3: 'Will last more than 2 weeks. No action needed.'
+  // Stock level descriptions with enhanced info
+  const levelConfig = {
+    1: {
+      label: 'Out of Stock',
+      description: 'Nothing left. Must reorder immediately.',
+      color: 'text-red-600',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200'
+    },
+    2: {
+      label: 'Need to Order', 
+      description: 'Will last less than 2 weeks. Should reorder soon.',
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-50',
+      borderColor: 'border-amber-200'
+    },
+    3: {
+      label: 'Enough Stock',
+      description: 'Will last more than 2 weeks. No action needed.',
+      color: 'text-green-600', 
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200'
+    }
   }
 
+  const currentConfig = levelConfig[currentValue as keyof typeof levelConfig]
+
   return (
-    <div className="space-y-4">
-      {/* Current value display */}
-      <div className="flex items-center justify-between">
-        <Label htmlFor={id} className="text-sm font-medium text-muted-foreground">
-          Current Level:
-        </Label>
-        <span className="text-base font-semibold text-foreground">
-          {currentLabel}
-        </span>
+    <div className="space-y-3">
+      {/* Current status with enhanced visual feedback */}
+      <div className={`rounded-lg border p-3 ${currentConfig.bgColor} ${currentConfig.borderColor}`}>
+        <div className="flex items-center justify-between mb-2">
+          <Label htmlFor={id} className="text-sm font-medium text-muted-foreground">
+            Current Level:
+          </Label>
+          <span className={`text-base font-semibold ${currentConfig.color}`}>
+            {currentConfig.label}
+          </span>
+        </div>
+        
+        {/* Only show description for current selection */}
+        <p className="text-sm text-muted-foreground">
+          {currentConfig.description}
+        </p>
       </div>
 
       {/* Slider */}
@@ -60,19 +87,16 @@ export function StockLevelSlider({ id, value, onChange, productName, error }: St
         />
       </div>
 
-      {/* Labels with descriptions */}
+      {/* Compact labels */}
       <div className="flex justify-between text-xs px-3">
         <div className={`text-center flex-1 ${currentValue === 1 ? 'font-semibold text-red-600' : 'text-muted-foreground'}`}>
           <div className="font-medium">Out of Stock</div>
-          <div className="italic mt-1">{descriptions[1]}</div>
         </div>
         <div className={`text-center flex-1 ${currentValue === 2 ? 'font-semibold text-amber-600' : 'text-muted-foreground'}`}>
           <div className="font-medium">Need to Order</div>
-          <div className="italic mt-1">{descriptions[2]}</div>
         </div>
         <div className={`text-center flex-1 ${currentValue === 3 ? 'font-semibold text-green-600' : 'text-muted-foreground'}`}>
           <div className="font-medium">Enough Stock</div>
-          <div className="italic mt-1">{descriptions[3]}</div>
         </div>
       </div>
 
