@@ -22,7 +22,11 @@ interface PackageDetails {
 interface PackageInfoCardProps {
   packageId: string
   isLoading?: boolean
-  onDataLoaded?: (data: { remainingHours: number | null; expiration_date: string | null }) => void;
+  onDataLoaded?: (data: { 
+    remainingHours: number | null; 
+    expiration_date: string | null;
+    isActivated: boolean;
+  }) => void;
 }
 
 export function PackageInfoCard({ packageId, isLoading = false, onDataLoaded }: PackageInfoCardProps) {
@@ -43,7 +47,8 @@ export function PackageInfoCard({ packageId, isLoading = false, onDataLoaded }: 
         if (onDataLoaded && data) {
           onDataLoaded({ 
             remainingHours: data.remainingHours,
-            expiration_date: data.expiration_date 
+            expiration_date: data.expiration_date,
+            isActivated: data.first_use_date !== null
           });
         }
       } catch (err) {
@@ -93,9 +98,24 @@ export function PackageInfoCard({ packageId, isLoading = false, onDataLoaded }: 
     )
   }
 
+  // Check if package is not activated
+  const isActivated = packageDetails.first_use_date !== null
+
   return (
     <Card>
       <CardContent className="pt-6 min-h-[240px]">
+        {!isActivated && (
+          <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <div className="flex items-center gap-2 text-orange-800">
+              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+              <span className="font-medium text-sm">Package Not Activated</span>
+            </div>
+            <p className="text-sm text-orange-700 mt-1">
+              This package must be activated before recording usage. Please activate it from the Package Monitor page first.
+            </p>
+          </div>
+        )}
+        
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           <div>
             <p className="text-sm font-medium text-gray-500">Customer</p>

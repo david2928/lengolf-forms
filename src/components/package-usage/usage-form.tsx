@@ -34,6 +34,7 @@ export function UsageForm() {
   const [selectedPackageName, setSelectedPackageName] = useState<string | null>(null)
   const [currentPackageRemainingHours, setCurrentPackageRemainingHours] = useState<number | null>(null);
   const [currentPackageExpirationDate, setCurrentPackageExpirationDate] = useState<string | null>(null);
+  const [isPackageActivated, setIsPackageActivated] = useState<boolean>(true);
   const [showAcknowledgmentDialog, setShowAcknowledgmentDialog] = useState(false);
   const [showFullscreenSignature, setShowFullscreenSignature] = useState(false);
   const [pendingSubmission, setPendingSubmission] = useState(false);
@@ -52,6 +53,7 @@ export function UsageForm() {
     setSelectedPackageName(null);
     setCurrentPackageRemainingHours(null); // Reset remaining hours
     setCurrentPackageExpirationDate(null); // Reset expiration date
+    setIsPackageActivated(true); // Reset activation status
 
     // Reset the actual form element
     if (formRef.current) {
@@ -141,14 +143,9 @@ export function UsageForm() {
 
       const result = await response.json();
 
-      // Show success message with activation status
-      const successMessage = result.activated 
-        ? 'Package usage recorded successfully! Package has been activated.'
-        : 'Package usage recorded successfully!';
-
       toast({
         title: 'Success',
-        description: successMessage,
+        description: 'Package usage recorded successfully!',
       });
 
       // Reset form
@@ -221,9 +218,10 @@ export function UsageForm() {
             <PackageInfoCard 
               packageId={formData.packageId}
               isLoading={formState.isLoading}
-              onDataLoaded={({ remainingHours, expiration_date }) => {
+              onDataLoaded={({ remainingHours, expiration_date, isActivated }) => {
                 setCurrentPackageRemainingHours(remainingHours);
                 setCurrentPackageExpirationDate(expiration_date);
+                setIsPackageActivated(isActivated);
               }}
             />
           )}
@@ -245,13 +243,15 @@ export function UsageForm() {
           <Button 
             type="submit"
             className="w-full"
-            disabled={formState.isLoading || pendingSubmission}
+            disabled={formState.isLoading || pendingSubmission || !isPackageActivated}
           >
             {formState.isLoading || pendingSubmission ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Recording...
               </>
+            ) : !isPackageActivated ? (
+              'Package Must Be Activated First'
             ) : (
               'Record Usage & Get Signature'
             )}

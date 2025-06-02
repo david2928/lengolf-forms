@@ -35,7 +35,7 @@ export function ConfirmationDialog({
         <DialogHeader>
           <DialogTitle>Confirm Package Creation</DialogTitle>
           <DialogDescription>
-            Please review the package details below. The package will be activated when first used.
+            Please review the package details below. The package will be created as inactive and must be activated manually when the customer is ready to use it.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -57,8 +57,8 @@ export function ConfirmationDialog({
               <p className="text-sm">{format(formData.purchaseDate, 'PP')}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Activation</p>
-              <p className="text-sm text-orange-600">Will be activated on first use</p>
+              <p className="text-sm font-medium text-gray-500">Status</p>
+              <p className="text-sm text-orange-600">Will be created as inactive</p>
             </div>
           </div>
         </div>

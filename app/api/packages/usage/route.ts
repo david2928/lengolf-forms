@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if this is the first usage of the package (first_use_date is null)
+    // Check if package is activated (first_use_date must not be null)
     const { data: packageData, error: packageError } = await supabase
       .from('packages')
       .select('id, first_use_date, expiration_date')
@@ -44,8 +44,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const isFirstUsage = !packageData.first_use_date;
-    
+    // Package must be activated before usage can be recorded
+    if (!packageData.first_use_date) {
+      return NextResponse.json(
+        { error: 'Package must be activated before recording usage. Please activate the package first.' },
+        { status: 400 }
+      );
+    }
+
     // === TEMPORARILY COMMENTED OUT FOR TESTING (get_available_packages validation) ===
     /* // Remove this line to uncomment
     // Get all available packages
@@ -150,25 +156,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // If this is the first usage, update the package's first_use_date
-    if (isFirstUsage) {
-      console.log('This is the first usage - updating package first_use_date to:', usedDate);
-      const { error: updateError } = await supabase
-        .from('packages')
-        .update({ 
-          first_use_date: usedDate
-        })
-        .eq('id', packageId);
-
-      if (updateError) {
-        console.error('Error updating package first_use_date:', updateError);
-        return NextResponse.json(
-          { error: 'Failed to activate package' },
-          { status: 500 }
-        );
-      }
-    }
-
     console.log('Attempting to insert into package_usage with data:', {
       package_id: packageId,
       employee_name: employeeName,
@@ -197,14 +184,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const responseMessage = isFirstUsage 
-      ? 'Package usage recorded and package activated successfully!'
-      : 'Package usage recorded successfully!';
-
     return NextResponse.json({
       ...usageData,
-      message: responseMessage,
-      activated: isFirstUsage
+      message: 'Package usage recorded successfully!'
     });
   } catch (error) {
     console.error('Error in POST /api/packages/usage (using @/lib/supabase client):', error);
