@@ -228,7 +228,7 @@ export default function PackageForm() {
         }])
 
       if (error) throw error
-      alert('Package created successfully! The package will be activated when first used.')
+      alert('Package created successfully! The package has been created as inactive and will need to be activated manually when the customer is ready to use it.')
       
       resetForm()
       

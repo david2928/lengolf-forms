@@ -122,31 +122,51 @@ export function InactivePackages() {
               <p className="text-sm">All packages are currently activated</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {packages.map((pkg) => (
-                <div 
+                <Card 
                   key={pkg.id}
-                  className="border rounded-lg p-4 bg-orange-50 border-orange-200"
+                  className="border-l-4 border-orange-500"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="font-medium text-lg">{pkg.customer_name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {pkg.package_type_name} • Created: {format(new Date(pkg.purchase_date), 'PP')}
+                  <CardContent className="p-3">
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="space-y-1 min-w-0 flex-1">
+                        {/* Extract phone number for consistent display */}
+                        {(() => {
+                          const phoneMatch = pkg.customer_name.match(/\((\d+)\)$/);
+                          const phone = phoneMatch ? phoneMatch[1] : '';
+                          const nameWithoutPhone = phoneMatch 
+                            ? pkg.customer_name.slice(0, pkg.customer_name.lastIndexOf('(')).trim() 
+                            : pkg.customer_name;
+                          
+                          return (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-medium leading-none truncate">{nameWithoutPhone}</h3>
+                                <span className="bg-orange-100 text-orange-800 text-xs font-medium px-2 py-0.5 rounded-full shrink-0">
+                                  INACTIVE
+                                </span>
+                              </div>
+                              {phone && <div className="text-sm text-muted-foreground">{phone}</div>}
+                              <div className="text-xs text-muted-foreground space-y-0.5">
+                                <div>{pkg.package_type_name}</div>
+                                <div>Created: {format(new Date(pkg.purchase_date), 'PP')}</div>
+                                <div>Sold by: {pkg.employee_name}</div>
+                              </div>
+                            </>
+                          )
+                        })()}
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        Sold by: {pkg.employee_name}
-                      </div>
+                      <Button
+                        onClick={() => handleActivateClick(pkg)}
+                        className="bg-orange-600 hover:bg-orange-700 shrink-0"
+                        size="sm"
+                      >
+                        Activate
+                      </Button>
                     </div>
-                    <Button
-                      onClick={() => handleActivateClick(pkg)}
-                      className="bg-orange-600 hover:bg-orange-700"
-                      size="sm"
-                    >
-                      Activate
-                    </Button>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
