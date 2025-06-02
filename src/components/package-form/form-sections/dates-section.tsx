@@ -20,7 +20,7 @@ export function DatesSection({
 
       <DatePicker
         label="First Use Date"
-        selected={selectedDates.firstUse}
+        selected={selectedDates.firstUse ?? null}
         onSelect={(date) => {
           onDatesChange({ firstUse: date })
           if (date) form.setValue('firstUseDate', date)
