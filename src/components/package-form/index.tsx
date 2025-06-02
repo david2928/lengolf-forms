@@ -33,7 +33,6 @@ export default function PackageForm() {
     formData: null,
     selectedDates: {
       purchase: null,
-      firstUse: null
     }
   })
 
@@ -47,7 +46,6 @@ export default function PackageForm() {
     customerName: '',
     packageTypeId: 0,
     purchaseDate: null,
-    firstUseDate: null
   }
 
   const form = useForm<PackageFormData>({
@@ -117,35 +115,44 @@ export default function PackageForm() {
   }, [])
 
   useEffect(() => {
-    if (formState.selectedDates.purchase && formState.selectedDates.firstUse) {
-      if (formState.selectedDates.firstUse < formState.selectedDates.purchase) {
-        setFormState(prev => ({ ...prev, error: 'First use date must be after purchase date' }))
-      } else {
-        setFormState(prev => ({ ...prev, error: null }))
-        clearErrors(['purchaseDate', 'firstUseDate'])
-      }
+    if (formState.selectedDates.purchase) {
+      setFormState(prev => ({ ...prev, error: null }))
+      clearErrors(['purchaseDate'])
     }
-  }, [formState.selectedDates.purchase, formState.selectedDates.firstUse, clearErrors])
+  }, [formState.selectedDates.purchase, clearErrors])
 
   const validateForm = async () => {
-    const isValid = await trigger()
-    if (!isValid) return false
+    console.log('Starting form validation...')
     
+    // Check if employee name is selected
+    const employeeName = watch('employeeName')
+    console.log('Employee name:', employeeName)
+    if (!employeeName) {
+      setFormState(prev => ({ ...prev, error: 'Please select an employee' }))
+      return false
+    }
+    
+    // Check if customer is selected
+    if (!formState.selectedCustomerId) {
+      setFormState(prev => ({ ...prev, error: 'Please select a customer' }))
+      return false
+    }
+    
+    // Check if package type is selected
+    const packageTypeId = watch('packageTypeId')
+    console.log('Package type ID:', packageTypeId)
+    if (!packageTypeId || packageTypeId === 0) {
+      setFormState(prev => ({ ...prev, error: 'Please select a package type' }))
+      return false
+    }
+    
+    // Check if purchase date is selected
     if (!formState.selectedDates.purchase) {
       setFormState(prev => ({ ...prev, error: 'Purchase date is required' }))
       return false
     }
     
-    if (!formState.selectedDates.firstUse) {
-      setFormState(prev => ({ ...prev, error: 'First use date is required' }))
-      return false
-    }
-    
-    if (formState.selectedDates.firstUse < formState.selectedDates.purchase) {
-      setFormState(prev => ({ ...prev, error: 'First use date must be after purchase date' }))
-      return false
-    }
-    
+    console.log('All validations passed')
     return true
   }
 
@@ -161,36 +168,51 @@ export default function PackageForm() {
       error: null,
       selectedDates: {
         purchase: null,
-        firstUse: null
       }
     }))
   }
 
   const onSubmit = async (data: PackageFormData) => {
+    console.log('Form submitted with data:', data)
+    console.log('Form state:', formState)
+    console.log('Selected customer ID:', formState.selectedCustomerId)
+    console.log('Selected dates:', formState.selectedDates)
+    
     const isValid = await validateForm()
-    if (!isValid) return
+    console.log('Form validation result:', isValid)
+    
+    if (!isValid) {
+      console.log('Form validation failed')
+      return
+    }
 
     const selectedCustomer = formState.customers.find(c => c.id.toString() === formState.selectedCustomerId)
-    if (!selectedCustomer) return
+    console.log('Selected customer:', selectedCustomer)
+    
+    if (!selectedCustomer) {
+      console.log('No customer selected')
+      setFormState(prev => ({ ...prev, error: 'Please select a customer' }))
+      return
+    }
 
     const customerDisplay = selectedCustomer.contact_number 
       ? `${selectedCustomer.customer_name} (${selectedCustomer.contact_number})`
       : selectedCustomer.customer_name
 
+    console.log('Setting confirmation dialog to true')
     setFormState(prev => ({
       ...prev,
       formData: {
         ...data,
         customerName: customerDisplay,
         purchaseDate: prev.selectedDates.purchase,
-        firstUseDate: prev.selectedDates.firstUse
       },
       showConfirmation: true
     }))
   }
 
   const handleConfirm = async () => {
-    if (!formState.formData || !formState.selectedDates.purchase || !formState.selectedDates.firstUse) return
+    if (!formState.formData || !formState.selectedDates.purchase) return
 
     setFormState(prev => ({ ...prev, isLoading: true, showConfirmation: false }))
 
@@ -202,11 +224,11 @@ export default function PackageForm() {
           customer_name: formState.formData.customerName,
           package_type_id: formState.formData.packageTypeId,
           purchase_date: format(formState.selectedDates.purchase!, 'yyyy-MM-dd'),
-          first_use_date: format(formState.selectedDates.firstUse!, 'yyyy-MM-dd')
+          first_use_date: null
         }])
 
       if (error) throw error
-      alert('Package created successfully!')
+      alert('Package created successfully! The package will be activated when first used.')
       
       resetForm()
       
@@ -237,6 +259,7 @@ export default function PackageForm() {
   })), [formState.customers])
 
   const handleCustomerSelect = (customer: SimpleCustomer) => {
+    console.log('Customer selected:', customer)
     setFormState(prev => ({
       ...prev,
       selectedCustomerId: customer.id.toString(),
@@ -244,6 +267,9 @@ export default function PackageForm() {
       searchQuery: ''
     }))
     setValue('customerName', customer.customer_name)
+    trigger('customerName')
+    // Clear any existing customer selection error
+    setFormState(prev => ({ ...prev, error: null }))
   }
 
   if (isLoadingInitial.types || isLoadingInitial.customers) {
@@ -276,8 +302,11 @@ export default function PackageForm() {
           />
           <RadioGroup
             onValueChange={(value) => {
+              console.log('Employee selected:', value)
               setValue('employeeName', value)
               trigger('employeeName')
+              // Clear any existing employee selection error
+              setFormState(prev => ({ ...prev, error: null }))
             }}
             className="grid grid-cols-2 gap-4"
             value={watch('employeeName')}
@@ -330,12 +359,17 @@ export default function PackageForm() {
           <DatePicker
             value={formState.selectedDates.purchase}
             onChange={(date) => {
+              console.log('Purchase date selected:', date)
               setFormState(prev => ({
                 ...prev,
                 selectedDates: { ...prev.selectedDates, purchase: date }
               }))
-              if (date) setValue('purchaseDate', date)
-              trigger('purchaseDate')
+              if (date) {
+                setValue('purchaseDate', date)
+                trigger('purchaseDate')
+              }
+              // Clear any existing date selection error
+              setFormState(prev => ({ ...prev, error: null }))
             }}
             label="Purchase Date"
           />
@@ -344,29 +378,21 @@ export default function PackageForm() {
           )}
         </div>
 
-        <div className="space-y-2">
-          <DatePicker
-            value={formState.selectedDates.firstUse}
-            onChange={(date) => {
-              setFormState(prev => ({
-                ...prev,
-                selectedDates: { ...prev.selectedDates, firstUse: date }
-              }))
-              if (date) setValue('firstUseDate', date)
-              trigger('firstUseDate')
-            }}
-            label="First Use Date"
-          />
-          {errors.firstUseDate && (
-            <p className="text-red-500 text-sm mt-1">{errors.firstUseDate.message}</p>
-          )}
-        </div>
-
         <Button 
           type="submit" 
           className="w-full"
           variant="default"
           disabled={formState.isLoading}
+          onClick={() => {
+            console.log('Submit button clicked')
+            console.log('Current form values:', {
+              employeeName: watch('employeeName'),
+              customerName: watch('customerName'),
+              packageTypeId: watch('packageTypeId'),
+              purchaseDate: watch('purchaseDate')
+            })
+            console.log('Current form state:', formState)
+          }}
         >
           {formState.isLoading ? (
             <>

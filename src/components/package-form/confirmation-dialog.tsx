@@ -27,7 +27,7 @@ export function ConfirmationDialog({
   onConfirm,
   getPackageTypeName,
 }: ConfirmationDialogProps) {
-  if (!formData || !formData.purchaseDate || !formData.firstUseDate) return null
+  if (!formData || !formData.purchaseDate) return null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -35,7 +35,7 @@ export function ConfirmationDialog({
         <DialogHeader>
           <DialogTitle>Confirm Package Creation</DialogTitle>
           <DialogDescription>
-            Please review the package details below
+            Please review the package details below. The package will be activated when first used.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -57,8 +57,8 @@ export function ConfirmationDialog({
               <p className="text-sm">{format(formData.purchaseDate, 'PP')}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">First Use Date</p>
-              <p className="text-sm">{format(formData.firstUseDate, 'PP')}</p>
+              <p className="text-sm font-medium text-gray-500">Activation</p>
+              <p className="text-sm text-orange-600">Will be activated on first use</p>
             </div>
           </div>
         </div>
@@ -67,7 +67,7 @@ export function ConfirmationDialog({
             Cancel
           </Button>
           <Button onClick={onConfirm}>
-            Confirm
+            Create Package
           </Button>
         </DialogFooter>
       </DialogContent>

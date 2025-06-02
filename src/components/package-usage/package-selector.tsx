@@ -42,7 +42,11 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
       <div className="flex flex-col w-full text-left">
         <div className="text-base font-medium text-foreground text-left">{pkg.details.customerName}</div>
         <div className="text-sm text-muted-foreground text-left">
-          {pkg.details.packageTypeName} - {new Date(pkg.details.firstUseDate).toLocaleDateString()}
+          {pkg.details.packageTypeName} - {
+            pkg.details.firstUseDate 
+              ? new Date(pkg.details.firstUseDate).toLocaleDateString()
+              : 'Not Activated'
+          }
         </div>
       </div>
     )

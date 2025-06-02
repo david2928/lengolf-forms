@@ -2,6 +2,7 @@
 
 import { PackageGrid } from '@/components/package-monitor/package-grid';
 import { CustomerSelector } from '@/components/package-monitor/customer-selector';
+import { InactivePackages } from '@/components/package-monitor/inactive-packages';
 import { usePackageMonitor } from '@/hooks/use-package-monitor';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -26,7 +27,7 @@ export default function PackageMonitorPage() {
       <header>
         <h1 className="text-3xl font-bold">Package Monitor</h1>
         <p className="text-muted-foreground mt-2">
-          Track active Unlimited packages and packages nearing expiration
+          Track active Unlimited packages, packages nearing expiration, and packages waiting for activation
         </p>
       </header>
 
@@ -34,9 +35,12 @@ export default function PackageMonitorPage() {
         <div className="space-y-6">
           <Skeleton className="h-96" />
           <Skeleton className="h-96" />
+          <Skeleton className="h-96" />
         </div>
       ) : (
         <>
+          <InactivePackages />
+          
           <PackageGrid
             title="Active Unlimited Packages"
             packages={data?.unlimited.packages ?? []}

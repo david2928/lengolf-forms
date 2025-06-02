@@ -17,8 +17,7 @@ interface AvailablePackage {
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  // Note: `supabase` is now directly imported from '@/lib/supabase' and used throughout this function.
-  console.log('Attempting to record package usage (using client from @/lib/supabase) and upload signature...');
+  console.log('Attempting to record package usage and upload signature...');
   try {
     const body = await request.json();
     const { packageId, employeeName, usedHours, usedDate, customerSignature } = body;
@@ -30,6 +29,23 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check if this is the first usage of the package (first_use_date is null)
+    const { data: packageData, error: packageError } = await supabase
+      .from('packages')
+      .select('id, first_use_date, expiration_date')
+      .eq('id', packageId)
+      .single();
+
+    if (packageError || !packageData) {
+      console.error('Error fetching package:', packageError);
+      return NextResponse.json(
+        { error: 'Package not found' },
+        { status: 404 }
+      );
+    }
+
+    const isFirstUsage = !packageData.first_use_date;
+    
     // === TEMPORARILY COMMENTED OUT FOR TESTING (get_available_packages validation) ===
     /* // Remove this line to uncomment
     // Get all available packages
@@ -77,8 +93,6 @@ export async function POST(request: Request) {
     }
     */ // Remove this line to uncomment
     // === END OF TEMPORARILY COMMENTED OUT SECTION ===
-
-    // const package_type_id_placeholder = 1; // This is no longer needed
 
     let customer_signature_path: string | null = null;
 
@@ -136,6 +150,25 @@ export async function POST(request: Request) {
       }
     }
 
+    // If this is the first usage, update the package's first_use_date
+    if (isFirstUsage) {
+      console.log('This is the first usage - updating package first_use_date to:', usedDate);
+      const { error: updateError } = await supabase
+        .from('packages')
+        .update({ 
+          first_use_date: usedDate
+        })
+        .eq('id', packageId);
+
+      if (updateError) {
+        console.error('Error updating package first_use_date:', updateError);
+        return NextResponse.json(
+          { error: 'Failed to activate package' },
+          { status: 500 }
+        );
+      }
+    }
+
     console.log('Attempting to insert into package_usage with data:', {
       package_id: packageId,
       employee_name: employeeName,
@@ -164,7 +197,15 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json(usageData);
+    const responseMessage = isFirstUsage 
+      ? 'Package usage recorded and package activated successfully!'
+      : 'Package usage recorded successfully!';
+
+    return NextResponse.json({
+      ...usageData,
+      message: responseMessage,
+      activated: isFirstUsage
+    });
   } catch (error) {
     console.error('Error in POST /api/packages/usage (using @/lib/supabase client):', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';

@@ -33,7 +33,7 @@ export interface PackageFormData {
   customerName: string
   packageTypeId: number
   purchaseDate: Date | null
-  firstUseDate: Date | null
+  firstUseDate?: Date | null
 }
 
 export const EMPLOYEES = ['Dolly', 'May', 'Net', 'Winnie'] as const
@@ -51,7 +51,7 @@ export interface FormState {
   formData: PackageFormData | null
   selectedDates: {
     purchase: Date | null
-    firstUse: Date | null
+    firstUse?: Date | null
   }
 }
 

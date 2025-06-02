@@ -48,17 +48,23 @@ export async function GET(
       ? packageData.package_types.hours - totalUsed 
       : null // null for unlimited packages
 
-    // Calculate days remaining
-    const today = new Date()
-    const expiryDate = new Date(packageData.expiration_date)
-    const daysRemaining = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    // Calculate days remaining - only for activated packages with expiration dates
+    let daysRemaining = null
+    let isExpired = false
+    
+    if (packageData.expiration_date && packageData.first_use_date) {
+      const today = new Date()
+      const expiryDate = new Date(packageData.expiration_date)
+      daysRemaining = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      isExpired = daysRemaining < 0
+    }
 
     const packageDetails = {
       ...packageData,
       remainingHours,
       daysRemaining,
       usageHistory: usageData,
-      isExpired: daysRemaining < 0,
+      isExpired,
       totalUsedHours: totalUsed
     }
 

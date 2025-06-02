@@ -139,9 +139,16 @@ export function UsageForm() {
         throw new Error(error.message || 'Failed to record package usage');
       }
 
+      const result = await response.json();
+
+      // Show success message with activation status
+      const successMessage = result.activated 
+        ? 'Package usage recorded successfully! Package has been activated.'
+        : 'Package usage recorded successfully!';
+
       toast({
         title: 'Success',
-        description: 'Package usage has been recorded successfully.',
+        description: successMessage,
       });
 
       // Reset form

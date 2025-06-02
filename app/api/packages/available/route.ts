@@ -22,17 +22,27 @@ export async function GET() {
     }
 
     // Format packages for display
-    const formattedPackages = availablePackages.map((pkg: any) => ({
-      id: pkg.id,
-      label: `${pkg.customer_name} - ${pkg.package_type_name} - ${format(new Date(pkg.first_use_date), 'MM/dd/yyyy')}`,
-      details: {
-        customerName: pkg.customer_name,
-        packageTypeName: pkg.package_type_name,
-        firstUseDate: pkg.first_use_date,
-        expirationDate: pkg.expiration_date,
-        remainingHours: pkg.remaining_hours
+    const formattedPackages = availablePackages.map((pkg: any) => {
+      // Handle packages that haven't been activated yet (first_use_date is null)
+      const dateLabel = pkg.first_use_date 
+        ? format(new Date(pkg.first_use_date), 'MM/dd/yyyy')
+        : 'Not Activated';
+      
+      const statusPrefix = pkg.is_activated ? '' : '[INACTIVE] ';
+      
+      return {
+        id: pkg.id,
+        label: `${statusPrefix}${pkg.customer_name} - ${pkg.package_type_name} - ${dateLabel}`,
+        details: {
+          customerName: pkg.customer_name,
+          packageTypeName: pkg.package_type_name,
+          firstUseDate: pkg.first_use_date,
+          expirationDate: pkg.expiration_date,
+          remainingHours: pkg.remaining_hours,
+          isActivated: pkg.is_activated
+        }
       }
-    }))
+    })
 
     return NextResponse.json(formattedPackages)
   } catch (error) {

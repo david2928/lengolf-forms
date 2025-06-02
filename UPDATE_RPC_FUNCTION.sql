@@ -36,6 +36,7 @@ BEGIN
     JOIN package_types pt ON p.package_type_id = pt.id
     WHERE pt.type = 'Unlimited'  -- Changed from pt.id IN (7, 11) to use type field
     AND p.expiration_date >= CURRENT_DATE
+    AND p.first_use_date IS NOT NULL  -- Only include activated packages
   ),
   expiring_data AS (
     SELECT 
@@ -67,6 +68,7 @@ BEGIN
     FROM packages p
     JOIN package_types pt ON p.package_type_id = pt.id
     WHERE p.expiration_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+    AND p.first_use_date IS NOT NULL  -- Only include activated packages
   )
   SELECT 
     u.unlimited_active,
@@ -101,7 +103,8 @@ RETURNS TABLE (
   expiration_date date,
   employee_name text,
   remaining_hours numeric,
-  used_hours numeric
+  used_hours numeric,
+  is_activated boolean
 ) 
 LANGUAGE plpgsql
 AS $$
@@ -125,7 +128,8 @@ BEGIN
       SELECT SUM(pu.used_hours)
       FROM package_usage pu
       WHERE pu.package_id = p.id
-    ), 0)::numeric, 1) as used_hours
+    ), 0)::numeric, 1) as used_hours,
+    (p.first_use_date IS NOT NULL) as is_activated
   FROM packages p
   JOIN package_types pt ON p.package_type_id = pt.id
   WHERE p.customer_name = p_customer_name
@@ -133,8 +137,8 @@ BEGIN
     p_active IS NULL 
     OR 
     CASE 
-      WHEN p_active = true THEN p.expiration_date > CURRENT_DATE
-      ELSE p.expiration_date <= CURRENT_DATE
+      WHEN p_active = true THEN p.expiration_date > CURRENT_DATE AND p.first_use_date IS NOT NULL
+      ELSE p.expiration_date <= CURRENT_DATE OR p.first_use_date IS NULL
     END
   )
   ORDER BY p.expiration_date DESC;
@@ -182,6 +186,7 @@ BEGIN
     WHERE 
         REGEXP_REPLACE(p.customer_name, '\s+', ' ', 'g') = REGEXP_REPLACE(p_customer_name, '\s+', ' ', 'g')
         AND p.expiration_date >= CURRENT_DATE
+        AND p.first_use_date IS NOT NULL  -- Only include activated packages
         AND (
             pt.type = 'Unlimited'  -- Changed from pt.name LIKE '%Unlimited%'
             OR (pt.hours - COALESCE(ph.used_hours, 0)) > 0
@@ -190,78 +195,89 @@ BEGIN
 END;
 $$;
 
--- Alternative version if you want to also update the return type signature:
--- (Uncomment this version if you want to remove legacy field names entirely)
-
-/*
-CREATE OR REPLACE FUNCTION get_package_monitor_data()
+-- New function to get inactive packages (not yet activated)
+CREATE OR REPLACE FUNCTION get_inactive_packages()
 RETURNS TABLE (
-  unlimited_active bigint,
-  unlimited_packages json,
-  expiring_count bigint,
-  expiring_packages json
+  id uuid,
+  customer_name text,
+  package_type_name text,
+  package_type text,
+  purchase_date date,
+  employee_name text
 ) 
 LANGUAGE plpgsql
 AS $$
 BEGIN
   RETURN QUERY
-  WITH unlimited_data AS (
-    SELECT 
-      count(*) as unlimited_active,
-      json_agg(
-        json_build_object(
-          'id', p.id,
-          'customer_name', p.customer_name,
-          'package_type_name', pt.name,
-          'package_type', pt.type,
-          'purchase_date', p.purchase_date,
-          'first_use_date', p.first_use_date,
-          'expiration_date', p.expiration_date,
-          'employee_name', p.employee_name
-        )
-      ) as unlimited_packages
-    FROM packages p
-    JOIN package_types pt ON p.package_type_id = pt.id
-    WHERE pt.type = 'Unlimited'
-    AND p.expiration_date >= CURRENT_DATE
-  ),
-  expiring_data AS (
-    SELECT 
-      count(*) as expiring_count,
-      json_agg(
-        json_build_object(
-          'id', p.id,
-          'customer_name', p.customer_name,
-          'package_type_name', pt.name,
-          'package_type', pt.type,
-          'purchase_date', p.purchase_date,
-          'first_use_date', p.first_use_date,
-          'expiration_date', p.expiration_date,
-          'employee_name', p.employee_name,
-          'remaining_hours', COALESCE(
-            (SELECT pt.hours - COALESCE(SUM(pu.used_hours), 0)
-             FROM package_usage pu
-             WHERE pu.package_id = p.id),
-            pt.hours
-          ),
-          'used_hours', COALESCE(
-            (SELECT SUM(pu.used_hours)
-             FROM package_usage pu
-             WHERE pu.package_id = p.id),
-            0
-          )
-        )
-      ) as expiring_packages
-    FROM packages p
-    JOIN package_types pt ON p.package_type_id = pt.id
-    WHERE p.expiration_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
-  )
   SELECT 
-    u.unlimited_active,
-    u.unlimited_packages,
-    e.expiring_count,
-    e.expiring_packages
-  FROM unlimited_data u, expiring_data e;
+    p.id,
+    p.customer_name::text,
+    pt.name::text as package_type_name,
+    pt.type::text as package_type,
+    p.purchase_date,
+    p.employee_name::text
+  FROM packages p
+  JOIN package_types pt ON p.package_type_id = pt.id
+  WHERE p.first_use_date IS NULL
+  ORDER BY p.purchase_date DESC;
 END;
 $$;
-*/ 
+
+-- Updated get_available_packages function to include both active and inactive packages
+-- This allows newly created packages (with first_use_date = NULL) to appear in the usage form
+-- so they can be activated on first use
+CREATE OR REPLACE FUNCTION get_available_packages()
+RETURNS TABLE (
+  id uuid,
+  customer_name text,
+  package_type_name text,
+  first_use_date date,
+  expiration_date date,
+  remaining_hours numeric,
+  is_activated boolean
+) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH package_hours AS (
+        SELECT 
+            p.id,
+            COALESCE(SUM(pu.used_hours), 0) as used_hours
+        FROM packages p
+        LEFT JOIN package_usage pu ON p.id = pu.package_id
+        GROUP BY p.id
+    )
+    SELECT 
+        p.id,
+        p.customer_name::text,
+        pt.name::text as package_type_name,
+        p.first_use_date,
+        p.expiration_date,
+        CASE 
+            WHEN pt.type = 'Unlimited' THEN NULL
+            ELSE pt.hours - COALESCE(ph.used_hours, 0)
+        END as remaining_hours,
+        (p.first_use_date IS NOT NULL) as is_activated
+    FROM packages p
+    JOIN package_types pt ON p.package_type_id = pt.id
+    LEFT JOIN package_hours ph ON p.id = ph.id
+    WHERE 
+        -- Include both active and inactive packages
+        (p.first_use_date IS NULL OR p.expiration_date >= CURRENT_DATE)
+        AND (
+            -- Always include inactive packages (not yet activated)
+            p.first_use_date IS NULL
+            OR 
+            -- For active packages, only include if they have remaining hours or are unlimited
+            (p.first_use_date IS NOT NULL AND (
+                pt.type = 'Unlimited'
+                OR (pt.hours - COALESCE(ph.used_hours, 0)) > 0
+            ))
+        )
+    ORDER BY 
+        -- Sort inactive packages first, then by first_use_date
+        CASE WHEN p.first_use_date IS NULL THEN 0 ELSE 1 END,
+        p.first_use_date DESC NULLS FIRST;
+END;
+$$; 

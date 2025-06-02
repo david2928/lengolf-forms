@@ -12,7 +12,7 @@ interface PackageDetails {
     name: string
   }
   purchase_date: string
-  first_use_date: string
+  first_use_date: string | null
   expiration_date: string
   totalUsedHours: number
   remainingHours: number | null
@@ -111,7 +111,12 @@ export function PackageInfoCard({ packageId, isLoading = false, onDataLoaded }: 
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">First Used</p>
-            <p className="text-sm font-semibold">{format(new Date(packageDetails.first_use_date), 'PP')}</p>
+            <p className="text-sm font-semibold">
+              {packageDetails.first_use_date 
+                ? format(new Date(packageDetails.first_use_date), 'PP')
+                : <span className="text-orange-600">Not activated yet</span>
+              }
+            </p>
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Hours Used</p>
@@ -127,12 +132,22 @@ export function PackageInfoCard({ packageId, isLoading = false, onDataLoaded }: 
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Expiration Date</p>
-            <p className="text-sm font-semibold">{format(new Date(packageDetails.expiration_date), 'PP')}</p>
+            <p className="text-sm font-semibold">
+              {packageDetails.expiration_date 
+                ? format(new Date(packageDetails.expiration_date), 'PP')
+                : <span className="text-orange-600">Will be set on activation</span>
+              }
+            </p>
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Days Remaining</p>
-            <p className={`text-sm font-semibold ${packageDetails.daysRemaining < 7 ? 'text-red-500' : ''}`}>
-              {packageDetails.daysRemaining} days
+            <p className={`text-sm font-semibold ${
+              packageDetails.daysRemaining !== null && packageDetails.daysRemaining < 7 ? 'text-red-500' : ''
+            }`}>
+              {packageDetails.daysRemaining !== null 
+                ? `${packageDetails.daysRemaining} days`
+                : <span className="text-orange-600">Not activated yet</span>
+              }
             </p>
           </div>
         </div>
