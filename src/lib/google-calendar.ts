@@ -110,8 +110,6 @@ export function getRelevantCalendarIds(inputData: CalendarFormatInput): string[]
   } else {
     if (simpleBayName) {
       console.warn(`Could not find a valid calendar key or calendar ID for simple bay name: ${simpleBayName}. Mapped key: ${calendarKey}`);
-    } else {
-      console.log('Input data did not contain a bay name.');
     }
   }
 
@@ -126,13 +124,6 @@ export function getRelevantCalendarIds(inputData: CalendarFormatInput): string[]
     }
   }
 
-  console.log('Retrieved calendar IDs:', {
-    bayName: simpleBayName,
-    mappedBayKey: calendarKey,
-    bookingType: inputData.bookingType,
-    calendarIds
-  });
-
   return calendarIds;
 }
 
@@ -144,13 +135,6 @@ export async function createCalendarEvents(
   const calendarIds = getRelevantCalendarIds(inputData);
   const results: CalendarEventResult[] = [];
 
-  console.log('Creating calendar events with data:', {
-    eventData,
-    calendarIds,
-    bayName: inputData.bay,
-    bookingType: inputData.bookingType
-  });
-
   for (const calendarId of calendarIds) {
     try {
       if (!calendarId) {
@@ -158,7 +142,6 @@ export async function createCalendarEvents(
         continue;
       }
 
-      console.log(`Attempting to create event in calendar: ${calendarId}`);
       const response = await calendar.events.insert({
         calendarId,
         requestBody: eventData,
@@ -421,8 +404,6 @@ export async function findCalendarEventsByBookingId(
   const calendar = initializeCalendar(auth);
   const foundEvents: { eventId: string; calendarId: string }[] = [];
 
-  console.log(`Searching for calendar events with Booking ID: ${bookingId} in calendars:`, allPossibleCalendarIds);
-
   for (const calId of allPossibleCalendarIds) {
     if (!calId) {
       console.warn('Skipping search in an undefined or null calendar ID.');
@@ -456,7 +437,6 @@ export async function findCalendarEventsByBookingId(
       // Continue to other calendars instead of failing all
     }
   }
-  console.log(`Found ${foundEvents.length} events for Booking ID ${bookingId}:`, foundEvents);
   return foundEvents;
 }
 
@@ -467,14 +447,12 @@ export async function updateCalendarEvent(
   eventData: calendar_v3.Schema$Event // This should be the complete event resource
 ): Promise<calendar_v3.Schema$Event | null> {
   const calendar = initializeCalendar(auth);
-  console.log(`Attempting to update event ${eventId} in calendar ${calendarId} with data:`, eventData);
   try {
     const response = await calendar.events.update({
       calendarId: calendarId,
       eventId: eventId,
       requestBody: eventData,
     });
-    console.log(`Successfully updated event ${eventId} in calendar ${calendarId}. Response:`, response.data);
     return response.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} in calendar ${calendarId}:`, error);
@@ -493,8 +471,13 @@ export async function deleteCalendarEvent(
       calendarId: calendarId,
       eventId: eventId,
     });
-    console.log(`Successfully deleted GCal event ${eventId} from calendar ${calendarId}`);
-  } catch (error) {
+  } catch (error: any) {
+    // Check if the error is "Resource has been deleted" (HTTP 410)
+    if (error.status === 410 || error.code === 410) {
+      // Treat as successful since the resource is already gone
+      return;
+    }
+    
     console.error(`Error deleting GCal event ${eventId} from calendar ${calendarId}:`, error);
     throw error; // Re-throw to allow caller to handle
   }
@@ -512,7 +495,6 @@ export async function getCalendarEventDetails(
       eventId: eventId,
     });
     if (response.data) {
-      console.log(`Successfully fetched GCal event ${eventId} from calendar ${calendarId}`);
       return response.data;
     }
     return null;

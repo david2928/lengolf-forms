@@ -15,13 +15,9 @@ if (!supabaseAnonKey) {
   // Potentially throw an error or handle appropriately
 }
 
-// Debug logging for service role key
+// Check for service role key
 if (!supabaseServiceRoleKey) {
   console.error('Error: Missing environment variable REFAC_SUPABASE_SERVICE_ROLE_KEY');
-  console.log('Available env vars starting with REFAC:', Object.keys(process.env).filter(key => key.startsWith('REFAC')));
-} else {
-  console.log('Service role key loaded successfully (length:', supabaseServiceRoleKey.length, ')');
-  console.log('Service role key prefix:', supabaseServiceRoleKey.substring(0, 20) + '...');
 }
 
 // Create a new Supabase client instance for the target project
@@ -60,13 +56,6 @@ export const refacSupabaseAdmin = supabaseServiceRoleKey ?
       }
     );
   })();
-
-// Add logging to show which key is being used
-if (supabaseServiceRoleKey) {
-  console.log('✅ refacSupabaseAdmin initialized with service role key');
-} else {
-  console.log('⚠️ refacSupabaseAdmin falling back to anon key - service role not available');
-}
 
 // Optional: Add a simple check function to verify connection if needed later
 // export async function checkRefacConnection() {

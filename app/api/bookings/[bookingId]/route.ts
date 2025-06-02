@@ -31,6 +31,7 @@ interface UpdateBookingPayload {
   customer_notes?: string | null;
   number_of_people?: number;
   employee_name: string; // Mandatory for staff changes
+  availability_overridden?: boolean; // Add this field
 }
 
 // Helper to map simple bay names to the format expected by the availability API
@@ -164,7 +165,6 @@ export async function PUT(
     }
 
     const currentBooking = currentBookingUntyped as Booking;
-    console.log('Current booking data:', currentBooking);
 
     // Determine proposed new slot details
     const proposedDate = payload.date || currentBooking.date;
@@ -204,7 +204,7 @@ export async function PUT(
 
     // Skip availability check if availability_overridden is true in payload (coming from EditBookingModal)
     // The payload from the logs has: availability_overridden: false
-    const availabilityOverridden = (request as any).availability_overridden === true; // Explicitly check if this field exists in payload if it's being added
+    const availabilityOverridden = payload.availability_overridden === true; // Fix: check payload instead of request
 
     if (slotChanged && !availabilityOverridden) {
       console.log('Slot changed. Checking availability...');
@@ -326,7 +326,6 @@ export async function PUT(
       console.error(`Supabase error updating booking ${bookingId}:`, updateError);
       return NextResponse.json({ error: 'Failed to update booking in database', details: updateError.message }, { status: 500 });
     }
-    console.log('Successfully updated booking in Supabase:', updatedBookingUntyped);
 
     // Create Audit Log Entry
     const changesSummary = generateChangesSummary(originalBookingSnapshot, updateDataForSupabase, payload);
@@ -401,7 +400,6 @@ export async function PUT(
         const creationResults = await createCalendarEvents(calendar, calendarInput);
         if (creationResults && creationResults.length > 0) {
           newLinkedEvents.push(...creationResults);
-          console.log('Successfully created new GCal events:', newLinkedEvents);
         } else {
           console.warn('No new GCal events were created for the new slot.');
         }
