@@ -43,7 +43,7 @@ const components: { title: string; href: string; description: string; icon: Reac
   {
     title: "Package Monitor",
     href: "/package-monitor",
-    description: "Monitor Diamond and expiring packages",
+    description: "Monitor Unlimited and expiring packages",
     icon: <Diamond className="h-6 w-6" />,
   },
 ]

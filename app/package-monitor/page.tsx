@@ -26,7 +26,7 @@ export default function PackageMonitorPage() {
       <header>
         <h1 className="text-3xl font-bold">Package Monitor</h1>
         <p className="text-muted-foreground mt-2">
-          Track active Diamond packages and packages nearing expiration
+          Track active Unlimited packages and packages nearing expiration
         </p>
       </header>
 
@@ -38,10 +38,10 @@ export default function PackageMonitorPage() {
       ) : (
         <>
           <PackageGrid
-            title="Active Diamond Packages"
-            packages={data?.diamond.packages ?? []}
-            emptyMessage="No active diamond packages"
-            type="diamond"
+            title="Active Unlimited Packages"
+            packages={data?.unlimited.packages ?? []}
+            emptyMessage="No active unlimited packages"
+            type="unlimited"
           />
           
           <PackageGrid

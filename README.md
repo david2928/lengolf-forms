@@ -27,7 +27,7 @@ This application is composed of several key modules that provide its core functi
 *   **Package Management**:
     *   **Package Creation**: A form (`app/create-package/`, `src/components/package-form/`, `src/hooks/usePackageForm.ts`) for creating new customer packages.
     *   **Package Usage**: Functionality to record and update the usage of customer packages (`app/update-package/`, `src/components/package-usage/`).
-    *   **Package Monitoring**: A dashboard (`app/package-monitor/`, `src/hooks/use-package-monitor.ts`) to track active "Diamond" packages and those nearing expiration.
+    *   **Package Monitoring**: A dashboard (`app/package-monitor/`, `src/hooks/use-package-monitor.ts`) to track active "Unlimited" packages and those nearing expiration.
     *   **API**: Endpoints for package data (`app/api/packages/`).
 *   **Customer Data Management**:
     *   **CRM Integration**: An API endpoint (`app/api/crm/update-customers/`) triggers a Google Cloud Run service to refresh customer data.
@@ -75,7 +75,7 @@ We've recently migrated from LINE Notify to LINE Messaging API due to the upcomi
 A new package monitoring feature has been added allowing staff to:
 
 - View all active packages
-- Track Diamond packages
+- Track Unlimited packages
 - Get alerts on soon-to-expire packages
 - View detailed package information
 

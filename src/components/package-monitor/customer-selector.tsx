@@ -16,6 +16,7 @@ interface Package {
   id: string;
   customer_name: string;
   package_type_name: string;
+  package_type: string;
   purchase_date: string;
   first_use_date: string | null;
   expiration_date: string;
@@ -139,7 +140,8 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
           const isExpanded = expandedPackages.has(pkg.id);
           const daysRemaining = differenceInDays(new Date(pkg.expiration_date), new Date()) + 1;
           const isExpired = daysRemaining < 0;
-          const isFullyUsed = !pkg.package_type_name.toLowerCase().includes('diamond') && 
+          const isUnlimited = pkg.package_type === 'Unlimited';
+          const isFullyUsed = !isUnlimited && 
                             pkg.remaining_hours === 0 && 
                             !isExpired;
           
@@ -201,8 +203,8 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                       <div className="text-sm text-muted-foreground">First Used</div>
                       <div>{pkg.first_use_date ? new Date(pkg.first_use_date).toLocaleDateString() : 'Not used'}</div>
                     </div>
-                    {/* Remove Hours Used and Remaining Hours for Diamond packages */}
-                    {pkg.remaining_hours !== null && !pkg.package_type_name.toLowerCase().includes('diamond') && (
+                    {/* Remove Hours Used and Remaining Hours for Unlimited packages */}
+                    {pkg.remaining_hours !== null && !isUnlimited && (
                       <>
                         <div>
                           <div className="text-sm text-muted-foreground">Hours Used</div>
@@ -222,8 +224,8 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                     )}
                   </div>
                   
-                  {/* Only show Usage History button for non-Diamond packages */}
-                  {!pkg.package_type_name.toLowerCase().includes('diamond') && (
+                  {/* Only show Usage History button for non-Unlimited packages */}
+                  {!isUnlimited && (
                     <div className="mt-4 flex justify-end">
                       <Button
                         variant="outline"

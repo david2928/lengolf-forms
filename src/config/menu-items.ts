@@ -31,7 +31,7 @@ export const menuItems: MenuItem[] = [
     icon: Package2,
     title: "Package Monitor",
     path: '/package-monitor',
-    description: "Monitor Diamond and expiring packages"
+    description: "Monitor Unlimited and expiring packages"
   },
   {
     icon: ListOrdered,

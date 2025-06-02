@@ -25,6 +25,7 @@ export interface PackageType {
   id: number
   name: string
   display_order: number
+  type: string
 }
 
 export interface PackageFormData {

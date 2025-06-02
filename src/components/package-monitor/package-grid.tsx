@@ -4,7 +4,7 @@ import { PackageCard } from './package-card';
 import { Diamond, Clock } from 'lucide-react';
 
 export function PackageGrid({ packages, title, emptyMessage, type }: PackageGridProps) {
-  const Icon = type === 'diamond' ? Diamond : Clock;
+  const Icon = type === 'unlimited' ? Diamond : Clock;
 
   return (
     <Card>

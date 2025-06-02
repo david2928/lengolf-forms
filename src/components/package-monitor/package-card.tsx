@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 
 interface PackageCardProps {
   package: Package;
-  type: 'diamond' | 'expiring';
+  type: 'unlimited' | 'expiring';
 }
 
 export function PackageCard({ package: pkg, type }: PackageCardProps) {
@@ -18,17 +18,17 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
   const daysRemaining = differenceInDays(new Date(pkg.expiration_date), new Date()) + 1;
   const isExpiring = daysRemaining <= 7;
   const isExpired = daysRemaining < 0;
-  const isDiamond = pkg.package_type_name.toLowerCase().includes('diamond');
+  const isUnlimited = pkg.package_type === 'Unlimited';
   
   // Check if all hours have been used by comparing used_hours with total hours (used + remaining)
   const totalHours = (pkg.used_hours ?? 0) + (pkg.remaining_hours ?? 0);
-  const isFullyUsed = !isDiamond && pkg.used_hours === totalHours && totalHours > 0 && !isExpired;
+  const isFullyUsed = !isUnlimited && pkg.used_hours === totalHours && totalHours > 0 && !isExpired;
   
   // Debug logging
   console.log('Package card debug:', {
     name: pkg.customer_name,
     type,
-    isDiamond,
+    isUnlimited,
     isFullyUsed,
     isExpired,
     remaining_hours: pkg.remaining_hours,
@@ -37,9 +37,9 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
     package_type: pkg.package_type_name
   });
 
-  // Show remaining hours for non-diamond packages in expiring section
+  // Show remaining hours for non-unlimited packages in expiring section
   const shouldShowRemainingHours = type === 'expiring' && 
-                                 !isDiamond && 
+                                 !isUnlimited && 
                                  !isFullyUsed && 
                                  !isExpired && 
                                  typeof pkg.remaining_hours === 'number' &&
@@ -50,7 +50,7 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
     shouldShowRemainingHours,
     conditions: {
       isExpiringSection: type === 'expiring',
-      notDiamond: !isDiamond,
+      notUnlimited: !isUnlimited,
       notFullyUsed: !isFullyUsed,
       notExpired: !isExpired,
       hasRemainingHours: typeof pkg.remaining_hours === 'number' && pkg.remaining_hours > 0
@@ -77,7 +77,7 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
           <div className="space-y-0.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-medium leading-none truncate">{nameWithNickname}</h3>
-              {(isExpired || isFullyUsed || (type !== 'diamond' && !isExpired && !isFullyUsed)) && (
+              {(isExpired || isFullyUsed || (type !== 'unlimited' && !isExpired && !isFullyUsed)) && (
                 <Badge 
                   variant={isExpired ? "destructive" : isFullyUsed ? "secondary" : "default"}
                   className="text-xs shrink-0"
@@ -127,7 +127,7 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
               <div className="text-sm text-muted-foreground">Expiration Date</div>
               <div>{new Date(pkg.expiration_date).toLocaleDateString()}</div>
             </div>
-            {typeof pkg.remaining_hours === 'number' && !isDiamond && (
+            {typeof pkg.remaining_hours === 'number' && !isUnlimited && (
               <>
                 <div>
                   <div className="text-sm text-muted-foreground">Hours Used</div>

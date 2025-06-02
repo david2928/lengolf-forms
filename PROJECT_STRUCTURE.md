@@ -72,7 +72,7 @@ These directories contain the main page component and potentially supporting fil
 
 -   `app/create-booking/page.tsx`: Page for creating new bookings (route: `/create-booking`). Uses `BookingProvider` and the `BookingForm` component from `src/components/booking-form/`.
 -   `app/bookings-calendar/page.tsx`: Page for viewing the bookings calendar (route: `/bookings-calendar`). A complex client component that fetches and displays bookings for different bays in a daily time-slot grid. Supports navigation between days and is responsive.
--   `app/package-monitor/page.tsx`: Page for monitoring customer packages (route: `/package-monitor`). Uses the `usePackageMonitor` hook to fetch data and displays it in grids for "Active Diamond Packages" and "Packages Expiring Soon" using `PackageGrid` components. Includes a `CustomerSelector`.
+-   `app/package-monitor/page.tsx`: Page for monitoring customer packages (route: `/package-monitor`). Uses the `usePackageMonitor` hook to fetch data and displays it in grids for "Active Unlimited Packages" and "Packages Expiring Soon" using `PackageGrid` components. Includes a `CustomerSelector`.
 -   `app/create-package/page.tsx`: Page for creating new customer packages (route: `/create-package`). Dynamically imports and renders the `PackageForm` component (client-side only) from `src/components/package-form/`.
 -   `app/update-package/page.tsx`: Page for updating package usage (route: `/update-package`). Renders the `UsageForm` component from `src/components/package-usage/`.
 -   `app/fonts/`: (Likely) Contains custom font files if any are used beyond standard web fonts.
@@ -157,7 +157,7 @@ Contains reusable React components that make up the application's user interface
     -   `usage-form.tsx`: The main form component for recording package usage.
 
 -   `components/package-monitor/`: Components related to the package monitoring page.
-    -   `package-grid.tsx`: A reusable component to display a grid of packages (used for diamond and expiring packages).
+    -   `package-grid.tsx`: A reusable component to display a grid of packages (used for unlimited and expiring packages).
     -   `customer-selector.tsx`: A component to select a customer, likely for filtering packages.
     -   `nav-button.tsx`: A navigation button specific to the package monitor, possibly used in `nav.tsx` for mobile view.
 

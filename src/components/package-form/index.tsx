@@ -72,7 +72,7 @@ export default function PackageForm() {
         // Fetch package types
         const { data: packageData, error: packageError } = await supabase
           .from('package_types')
-          .select('id, name, display_order')
+          .select('id, name, display_order, type')
           .order('display_order', { ascending: true })
 
         if (packageError) throw packageError

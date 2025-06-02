@@ -89,7 +89,7 @@ export default function Home() {
     <div className="text-sm font-medium flex gap-3 mt-2">
       <span className="inline-flex items-center gap-1 text-blue-600">
         <Diamond className="h-3 w-3" />
-        {packageData.diamond.count}
+        {packageData.unlimited.count}
       </span>
       <span className="inline-flex items-center gap-1 text-amber-600">
         <Clock className="h-3 w-3" />
@@ -115,7 +115,7 @@ export default function Home() {
             <div className="text-base font-medium flex gap-4">
               <span className="inline-flex items-center gap-1.5 text-blue-600">
                 <Diamond className="h-4 w-4" />
-                {packageData?.diamond.count}
+                {packageData?.unlimited.count}
               </span>
               <span className="inline-flex items-center gap-1.5 text-amber-600">
                 <Clock className="h-4 w-4" />
