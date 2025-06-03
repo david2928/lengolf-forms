@@ -27,7 +27,7 @@ export function ManualTimeInput({
   const handleDurationChange = (value: string) => {
     setLocalDuration(value)
     const newDuration = parseInt(value)
-    if (!isNaN(newDuration) && newDuration >= 30 && newDuration <= 300) {
+    if (!isNaN(newDuration) && newDuration > 0 && newDuration <= 300) {
       onDurationChange(newDuration)
     }
   }
@@ -50,7 +50,7 @@ export function ManualTimeInput({
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
-            min={30}
+            min={1}
             max={300}
             value={localDuration}
             placeholder="Enter duration"
@@ -58,7 +58,7 @@ export function ManualTimeInput({
             onChange={(e) => handleDurationChange(e.target.value)}
             onBlur={() => {
               const newDuration = parseInt(localDuration)
-              if (!localDuration || isNaN(newDuration) || newDuration < 30 || newDuration > 300) {
+              if (!localDuration || isNaN(newDuration) || newDuration <= 0 || newDuration > 300) {
                 setLocalDuration('60')
                 onDurationChange(60)
               }
@@ -66,7 +66,7 @@ export function ManualTimeInput({
           />
           <span className="text-sm text-muted-foreground">min</span>
         </div>
-        <span className="text-xs text-muted-foreground">30-300 minutes</span>
+        <span className="text-xs text-muted-foreground">1-300 minutes</span>
       </div>
     </div>
   )

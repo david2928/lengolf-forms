@@ -184,7 +184,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
     let processedValue: string | number = value;
     if (name === 'duration' || name === 'number_of_people') {
       processedValue = parseInt(value);
-      if (isNaN(processedValue)) processedValue = name === 'duration' ? 60 : 1;
+      if (isNaN(processedValue)) processedValue = name === 'duration' ? '' : 1;
     }
     setFormData(prev => ({ 
       ...prev, 
@@ -307,9 +307,9 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       return;
     }
     const durationMinutes = parseInt(formData.duration?.toString() || '0');
-    if (isNaN(durationMinutes) || durationMinutes < 30) {
-      setError("Valid duration (must be at least 30 minutes) is required.");
-      toast({ title: "Validation Error", description: "Valid duration (must be at least 30 minutes) is required.", variant: "destructive" });
+    if (isNaN(durationMinutes) || durationMinutes <= 0) {
+      setError("Valid duration (must be greater than 0 minutes) is required.");
+      toast({ title: "Validation Error", description: "Valid duration (must be greater than 0 minutes) is required.", variant: "destructive" });
       return;
     }
     const numberOfPeople = parseInt(formData.number_of_people?.toString() || '0', 10);
@@ -476,7 +476,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           {/* Duration */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="duration" className="text-right">Duration (minutes)</Label>
-            <Input id="duration" name="duration" type="number" value={formData.duration === undefined ? '' : formData.duration} onChange={handleInputChange} className="col-span-3" min="30" step="15" disabled={!isBookingEditable} />
+            <Input id="duration" name="duration" type="number" value={formData.duration === undefined ? '' : formData.duration} onChange={handleInputChange} className="col-span-3" min="1" step="1" disabled={!isBookingEditable} />
           </div>
           
           {/* Availability Status Display (for selected bay/time) */}

@@ -1,10 +1,18 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { PackageGridProps } from '@/types/package-monitor';
 import { PackageCard } from './package-card';
-import { Diamond, Clock } from 'lucide-react';
+import { Diamond, Clock, Bird } from 'lucide-react';
 
-export function PackageGrid({ packages, title, emptyMessage, type }: PackageGridProps) {
-  const Icon = type === 'unlimited' ? Diamond : Clock;
+export function PackageGrid({ packages, title, emptyMessage, type, icon }: PackageGridProps) {
+  // Use specific icons based on the icon prop, or default based on type
+  let Icon;
+  if (icon === 'diamond') {
+    Icon = Diamond;
+  } else if (icon === 'bird') {
+    Icon = Bird;
+  } else {
+    Icon = type === 'unlimited' ? Diamond : Clock;
+  }
 
   return (
     <Card>

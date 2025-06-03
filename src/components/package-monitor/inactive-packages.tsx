@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Clock, Users } from 'lucide-react'
+import { Pause, Users } from 'lucide-react'
 import { format } from 'date-fns'
 import { ActivationDialog } from './activation-dialog'
 
@@ -69,8 +69,8 @@ export function InactivePackages() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-orange-500" />
-            Inactive Packages (Awaiting Activation)
+            <Pause className="h-5 w-5 text-orange-500" />
+            Inactive Packages
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -87,8 +87,8 @@ export function InactivePackages() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-orange-500" />
-            Inactive Packages (Awaiting Activation)
+            <Pause className="h-5 w-5 text-orange-500" />
+            Inactive Packages
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -103,16 +103,18 @@ export function InactivePackages() {
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-orange-500" />
-            Inactive Packages (Awaiting Activation)
-            {packages.length > 0 && (
-              <span className="ml-2 bg-orange-100 text-orange-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
-                {packages.length}
-              </span>
-            )}
-          </CardTitle>
+        <CardHeader className="border-b">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              <Pause className="h-5 w-5 mt-1 text-orange-500" />
+              <div>
+                <CardTitle className="leading-none mb-1">Inactive Packages</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {packages.length} {packages.length === 1 ? 'package' : 'packages'}
+                </p>
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {packages.length === 0 ? (

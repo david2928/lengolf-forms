@@ -154,6 +154,7 @@ RETURNS TABLE (
   id uuid,
   customer_name text,
   package_type_name text,
+  package_type text,
   first_use_date date,
   expiration_date date,
   remaining_hours numeric
@@ -174,6 +175,7 @@ BEGIN
         p.id,
         p.customer_name::text,
         pt.name::text as package_type_name,
+        pt.type::text as package_type,
         p.first_use_date,
         p.expiration_date,
         CASE 

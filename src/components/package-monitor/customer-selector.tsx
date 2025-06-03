@@ -140,7 +140,10 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
           const isExpanded = expandedPackages.has(pkg.id);
           const daysRemaining = differenceInDays(new Date(pkg.expiration_date), new Date()) + 1;
           const isExpired = daysRemaining < 0;
-          const isUnlimited = pkg.package_type === 'Unlimited';
+          // Temporary workaround: detect unlimited packages by name until package_type field is available
+          const isUnlimited = pkg.package_type === 'Unlimited' || 
+                            pkg.package_type_name.toLowerCase().includes('diamond') ||
+                            pkg.package_type_name.toLowerCase().includes('early bird');
           const isFullyUsed = !isUnlimited && 
                             pkg.remaining_hours === 0 && 
                             !isExpired;

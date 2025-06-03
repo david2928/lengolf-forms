@@ -31,6 +31,7 @@ export interface PackageGridProps {
   title: string;
   emptyMessage: string;
   type: 'unlimited' | 'expiring';
+  icon?: 'diamond' | 'bird';
 }
 
 export interface CustomerPackage extends Package {

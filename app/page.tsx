@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { FileText, Clock, RefreshCw, CalendarRange, Package2, Diamond, Calendar } from 'lucide-react'
+import { FileText, Clock, RefreshCw, CalendarRange, Package2, Diamond, Calendar, Bird } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from '@/components/ui/use-toast'
 import { LucideIcon } from 'lucide-react'
@@ -85,15 +85,44 @@ export default function Home() {
     }
   }
 
+  // Calculate separate counts for diamond and early bird packages
+  const diamondPackages = packageData?.unlimited.packages?.filter(pkg => 
+    pkg.package_type_name.toLowerCase().includes('diamond')
+  ) ?? [];
+  
+  const earlyBirdPackages = packageData?.unlimited.packages?.filter(pkg => 
+    pkg.package_type_name.toLowerCase().includes('early bird')
+  ) ?? [];
+
+  // Filter expiring packages to exclude fully used ones, but keep unlimited packages
+  const expiringPackages = packageData?.expiring.packages?.filter(pkg => {
+    // Always include unlimited packages (diamond/early bird) as they can expire
+    const isUnlimited = pkg.package_type === 'Unlimited' || 
+                       pkg.package_type_name.toLowerCase().includes('diamond') ||
+                       pkg.package_type_name.toLowerCase().includes('early bird');
+    
+    // For unlimited packages, always show them if they're in expiring list
+    if (isUnlimited) {
+      return true;
+    }
+    
+    // For regular packages, only show if they have remaining hours
+    return pkg.remaining_hours !== undefined && pkg.remaining_hours > 0;
+  }) ?? [];
+
   const packageInfo = packageData && (
-    <div className="text-sm font-medium flex gap-3 mt-2">
+    <div className="text-sm font-medium flex gap-2 mt-2">
       <span className="inline-flex items-center gap-1 text-blue-600">
         <Diamond className="h-3 w-3" />
-        {packageData.unlimited.count}
+        {diamondPackages.length}
+      </span>
+      <span className="inline-flex items-center gap-1 text-purple-600">
+        <Bird className="h-3 w-3" />
+        {earlyBirdPackages.length}
       </span>
       <span className="inline-flex items-center gap-1 text-amber-600">
         <Clock className="h-3 w-3" />
-        {packageData.expiring.count}
+        {expiringPackages.length}
       </span>
     </div>
   )
@@ -112,14 +141,18 @@ export default function Home() {
              title}
           </h2>
           {extraInfo && (
-            <div className="text-base font-medium flex gap-4">
+             <div className="text-base font-medium flex gap-3">
               <span className="inline-flex items-center gap-1.5 text-blue-600">
                 <Diamond className="h-4 w-4" />
-                {packageData?.unlimited.count}
+                {diamondPackages.length}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-purple-600">
+                <Bird className="h-4 w-4" />
+                {earlyBirdPackages.length}
               </span>
               <span className="inline-flex items-center gap-1.5 text-amber-600">
                 <Clock className="h-4 w-4" />
-                {packageData?.expiring.count}
+                {expiringPackages.length}
               </span>
             </div>
           )}
