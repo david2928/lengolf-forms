@@ -293,7 +293,7 @@ BEGIN
         CASE WHEN p.first_use_date IS NULL THEN 0 ELSE 1 END,
         p.first_use_date DESC NULLS FIRST;
 END;
-$$;
+$$; 
 
 -- Helper function to calculate expiration date using PostgreSQL interval arithmetic
 -- This properly handles intervals like '1 mon', '3 mons', etc.
