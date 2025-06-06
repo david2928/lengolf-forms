@@ -15,14 +15,15 @@ interface PackageCardProps {
 
 export function PackageCard({ package: pkg, type }: PackageCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const isInactive = pkg.first_use_date === null;
   const daysRemaining = differenceInDays(new Date(pkg.expiration_date), new Date()) + 1;
-  const isExpiring = daysRemaining <= 7;
-  const isExpired = daysRemaining < 0;
+  const isExpiring = !isInactive && daysRemaining <= 7;
+  const isExpired = !isInactive && daysRemaining < 0;
   const isUnlimited = pkg.package_type === 'Unlimited';
   
   // Check if all hours have been used by comparing used_hours with total hours (used + remaining)
   const totalHours = (pkg.used_hours ?? 0) + (pkg.remaining_hours ?? 0);
-  const isFullyUsed = !isUnlimited && pkg.used_hours === totalHours && totalHours > 0 && !isExpired;
+  const isFullyUsed = !isUnlimited && !isInactive && pkg.used_hours === totalHours && totalHours > 0 && !isExpired;
   
   // Debug logging
   console.log('Package card debug:', {
@@ -65,7 +66,8 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
     : pkg.customer_name;
 
   // Format the days remaining text
-  const daysText = daysRemaining === 1 ? 'last day' : `${daysRemaining} days`;
+  const daysText = isInactive ? 'Not activated' : 
+                  daysRemaining === 1 ? 'last day' : `${daysRemaining} days`;
 
   return (
     <Card className={`border-l-4 ${isExpiring ? 'border-red-500' : 'border-blue-500'}`}>
@@ -77,12 +79,12 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
           <div className="space-y-0.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-medium leading-none truncate">{nameWithNickname}</h3>
-              {(isExpired || isFullyUsed || (type !== 'unlimited' && !isExpired && !isFullyUsed)) && (
+              {(isInactive || isExpired || isFullyUsed || (type !== 'unlimited' && !isExpired && !isFullyUsed)) && (
                 <Badge 
-                  variant={isExpired ? "destructive" : isFullyUsed ? "secondary" : "default"}
+                  variant={isExpired ? "destructive" : isFullyUsed ? "secondary" : isInactive ? "outline" : "default"}
                   className="text-xs shrink-0"
                 >
-                  {isExpired ? "EXPIRED" : isFullyUsed ? "FULLY USED" : "ACTIVE"}
+                  {isInactive ? "INACTIVE" : isExpired ? "EXPIRED" : isFullyUsed ? "FULLY USED" : "ACTIVE"}
                 </Badge>
               )}
             </div>
@@ -124,8 +126,15 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
               <div>{pkg.first_use_date ? new Date(pkg.first_use_date).toLocaleDateString() : 'Not used'}</div>
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">Expiration Date</div>
-              <div>{new Date(pkg.expiration_date).toLocaleDateString()}</div>
+              <div className="text-sm text-muted-foreground">
+                {isInactive ? "Purchase Date" : "Expiration Date"}
+              </div>
+              <div>
+                {isInactive 
+                  ? new Date(pkg.purchase_date).toLocaleDateString()
+                  : new Date(pkg.expiration_date).toLocaleDateString()
+                }
+              </div>
             </div>
             {typeof pkg.remaining_hours === 'number' && !isUnlimited && (
               <>

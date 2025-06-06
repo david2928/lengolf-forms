@@ -43,17 +43,45 @@ export async function POST(request: Request) {
 
     // Calculate expiration date based on package type validity period
     const activationDateObj = new Date(activationDate)
-    const expirationDate = new Date(activationDateObj)
     
-    // Default to 365 days if validity_days is null or invalid
-    const validityDays = packageData.package_types.validity_days || 365
-    expirationDate.setDate(activationDateObj.getDate() + validityDays)
+    // Handle validity_period interval from database
+    let expirationDate: Date
+    const validityPeriod = packageData.package_types.validity_period
+    
+    if (validityPeriod) {
+      // Use PostgreSQL to calculate the expiration date based on interval
+      const { data: expirationResult, error: expirationError } = await supabase
+        .rpc('calculate_expiration_date', {
+          start_date: activationDate,
+          period_interval: validityPeriod
+        })
+      
+      if (expirationError || !expirationResult) {
+        console.error('Error calculating expiration with interval:', expirationError)
+        // Fallback: parse common interval formats
+        if (validityPeriod.includes('mon')) {
+          const months = parseInt(validityPeriod.match(/(\d+)\s*mon/)?.[1] || '1')
+          expirationDate = new Date(activationDateObj)
+          expirationDate.setMonth(expirationDate.getMonth() + months)
+        } else {
+          // Default fallback to 1 year
+          expirationDate = new Date(activationDateObj)
+          expirationDate.setFullYear(expirationDate.getFullYear() + 1)
+        }
+      } else {
+        expirationDate = new Date(expirationResult)
+      }
+    } else {
+      // Default to 1 year if no validity period is set
+      expirationDate = new Date(activationDateObj)
+      expirationDate.setFullYear(expirationDate.getFullYear() + 1)
+    }
 
     // Validate that the calculated expiration date is valid
     if (isNaN(expirationDate.getTime())) {
       console.error('Invalid expiration date calculated:', {
         activationDate,
-        validityDays,
+        validityPeriod,
         packageType: packageData.package_types.name
       })
       return NextResponse.json(

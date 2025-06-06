@@ -145,6 +145,11 @@ BEGIN
 END;
 $$;
 
+-- Drop existing get_packages_by_customer_name functions to resolve conflicts
+DROP FUNCTION IF EXISTS get_packages_by_customer_name(text);
+DROP FUNCTION IF EXISTS get_packages_by_customer_name(varchar);
+DROP FUNCTION IF EXISTS get_packages_by_customer_name(character varying);
+
 -- Updated get_packages_by_customer_name function for create booking flow
 -- This replaces the hardcoded pt.name LIKE '%Unlimited%' with pt.type = 'Unlimited'
 -- Apply this manually to your Supabase database
@@ -197,6 +202,9 @@ BEGIN
 END;
 $$;
 
+-- Drop existing get_inactive_packages functions to resolve conflicts
+DROP FUNCTION IF EXISTS get_inactive_packages();
+
 -- New function to get inactive packages (not yet activated)
 CREATE OR REPLACE FUNCTION get_inactive_packages()
 RETURNS TABLE (
@@ -224,6 +232,9 @@ BEGIN
   ORDER BY p.purchase_date DESC;
 END;
 $$;
+
+-- Drop existing get_available_packages functions to resolve conflicts
+DROP FUNCTION IF EXISTS get_available_packages();
 
 -- Updated get_available_packages function to include both active and inactive packages
 -- This allows newly created packages (with first_use_date = NULL) to appear in the usage form
@@ -282,4 +293,18 @@ BEGIN
         CASE WHEN p.first_use_date IS NULL THEN 0 ELSE 1 END,
         p.first_use_date DESC NULLS FIRST;
 END;
-$$; 
+$$;
+
+-- Helper function to calculate expiration date using PostgreSQL interval arithmetic
+-- This properly handles intervals like '1 mon', '3 mons', etc.
+CREATE OR REPLACE FUNCTION calculate_expiration_date(start_date date, period_interval interval)
+RETURNS date
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN start_date + period_interval;
+END;
+$$;
+
+-- Verification query to check validity_period for all unlimited packages:
+-- SELECT name, type, validity_period FROM package_types WHERE type = 'Unlimited' ORDER BY name; 
