@@ -41,9 +41,8 @@ export function ActivationDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           packageId: packageData.id,
-          activationDate: activationDate.getFullYear() + '-' + 
-                         String(activationDate.getMonth() + 1).padStart(2, '0') + '-' + 
-                         String(activationDate.getDate()).padStart(2, '0')
+          firstUseDate: format(activationDate, 'yyyy-MM-dd'),
+          employeeName: packageData.employee_name
         })
       })
 

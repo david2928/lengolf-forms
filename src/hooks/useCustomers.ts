@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { refacSupabase } from '@/lib/refac-supabase'
 import type { Customer } from '@/types/package-form'
 
 export function useCustomers() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const supabase = createClientComponentClient()
 
   useEffect(() => {
     async function fetchCustomers() {
@@ -16,7 +15,8 @@ export function useCustomers() {
         setIsLoading(true)
         setError(null)
 
-        const { data, error } = await supabase
+        const { data, error } = await refacSupabase
+          .schema('backoffice')
           .from('customers')
           .select('*')
           .order('customer_name')
@@ -34,12 +34,13 @@ export function useCustomers() {
     }
 
     fetchCustomers()
-  }, [supabase])
+  }, [])
 
   const refetchCustomers = async () => {
     setIsLoading(true)
     try {
-      const { data, error } = await supabase
+      const { data, error } = await refacSupabase
+        .schema('backoffice')
         .from('customers')
         .select('*')
         .order('customer_name')

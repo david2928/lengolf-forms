@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import cache from '@/lib/cache';
 
 const CACHE_KEY = 'customers_list';
 
 async function fetchCustomers() {
-  const { data: customers, error, count } = await supabase
+  const { data: customers, error, count } = await refacSupabaseAdmin
+    .schema('backoffice')
     .from('customers')
-    .select('id, customer_name, contact_number, stable_hash_id', { count: 'exact' })
+    .select('id, customer_name, contact_number, email', { count: 'exact' })
     .order('customer_name')
     .range(0, 2999);
 
@@ -17,9 +18,9 @@ async function fetchCustomers() {
 
   const formattedCustomers = customers.map(customer => ({
     id: customer.id.toString(),
-    customer_name: customer.customer_name,
-    contact_number: customer.contact_number,
-    stable_hash_id: customer.stable_hash_id
+    customer_name: customer.customer_name, // Use correct column name
+    contact_number: customer.contact_number, // Use correct column name
+    stable_hash_id: customer.id // Use id as stable hash for now
   }));
 
   console.log(`Customers: ${formattedCustomers.length} of ${count} total`);

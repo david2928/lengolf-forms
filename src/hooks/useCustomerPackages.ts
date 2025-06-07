@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { refacSupabase } from '@/lib/refac-supabase'
 
 interface PackageDetails {
   customerName: string
@@ -35,22 +35,33 @@ export function useCustomerPackages(customerName: string | null, contactNumber?:
           ? `${customerName} (${contactNumber})`
           : customerName
 
-        const { data: customerPackages, error: supabaseError } = await supabase
-          .rpc('get_packages_by_customer_name', { 
-            p_customer_name: searchName.trim()
-          })
+        // Query packages from the migrated backoffice schema
+        const { data: customerPackages, error: supabaseError } = await refacSupabase
+          .schema('backoffice')
+          .from('packages')
+          .select(`
+            id,
+            customer_name,
+            first_use_date,
+            expiration_date,
+            purchase_date,
+            employee_name,
+            package_types!inner(name, type, hours)
+          `)
+          .eq('customer_name', searchName)
+          .order('purchase_date', { ascending: false })
 
         if (supabaseError) throw supabaseError
 
         const formatted = customerPackages?.map((pkg: any) => ({
           id: pkg.id,
-          label: `${pkg.package_type_name}`,
+          label: `${pkg.package_types.name}`,
           details: {
             customerName: pkg.customer_name,
-            packageTypeName: pkg.package_type_name,
-            firstUseDate: pkg.first_use_date,
-            expirationDate: pkg.expiration_date,
-            remainingHours: pkg.remaining_hours
+            packageTypeName: pkg.package_types.name,
+            firstUseDate: pkg.first_use_date || 'Not activated',
+            expirationDate: pkg.expiration_date || 'No expiry',
+            remainingHours: pkg.package_types.type === 'Unlimited' ? null : pkg.package_types.hours // Simplified - would need usage calculation for accurate remaining hours
           }
         })) || []
 

@@ -1,10 +1,11 @@
-import { supabase } from './supabase';
+import { refacSupabaseAdmin } from './refac-supabase';
 
 export async function isUserAllowed(email: string | null | undefined): Promise<boolean> {
   if (!email) return false;
   
   try {
-    const { data, error } = await supabase
+    const { data, error } = await refacSupabaseAdmin
+      .schema('backoffice')
       .from('allowed_users')
       .select('email')
       .eq('email', email.toLowerCase())

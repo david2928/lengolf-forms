@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
-import { supabase } from '@/lib/supabase'
+import { refacSupabase } from '@/lib/refac-supabase'
 import { 
   FormState, 
   Customer, 
@@ -47,7 +47,8 @@ export function usePackageForm() {
     async function fetchData() {
       try {
         // Fetch package types
-        const { data: packageData, error: packageError } = await supabase
+        const { data: packageData, error: packageError } = await refacSupabase
+          .schema('backoffice')
           .from('package_types')
           .select('id, name, display_order, type')
           .order('display_order', { ascending: true })
@@ -55,7 +56,8 @@ export function usePackageForm() {
         if (packageError) throw packageError
 
         // Fetch customers from Supabase
-        const { data: customersData, error: customersError } = await supabase
+        const { data: customersData, error: customersError } = await refacSupabase
+          .schema('backoffice')
           .from('customers')
           .select('*')
           .order('customer_name', { ascending: true })
@@ -156,7 +158,8 @@ export function usePackageForm() {
     setState(prev => ({ ...prev, isLoading: true, showConfirmation: false }))
 
     try {
-      const { error } = await supabase
+      const { error } = await refacSupabase
+        .schema('backoffice')
         .from('packages')
         .insert([{
           employee_name: state.formData.employeeName,

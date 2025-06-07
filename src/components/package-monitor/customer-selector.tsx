@@ -21,8 +21,8 @@ interface Package {
   first_use_date: string | null;
   expiration_date: string;
   employee_name: string | null;
-  remaining_hours: number;
-  used_hours: number;
+  remaining_hours: number | null;
+  used_hours: number | null;
 }
 
 interface Customer {
@@ -212,15 +212,15 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                       <div>{pkg.first_use_date ? new Date(pkg.first_use_date).toLocaleDateString() : 'Not used'}</div>
                     </div>
                     {/* Remove Hours Used and Remaining Hours for Unlimited packages */}
-                    {pkg.remaining_hours !== null && !isUnlimited && (
+                    {pkg.remaining_hours !== null && pkg.used_hours !== null && !isUnlimited && (
                       <>
                         <div>
                           <div className="text-sm text-muted-foreground">Hours Used</div>
-                          <div>{pkg.used_hours.toFixed(1)}</div>
+                          <div>{(pkg.used_hours || 0).toFixed(1)}</div>
                         </div>
                         <div>
                           <div className="text-sm text-muted-foreground">Remaining Hours</div>
-                          <div>{pkg.remaining_hours.toFixed(1)}</div>
+                          <div>{(pkg.remaining_hours || 0).toFixed(1)}</div>
                         </div>
                       </>
                     )}

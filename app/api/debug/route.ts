@@ -1,12 +1,13 @@
-import { supabase } from '@/lib/supabase'
+import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   try {
     // Test database connection
-    console.log('Testing Supabase connection...')
+    console.log('Testing refac Supabase connection...')
     
-    const { data, error } = await supabase
+    const { data, error } = await refacSupabaseAdmin
+      .schema('backoffice')
       .from('package_types')
       .select('*')
     
@@ -27,8 +28,9 @@ export async function GET() {
       success: true,
       data,
       connectionInfo: {
-        url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-        hasAnon: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        url: process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL,
+        hasAnon: !!process.env.NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY,
+        hasServiceRole: !!process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY
       }
     })
   } catch (error: any) {

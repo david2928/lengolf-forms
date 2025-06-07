@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-
-    const { data, error } = await supabase
+    const { data, error } = await refacSupabaseAdmin
+      .schema('backoffice')
       .rpc('get_inactive_packages')
 
     if (error) {

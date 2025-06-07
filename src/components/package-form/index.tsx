@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
-import { supabase } from '@/lib/supabase'
+import { refacSupabase } from '@/lib/refac-supabase'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { format } from 'date-fns'
@@ -68,7 +68,8 @@ export default function PackageForm() {
     async function fetchData() {
       try {
         // Fetch package types
-        const { data: packageData, error: packageError } = await supabase
+        const { data: packageData, error: packageError } = await refacSupabase
+          .schema('backoffice')
           .from('package_types')
           .select('id, name, display_order, type')
           .order('display_order', { ascending: true })
@@ -76,7 +77,8 @@ export default function PackageForm() {
         if (packageError) throw packageError
 
         // Fetch customers
-        const { data: customersData, error: customersError } = await supabase
+        const { data: customersData, error: customersError } = await refacSupabase
+          .schema('backoffice')
           .from('customers')
           .select('*')
           .order('customer_name', { ascending: true })
@@ -217,7 +219,8 @@ export default function PackageForm() {
     setFormState(prev => ({ ...prev, isLoading: true, showConfirmation: false }))
 
     try {
-      const { error } = await supabase
+      const { error } = await refacSupabase
+        .schema('backoffice')
         .from('packages')
         .insert([{
           employee_name: formState.formData.employeeName,

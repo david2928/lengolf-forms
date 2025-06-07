@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 // import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'; // No longer using user-context client
 // import { cookies } from 'next/headers'; // No longer using cookies
 // import { refacSupabase } from '@/lib/refac-supabase'; // Switching from this client
-import { supabase } from '@/lib/supabase'; // Using this client now
+import { refacSupabaseAdmin } from '@/lib/refac-supabase'; // Using this client now
 
 interface AvailablePackage {
   id: string;
@@ -30,7 +30,8 @@ export async function POST(request: Request) {
     }
 
     // Check if package is activated (first_use_date must not be null)
-    const { data: packageData, error: packageError } = await supabase
+    const { data: packageData, error: packageError } = await refacSupabaseAdmin
+      .schema('backoffice')
       .from('packages')
       .select('id, first_use_date, expiration_date')
       .eq('id', packageId)
@@ -55,11 +56,12 @@ export async function POST(request: Request) {
     // === TEMPORARILY COMMENTED OUT FOR TESTING (get_available_packages validation) ===
     /* // Remove this line to uncomment
     // Get all available packages
-    const { data: allPackagesUntyped, error: rpcError } = await supabase
+    const { data: allPackagesUntyped, error: rpcError } = await refacSupabaseAdmin
+      .schema('backoffice')
       .rpc('get_available_packages'); // Call RPC with no arguments
 
     if (rpcError) {
-      console.error('Error calling get_available_packages RPC (using @/lib/supabase):', rpcError);
+      console.error('Error calling get_available_packages RPC (using refacSupabaseAdmin):', rpcError);
       return NextResponse.json(
         { error: 'Failed to retrieve available packages: ' + rpcError.message },
         { status: 500 }
@@ -67,7 +69,7 @@ export async function POST(request: Request) {
     }
 
     if (!allPackagesUntyped) { 
-        console.error('get_available_packages RPC returned null or undefined (using @/lib/supabase).');
+        console.error('get_available_packages RPC returned null or undefined (using refacSupabaseAdmin).');
         return NextResponse.json(
             { error: 'Failed to retrieve package list: RPC returned no data.' },
             { status: 500 } 
@@ -78,7 +80,7 @@ export async function POST(request: Request) {
     const packageData = allPackages.find((p: AvailablePackage) => p.id === packageId);
 
     if (!packageData) {
-      console.warn(`Package with ID ${packageId} not found in results from get_available_packages (using @/lib/supabase).`);
+      console.warn(`Package with ID ${packageId} not found in results from get_available_packages (using refacSupabaseAdmin).`);
       return NextResponse.json(
         { error: `Package not found with ID: ${packageId}` },
         { status: 404 }
@@ -104,30 +106,30 @@ export async function POST(request: Request) {
 
     // === DIAGNOSTIC STEP: Try to list buckets and get specific bucket details ===
     try {
-      console.log("DIAGNOSTIC: Attempting to list all buckets (using @/lib/supabase client)...");
-      const { data: allBuckets, error: listBucketsError } = await supabase.storage.listBuckets();
+      console.log("DIAGNOSTIC: Attempting to list all buckets (using refacSupabaseAdmin client)...");
+      const { data: allBuckets, error: listBucketsError } = await refacSupabaseAdmin.storage.listBuckets();
       if (listBucketsError) {
-        console.error("DIAGNOSTIC: Error calling listBuckets() (using @/lib/supabase client):", listBucketsError);
+        console.error("DIAGNOSTIC: Error calling listBuckets() (using refacSupabaseAdmin client):", listBucketsError);
       } else {
-        console.log("DIAGNOSTIC: Successfully listed buckets (using @/lib/supabase client):", allBuckets.map(b => b.id + " (" + b.name + ")"));
-        const signatureBucketExists = allBuckets.some(b => b.name === 'signature');
-        console.log("DIAGNOSTIC: Does 'signature' bucket appear in the list? (using @/lib/supabase client)", signatureBucketExists);
+        console.log("DIAGNOSTIC: Successfully listed buckets (using refacSupabaseAdmin client):", allBuckets.map((b: any) => b.id + " (" + b.name + ")"));
+        const signatureBucketExists = allBuckets.some((b: any) => b.name === 'signature');
+        console.log("DIAGNOSTIC: Does 'signature' bucket appear in the list? (using refacSupabaseAdmin client)", signatureBucketExists);
       }
 
-      console.log("DIAGNOSTIC: Attempting to get bucket details for 'signature' (using @/lib/supabase client)...");
-      const { data: bucketDetails, error: bucketDetailsError } = await supabase.storage.getBucket('signature');
+      console.log("DIAGNOSTIC: Attempting to get bucket details for 'signature' (using refacSupabaseAdmin client)...");
+      const { data: bucketDetails, error: bucketDetailsError } = await refacSupabaseAdmin.storage.getBucket('signature');
       if (bucketDetailsError) {
-        console.error("DIAGNOSTIC: Error calling getBucket('signature') (using @/lib/supabase client):", bucketDetailsError);
+        console.error("DIAGNOSTIC: Error calling getBucket('signature') (using refacSupabaseAdmin client):", bucketDetailsError);
       } else {
-        console.log("DIAGNOSTIC: Successfully got details for bucket 'signature' (using @/lib/supabase client):", bucketDetails);
+        console.log("DIAGNOSTIC: Successfully got details for bucket 'signature' (using refacSupabaseAdmin client):", bucketDetails);
       }
     } catch (e) {
-      console.error("DIAGNOSTIC: Exception during storage diagnostics (using @/lib/supabase client):", e);
+      console.error("DIAGNOSTIC: Exception during storage diagnostics (using refacSupabaseAdmin client):", e);
     }
     // === END OF DIAGNOSTIC STEP ===
 
     if (customerSignature) {
-      console.log('Customer signature provided, attempting upload (using @/lib/supabase client).');
+      console.log('Customer signature provided, attempting upload (using refacSupabaseAdmin client).');
       try {
         const base64Data = customerSignature.split(';base64,').pop();
         if (!base64Data) {
@@ -136,9 +138,9 @@ export async function POST(request: Request) {
         const buffer = Buffer.from(base64Data, 'base64');
         const filePath = `signature_${Date.now()}_${packageId}.png`; 
 
-        console.log(`Attempting to upload to bucket: 'signature', path: '${filePath}' (using @/lib/supabase client)`);
+        console.log(`Attempting to upload to bucket: 'signature', path: '${filePath}' (using refacSupabaseAdmin client)`);
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { data: uploadData, error: uploadError } = await refacSupabaseAdmin.storage
           .from('signature')
           .upload(filePath, buffer, {
             contentType: 'image/png',
@@ -146,13 +148,13 @@ export async function POST(request: Request) {
           });
 
         if (uploadError) {
-          console.error('Error uploading signature (using @/lib/supabase client):', uploadError);
+          console.error('Error uploading signature (using refacSupabaseAdmin client):', uploadError);
         } else if (uploadData) {
           customer_signature_path = uploadData.path;
-          console.log('Signature uploaded successfully, path:', customer_signature_path, '(using @/lib/supabase client)');
+          console.log('Signature uploaded successfully, path:', customer_signature_path, '(using refacSupabaseAdmin client)');
         }
       } catch (sigError) {
-        console.error('Error processing signature (using @/lib/supabase client):', sigError);
+        console.error('Error processing signature (using refacSupabaseAdmin client):', sigError);
       }
     }
 
@@ -164,7 +166,8 @@ export async function POST(request: Request) {
       customer_signature_path: customer_signature_path,
     });
 
-    const { data: usageData, error: usageError } = await supabase
+    const { data: usageData, error: usageError } = await refacSupabaseAdmin
+      .schema('backoffice')
       .from('package_usage')
       .insert({
         package_id: packageId,
@@ -177,7 +180,7 @@ export async function POST(request: Request) {
       .single();
 
     if (usageError) {
-      console.error('Error recording usage (using @/lib/supabase client):', usageError);
+      console.error('Error recording usage (using refacSupabaseAdmin client):', usageError);
       return NextResponse.json(
         { error: 'Failed to record package usage' },
         { status: 500 }
@@ -189,7 +192,7 @@ export async function POST(request: Request) {
       message: 'Package usage recorded successfully!'
     });
   } catch (error) {
-    console.error('Error in POST /api/packages/usage (using @/lib/supabase client):', error);
+    console.error('Error in POST /api/packages/usage (using refacSupabaseAdmin client):', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json(
       { error: errorMessage },

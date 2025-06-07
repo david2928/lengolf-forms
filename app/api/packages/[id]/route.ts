@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -9,11 +8,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-
     // First fetch the package details
-    const { data: packageData, error: packageError } = await supabase
+    const { data: packageData, error: packageError } = await refacSupabaseAdmin
+      .schema('backoffice')
       .from('packages')
       .select('*, package_types!inner(*)')
       .eq('id', params.id)
@@ -28,7 +25,8 @@ export async function GET(
     }
 
     // Then fetch usage history
-    const { data: usageData, error: usageError } = await supabase
+    const { data: usageData, error: usageError } = await refacSupabaseAdmin
+      .schema('backoffice')
       .from('package_usage')
       .select('*')
       .eq('package_id', params.id)

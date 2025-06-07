@@ -57,15 +57,18 @@ export const refacSupabaseAdmin = supabaseServiceRoleKey ?
     );
   })();
 
-// Optional: Add a simple check function to verify connection if needed later
-// export async function checkRefacConnection() {
-//   try {
-//     const { error } = await refacSupabase.from('bookings').select('id', { count: 'exact', head: true });
-//     if (error) throw error;
-//     console.log('Successfully connected to refac Supabase.');
-//     return true;
-//   } catch (error) {
-//     console.error('Error connecting to refac Supabase:', error);
-//     return false;
-//   }
-// } 
+// Connection test function using backoffice schema
+export async function checkRefacConnection() {
+  try {
+    const { error } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('package_types')
+      .select('id', { count: 'exact', head: true });
+    if (error) throw error;
+    console.log('✅ Successfully connected to refac Supabase backoffice schema.');
+    return true;
+  } catch (error) {
+    console.error('❌ Error connecting to refac Supabase:', error);
+    return false;
+  }
+}

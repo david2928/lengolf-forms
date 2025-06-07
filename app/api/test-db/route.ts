@@ -1,9 +1,10 @@
-import { supabase } from '@/lib/supabase'
+import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await refacSupabaseAdmin
+      .schema('backoffice')
       .from('package_types')
       .select('*')
     
