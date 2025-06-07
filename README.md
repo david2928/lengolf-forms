@@ -70,6 +70,16 @@ We've recently migrated from LINE Notify to LINE Messaging API due to the upcomi
 - Enhanced error handling with detailed logging
 - Complete removal of the deprecated LINE Notify functionality
 
+### CRM Integration Migration
+
+The customer data synchronization has been migrated from a separate Google Cloud Run service to an integrated API endpoint:
+
+- **New Endpoint**: `/api/crm/sync-customers` - Direct integration within the Next.js application
+- **Automated Sync**: Daily Supabase cron job at 2:00 AM Thailand time
+- **Manual Sync**: "Update Customer Data" button on the main dashboard
+- **Technology**: Playwright for browser automation, integrated data processing
+- **Benefits**: Simplified architecture, reduced costs, improved reliability
+
 ### Package Monitor
 
 A new package monitoring feature has been added allowing staff to:

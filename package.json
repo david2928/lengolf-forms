@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:crm": "node scripts/test-crm-sync.js",
+    "test:crm:prod": "node scripts/test-crm-sync.js production"
   },
   "dependencies": {
     "@auth/core": "^0.37.4",
@@ -44,6 +46,7 @@
     "next-auth": "^4.24.7",
     "node-cache": "^5.1.2",
     "node-fetch": "^2.6.7",
+    "playwright": "^1.43.0",
     "react": "18.2.0",
     "react-day-picker": "^8.10.1",
     "react-dom": "18.2.0",
