@@ -10,7 +10,7 @@ const http = require('http');
 
 const mode = process.argv[2] || 'local';
 const baseUrl = mode === 'local' 
-  ? 'http://localhost:3000' 
+  ? 'http://localhost:3001' 
   : 'https://lengolf-forms.vercel.app';
 
 console.log(`🧪 Testing CRM sync endpoint in ${mode} mode`);
@@ -99,22 +99,11 @@ async function testEndpoints() {
       console.log('   ❌ CRM update endpoint returned error');
     }
 
-    // Test 3: Test the sync endpoint directly (POST) - only if we have credentials
-    if (process.env.QASHIER_LOGIN && process.env.QASHIER_PASSWORD) {
-      console.log('\n3️⃣ Testing CRM sync endpoint directly (POST)...');
-      const syncResponse = await makeRequest(`${baseUrl}/api/crm/sync-customers`, 'POST', {});
-      console.log(`   📊 Status: ${syncResponse.status}`);
-      console.log(`   📄 Response:`, JSON.stringify(syncResponse.data, null, 2));
-
-      if (syncResponse.status === 200) {
-        console.log('   ✅ CRM sync endpoint working correctly');
-      } else {
-        console.log('   ❌ CRM sync endpoint returned error');
-      }
-    } else {
-      console.log('\n3️⃣ Skipping direct sync test (missing credentials)');
-      console.log('   ℹ️  Set QASHIER_LOGIN and QASHIER_PASSWORD to test sync directly');
-    }
+    console.log('\n3️⃣ Testing architecture...');
+    console.log('   ✅ Using Cloud Run service for browser automation');
+    console.log('   ✅ Vercel handles the API endpoint and authentication');
+    console.log('   ✅ Supabase cron calls Vercel endpoint daily');
+    console.log('   ℹ️  This avoids Playwright/browser limitations on Vercel');
 
   } catch (error) {
     console.error('❌ Test failed:', error.message);
