@@ -3,12 +3,12 @@ export interface Package {
   customer_name: string;
   package_type_name: string;
   package_type: string;
-  purchase_date: string;
+  purchase_date?: string;
   first_use_date: string | null;
   expiration_date: string;
-  employee_name: string;
-  remaining_hours?: number;
-  used_hours?: number;
+  employee_name?: string | null;
+  remaining_hours?: number | string;
+  used_hours?: number | string;
 }
 
 export interface PackageMonitorData {

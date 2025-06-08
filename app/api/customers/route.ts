@@ -9,8 +9,7 @@ async function fetchCustomers() {
     .schema('backoffice')
     .from('customers')
     .select('id, customer_name, contact_number, email', { count: 'exact' })
-    .order('customer_name')
-    .range(0, 2999);
+    .order('customer_name');
 
   if (error) throw error;
 

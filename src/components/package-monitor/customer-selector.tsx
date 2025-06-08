@@ -17,12 +17,12 @@ interface Package {
   customer_name: string;
   package_type_name: string;
   package_type: string;
-  purchase_date: string;
+  purchase_date?: string;
   first_use_date: string | null;
   expiration_date: string;
-  employee_name: string | null;
-  remaining_hours: number | null;
-  used_hours: number | null;
+  employee_name?: string | null;
+  remaining_hours?: number | string;
+  used_hours?: number | string;
 }
 
 interface Customer {
@@ -87,7 +87,13 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
   ) ?? [];
 
   const filteredPackages = showActive 
-    ? packages.filter(pkg => differenceInDays(new Date(pkg.expiration_date), new Date()) >= 0)
+    ? packages.filter(pkg => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const expirationDate = new Date(pkg.expiration_date);
+        expirationDate.setHours(0, 0, 0, 0);
+        return differenceInDays(expirationDate, today) >= 0;
+      })
     : packages;
 
   const togglePackageExpand = (packageId: string) => {
@@ -103,60 +109,84 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
   }
 
   const getSelectedCustomerDisplay = () => {
-    if (!selectedCustomer) return "Search customers...";
-    const customer = customers?.find(c => c.customer_name === selectedCustomer);
-    if (!customer) return "Search customers...";
-    
-    const phoneMatch = customer.customer_name.match(/\((\d+)\)$/);
-    return phoneMatch 
-      ? customer.customer_name.slice(0, customer.customer_name.lastIndexOf('(')).trim()
-      : customer.customer_name;
+    if (!selectedCustomer) {
+      return "Search for a customer..."
+    }
+    return formatCustomerDisplay(selectedCustomer)
   }
 
   const formatCustomerDisplay = (customerName: string) => {
-    // Find the last phone number in parentheses
-    const phoneMatch = customerName.match(/\((\d+)\)$/);
-    const phone = phoneMatch ? phoneMatch[1] : '';
-    
-    // Remove the phone number part from the name
+    const phoneMatch = customerName.match(/\((\d+)\)$/)
+    const phone = phoneMatch ? phoneMatch[1] : ''
     const nameWithNickname = phoneMatch 
       ? customerName.slice(0, customerName.lastIndexOf('(')).trim() 
-      : customerName;
-    
-    return (
-      <div className="flex flex-col">
-        <span className="font-medium">{nameWithNickname}</span>
-        {phone && <span className="text-sm text-muted-foreground">{phone}</span>}
-      </div>
-    );
+      : customerName
+
+    return phone ? `${nameWithNickname} (${phone})` : nameWithNickname
   }
 
+  // Safe date parsing function
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return date.toLocaleDateString();
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  };
+
   const renderPackageList = () => {
-    if (!selectedCustomer || !packages.length) return null;
+    if (!selectedCustomer) {
+      return <div className="text-muted-foreground text-sm">Select a customer to view their packages</div>
+    }
+
+    if (filteredPackages.length === 0) {
+      return <div className="text-muted-foreground text-sm">No packages found for this customer</div>
+    }
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         {filteredPackages.map((pkg) => {
           const isExpanded = expandedPackages.has(pkg.id);
           const isInactive = pkg.first_use_date === null;
-          const daysRemaining = differenceInDays(new Date(pkg.expiration_date), new Date()) + 1;
+                     const today = new Date();
+           today.setHours(0, 0, 0, 0);
+           const expirationDate = new Date(pkg.expiration_date);
+           expirationDate.setHours(0, 0, 0, 0);
+           const daysRemaining = differenceInDays(expirationDate, today);
           const isExpired = !isInactive && daysRemaining < 0;
-          // Detect unlimited packages by type field or name-based fallback
-          const isUnlimited = pkg.package_type === 'Unlimited' || 
-                            pkg.package_type_name.toLowerCase().includes('diamond') ||
-                            pkg.package_type_name.toLowerCase().includes('early bird +') ||
-                            pkg.package_type_name.toLowerCase().includes('early bird+');
-          const isFullyUsed = !isUnlimited && 
-                            !isInactive &&
-                            pkg.remaining_hours === 0 && 
-                            !isExpired;
           
-          // Extract base package name without parentheses
-          const baseName = pkg.package_type_name.split('(')[0].trim();
+          const isUnlimited = pkg.package_type === 'Unlimited' || pkg.remaining_hours === 'Unlimited';
           
-          // Format days text
-          const daysText = isInactive ? 'Not activated' : 
-                          daysRemaining === 1 ? 'last day' : `${daysRemaining} days`;
+          // Handle remaining hours parsing
+          const remainingHoursNum = typeof pkg.remaining_hours === 'string' ? 
+            parseFloat(pkg.remaining_hours) : pkg.remaining_hours;
+          const usedHoursNum = typeof pkg.used_hours === 'string' ? 
+            parseFloat(pkg.used_hours) : pkg.used_hours;
+          
+          const totalHours = (usedHoursNum ?? 0) + (remainingHoursNum ?? 0);
+          const isFullyUsed = !isUnlimited && !isInactive && usedHoursNum === totalHours && totalHours > 0 && !isExpired;
+
+                     // Format the days remaining text
+           const formatDaysRemaining = () => {
+             if (isInactive) return 'Not activated';
+             if (daysRemaining < 0) return 'Expired';
+             if (daysRemaining === 0) return 'Expires today';
+             if (daysRemaining === 1) return 'Expires tomorrow';
+             if (daysRemaining === 2) return '2 days left';
+             return `${daysRemaining} days left`;
+           };
+
+          const daysText = formatDaysRemaining();
+
+          // Extract base name for display
+          const phoneMatch = pkg.customer_name.match(/\((\d+)\)$/);
+          const baseName = phoneMatch 
+            ? pkg.customer_name.slice(0, pkg.customer_name.lastIndexOf('(')).trim() 
+            : pkg.customer_name;
           
           return (
             <Card key={pkg.id} className={cn(
@@ -179,9 +209,9 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                     </Badge>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {isInactive ? "Purchase date: " + new Date(pkg.purchase_date).toLocaleDateString() :
-                     isExpired ? "Expired: " + new Date(pkg.expiration_date).toLocaleDateString() : 
-                     "Expires: " + new Date(pkg.expiration_date).toLocaleDateString()}
+                    {isInactive ? "Purchase date: " + (pkg.purchase_date ? formatDate(pkg.purchase_date) : 'N/A') :
+                     isExpired ? "Expired: " + formatDate(pkg.expiration_date) : 
+                     "Expires: " + formatDate(pkg.expiration_date)}
                   </div>
                 </div>
                 <ChevronDown 
@@ -205,22 +235,26 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                     </div>
                     <div>
                       <div className="text-sm text-muted-foreground">Purchase Date</div>
-                      <div>{new Date(pkg.purchase_date).toLocaleDateString()}</div>
+                      <div>{pkg.purchase_date ? formatDate(pkg.purchase_date) : 'N/A'}</div>
                     </div>
                     <div>
                       <div className="text-sm text-muted-foreground">First Used</div>
-                      <div>{pkg.first_use_date ? new Date(pkg.first_use_date).toLocaleDateString() : 'Not used'}</div>
+                      <div>
+                        {pkg.first_use_date ? formatDate(pkg.first_use_date) : 
+                         (!isUnlimited && remainingHoursNum && remainingHoursNum > 0) ? 
+                           `${remainingHoursNum.toFixed(1)} hours remaining` : 'Not used'}
+                      </div>
                     </div>
                     {/* Remove Hours Used and Remaining Hours for Unlimited packages */}
-                    {pkg.remaining_hours !== null && pkg.used_hours !== null && !isUnlimited && (
+                    {typeof remainingHoursNum === 'number' && !isUnlimited && (
                       <>
                         <div>
                           <div className="text-sm text-muted-foreground">Hours Used</div>
-                          <div>{(pkg.used_hours || 0).toFixed(1)}</div>
+                          <div>{(usedHoursNum || 0).toFixed(1)}</div>
                         </div>
                         <div>
                           <div className="text-sm text-muted-foreground">Remaining Hours</div>
-                          <div>{(pkg.remaining_hours || 0).toFixed(1)}</div>
+                          <div>{remainingHoursNum.toFixed(1)}</div>
                         </div>
                       </>
                     )}

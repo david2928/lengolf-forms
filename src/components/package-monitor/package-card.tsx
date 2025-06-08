@@ -16,48 +16,34 @@ interface PackageCardProps {
 export function PackageCard({ package: pkg, type }: PackageCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isInactive = pkg.first_use_date === null;
-  const daysRemaining = differenceInDays(new Date(pkg.expiration_date), new Date()) + 1;
+  
+  // Fix days remaining calculation - ensure we're comparing dates without time components
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expirationDate = new Date(pkg.expiration_date);
+  expirationDate.setHours(0, 0, 0, 0);
+  const daysRemaining = differenceInDays(expirationDate, today);
   const isExpiring = !isInactive && daysRemaining <= 7;
   const isExpired = !isInactive && daysRemaining < 0;
-  const isUnlimited = pkg.package_type === 'Unlimited';
+  const isUnlimited = pkg.package_type === 'Unlimited' || pkg.remaining_hours === 'Unlimited';
   
   // Check if all hours have been used by comparing used_hours with total hours (used + remaining)
-  const totalHours = (pkg.used_hours ?? 0) + (pkg.remaining_hours ?? 0);
-  const isFullyUsed = !isUnlimited && !isInactive && pkg.used_hours === totalHours && totalHours > 0 && !isExpired;
+  const remainingHoursNum = typeof pkg.remaining_hours === 'string' ? 
+    parseFloat(pkg.remaining_hours) : pkg.remaining_hours;
+  const usedHoursNum = typeof pkg.used_hours === 'string' ? 
+    parseFloat(pkg.used_hours) : pkg.used_hours;
   
-  // Debug logging
-  console.log('Package card debug:', {
-    name: pkg.customer_name,
-    type,
-    isUnlimited,
-    isFullyUsed,
-    isExpired,
-    remaining_hours: pkg.remaining_hours,
-    used_hours: pkg.used_hours,
-    totalHours,
-    package_type: pkg.package_type_name
-  });
-
+  const totalHours = (usedHoursNum ?? 0) + (remainingHoursNum ?? 0);
+  const isFullyUsed = !isUnlimited && !isInactive && usedHoursNum === totalHours && totalHours > 0 && !isExpired;
+  
   // Show remaining hours for non-unlimited packages in expiring section
   const shouldShowRemainingHours = type === 'expiring' && 
                                  !isUnlimited && 
                                  !isFullyUsed && 
                                  !isExpired && 
-                                 typeof pkg.remaining_hours === 'number' &&
-                                 pkg.remaining_hours > 0;
+                                 typeof remainingHoursNum === 'number' &&
+                                 remainingHoursNum > 0;
 
-  console.log('Should show remaining hours:', {
-    name: pkg.customer_name,
-    shouldShowRemainingHours,
-    conditions: {
-      isExpiringSection: type === 'expiring',
-      notUnlimited: !isUnlimited,
-      notFullyUsed: !isFullyUsed,
-      notExpired: !isExpired,
-      hasRemainingHours: typeof pkg.remaining_hours === 'number' && pkg.remaining_hours > 0
-    }
-  });
-  
   // Update name parsing to handle multiple parentheses
   const phoneMatch = pkg.customer_name.match(/\((\d+)\)$/);
   const phone = phoneMatch ? phoneMatch[1] : '';
@@ -65,9 +51,30 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
     ? pkg.customer_name.slice(0, pkg.customer_name.lastIndexOf('(')).trim() 
     : pkg.customer_name;
 
-  // Format the days remaining text
-  const daysText = isInactive ? 'Not activated' : 
-                  daysRemaining === 1 ? 'last day' : `${daysRemaining} days`;
+  // Format the days remaining text - fix the calculation to match user expectations
+  const formatDaysRemaining = () => {
+    if (isInactive) return 'Not activated';
+    if (daysRemaining < 0) return 'Expired';
+    if (daysRemaining === 0) return 'Expires today';
+    if (daysRemaining === 1) return 'Expires tomorrow';
+    if (daysRemaining === 2) return '2 days left';
+    return `${daysRemaining} days left`;
+  };
+
+  const daysText = formatDaysRemaining();
+
+  // Safe date parsing function
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return date.toLocaleDateString();
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  };
 
   return (
     <Card className={`border-l-4 ${isExpiring ? 'border-red-500' : 'border-blue-500'}`}>
@@ -91,9 +98,9 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
             {phone && <div className="text-sm text-muted-foreground">{phone}</div>}
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <div>{pkg.package_type_name}</div>
-              {shouldShowRemainingHours && pkg.remaining_hours !== undefined && (
+              {shouldShowRemainingHours && remainingHoursNum !== undefined && (
                 <div className="text-emerald-600 font-medium">
-                  {pkg.remaining_hours.toFixed(1)} hours remaining
+                  {remainingHoursNum.toFixed(1)} hours remaining
                 </div>
               )}
             </div>
@@ -119,32 +126,38 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
             </div>
             <div>
               <div className="text-sm text-muted-foreground">Purchase Date</div>
-              <div>{new Date(pkg.purchase_date).toLocaleDateString()}</div>
+              <div>{pkg.purchase_date ? formatDate(pkg.purchase_date) : 'N/A'}</div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">First Used</div>
-              <div>{pkg.first_use_date ? new Date(pkg.first_use_date).toLocaleDateString() : 'Not used'}</div>
+              <div>
+                {pkg.first_use_date ? formatDate(pkg.first_use_date) : 
+                 (!isUnlimited && remainingHoursNum && remainingHoursNum > 0) ? 
+                   `${remainingHoursNum.toFixed(1)} hours remaining` : 'Not used'}
+              </div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">
                 {isInactive ? "Purchase Date" : "Expiration Date"}
               </div>
               <div>
-                {isInactive 
-                  ? new Date(pkg.purchase_date).toLocaleDateString()
-                  : new Date(pkg.expiration_date).toLocaleDateString()
+                {isInactive && pkg.purchase_date
+                  ? formatDate(pkg.purchase_date)
+                  : pkg.expiration_date
+                  ? formatDate(pkg.expiration_date)
+                  : 'N/A'
                 }
               </div>
             </div>
-            {typeof pkg.remaining_hours === 'number' && !isUnlimited && (
+            {typeof remainingHoursNum === 'number' && !isUnlimited && (
               <>
                 <div>
                   <div className="text-sm text-muted-foreground">Hours Used</div>
-                  <div>{(pkg.used_hours ?? 0).toFixed(1)}</div>
+                  <div>{(usedHoursNum ?? 0).toFixed(1)}</div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">Remaining Hours</div>
-                  <div>{pkg.remaining_hours.toFixed(1)}</div>
+                  <div>{remainingHoursNum.toFixed(1)}</div>
                 </div>
               </>
             )}
