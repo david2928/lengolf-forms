@@ -1,10 +1,23 @@
 import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
-export default withAuth({
-  callbacks: {
-    authorized: ({ token }) => !!token,
+export default withAuth(
+  function middleware(req) {
+    // Check admin routes
+    if (req.nextUrl.pathname.startsWith('/admin')) {
+      const isAdmin = req.nextauth.token?.isAdmin;
+      if (!isAdmin) {
+        console.log('Admin access denied for user:', req.nextauth.token?.email);
+        return NextResponse.redirect(new URL('/', req.url));
+      }
+    }
   },
-});
+  {
+    callbacks: {
+      authorized: ({ token }) => !!token,
+    },
+  }
+);
 
 export const config = {
   matcher: [
