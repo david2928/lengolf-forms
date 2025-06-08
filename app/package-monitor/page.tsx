@@ -80,7 +80,15 @@ export default function PackageMonitorPage() {
     }
     
     // For regular packages, only show if they have remaining hours
-    return pkg.remaining_hours !== undefined && pkg.remaining_hours > 0;
+    if (pkg.remaining_hours === undefined || pkg.remaining_hours === null) {
+      return false;
+    }
+    
+    // Handle both string and number types for remaining_hours
+    const remainingHoursNum = typeof pkg.remaining_hours === 'string' ? 
+      parseFloat(pkg.remaining_hours) : pkg.remaining_hours;
+    
+    return !isNaN(remainingHoursNum) && remainingHoursNum > 0;
   }) ?? [];
 
   const inactiveCount = isLoadingInactive ? '...' : inactivePackages.length;
