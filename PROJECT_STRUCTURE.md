@@ -1,6 +1,16 @@
 # Project Structure
 
-This document outlines the structure of the LENGOLF Forms System codebase and the purpose of its main files and directories.
+This document provides a comprehensive overview of the Lengolf Forms System codebase structure, detailing the purpose and organization of files and directories. The system follows Next.js App Router conventions with a clear separation between frontend components, backend API routes, and shared utilities.
+
+## Architecture Overview
+
+The project is organized into several key areas:
+- **`app/`**: Next.js App Router pages and API routes
+- **`src/`**: Reusable components, utilities, types, and business logic
+- **Configuration Files**: Build, deployment, and development configuration
+- **Documentation**: Project documentation and structure guides
+
+For detailed backend architecture and API documentation, see [BACKEND_DOCUMENTATION.md](BACKEND_DOCUMENTATION.md).
 
 ## Root Directory
 
@@ -44,22 +54,59 @@ The `app/` directory is the heart of the Next.js application, organizing routes,
 -   `favicon.ico`: The icon displayed in browser tabs and bookmarks.
 
 ### `app/api/` Subdirectory
-Contains API route handlers. Each subdirectory typically represents a resource or a group of related actions.
+Contains API route handlers organized by business domain. Each subdirectory represents a specific resource or functionality group.
 
--   `app/api/bookings/`: API routes related to booking management.
-    -   `create/route.ts`: Handles POST requests to `/api/bookings/create`. Validates booking data and inserts it into the `bookings` table in Supabase via `refacSupabase` client.
-    -   `calendar/events/route.ts`: (Inferred from `bookings-calendar/page.tsx`) Handles POST requests to fetch booking events for a specific bay and date for the calendar display.
-    -   Other potential routes: `update-calendar-id/`, `availability/`.
--   `app/api/crm/`: API routes related to Customer Relationship Management.
-    -   `update-customers/route.ts`: Handles GET requests to `/api/crm/update-customers`. Triggers a Google Cloud Run service to update customer data, authenticating with Google Auth.
--   `app/api/packages/`: API routes related to package management.
-    -   `monitor/route.ts`: (Inferred from `usePackageMonitor` hook) Handles GET requests to fetch data for the package monitor, including active diamond packages and expiring packages.
-    -   (Other routes for package creation/update might exist here).
--   `app/api/customers/`: (Likely) API routes for customer data management (e.g., fetching customer lists).
--   `app/api/notify/`: (Likely) API routes for sending notifications (e.g., via LINE Messaging API).
--   `app/api/auth/`: Contains NextAuth.js API routes, typically including `[...nextauth]/route.ts` for handling authentication callbacks, session management, etc.
--   `app/api/debug/`: (Likely) API routes used for debugging purposes.
--   `app/api/test-db/`: (Likely) API routes used for testing database connections or operations.
+#### Booking Management (`app/api/bookings/`)
+-   `create/route.ts`: **POST** `/api/bookings/create` - Creates new bookings with validation and database insertion
+-   `list-by-date/route.ts`: **GET** `/api/bookings/list-by-date` - Retrieves bookings for a specific date with filtering
+-   `[bookingId]/`: Dynamic routes for individual booking operations
+    -   `cancel/route.ts`: Booking cancellation logic
+    -   `history/route.ts`: Booking history and audit trail
+    -   `link-calendar-events/route.ts`: Calendar event association
+-   `availability/route.ts`: Bay availability checking
+-   `check-slot-for-all-bays/route.ts`: Multi-bay slot availability
+-   `update-calendar-id/route.ts`: Calendar synchronization updates
+-   `calendar/events/route.ts`: Calendar event management
+
+#### Customer Relationship Management (`app/api/crm/`)
+-   `update-customers/route.ts`: **GET** `/api/crm/update-customers` - Triggers Google Cloud Run service for CRM data synchronization
+-   `sync-customers/`: Customer data synchronization endpoints
+-   `upload-csv/route.ts`: CSV file upload and processing for customer data
+
+#### Package Management (`app/api/packages/`)
+-   `monitor/route.ts`: **GET** `/api/packages/monitor` - Package monitoring dashboard data
+-   `available/route.ts`: **GET** `/api/packages/available` - Available packages for booking assignment
+-   `activate/route.ts`: Package activation logic
+-   `inactive/route.ts`: Inactive package management
+-   `usage/route.ts`: Package usage tracking and updates
+-   `by-customer/[customerId]/route.ts`: Customer-specific package retrieval
+-   `customer/[id]/route.ts`: Individual customer package operations
+-   `[id]/usage-history/route.ts`: Package usage history tracking
+
+#### Customer Management (`app/api/customers/`)
+-   `route.ts`: **GET/POST** `/api/customers` - Customer list retrieval with caching
+-   `with-packages/route.ts`: Customers with associated package information
+
+#### Notification System (`app/api/notify/`)
+-   `route.ts`: **POST** `/api/notify` - LINE Messaging API integration for notifications
+
+#### Authentication (`app/api/auth/`)
+-   `[...nextauth]/route.ts`: NextAuth.js authentication handler for Google OAuth
+-   `signin/`: Custom sign-in page routes
+-   `cloud-run-token/`: Google Cloud Run authentication tokens
+
+#### Inventory Management (`app/api/inventory/`)
+-   `products/[productId]/route.ts`: Product-specific operations
+-   `submissions/latest/route.ts`: Latest inventory submissions
+-   `weekly-report/route.ts`: Weekly inventory reporting
+
+#### Special Events (`app/api/special-events/`)
+-   `us-open/upload/route.ts`: US Open event data upload and management
+
+#### Utility Endpoints
+-   `app/api/debug/`: Development debugging and testing endpoints
+-   `app/api/test-db/`: Database connection testing and validation
+-   `app/api/refresh-customers/`: Manual customer data refresh triggers
 
 ### `app/auth/` Subdirectory
 Contains pages related to user authentication.
@@ -82,21 +129,47 @@ These directories contain the main page component and potentially supporting fil
 Contains the majority of the application's reusable logic and components.
 
 ### `src/lib/` Subdirectory
-Contains utility functions, service integrations, and core business logic.
+Contains utility functions, service integrations, and core business logic organized by functionality.
 
--   `supabase.ts`: Initializes and exports the primary Supabase JavaScript client using environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`). Includes a basic connection test.
--   `refac-supabase.ts`: Initializes and exports a *secondary* Supabase client instance, likely for interacting with a different Supabase project (e.g., a staging or refactored backend). Uses distinct environment variables (`NEXT_PUBLIC_REFAC_SUPABASE_URL`, `NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY`). Used in `app/api/bookings/create/route.ts`.
--   `google-calendar.ts`: Contains functions for interacting with the Google Calendar API (e.g., creating, updating, fetching calendar events).
--   `google-auth.ts`: Contains functions related to Google Authentication, possibly for server-to-server interactions or custom auth flows.
--   `google-sheets-service.ts`: Contains functions for interacting with the Google Sheets API, likely for reading or writing data to spreadsheets.
--   `line-messaging.ts`: Contains functions for interacting with the LINE Messaging API, used for sending notifications.
--   `auth-config.ts`: Configuration object for NextAuth.js, defining authentication providers (e.g., Google), callbacks, and session strategies. Used in `app/layout.tsx` and NextAuth API routes.
--   `auth.ts`: (Potentially) Contains helper functions or utilities related to authentication, complementing `auth-config.ts`.
--   `booking-utils.ts`: Utility functions specifically related to booking logic (e.g., data transformation, validation).
--   `constants.ts`: Defines application-wide constants (e.g., API endpoints, configuration values, enum-like objects).
--   `utils.ts`: General-purpose utility functions used across the application (e.g., string manipulation, date formatting, etc. via `cn` from `clsx` and `tailwind-merge`).
--   `cache.ts`: (Potentially) Implements caching mechanisms, though its current implementation might be minimal.
--   `lib/supabase/`: (Subdirectory, currently empty) Intended for more granular Supabase helper functions or specific queries if `supabase.ts` becomes too large.
+#### Database Connections
+-   `supabase.ts`: Primary Supabase client initialization with connection testing and error handling
+-   `refac-supabase.ts`: Refactored Supabase instance with both anonymous and service role clients for different access patterns
+-   `cache.ts`: NodeCache implementation for application-level caching with 24-hour TTL
+
+#### External Service Integrations
+-   `google-calendar.ts`: Comprehensive Google Calendar API integration including:
+    -   Event creation, updating, and deletion
+    -   Bay availability checking
+    -   Multi-calendar management for different bays and coaching types
+    -   Timezone handling (Asia/Bangkok)
+    -   Color coding for different bay types
+-   `line-messaging.ts`: LINE Messaging API client with support for:
+    -   Text message sending
+    -   Flex message support
+    -   Multi-group notification routing
+    -   Error handling and logging
+-   `google-auth.ts`: Google Authentication utilities for server-to-server interactions
+-   `google-sheets-service.ts`: Google Sheets API integration for data exchange
+
+#### Authentication & Authorization
+-   `auth-config.ts`: NextAuth.js configuration with:
+    -   Google OAuth provider setup
+    -   Custom authorization callbacks
+    -   JWT session strategy
+    -   30-day session duration
+-   `auth.ts`: Authentication helper functions including email whitelist validation
+
+#### Business Logic & Utilities
+-   `constants.ts`: Application-wide constants including:
+    -   Bay calendar mappings
+    -   Coaching calendar configurations
+    -   LINE messaging group configurations
+    -   Color schemes for calendar events
+-   `booking-utils.ts`: Booking-specific utility functions for data transformation and validation
+-   `utils.ts`: General-purpose utilities including Tailwind CSS class merging via `clsx` and `tailwind-merge`
+
+#### Subdirectories
+-   `lib/supabase/`: Reserved for granular Supabase helper functions and specific query utilities
 
 ### `src/types/` Subdirectory
 Contains TypeScript type definitions and interfaces used throughout the application to ensure type safety.

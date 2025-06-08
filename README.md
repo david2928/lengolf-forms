@@ -1,10 +1,19 @@
 # Lengolf Forms
 
-A modern web application for managing golf academy bookings, scheduling, and package management.
+A comprehensive golf academy management system providing booking, scheduling, package management, and customer relationship management capabilities.
 
 ## Overview
 
-Lengolf Forms is a full-featured booking and management system built for golf training facilities. The application handles booking management, scheduling, calendar integration, notifications, and package tracking. It's built with Next.js, TypeScript, Tailwind CSS, and uses Supabase for the backend database.
+Lengolf Forms is a full-featured booking and management system built specifically for golf training facilities. The application provides a complete solution for managing customer bookings, scheduling across multiple golf bays, tracking customer packages, integrating with external calendar systems, and maintaining customer relationships. Built with modern web technologies including Next.js, TypeScript, Tailwind CSS, and Supabase, the system offers a robust, scalable, and user-friendly platform for golf academy operations.
+
+### System Capabilities
+- **Multi-Bay Booking Management**: Coordinate bookings across multiple golf bays with real-time availability
+- **Package Lifecycle Management**: Create, monitor, and track customer packages with expiration alerts
+- **Calendar Integration**: Seamless synchronization with Google Calendar for staff coordination
+- **Real-time Notifications**: Instant notifications via LINE Messaging API for booking updates
+- **Customer Relationship Management**: Integrated CRM with automated data synchronization
+- **Staff Authentication**: Secure role-based access control for staff members
+- **Responsive Design**: Optimized for both desktop and mobile usage
 
 ## Key Features
 
@@ -44,17 +53,41 @@ For a more detailed breakdown of the entire codebase structure, refer to the [PR
 
 ## Tech Stack
 
-- **Frontend**: Next.js, TypeScript, Tailwind CSS, React Hook Form
-- **Backend**: Next.js API Routes, Supabase
-- **Authentication**: NextAuth.js
-- **Database**: PostgreSQL (via Supabase)
-- **Calendar**: Google Calendar API
+### Frontend Technologies
+- **Framework**: Next.js 14.2.20 (App Router)
+- **Language**: TypeScript 5.3.3
+- **Styling**: Tailwind CSS 3.4.1
+- **UI Components**: Radix UI, Shadcn/UI
+- **Forms**: React Hook Form 7.50.0
+- **State Management**: SWR 2.2.5, React Context
+- **Date Handling**: date-fns 3.6.0, date-fns-tz 3.2.0
+
+### Backend Technologies
+- **Runtime**: Node.js (Serverless Functions)
+- **API Framework**: Next.js API Routes
+- **Database**: PostgreSQL (via Supabase 2.47.6)
+- **Authentication**: NextAuth.js 4.24.7
+- **Caching**: NodeCache 5.1.2
+- **File Processing**: CSV Parser 3.2.0
+
+### External Integrations
+- **Calendar**: Google Calendar API (googleapis 144.0.0)
 - **Messaging**: LINE Messaging API
-- **Deployment**: Vercel
+- **Authentication Provider**: Google OAuth 2.0
+- **Cloud Services**: Google Cloud Run
+- **CRM Integration**: Custom Cloud Run service
+
+### Infrastructure & Deployment
+- **Hosting**: Vercel (Serverless)
+- **Database Hosting**: Supabase (Managed PostgreSQL)
+- **CDN**: Vercel Edge Network
+- **Environment**: Production, Staging environments
 
 ## Project Structure
 
 For a detailed explanation of the codebase structure, please refer to the [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) file.
+
+For comprehensive backend documentation including API endpoints, database schema, and integration details, see [BACKEND_DOCUMENTATION.md](BACKEND_DOCUMENTATION.md).
 
 ## Recent Changes
 
@@ -93,35 +126,57 @@ A new package monitoring feature has been added allowing staff to:
 
 The application requires several environment variables to be set up properly:
 
-```
-# Supabase Configuration
+### Database Configuration
+```bash
+# Primary Supabase Instance (Legacy)
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 
-# Google Calendar Integration
+# Refactored Supabase Instance (Current)
+NEXT_PUBLIC_REFAC_SUPABASE_URL=your-refac-supabase-url
+NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY=your-refac-supabase-anon-key
+REFAC_SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+### Google Services Configuration
+```bash
+# Google Authentication & APIs
 GOOGLE_PRIVATE_KEY=your-google-private-key
 GOOGLE_CLIENT_EMAIL=your-google-client-email
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_PROJECT_ID=your-google-project-id
 
-# Calendar IDs
+# Google Calendar IDs
 BAY_1_CALENDAR_ID=your-bay1-calendar-id
 BAY_2_CALENDAR_ID=your-bay2-calendar-id
 BAY_3_CALENDAR_ID=your-bay3-calendar-id
 COACHING_BOSS_CALENDAR_ID=your-coaching-calendar-id
 COACHING_RATCHAVIN_CALENDAR_ID=your-ratchavin-coaching-calendar-id
+```
 
+### Messaging & Notifications
+```bash
 # LINE Messaging API
 LINE_CHANNEL_ACCESS_TOKEN=your-line-channel-access-token
 LINE_CHANNEL_SECRET=your-line-channel-secret
 LINE_GROUP_ID=default-group-id
 LINE_GROUP_RATCHAVIN_ID=ratchavin-group-id
 LINE_GROUP_COACHING_ID=coaching-group-id
+```
 
-# NextAuth
+### Authentication
+```bash
+# NextAuth Configuration
 NEXTAUTH_URL=your-app-url
 NEXTAUTH_SECRET=your-nextauth-secret
+```
+
+### Development Environment
+```bash
+# Optional: Development-specific variables
+NODE_ENV=development
+NEXT_PUBLIC_APP_ENV=development
 ```
 
 ## Development

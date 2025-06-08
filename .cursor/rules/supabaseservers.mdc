@@ -3,9 +3,6 @@ description:
 globs: 
 alwaysApply: true
 ---
-We have 2 supabase MCP servers:
-supabase_booking: project ID bisimqmtxjsptehhqpeg
-supabase_forms: project ID dujqvigihnlfnvmcdrko
 
 
 
