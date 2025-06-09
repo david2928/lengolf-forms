@@ -12,10 +12,11 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { PenSquare } from "lucide-react";
+import { PenSquare, Phone, Mail, Users, Package, FileText } from "lucide-react";
 import { Booking } from '@/types/booking';
 import { format, parseISO, isValid, parse, addMinutes, isWithinInterval, isEqual, startOfDay, endOfDay, subHours, isBefore } from 'date-fns';
 import { useToast } from "@/components/ui/use-toast";
+import { Badge } from '@/components/ui/badge';
 
 // Bay mapping to match API expectations
 const BAY_NAME_TO_API_BAY_NAME: { [key: string]: string } = {
@@ -145,15 +146,21 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       setIsCheckingAllBays(false);
       setAllowOverwrite(false);
 
-      // Check if booking is in the past (older than 2 hours from its start_time)
+      // Check if booking is in the past (based on end time like the calendar does)
       let isPastBooking = false;
-      if (booking.date && booking.start_time) {
+      if (booking.date && booking.start_time && booking.duration) {
         try {
-          const bookingDateTime = parse(`${booking.date} ${booking.start_time}`, 'yyyy-MM-dd HH:mm', new Date());
-          if (isValid(bookingDateTime)) {
-            const twoHoursAgo = subHours(new Date(), 2);
-            isPastBooking = isBefore(bookingDateTime, twoHoursAgo);
-          }
+          const [hours, minutes] = booking.start_time.split(':').map(Number);
+          const startMinutes = hours * 60 + minutes;
+          const durationMinutes = booking.duration <= 12 ? booking.duration * 60 : booking.duration;
+          const endMinutes = startMinutes + durationMinutes;
+          const endHours = Math.floor(endMinutes / 60);
+          const endMins = endMinutes % 60;
+          const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+          
+          const bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+          const now = new Date();
+          isPastBooking = bookingEndDateTime < now;
         } catch (e) {
           console.error("Error parsing booking date/time for past check:", e);
         }
@@ -434,13 +441,19 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
   }
 
   let isBookingEditable = true;
-  if (booking && booking.date && booking.start_time) {
+  if (booking && booking.date && booking.start_time && booking.duration) {
     try {
-      const bookingDateTime = parse(`${booking.date} ${booking.start_time}`, 'yyyy-MM-dd HH:mm', new Date());
-      if (isValid(bookingDateTime)) {
-        const twoHoursAgo = subHours(new Date(), 2);
-        isBookingEditable = !isBefore(bookingDateTime, twoHoursAgo);
-      }
+      const [hours, minutes] = booking.start_time.split(':').map(Number);
+      const startMinutes = hours * 60 + minutes;
+      const durationMinutes = booking.duration <= 12 ? booking.duration * 60 : booking.duration;
+      const endMinutes = startMinutes + durationMinutes;
+      const endHours = Math.floor(endMinutes / 60);
+      const endMins = endMinutes % 60;
+      const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+      
+      const bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+      const now = new Date();
+      isBookingEditable = bookingEndDateTime >= now;
     } catch (e) {
       console.error("Error parsing booking date/time for editability check:", e);
       isBookingEditable = false; // Default to not editable on error
@@ -458,6 +471,74 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
             Modify the details for this booking. Availability will be checked as you edit time/date/bay.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Customer Information Section */}
+        <div className="border-b pb-4 space-y-3">
+          <h3 className="text-lg font-semibold text-primary">{booking.name}</h3>
+          
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {booking.phone_number && (
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <a 
+                  href={`tel:${(() => {
+                    const digitsOnly = booking.phone_number.replace(/\D/g, '');
+                    if (digitsOnly.startsWith('0') && digitsOnly.length === 10) {
+                      return '+66' + digitsOnly.substring(1);
+                    }
+                    return digitsOnly.startsWith('66') ? '+' + digitsOnly : booking.phone_number;
+                  })()}`}
+                  className="text-blue-600 hover:text-blue-800 hover:underline truncate"
+                >
+                  {booking.phone_number}
+                </a>
+              </div>
+            )}
+            
+            {booking.email && booking.email.toLowerCase() !== 'info@len.golf' && (
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <a 
+                  href={`mailto:${booking.email}`}
+                  className="text-blue-600 hover:text-blue-800 hover:underline truncate"
+                >
+                  {booking.email}
+                </a>
+              </div>
+            )}
+            
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span>{booking.number_of_people} {booking.number_of_people === 1 ? 'person' : 'people'}</span>
+            </div>
+
+            {booking.booking_type && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">{booking.booking_type}</Badge>
+              </div>
+            )}
+          </div>
+
+          {booking.package_name && (
+            <div className="flex items-center gap-2 text-sm">
+              <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className="text-muted-foreground">{booking.package_name}</span>
+            </div>
+          )}
+
+          {booking.customer_notes && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span>Existing Notes</span>
+              </div>
+              <p className="text-sm text-muted-foreground bg-muted p-2 rounded-md">
+                {booking.customer_notes}
+              </p>
+            </div>
+          )}
+        </div>
+
         <div className="w-full grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
           {/* Date */}
           <div className="grid grid-cols-4 items-center gap-4">
@@ -542,8 +623,18 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
 
           {/* Customer Notes (Internal) */}
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="customer_notes" className="text-right">Internal Notes</Label>
-            <Textarea id="customer_notes" name="customer_notes" value={formData.customer_notes || ''} onChange={handleInputChange} className="col-span-3" placeholder="Internal notes for staff" disabled={!isBookingEditable}/>
+            <Label htmlFor="customer_notes" className="text-right">
+              {booking.customer_notes ? 'Update Notes' : 'Internal Notes'}
+            </Label>
+            <Textarea 
+              id="customer_notes" 
+              name="customer_notes" 
+              value={formData.customer_notes || ''} 
+              onChange={handleInputChange} 
+              className="col-span-3" 
+              placeholder={booking.customer_notes ? "Update or add to existing notes" : "Internal notes for staff"} 
+              disabled={!isBookingEditable}
+            />
           </div>
 
           {/* Employee Name (Mandatory) */}

@@ -1,0 +1,213 @@
+'use client';
+
+import React from 'react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Calendar, Clock, Users, MapPin, Phone, Mail, FileText, Package, Hash } from 'lucide-react';
+import type { Booking } from '@/types/booking';
+import { format, parseISO } from 'date-fns';
+
+interface ViewBookingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  booking: Booking | null;
+  onEditClick?: () => void; // Optional edit button
+}
+
+export function ViewBookingModal({ isOpen, onClose, booking, onEditClick }: ViewBookingModalProps) {
+  if (!booking) return null;
+
+  // Format date and time for display
+  const formatDisplayDate = (dateStr: string) => {
+    try {
+      return format(parseISO(dateStr), 'EEEE, MMMM d, yyyy');
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Calculate end time
+  const calculateEndTime = (startTime: string, duration: number) => {
+    try {
+      const [hours, minutes] = startTime.split(':').map(Number);
+      const startMinutes = hours * 60 + minutes;
+      const endMinutes = startMinutes + (duration * 60);
+      const endHours = Math.floor(endMinutes / 60);
+      const endMins = endMinutes % 60;
+      return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+    } catch {
+      return 'Unknown';
+    }
+  };
+
+  // Check if booking is in the past (based on end time)
+  const isInPast = () => {
+    try {
+      const endTime = calculateEndTime(booking.start_time, booking.duration);
+      const bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+      const now = new Date();
+      return bookingEndDateTime < now;
+    } catch {
+      return false;
+    }
+  };
+
+  // Format phone number for tel: link and display
+  const formatPhoneNumber = (phone: string) => {
+    // Remove all non-digit characters
+    const digitsOnly = phone.replace(/\D/g, '');
+    
+    // If it starts with 0, replace with +66 for Thailand
+    if (digitsOnly.startsWith('0') && digitsOnly.length === 10) {
+      const thailandNumber = '+66' + digitsOnly.substring(1);
+      return {
+        display: phone, // Keep original format for display
+        tel: thailandNumber // Use proper international format for tel: link
+      };
+    }
+    
+    // If it already has country code or is in different format, use as is
+    return {
+      display: phone,
+      tel: digitsOnly.startsWith('66') ? '+' + digitsOnly : phone
+    };
+  };
+
+  // Check if email should be hidden
+  const shouldHideEmail = (email: string) => {
+    return email?.toLowerCase() === 'info@len.golf';
+  };
+
+  const isPastBooking = isInPast();
+  const endTime = calculateEndTime(booking.start_time, booking.duration);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Booking Details
+            {isPastBooking && (
+              <Badge variant="secondary" className="ml-2">
+                Past Booking
+              </Badge>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Customer Information */}
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold text-primary">{booking.name}</h3>
+            
+            <div className="grid grid-cols-1 gap-3">
+              {/* Booking ID for past bookings */}
+              {isPastBooking && booking.id && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Hash className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-mono text-muted-foreground">ID: {booking.id}</span>
+                </div>
+              )}
+              
+              {booking.phone_number && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <a 
+                    href={`tel:${formatPhoneNumber(booking.phone_number).tel}`}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    {formatPhoneNumber(booking.phone_number).display}
+                  </a>
+                </div>
+              )}
+              
+              {booking.email && !shouldHideEmail(booking.email) && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <a 
+                    href={`mailto:${booking.email}`}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    {booking.email}
+                  </a>
+                </div>
+              )}
+              
+              <div className="flex items-center gap-2 text-sm">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span>{booking.number_of_people} {booking.number_of_people === 1 ? 'person' : 'people'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Booking Details */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span>{formatDisplayDate(booking.date)}</span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span>{booking.start_time} - {endTime} ({booking.duration}h)</span>
+            </div>
+            
+            {booking.bay && (
+              <div className="flex items-center gap-2 text-sm">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <span>{booking.bay}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Booking Type & Package */}
+          {(booking.booking_type || booking.package_name) && (
+            <div className="space-y-2">
+              {booking.booking_type && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{booking.booking_type}</Badge>
+                </div>
+              )}
+              
+              {booking.package_name && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span>{booking.package_name}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Customer Notes */}
+          {booking.customer_notes && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span>Notes</span>
+              </div>
+              <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                {booking.customer_notes}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-2 pt-4">
+          {!isPastBooking && onEditClick && (
+            <Button onClick={onEditClick} variant="default">
+              Edit Booking
+            </Button>
+          )}
+          <Button onClick={onClose} variant="outline">
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+} 

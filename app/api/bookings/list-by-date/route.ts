@@ -6,6 +6,8 @@ import { Booking } from '@/types/booking';
 interface FetchedBookingData {
   id: string;
   name: string;
+  email: string;
+  phone_number: string;
   date: string;
   start_time: string;
   duration: number;
@@ -13,6 +15,8 @@ interface FetchedBookingData {
   status: 'confirmed' | 'cancelled';
   number_of_people: number;
   customer_notes: string | null;
+  booking_type: string | null;
+  package_name: string | null;
   google_calendar_sync_status?: string | null; // Added field
   // Add other fields that are selected if they are directly used before mapping to Booking
 }
@@ -33,7 +37,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await refacSupabaseAdmin
       .from('bookings')
-      .select('id, name, date, start_time, duration, bay, status, number_of_people, customer_notes, google_calendar_sync_status') // Added field to select
+      .select('id, name, email, phone_number, date, start_time, duration, bay, status, number_of_people, customer_notes, booking_type, package_name, google_calendar_sync_status') // Added fields needed for calendar
       .eq('date', date)
       .order('start_time', { ascending: true });
 
@@ -42,34 +46,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch bookings', details: error.message }, { status: 500 });
     }
 
-    // Explicitly type `b` or ensure `data` is typed correctly from the Supabase call.
-    // If `data` is `any[]`, then `b` would be `any`.
+    // Convert database results to Booking objects
     const bookings: Booking[] = (data as FetchedBookingData[] || []).map((b: FetchedBookingData) => ({
       id: b.id,
       name: b.name, // customer name
-      user_id: '', // Placeholder - decide if needed for this view
-      email: '', // Placeholder
-      phone_number: '', // Placeholder
+      user_id: '', // Placeholder - not needed for calendar view
+      email: b.email,
+      phone_number: b.phone_number,
       date: b.date,
       start_time: b.start_time,
       duration: b.duration, // Duration in hours
-      // Calculate end_time based on start_time and duration for example (if not directly available)
-      // This logic would need to be more robust if times cross midnight or for different duration units
-      // For simplicity, not adding end_time calculation here yet, but it would be needed if Booking type strictly requires it and it's not in DB
       number_of_people: b.number_of_people,
       status: b.status,
       bay: b.bay,
       customer_notes: b.customer_notes,
-      // Ensure all other required fields by Booking type are present
-      // Defaulting them if not fetched and not essential for this specific list display
-      created_at: undefined, // Or fetch if needed
+      booking_type: b.booking_type,
+      package_name: b.package_name,
+      google_calendar_sync_status: b.google_calendar_sync_status,
+      // Optional fields not needed for calendar display
+      created_at: undefined,
       updated_at: undefined,
       updated_by_type: undefined,
       updated_by_identifier: undefined,
       cancelled_by_type: undefined,
       cancelled_by_identifier: undefined,
       cancellation_reason: undefined,
-      google_calendar_sync_status: b.google_calendar_sync_status, // Mapped field
       calendar_event_id: undefined,
       calendar_events: undefined,
     }));

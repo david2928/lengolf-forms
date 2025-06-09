@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Trophy } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Trophy, Calendar } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -38,6 +38,12 @@ export const menuItems: MenuItem[] = [
     title: "Manage Bookings",
     path: '/manage-bookings',
     description: "Amend or cancel existing bookings"
+  },
+  {
+    icon: Calendar,
+    title: "Bookings Calendar",
+    path: '/bookings-calendar',
+    description: "Visual calendar view of all bookings"
   },
   {
     icon: ClipboardList,

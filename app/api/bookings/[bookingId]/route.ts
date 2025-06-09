@@ -90,6 +90,44 @@ const getBookingIdFromDescription = (description: string | null | undefined): st
   return match ? match[1] : null;
 };
 
+export async function GET(
+  request: Request,
+  { params }: { params: { bookingId: string } }
+) {
+  const { bookingId } = params;
+
+  if (!bookingId) {
+    return NextResponse.json({ error: 'Booking ID is required in path' }, { status: 400 });
+  }
+
+  try {
+    // Fetch booking from Supabase
+    const { data: booking, error: fetchError } = await refacSupabaseAdmin
+      .from('bookings')
+      .select('*')
+      .eq('id', bookingId)
+      .single();
+
+    if (fetchError) {
+      console.error(`Supabase error fetching booking ${bookingId}:`, fetchError);
+      if (fetchError.code === 'PGRST116') {
+        return NextResponse.json({ error: `Booking with ID ${bookingId} not found.` }, { status: 404 });
+      }
+      return NextResponse.json({ error: 'Failed to fetch booking', details: fetchError.message }, { status: 500 });
+    }
+
+    if (!booking) {
+      return NextResponse.json({ error: `Booking with ID ${bookingId} not found.` }, { status: 404 });
+    }
+
+    return NextResponse.json({ booking }, { status: 200 });
+
+  } catch (error: any) {
+    console.error('Error fetching booking:', error);
+    return NextResponse.json({ error: 'An error occurred while fetching the booking', details: error.message }, { status: 500 });
+  }
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: { bookingId: string } }

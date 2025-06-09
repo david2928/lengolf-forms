@@ -41,7 +41,7 @@ export function Nav() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant={pathname.startsWith('/create-booking') || pathname.startsWith('/manage-bookings') ? 'secondary' : 'ghost'}
+              variant={pathname.startsWith('/create-booking') || pathname.startsWith('/manage-bookings') || pathname === '/bookings-calendar' ? 'secondary' : 'ghost'}
               size="sm"
               className="flex items-center gap-2"
             >
@@ -63,20 +63,14 @@ export function Nav() {
                 Manage Bookings
               </Link>
             </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/bookings-calendar" className="flex items-center gap-2 w-full">
+                <Calendar className="h-4 w-4" />
+                Bookings Calendar
+              </Link>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        {/* Calendar */}
-        <Link href="/bookings-calendar">
-          <Button
-            variant={pathname === '/bookings-calendar' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <Calendar className="h-4 w-4" />
-            Calendar
-          </Button>
-        </Link>
 
         {/* Packages Dropdown */}
         <DropdownMenu>
