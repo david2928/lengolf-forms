@@ -264,12 +264,7 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({
   showProfit = false,
   chartType = 'bar'
 }) => {
-  // Show loading state
-  if (isLoading) {
-    return <CategoryBreakdownChartLoading />;
-  }
-
-  // Process chart data
+  // Process chart data - moved before early returns to satisfy Rules of Hooks
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
     
@@ -289,7 +284,12 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({
       .sort((a, b) => b.value - a.value); // Sort by revenue descending (highest first)
     
     return processed;
-  }, [data, showProfit]);
+  }, [data]); // showProfit is not actually used in the processing logic
+
+  // Show loading state
+  if (isLoading) {
+    return <CategoryBreakdownChartLoading />;
+  }
 
   if (!data || data.length === 0) {
     return (

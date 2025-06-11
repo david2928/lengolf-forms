@@ -271,12 +271,7 @@ export const SimUtilizationChart: React.FC<SimUtilizationChartProps> = ({
   showMovingAverage = true,
   showRevenue = false
 }) => {
-  // Show loading state
-  if (isLoading) {
-    return <SimUtilizationChartLoading />;
-  }
-
-  // Process data with moving average
+  // Process data with moving average - moved before early returns to satisfy Rules of Hooks
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
     
@@ -302,7 +297,7 @@ export const SimUtilizationChart: React.FC<SimUtilizationChartProps> = ({
     return processedData;
   }, [data, showMovingAverage]);
 
-  // Calculate Y-axis domain
+  // Calculate Y-axis domain - moved before early returns to satisfy Rules of Hooks
   const yAxisDomain = useMemo(() => {
     if (chartData.length === 0) return [0, 100];
     
@@ -315,6 +310,11 @@ export const SimUtilizationChart: React.FC<SimUtilizationChartProps> = ({
       Math.min(100, Math.ceil(max + 5))
     ];
   }, [chartData]);
+
+  // Show loading state
+  if (isLoading) {
+    return <SimUtilizationChartLoading />;
+  }
 
   if (!data || data.length === 0) {
     return (

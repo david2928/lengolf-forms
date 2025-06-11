@@ -322,7 +322,6 @@ export default function SalesDashboardPage() {
                   {/* Row 6: Flexible Analytics */}
                   <DashboardErrorBoundary>
                     <FlexibleChart 
-                      data={charts?.revenue_trends || []}
                       isLoading={isLoading}
                       title="Flexible Analytics"
                     />

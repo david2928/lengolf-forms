@@ -313,12 +313,7 @@ export const RevenueTrendsChart: React.FC<RevenueTrendsChartProps> = ({
   showDualAxis = false,
   simUtilizationData = []
 }) => {
-  // Show loading state
-  if (isLoading) {
-    return <RevenueTrendsChartLoading />;
-  }
-
-  // Process chart data combining revenue data with sim utilization
+  // Process chart data combining revenue data with sim utilization - moved before early returns to satisfy Rules of Hooks
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
     
@@ -347,6 +342,11 @@ export const RevenueTrendsChart: React.FC<RevenueTrendsChartProps> = ({
 
   // Fixed utilization domain to always show 0-100%
   const utilizationDomain = [0, 100];
+
+  // Show loading state
+  if (isLoading) {
+    return <RevenueTrendsChartLoading />;
+  }
 
   if (!data || data.length === 0) {
     return (
