@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
+    // Add pathname to headers for layout access
+    const response = NextResponse.next();
+    response.headers.set('x-pathname', req.nextUrl.pathname);
+    
     // Check admin routes
     if (req.nextUrl.pathname.startsWith('/admin')) {
       const isAdmin = req.nextauth.token?.isAdmin;
@@ -11,6 +15,8 @@ export default withAuth(
         return NextResponse.redirect(new URL('/', req.url));
       }
     }
+    
+    return response;
   },
   {
     callbacks: {

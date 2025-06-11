@@ -1,0 +1,464 @@
+// Dashboard Utilities
+// Comprehensive utility functions for dashboard calculations, formatting, and data transformations
+
+import { format, parseISO, subDays, subWeeks, subMonths, startOfDay, endOfDay } from 'date-fns';
+import { DashboardFilters, DatePreset, PeriodMetrics, ChangeMetrics } from '@/types/sales-dashboard';
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+export const CHART_COLORS = {
+  primary: '#3B82F6',
+  secondary: '#8B5CF6',
+  accent: '#10B981',
+  muted: '#6B7280',
+  info: '#06B6D4',
+  success: '#059669',
+  warning: '#D97706',
+  danger: '#DC2626'
+};
+
+export const DASHBOARD_COLORS = {
+  revenue: '#3B82F6',
+  profit: '#10B981',
+  utilization: '#8B5CF6',
+  customers: '#F59E0B',
+  transactions: '#06B6D4',
+  margin: '#EF4444'
+};
+
+// =============================================================================
+// FORMATTING UTILITIES
+// =============================================================================
+
+/**
+ * Format currency values in Thai Baht
+ */
+export const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat('th-TH', {
+    style: 'currency',
+    currency: 'THB',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+/**
+ * Format compact currency (e.g., ฿1.2M, ฿45K)
+ */
+export const formatCompactCurrency = (value: number): string => {
+  const absValue = Math.abs(value);
+  
+  if (absValue >= 1000000) {
+    return `฿${(value / 1000000).toFixed(1)}M`;
+  } else if (absValue >= 1000) {
+    return `฿${(value / 1000).toFixed(1)}K`;
+  } else {
+    return formatCurrency(value);
+  }
+};
+
+/**
+ * Format percentage values
+ */
+export const formatPercentage = (value: number, decimals: number = 1): string => {
+  return `${value.toFixed(decimals)}%`;
+};
+
+/**
+ * Format number with thousands separator
+ */
+export const formatNumber = (value: number): string => {
+  return value.toLocaleString('th-TH');
+};
+
+/**
+ * Format change percentage with + or - sign
+ */
+export const formatChangePercentage = (value: number | null): string => {
+  if (value === null) return 'N/A';
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value.toFixed(1)}%`;
+};
+
+// =============================================================================
+// CALCULATION UTILITIES
+// =============================================================================
+
+/**
+ * Calculate percentage change between two values
+ */
+export const calculatePercentageChange = (current: number, previous: number): number | null => {
+  if (previous === 0) return null;
+  return ((current - previous) / previous) * 100;
+};
+
+/**
+ * Calculate Week-over-Week and Month-over-Month changes
+ */
+export const calculatePeriodChanges = (
+  current: PeriodMetrics,
+  comparison: PeriodMetrics
+): ChangeMetrics => {
+  return {
+    revenue_change_pct: calculatePercentageChange(
+      current.total_revenue, 
+      comparison.total_revenue
+    ),
+    profit_change_pct: calculatePercentageChange(
+      current.gross_profit, 
+      comparison.gross_profit
+    ),
+    transaction_change_pct: calculatePercentageChange(
+      current.avg_transaction_value, 
+      comparison.avg_transaction_value
+    ),
+    customer_acquisition_change_pct: calculatePercentageChange(
+      current.new_customers, 
+      comparison.new_customers
+    ),
+    sim_utilization_change_pct: current.sim_utilization_pct - comparison.sim_utilization_pct,
+    margin_change_pct: current.gross_margin_pct - comparison.gross_margin_pct
+  };
+};
+
+/**
+ * Get change direction for trend indicators
+ */
+export const getChangeDirection = (value: number | null): 'up' | 'down' | 'neutral' => {
+  if (value === null || value === 0) return 'neutral';
+  return value > 0 ? 'up' : 'down';
+};
+
+/**
+ * Get comparison period label based on comparison type and date preset
+ */
+export const getComparisonPeriodLabel = (
+  comparisonType: 'previousPeriod' | 'previousMonth' | 'previousYear',
+  datePreset?: DatePreset
+): string => {
+  switch (comparisonType) {
+    case 'previousMonth':
+      return 'MoM';
+    case 'previousYear':
+      return 'YoY';
+    case 'previousPeriod':
+    default:
+      // For month-to-date with previous period, it should be MoM
+      if (datePreset === 'monthToDate') {
+        return 'MoM';
+      }
+      // For other periods with previous period, use WoW for weekly comparisons
+      return 'WoW';
+  }
+};
+
+/**
+ * Calculate moving average for trend smoothing
+ */
+export const calculateMovingAverage = (
+  data: Array<{ date: string; value: number }>, 
+  windowSize: number = 7
+): Array<{ date: string; value: number; movingAverage: number }> => {
+  return data.map((point, index) => {
+    const start = Math.max(0, index - windowSize + 1);
+    const window = data.slice(start, index + 1);
+    const average = window.reduce((sum, p) => sum + p.value, 0) / window.length;
+    
+    return {
+      ...point,
+      movingAverage: average
+    };
+  });
+};
+
+// =============================================================================
+// DATE UTILITIES
+// =============================================================================
+
+/**
+ * Get date range for preset periods
+ * All ranges end on yesterday to ensure complete data (not partial current day)
+ */
+export const getDateRangeForPreset = (preset: DatePreset): { start: Date; end: Date } => {
+  const now = new Date();
+  const yesterday = startOfDay(subDays(now, 1)); // Always end on yesterday for complete data
+  const yesterdayEnd = endOfDay(subDays(now, 1));
+  
+  switch (preset) {
+    case 'today':
+      // Today still means today, but this is rarely used in dashboards
+      const today = startOfDay(now);
+      return { start: today, end: endOfDay(now) };
+    
+    case 'yesterday':
+      return { start: yesterday, end: yesterdayEnd };
+    
+    case 'last7days':
+      return { start: subDays(yesterday, 6), end: yesterdayEnd }; // 7 complete days ending yesterday
+    
+    case 'last30days':
+      return { start: subDays(yesterday, 29), end: yesterdayEnd }; // 30 complete days ending yesterday
+    
+    case 'last3months':
+      return { start: subMonths(yesterday, 3), end: yesterdayEnd }; // 3 months ending yesterday
+    
+    case 'monthToDate':
+      const monthStart = new Date(yesterday.getFullYear(), yesterday.getMonth(), 1);
+      return { start: monthStart, end: yesterdayEnd }; // Month to yesterday
+    
+    case 'yearToDate':
+      const yearStart = new Date(yesterday.getFullYear(), 0, 1);
+      return { start: yearStart, end: yesterdayEnd }; // Year to yesterday
+    
+    default:
+      return { start: subDays(yesterday, 29), end: yesterdayEnd }; // Default to last 30 complete days
+  }
+};
+
+/**
+ * Get comparison date range based on current range and comparison type
+ */
+export const getComparisonDateRange = (
+  currentStart: Date,
+  currentEnd: Date,
+  comparisonType: 'previousPeriod' | 'previousMonth' | 'previousYear'
+): { start: Date; end: Date } => {
+  const daysDiff = Math.ceil((currentEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24));
+  
+  switch (comparisonType) {
+    case 'previousPeriod':
+      return {
+        start: subDays(currentStart, daysDiff),
+        end: subDays(currentEnd, daysDiff)
+      };
+    
+    case 'previousMonth':
+      return {
+        start: subMonths(currentStart, 1),
+        end: subMonths(currentEnd, 1)
+      };
+    
+    case 'previousYear':
+      return {
+        start: new Date(currentStart.getFullYear() - 1, currentStart.getMonth(), currentStart.getDate()),
+        end: new Date(currentEnd.getFullYear() - 1, currentEnd.getMonth(), currentEnd.getDate())
+      };
+    
+    default:
+      return {
+        start: subDays(currentStart, daysDiff),
+        end: subDays(currentEnd, daysDiff)
+      };
+  }
+};
+
+/**
+ * Format date for display
+ */
+export const formatDisplayDate = (date: string | Date): string => {
+  const dateObj = typeof date === 'string' ? parseISO(date) : date;
+  return format(dateObj, 'MMM dd');
+};
+
+/**
+ * Format date for chart axis
+ */
+export const formatChartDate = (date: string | Date): string => {
+  const dateObj = typeof date === 'string' ? parseISO(date) : date;
+  return format(dateObj, 'MM/dd');
+};
+
+/**
+ * Format date for API queries
+ */
+export const formatApiDate = (date: Date): string => {
+  return format(date, 'yyyy-MM-dd');
+};
+
+// =============================================================================
+// CHART DATA UTILITIES
+// =============================================================================
+
+/**
+ * Generate trend data for mini charts in KPI cards
+ */
+export const generateTrendData = (
+  data: Array<{ date: string; value: number }>,
+  maxPoints: number = 7
+): Array<{ date: string; value: number }> => {
+  if (data.length <= maxPoints) return data;
+  
+  // Sample data evenly across the date range
+  const step = Math.floor(data.length / maxPoints);
+  return data.filter((_, index) => index % step === 0).slice(0, maxPoints);
+};
+
+/**
+ * Calculate chart bounds for better visualization
+ */
+export const calculateChartBounds = (values: number[]): { min: number; max: number } => {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const padding = (max - min) * 0.1; // 10% padding
+  
+  return {
+    min: Math.max(0, min - padding),
+    max: max + padding
+  };
+};
+
+/**
+ * Process category data for charts
+ */
+export const processCategoryData = (
+  categories: Array<{ parent_category: string; revenue: number; profit: number }>
+): Array<{ name: string; value: number; profit: number; percentage: number }> => {
+  const totalRevenue = categories.reduce((sum, cat) => sum + cat.revenue, 0);
+  
+  return categories.map(cat => ({
+    name: cat.parent_category,
+    value: cat.revenue,
+    profit: cat.profit,
+    percentage: totalRevenue > 0 ? (cat.revenue / totalRevenue) * 100 : 0
+  }));
+};
+
+// =============================================================================
+// PERFORMANCE UTILITIES
+// =============================================================================
+
+/**
+ * Debounce function for search and filter inputs
+ */
+export const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) => {
+  let timeout: NodeJS.Timeout;
+  
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
+
+/**
+ * Throttle function for performance-sensitive operations
+ */
+export const throttle = <T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): ((...args: Parameters<T>) => void) => {
+  let inThrottle: boolean;
+  
+  return (...args: Parameters<T>) => {
+    if (!inThrottle) {
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  };
+};
+
+// =============================================================================
+// VALIDATION UTILITIES
+// =============================================================================
+
+/**
+ * Validate dashboard filters
+ */
+export const validateFilters = (filters: Partial<DashboardFilters>): boolean => {
+  if (!filters.dateRange) return false;
+  
+  const { start, end } = filters.dateRange;
+  return start <= end && start <= new Date() && end <= new Date();
+};
+
+/**
+ * Get default filters for new dashboard instances
+ */
+export const getDefaultFilters = (): DashboardFilters => {
+  const { start, end } = getDateRangeForPreset('last30days');
+  
+  return {
+    dateRange: {
+      start,
+      end,
+      preset: 'last30days'
+    },
+    comparisonPeriod: 'previousPeriod'
+  };
+};
+
+// =============================================================================
+// ERROR HANDLING UTILITIES
+// =============================================================================
+
+/**
+ * Safe number formatting that handles null/undefined values
+ */
+export const safeFormatNumber = (value: number | null | undefined, formatter: (val: number) => string): string => {
+  if (value === null || value === undefined || isNaN(value)) {
+    return 'N/A';
+  }
+  return formatter(value);
+};
+
+/**
+ * Safe calculation that handles edge cases
+ */
+export const safeCalculate = (
+  numerator: number | null | undefined,
+  denominator: number | null | undefined,
+  fallback: number = 0
+): number => {
+  if (!numerator || !denominator || denominator === 0) {
+    return fallback;
+  }
+  return numerator / denominator;
+};
+
+// =============================================================================
+// EXPORT ALL UTILITIES
+// =============================================================================
+
+export const dashboardUtils = {
+  // Formatting
+  formatCurrency,
+  formatCompactCurrency,
+  formatPercentage,
+  formatNumber,
+  formatChangePercentage,
+  
+  // Calculations
+  calculatePercentageChange,
+  calculatePeriodChanges,
+  getChangeDirection,
+  calculateMovingAverage,
+  
+  // Dates
+  getDateRangeForPreset,
+  getComparisonDateRange,
+  formatDisplayDate,
+  formatChartDate,
+  formatApiDate,
+  
+  // Charts
+  generateTrendData,
+  calculateChartBounds,
+  processCategoryData,
+  
+  // Performance
+  debounce,
+  throttle,
+  
+  // Validation
+  validateFilters,
+  getDefaultFilters,
+  
+  // Safety
+  safeFormatNumber,
+  safeCalculate
+}; 

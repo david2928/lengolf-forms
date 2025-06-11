@@ -422,13 +422,29 @@ export async function PUT(
         // 1. Delete all old events
         if (originalBookingSnapshot.calendar_events && originalBookingSnapshot.calendar_events.length > 0) {
           console.log('Deleting old calendar events:', originalBookingSnapshot.calendar_events);
+          let deletionErrors = [];
           for (const oldEvent of originalBookingSnapshot.calendar_events) {
             try {
               await deleteCalendarEvent(auth, oldEvent.calendarId, oldEvent.eventId);
-            } catch (delError) {
+              console.log(`Successfully deleted old GCal event ${oldEvent.eventId} from calendar ${oldEvent.calendarId}`);
+            } catch (delError: any) {
+              deletionErrors.push({
+                eventId: oldEvent.eventId,
+                calendarId: oldEvent.calendarId,
+                error: delError.message || String(delError)
+              });
               console.warn(`Failed to delete old GCal event ${oldEvent.eventId} from calendar ${oldEvent.calendarId}:`, delError);
-              // Log and continue, don't let one deletion failure stop the whole process
+              // Continue with other deletions and new event creation, but log the failure
             }
+          }
+          
+          // If there were deletion errors, update the sync status to indicate partial failure
+          if (deletionErrors.length > 0) {
+            console.error('Some calendar events failed to delete during bay change:', deletionErrors);
+            await refacSupabaseAdmin.from('bookings').update({ 
+              google_calendar_sync_status: 'partial_sync_error',
+              notes: `Bay change completed but ${deletionErrors.length} old events failed to delete. Manual cleanup may be needed.`
+            }).eq('id', bookingId);
           }
         }
 

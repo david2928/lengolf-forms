@@ -135,35 +135,52 @@ export async function POST(
       console.log(`Cancel booking: Deleting ${currentBooking.calendar_events.length} Google Calendar event(s) for booking ${bookingId}.`);
       try {
         const auth = await getServiceAccountAuth();
-        // const calendar = initializeCalendar(auth); // Not strictly needed if deleteCalendarEvent takes auth
-
+        
         let allGCalDeletionsSuccessful = true;
+        let deletionErrors = [];
+        
         for (const event of currentBooking.calendar_events) {
           try {
+            console.log(`Cancel booking: Attempting to delete GCal event ${event.eventId} from calendar ${event.calendarId} for booking ${bookingId}`);
             await deleteCalendarEvent(auth, event.calendarId, event.eventId);
             console.log(`Cancel booking: Successfully deleted GCal event ${event.eventId} from calendar ${event.calendarId} for booking ${bookingId}`);
-          } catch (gcalDeleteError) {
+          } catch (gcalDeleteError: any) {
             allGCalDeletionsSuccessful = false;
-            console.warn(`Cancel booking: Failed to delete GCal event ${event.eventId} from calendar ${event.calendarId} for booking ${bookingId}:`, gcalDeleteError);
-            // Log and continue, don't let one deletion failure stop others or the main cancellation flow.
+            deletionErrors.push({
+              eventId: event.eventId,
+              calendarId: event.calendarId,
+              error: gcalDeleteError.message || String(gcalDeleteError)
+            });
+            console.error(`Cancel booking: Failed to delete GCal event ${event.eventId} from calendar ${event.calendarId} for booking ${bookingId}:`, gcalDeleteError);
           }
         }
 
+        // Update the booking to clear calendar_events and set appropriate sync status
+        let syncStatus = 'cancelled_events_deleted';
+        let updateData: any = { calendar_events: [] }; // Clear the events array since they should all be deleted
+        
         if (!allGCalDeletionsSuccessful) {
-          console.warn(`Cancel booking: Not all GCal events were deleted successfully for ${bookingId}. Manual check may be needed.`);
-          // Optionally, update google_calendar_sync_status on the already cancelled booking if needed for tracking.
-          // Example: await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'cancelled_gcal_deletion_error' }).eq('id', bookingId);
+          console.warn(`Cancel booking: Not all GCal events were deleted successfully for ${bookingId}. Errors:`, deletionErrors);
+          syncStatus = 'cancelled_partial_deletion_error';
+          // Don't clear the calendar_events array if some deletions failed, so we can retry later
+          updateData = { google_calendar_sync_status: syncStatus };
         } else {
           console.log(`Cancel booking: All linked GCal events deleted successfully for ${bookingId}.`);
+          updateData.google_calendar_sync_status = syncStatus;
         }
+        
+        // Update the booking with the new sync status and potentially cleared events
+        await refacSupabaseAdmin.from('bookings').update(updateData).eq('id', bookingId);
 
       } catch (gcalAuthError) {
         console.error(`Cancel booking: Error obtaining Google Auth or initializing calendar for deletion for booking ${bookingId}:`, gcalAuthError);
         // Update sync status to reflect this broader GCal issue
-        // await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'cancelled_gcal_auth_error' }).eq('id', bookingId);
+        await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'cancelled_gcal_auth_error' }).eq('id', bookingId);
       }
     } else {
       console.log(`Cancel booking: No Google Calendar events linked to booking ${bookingId} to delete.`);
+      // Update sync status to indicate successful cancellation with no events to delete
+      await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'cancelled_no_events' }).eq('id', bookingId);
     }
 
     // // 6. LINE notification for cancellation - MOVED TO CLIENT-SIDE

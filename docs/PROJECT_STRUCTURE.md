@@ -10,6 +10,8 @@ The project is organized into several key areas:
 - **Configuration Files**: Build, deployment, and development configuration
 - **Documentation**: Project documentation and structure guides
 
+**Current Admin System:** The application includes a basic admin section with binary user/admin roles. A comprehensive hierarchical admin framework (staff/admin/super_admin) is documented in [ADMIN_FRAMEWORK.md](ADMIN_FRAMEWORK.md) for future implementation.
+
 For detailed backend architecture and API documentation, see [BACKEND_DOCUMENTATION.md](BACKEND_DOCUMENTATION.md).
 
 ## Root Directory
@@ -91,7 +93,7 @@ Contains API route handlers organized by business domain. Each subdirectory repr
 -   `route.ts`: **POST** `/api/notify` - LINE Messaging API integration for notifications
 
 #### Authentication (`app/api/auth/`)
--   `[...nextauth]/route.ts`: NextAuth.js authentication handler for Google OAuth
+-   `[...nextauth]/route.ts`: NextAuth.js authentication handler for Google OAuth with admin role support
 -   `signin/`: Custom sign-in page routes
 -   `cloud-run-token/`: Google Cloud Run authentication tokens
 
@@ -117,11 +119,22 @@ Contains pages related to user authentication.
 ### Feature-Specific Page Directories
 These directories contain the main page component and potentially supporting files for specific features of the application.
 
+#### Staff/Operational Pages
 -   `app/create-booking/page.tsx`: Page for creating new bookings (route: `/create-booking`). Uses `BookingProvider` and the `BookingForm` component from `src/components/booking-form/`.
 -   `app/bookings-calendar/page.tsx`: Page for viewing the bookings calendar (route: `/bookings-calendar`). A complex client component that fetches and displays bookings for different bays in a daily time-slot grid. Supports navigation between days and is responsive.
+-   `app/manage-bookings/page.tsx`: Page for managing existing bookings (route: `/manage-bookings`). Allows viewing, editing, and canceling bookings with advanced filtering and search capabilities.
 -   `app/package-monitor/page.tsx`: Page for monitoring customer packages (route: `/package-monitor`). Uses the `usePackageMonitor` hook to fetch data and displays it in grids for "Active Unlimited Packages" and "Packages Expiring Soon" using `PackageGrid` components. Includes a `CustomerSelector`.
 -   `app/create-package/page.tsx`: Page for creating new customer packages (route: `/create-package`). Dynamically imports and renders the `PackageForm` component (client-side only) from `src/components/package-form/`.
 -   `app/update-package/page.tsx`: Page for updating package usage (route: `/update-package`). Renders the `UsageForm` component from `src/components/package-usage/`.
+
+#### Administrative Pages
+-   `app/admin/`: Administrative section with enhanced access controls
+    -   `app/admin/page.tsx`: Admin dashboard (route: `/admin`) with overview cards for inventory management, system settings, analytics, user management, and database tools. Currently contains placeholder cards marked "Coming soon" for future feature implementation.
+    -   `app/admin/layout.tsx`: Admin-specific layout that enforces admin authentication and provides admin-specific styling and navigation context.
+-   `app/inventory/page.tsx`: Inventory management page (route: `/inventory`) for product and stock management.
+-   `app/special-events/`: Special event management, currently containing US Open event handling.
+
+#### Utility Directories
 -   `app/fonts/`: (Likely) Contains custom font files if any are used beyond standard web fonts.
 
 ## `src/` Directory (Source Code)
@@ -154,10 +167,13 @@ Contains utility functions, service integrations, and core business logic organi
 #### Authentication & Authorization
 -   `auth-config.ts`: NextAuth.js configuration with:
     -   Google OAuth provider setup
-    -   Custom authorization callbacks
-    -   JWT session strategy
+    -   Custom authorization callbacks with admin role detection
+    -   JWT session strategy with admin flag
     -   30-day session duration
--   `auth.ts`: Authentication helper functions including email whitelist validation
+-   `auth.ts`: Authentication helper functions including:
+    -   Email whitelist validation (`isUserAllowed`)  
+    -   Admin role checking (`isUserAdmin`)
+    -   Binary admin role system (user/admin)
 
 #### Business Logic & Utilities
 -   `constants.ts`: Application-wide constants including:
@@ -202,7 +218,7 @@ Contains application-level configuration files or objects that are not environme
 ### `src/components/` Subdirectory
 Contains reusable React components that make up the application's user interface.
 
--   `nav.tsx`: The main navigation bar component. It's responsive, showing different layouts for desktop and mobile, and includes links to major sections of the app and a sign-out button. Used in `app/layout.tsx`.
+-   `nav.tsx`: The main navigation bar component. It's responsive, showing different layouts for desktop and mobile, includes links to major sections of the app, conditional admin menu for privileged users, and a sign-out button. Features dropdown menus for Bookings, Packages, and Admin sections. Used in `app/layout.tsx`.
 -   `nav-menu.tsx`: (Potentially) A more detailed navigation menu, a sub-component of `nav.tsx`, or an alternative menu for specific contexts. (Note: Marked for deletion in `src/components/ui/delete-log.txt`).
 -   `session-provider.tsx`: A simple wrapper component that provides the NextAuth.js session to its children via React Context.
 -   `logout-button.tsx`: A dedicated button component for handling user sign-out.
@@ -236,9 +252,29 @@ Contains reusable React components that make up the application's user interface
 
 ## Other Key Files (Root Level)
 
--   `middleware.ts`: Located at the root (or `src/`), this Next.js middleware handles incoming requests. It can be used for various purposes such as authentication checks (redirecting unauthenticated users), setting security headers, or A/B testing logic before the request hits a page or API route.
+-   `middleware.ts`: Located at the root, this Next.js middleware handles incoming requests with authentication checks and admin route protection. It verifies user authentication for all protected routes and specifically validates admin access for `/admin/*` routes, redirecting non-admin users to the home page.
 -   `next.config.js`: Central Next.js configuration. Can define environment variables, Webpack customizations, image optimization settings, redirects, rewrites, and headers.
 -   `tailwind.config.ts`: Configures Tailwind CSS. This includes defining custom colors, fonts, breakpoints, spacing, and extending Tailwind's default utility classes or adding plugins. The `content` array specifies which files Tailwind should scan to generate necessary CSS.
 -   `tsconfig.json`: TypeScript compiler options. Defines how `.ts` and `.tsx` files are compiled to JavaScript. Important settings include `target` (JS version), `module` (module system), `jsx` (JSX processing), `strict` (enables strict type-checking), `baseUrl`, and `paths` (for module path aliases like `@/*`).
+
+## Future Admin Framework
+
+The current admin implementation provides a foundation for future expansion. A comprehensive admin framework is planned that will include:
+
+### Proposed Hierarchical Structure
+- **Staff Level**: Current operational functionality (existing pages)
+- **Admin Level**: Enhanced management tools (partially implemented in `/admin`)
+- **Super Admin Level**: System-wide configuration and user management (planned)
+
+### Planned Enhancements
+- **Role-Based Access Control**: Migration from binary admin flag to granular role system
+- **Advanced Permission System**: Fine-grained permissions for different features
+- **API Route Organization**: Restructured API endpoints by access level
+- **Enhanced Admin Features**: Analytics, inventory management, staff management
+- **Audit Logging**: Comprehensive action tracking and compliance features
+
+For detailed specifications and implementation roadmap, see [ADMIN_FRAMEWORK.md](ADMIN_FRAMEWORK.md).
+
+---
 
 This structure provides a detailed overview. For the most precise understanding, always refer to the individual files and their inline comments or associated documentation if available. 

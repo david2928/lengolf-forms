@@ -467,14 +467,51 @@ export async function deleteCalendarEvent(
 ): Promise<void> { // Google API delete typically returns empty or 204 No Content
   const calendar = initializeCalendar(auth);
   try {
+    // First attempt: Normal deletion
     await calendar.events.delete({
       calendarId: calendarId,
       eventId: eventId,
     });
+    
+    // Verify the deletion was successful by checking if the event still exists
+    try {
+      const checkResponse = await calendar.events.get({
+        calendarId: calendarId,
+        eventId: eventId,
+      });
+      
+      // If we can still get the event, check its status
+      if (checkResponse.data) {
+        const status = checkResponse.data.status;
+        
+        if (status === 'cancelled') {
+          // Event was marked as cancelled instead of being deleted
+          // This is Google Calendar's behavior for certain types of events
+          console.log(`Event ${eventId} was marked as cancelled instead of deleted. This is expected behavior for some event types.`);
+          return; // Treat as successful deletion
+        } else if (status === 'confirmed') {
+          // Event still exists and is active - deletion failed
+          console.warn(`Event ${eventId} deletion failed - event still exists with status: ${status}`);
+          throw new Error(`Event deletion failed - event still exists with status: ${status}`);
+        }
+      }
+    } catch (verifyError: any) {
+      // If we get a 404 or 410 error when trying to verify, the event was successfully deleted
+      if (verifyError.status === 404 || verifyError.status === 410 || 
+          verifyError.code === 404 || verifyError.code === 410) {
+        // Event not found - deletion was successful
+        return;
+      }
+      // Other errors during verification should be logged but not block the process
+      console.warn(`Could not verify event deletion for ${eventId}:`, verifyError.message);
+      return; // Assume deletion was successful
+    }
+    
   } catch (error: any) {
-    // Check if the error is "Resource has been deleted" (HTTP 410)
-    if (error.status === 410 || error.code === 410) {
-      // Treat as successful since the resource is already gone
+    // Check if the error is "Resource has been deleted" (HTTP 410) or "Not Found" (HTTP 404)
+    if (error.status === 410 || error.code === 410 || 
+        error.status === 404 || error.code === 404) {
+      // Treat as successful since the resource is already gone or not found
       return;
     }
     

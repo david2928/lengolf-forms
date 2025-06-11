@@ -5,12 +5,11 @@ import { useState, useEffect } from 'react';
 import { DateTime } from 'luxon';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { formatBookingsForCalendar, type CalendarEvent } from '@/lib/calendar-utils';
 import type { Booking } from '@/types/booking';
 import { BigCalendarView } from '@/components/calendar/BigCalendarView';
-import { EditBookingModal } from '@/components/manage-bookings/EditBookingModal';
 import { ViewBookingModal } from '@/components/calendar/ViewBookingModal';
 import { useToast } from '@/components/ui/use-toast';
 import { DayPicker } from 'react-day-picker';
@@ -58,9 +57,7 @@ export default function BookingsCalendarPage() {
   const [isMobile, setIsMobile] = useState(false);
   
   // Modal state management
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedBookingForEdit, setSelectedBookingForEdit] = useState<Booking | null>(null);
   const [selectedBookingForView, setSelectedBookingForView] = useState<Booking | null>(null);
   const { toast } = useToast();
   
@@ -286,14 +283,9 @@ export default function BookingsCalendarPage() {
       
       const bookingData = await response.json();
       
-      // Check if booking is in the past to determine which modal to open
-      if (isBookingInPast(bookingData.booking)) {
-        setSelectedBookingForView(bookingData.booking);
-        setIsViewModalOpen(true);
-      } else {
-        setSelectedBookingForEdit(bookingData.booking);
-        setIsEditModalOpen(true);
-      }
+      // Always open view modal - it will handle edit/cancel buttons internally
+      setSelectedBookingForView(bookingData.booking);
+      setIsViewModalOpen(true);
     } catch (error) {
       console.error('Error opening booking modal:', error);
       toast({
@@ -309,27 +301,7 @@ export default function BookingsCalendarPage() {
     setSelectedBookingForView(null);
   };
 
-  const handleCloseEditModal = () => {
-    setIsEditModalOpen(false);
-    setSelectedBookingForEdit(null);
-  };
-
-  const handleSwitchToEditModal = () => {
-    if (selectedBookingForView) {
-      setSelectedBookingForEdit(selectedBookingForView);
-      setSelectedBookingForView(null);
-      setIsViewModalOpen(false);
-      setIsEditModalOpen(true);
-    }
-  };
-
-  const handleEditSuccess = (updatedBooking: Booking) => {
-    toast({
-      title: "Booking Updated",
-      description: `Booking for ${updatedBooking.name} has been updated.`,
-    });
-    
-    // Refresh bookings data
+  const refreshBookingsData = () => {
     const dateString = selectedDate.toISODate();
     if (dateString) {
       // Re-fetch bookings for the current date
@@ -367,6 +339,15 @@ export default function BookingsCalendarPage() {
     }
   };
 
+  const handleBookingUpdated = () => {
+    refreshBookingsData();
+  };
+
+  // Navigate to create booking page
+  const handleCreateNewBooking = () => {
+    router.push('/create-booking');
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="flex-shrink-0 container mx-auto px-4 py-3">
@@ -376,6 +357,15 @@ export default function BookingsCalendarPage() {
           </h1>
           
           <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-4'}`}>
+            <Button 
+              onClick={handleCreateNewBooking}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              size="sm"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              {isMobile ? 'New' : 'New Booking'}
+            </Button>
+            
             <Button 
               variant="outline" 
               size={isMobile ? "sm" : "default"} 
@@ -453,16 +443,10 @@ export default function BookingsCalendarPage() {
         isOpen={isViewModalOpen}
         onClose={handleCloseViewModal}
         booking={selectedBookingForView}
-        onEditClick={handleSwitchToEditModal}
+        onBookingUpdated={handleBookingUpdated}
       />
 
-      {/* Edit Booking Modal */}
-      <EditBookingModal
-        isOpen={isEditModalOpen}
-        onClose={handleCloseEditModal}
-        booking={selectedBookingForEdit}
-        onSuccess={handleEditSuccess}
-      />
+
     </div>
   );
 } 

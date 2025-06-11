@@ -12,7 +12,8 @@ Lengolf Forms is a full-featured booking and management system built specificall
 - **Calendar Integration**: Seamless synchronization with Google Calendar for staff coordination
 - **Real-time Notifications**: Instant notifications via LINE Messaging API for booking updates
 - **Customer Relationship Management**: Integrated CRM with automated data synchronization
-- **Staff Authentication**: Secure role-based access control for staff members
+- **Administrative Controls**: Role-based access with dedicated admin section for privileged users
+- **Staff Authentication**: Secure authentication with admin role differentiation
 - **Responsive Design**: Optimized for both desktop and mobile usage
 
 ## Key Features
@@ -21,16 +22,18 @@ Lengolf Forms is a full-featured booking and management system built specificall
 - **Multi-Calendar Integration**: Synchronized with Google Calendar for seamless scheduling
 - **Real-time Notifications**: LINE Messaging API integration for instant booking notifications
 - **Package Monitoring**: Track active customer packages with expiration alerts
-- **User Authentication**: Secure staff login system
+- **Administrative Dashboard**: Dedicated admin section with enhanced management tools
+- **User Authentication**: Secure staff login system with admin role support
 - **Responsive Design**: Works on desktop and mobile devices
 
 ## Core Features & Modules
 
 This application is composed of several key modules that provide its core functionality:
 
-*   **User Authentication**: Secure sign-in using Google accounts, managed via NextAuth.js. (See `app/auth/`, `src/lib/auth-config.ts`)
+*   **User Authentication**: Secure sign-in using Google accounts with role-based access control, managed via NextAuth.js. Supports binary admin roles (user/admin). (See `app/auth/`, `src/lib/auth-config.ts`)
 *   **Booking Management**:
     *   **Booking Creation**: A dedicated form (`app/create-booking/`, `src/components/booking-form/`) allows users to create new bookings.
+    *   **Booking Management**: Advanced booking management interface (`app/manage-bookings/`) for editing, canceling, and bulk operations.
     *   **Bookings Calendar**: A visual calendar (`app/bookings-calendar/`) displays bookings across different bays, with daily navigation and real-time updates.
     *   **API**: Backend logic for creating and retrieving bookings (`app/api/bookings/`).
 *   **Package Management**:
@@ -38,6 +41,10 @@ This application is composed of several key modules that provide its core functi
     *   **Package Usage**: Functionality to record and update the usage of customer packages (`app/update-package/`, `src/components/package-usage/`).
     *   **Package Monitoring**: A dashboard (`app/package-monitor/`, `src/hooks/use-package-monitor.ts`) to track active "Unlimited" packages and those nearing expiration.
     *   **API**: Endpoints for package data (`app/api/packages/`).
+*   **Administrative System**:
+    *   **Admin Dashboard**: A dedicated admin section (`app/admin/`) with overview of system management tools and future expansion capabilities.
+    *   **Admin Authentication**: Role-based access control with `isUserAdmin()` function and middleware protection.
+    *   **Admin Navigation**: Conditional admin menu items in the main navigation for privileged users.
 *   **Customer Data Management**:
     *   **CRM Integration**: An API endpoint (`app/api/crm/update-customers/`) triggers a Google Cloud Run service to refresh customer data.
     *   **Data Hooks**: Custom hooks (`src/hooks/useCustomers.ts`, `src/hooks/use-customers.ts`) for fetching customer lists.
@@ -46,10 +53,22 @@ This application is composed of several key modules that provide its core functi
     *   **Google Calendar**: Synchronization for bookings (`src/lib/google-calendar.ts`).
     *   **Google Sheets**: Potential data exchange with Google Sheets (`src/lib/google-sheets-service.ts`).
 *   **Navigation & UI**:
-    *   **Main Navigation**: A responsive navigation bar (`src/components/nav.tsx`) provides access to all features.
+    *   **Main Navigation**: A responsive navigation bar (`src/components/nav.tsx`) provides access to all features with conditional admin menus.
     *   **UI Components**: A rich set of reusable UI components is available in `src/components/ui/`, based on Shadcn/UI principles.
 
 For a more detailed breakdown of the entire codebase structure, refer to the [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) file.
+
+### Future Admin Framework
+
+The current admin implementation serves as a foundation for a comprehensive administrative system. A detailed framework for expanding admin capabilities is documented in [ADMIN_FRAMEWORK.md](docs/ADMIN_FRAMEWORK.md), which outlines:
+
+- **Hierarchical Role System**: Staff/Admin/Super Admin role progression
+- **Advanced Permission System**: Granular feature-level permissions
+- **Enhanced Admin Features**: Analytics, inventory management, staff management
+- **API Route Organization**: Structured API endpoints by access level
+- **Audit & Compliance**: Comprehensive action logging and security measures
+
+The framework provides a roadmap for scalable administrative functionality while maintaining backward compatibility with existing operations.
 
 ## Tech Stack
 
@@ -122,6 +141,19 @@ A new package monitoring feature has been added allowing staff to:
 - Get alerts on soon-to-expire packages
 - View detailed package information
 
+### Admin Section Implementation
+
+A dedicated admin section has been implemented to provide enhanced management capabilities:
+
+- **Admin Dashboard**: Central hub for administrative tools and system overview
+- **Role-Based Access**: Binary admin role system with middleware protection
+- **Enhanced Navigation**: Conditional admin menu items for privileged users
+- **Future Expansion**: Framework for advanced admin features (inventory, analytics, user management)
+- **Secure Authentication**: Admin role detection integrated with existing Google OAuth flow
+
+**Current Features**: Admin dashboard with placeholder cards for future functionality
+**Planned Features**: Advanced analytics, inventory management, staff management, system settings
+
 ## Environment Setup
 
 The application requires several environment variables to be set up properly:
@@ -136,6 +168,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 NEXT_PUBLIC_REFAC_SUPABASE_URL=your-refac-supabase-url
 NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY=your-refac-supabase-anon-key
 REFAC_SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Admin System Database Tables (backoffice schema):
+# - allowed_users: User whitelist with is_admin flag
+# - customers: Customer management
+# - package_types: Package definitions
 ```
 
 ### Google Services Configuration

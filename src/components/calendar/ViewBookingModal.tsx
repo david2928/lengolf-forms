@@ -1,23 +1,30 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, Users, MapPin, Phone, Mail, FileText, Package, Hash } from 'lucide-react';
+import { Calendar, Clock, Users, MapPin, Phone, Mail, FileText, Package, Hash, X, Edit } from 'lucide-react';
 import type { Booking } from '@/types/booking';
 import { format, parseISO } from 'date-fns';
+import { CancelBookingModal } from '@/components/manage-bookings/CancelBookingModal';
+import { EditBookingModal } from '@/components/manage-bookings/EditBookingModal';
+import { useToast } from '@/components/ui/use-toast';
 
 interface ViewBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   booking: Booking | null;
-  onEditClick?: () => void; // Optional edit button
+  onBookingUpdated?: () => void; // Callback when booking is updated or cancelled
 }
 
-export function ViewBookingModal({ isOpen, onClose, booking, onEditClick }: ViewBookingModalProps) {
+export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }: ViewBookingModalProps) {
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const { toast } = useToast();
+
   if (!booking) return null;
 
   // Format date and time for display
@@ -81,8 +88,50 @@ export function ViewBookingModal({ isOpen, onClose, booking, onEditClick }: View
     return email?.toLowerCase() === 'info@len.golf';
   };
 
+  const handleOpenCancelModal = () => {
+    setIsCancelModalOpen(true);
+  };
+
+  const handleCloseCancelModal = () => {
+    setIsCancelModalOpen(false);
+  };
+
+  const handleOpenEditModal = () => {
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+  };
+
+  const handleCancelSuccess = (bookingId: string) => {
+    toast({
+      title: "Booking Cancelled",
+      description: `Booking for ${booking.name} has been cancelled.`,
+      variant: "destructive"
+    });
+    setIsCancelModalOpen(false);
+    onClose(); // Close the view modal
+    if (onBookingUpdated) {
+      onBookingUpdated(); // Notify parent to refresh data
+    }
+  };
+
+  const handleEditSuccess = (updatedBooking: Booking) => {
+    toast({
+      title: "Booking Updated",
+      description: `Booking for ${updatedBooking.name} has been updated.`,
+    });
+    setIsEditModalOpen(false);
+    onClose(); // Close the view modal
+    if (onBookingUpdated) {
+      onBookingUpdated(); // Notify parent to refresh data
+    }
+  };
+
   const isPastBooking = isInPast();
   const endTime = calculateEndTime(booking.start_time, booking.duration);
+  const isCancelled = booking.status === 'cancelled';
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -198,16 +247,37 @@ export function ViewBookingModal({ isOpen, onClose, booking, onEditClick }: View
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-2 pt-4">
-          {!isPastBooking && onEditClick && (
-            <Button onClick={onEditClick} variant="default">
-              Edit Booking
-            </Button>
+          {!isPastBooking && !isCancelled && (
+            <>
+              <Button onClick={handleOpenEditModal} variant="default" size="sm">
+                <Edit className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+              <Button onClick={handleOpenCancelModal} variant="destructive" size="sm">
+                <X className="h-4 w-4 mr-1" />
+                Cancel
+              </Button>
+            </>
           )}
           <Button onClick={onClose} variant="outline">
             Close
           </Button>
         </div>
       </DialogContent>
+
+      <CancelBookingModal
+        isOpen={isCancelModalOpen}
+        onClose={handleCloseCancelModal}
+        booking={booking}
+        onSuccess={handleCancelSuccess}
+      />
+
+      <EditBookingModal
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        booking={booking}
+        onSuccess={handleEditSuccess}
+      />
     </Dialog>
   );
 } 
