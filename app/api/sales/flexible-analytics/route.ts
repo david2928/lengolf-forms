@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
+// Force dynamic rendering for this route since it uses search parameters
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
 
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = request.nextUrl;
     
     // Get parameters from query string
     const start_date = searchParams.get('start_date');

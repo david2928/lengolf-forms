@@ -8,12 +8,15 @@ Lengolf Forms is a full-featured booking and management system built specificall
 
 ### System Capabilities
 - **Multi-Bay Booking Management**: Coordinate bookings across multiple golf bays with real-time availability
+- **Advanced Sales Analytics**: Comprehensive business intelligence dashboard with KPIs, trends, and performance metrics
 - **Package Lifecycle Management**: Create, monitor, and track customer packages with expiration alerts
+- **Enhanced Calendar System**: Intelligent booking consolidation with mobile-optimized interface
 - **Calendar Integration**: Seamless synchronization with Google Calendar for staff coordination
 - **Real-time Notifications**: Instant notifications via LINE Messaging API for booking updates
 - **Customer Relationship Management**: Integrated CRM with automated data synchronization
-- **Administrative Controls**: Role-based access with dedicated admin section for privileged users
+- **Administrative Controls**: Role-based access with dedicated admin section and analytics suite
 - **Staff Authentication**: Secure authentication with admin role differentiation
+- **Audit & Compliance**: Comprehensive booking history and staff action tracking
 - **Responsive Design**: Optimized for both desktop and mobile usage
 
 ## Key Features
@@ -22,8 +25,10 @@ Lengolf Forms is a full-featured booking and management system built specificall
 - **Multi-Calendar Integration**: Synchronized with Google Calendar for seamless scheduling
 - **Real-time Notifications**: LINE Messaging API integration for instant booking notifications
 - **Package Monitoring**: Track active customer packages with expiration alerts
-- **Administrative Dashboard**: Dedicated admin section with enhanced management tools
+- **Sales Analytics Dashboard**: Comprehensive business intelligence with KPIs, charts, and performance tracking
+- **Administrative Dashboard**: Dedicated admin section with enhanced management tools and reporting
 - **User Authentication**: Secure staff login system with admin role support
+- **Advanced Calendar System**: Enhanced booking calendar with consolidation and mobile optimization
 - **Responsive Design**: Works on desktop and mobile devices
 
 ## Core Features & Modules
@@ -108,7 +113,130 @@ For a detailed explanation of the codebase structure, please refer to the [PROJE
 
 For comprehensive backend documentation including API endpoints, database schema, and integration details, see [BACKEND_DOCUMENTATION.md](BACKEND_DOCUMENTATION.md).
 
+## Documentation
+
+Comprehensive documentation for the Lengolf Forms system is available in the `docs/` directory. The documentation is organized into logical sections to serve different audiences and use cases:
+
+### 📚 Documentation Overview
+
+The documentation covers all aspects of the system, from high-level architecture to detailed implementation guides:
+
+- **Complete System Coverage**: Every major feature and component is documented
+- **Multi-Audience Approach**: Documentation for developers, administrators, and end users
+- **Technical Deep-Dives**: Detailed technical implementation with code examples
+- **Business Logic Documentation**: Clear explanation of business rules and workflows
+- **Integration Guides**: Comprehensive coverage of external system integrations
+
+### 🗂️ Documentation Structure
+
+**Core System Documentation:**
+- **[docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)** - Complete codebase structure and organization
+- **[docs/BACKEND_DOCUMENTATION.md](docs/BACKEND_DOCUMENTATION.md)** - API endpoints, database, and server-side architecture
+- **[docs/frontend/FRONTEND_OVERVIEW.md](docs/frontend/FRONTEND_OVERVIEW.md)** - Component architecture, hooks, and UI patterns
+- **[docs/technical/DATABASE_SCHEMA.md](docs/technical/DATABASE_SCHEMA.md)** - Complete database structure and relationships
+
+**Feature Documentation:**
+- **[docs/features/BOOKING_SYSTEM.md](docs/features/BOOKING_SYSTEM.md)** - Complete booking management workflow with multi-step creation, calendar integration, and audit trails
+- **[docs/features/PACKAGE_MANAGEMENT.md](docs/features/PACKAGE_MANAGEMENT.md)** - Customer packages, usage tracking, expiration monitoring, and unlimited package support
+- **[docs/features/ADMIN_PANEL.md](docs/features/ADMIN_PANEL.md)** - Administrative interface with role-based access and business intelligence tools
+- **[docs/features/SALES_DASHBOARD.md](docs/features/SALES_DASHBOARD.md)** - Comprehensive analytics with KPIs, charts, and flexible date filtering
+
+### 🎯 Documentation Highlights
+
+**Comprehensive Feature Coverage:**
+- **Booking System**: Multi-step booking creation, management, calendar integration, cancellation workflows
+- **Package Management**: Creation, monitoring, usage tracking, expiration alerts for both time-based and unlimited packages
+- **Admin System**: Role-based access control, sales analytics, business intelligence dashboard
+- **Calendar Integration**: Google Calendar synchronization, booking consolidation, mobile optimization
+- **Database Design**: Complete schema documentation with relationships, functions, and performance considerations
+
+**Technical Implementation Details:**
+- **API Documentation**: All endpoints with request/response examples and business logic
+- **Database Schema**: Complete table structures, relationships, and stored procedures
+- **Frontend Architecture**: Component organization, state management, and UI patterns
+- **Integration Points**: External API integrations including Google Calendar and LINE Messaging
+
+**Business Logic Documentation:**
+- **Booking Rules**: Validation, time slot management, package integration
+- **Package Lifecycle**: Creation, activation, usage tracking, expiration management
+- **Admin Controls**: Access control, audit trails, analytics configuration
+- **User Workflows**: Step-by-step processes for all major operations
+
+### 📖 Quick Navigation
+
+- **For Developers**: Start with [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md) → [Frontend Overview](docs/frontend/FRONTEND_OVERVIEW.md) → [Backend Documentation](docs/BACKEND_DOCUMENTATION.md)
+- **For System Administrators**: [Admin Panel](docs/features/ADMIN_PANEL.md) → [Sales Dashboard](docs/features/SALES_DASHBOARD.md) → [Database Schema](docs/technical/DATABASE_SCHEMA.md)
+- **For Feature Understanding**: [Booking System](docs/features/BOOKING_SYSTEM.md) → [Package Management](docs/features/PACKAGE_MANAGEMENT.md)
+- **For Integration Work**: [Backend Documentation](docs/BACKEND_DOCUMENTATION.md) → [Database Schema](docs/technical/DATABASE_SCHEMA.md)
+
+The documentation is maintained alongside the codebase and updated with each major feature release to ensure accuracy and completeness.
+
 ## Recent Changes
+
+### Sales Dashboard Implementation (June 2025)
+
+A comprehensive sales analytics dashboard has been added to the admin section, providing detailed insights into business performance:
+
+**Key Features:**
+- **Advanced Analytics**: Real-time KPI tracking with revenue, bookings, and customer metrics
+- **Interactive Charts**: Multiple chart types including trend analysis, category breakdowns, and utilization rates
+- **Flexible Date Filtering**: Support for various date presets (today, last 7/30 days, month-to-date, year-to-date)
+- **Comparison Analysis**: Period-over-period comparisons with previous periods, months, or years
+- **Bay Utilization Tracking**: Simulator usage statistics across all golf bays
+- **Revenue Trends**: Historical revenue analysis with growth tracking
+- **Customer Growth Analytics**: New customer acquisition and retention metrics
+- **Payment Method Analysis**: Breakdown of payment preferences and trends
+- **Category Performance**: Detailed analysis of different booking types and packages
+- **Export Capabilities**: Data export functionality for reporting
+- **Mobile Responsive**: Optimized for desktop and mobile viewing
+
+**Technical Implementation:**
+- New API endpoints: `/api/dashboard/summary`, `/api/dashboard/charts`, `/api/sales/flexible-analytics`
+- Custom React hooks for data fetching and state management
+- Recharts integration for interactive data visualization
+- Real-time data updates with SWR caching
+- Error handling and loading states
+- Modular component architecture
+
+### Calendar System Enhancements (June 2025)
+
+Significant improvements have been made to the bookings calendar system:
+
+**Booking Consolidation:**
+- Intelligent merging of adjacent bookings from the same customer
+- Improved visual representation of continuous booking periods
+- Better handling of booking overlaps and time slot management
+
+**Enhanced User Experience:**
+- Mobile-responsive calendar interface
+- Improved date navigation with calendar picker
+- Real-time booking updates and refresh capabilities
+- Better error handling and loading states
+
+**Performance Optimizations:**
+- Optimized database queries for faster loading
+- Improved client-side booking processing
+- Enhanced date/time formatting and timezone handling
+
+### Booking Cancellation System Improvements (June 2025)
+
+Enhanced booking cancellation functionality with improved reliability:
+
+**Staff-Initiated Cancellations:**
+- Mandatory employee identification for audit trails
+- Optional cancellation reason tracking
+- Comprehensive booking history logging
+
+**Google Calendar Integration:**
+- Automatic deletion of linked calendar events
+- Improved error handling for calendar sync failures
+- Status tracking for calendar event deletions
+- Partial deletion recovery mechanisms
+
+**Audit and Compliance:**
+- Detailed cancellation logging with before/after snapshots
+- Staff action tracking for accountability
+- Enhanced error reporting and debugging
 
 ### LINE Messaging API Migration
 
@@ -146,12 +274,13 @@ A new package monitoring feature has been added allowing staff to:
 A dedicated admin section has been implemented to provide enhanced management capabilities:
 
 - **Admin Dashboard**: Central hub for administrative tools and system overview
+- **Sales Dashboard**: Comprehensive analytics and reporting suite
 - **Role-Based Access**: Binary admin role system with middleware protection
 - **Enhanced Navigation**: Conditional admin menu items for privileged users
 - **Future Expansion**: Framework for advanced admin features (inventory, analytics, user management)
 - **Secure Authentication**: Admin role detection integrated with existing Google OAuth flow
 
-**Current Features**: Admin dashboard with placeholder cards for future functionality
+**Current Features**: Admin dashboard with sales analytics, system management tools
 **Planned Features**: Advanced analytics, inventory management, staff management, system settings
 
 ## Environment Setup

@@ -1,0 +1,335 @@
+# Admin Panel Documentation
+
+## Table of Contents
+1. [Overview](#overview)
+2. [Access Control](#access-control)
+3. [Admin Dashboard](#admin-dashboard)
+4. [Sales Dashboard](#sales-dashboard)
+5. [Current Features](#current-features)
+6. [Planned Features](#planned-features)
+7. [User Interface](#user-interface)
+8. [Technical Implementation](#technical-implementation)
+9. [Security](#security)
+10. [Future Roadmap](#future-roadmap)
+
+## Overview
+
+The Admin Panel is a dedicated administrative interface within the Lengolf Forms system that provides enhanced management capabilities for privileged users. It operates alongside the standard staff functionality, offering additional tools for business intelligence, system management, and administrative oversight.
+
+### Key Characteristics
+- **Role-Based Access**: Binary admin flag system (user/admin)
+- **Non-Disruptive**: Existing staff functionality remains unchanged
+- **Expandable Framework**: Foundation for future administrative features
+- **Secure Access**: Middleware-protected routes with admin verification
+
+## Access Control
+
+### Admin Role System
+The system currently implements a binary admin role system:
+
+```typescript
+// Admin check in session
+const isAdmin = session?.user?.isAdmin || false;
+
+// Middleware protection
+if (pathname.startsWith('/admin') && !session?.user?.isAdmin) {
+  return NextResponse.redirect(new URL('/', request.url));
+}
+```
+
+### Authentication Flow
+1. **User Authentication**: Standard Google OAuth login
+2. **Email Verification**: Check against `backoffice.allowed_users` table
+3. **Admin Flag Assignment**: Set `isAdmin` flag during session creation
+4. **Route Protection**: Middleware enforces admin-only access
+
+### Admin User Management
+Currently managed through direct database access to the `backoffice.allowed_users` table with an `is_admin` flag. Future implementations will include UI-based user management.
+
+## Admin Dashboard
+
+### Main Dashboard (`/admin`)
+The central hub for administrative tools and system overview.
+
+#### Current Interface
+```tsx
+// Admin Dashboard Structure
+- Inventory Management (Coming Soon)
+- System Settings (Coming Soon)  
+- Analytics (Coming Soon)
+- User Management (Coming Soon)
+- Database Tools (Coming Soon)
+- Active Admin Section Indicator
+```
+
+#### Features
+- **Overview Cards**: Placeholder cards for future functionality
+- **Status Indicators**: Shows admin section is active
+- **Navigation Hub**: Central access point to admin features
+- **Future Expansion**: Framework for additional tools
+
+### Navigation Integration
+The admin panel integrates seamlessly with the main navigation:
+
+```tsx
+// Admin Dropdown Menu
+{isAdmin && (
+  <DropdownMenu>
+    <DropdownMenuTrigger>Admin</DropdownMenuTrigger>
+    <DropdownMenuContent>
+      <DropdownMenuItem href="/admin">Admin Dashboard</DropdownMenuItem>
+      <DropdownMenuItem href="/admin/sales-dashboard">Sales Dashboard</DropdownMenuItem>
+      <DropdownMenuItem href="/admin/inventory">Inventory</DropdownMenuItem>
+      <DropdownMenuItem href="/admin/settings">Settings</DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+)}
+```
+
+## Sales Dashboard
+
+### Overview
+The Sales Dashboard is the first fully implemented admin feature, providing comprehensive business intelligence and analytics.
+
+#### Key Features
+- **Real-time KPIs**: Revenue, bookings, and customer metrics
+- **Interactive Charts**: Revenue trends, bay utilization, category breakdowns
+- **Flexible Filtering**: Date range selection and comparison periods
+- **Export Capabilities**: Data export for reporting
+- **Mobile Responsive**: Optimized for all devices
+
+#### Access
+- **URL**: `/admin/sales-dashboard`
+- **Requirements**: Admin privileges
+- **Navigation**: Admin menu → Sales Dashboard
+
+### Data Visualization
+```typescript
+// Chart Types Available
+- Revenue Trends (Line Chart)
+- Bay Utilization (Bar Chart)
+- Category Breakdown (Pie Chart)
+- Customer Growth (Area Chart)
+- Payment Methods (Bar Chart)
+```
+
+### Performance Metrics
+- **Revenue KPIs**: Total revenue, growth, average booking value
+- **Booking KPIs**: Total bookings, growth, cancellation rates
+- **Customer KPIs**: New customers, retention, acquisition
+
+## Current Features
+
+### 1. Admin Dashboard
+- **Status**: Implemented with placeholder functionality
+- **Purpose**: Central administrative hub
+- **Features**: Overview cards, navigation, status indicators
+
+### 2. Sales Dashboard
+- **Status**: Fully implemented and active
+- **Purpose**: Business intelligence and analytics
+- **Features**: KPIs, charts, filtering, export capabilities
+
+### 3. Navigation Integration
+- **Status**: Implemented
+- **Purpose**: Seamless access to admin features
+- **Features**: Dropdown menu, conditional display, responsive design
+
+### 4. Access Control
+- **Status**: Implemented
+- **Purpose**: Secure admin-only access
+- **Features**: Route protection, session verification, middleware enforcement
+
+## Planned Features
+
+### Phase 1 (Immediate)
+1. **Inventory Management**
+   - Product catalog management
+   - Stock level tracking
+   - Supplier management
+   - Purchase order system
+
+2. **System Settings**
+   - Application configuration
+   - Integration settings
+   - Feature toggles
+   - Environment management
+
+### Phase 2 (Short Term)
+1. **Advanced Analytics**
+   - Custom report builder
+   - Scheduled reports
+   - Advanced filtering
+   - Data export options
+
+2. **User Management**
+   - Staff user management
+   - Permission management
+   - Activity logging
+   - Role assignment
+
+### Phase 3 (Long Term)
+1. **Database Tools**
+   - Database maintenance
+   - Data backup/restore
+   - Query interface
+   - Performance monitoring
+
+2. **Enhanced Security**
+   - Audit logging
+   - Security monitoring
+   - Access controls
+   - Compliance tools
+
+## User Interface
+
+### Design Principles
+- **Consistency**: Matches existing application design
+- **Accessibility**: WCAG AA compliant
+- **Responsiveness**: Mobile-first design approach
+- **Performance**: Optimized loading and interactions
+
+### Layout Structure
+```tsx
+// Admin Layout
+<AdminLayout>
+  <AdminNavigation />
+  <AdminContent>
+    <PageHeader />
+    <MainContent />
+    <Footer />
+  </AdminContent>
+</AdminLayout>
+```
+
+### Component Architecture
+```
+admin/
+├── layout.tsx              # Admin-specific layout
+├── page.tsx                # Main admin dashboard
+├── sales-dashboard/        # Sales analytics
+│   └── page.tsx
+└── [future-features]/      # Planned admin features
+```
+
+## Technical Implementation
+
+### Route Structure
+```
+/admin/                     # Main admin dashboard
+/admin/sales-dashboard      # Business intelligence
+/admin/inventory           # Inventory management (planned)
+/admin/settings            # System settings (planned)
+```
+
+### Middleware Protection
+```typescript
+// Admin route protection
+export function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  
+  if (pathname.startsWith('/admin')) {
+    const token = request.nextUrl.searchParams.get('token');
+    const session = getServerSession(token);
+    
+    if (!session?.user?.isAdmin) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+}
+```
+
+### State Management
+- **Local State**: React hooks for component state
+- **Global State**: Context API for admin-specific state
+- **Server State**: SWR for data fetching and caching
+- **Form State**: React Hook Form for complex forms
+
+### API Integration
+```typescript
+// Admin-specific API endpoints
+/api/dashboard/summary      # Dashboard KPIs
+/api/dashboard/charts       # Chart data
+/api/sales/flexible-analytics  # Advanced analytics
+```
+
+## Security
+
+### Access Control Measures
+1. **Route Protection**: Middleware-level access control
+2. **Session Verification**: JWT token validation
+3. **Role Verification**: Admin flag checking
+4. **API Protection**: Backend admin verification
+
+### Data Security
+- **Sensitive Data**: Proper handling of business metrics
+- **User Privacy**: Compliance with privacy regulations
+- **Audit Trails**: Logging of admin actions
+- **Secure Communications**: HTTPS enforcement
+
+### Best Practices
+- **Principle of Least Privilege**: Minimal required access
+- **Regular Reviews**: Periodic access audits
+- **Strong Authentication**: Multi-factor authentication (future)
+- **Session Management**: Secure session handling
+
+## Future Roadmap
+
+### Immediate Goals (Q3 2025)
+- [ ] Complete inventory management implementation
+- [ ] Add system settings interface
+- [ ] Implement basic user management
+- [ ] Enhanced security logging
+
+### Short-term Goals (Q4 2025)
+- [ ] Advanced analytics features
+- [ ] Custom dashboard builder
+- [ ] Automated reporting system
+- [ ] Mobile admin app
+
+### Long-term Vision (2026)
+- [ ] Machine learning insights
+- [ ] Predictive analytics
+- [ ] Advanced workflow automation
+- [ ] Third-party integrations
+
+### Technical Debt Resolution
+- [ ] Migrate to hierarchical role system
+- [ ] Implement granular permissions
+- [ ] Add comprehensive testing
+- [ ] Performance optimizations
+
+## Best Practices for Admin Development
+
+### Code Organization
+- Keep admin features in dedicated directories
+- Maintain clear separation from staff functionality
+- Use consistent naming conventions
+- Document all admin-specific logic
+
+### Security Considerations
+- Always verify admin access at multiple levels
+- Log all administrative actions
+- Implement proper error handling
+- Validate all inputs thoroughly
+
+### User Experience
+- Maintain consistency with existing UI
+- Provide clear feedback for all actions
+- Implement proper loading states
+- Ensure mobile responsiveness
+
+### Testing Strategy
+- Unit tests for admin-specific functions
+- Integration tests for admin workflows
+- Security testing for access controls
+- Performance testing for data-heavy features
+
+---
+
+For detailed sales dashboard documentation, see [Sales Dashboard](./SALES_DASHBOARD.md).  
+For admin framework planning, see [Admin Framework](../legacy/ADMIN_FRAMEWORK.md).
+
+**Last Updated**: June 2025  
+**Version**: 2.0  
+**Maintainer**: Lengolf Development Team 
