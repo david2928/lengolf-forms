@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { createClient } from '@supabase/supabase-js'
-import { ProductTrendResponse } from '@/types/inventory'
+import { authOptions } from '@/lib/auth-config'
+import { refacSupabase } from '@/lib/refac-supabase'
 
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// Use the correct Supabase client
+const supabase = refacSupabase
 
 export async function GET(
   request: NextRequest,
@@ -15,7 +12,7 @@ export async function GET(
 ) {
   try {
     // Check admin authentication
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json(
         { error: 'Authentication required' },
