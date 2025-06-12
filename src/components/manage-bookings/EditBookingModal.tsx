@@ -146,7 +146,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       setIsCheckingAllBays(false);
       setAllowOverwrite(false);
 
-      // Check if booking is in the past (based on end time like the calendar does)
+      // Check if booking is in the past (based on end time)
       let isPastBooking = false;
       if (booking.date && booking.start_time && booking.duration) {
         try {
@@ -167,7 +167,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       }
       if (isPastBooking) {
         setFormData({}); // Clear form data or set to read-only values if preferred
-        setError("This booking is in the past and can no longer be edited.");
+        setError("This booking cannot be edited as it has already ended.");
         // Further disable all inputs and save button if isPastBooking is true (handled by disabled prop on elements)
       }
 
@@ -663,7 +663,11 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
             </div>
           </div>
 
-          {error && <p className="text-sm text-red-500 col-span-4 text-center py-2">{error}</p>}
+          {error && (
+            <div className="col-span-4 bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+              <p className="text-red-700 font-medium">{error}</p>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <DialogClose asChild>

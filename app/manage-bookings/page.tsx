@@ -81,13 +81,22 @@ export default function ManageBookingsPage() {
   }, [selectedDate]);
 
   const isBookingInPast = (booking: Booking): boolean => {
-    if (booking.date && booking.start_time) {
+    if (booking.date && booking.start_time && booking.duration) {
       try {
-        const bookingDateTime = parse(`${booking.date} ${booking.start_time}`, 'yyyy-MM-dd HH:mm', new Date());
-        if (isValid(bookingDateTime)) {
-          const twoHoursAgo = subHours(new Date(), 2);
-          return isBefore(bookingDateTime, twoHoursAgo);
-        }
+        // Calculate end time based on start time + duration
+        const [hours, minutes] = booking.start_time.split(':').map(Number);
+        const startMinutes = hours * 60 + minutes;
+        const endMinutes = startMinutes + (booking.duration * 60);
+        const endHours = Math.floor(endMinutes / 60);
+        const endMins = endMinutes % 60;
+        const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+        
+        // Create end datetime using the calculated end time
+        const bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+        const now = new Date();
+        
+        // Booking is in the past only if it has ended
+        return bookingEndDateTime < now;
       } catch (e) {
         console.error("Error parsing booking date/time for past check (page):", e);
       }

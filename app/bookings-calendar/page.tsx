@@ -13,7 +13,7 @@ import { BigCalendarView } from '@/components/calendar/BigCalendarView';
 import { ViewBookingModal } from '@/components/calendar/ViewBookingModal';
 import { useToast } from '@/components/ui/use-toast';
 import { DayPicker } from 'react-day-picker';
-import { format } from 'date-fns';
+import { format, parse, isValid, subHours, isBefore } from 'date-fns';
 import 'react-day-picker/dist/style.css';
 
 // Use CalendarEvent type from utils (keeping BookingEvent as alias for compatibility)
@@ -239,7 +239,7 @@ export default function BookingsCalendarPage() {
     return DateTime.fromISO(isoTime, { zone: 'Asia/Bangkok' }).toFormat('HH:mm');
   };
 
-  // Check if booking is in the past
+  // Check if booking is in the past (based on end time)
   const isBookingInPast = (booking: Booking): boolean => {
     try {
       // Calculate end time based on start time + duration

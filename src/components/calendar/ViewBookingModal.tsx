@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, Users, MapPin, Phone, Mail, FileText, Package, Hash, X, Edit } from 'lucide-react';
 import type { Booking } from '@/types/booking';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, parse, isValid, subHours, isBefore } from 'date-fns';
 import { CancelBookingModal } from '@/components/manage-bookings/CancelBookingModal';
 import { EditBookingModal } from '@/components/manage-bookings/EditBookingModal';
 import { useToast } from '@/components/ui/use-toast';
