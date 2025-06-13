@@ -77,6 +77,42 @@ const ClientTimestamp: React.FC = () => {
   return <span suppressHydrationWarning>Last updated: {timestamp}</span>;
 };
 
+// Component to fetch and display latest data timestamp
+const LatestDataTimestamp: React.FC = () => {
+  const [latestData, setLatestData] = useState<{
+    latest_sales_date: string;
+    latest_sales_timestamp: string;
+    latest_sales_timestamp_bkk: string;
+    total_sales_today: number;
+    total_revenue_today: number;
+    last_receipt_number: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchLatestTimestamp = async () => {
+      try {
+        const response = await fetch('/api/dashboard/latest-timestamp');
+        const data = await response.json();
+        setLatestData(data);
+      } catch (error) {
+        console.error('Failed to fetch latest timestamp:', error);
+      }
+    };
+
+    fetchLatestTimestamp();
+  }, []);
+
+  if (!latestData) {
+    return <span>Loading...</span>;
+  }
+
+  return (
+    <span>
+      Latest: {latestData.latest_sales_timestamp_bkk} BKK
+    </span>
+  );
+};
+
 export default function SalesDashboardPage() {
   // Dashboard state
   const [filters, setFilters] = useState<DashboardFilters>({
@@ -138,8 +174,6 @@ export default function SalesDashboardPage() {
     await refresh();
   };
 
-
-
   const toggleSection = (sectionId: string) => {
     setCollapsedSections(prev => {
       const newSet = new Set(prev);
@@ -173,7 +207,11 @@ export default function SalesDashboardPage() {
                 Updating...
               </Badge>
             )}
-
+            {summary && (
+              <Badge variant="outline" className="text-xs text-gray-500">
+                <LatestDataTimestamp />
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -208,8 +246,6 @@ export default function SalesDashboardPage() {
               <SelectItem value="previousYear">vs Previous Year</SelectItem>
             </SelectContent>
           </Select>
-
-
 
           {/* Manual Refresh */}
           <Button
@@ -316,6 +352,7 @@ export default function SalesDashboardPage() {
                       data={charts?.customer_growth || []}
                       isLoading={isLoading}
                       showTotal={true}
+                      summaryData={summary?.current}
                     />
                   </DashboardErrorBoundary>
 

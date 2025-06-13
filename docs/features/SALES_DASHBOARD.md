@@ -20,21 +20,23 @@ The Sales Dashboard is a comprehensive business intelligence tool that provides 
 
 ### Key Capabilities
 - **Real-time Analytics**: Live business metrics with automatic updates
-- **Interactive Charts**: Multiple chart types with drill-down capabilities
+- **Interactive Charts**: Multiple chart types with drill-down capabilities and hoverable data points
 - **Flexible Filtering**: Date range selection and comparison periods
 - **Export Functionality**: Data export for reporting and analysis
 - **Mobile Responsive**: Optimized for desktop and mobile viewing
 - **Performance Optimized**: Efficient data loading and caching
+- **Data Source Transparency**: Clear indication of data freshness and source
 
 ## Features
 
 ### Core Features
-1. **KPI Cards**: Essential business metrics at a glance
+1. **KPI Cards**: Essential business metrics at a glance with hoverable trend lines
 2. **Revenue Trends**: Historical revenue analysis with growth tracking
 3. **Bay Utilization**: Simulator usage statistics across all golf bays
 4. **Category Breakdown**: Analysis of different booking types and packages
 5. **Customer Growth**: New customer acquisition and retention metrics
 6. **Payment Methods**: Payment preference analysis and trends
+7. **Data Source Indicator**: Real-time display of latest data timestamp and source
 
 ### Dashboard Controls
 - **Date Range Selector**: Today, Yesterday, Last 7/30 days, Month/Year to Date
@@ -42,6 +44,18 @@ The Sales Dashboard is a comprehensive business intelligence tool that provides 
 - **Refresh Control**: Manual data refresh with loading indicators
 - **Section Collapse**: Collapsible sections for focused viewing
 - **Export Options**: Data export functionality
+
+### Enhanced User Experience
+- **Clean Interface**: Admin header is hidden for distraction-free viewing
+- **Interactive KPI Charts**: Hover over trend lines to see detailed data points with tooltips
+- **Period-Based Data Points**: Trend charts automatically show appropriate number of data points based on selected period (e.g., 30 points for "last 30 days")
+- **Visible Data Points**: KPI trend lines now show individual data point markers (r=3) with enhanced active markers (r=5)
+- **Smart Comparison Labels**: Intelligent comparison period labels that adapt to the selected timeframe
+  - "Last 30 Days" shows "vs Previous 30 Days" instead of generic "WoW"
+  - Each period gets contextually appropriate comparison labels
+- **Real-time Data Timestamps**: Integration with MCP Supabase function to display actual latest booking data
+- **Database Function Integration**: Custom PostgreSQL function `get_latest_data_timestamp()` for precise data freshness tracking
+- **Improved Performance**: Optimized data fetching with proper error handling and fallbacks
 
 ## Architecture
 
@@ -225,77 +239,176 @@ interface CategoryData {
 
 ## Data Sources
 
-### Primary Database Tables
+### Primary Database Source
+
+The Sales Dashboard uses POS transaction data from the `pos` schema.
+
+#### **Primary Data Table: `pos.lengolf_sales`**
 ```sql
--- Main booking data
+-- Main POS transaction data (processed from Qashier POS system)
 SELECT 
-  b.id,
-  b.date,
-  b.start_time,
-  b.duration,
-  b.bay,
-  b.booking_type,
-  b.status,
-  b.customer_name,
-  b.payment_method,
-  b.total_amount,
-  b.created_at
-FROM bookings b
-WHERE b.date BETWEEN ? AND ?
-  AND b.status = 'confirmed';
-
--- Package data
-SELECT 
-  p.id,
-  p.customer_id,
-  p.package_type,
-  p.purchase_date,
-  p.activation_date,
-  p.expiration_date,
-  p.total_hours,
-  p.used_hours,
-  p.remaining_hours
-FROM packages p
-WHERE p.purchase_date BETWEEN ? AND ?;
-
--- Customer data
-SELECT 
-  c.id,
-  c.customer_name,
-  c.first_booking_date,
-  c.last_booking_date,
-  c.total_bookings,
-  c.total_spent
-FROM customers c;
+  s.id,
+  s.date,
+  s.receipt_number,
+  s.invoice_number,
+  s.customer_name,
+  s.product_name,
+  s.product_category,
+  s.is_sim_usage,        -- INTEGER field (0/1) for easy summing
+  s.item_cnt,
+  s.sales_total,         -- Including VAT
+  s.sales_net,           -- Excluding VAT  
+  s.sales_cost,
+  s.gross_profit,
+  s.sales_timestamp
+FROM pos.lengolf_sales s
+WHERE s.date BETWEEN ? AND ?
+  AND s.is_voided = FALSE;
 ```
 
-### Data Aggregation
-The dashboard uses PostgreSQL functions for efficient data aggregation:
+#### **Supporting Tables (pos schema)**
+```sql
+-- Product dimension data
+pos.dim_product (product categorization, costs, SIM usage flags)
+
+-- Customer data enhancements  
+pos.lengolf_sales_modifications (manual customer corrections)
+
+-- ETL process logs
+pos.sales_sync_logs (processing history and monitoring)
+```
+
+### Schema Architecture for Dashboard Functions
+
+#### **`pos` Schema - Core Business Logic**
+Contains the actual business logic and data processing functions:
+
+##### **`pos.get_dashboard_summary_enhanced(start_date, end_date, comparison_start_date, comparison_end_date)`**
+- **Purpose**: Primary dashboard function with comprehensive business calculations
+- **Data Source**: `pos.lengolf_sales` table (POS transaction data)
+- **Business Logic**: Complete revenue, profit, and utilization calculations
+- **SIM Utilization**: Uses `pos.lengolf_sales.is_sim_usage` INTEGER field for efficient aggregation
+- **VAT Handling**: Date-based VAT calculations (pre/post September 2024 regulatory change)
+- **Customer Analytics**: New vs returning customer analysis
+- **Returns**: Complete JSON with current period, comparison period, and trend data
+
+**Example Response Structure:**
+```json
+{
+  "current_period": {
+    "total_revenue": 241048.60,
+    "gross_profit": 190018.05,
+    "transaction_count": 166,
+    "unique_customers": 116,
+    "avg_transaction_value": 1452.10,
+    "gross_margin_pct": 78.83,
+    "sim_utilization_pct": 53.03,
+    "sim_utilization_count": 210,
+    "new_customers": 63
+  },
+  "comparison_period": { /* similar structure */ },
+  "trend_data": {
+    "revenue": [/* daily revenue data */],
+    "profit": [/* daily profit data */],
+    "utilization": [/* daily SIM utilization */]
+  }
+}
+```
+
+##### **Other pos Schema Functions:**
+- `pos.get_dashboard_summary_enhanced_with_time()` - Time-aware comparisons
+- `pos.get_dashboard_calculations_documentation()` - Documentation of calculations
+
+#### **`public` Schema - API Interface Layer**
+Contains wrapper functions for backwards compatibility and external API access:
+
+##### **`public.get_dashboard_summary_enhanced(start_date, end_date, comparison_start_date, comparison_end_date)`**
+- **Purpose**: Interface wrapper for dashboard API calls
+- **Implementation**: Simple wrapper that calls `pos.get_dashboard_summary_enhanced()`
+- **Usage**: Used by Sales Dashboard frontend for backwards compatibility
+- **Data Flow**: `Frontend → public function → pos function → pos.lengolf_sales`
 
 ```sql
--- Revenue summary function
-CREATE OR REPLACE FUNCTION get_revenue_summary(
-  start_date DATE,
-  end_date DATE
-) RETURNS TABLE (
-  total_revenue DECIMAL,
-  total_bookings INTEGER,
-  unique_customers INTEGER,
-  average_booking_value DECIMAL
-) AS $$
+-- public schema wrapper function
+CREATE OR REPLACE FUNCTION public.get_dashboard_summary_enhanced(...)
+RETURNS json AS $$
 BEGIN
-  RETURN QUERY
-  SELECT 
-    COALESCE(SUM(total_amount), 0) as total_revenue,
-    COUNT(*)::INTEGER as total_bookings,
-    COUNT(DISTINCT customer_name)::INTEGER as unique_customers,
-    COALESCE(AVG(total_amount), 0) as average_booking_value
-  FROM bookings
-  WHERE date BETWEEN start_date AND end_date
-    AND status = 'confirmed';
+  -- Direct call to pos function containing business logic
+  RETURN pos.get_dashboard_summary_enhanced(start_date, end_date, comparison_start_date, comparison_end_date);
 END;
 $$ LANGUAGE plpgsql;
 ```
+
+##### **Other public Schema Functions:**
+- `public.get_dashboard_charts()` - Chart data preparation
+- `public.get_dashboard_summary()` - Basic dashboard metrics
+- `public.get_dashboard_summary_with_daily_trends()` - Trend analysis
+
+### Data Source Verification
+
+**Data Usage (June 2025 Test):**
+```sql
+-- Test query shows dashboard functions use pos.lengolf_sales
+SELECT pos.get_dashboard_summary_enhanced('2025-06-01', '2025-06-12', '2025-05-01', '2025-05-12');
+-- Returns: 241,048.60 THB revenue from 166 POS transactions
+-- Data source: pos.lengolf_sales (POS system data)
+```
+
+### Key Business Calculations
+
+#### **SIM Utilization Logic**
+```sql
+-- SIM utilization calculation using INTEGER field for efficiency
+SUM(is_sim_usage) / (COUNT(DISTINCT date) * 3 * 12) * 100
+-- Where: 
+--   is_sim_usage = 1 for SIM usage, 0 for other products (INTEGER for easy summing)
+--   3 = number of golf bays
+--   12 = operating hours per day
+```
+
+#### **VAT-Aware Revenue Calculations**
+```sql
+-- Revenue calculations handle VAT regulatory change (Sep 2024)
+CASE 
+  WHEN date < '2024-09-01' THEN sales_total  -- VAT calculated differently pre-Sep 2024
+  ELSE sales_net * 1.07                      -- Post-Sep 2024 VAT handling
+END
+```
+
+#### **Profit Margin Analysis**
+```sql
+-- Gross profit calculation using product costs
+gross_profit = sales_net - sales_cost
+gross_margin_pct = (gross_profit / sales_net) * 100
+```
+
+### Dashboard Data Aggregation
+
+The dashboard uses optimized PostgreSQL functions for efficient data aggregation:
+
+```sql
+-- Revenue summary aggregation (within pos schema functions)
+SELECT 
+  SUM(sales_total) as total_revenue,
+  SUM(gross_profit) as total_profit,
+  COUNT(*) as transaction_count,
+  COUNT(DISTINCT customer_name) as unique_customers,
+  AVG(sales_total) as avg_transaction_value,
+  SUM(is_sim_usage) as sim_usage_count,  -- INTEGER field allows efficient SUM()
+  (SUM(is_sim_usage)::DECIMAL / (DATE_RANGE_DAYS * 3 * 12)) * 100 as sim_utilization_pct
+FROM pos.lengolf_sales
+WHERE date BETWEEN start_date AND end_date
+  AND is_voided = FALSE;
+```
+
+### **Data Source Summary**
+
+**Dashboard Data Sources:**
+- `pos.lengolf_sales` - POS transaction data from Qashier system
+- `pos.dim_product` - Product dimensions and costs
+- `pos.lengolf_sales_modifications` - Customer data corrections
+
+The Sales Dashboard shows Point of Sale (POS) analytics from the Qashier transaction system, displaying revenue from purchases of drinks, food, equipment, and simulator usage.
 
 ## Filtering & Date Ranges
 
@@ -348,71 +461,189 @@ export function getDateRangeForPreset(preset: DatePreset): {
 
 ## API Endpoints
 
-### Dashboard Summary
+### Dashboard Summary API
+
+#### **Primary Endpoint (Recommended)**
 ```
-GET /api/dashboard/summary
-Query Parameters:
-- startDate: ISO date string
-- endDate: ISO date string
-- compareStartDate: ISO date string (optional)
-- compareEndDate: ISO date string (optional)
+POST /api/sales/dashboard-summary
 ```
 
-**Response Structure**:
-```typescript
-interface DashboardSummary {
-  period: {
-    startDate: string;
-    endDate: string;
-  };
-  kpis: {
-    revenue: RevenueKPIs;
-    bookings: BookingKPIs;
-    customers: CustomerKPIs;
-  };
-  comparison?: {
-    period: DateRange;
-    kpis: KPIMetrics;
-  };
-}
-```
+**Function Called**: `public.get_dashboard_summary_enhanced()` → `pos.get_dashboard_summary_enhanced()`  
+**Data Source**: `pos.lengolf_sales` (POS transaction data)
 
-### Chart Data
-```
-GET /api/dashboard/charts
-Query Parameters:
-- startDate: ISO date string
-- endDate: ISO date string
-- chartType: 'revenue' | 'utilization' | 'categories' | 'customers' | 'payments'
-```
-
-**Response Structure**:
-```typescript
-interface ChartDataResponse {
-  chartType: string;
-  data: ChartDataPoint[];
-  metadata: {
-    total: number;
-    period: DateRange;
-    lastUpdated: string;
-  };
-}
-```
-
-### Flexible Analytics
-```
-POST /api/sales/flexible-analytics
-Request Body:
+**Request Body**:
+```json
 {
-  "dateRange": { "start": "2025-01-01", "end": "2025-01-31" },
-  "metrics": ["revenue", "bookings", "customers"],
-  "groupBy": "day" | "week" | "month",
-  "filters": {
-    "bay": ["bay1", "bay2"],
-    "bookingType": ["individual", "group"]
-  }
+  "startDate": "2025-06-01",
+  "endDate": "2025-06-12", 
+  "compareStartDate": "2025-05-01",
+  "compareEndDate": "2025-05-12"
 }
 ```
+
+**Response Structure**:
+```typescript
+interface DashboardSummaryResponse {
+  current_period: {
+    total_revenue: number;           // Total POS sales revenue
+    gross_profit: number;            // Revenue minus product costs
+    transaction_count: number;       // Number of POS transactions
+    unique_customers: number;        // Distinct customers
+    avg_transaction_value: number;   // Average transaction amount
+    gross_margin_pct: number;        // Profit margin percentage
+    sim_utilization_pct: number;     // Golf simulator utilization
+    sim_utilization_count: number;   // Number of SIM usage transactions
+    new_customers: number;           // First-time customers
+  };
+  comparison_period: {
+    // Same structure as current_period
+  };
+  trend_data: {
+    revenue: Array<{date: string, value: number}>;
+    profit: Array<{date: string, value: number}>;
+    utilization: Array<{date: string, value: number}>;
+  };
+}
+```
+
+#### **Chart Data API**
+```
+POST /api/sales/dashboard-charts
+```
+
+**Function Called**: `public.get_dashboard_charts()` → (calls various pos functions)  
+**Data Source**: `pos.lengolf_sales`
+
+**Request Body**:
+```json
+{
+  "startDate": "2025-06-01",
+  "endDate": "2025-06-12",
+  "chartType": "revenue" | "utilization" | "categories" | "customers" | "payments"
+}
+```
+
+### Backend Function Architecture
+
+#### **Frontend API Layer**
+```typescript
+// Frontend calls public schema functions for backwards compatibility
+const response = await fetch('/api/sales/dashboard-summary', {
+  method: 'POST',
+  body: JSON.stringify({
+    startDate: '2025-06-01',
+    endDate: '2025-06-12',
+    compareStartDate: '2025-05-01', 
+    compareEndDate: '2025-05-12'
+  })
+});
+```
+
+#### **Backend Implementation**
+```sql
+-- Backend calls public function which wraps pos function
+SELECT public.get_dashboard_summary_enhanced(
+  '2025-06-01'::DATE,
+  '2025-06-12'::DATE, 
+  '2025-05-01'::DATE,
+  '2025-05-12'::DATE
+);
+
+-- Which internally calls:
+SELECT pos.get_dashboard_summary_enhanced(
+  '2025-06-01'::DATE,
+  '2025-06-12'::DATE,
+  '2025-05-01'::DATE, 
+  '2025-05-12'::DATE
+);
+```
+
+#### **Database Function Flow**
+```
+Frontend Request
+    ↓
+Next.js API Route (/api/sales/dashboard-summary)
+    ↓
+Supabase Client Call
+    ↓
+public.get_dashboard_summary_enhanced() [wrapper function]
+    ↓
+pos.get_dashboard_summary_enhanced() [business logic function]
+    ↓  
+Query pos.lengolf_sales table [POS transaction data]
+    ↓
+Return aggregated JSON response
+```
+
+### Data Processing Functions
+
+#### **ETL Functions (pos schema)**
+- `pos.transform_sales_data()` - Primary ETL transformation
+- `pos.sync_sales_data()` - ETL orchestration with logging
+- `pos.api_sync_sales_data()` - API wrapper for ETL
+
+#### **Dashboard Functions (pos schema)** 
+- `pos.get_dashboard_summary_enhanced()` - Main dashboard calculations
+- `pos.get_dashboard_summary_enhanced_with_time()` - Time-aware comparisons
+- `pos.get_dashboard_calculations_documentation()` - Calculation documentation
+
+#### **Interface Functions (public schema)**
+- `public.get_dashboard_summary_enhanced()` - Wrapper for pos function
+- `public.get_dashboard_charts()` - Chart data preparation  
+- `public.get_dashboard_summary()` - Basic dashboard function
+
+### Performance Optimization
+
+#### **Function Call Optimization**
+```sql
+-- Optimized single call for dashboard data
+SELECT public.get_dashboard_summary_enhanced(
+  start_date, end_date, comparison_start_date, comparison_end_date
+);
+
+-- Returns complete dashboard data in one query:
+-- - Current period metrics
+-- - Comparison period metrics  
+-- - Daily trend data for charts
+-- - All calculations pre-computed
+```
+
+#### **Caching Strategy**
+- **Client-side**: SWR caching with 5-minute TTL
+- **Database**: Optimized indexes on `pos.lengolf_sales` for fast queries
+- **Function**: Single comprehensive function call vs multiple API calls
+
+### Real-time Data Updates
+
+#### **Data Freshness Monitoring**
+```sql
+-- Check latest data timestamp
+SELECT MAX(sales_timestamp) as latest_data
+FROM pos.lengolf_sales;
+
+-- ETL status monitoring
+SELECT status, end_time, records_processed
+FROM pos.sales_sync_logs 
+ORDER BY start_time DESC 
+LIMIT 1;
+```
+
+### ⚠️ **Important API Clarifications**
+
+**Correct Function Usage:**
+- ✅ `public.get_dashboard_summary_enhanced()` - Dashboard API calls
+- ✅ `pos.get_dashboard_summary_enhanced()` - Contains business logic
+- ✅ Data source: `pos.lengolf_sales` (POS transactions)
+
+**Deprecated/Missing Functions:**
+- ❌ `pos.etl_staging_to_sales_clean()` - Does not exist
+- ❌ `pos.complete_sales_sync()` - Does not exist  
+- ❌ References to `public.bookings` - Not used by dashboard
+
+**Schema Organization:**
+- **pos schema**: Contains business logic and data
+- **public schema**: Contains API interface wrappers
+- **Data flow**: Frontend → public → pos → pos.lengolf_sales
 
 ## Component Structure
 

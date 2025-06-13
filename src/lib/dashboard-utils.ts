@@ -1,7 +1,8 @@
 // Dashboard Utilities
 // Comprehensive utility functions for dashboard calculations, formatting, and data transformations
 
-import { format, parseISO, subDays, subWeeks, subMonths, startOfDay, endOfDay } from 'date-fns';
+import { format, parseISO, subDays, subWeeks, subMonths, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
+import { getBangkokNow, formatBangkokTime, parseBangkokTime } from './bangkok-timezone';
 import { DashboardFilters, DatePreset, PeriodMetrics, ChangeMetrics } from '@/types/sales-dashboard';
 
 // =============================================================================
@@ -103,8 +104,8 @@ export const calculatePeriodChanges = (
 ): ChangeMetrics => {
   return {
     revenue_change_pct: calculatePercentageChange(
-      current.total_revenue, 
-      comparison.total_revenue
+      current.net_revenue, 
+      comparison.net_revenue
     ),
     profit_change_pct: calculatePercentageChange(
       current.gross_profit, 
@@ -138,19 +139,43 @@ export const getComparisonPeriodLabel = (
   comparisonType: 'previousPeriod' | 'previousMonth' | 'previousYear',
   datePreset?: DatePreset
 ): string => {
+  // For specific presets, provide more contextual labels
+  if (datePreset) {
+    switch (datePreset) {
+      case 'today':
+        return comparisonType === 'previousPeriod' ? 'vs Yesterday' : 
+               comparisonType === 'previousMonth' ? 'vs Same Day Last Month' : 'vs Same Day Last Year';
+      case 'yesterday':
+        return comparisonType === 'previousPeriod' ? 'vs Day Before' : 
+               comparisonType === 'previousMonth' ? 'vs Same Day Last Month' : 'vs Same Day Last Year';
+      case 'last7days':
+        return comparisonType === 'previousPeriod' ? 'vs Previous 7 Days' : 
+               comparisonType === 'previousMonth' ? 'vs Same Week Last Month' : 'vs Same Week Last Year';
+      case 'last30days':
+        return comparisonType === 'previousPeriod' ? 'vs Previous 30 Days' : 
+               comparisonType === 'previousMonth' ? 'vs Previous Month' : 'vs Same Month Last Year';
+      case 'last3months':
+        return comparisonType === 'previousPeriod' ? 'vs Previous 3 Months' : 
+               comparisonType === 'previousMonth' ? 'vs Previous Quarter' : 'vs Same Quarter Last Year';
+      case 'monthToDate':
+        return comparisonType === 'previousPeriod' ? 'vs Previous Month' : 
+               comparisonType === 'previousMonth' ? 'vs Previous Month' : 'vs Same Month Last Year';
+      case 'yearToDate':
+        return comparisonType === 'previousPeriod' ? 'vs Previous Year' : 
+               comparisonType === 'previousMonth' ? 'vs Previous Year' : 'vs Previous Year';
+    }
+  }
+
+  // Fallback to original logic
   switch (comparisonType) {
-    case 'previousMonth':
-      return 'MoM';
-    case 'previousYear':
-      return 'YoY';
     case 'previousPeriod':
+      return 'vs Previous Period';
+    case 'previousMonth':
+      return 'vs Previous Month';
+    case 'previousYear':
+      return 'vs Previous Year';
     default:
-      // For month-to-date with previous period, it should be MoM
-      if (datePreset === 'monthToDate') {
-        return 'MoM';
-      }
-      // For other periods with previous period, use WoW for weekly comparisons
-      return 'WoW';
+      return 'vs Previous Period';
   }
 };
 
@@ -178,31 +203,45 @@ export const calculateMovingAverage = (
 // =============================================================================
 
 /**
- * Get date range for preset periods
+ * Get date range for preset periods using Bangkok timezone
  * All ranges end on yesterday to ensure complete data (not partial current day)
  */
 export const getDateRangeForPreset = (preset: DatePreset): { start: Date; end: Date } => {
-  const now = new Date();
-  const yesterday = startOfDay(subDays(now, 1)); // Always end on yesterday for complete data
-  const yesterdayEnd = endOfDay(subDays(now, 1));
+  // Use Bangkok timezone for date calculations
+  const bangkokNow = getBangkokNow();
+  const yesterday = new Date(bangkokNow);
+  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(0, 0, 0, 0);
+  
+  const yesterdayEnd = new Date(yesterday);
+  yesterdayEnd.setHours(23, 59, 59, 999);
   
   switch (preset) {
     case 'today':
-      // Today still means today, but this is rarely used in dashboards
-      const today = startOfDay(now);
-      return { start: today, end: endOfDay(now) };
+      // Today in Bangkok timezone
+      const today = new Date(bangkokNow);
+      today.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(today);
+      todayEnd.setHours(23, 59, 59, 999);
+      return { start: today, end: todayEnd };
     
     case 'yesterday':
       return { start: yesterday, end: yesterdayEnd };
     
     case 'last7days':
-      return { start: subDays(yesterday, 6), end: yesterdayEnd }; // 7 complete days ending yesterday
+      const sevenDaysAgo = new Date(yesterday);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+      return { start: sevenDaysAgo, end: yesterdayEnd }; // 7 complete days ending yesterday
     
     case 'last30days':
-      return { start: subDays(yesterday, 29), end: yesterdayEnd }; // 30 complete days ending yesterday
+      const thirtyDaysAgo = new Date(yesterday);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+      return { start: thirtyDaysAgo, end: yesterdayEnd }; // 30 complete days ending yesterday
     
     case 'last3months':
-      return { start: subMonths(yesterday, 3), end: yesterdayEnd }; // 3 months ending yesterday
+      const threeMonthsAgo = new Date(yesterday);
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      return { start: threeMonthsAgo, end: yesterdayEnd }; // 3 months ending yesterday
     
     case 'monthToDate':
       const monthStart = new Date(yesterday.getFullYear(), yesterday.getMonth(), 1);
@@ -213,7 +252,9 @@ export const getDateRangeForPreset = (preset: DatePreset): { start: Date; end: D
       return { start: yearStart, end: yesterdayEnd }; // Year to yesterday
     
     default:
-      return { start: subDays(yesterday, 29), end: yesterdayEnd }; // Default to last 30 complete days
+      const defaultStart = new Date(yesterday);
+      defaultStart.setDate(defaultStart.getDate() - 29);
+      return { start: defaultStart, end: yesterdayEnd }; // Default to last 30 complete days
   }
 };
 
@@ -286,8 +327,33 @@ export const formatApiDate = (date: Date): string => {
  */
 export const generateTrendData = (
   data: Array<{ date: string; value: number }>,
-  maxPoints: number = 7
+  datePreset: DatePreset = 'last30days'
 ): Array<{ date: string; value: number }> => {
+  if (!data || data.length === 0) return [];
+  
+  // Determine the number of points based on the date preset
+  const getMaxPoints = (preset: DatePreset): number => {
+    switch (preset) {
+      case 'today':
+      case 'yesterday':
+        return 24; // Hourly data for single day
+      case 'last7days':
+        return 7;
+      case 'last30days':
+        return 30;
+      case 'last3months':
+        return 90; // Daily for 3 months
+      case 'monthToDate':
+        return new Date().getDate(); // Days in current month so far
+      case 'yearToDate':
+        return Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      default:
+        return Math.min(30, data.length);
+    }
+  };
+  
+  const maxPoints = getMaxPoints(datePreset);
+  
   if (data.length <= maxPoints) return data;
   
   // Sample data evenly across the date range

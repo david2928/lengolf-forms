@@ -57,7 +57,8 @@ export default function CustomerGrowthChart({
   showTotal = true,
   error = null,
   showInsights = true,
-  className = ''
+  className = '',
+  summaryData
 }: CustomerGrowthChartProps & {
   error?: string | null;
   showInsights?: boolean;
@@ -92,22 +93,49 @@ export default function CustomerGrowthChart({
     const latest = data[data.length - 1];
     const earliest = data[0];
     
-    const totalCustomers = latest.total_customers;
-    const newCustomersAvg = data.reduce((sum, item) => sum + item.new_customers, 0) / data.length;
-    const returningCustomersAvg = data.reduce((sum, item) => sum + item.returning_customers, 0) / data.length;
+    // Use summary data for period totals if available, otherwise calculate from daily data
+    let totalCustomers: number;
+    let totalNewCustomers: number;
+    let totalReturningCustomers: number;
     
-    // Calculate growth rates
-    const newCustomerGrowthRate = data.length > 1 
-      ? calculatePercentageChange(latest.new_customers, earliest.new_customers) || 0
-      : 0;
+    if (summaryData) {
+      // Use accurate period totals from summary data
+      totalCustomers = summaryData.unique_customers;
+      totalNewCustomers = summaryData.new_customers;
+      // Calculate returning customers as total - new
+      totalReturningCustomers = totalCustomers - totalNewCustomers;
+    } else {
+      // Fallback: Calculate from daily data (may have double-counting issues)
+      totalNewCustomers = data.reduce((sum, item) => sum + item.new_customers, 0);
+      totalReturningCustomers = data.reduce((sum, item) => sum + item.returning_customers, 0);
+      totalCustomers = totalNewCustomers + totalReturningCustomers;
+    }
     
-    const totalGrowthRate = calculatePercentageChange(
-      latest.total_customers, 
-      earliest.total_customers
-    ) || 0;
+    const newCustomersAvg = totalNewCustomers / data.length;
+    const returningCustomersAvg = totalReturningCustomers / data.length;
     
-    const customerRetentionRate = latest.total_customers > 0 
-      ? (latest.returning_customers / latest.total_customers) * 100 
+    // FIXED: Calculate growth rates based on meaningful metrics
+    // For new customer growth, compare average of first week vs last week
+    const firstWeekAvg = data.slice(0, Math.min(7, Math.floor(data.length / 2)))
+      .reduce((sum, item) => sum + item.new_customers, 0) / Math.min(7, Math.floor(data.length / 2));
+    const lastWeekAvg = data.slice(-Math.min(7, Math.floor(data.length / 2)))
+      .reduce((sum, item) => sum + item.new_customers, 0) / Math.min(7, Math.floor(data.length / 2));
+    
+    const newCustomerGrowthRate = calculatePercentageChange(lastWeekAvg, firstWeekAvg) || 0;
+    
+    // FIXED: Calculate total growth rate based on daily customer volume trends
+    // Compare average of first week vs last week for total daily customers
+    const firstWeekTotalAvg = data.slice(0, Math.min(7, Math.floor(data.length / 2)))
+      .reduce((sum, item) => sum + item.total_customers, 0) / Math.min(7, Math.floor(data.length / 2));
+    const lastWeekTotalAvg = data.slice(-Math.min(7, Math.floor(data.length / 2)))
+      .reduce((sum, item) => sum + item.total_customers, 0) / Math.min(7, Math.floor(data.length / 2));
+    
+    const totalGrowthRate = calculatePercentageChange(lastWeekTotalAvg, firstWeekTotalAvg) || 0;
+    
+    // FIXED: Calculate retention rate properly for the entire period
+    // Retention rate = (returning customers / total customers) * 100
+    const customerRetentionRate = totalCustomers > 0 
+      ? (totalReturningCustomers / totalCustomers) * 100 
       : 0;
 
     return {
@@ -118,7 +146,7 @@ export default function CustomerGrowthChart({
       customerRetentionRate,
       totalGrowthRate
     };
-  }, [data]);
+  }, [data, summaryData]);
 
   // Calculate insights
   const insights = useMemo(() => {
@@ -130,14 +158,14 @@ export default function CustomerGrowthChart({
     if (growthMetrics.totalGrowthRate > 20) {
       insights.push({
         type: 'growth',
-        message: `Strong growth: ${formatPercentage(growthMetrics.totalGrowthRate / 100)} increase`,
+        message: `Strong growth: ${formatPercentage(growthMetrics.totalGrowthRate)} increase`,
         value: growthMetrics.totalGrowthRate,
         icon: TrendingUp
       });
     } else if (growthMetrics.totalGrowthRate < -5) {
       insights.push({
         type: 'decline',
-        message: `Customer decline: ${formatPercentage(Math.abs(growthMetrics.totalGrowthRate) / 100)} decrease`,
+        message: `Customer decline: ${formatPercentage(Math.abs(growthMetrics.totalGrowthRate))} decrease`,
         value: growthMetrics.totalGrowthRate,
         icon: TrendingDown
       });
@@ -147,14 +175,14 @@ export default function CustomerGrowthChart({
     if (growthMetrics.customerRetentionRate > 70) {
       insights.push({
         type: 'growth',
-        message: `High retention: ${formatPercentage(growthMetrics.customerRetentionRate / 100)} returning customers`,
+        message: `High retention: ${formatPercentage(growthMetrics.customerRetentionRate)} returning customers`,
         value: growthMetrics.customerRetentionRate,
         icon: Repeat
       });
     } else if (growthMetrics.customerRetentionRate < 30) {
       insights.push({
         type: 'decline',
-        message: `Low retention: Only ${formatPercentage(growthMetrics.customerRetentionRate / 100)} returning`,
+        message: `Low retention: Only ${formatPercentage(growthMetrics.customerRetentionRate)} returning`,
         value: growthMetrics.customerRetentionRate,
         icon: TrendingDown
       });
@@ -164,14 +192,14 @@ export default function CustomerGrowthChart({
     if (growthMetrics.newCustomerGrowthRate > 50) {
       insights.push({
         type: 'growth',
-        message: `Excellent acquisition: ${formatPercentage(growthMetrics.newCustomerGrowthRate / 100)} growth`,
+        message: `Excellent acquisition: ${formatPercentage(growthMetrics.newCustomerGrowthRate)} growth`,
         value: growthMetrics.newCustomerGrowthRate,
         icon: UserPlus
       });
     } else if (growthMetrics.newCustomerGrowthRate < -20) {
       insights.push({
         type: 'decline',
-        message: `Acquisition declining: ${formatPercentage(Math.abs(growthMetrics.newCustomerGrowthRate) / 100)} drop`,
+        message: `Acquisition declining: ${formatPercentage(Math.abs(growthMetrics.newCustomerGrowthRate))} drop`,
         value: growthMetrics.newCustomerGrowthRate,
         icon: TrendingDown
       });
@@ -307,7 +335,7 @@ export default function CustomerGrowthChart({
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900">
-                    {formatPercentage(growthMetrics.customerRetentionRate / 100)}
+                    {formatPercentage(growthMetrics.customerRetentionRate)}
                   </p>
                   <p className="text-xs text-gray-600">Retention Rate</p>
                 </div>
@@ -319,7 +347,7 @@ export default function CustomerGrowthChart({
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900">
-                    {formatPercentage(growthMetrics.totalGrowthRate / 100)}
+                    {formatPercentage(growthMetrics.totalGrowthRate)}
                   </p>
                   <p className="text-xs text-gray-600">Growth Rate</p>
                 </div>

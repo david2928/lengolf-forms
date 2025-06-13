@@ -24,6 +24,7 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 - **[Package Management](./features/PACKAGE_MANAGEMENT.md)** - Customer packages, usage tracking, expiration monitoring, and unlimited package support
 - **[Admin Panel](./features/ADMIN_PANEL.md)** - Administrative interface with role-based access and business intelligence tools
 - **[Sales Dashboard](./features/SALES_DASHBOARD.md)** - Comprehensive analytics with KPIs, charts, and flexible date filtering
+- **[POS Data Pipeline](./features/POS_DATA_PIPELINE.md)** - Complete data flow from external POS systems through staging to production tables, ETL functions, and BigQuery compatibility
 
 ### Feature Documentation (Implemented)
 - **[Customer Management](./features/CUSTOMER_MANAGEMENT.md)** - Complete customer lifecycle with CRM integration, VIP management, profile linking, and data synchronization
@@ -119,7 +120,7 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 
 ### ✅ What's Fully Documented
 - **Core Features**: Booking, packages, admin panel, sales dashboard, customer management
-- **Technical Systems**: Authentication, database schema, API endpoints
+- **Technical Systems**: Authentication, database schema, API endpoints, POS data pipeline
 - **Integrations**: LINE messaging, Google Calendar, CRM synchronization  
 - **Special Features**: Inventory management, US Open scoring system
 - **Architecture**: Project structure, backend/frontend organization

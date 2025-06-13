@@ -141,24 +141,39 @@ const UtilizationStats: React.FC<UtilizationStatsProps> = ({
       };
     }
 
-    const utilizationRates = data.map(d => d.utilization_pct);
+    // Filter out null/undefined utilization rates
+    const utilizationRates = data
+      .map(d => d.utilization_pct)
+      .filter(rate => rate != null) as number[];
+    
+    if (utilizationRates.length === 0) {
+      return {
+        average: 0,
+        highest: 0,
+        lowest: 0,
+        trend: 'neutral' as const,
+        daysAboveTarget: 0,
+        totalSessions: 0
+      };
+    }
+
     const average = utilizationRates.reduce((acc, val) => acc + val, 0) / utilizationRates.length;
     const highest = Math.max(...utilizationRates);
     const lowest = Math.min(...utilizationRates);
     
     // Calculate trend (comparing first half vs second half)
-    const midpoint = Math.floor(data.length / 2);
+    const midpoint = Math.floor(utilizationRates.length / 2);
     const firstHalf = utilizationRates.slice(0, midpoint);
     const secondHalf = utilizationRates.slice(midpoint);
     
-    const firstAvg = firstHalf.reduce((acc, val) => acc + val, 0) / firstHalf.length;
-    const secondAvg = secondHalf.reduce((acc, val) => acc + val, 0) / secondHalf.length;
+    const firstAvg = firstHalf.length > 0 ? firstHalf.reduce((acc, val) => acc + val, 0) / firstHalf.length : 0;
+    const secondAvg = secondHalf.length > 0 ? secondHalf.reduce((acc, val) => acc + val, 0) / secondHalf.length : 0;
     
     const trend = secondAvg > firstAvg + 1 ? 'up' : 
                   secondAvg < firstAvg - 1 ? 'down' : 'neutral';
     
     const daysAboveTarget = utilizationRates.filter(rate => rate >= targetUtilization).length;
-    const totalSessions = data.reduce((acc, d) => acc + d.sim_usage_count, 0);
+    const totalSessions = data.reduce((acc, d) => acc + (d.sim_usage_count || 0), 0);
 
     return {
       average,
@@ -278,7 +293,7 @@ export const SimUtilizationChart: React.FC<SimUtilizationChartProps> = ({
     const processedData = data.map(point => ({
       ...point,
       date: point.date,
-      utilization_pct: Number(point.utilization_pct.toFixed(1)),
+      utilization_pct: point.utilization_pct != null ? Number(point.utilization_pct.toFixed(1)) : 0,
       sim_revenue: point.sim_revenue || 0
     }));
 
