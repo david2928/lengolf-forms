@@ -121,10 +121,10 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 **Focus**: Current system state documentation  
 
 ### ✅ What's Fully Documented
-- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management
+- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management, invoice management
 - **Technical Systems**: Authentication, database schema, API endpoints, POS data pipeline
 - **Integrations**: LINE messaging, Google Calendar, CRM synchronization  
-- **Special Features**: Inventory management, US Open scoring system
+- **Special Features**: Inventory management, US Open scoring system, professional invoicing
 - **Architecture**: Project structure, backend/frontend organization
 
 ### 📝 Practical Documentation Needed

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create Invoice</title>
+    <!-- Basic Styling -->
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input[type=text], input[type=number], input[type=date], select, textarea {
+            width: 95%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; 
+        }
+        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        button:hover { background-color: #0056b3; }
+        #line-items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        #line-items-table th, #line-items-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        #line-items-table th { background-color: #f2f2f2; }
+        .totals-section { margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; text-align: right; }
+        .totals-section div { margin-bottom: 5px; }
+        .totals-section label { display: inline-block; width: 100px; font-weight: bold; }
+        .totals-section span { display: inline-block; width: 100px; text-align: right; }
+        nav a { margin-right: 15px; text-decoration: none; color: #007bff; }
+        nav { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .remove-item-btn { background-color: #dc3545; color: white; padding: 3px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+        .remove-item-btn:hover { background-color: #c82333; }
+        .flash-messages { list-style: none; padding: 0; margin-bottom: 15px; }
+        .flash-messages li { padding: 10px 15px; margin-bottom: 10px; border-radius: 4px; }
+        .flash-messages .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flash-messages .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .flash-messages .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .generated-files { margin-top: 30px; padding-top: 15px; border-top: 1px dashed #ccc; }
+        .generated-files h3 { margin-bottom: 10px; }
+        .generated-files ul { list-style: none; padding: 0; }
+        .generated-files li { margin-bottom: 5px; }
+        .generated-files a { text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <a href="{{ url_for('manage_suppliers') }}">Manage Suppliers</a>
+            <a href="{{ url_for('create_invoice_form') }}">Create Invoice</a> 
+        </nav>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <ul class=flash-messages>
+            {% for category, message in messages %}
+              <li class="{{ category }}">{{ message | safe }}</li> {# Use safe filter for HTML in flash #}
+            {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
+        <h1>Create New Invoice</h1>
+
+        <form id="invoice-form" action="{{ url_for('generate_invoice') }}" method="post">
+            <div class="form-group">
+                <label for="supplier">Supplier:</label>
+                <select id="supplier" name="supplier_id" required>
+                    <option value="">-- Select Supplier --</option>
+                    {% for supplier in suppliers %}
+                        <option value="{{ supplier['id'] }}" 
+                                data-default-desc="{{ supplier['default_description'] or '' }}"
+                                data-default-price="{{ supplier['default_unit_price'] or '' }}">
+                            {{ supplier['name'] }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 20px;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="invoice_number">Invoice Number:</label>
+                    <input type="text" id="invoice_number" name="invoice_number" value="{{ default_invoice_number }}" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="invoice_date">Date:</label>
+                    <input type="date" id="invoice_date" name="invoice_date" value="{{ default_date }}" required>
+                </div>
+            </div>
+
+            <h2>Line Items</h2>
+            <table id="line-items-table">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th style="width: 120px;">Amount</th>
+                        <th style="width: 50px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="line-items">
+                    <!-- Line items will be added here by JavaScript -->
+                </tbody>
+            </table>
+            <button type="button" id="add-item-btn">+ Add Item</button>
+
+            <div class="totals-section">
+                <div>
+                    <label>Subtotal:</label>
+                    <span id="subtotal">0.00</span>
+                </div>
+                 <div class="form-group" style="text-align: right; margin-bottom: 5px;">
+                    <label for="tax_rate" style="width: auto; margin-right: 5px;">WHT Rate (%):</label>
+                    <input type="number" id="tax_rate" name="tax_rate" value="{{ default_tax_rate }}" step="0.01" min="0" style="width: 80px; display: inline-block; padding: 5px;" required>
+                </div>
+                <div>
+                    <label>Tax Amount:</label>
+                    <span id="tax_amount">0.00</span>
+                </div>
+                 <div>
+                    <label>Total:</label>
+                    <span id="total">0.00</span>
+                </div>
+            </div>
+
+            <button type="submit">Generate Invoice PDF</button>
+        </form>
+
+        <!-- Display Recently Generated Files -->
+        {% if generated_files %}
+        <div class="generated-files">
+            <h3>Recently Generated Invoices:</h3>
+            <ul>
+                {% for filename in generated_files %}
+                <li>
+                    <a href="{{ url_for('serve_pdf', filename=filename) }}" target="_blank">{{ filename }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const addItemBtn = document.getElementById('add-item-btn');
+            const lineItemsBody = document.getElementById('line-items');
+            const supplierSelect = document.getElementById('supplier');
+            const taxRateInput = document.getElementById('tax_rate');
+
+            let itemIndex = 0;
+
+            function addLineItem(description = '', amount = '') {
+                const newRow = lineItemsBody.insertRow();
+                newRow.innerHTML = `
+                    <td><textarea name="items[${itemIndex}][description]" rows="1" style="width: 95%;" required>${description}</textarea></td>
+                    <td><input type="number" name="items[${itemIndex}][amount]" class="line-item-amount" value="${amount}" step="0.01" min="0" required></td>
+                    <td><button type="button" class="remove-item-btn">X</button></td>
+                `;
+                itemIndex++;
+                
+                // Add event listeners for the new row
+                newRow.querySelector('.remove-item-btn').addEventListener('click', function() {
+                    newRow.remove();
+                    updateTotals();
+                });
+                newRow.querySelector('.line-item-amount').addEventListener('input', updateTotals);
+
+                 // Auto-resize textarea
+                const textarea = newRow.querySelector('textarea');
+                textarea.addEventListener('input', autoResizeTextarea, false);
+                autoResizeTextarea.call(textarea); // Initial resize
+
+                updateTotals(); // Update totals when a new item is added
+            }
+
+            function autoResizeTextarea() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            }
+
+            function updateTotals() {
+                let subtotal = 0;
+                const amounts = document.querySelectorAll('.line-item-amount');
+                amounts.forEach(input => {
+                    subtotal += parseFloat(input.value) || 0;
+                });
+
+                const taxRate = parseFloat(taxRateInput.value) || 0;
+                const taxAmount = (subtotal * taxRate) / 100;
+                const total = subtotal - taxAmount; // Total = Subtotal - WHT
+
+                document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+                document.getElementById('tax_amount').textContent = taxAmount.toFixed(2);
+                document.getElementById('total').textContent = total.toFixed(2);
+            }
+
+            // Event Listeners
+            addItemBtn.addEventListener('click', () => addLineItem());
+            taxRateInput.addEventListener('input', updateTotals);
+
+            supplierSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const defaultDesc = selectedOption.getAttribute('data-default-desc');
+                const defaultPrice = selectedOption.getAttribute('data-default-price');
+
+                // Clear existing items only if there's a default
+                if ((defaultDesc || defaultPrice) && lineItemsBody.rows.length === 0) {
+                    addLineItem(defaultDesc || '', defaultPrice || '');
+                } else if ((defaultDesc || defaultPrice) && lineItemsBody.rows.length > 0) {
+                    // Optionally ask user if they want to replace items, or just add the default
+                    // For simplicity, let's just add it if they select a supplier with defaults
+                    // Check if the *first* item is empty before replacing
+                    const firstRowTextarea = lineItemsBody.rows[0]?.querySelector('textarea');
+                    const firstRowAmount = lineItemsBody.rows[0]?.querySelector('.line-item-amount');
+                    if(firstRowTextarea && firstRowAmount && firstRowTextarea.value.trim() === '' && (firstRowAmount.value === '' || firstRowAmount.value === '0')) {
+                         firstRowTextarea.value = defaultDesc || '';
+                         firstRowAmount.value = defaultPrice || '';
+                         autoResizeTextarea.call(firstRowTextarea);
+                         updateTotals();
+                    }
+                } 
+                // else: supplier has no defaults, do nothing
+            });
+
+            // Add one empty line item initially
+            addLineItem(); 
+        });
+    </script>
+</body>
+</html> 

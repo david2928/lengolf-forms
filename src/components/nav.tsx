@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator } from 'lucide-react'
+import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
 import {
   DropdownMenu,
@@ -123,6 +123,12 @@ export function Nav() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuItem asChild>
+                <Link href="/admin" className="flex items-center gap-2 w-full">
+                  <Settings className="h-4 w-4" />
+                  Admin Dashboard
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link href="/admin/sales-dashboard" className="flex items-center gap-2 w-full">
                   <TrendingUp className="h-4 w-4" />
                   Sales Dashboard
@@ -138,6 +144,12 @@ export function Nav() {
                 <Link href="/admin/inventory" className="flex items-center gap-2 w-full">
                   <Archive className="h-4 w-4" />
                   Inventory
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/invoices" className="flex items-center gap-2 w-full">
+                  <FileText className="h-4 w-4" />
+                  Invoice Management
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -181,7 +193,7 @@ export function Nav() {
       </Link>
       <PackageMonitorNavButton />
       {isAdmin && (
-        <Link href="/admin/sales-dashboard" className="flex-1">
+        <Link href="/admin" className="flex-1">
           <Button 
             variant={pathname.startsWith('/admin') ? 'secondary' : 'ghost'} 
             size="sm" 
