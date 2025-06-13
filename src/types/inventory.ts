@@ -183,7 +183,7 @@ export const GLOVE_SIZES = ['18', '19', '20', '21', '22', '23', '24', '25'] as c
 export type GloveSize = typeof GLOVE_SIZES[number];
 export type GloveSizeData = Record<GloveSize, number>;
 
-// Admin inventory types for dashboard components
+// Admin Dashboard Types
 export interface AdminInventoryProductWithStatus {
   id: string;
   name: string;
@@ -191,24 +191,17 @@ export interface AdminInventoryProductWithStatus {
   category_name: string;
   current_stock: number;
   reorder_threshold: number;
-  unit_cost?: number | null;
-  image_url?: string | null;
-  purchase_link?: string | null;
+  unit_cost?: number;
+  image_url?: string;
+  purchase_link?: string;
   supplier?: string;
   unit?: string;
-  input_type: string;
+  input_type: 'number' | 'checkbox' | 'textarea' | 'select' | 'stock_slider' | 'glove_sizes';
   last_updated_by?: string;
   last_updated_date?: string;
-  reorder_status?: string;
+  reorder_status: 'REORDER_NEEDED' | 'LOW_STOCK' | 'ADEQUATE';
   stock_difference?: number;
-  inventory_value?: number | null;
-}
-
-export interface UpdateProductMetadataRequest {
-  unit_cost?: number;
-  image_url?: string | null;
-  purchase_link?: string | null;
-  reorder_threshold?: number;
+  inventory_value?: number;
 }
 
 export interface AdminInventoryOverview {
@@ -223,15 +216,4 @@ export interface AdminInventoryOverview {
     low_stock: AdminInventoryProductWithStatus[];
     sufficient_stock: AdminInventoryProductWithStatus[];
   };
-}
-
-export interface ProductTrendData {
-  product_id: string;
-  product_name: string;
-  current_stock: number | null;
-  trend_data: Array<{
-    date: string;
-    value: number;
-    staff: string;
-  }>;
 } 

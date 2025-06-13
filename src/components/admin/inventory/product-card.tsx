@@ -14,7 +14,10 @@ import {
   Package,
   CheckCircle,
   ShoppingCart,
-  BarChart3
+  BarChart3,
+  Banknote,
+  Link,
+  Clock
 } from 'lucide-react'
 import { AdminInventoryProductWithStatus } from '@/types/inventory'
 import { EditProductModal } from './edit-product-modal'
@@ -36,7 +39,7 @@ export function ProductCard({ product, onUpdate }: ProductCardProps) {
       case 'REORDER_NEEDED':
         return {
           icon: AlertTriangle,
-          color: 'text-red-600',
+          color: '#B00020',
           bgColor: 'bg-red-50',
           borderColor: 'border-red-200',
           badgeVariant: 'destructive' as const,
@@ -45,7 +48,7 @@ export function ProductCard({ product, onUpdate }: ProductCardProps) {
       case 'LOW_STOCK':
         return {
           icon: Package,
-          color: 'text-amber-600',
+          color: '#C77700',
           bgColor: 'bg-amber-50',
           borderColor: 'border-amber-200',
           badgeVariant: 'secondary' as const,
@@ -76,10 +79,7 @@ export function ProductCard({ product, onUpdate }: ProductCardProps) {
   const StatusIcon = statusInfo.icon
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
+    return `฿${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
   const getStockPercentage = () => {
@@ -89,38 +89,63 @@ export function ProductCard({ product, onUpdate }: ProductCardProps) {
 
   return (
     <>
-      <Card className={`${statusInfo.borderColor} ${statusInfo.bgColor} hover:shadow-md transition-shadow`}>
-        <CardHeader className="pb-3">
+      <Card 
+        className={`${statusInfo.borderColor} ${statusInfo.bgColor} hover:shadow-md transition-shadow`}
+        role="article"
+        aria-label={`${product.name}, ${product.current_stock || 0} in stock, status ${statusInfo.label.toLowerCase()}`}
+        tabIndex={0}
+      >
+        <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <CardTitle className="text-base font-medium leading-tight">
+              <CardTitle className="text-sm font-medium leading-tight">
                 {product.name}
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {product.category_name}
               </p>
+              {/* Last Updated Tooltip */}
+              {product.last_updated_date && (
+                <div 
+                  className="inline-flex items-center mt-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-help"
+                  title={`Last updated: ${new Date(product.last_updated_date).toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })} by ${product.last_updated_by || 'Unknown'}`}
+                >
+                  <Clock className="h-2.5 w-2.5" />
+                </div>
+              )}
             </div>
-            <Badge variant={statusInfo.badgeVariant} className="ml-2 flex items-center gap-1">
-              <StatusIcon className="h-3 w-3" />
+            <Badge 
+              variant={statusInfo.badgeVariant} 
+              className="ml-1.5 flex items-center gap-0.5 text-xs px-1.5 py-0.5"
+              role="status"
+              aria-live="polite"
+            >
+              <StatusIcon className="h-2.5 w-2.5" />
               {statusInfo.label}
             </Badge>
           </div>
         </CardHeader>
         
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 pt-0">
           {/* Stock Level */}
           <div>
-            <div className="flex items-center justify-between text-sm mb-2">
+            <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="text-muted-foreground">Current Stock</span>
-              <span className={`font-medium ${statusInfo.color}`}>
+              <span className="font-medium" style={{ color: statusInfo.color }}>
                 {product.current_stock || 0} {product.unit || ''}
               </span>
             </div>
             
             {/* Stock Progress Bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-200 rounded-full h-1.5">
               <div 
-                className={`h-2 rounded-full transition-all ${
+                className={`h-1.5 rounded-full transition-all ${
                   product.reorder_status === 'REORDER_NEEDED' ? 'bg-red-500' :
                   product.reorder_status === 'LOW_STOCK' ? 'bg-amber-500' : 'bg-green-500'
                 }`}
@@ -129,22 +154,28 @@ export function ProductCard({ product, onUpdate }: ProductCardProps) {
             </div>
             
             <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
-              <span>Reorder at: {product.reorder_threshold || 'Not set'}</span>
+              <div className="flex items-center gap-0.5">
+                <Package className="h-2.5 w-2.5" />
+                <span>Reorder at: {product.reorder_threshold || 'Not set'}</span>
+              </div>
               <span>{Math.round(getStockPercentage())}%</span>
             </div>
           </div>
 
           {/* Financial Info */}
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
-              <span className="text-muted-foreground">Unit Cost</span>
-              <p className="font-medium">
+              <div className="flex items-center gap-0.5 text-muted-foreground mb-0.5">
+                <Banknote className="h-2.5 w-2.5" />
+                <span>Unit Cost</span>
+              </div>
+              <p className="font-medium text-sm">
                 {product.unit_cost ? formatCurrency(product.unit_cost) : 'Not set'}
               </p>
             </div>
             <div>
               <span className="text-muted-foreground">Stock Value</span>
-              <p className="font-medium">
+              <p className="font-medium text-sm">
                 {product.unit_cost && product.current_stock ? 
                   formatCurrency(product.current_stock * product.unit_cost) : 
                   'N/A'
@@ -154,14 +185,15 @@ export function ProductCard({ product, onUpdate }: ProductCardProps) {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-1.5 pt-1">
             <Button
               variant="outline"
               size="sm"
-              className="flex-1"
+              className="flex-1 h-7 text-xs"
               onClick={() => setIsEditModalOpen(true)}
+              aria-label={`Edit product details for ${product.name}`}
             >
-              <Edit className="h-3 w-3 mr-1" />
+              <Edit className="h-2.5 w-2.5 mr-1" />
               Edit
             </Button>
             
@@ -170,10 +202,12 @@ export function ProductCard({ product, onUpdate }: ProductCardProps) {
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 px-2"
                 onClick={() => setIsTrendModalOpen(true)}
                 title="View 14-day trend"
+                aria-label={`View usage trends for ${product.name}`}
               >
-                <BarChart3 className="h-3 w-3" />
+                <BarChart3 className="h-2.5 w-2.5" />
               </Button>
             )}
             
@@ -181,10 +215,12 @@ export function ProductCard({ product, onUpdate }: ProductCardProps) {
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 px-2"
                 onClick={() => setIsPurchaseModalOpen(true)}
                 title="Purchase information"
+                aria-label={`View purchase information for ${product.name}`}
               >
-                <ShoppingCart className="h-3 w-3" />
+                <Link className="h-2.5 w-2.5" />
               </Button>
             )}
           </div>

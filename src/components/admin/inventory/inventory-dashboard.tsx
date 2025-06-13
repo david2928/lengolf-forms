@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -12,11 +12,15 @@ import {
   Package, 
   CheckCircle, 
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react'
 import { useAdminInventoryOverview } from '@/hooks/use-admin-inventory'
 import { ProductCard } from './product-card'
+import { CollapsedProductCard } from './collapsed-product-card'
 import { InventorySearchFilters } from './inventory-search-filters'
+import { InventoryCostModal } from './inventory-cost-modal'
 import { AdminInventoryProductWithStatus } from '@/types/inventory'
 
 export function InventoryDashboard() {
@@ -25,6 +29,16 @@ export function InventoryDashboard() {
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
+  
+  // View toggle state
+  const [isConsolidatedView, setIsConsolidatedView] = useState(true)
+  
+  // Modal states
+  const [isCostModalOpen, setIsCostModalOpen] = useState(false)
+  
+  // Section refs for scrolling
+  const needsReorderRef = useRef<HTMLDivElement>(null)
+  const lowStockRef = useRef<HTMLDivElement>(null)
 
   const handleRefresh = () => {
     mutate()
@@ -33,6 +47,24 @@ export function InventoryDashboard() {
   const handleClearFilters = () => {
     setSearchQuery('')
     setSelectedCategory('all')
+  }
+
+  const handleCostCardClick = () => {
+    setIsCostModalOpen(true)
+  }
+
+  const handleNeedsReorderClick = () => {
+    needsReorderRef.current?.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'start' 
+    })
+  }
+
+  const handleLowStockClick = () => {
+    lowStockRef.current?.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'start' 
+    })
   }
 
   // Extract categories and apply filtering
@@ -111,7 +143,10 @@ export function InventoryDashboard() {
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={handleCostCardClick}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Inventory Value</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -125,18 +160,21 @@ export function InventoryDashboard() {
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Current stock valuation
+              Current stock valuation • Click for details
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={handleNeedsReorderClick}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Needs Reorder</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
+            <AlertTriangle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold" style={{ color: '#B00020' }}>
               {isLoading ? (
                 <Skeleton className="h-8 w-12" />
               ) : (
@@ -149,13 +187,16 @@ export function InventoryDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={handleLowStockClick}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
-            <Package className="h-4 w-4 text-amber-500" />
+            <Package className="h-4 w-4" style={{ color: '#C77700' }} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">
+            <div className="text-2xl font-bold" style={{ color: '#C77700' }}>
               {isLoading ? (
                 <Skeleton className="h-8 w-12" />
               ) : (
@@ -191,38 +232,64 @@ export function InventoryDashboard() {
       {/* Search and Filters */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <div>
+          <div className="flex-1">
             <h2 className="text-lg font-semibold">Product Inventory</h2>
             <p className="text-sm text-muted-foreground">
               Products grouped by reorder status
             </p>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleRefresh}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          
+          <div className="flex items-center gap-4">
+            {/* View Toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {isConsolidatedView ? 'Consolidated View' : 'Expanded View'}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsConsolidatedView(!isConsolidatedView)}
+                className="h-8 px-2"
+                title={isConsolidatedView ? 'Switch to Expanded View' : 'Switch to Consolidated View'}
+              >
+                {isConsolidatedView ? (
+                  <ToggleRight className="h-4 w-4 text-green-600" />
+                ) : (
+                  <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
+
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
-        <InventorySearchFilters
-          searchQuery={searchQuery}
-          selectedCategory={selectedCategory}
-          onSearchChange={setSearchQuery}
-          onCategoryChange={setSelectedCategory}
-          onClearFilters={handleClearFilters}
-          categories={categories}
-          resultCounts={resultCounts}
-        />
+        {/* Sticky Search/Filter Bar */}
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border pb-4">
+          <InventorySearchFilters
+            searchQuery={searchQuery}
+            selectedCategory={selectedCategory}
+            onSearchChange={setSearchQuery}
+            onCategoryChange={setSelectedCategory}
+            onClearFilters={handleClearFilters}
+            categories={categories}
+            resultCounts={resultCounts}
+          />
+        </div>
       </div>
 
       {/* Product Sections */}
       <div className="space-y-8">
         {/* Needs Reorder Section */}
-        <div>
+        <div ref={needsReorderRef}>
           <div className="flex items-center gap-2 mb-4">
             <Badge variant="destructive" className="flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" />
@@ -271,7 +338,7 @@ export function InventoryDashboard() {
         </div>
 
         {/* Low Stock Section */}
-        <div>
+        <div ref={lowStockRef}>
           <div className="flex items-center gap-2 mb-4">
             <Badge variant="secondary" className="flex items-center gap-1 bg-amber-100 text-amber-800">
               <Package className="h-3 w-3" />
@@ -342,15 +409,27 @@ export function InventoryDashboard() {
               ))}
             </div>
           ) : filteredData?.products?.sufficient_stock && filteredData.products.sufficient_stock.length > 0 ? (
-                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-               {filteredData.products.sufficient_stock.map((product: any) => (
-                 <ProductCard 
-                   key={product.id} 
-                   product={product} 
-                   onUpdate={handleRefresh}
-                 />
-               ))}
-             </div>
+            isConsolidatedView ? (
+              <div className="space-y-2">
+                {filteredData.products.sufficient_stock.map((product: any) => (
+                  <CollapsedProductCard 
+                    key={product.id} 
+                    product={product} 
+                    onUpdate={handleRefresh}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredData.products.sufficient_stock.map((product: any) => (
+                  <ProductCard 
+                    key={product.id} 
+                    product={product} 
+                    onUpdate={handleRefresh}
+                  />
+                ))}
+              </div>
+            )
           ) : (
             <Card>
               <CardContent className="flex items-center justify-center py-8">
@@ -368,14 +447,19 @@ export function InventoryDashboard() {
           )}
         </div>
       </div>
+
+      {/* Cost Modal */}
+      <InventoryCostModal
+        isOpen={isCostModalOpen}
+        onClose={() => setIsCostModalOpen(false)}
+        products={filteredData?.products}
+        totalValue={data?.summary?.total_inventory_value || 0}
+      />
     </div>
   )
 }
 
 // Helper function for currency formatting
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount)
+  return `฿${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 } 
