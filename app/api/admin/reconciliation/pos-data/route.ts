@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/auth-config';
 import { isUserAdmin } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 // Initialize Supabase client
 const supabase = createClient(
   process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!,

@@ -135,7 +135,7 @@ export function Nav() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/inventory" className="flex items-center gap-2 w-full">
+                <Link href="/admin/inventory" className="flex items-center gap-2 w-full">
                   <Archive className="h-4 w-4" />
                   Inventory
                 </Link>

@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/auth-config';
 import { parse } from 'csv-parse/sync';
 import * as XLSX from 'xlsx';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 interface ParsedInvoiceData {
   items: InvoiceItem[];
   summary: {

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { GoogleAuth } from 'google-auth-library';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 interface CloudRunResponse {
   batch_id: string;
   records_processed: number;
