@@ -6,8 +6,8 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, TrendingDown, Minus, DollarSign, Users, Target, ShoppingCart, Percent, UserPlus } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { TrendingUp, TrendingDown, Minus, DollarSign, Users, Target, ShoppingCart, Percent, UserPlus, HelpCircle } from 'lucide-react';
+import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { 
   DashboardSummary, 
   KPICardData,
@@ -22,6 +22,7 @@ import {
   generateTrendData,
   getComparisonPeriodLabel
 } from '@/lib/dashboard-utils';
+import MetricsTooltip, { QuickMetricTooltip } from './MetricsTooltip';
 
 // =============================================================================
 // COMPONENT INTERFACES
@@ -41,10 +42,49 @@ interface IndividualKPICardProps {
 }
 
 // =============================================================================
+// CUSTOM TOOLTIP COMPONENT
+// =============================================================================
+
+const CustomTooltip = ({ active, payload, label, format }: any) => {
+  if (active && payload && payload.length) {
+    const value = payload[0].value;
+    let formattedValue = value;
+    
+    switch (format) {
+      case 'currency':
+        formattedValue = formatCurrency(value);
+        break;
+      case 'percentage':
+        formattedValue = formatPercentage(value);
+        break;
+      case 'number':
+        formattedValue = formatNumber(value);
+        break;
+      default:
+        formattedValue = value;
+    }
+
+    return (
+      <div className="bg-white border rounded-lg shadow-lg p-2 text-xs">
+        <p className="text-gray-600">{`Period: ${label || 'N/A'}`}</p>
+        <p className="font-semibold text-gray-900">{`Value: ${formattedValue}`}</p>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+// =============================================================================
 // INDIVIDUAL KPI CARD COMPONENT
 // =============================================================================
 
-const KPICard: React.FC<IndividualKPICardProps> = ({ card, isLoading = false, comparisonLabel = 'WoW' }) => {
+const KPICard: React.FC<IndividualKPICardProps & { metricKey?: string }> = ({ 
+  card, 
+  isLoading = false, 
+  comparisonLabel = 'WoW',
+  metricKey 
+}) => {
   if (isLoading) {
     return (
       <Card className="h-[180px]">
@@ -98,9 +138,12 @@ const KPICard: React.FC<IndividualKPICardProps> = ({ card, isLoading = false, co
   return (
     <Card className="h-[180px] transition-all duration-200 hover:shadow-md">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-gray-600">
-          {card.label}
-        </CardTitle>
+        <QuickMetricTooltip metric={metricKey || card.label.toLowerCase().replace(/ /g, '_')} className="flex-1">
+          <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-1 cursor-help">
+            {card.label}
+            <HelpCircle className="h-3 w-3 text-gray-400 opacity-50" />
+          </CardTitle>
+        </QuickMetricTooltip>
         {card.icon && (
           <card.icon className="h-4 w-4 text-gray-400" />
         )}
@@ -117,28 +160,29 @@ const KPICard: React.FC<IndividualKPICardProps> = ({ card, isLoading = false, co
           </span>
         </div>
 
-        {/* Mini Trend Chart */}
-        <div className="h-12 w-full">
-          {card.trendData && card.trendData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={card.trendData}>
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke={card.changeDirection === 'up' ? DASHBOARD_COLORS.success : 
-                          card.changeDirection === 'down' ? DASHBOARD_COLORS.danger : 
-                          DASHBOARD_COLORS.primary} 
-                  strokeWidth={2}
-                  dot={false}
-                  animationDuration={1000}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-400 text-xs">
-              No trend data
-            </div>
-          )}
+        {/* Enhanced Mini Trend Chart with Hover Points */}
+        <div className="h-16">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={card.trendData}>
+              <XAxis dataKey="date" hide />
+              <YAxis hide />
+              <Tooltip content={<CustomTooltip format={card.format} />} />
+              <Line 
+                type="monotone" 
+                dataKey="value" 
+                stroke={card.changeDirection === 'up' ? DASHBOARD_COLORS.success : 
+                        card.changeDirection === 'down' ? DASHBOARD_COLORS.danger : 
+                        DASHBOARD_COLORS.primary} 
+                strokeWidth={2}
+                dot={{ r: 3, fill: card.changeDirection === 'up' ? DASHBOARD_COLORS.success : 
+                              card.changeDirection === 'down' ? DASHBOARD_COLORS.danger : 
+                              DASHBOARD_COLORS.primary, stroke: '#ffffff', strokeWidth: 1 }}
+                activeDot={{ r: 5, fill: card.changeDirection === 'up' ? DASHBOARD_COLORS.success : 
+                              card.changeDirection === 'down' ? DASHBOARD_COLORS.danger : 
+                              DASHBOARD_COLORS.primary, stroke: '#ffffff', strokeWidth: 2 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </CardContent>
     </Card>
@@ -186,7 +230,7 @@ export const KPICards: React.FC<KPICardsProps> = ({
   // Ensure all required properties exist with default values
   const safeData = {
     current: {
-      total_revenue: data.current?.total_revenue ?? 0,
+      net_revenue: data.current?.net_revenue ?? 0,
       gross_profit: data.current?.gross_profit ?? 0,
       sim_utilization_pct: data.current?.sim_utilization_pct ?? 0,
       new_customers: data.current?.new_customers ?? 0,
@@ -214,61 +258,67 @@ export const KPICards: React.FC<KPICardsProps> = ({
     }
   };
 
-  // Build KPI card data from dashboard summary
-  const kpiCards: KPICardData[] = [
+  // Build KPI card data from dashboard summary with metric keys for tooltips
+  const kpiCards: Array<KPICardData & { metricKey: string }> = [
     {
-      label: 'Total Revenue',
-      value: formatCurrency(safeData.current.total_revenue),
+      label: 'Net Revenue',
+      value: formatCurrency(safeData.current.net_revenue),
       changePercent: safeData.changes.revenue_change_pct,
       changeDirection: getChangeDirection(safeData.changes.revenue_change_pct),
-      trendData: generateTrendData(safeData.trend_data.revenue),
+      trendData: safeData.trend_data.revenue,
       format: 'currency',
-      icon: DollarSign
+      icon: DollarSign,
+      metricKey: 'net_revenue'
     },
     {
       label: 'Gross Profit',
       value: formatCurrency(safeData.current.gross_profit),
       changePercent: safeData.changes.profit_change_pct,
       changeDirection: getChangeDirection(safeData.changes.profit_change_pct),
-      trendData: generateTrendData(safeData.trend_data.profit),
+      trendData: safeData.trend_data.profit,
       format: 'currency',
-      icon: TrendingUp
+      icon: TrendingUp,
+      metricKey: 'gross_profit'
     },
     {
       label: 'Sim Utilization',
       value: formatPercentage(safeData.current.sim_utilization_pct),
       changePercent: safeData.changes.sim_utilization_change_pct,
       changeDirection: getChangeDirection(safeData.changes.sim_utilization_change_pct),
-      trendData: generateTrendData(safeData.trend_data.utilization),
+      trendData: safeData.trend_data.utilization,
       format: 'percentage',
-      icon: Target
+      icon: Target,
+      metricKey: 'sim_utilization_pct'
     },
     {
       label: 'Customer Acquisition',
       value: formatNumber(safeData.current.new_customers),
       changePercent: safeData.changes.customer_acquisition_change_pct,
       changeDirection: getChangeDirection(safeData.changes.customer_acquisition_change_pct),
-      trendData: generateTrendData(safeData.trend_data.customers),
+      trendData: safeData.trend_data.customers,
       format: 'number',
-      icon: UserPlus
+      icon: UserPlus,
+      metricKey: 'new_customers'
     },
     {
       label: 'Avg Transaction',
       value: formatCurrency(safeData.current.avg_transaction_value),
       changePercent: safeData.changes.transaction_change_pct,
       changeDirection: getChangeDirection(safeData.changes.transaction_change_pct),
-      trendData: generateTrendData(safeData.trend_data.transaction),
+      trendData: safeData.trend_data.transaction,
       format: 'currency',
-      icon: ShoppingCart
+      icon: ShoppingCart,
+      metricKey: 'avg_transaction_value'
     },
     {
       label: 'Gross Margin',
       value: formatPercentage(safeData.current.gross_margin_pct),
       changePercent: safeData.changes.margin_change_pct,
       changeDirection: getChangeDirection(safeData.changes.margin_change_pct),
-      trendData: generateTrendData(safeData.trend_data.margin),
+      trendData: safeData.trend_data.margin,
       format: 'percentage',
-      icon: Percent
+      icon: Percent,
+      metricKey: 'gross_margin_pct'
     }
   ];
 
@@ -282,18 +332,24 @@ export const KPICards: React.FC<KPICardsProps> = ({
             Real-time business metrics with week-over-week comparisons
           </p>
         </div>
-        <div className="flex items-center space-x-2 text-xs text-gray-500">
-          <div className="flex items-center space-x-1">
-            <TrendingUp className="h-3 w-3 text-green-600" />
-            <span>Improvement</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <TrendingDown className="h-3 w-3 text-red-600" />
-            <span>Decline</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <Minus className="h-3 w-3 text-gray-500" />
-            <span>No Change</span>
+        <div className="flex items-center space-x-4">
+          <MetricsTooltip 
+            position="left"
+            className="relative"
+          />
+          <div className="flex items-center space-x-2 text-xs text-gray-500">
+            <div className="flex items-center space-x-1">
+              <TrendingUp className="h-3 w-3 text-green-600" />
+              <span>Improvement</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <TrendingDown className="h-3 w-3 text-red-600" />
+              <span>Decline</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Minus className="h-3 w-3 text-gray-500" />
+              <span>No Change</span>
+            </div>
           </div>
         </div>
       </div>
@@ -301,7 +357,12 @@ export const KPICards: React.FC<KPICardsProps> = ({
       {/* KPI Cards Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {kpiCards.map((card, index) => (
-          <KPICard key={index} card={card} comparisonLabel={comparisonLabel} />
+          <KPICard 
+            key={index} 
+            card={card} 
+            comparisonLabel={comparisonLabel} 
+            metricKey={card.metricKey}
+          />
         ))}
       </div>
 

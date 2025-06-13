@@ -135,7 +135,7 @@ export async function POST(
       console.log(`Cancel booking: Deleting ${currentBooking.calendar_events.length} Google Calendar event(s) for booking ${bookingId}.`);
       try {
         const auth = await getServiceAccountAuth();
-        
+
         let allGCalDeletionsSuccessful = true;
         let deletionErrors = [];
         
@@ -158,7 +158,7 @@ export async function POST(
         // Update the booking to clear calendar_events and set appropriate sync status
         let syncStatus = 'cancelled_events_deleted';
         let updateData: any = { calendar_events: [] }; // Clear the events array since they should all be deleted
-        
+
         if (!allGCalDeletionsSuccessful) {
           console.warn(`Cancel booking: Not all GCal events were deleted successfully for ${bookingId}. Errors:`, deletionErrors);
           syncStatus = 'cancelled_partial_deletion_error';

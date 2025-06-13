@@ -15,10 +15,22 @@ function logRequest(method: string, url: string, params: any, duration?: number)
   });
 }
 
-// Helper function to calculate comparison period dates
+// Helper function to get current Bangkok date
+function getBangkokToday(): string {
+  const now = new Date();
+  const bangkokTime = new Date(now.getTime() + (7 * 60 * 60 * 1000)); // Add 7 hours for Bangkok timezone
+  return bangkokTime.toISOString().split('T')[0];
+}
+
+// Helper function to calculate comparison period dates with smart "today" handling
 function getComparisonDates(startDate: string, endDate: string, comparisonPeriod: string) {
   const start = new Date(startDate);
   const end = new Date(endDate);
+  
+  // Check if this is a "today" comparison using Bangkok timezone
+  const bangkokToday = getBangkokToday();
+  const isToday = startDate === endDate && startDate === bangkokToday;
+  
   const daysDiff = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
   let comparisonStart: Date;
@@ -40,17 +52,29 @@ function getComparisonDates(startDate: string, endDate: string, comparisonPeriod
       comparisonEnd.setDate(comparisonEnd.getDate() + daysDiff - 1);
       break;
     default: // 'previousPeriod'
-      // Go back the same number of days as the current period
-      comparisonStart = new Date(start);
-      comparisonStart.setDate(comparisonStart.getDate() - daysDiff);
-      comparisonEnd = new Date(start);
-      comparisonEnd.setDate(comparisonEnd.getDate() - 1);
+      if (isToday) {
+        // Special handling for "today": compare same time yesterday
+        // Yesterday at 00:00
+        comparisonStart = new Date(start);
+        comparisonStart.setDate(comparisonStart.getDate() - 1);
+        // Yesterday at same current time (not full day)
+        comparisonEnd = new Date(start);
+        comparisonEnd.setDate(comparisonEnd.getDate() - 1);
+      } else {
+        // Regular period comparison
+        comparisonStart = new Date(start);
+        comparisonStart.setDate(comparisonStart.getDate() - daysDiff);
+        comparisonEnd = new Date(start);
+        comparisonEnd.setDate(comparisonEnd.getDate() - 1);
+      }
       break;
   }
 
   return {
     comparison_start_date: comparisonStart.toISOString().split('T')[0],
-    comparison_end_date: comparisonEnd.toISOString().split('T')[0]
+    comparison_end_date: comparisonEnd.toISOString().split('T')[0],
+    is_today_comparison: isToday,
+    bangkok_today: bangkokToday
   };
 }
 
@@ -67,9 +91,18 @@ export async function GET(request: NextRequest) {
   const { searchParams, pathname } = new URL(request.url);
   
   try {
+    // Use Bangkok timezone for default dates
+    const bangkokToday = getBangkokToday();
     const startDate = searchParams.get('start_date') || '2024-05-01';
     const endDate = searchParams.get('end_date') || '2024-05-31';
     const comparisonPeriod = searchParams.get('comparison_period') || 'previousPeriod';
+    
+    // Log timezone information for debugging
+    console.log('Timezone Debug:', {
+      bangkokToday,
+      serverTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      requestedDates: { startDate, endDate }
+    });
     
     // Enhanced validation
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -115,10 +148,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate comparison period dates
-    const { comparison_start_date, comparison_end_date } = getComparisonDates(startDate, endDate, comparisonPeriod);
+    const { comparison_start_date, comparison_end_date, is_today_comparison, bangkok_today } = getComparisonDates(startDate, endDate, comparisonPeriod);
     
-    // Create cache key
-    const cacheKey = `dashboard-summary-${startDate}-${endDate}-${comparison_start_date}-${comparison_end_date}`;
+    // Create cache key (include time for today comparisons)
+    const timeKey = is_today_comparison ? `-${new Date().getHours()}${new Date().getMinutes()}` : '';
+    const cacheKey = `dashboard-summary-${startDate}-${endDate}-${comparison_start_date}-${comparison_end_date}${timeKey}`;
     
     // Check cache first
     const cachedData = cache.get(cacheKey);
@@ -130,16 +164,18 @@ export async function GET(request: NextRequest) {
         data: cachedData,
         cached: true,
         timestamp: new Date().toISOString(),
-        duration_ms: duration
+        duration_ms: duration,
+        timezone_info: { bangkok_today, is_today_comparison }
       });
     }
 
-    // Fetch current period data
-    const { data: currentData, error: currentError } = await refacSupabaseAdmin
-      .rpc('get_dashboard_summary', {
-        start_date: startDate,
-        end_date: endDate
-      });
+    // Fetch current period data using the enhanced functions
+    const { data: currentData, error: currentError } = await refacSupabaseAdmin.rpc('get_dashboard_summary_enhanced', {
+      start_date: startDate,
+      end_date: endDate,
+      comparison_start_date: comparison_start_date,
+      comparison_end_date: comparison_end_date
+    });
 
     if (currentError) {
       const duration = Date.now() - startTime;
@@ -157,12 +193,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch comparison period data
-    const { data: comparisonData, error: comparisonError } = await refacSupabaseAdmin
-      .rpc('get_dashboard_summary', {
+    // For time-aware comparisons (today vs yesterday), use the enhanced time-aware function
+    let comparisonData = null;
+    let comparisonError = null;
+    
+    if (is_today_comparison) {
+      // Get current Bangkok time for time-aware comparison
+      const bangkokTime = new Date(new Date().getTime() + (7 * 60 * 60 * 1000));
+      const cutoffTime = bangkokTime.toTimeString().split(' ')[0];
+      
+      const { data: timeAwareData, error: timeAwareError } = await refacSupabaseAdmin.rpc('get_dashboard_summary_enhanced_with_time', {
         start_date: comparison_start_date,
-        end_date: comparison_end_date
+        end_date: comparison_end_date,
+        comparison_start_date: comparison_start_date,
+        comparison_end_date: comparison_end_date,
+        cutoff_time_param: cutoffTime
       });
+      comparisonData = timeAwareData;
+      comparisonError = timeAwareError;
+    }
+    // Note: For non-today comparisons, we already have comparison data from the main function
 
     if (comparisonError) {
       console.warn('Comparison period data error:', comparisonError);
@@ -184,45 +234,47 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Extract current period metrics using the new database function structure
+    // Extract current period metrics from enhanced function JSON structure
     const current = {
-      total_revenue: currentData.current?.total_revenue ?? 0,
-      gross_profit: currentData.current?.gross_profit ?? 0,
-      transaction_count: currentData.current?.transaction_count ?? 0,
-      unique_customers: currentData.current?.unique_customers ?? 0,
-      avg_transaction_value: currentData.current?.avg_transaction_value ?? 0,
-      gross_margin_pct: currentData.current?.gross_margin_pct ?? 0,
-      sim_utilization_count: currentData.current?.sim_utilization_count ?? 0,
-      sim_utilization_pct: currentData.current?.sim_utilization_pct ?? 0,
-      new_customers: currentData.current?.new_customers ?? 0,
+      net_revenue: currentData?.current_period?.total_revenue ?? 0,
+      gross_profit: currentData?.current_period?.gross_profit ?? 0,
+      transaction_count: currentData?.current_period?.transaction_count ?? 0,
+      unique_customers: currentData?.current_period?.unique_customers ?? 0,
+      avg_transaction_value: currentData?.current_period?.avg_transaction_value ?? 0,
+      gross_margin_pct: currentData?.current_period?.gross_margin_pct ?? 0,
+      sim_utilization_count: currentData?.current_period?.sim_utilization_count ?? 0,
+      sim_utilization_pct: currentData?.current_period?.sim_utilization_pct ?? 0,
+      new_customers: currentData?.current_period?.new_customers ?? 0,
     };
 
-    // Extract comparison period metrics using the new structure
-    const comparison = comparisonData ? {
-      total_revenue: comparisonData.current?.total_revenue ?? 0,
-      gross_profit: comparisonData.current?.gross_profit ?? 0,
-      transaction_count: comparisonData.current?.transaction_count ?? 0,
-      unique_customers: comparisonData.current?.unique_customers ?? 0,
-      avg_transaction_value: comparisonData.current?.avg_transaction_value ?? 0,
-      gross_margin_pct: comparisonData.current?.gross_margin_pct ?? 0,
-      sim_utilization_count: comparisonData.current?.sim_utilization_count ?? 0,
-      sim_utilization_pct: comparisonData.current?.sim_utilization_pct ?? 0,
-      new_customers: comparisonData.current?.new_customers ?? 0,
+    // Extract comparison period metrics using enhanced function structure
+    const comparison = (is_today_comparison && comparisonData) ? {
+      // For today comparisons, use the separate time-aware function result
+      net_revenue: comparisonData?.current_period?.total_revenue ?? 0,
+      gross_profit: comparisonData?.current_period?.gross_profit ?? 0,
+      transaction_count: comparisonData?.current_period?.transaction_count ?? 0,
+      unique_customers: comparisonData?.current_period?.unique_customers ?? 0,
+      avg_transaction_value: comparisonData?.current_period?.avg_transaction_value ?? 0,
+      gross_margin_pct: comparisonData?.current_period?.gross_margin_pct ?? 0,
+      sim_utilization_count: comparisonData?.current_period?.sim_utilization_count ?? 0,
+      sim_utilization_pct: comparisonData?.current_period?.sim_utilization_pct ?? 0,
+      new_customers: comparisonData?.current_period?.new_customers ?? 0,
     } : {
-      total_revenue: 0,
-      gross_profit: 0,
-      transaction_count: 0,
-      unique_customers: 0,
-      avg_transaction_value: 0,
-      gross_margin_pct: 0,
-      sim_utilization_count: 0,
-      sim_utilization_pct: 0,
-      new_customers: 0,
+      // For non-today comparisons, use the comparison_period from the main function
+      net_revenue: currentData?.comparison_period?.total_revenue ?? 0,
+      gross_profit: currentData?.comparison_period?.gross_profit ?? 0,
+      transaction_count: currentData?.comparison_period?.transaction_count ?? 0,
+      unique_customers: currentData?.comparison_period?.unique_customers ?? 0,
+      avg_transaction_value: currentData?.comparison_period?.avg_transaction_value ?? 0,
+      gross_margin_pct: currentData?.comparison_period?.gross_margin_pct ?? 0,
+      sim_utilization_count: currentData?.comparison_period?.sim_utilization_count ?? 0,
+      sim_utilization_pct: currentData?.comparison_period?.sim_utilization_pct ?? 0,
+      new_customers: currentData?.comparison_period?.new_customers ?? 0,
     };
 
     // Calculate changes with proper percentage calculations
     const changes = {
-      revenue_change_pct: calculatePercentageChange(current.total_revenue, comparison.total_revenue),
+      revenue_change_pct: calculatePercentageChange(current.net_revenue, comparison.net_revenue),
       profit_change_pct: calculatePercentageChange(current.gross_profit, comparison.gross_profit),
       transaction_change_pct: calculatePercentageChange(current.avg_transaction_value, comparison.avg_transaction_value),
       customer_acquisition_change_pct: calculatePercentageChange(current.new_customers, comparison.new_customers),
@@ -234,31 +286,13 @@ export async function GET(request: NextRequest) {
       current,
       comparison,
       changes,
-      trend_data: {
-        revenue: currentData.trend_data?.revenue ? currentData.trend_data.revenue.map((value: number, index: number) => ({
-          date: new Date(Date.now() - (6 - index) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          value: value
-        })) : [],
-        profit: currentData.trend_data?.profit ? currentData.trend_data.profit.map((value: number, index: number) => ({
-          date: new Date(Date.now() - (6 - index) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          value: value
-        })) : [],
-        utilization: currentData.trend_data?.utilization ? currentData.trend_data.utilization.map((value: number, index: number) => ({
-          date: new Date(Date.now() - (6 - index) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          value: value
-        })) : [],
-        customers: currentData.trend_data?.customers ? currentData.trend_data.customers.map((value: number, index: number) => ({
-          date: new Date(Date.now() - (6 - index) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          value: value
-        })) : [],
-        transaction: currentData.trend_data?.transaction ? currentData.trend_data.transaction.map((value: number, index: number) => ({
-          date: new Date(Date.now() - (6 - index) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          value: value
-        })) : [],
-        margin: currentData.trend_data?.margin ? currentData.trend_data.margin.map((value: number, index: number) => ({
-          date: new Date(Date.now() - (6 - index) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          value: value
-        })) : []
+      trend_data: currentData?.trend_data || {
+        revenue: [],
+        profit: [],
+        utilization: [],
+        customers: [],
+        transaction: [],
+        margin: []
       }
     };
     

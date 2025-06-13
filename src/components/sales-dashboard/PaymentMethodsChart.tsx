@@ -42,9 +42,10 @@ import {
 const PAYMENT_CATEGORIES = {
   'Cash': { icon: Banknote, color: CHART_COLORS.primary, category: 'physical' },
   'PromptPay': { icon: Smartphone, color: CHART_COLORS.secondary, category: 'digital' },
-  'Credit Card': { icon: CreditCard, color: CHART_COLORS.accent, category: 'digital' },
-  'QR Payment': { icon: Smartphone, color: CHART_COLORS.info, category: 'digital' },
-  'Alipay': { icon: Smartphone, color: CHART_COLORS.warning, category: 'digital' },
+  'Visa': { icon: CreditCard, color: CHART_COLORS.accent, category: 'digital' },
+  'Mastercard': { icon: CreditCard, color: CHART_COLORS.info, category: 'digital' },
+  'QR Payment': { icon: Smartphone, color: CHART_COLORS.warning, category: 'digital' },
+  'Alipay': { icon: Smartphone, color: '#10B981', category: 'digital' },
   'Mixed Payment': { icon: DollarSign, color: CHART_COLORS.muted, category: 'mixed' },
   'Other': { icon: DollarSign, color: '#9CA3AF', category: 'other' }
 };
@@ -55,9 +56,12 @@ const categorizePaymentMethod = (paymentMethod: string): string => {
   
   const method = paymentMethod.toLowerCase();
   
-  // Handle pre-categorized data from database function
-  if (method.includes('card') && method.includes('manual')) return 'Credit Card';
-  if (method === 'promptpay') return 'PromptPay';
+  // Handle specific card types separately for better visibility
+  if (method.includes('visa')) return 'Visa';
+  if (method.includes('mastercard')) return 'Mastercard';
+  
+  // Handle other payment methods
+  if (method.includes('promptpay')) return 'PromptPay';
   if (method === 'cash') return 'Cash';
   if (method.includes('qr payment')) return 'QR Payment';
   if (method.includes('alipay')) return 'Alipay';
@@ -67,8 +71,8 @@ const categorizePaymentMethod = (paymentMethod: string): string => {
     return 'Mixed Payment';
   }
   
-  // Legacy categorization for raw payment method names  
-  if (method.includes('visa') || method.includes('mastercard')) return 'Credit Card';
+  // Legacy fallback for generic card types
+  if (method.includes('card') && method.includes('manual')) return 'Other';
   
   return 'Other';
 };

@@ -5,7 +5,7 @@
 // =============================================================================
 
 export interface PeriodMetrics {
-  total_revenue: number;
+  net_revenue: number;
   gross_profit: number;
   transaction_count: number;
   unique_customers: number;
@@ -45,7 +45,7 @@ export interface DashboardSummary {
 
 export interface RevenueTrendPoint {
   period_date: string;
-  total_revenue: number;
+  total_revenue: number;  // Keep as total_revenue for chart compatibility
   gross_profit: number;
   transaction_count: number;
   avg_transaction_value: number;
@@ -144,6 +144,7 @@ export interface CustomerGrowthChartProps {
   data: CustomerGrowthPoint[];
   isLoading?: boolean;
   showTotal?: boolean;
+  summaryData?: PeriodMetrics;
 }
 
 // =============================================================================

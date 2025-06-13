@@ -148,7 +148,7 @@ const RevenueSummary: React.FC<RevenueSummaryProps> = ({
         totalTransactions: 0,
         avgMargin: 0,
         bestDay: null,
-        growthRate: 0
+        worstDay: null
       };
     }
 
@@ -162,32 +162,10 @@ const RevenueSummary: React.FC<RevenueSummaryProps> = ({
       current.total_revenue > best.total_revenue ? current : best
     );
 
-    // Calculate growth rate (comparing first vs last periods)
-    // Since we now always get complete days (ending yesterday), no need for complex filtering
-    let growthRate = 0;
-    if (data.length >= 4) {
-      // Split data into two halves and compare average revenue
-      const midPoint = Math.floor(data.length / 2);
-      const firstHalf = data.slice(0, midPoint);
-      const secondHalf = data.slice(midPoint);
-      
-      const firstHalfAvg = firstHalf.reduce((sum, item) => sum + item.total_revenue, 0) / firstHalf.length;
-      const secondHalfAvg = secondHalf.reduce((sum, item) => sum + item.total_revenue, 0) / secondHalf.length;
-      
-      if (firstHalfAvg > 0) {
-        growthRate = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
-      }
-    } else if (data.length >= 2) {
-      // For smaller datasets, compare first vs last
-      const firstPeriod = data[0];
-      const lastPeriod = data[data.length - 1];
-      
-      if (firstPeriod.total_revenue > 0) {
-        const rawGrowthRate = ((lastPeriod.total_revenue - firstPeriod.total_revenue) / firstPeriod.total_revenue) * 100;
-        // Cap extreme values to more reasonable ranges
-        growthRate = Math.max(-80, Math.min(500, rawGrowthRate));
-      }
-    }
+    // Find worst performing day
+    const worstDay = data.reduce((worst, current) => 
+      current.total_revenue < worst.total_revenue ? current : worst
+    );
 
     return {
       totalRevenue,
@@ -195,7 +173,7 @@ const RevenueSummary: React.FC<RevenueSummaryProps> = ({
       totalTransactions,
       avgMargin,
       bestDay,
-      growthRate
+      worstDay
     };
   }, [data]);
 
@@ -238,17 +216,15 @@ const RevenueSummary: React.FC<RevenueSummaryProps> = ({
       </div>
       
       <div className="text-center">
-        <p className="text-xs text-gray-500 mb-1">Growth Rate</p>
-        <div className="flex items-center justify-center gap-1">
-          {summary.growthRate > 0 ? (
-            <TrendingUp className="h-3 w-3 text-green-500" />
-          ) : (
-            <TrendingUp className="h-3 w-3 text-red-500 transform rotate-180" />
-          )}
-          <p className={`text-lg font-bold ${summary.growthRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {summary.growthRate >= 0 ? '+' : ''}{summary.growthRate.toFixed(1)}%
+        <p className="text-xs text-gray-500 mb-1">Worst {periodType}</p>
+        <p className="text-lg font-bold text-red-600">
+          {summary.worstDay ? formatCompactCurrency(summary.worstDay.total_revenue) : 'N/A'}
+        </p>
+        {summary.worstDay && (
+          <p className="text-xs text-gray-400">
+            {formatDisplayDate(summary.worstDay.period_date)}
           </p>
-        </div>
+        )}
       </div>
       
       <div className="text-center">

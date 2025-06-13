@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, BarChart, Archive, Cog, ChevronDown, TrendingUp } from 'lucide-react'
+import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
 import {
   DropdownMenu,
@@ -123,27 +123,21 @@ export function Nav() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuItem asChild>
-                <Link href="/admin" className="flex items-center gap-2 w-full">
-                  <BarChart className="h-4 w-4" />
-                  Admin Dashboard
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
                 <Link href="/admin/sales-dashboard" className="flex items-center gap-2 w-full">
                   <TrendingUp className="h-4 w-4" />
                   Sales Dashboard
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/admin/inventory" className="flex items-center gap-2 w-full">
-                  <Archive className="h-4 w-4" />
-                  Inventory
+                <Link href="/admin/reconciliation" className="flex items-center gap-2 w-full">
+                  <Calculator className="h-4 w-4" />
+                  Reconciliation
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/admin/settings" className="flex items-center gap-2 w-full">
-                  <Cog className="h-4 w-4" />
-                  Settings
+                <Link href="/inventory" className="flex items-center gap-2 w-full">
+                  <Archive className="h-4 w-4" />
+                  Inventory
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -187,7 +181,7 @@ export function Nav() {
       </Link>
       <PackageMonitorNavButton />
       {isAdmin && (
-        <Link href="/admin" className="flex-1">
+        <Link href="/admin/sales-dashboard" className="flex-1">
           <Button 
             variant={pathname.startsWith('/admin') ? 'secondary' : 'ghost'} 
             size="sm" 
