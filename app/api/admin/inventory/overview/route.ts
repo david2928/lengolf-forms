@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-config'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
+import { AdminInventoryOverview } from '@/types/inventory'
+
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
 
 // Use the admin Supabase client for server-side operations
 const supabase = refacSupabaseAdmin
@@ -26,14 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Execute the reorder analysis query
-    console.log('Calling RPC function get_inventory_overview_with_reorder_status...')
     const { data: reorderData, error: reorderError } = await supabase.rpc('get_inventory_overview_with_reorder_status')
-    
-    console.log('RPC Response:', { 
-      dataLength: reorderData?.length || 0, 
-      error: reorderError,
-      sampleData: reorderData?.slice(0, 2) 
-    })
 
     if (reorderError) {
       console.error('Reorder analysis query error:', reorderError)

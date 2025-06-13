@@ -3,6 +3,25 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-config'
 import { refacSupabase } from '@/lib/refac-supabase'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
+// Type definitions for the API
+interface ProductTrendResponse {
+  success: boolean;
+  data: {
+    product_id: string;
+    product_name: string;
+    current_stock: number | null;
+    trend_data: Array<{
+      date: string;
+      value: number;
+      staff: string;
+    }>;
+  };
+  error?: string;
+}
+
 // Use the correct Supabase client
 const supabase = refacSupabase
 

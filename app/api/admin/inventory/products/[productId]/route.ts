@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-config'
 import { refacSupabase } from '@/lib/refac-supabase'
+import { UpdateProductMetadataRequest } from '@/types/inventory'
+
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
+// Response type for this API
+interface UpdateProductMetadataResponse {
+  success: boolean;
+  product?: any;
+  error?: string;
+}
 
 // Use the correct Supabase client
 const supabase = refacSupabase

@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   try {
     // Test database connection
-    console.log('Testing refac Supabase connection...')
     
     const { data, error } = await refacSupabaseAdmin
       .schema('backoffice')

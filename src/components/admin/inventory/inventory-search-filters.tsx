@@ -100,7 +100,7 @@ export function InventorySearchFilters({
         {searchQuery && (
           <Badge variant="secondary" className="flex items-center gap-1">
             <Search className="h-3 w-3" />
-            "{searchQuery}"
+            &quot;{searchQuery}&quot;
             <button
               onClick={() => onSearchChange('')}
               className="ml-1 hover:bg-muted rounded-full p-0.5"

@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
 import { createClient } from '@supabase/supabase-js';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 // According to memory, only public.bookings table should be used, not backoffice.bookings
 const supabase = createClient(
   process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!,
