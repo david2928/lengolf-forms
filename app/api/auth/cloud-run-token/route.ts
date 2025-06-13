@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { GoogleAuth } from 'google-auth-library';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 const CLOUD_RUN_URL = 'https://lengolf-crm-1071951248692.asia-southeast1.run.app/'
 
 export async function GET() {
