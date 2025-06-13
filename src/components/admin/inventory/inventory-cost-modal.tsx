@@ -102,19 +102,19 @@ export function InventoryCostModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Inventory Cost Breakdown</DialogTitle>
         </DialogHeader>
         
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
           {/* Pie Chart */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Cost by Category</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
+              <div className="h-96 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -122,10 +122,9 @@ export function InventoryCostModal({
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      outerRadius={80}
+                      outerRadius={100}
                       fill="#8884d8"
                       dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     >
                       {costByCategory.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -136,22 +135,32 @@ export function InventoryCostModal({
                 </ResponsiveContainer>
               </div>
               
-              {/* Category Legend */}
+              {/* Enhanced Category Legend with Percentages */}
               <div className="mt-4 space-y-2">
-                {costByCategory.map((category, index) => (
-                  <div key={category.name} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                      />
-                      <span>{category.name}</span>
+                {costByCategory.map((category, index) => {
+                  const percentage = ((category.value / totalValue) * 100).toFixed(1);
+                  return (
+                    <div key={category.name} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div 
+                          className="w-3 h-3 rounded-full flex-shrink-0" 
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <span className="truncate" title={category.name}>
+                          {category.name}
+                        </span>
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <span className="font-medium block">
+                          {formatCurrency(category.value)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {percentage}%
+                        </span>
+                      </div>
                     </div>
-                    <span className="font-medium">
-                      {formatCurrency(category.value)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -223,13 +232,13 @@ export function InventoryCostModal({
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {costByCategory.length > 0 ? formatCurrency(costByCategory[0].value) : '$0'}
+                  {costByCategory.length > 0 ? formatCurrency(costByCategory[0].value) : '฿0.00'}
                 </p>
                 <p className="text-sm text-muted-foreground">Highest Category</p>
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {expensiveProducts.length > 0 ? formatCurrency(expensiveProducts[0].totalValue) : '$0'}
+                  {expensiveProducts.length > 0 ? formatCurrency(expensiveProducts[0].totalValue) : '฿0.00'}
                 </p>
                 <p className="text-sm text-muted-foreground">Most Expensive Item</p>
               </div>

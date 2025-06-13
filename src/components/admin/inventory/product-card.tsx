@@ -17,7 +17,8 @@ import {
   BarChart3,
   Banknote,
   Link,
-  Clock
+  Clock,
+  ChevronUp
 } from 'lucide-react'
 import { AdminInventoryProductWithStatus } from '@/types/inventory'
 import { EditProductModal } from './edit-product-modal'
@@ -27,9 +28,11 @@ import { TrendChartModal } from './trend-chart-modal'
 interface ProductCardProps {
   product: AdminInventoryProductWithStatus
   onUpdate: () => void
+  showCollapseButton?: boolean
+  onCollapse?: () => void
 }
 
-export function ProductCard({ product, onUpdate }: ProductCardProps) {
+export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse }: ProductCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false)
   const [isTrendModalOpen, setIsTrendModalOpen] = useState(false)
@@ -186,6 +189,18 @@ export function ProductCard({ product, onUpdate }: ProductCardProps) {
 
           {/* Action Buttons */}
           <div className="flex gap-1.5 pt-1">
+            {showCollapseButton && onCollapse && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+                onClick={onCollapse}
+                title="Collapse to summary view"
+                aria-label={`Collapse ${product.name} to summary view`}
+              >
+                <ChevronUp className="h-2.5 w-2.5" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"

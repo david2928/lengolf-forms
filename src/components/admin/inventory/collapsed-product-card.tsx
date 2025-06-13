@@ -12,12 +12,20 @@ import { TrendChartModal } from './trend-chart-modal'
 interface CollapsedProductCardProps {
   product: AdminInventoryProductWithStatus
   onUpdate: () => void
+  isExpanded?: boolean
+  onExpand?: () => void
 }
 
-export function CollapsedProductCard({ product, onUpdate }: CollapsedProductCardProps) {
+export function CollapsedProductCard({ product, onUpdate, isExpanded, onExpand }: CollapsedProductCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false)
   const [isTrendModalOpen, setIsTrendModalOpen] = useState(false)
+
+  const handleCardClick = () => {
+    if (onExpand) {
+      onExpand()
+    }
+  }
 
   return (
     <>
@@ -26,6 +34,7 @@ export function CollapsedProductCard({ product, onUpdate }: CollapsedProductCard
         role="article"
         aria-label={`${product.name}, ${product.current_stock || 0} in stock, sufficient stock status`}
         tabIndex={0}
+        onClick={handleCardClick}
       >
         <CardContent className="p-3">
           <div className="flex items-center justify-between">

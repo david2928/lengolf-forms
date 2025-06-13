@@ -33,6 +33,9 @@ export function InventoryDashboard() {
   // View toggle state
   const [isConsolidatedView, setIsConsolidatedView] = useState(true)
   
+  // Expanded cards state for consolidated view
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
+  
   // Modal states
   const [isCostModalOpen, setIsCostModalOpen] = useState(false)
   
@@ -64,6 +67,18 @@ export function InventoryDashboard() {
     lowStockRef.current?.scrollIntoView({ 
       behavior: 'smooth', 
       block: 'start' 
+    })
+  }
+
+  const handleCardExpand = (productId: string) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(productId)) {
+        newSet.delete(productId)
+      } else {
+        newSet.add(productId)
+      }
+      return newSet
     })
   }
 
@@ -412,11 +427,24 @@ export function InventoryDashboard() {
             isConsolidatedView ? (
               <div className="space-y-2">
                 {filteredData.products.sufficient_stock.map((product: any) => (
-                  <CollapsedProductCard 
-                    key={product.id} 
-                    product={product} 
-                    onUpdate={handleRefresh}
-                  />
+                  expandedCards.has(product.id) ? (
+                    <div key={product.id} className="border border-green-200 rounded-lg p-1 bg-green-50/50">
+                      <ProductCard 
+                        product={product} 
+                        onUpdate={handleRefresh}
+                        showCollapseButton={true}
+                        onCollapse={() => handleCardExpand(product.id)}
+                      />
+                    </div>
+                  ) : (
+                    <CollapsedProductCard 
+                      key={product.id} 
+                      product={product} 
+                      onUpdate={handleRefresh}
+                      isExpanded={expandedCards.has(product.id)}
+                      onExpand={() => handleCardExpand(product.id)}
+                    />
+                  )
                 ))}
               </div>
             ) : (
