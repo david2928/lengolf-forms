@@ -198,10 +198,28 @@ export interface AdminInventoryProductWithStatus {
   unit?: string;
   input_type: 'number' | 'checkbox' | 'textarea' | 'select' | 'stock_slider' | 'glove_sizes';
   last_updated_by?: string;
-  last_updated_date?: string;
+  last_updated_at?: string;
   reorder_status: 'REORDER_NEEDED' | 'LOW_STOCK' | 'ADEQUATE';
   stock_difference?: number;
   inventory_value?: number;
+}
+
+// Admin product update request type
+export interface UpdateProductMetadataRequest {
+  unit_cost?: number;
+  image_url?: string;
+  purchase_link?: string;
+  reorder_threshold?: number;
+}
+
+// Product trend data for admin dashboard charts
+export interface ProductTrendData {
+  product_id: string;
+  trend_data: {
+    date: string;
+    value: number;
+    staff: string;
+  }[];
 }
 
 export interface AdminInventoryOverview {

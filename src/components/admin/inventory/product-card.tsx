@@ -108,10 +108,10 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
                 {product.category_name}
               </p>
               {/* Last Updated Tooltip */}
-              {product.last_updated_date && (
+              {product.last_updated_at && (
                 <div 
                   className="inline-flex items-center mt-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-help"
-                  title={`Last updated: ${new Date(product.last_updated_date).toLocaleDateString('en-US', { 
+                  title={`Last updated: ${new Date(product.last_updated_at).toLocaleDateString('en-US', { 
                     year: 'numeric', 
                     month: 'short', 
                     day: 'numeric',
