@@ -18,10 +18,7 @@ export function PurchaseLinkModal({ product, isOpen, onClose }: PurchaseLinkModa
   const [copied, setCopied] = useState(false)
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
+    return `฿${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
   const getStatusInfo = () => {
