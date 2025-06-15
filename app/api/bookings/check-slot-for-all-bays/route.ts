@@ -1,47 +1,14 @@
 import { NextResponse } from 'next/server';
-import { google, calendar_v3 } from 'googleapis';
-import { DateTime } from 'luxon';
-import { getServiceAccountAuth } from '@/lib/google-auth';
+import { createClient } from '@supabase/supabase-js';
 
 const TIMEZONE = 'Asia/Bangkok';
 
-// Define all bays with their simple names, API names (for GCal event titles/matching), and Calendar IDs
-const ALL_BAYS_INFO = [
-  { 
-    simpleName: 'Bay 1', 
-    apiName: 'Bay 1 (Bar)', 
-    calendarId: process.env.BAY_1_CALENDAR_ID || "a6234ae4e57933edb48a264fff4c5d3d3653f7bedce12cfd9a707c6c0ff092e4@group.calendar.google.com" 
-  },
-  { 
-    simpleName: 'Bay 2', 
-    apiName: 'Bay 2', 
-    calendarId: process.env.BAY_2_CALENDAR_ID || "3a700346dd902abd4aa448ee63e184a62f05d38bb39cb19a8fc27116c6df3233@group.calendar.google.com" 
-  },
-  { 
-    simpleName: 'Bay 3', 
-    apiName: 'Bay 3 (Entrance)', 
-    calendarId: process.env.BAY_3_CALENDAR_ID || "092757d971c313c2986b43f4c8552382a7e273b183722a44a1c4e1a396568ca3@group.calendar.google.com" 
-  }
+// Define the 3 actual bays
+const ALL_BAYS = [
+  "Bay 1",
+  "Bay 2",
+  "Bay 3"
 ];
-
-const getBookingIdFromDescription = (description: string | null | undefined): string | null => {
-  if (!description) return null;
-  const match = description.match(/Booking ID: (BK[A-Z0-9]+)/i);
-  return match ? match[1] : null;
-};
-
-// Helper to convert HH:mm time and date string to a Luxon DateTime object
-const getLuxonDateTime = (dateStr: string, timeStr: string): DateTime | null => {
-  if (!dateStr || !timeStr) return null;
-  try {
-    const dateTime = DateTime.fromFormat(`${dateStr} ${timeStr}`, 'yyyy-MM-dd HH:mm', { zone: TIMEZONE });
-    return dateTime.isValid ? dateTime : null;
-  } catch (e) {
-    console.error('Error creating Luxon DateTime:', e);
-    return null;
-  }
-};
-
 
 export async function POST(request: Request) {
   try {
@@ -51,70 +18,52 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing or invalid parameters: date, start_time, and duration (number, >0) are required.' }, { status: 400 });
     }
 
-    const auth = await getServiceAccountAuth();
-    const calendar: calendar_v3.Calendar = google.calendar({ version: 'v3', auth });
+    // Create Supabase client
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!,
+      process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-    const proposedSlotStart = getLuxonDateTime(date, start_time);
-    if (!proposedSlotStart) {
-      return NextResponse.json({ error: 'Invalid date or start_time format.' }, { status: 400 });
-    }
-    const proposedSlotEnd = proposedSlotStart.plus({ minutes: duration });
-
-    const dayStart = proposedSlotStart.startOf('day');
-    const dayEnd = proposedSlotStart.endOf('day');
+    // Convert duration from minutes to hours for Supabase function
+    const durationHours = duration / 60;
 
     const availabilityResults = [];
 
-    for (const bayInfo of ALL_BAYS_INFO) {
-      let isBayAvailableForSlot = true;
+    for (const bay of ALL_BAYS) {
       try {
-        const listParams: calendar_v3.Params$Resource$Events$List = {
-          calendarId: bayInfo.calendarId,
-          timeMin: dayStart.toISO() ?? undefined,
-          timeMax: dayEnd.toISO() ?? undefined,
-          singleEvents: true,
-          orderBy: 'startTime',
-          timeZone: TIMEZONE,
-        };
-        const eventsResponse = await calendar.events.list(listParams);
+        // Check availability using our Supabase function
+        const { data: isAvailable, error } = await supabase.rpc('check_availability', {
+          p_date: date,
+          p_bay: bay,
+          p_start_time: start_time,
+          p_duration: durationHours,
+          p_exclude_booking_id: bookingIdToExclude || null
+        });
 
-        const events = eventsResponse.data?.items;
-        if (events) {
-          for (const event of events) {
-            if (event.status === 'cancelled') continue;
-
-            if (bookingIdToExclude) {
-              const eventBookingId = getBookingIdFromDescription(event.description);
-              if (eventBookingId === bookingIdToExclude) {
-                continue; 
-              }
-            }
-
-            const eventStartStr = event.start?.dateTime;
-            const eventEndStr = event.end?.dateTime;
-
-            if (eventStartStr && eventEndStr) {
-              const eventStart = DateTime.fromISO(eventStartStr, { zone: TIMEZONE });
-              const eventEnd = DateTime.fromISO(eventEndStr, { zone: TIMEZONE });
-
-              // Check for overlap: (ProposedStart < EventEnd) and (ProposedEnd > EventStart)
-              if (proposedSlotStart < eventEnd && proposedSlotEnd > eventStart) {
-                isBayAvailableForSlot = false;
-                break; // No need to check other events for this bay
-              }
-            }
-          }
+        if (error) {
+          console.error(`Supabase error for ${bay}:`, error);
+          // If Supabase fails for a bay, assume it's not available to be safe
+          availabilityResults.push({
+            name: bay,
+            apiName: bay,
+            isAvailable: false,
+          });
+        } else {
+          availabilityResults.push({
+            name: bay,
+            apiName: bay,
+            isAvailable: isAvailable,
+          });
         }
       } catch (e: any) {
-        console.error(`Error checking GCal for ${bayInfo.simpleName}:`, e.message);
-        // If GCal fails for a bay, assume it's not available to be safe, or handle as per requirements
-        isBayAvailableForSlot = false; 
+        console.error(`Error checking availability for ${bay}:`, e.message);
+        // If there's an error, assume not available to be safe
+        availabilityResults.push({
+          name: bay,
+          apiName: bay,
+          isAvailable: false,
+        });
       }
-      availabilityResults.push({
-        name: bayInfo.simpleName,
-        apiName: bayInfo.apiName,
-        isAvailable: isBayAvailableForSlot,
-      });
     }
 
     return NextResponse.json(availabilityResults);

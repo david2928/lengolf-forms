@@ -1,57 +1,47 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
-import { DateTime } from 'luxon';
-import { getServiceAccountAuth } from '@/lib/google-auth';
+import { createClient } from '@supabase/supabase-js';
 
-// Bay calendar IDs
-const BAY_CALENDARS = {
-  "Bay 1 (Bar)": "a6234ae4e57933edb48a264fff4c5d3d3653f7bedce12cfd9a707c6c0ff092e4@group.calendar.google.com",
-  "Bay 2": "3a700346dd902abd4aa448ee63e184a62f05d38bb39cb19a8fc27116c6df3233@group.calendar.google.com",
-  "Bay 3 (Entrance)": "092757d971c313c2986b43f4c8552382a7e273b183722a44a1c4e1a396568ca3@group.calendar.google.com"
-} as const;
+// Valid bay names - only the 3 actual bays
+const VALID_BAYS = [
+  "Bay 1",
+  "Bay 2", 
+  "Bay 3"
+];
 
 export async function POST(request: Request) {
   try {
     const { bayNumber, date } = await request.json();
 
     // Validate inputs
-    if (!bayNumber || !date || !BAY_CALENDARS[bayNumber as keyof typeof BAY_CALENDARS]) {
+    if (!bayNumber || !date || !VALID_BAYS.includes(bayNumber)) {
       return NextResponse.json(
         { error: 'Invalid bay number or date' },
         { status: 400 }
       );
     }
 
-    // Get calendar ID
-    const calendarId = BAY_CALENDARS[bayNumber as keyof typeof BAY_CALENDARS];
+    // Create Supabase client
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!,
+      process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-    // Get authenticated client
-    const auth = await getServiceAccountAuth();
-    const calendar = google.calendar({ version: 'v3', auth });
-
-    // Set up time range for the specified date (in Bangkok timezone)
-    const startOfDay = DateTime.fromISO(`${date}T00:00:00`, { zone: 'Asia/Bangkok' }).toUTC().toISO();
-    const endOfDay = DateTime.fromISO(`${date}T23:59:59`, { zone: 'Asia/Bangkok' }).toUTC().toISO();
-
-    // Query free/busy information
-    const response = await calendar.freebusy.query({
-      requestBody: {
-        timeMin: startOfDay,
-        timeMax: endOfDay,
-        items: [{ id: calendarId }],
-      },
+    // Get busy times directly using the bay name from database
+    const { data: busyTimes, error } = await supabase.rpc('get_busy_times_gcal_format', {
+      p_date: date,
+      p_bay_api_name: bayNumber  // Now just pass the bay name directly
     });
 
-    // Extract busy times
-    const busyTimes = response.data.calendars?.[calendarId]?.busy || [];
+    if (error) {
+      console.error('Supabase error:', error);
+      return NextResponse.json(
+        { error: 'Error checking availability' },
+        { status: 500 }
+      );
+    }
 
-    // Convert times back to Bangkok timezone
-    const formattedBusyTimes = busyTimes.map(time => ({
-      start: DateTime.fromISO(time.start as string).setZone('Asia/Bangkok').toISO(),
-      end: DateTime.fromISO(time.end as string).setZone('Asia/Bangkok').toISO(),
-    }));
-
-    return NextResponse.json({ busyTimes: formattedBusyTimes });
+    // Return in the same format as before
+    return NextResponse.json({ busyTimes: busyTimes || [] });
   } catch (error) {
     console.error('Error checking availability:', error);
     return NextResponse.json(

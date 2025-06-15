@@ -26,6 +26,7 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 - **[Sales Dashboard](./features/SALES_DASHBOARD.md)** - Comprehensive analytics with KPIs, charts, and flexible date filtering
 - **[Inventory Dashboard](./features/INVENTORY_DASHBOARD.md)** - Stock level monitoring, reorder alerts, and product management with real-time tracking
 - **[POS Data Pipeline](./features/POS_DATA_PIPELINE.md)** - Complete data flow from external POS systems through staging to production tables, ETL functions, and BigQuery compatibility
+- **[Native Availability System](./features/NATIVE_AVAILABILITY_SYSTEM.md)** - Supabase-native availability checking with real-time updates, 10-40x performance improvement, and zero external dependencies
 
 ### Feature Documentation (Implemented)
 - **[Customer Management](./features/CUSTOMER_MANAGEMENT.md)** - Complete customer lifecycle with CRM integration, VIP management, profile linking, and data synchronization

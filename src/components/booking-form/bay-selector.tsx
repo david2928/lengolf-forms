@@ -5,12 +5,14 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { DateTime } from 'luxon'
 import { cn } from '@/lib/utils'
-import { format, parse, addHours } from 'date-fns'
+import { format } from 'date-fns'
+import { useAllBaysAvailability } from '@/hooks/useAvailability'
 
+// Updated to use the simplified bay names from Phase 2
 const BAYS = [
-  { id: 'Bay 1 (Bar)', name: 'Bay 1 (Bar)' },
+  { id: 'Bay 1', name: 'Bay 1' },
   { id: 'Bay 2', name: 'Bay 2' },
-  { id: 'Bay 3 (Entrance)', name: 'Bay 3 (Entrance)' }
+  { id: 'Bay 3', name: 'Bay 3' }
 ];
 
 interface BusyTime {
@@ -42,13 +44,43 @@ export function BaySelector({
   isManualMode = false,
   error
 }: BaySelectorProps) {
-  const [loading, setLoading] = useState(false);
   const [busyTimesByBay, setBusyTimesByBay] = useState<Record<string, BusyTime[]>>({});
   const [availableBaysForTime, setAvailableBaysForTime] = useState<string[]>([]);
-  const [allBayAvailabilities, setAllBayAvailabilities] = useState<Record<string, BusyTime[]>>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [availableBays, setAvailableBays] = useState<string[]>([]);
 
+  // Calculate duration from selected times
+  const duration = selectedStartTime && selectedEndTime ? (() => {
+    const start = selectedStartTime instanceof Date
+      ? DateTime.fromJSDate(selectedStartTime)
+      : DateTime.fromFormat(selectedStartTime as string, 'HH:mm');
+    
+    const end = selectedEndTime instanceof Date
+      ? DateTime.fromJSDate(selectedEndTime)
+      : DateTime.fromFormat(selectedEndTime as string, 'HH:mm');
+    
+    return end.diff(start, 'hours').hours;
+  })() : 1;
+
+  // Get start time for availability check
+  const startTimeForCheck = selectedStartTime ? (
+    selectedStartTime instanceof Date
+      ? DateTime.fromJSDate(selectedStartTime).toFormat('HH:mm')
+      : selectedStartTime as string
+  ) : '10:00';
+
+  // Use our new real-time availability hook
+  const { 
+    availability, 
+    loading: availabilityLoading, 
+    error: availabilityError,
+    refresh 
+  } = useAllBaysAvailability(
+    format(selectedDate, 'yyyy-MM-dd'),
+    startTimeForCheck,
+    duration
+  );
+
+  // Fetch individual bay busy times for conflict checking
   const fetchAllBaysAvailability = useCallback(async (date: Date | string | null) => {
     if (!date) return;
     setIsLoading(true);
@@ -146,35 +178,86 @@ export function BaySelector({
 
   const isBayAvailable = (bayId: string) => {
     if (isManualMode) return true;
+    
+    // Use real-time availability data if available
+    if (selectedStartTime && availability[bayId] !== undefined) {
+      return availability[bayId];
+    }
+    
+    // Fallback to old logic
     return !selectedStartTime || availableBaysForTime.includes(bayId);
   };
+
+  const loading = isLoading || availabilityLoading;
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>Select Bay</Label>
-        {isLoading ? (
-          <p>Loading bay availability...</p>
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            <span className="ml-2 text-sm text-gray-500">Loading bay availability...</span>
+          </div>
         ) : (
           <div className="grid grid-cols-3 gap-2">
-            {BAYS.map((bay) => (
-              <Button
-                key={bay.id}
-                type="button"
-                variant={selectedBay === bay.id ? "default" : "outline"}
-                className={cn(
-                  "h-auto py-4 px-2",
-                  selectedBay === bay.id && "bg-primary text-primary-foreground",
-                  (!isBayAvailable(bay.id) && selectedStartTime) && "opacity-50"
-                )}
-                onClick={() => onBaySelect(bay.id)}
-                disabled={!isBayAvailable(bay.id)}
-              >
-                {bay.name}
-              </Button>
-            ))}
+            {BAYS.map((bay) => {
+              const isAvailable = isBayAvailable(bay.id);
+              const showAvailability = selectedStartTime && availability[bay.id] !== undefined;
+              
+              return (
+                <Button
+                  key={bay.id}
+                  type="button"
+                  variant={selectedBay === bay.id ? "default" : "outline"}
+                  className={cn(
+                    "h-auto py-4 px-2 relative",
+                    selectedBay === bay.id && "bg-primary text-primary-foreground",
+                    (!isAvailable && selectedStartTime) && "opacity-50 cursor-not-allowed"
+                  )}
+                  onClick={() => onBaySelect(bay.id)}
+                  disabled={!isAvailable && selectedStartTime !== null}
+                >
+                  <div className="flex flex-col items-center">
+                    <span className="font-medium">{bay.name}</span>
+                    {showAvailability && (
+                      <span className={cn(
+                        "text-xs mt-1",
+                        isAvailable ? "text-green-600" : "text-red-600"
+                      )}>
+                        {isAvailable ? "Available" : "Busy"}
+                      </span>
+                    )}
+                  </div>
+                  {/* Real-time indicator */}
+                  {showAvailability && (
+                    <div className={cn(
+                      "absolute top-1 right-1 w-2 h-2 rounded-full",
+                      isAvailable ? "bg-green-500" : "bg-red-500"
+                    )} />
+                  )}
+                </Button>
+              );
+            })}
           </div>
         )}
+        
+        {availabilityError && (
+          <div className="flex items-center justify-between p-2 bg-yellow-50 border border-yellow-200 rounded">
+            <p className="text-sm text-yellow-800">
+              Real-time updates unavailable. Using cached data.
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => refresh()}
+              className="text-yellow-800 hover:text-yellow-900"
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+        
         {error?.bay && (
           <p className="text-sm text-red-500">{error.bay}</p>
         )}

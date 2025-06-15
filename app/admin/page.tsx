@@ -7,7 +7,8 @@ import {
   Archive, 
   Calculator,
   FileText,
-  Shield
+  Shield,
+  Activity
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -33,6 +34,15 @@ const analyticsItems = [
     title: "Reconciliation",
     description: "Reconcile transactions and payments",
     path: "/admin/reconciliation"
+  }
+];
+
+const systemItems = [
+  {
+    icon: Activity,
+    title: "Availability Performance",
+    description: "Monitor real-time availability system performance",
+    path: "/admin/performance"
   }
 ];
 
@@ -128,6 +138,21 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
+
+        <div>
+          <h2 className="text-lg font-semibold mb-3">System Management</h2>
+          <div className="space-y-3">
+            {systemItems.map((item) => (
+              <MobileMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Desktop Layout */}
@@ -151,6 +176,21 @@ export default function AdminDashboard() {
           <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Inventory & Operations</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
             {inventoryItems.map((item) => (
+              <DesktopMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={isMobile ? undefined : item.description}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">System Management</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
+            {systemItems.map((item) => (
               <DesktopMenuItem
                 key={item.title}
                 icon={item.icon}
