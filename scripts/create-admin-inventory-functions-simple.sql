@@ -9,6 +9,7 @@ RETURNS TABLE (
   category_id UUID,
   category_name TEXT,
   current_stock NUMERIC,
+  current_stock_text TEXT,
   reorder_threshold NUMERIC,
   unit_cost NUMERIC,
   image_url TEXT,
@@ -63,12 +64,18 @@ BEGIN
         THEN li.value_numeric - p.reorder_threshold
         ELSE NULL 
       END as stock_difference,
-      -- Determine reorder status
+      -- Determine reorder status (FIXED: now handles stock_slider values)
       CASE 
-        WHEN li.value_numeric IS NULL THEN 'NO_DATA'
-        WHEN p.reorder_threshold IS NULL THEN 'NO_THRESHOLD'
-        WHEN li.value_numeric <= p.reorder_threshold THEN 'REORDER_NEEDED'
-        WHEN li.value_numeric <= (p.reorder_threshold * 1.2) THEN 'LOW_STOCK'
+        -- Handle stock slider products based on value_text
+        WHEN p.input_type = 'stock_slider' AND li.value_text = 'Out of Stock' THEN 'REORDER_NEEDED'
+        WHEN p.input_type = 'stock_slider' AND li.value_text = 'Need to Order' THEN 'REORDER_NEEDED'
+        WHEN p.input_type = 'stock_slider' AND li.value_text = 'Enough Stock' THEN 'ADEQUATE'
+        WHEN p.input_type = 'stock_slider' AND li.value_text IS NULL THEN 'NO_DATA'
+        -- Handle numeric products (existing logic)
+        WHEN p.input_type != 'stock_slider' AND li.value_numeric IS NULL THEN 'NO_DATA'
+        WHEN p.input_type != 'stock_slider' AND p.reorder_threshold IS NULL THEN 'NO_THRESHOLD'
+        WHEN p.input_type != 'stock_slider' AND li.value_numeric <= p.reorder_threshold THEN 'REORDER_NEEDED'
+        WHEN p.input_type != 'stock_slider' AND li.value_numeric <= (p.reorder_threshold * 1.2) THEN 'LOW_STOCK'
         ELSE 'ADEQUATE'
       END as reorder_status
     FROM inventory_products p
@@ -82,6 +89,7 @@ BEGIN
     iwp.category_id,
     iwp.category_name,
     iwp.current_stock,
+    iwp.value_text as current_stock_text,
     iwp.reorder_threshold,
     iwp.unit_cost,
     iwp.image_url,

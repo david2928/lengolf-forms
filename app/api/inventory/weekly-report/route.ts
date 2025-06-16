@@ -184,7 +184,7 @@ function generateWeeklyReport(inventoryData: InventoryItem[], reportDate: string
       needsReorder = current_value <= reorder_threshold;
     } else if (input_type === 'stock_slider') {
       const valueDisplay = typeof current_value === 'string' ? current_value : 'Unknown status';
-      needsReorder = valueDisplay === 'Need to order';
+      needsReorder = valueDisplay === 'Need to Order' || valueDisplay === 'Out of Stock';
     }
     
     if (needsReorder) {

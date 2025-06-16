@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+You have MCP access to the supabase server of this application.
+
+
+Also most of the time npm run dev is already running,s o you can call the application directly.
