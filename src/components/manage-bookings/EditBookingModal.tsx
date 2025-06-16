@@ -156,9 +156,23 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           const endMinutes = startMinutes + durationMinutes;
           const endHours = Math.floor(endMinutes / 60);
           const endMins = endMinutes % 60;
-          const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
           
-          const bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+          // Handle midnight crossover correctly
+          let bookingEndDateTime;
+          if (endHours >= 24) {
+            // Booking crosses midnight - end time is next day
+            const actualEndHours = endHours % 24;
+            const endTime = `${actualEndHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+            const bookingDate = new Date(booking.date);
+            bookingDate.setDate(bookingDate.getDate() + 1);
+            const endDateStr = bookingDate.toISOString().split('T')[0];
+            bookingEndDateTime = new Date(`${endDateStr}T${endTime}`);
+          } else {
+            // Normal booking - same day
+            const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+            bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+          }
+          
           const now = new Date();
           isPastBooking = bookingEndDateTime < now;
         } catch (e) {
@@ -449,9 +463,23 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       const endMinutes = startMinutes + durationMinutes;
       const endHours = Math.floor(endMinutes / 60);
       const endMins = endMinutes % 60;
-      const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
       
-      const bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+      // Handle midnight crossover correctly
+      let bookingEndDateTime;
+      if (endHours >= 24) {
+        // Booking crosses midnight - end time is next day
+        const actualEndHours = endHours % 24;
+        const endTime = `${actualEndHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+        const bookingDate = new Date(booking.date);
+        bookingDate.setDate(bookingDate.getDate() + 1);
+        const endDateStr = bookingDate.toISOString().split('T')[0];
+        bookingEndDateTime = new Date(`${endDateStr}T${endTime}`);
+      } else {
+        // Normal booking - same day
+        const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+        bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+      }
+      
       const now = new Date();
       isBookingEditable = bookingEndDateTime >= now;
     } catch (e) {
