@@ -23,6 +23,7 @@ export function BookingTypeSelector({
     { value: 'Package', label: 'Package', icon: Package },
     { value: 'Coaching (Boss)', label: 'Coaching (Boss)', icon: Users },
     { value: 'Coaching (Boss - Ratchavin)', label: 'Coaching (Boss - Ratchavin)', icon: Users },
+    { value: 'Coaching (Noon)', label: 'Coaching (Noon)', icon: Users },
     { value: 'Normal Bay Rate', label: 'Normal Bay Rate', icon: Calendar },
     { value: 'ClassPass', label: 'ClassPass', icon: Calendar },
     { value: 'VR', label: 'VR', icon: Gamepad2 },

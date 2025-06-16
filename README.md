@@ -319,6 +319,7 @@ BAY_2_CALENDAR_ID=your-bay2-calendar-id
 BAY_3_CALENDAR_ID=your-bay3-calendar-id
 COACHING_BOSS_CALENDAR_ID=your-coaching-calendar-id
 COACHING_RATCHAVIN_CALENDAR_ID=your-ratchavin-coaching-calendar-id
+COACHING_NOON_CALENDAR_ID=your-noon-coaching-calendar-id
 ```
 
 ### Messaging & Notifications
@@ -329,6 +330,7 @@ LINE_CHANNEL_SECRET=your-line-channel-secret
 LINE_GROUP_ID=default-group-id
 LINE_GROUP_RATCHAVIN_ID=ratchavin-group-id
 LINE_GROUP_COACHING_ID=coaching-group-id
+LINE_GROUP_NOON_ID=noon-group-id
 ```
 
 ### Authentication

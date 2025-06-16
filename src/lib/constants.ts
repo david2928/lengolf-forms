@@ -1,5 +1,5 @@
 export type BayName = "Bay 1 (Bar)" | "Bay 2" | "Bay 3 (Entrance)";
-export type BookingType = "Coaching (Boss)" | "Coaching (Boss - Ratchavin)";
+export type BookingType = "Coaching (Boss)" | "Coaching (Boss - Ratchavin)" | "Coaching (Noon)";
 
 export const BAY_CALENDARS: Record<BayName, string> = {
   "Bay 1 (Bar)": process.env.BAY_1_CALENDAR_ID || "",
@@ -9,7 +9,8 @@ export const BAY_CALENDARS: Record<BayName, string> = {
 
 export const COACHING_CALENDARS: Record<BookingType, string> = {
   "Coaching (Boss)": process.env.COACHING_BOSS_CALENDAR_ID || "",
-  "Coaching (Boss - Ratchavin)": process.env.COACHING_RATCHAVIN_CALENDAR_ID || ""
+  "Coaching (Boss - Ratchavin)": process.env.COACHING_RATCHAVIN_CALENDAR_ID || "",
+  "Coaching (Noon)": process.env.COACHING_NOON_CALENDAR_ID || ""
 };
 
 export const BAY_COLORS: Record<BayName, string> = {
@@ -25,6 +26,7 @@ export const LINE_MESSAGING = {
   groups: {
     default: process.env.LINE_GROUP_ID || "",
     ratchavin: process.env.LINE_GROUP_RATCHAVIN_ID || "",
-    coaching: process.env.LINE_GROUP_COACHING_ID || ""
+    coaching: process.env.LINE_GROUP_COACHING_ID || "",
+    noon: process.env.LINE_GROUP_NOON_ID || ""
   }
 } as const;

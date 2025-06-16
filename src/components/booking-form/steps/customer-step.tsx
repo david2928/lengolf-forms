@@ -6,7 +6,7 @@ import { CustomerDetails } from '../customer-details'
 import { PackageSelector } from '../package-selector'
 import { PackageInfoCard } from '@/components/package-usage/package-info-card'
 
-const PACKAGE_TYPES = ['Package', 'Coaching (Boss)', 'Coaching (Boss - Ratchavin)']
+const PACKAGE_TYPES = ['Package', 'Coaching (Boss)', 'Coaching (Boss - Ratchavin)', 'Coaching (Noon)']
 
 export function CustomerStep() {
   const { 

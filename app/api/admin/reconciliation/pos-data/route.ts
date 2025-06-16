@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Validate reconciliation type
-    const validTypes = ['restaurant', 'golf_coaching_ratchavin', 'golf_coaching_boss'];
+    const validTypes = ['restaurant', 'golf_coaching_ratchavin', 'golf_coaching_boss', 'golf_coaching_noon'];
     if (!validTypes.includes(reconciliationType)) {
       return NextResponse.json({
         error: `Invalid reconciliation type: ${reconciliationType}`,
@@ -117,7 +117,11 @@ export async function GET(request: NextRequest) {
       
       const productNames = reconciliationType === 'golf_coaching_ratchavin'
         ? ['1 Golf Lesson Used', '1 Golf Lesson Used (Ratchavin)']
-        : ['1 Golf Lesson Used', '1 Golf Lesson Used (Boss)'];
+        : reconciliationType === 'golf_coaching_boss'
+          ? ['1 Golf Lesson Used', '1 Golf Lesson Used (Boss)']
+          : reconciliationType === 'golf_coaching_noon'
+            ? ['1 Golf Lesson Used', '1 Golf Lesson Used (Noon)']
+            : ['1 Golf Lesson Used']; // fallback
 
       const { data: golfData, error } = await supabase
         .schema('pos')

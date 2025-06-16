@@ -48,6 +48,9 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 - **[Admin User Guide](./user/ADMIN_GUIDE.md)** - Administrative features and system management
 - **[Troubleshooting Guide](./user/TROUBLESHOOTING.md)** - Common issues and solutions
 
+### System Procedures
+- **[Adding New Coach](./procedures/ADDING_NEW_COACH.md)** - Complete process for adding new coaches/pros to the system
+
 ## 🎯 Explored System Areas
 
 During the comprehensive system analysis, the following areas were thoroughly explored:

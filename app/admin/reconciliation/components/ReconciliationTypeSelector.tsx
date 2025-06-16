@@ -47,6 +47,17 @@ const reconciliationTypes = [
     borderColor: 'border-blue-200',
     selectedBorder: 'border-blue-500',
     selectedBg: 'bg-blue-100'
+  },
+  {
+    id: 'golf_coaching_noon',
+    label: 'Golf Coaching - Pro Noon',
+    description: 'Match golf lesson invoices with lesson usage records for Pro Noon',
+    icon: Trophy,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-200',
+    selectedBorder: 'border-purple-500',
+    selectedBg: 'bg-purple-100'
   }
 ];
 
