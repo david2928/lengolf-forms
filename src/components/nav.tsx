@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity } from 'lucide-react'
+import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
 import {
   DropdownMenu,
@@ -138,6 +138,12 @@ export function Nav() {
                 <Link href="/admin/reconciliation" className="flex items-center gap-2 w-full">
                   <Calculator className="h-4 w-4" />
                   Reconciliation
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/meta-leads" className="flex items-center gap-2 w-full">
+                  <Mail className="h-4 w-4" />
+                  Meta Leads
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

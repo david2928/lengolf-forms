@@ -53,8 +53,28 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
   // Check if booking is in the past (based on end time)
   const isInPast = () => {
     try {
-      const endTime = calculateEndTime(booking.start_time, booking.duration);
-      const bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+      const [hours, minutes] = booking.start_time.split(':').map(Number);
+      const startMinutes = hours * 60 + minutes;
+      const endMinutes = startMinutes + (booking.duration * 60);
+      const endHours = Math.floor(endMinutes / 60);
+      const endMins = endMinutes % 60;
+      
+      // Handle midnight crossover correctly
+      let bookingEndDateTime;
+      if (endHours >= 24) {
+        // Booking crosses midnight - end time is next day
+        const actualEndHours = endHours % 24;
+        const endTime = `${actualEndHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+        const bookingDate = new Date(booking.date);
+        bookingDate.setDate(bookingDate.getDate() + 1);
+        const endDateStr = bookingDate.toISOString().split('T')[0];
+        bookingEndDateTime = new Date(`${endDateStr}T${endTime}`);
+      } else {
+        // Normal booking - same day
+        const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+        bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+      }
+      
       const now = new Date();
       return bookingEndDateTime < now;
     } catch {

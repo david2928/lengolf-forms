@@ -8,7 +8,8 @@ import {
   Calculator,
   FileText,
   Shield,
-  Activity
+  Activity,
+  Mail
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -34,6 +35,12 @@ const analyticsItems = [
     title: "Reconciliation",
     description: "Reconcile transactions and payments",
     path: "/admin/reconciliation"
+  },
+  {
+    icon: Mail,
+    title: "Meta Leads",
+    description: "Analyze Facebook/Instagram leads and spam detection",
+    path: "/admin/meta-leads"
   }
 ];
 
