@@ -154,19 +154,34 @@ export class AvailabilitySubscription {
     duration: number,
     excludeBookingId?: string
   ): Promise<Record<string, boolean>> {
-    const { data, error } = await this.supabase.rpc('check_all_bays_availability', {
-      p_date: date,
-      p_start_time: startTime,
-      p_duration: duration,
-      p_exclude_booking_id: excludeBookingId || null
-    });
+    try {
+      const params = {
+        p_date: date,
+        p_start_time: startTime,
+        p_duration: duration,
+        p_exclude_booking_id: excludeBookingId || null
+      };
 
-    if (error) {
-      console.error('Error checking all bays availability:', error);
-      return { 'Bay 1': false, 'Bay 2': false, 'Bay 3': false };
+      const { data, error } = await this.supabase.rpc('check_all_bays_availability', params);
+
+      if (error) {
+        console.error('Supabase error checking all bays availability:', error);
+        // Return optimistic availability to not block user
+        return { 'Bay 1': true, 'Bay 2': true, 'Bay 3': true };
+      }
+
+      // Ensure we have a valid result
+      if (!data || typeof data !== 'object') {
+        console.warn('Invalid availability data received:', data);
+        return { 'Bay 1': true, 'Bay 2': true, 'Bay 3': true };
+      }
+
+      return data;
+    } catch (err) {
+      console.error('Error in checkAllBaysAvailability:', err);
+      // Return optimistic availability to not block user
+      return { 'Bay 1': true, 'Bay 2': true, 'Bay 3': true };
     }
-
-    return data;
   }
 
   /**

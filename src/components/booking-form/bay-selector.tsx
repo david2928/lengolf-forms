@@ -52,11 +52,19 @@ export function BaySelector({
   const duration = selectedStartTime && selectedEndTime ? (() => {
     const start = selectedStartTime instanceof Date
       ? DateTime.fromJSDate(selectedStartTime)
-      : DateTime.fromFormat(selectedStartTime as string, 'HH:mm');
+      : DateTime.fromFormat(selectedStartTime as string, 'HH:mm').set({
+          year: selectedDate.getFullYear(),
+          month: selectedDate.getMonth() + 1,
+          day: selectedDate.getDate()
+        });
     
     const end = selectedEndTime instanceof Date
       ? DateTime.fromJSDate(selectedEndTime)
-      : DateTime.fromFormat(selectedEndTime as string, 'HH:mm');
+      : DateTime.fromFormat(selectedEndTime as string, 'HH:mm').set({
+          year: selectedDate.getFullYear(),
+          month: selectedDate.getMonth() + 1,
+          day: selectedDate.getDate()
+        });
     
     return end.diff(start, 'hours').hours;
   })() : 1;
@@ -179,13 +187,30 @@ export function BaySelector({
   const isBayAvailable = (bayId: string) => {
     if (isManualMode) return true;
     
-    // Use real-time availability data if available
-    if (selectedStartTime && availability[bayId] !== undefined) {
-      return availability[bayId];
+    // If we're still loading availability data, show as available to avoid blocking UX
+    if (availabilityLoading) return true;
+    
+    // If there's an error with the availability service, show as available to not block user
+    if (availabilityError) {
+      console.warn('Availability service error, showing bays as available:', availabilityError);
+      return true;
     }
     
-    // Fallback to old logic
-    return !selectedStartTime || availableBaysForTime.includes(bayId);
+    // Use real-time availability data if available and start time is selected
+    if (selectedStartTime && availability && Object.keys(availability).length > 0) {
+      // Check if this bay's availability is specifically defined
+      if (availability[bayId] !== undefined) {
+        return availability[bayId];
+      }
+    }
+    
+    // Fallback to old logic only if no start time is selected
+    if (!selectedStartTime) {
+      return true; // Show all bays as available when no time is selected
+    }
+    
+    // If we have a start time but no availability data, fall back to old logic
+    return availableBaysForTime.includes(bayId);
   };
 
   const loading = isLoading || availabilityLoading;
