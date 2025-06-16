@@ -84,6 +84,7 @@ function mapToAdminProduct(item: any) {
     category_id: item.category_id,
     category_name: item.category_name,
     current_stock: item.current_stock,
+    current_stock_text: item.current_stock_text,
     reorder_threshold: item.reorder_threshold,
     unit_cost: item.unit_cost,
     image_url: item.image_url,

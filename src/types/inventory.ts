@@ -190,6 +190,7 @@ export interface AdminInventoryProductWithStatus {
   category_id: string;
   category_name: string;
   current_stock: number;
+  current_stock_text?: string; // For stock slider products showing "Out of Stock", "Need to Order", etc.
   reorder_threshold: number;
   unit_cost?: number;
   image_url?: string;
