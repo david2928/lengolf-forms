@@ -104,14 +104,14 @@ function formatBookingData(formData: FormData): Booking {
   // 2. Map Bay Name
   let bayId: string | null;
   switch (formData.bayNumber) {
-      case 'Bay 1 (Bar)':
+      case 'Bay 1':
           bayId = 'Bay 1';
-          break;
-      case 'Bay 3 (Entrance)':
-          bayId = 'Bay 3';
           break;
       case 'Bay 2':
           bayId = 'Bay 2';
+          break;
+      case 'Bay 3':
+          bayId = 'Bay 3';
           break;
       default:
           console.warn(`Unknown bay display name: ${formData.bayNumber}. Setting bay to null.`);
