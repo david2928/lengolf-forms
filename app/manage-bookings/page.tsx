@@ -24,13 +24,22 @@ const calculateEndTime = (date: string, startTime: string, duration: number): st
   }
 
   try {
-    const startDateObj = parse(`${baseDateStr} ${startTime}`, 'yyyy-MM-dd HH:mm', new Date());
-    if (isNaN(startDateObj.getTime())) {
-        console.error("Invalid date or time for end_time calculation:", baseDateStr, startTime);
-        return 'Invalid time';
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startMinutes = hours * 60 + minutes;
+    const endMinutes = startMinutes + (duration * 60);
+    const endHours = Math.floor(endMinutes / 60);
+    const endMins = endMinutes % 60;
+    
+    // Handle midnight crossover for display
+    const displayHours = endHours >= 24 ? endHours % 24 : endHours;
+    const endTime = `${displayHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+    
+    // Add next day indicator if booking crosses midnight
+    if (endHours >= 24) {
+      return `${endTime} (+1)`;
     }
-    const endDateObj = addHours(startDateObj, duration);
-    return format(endDateObj, 'HH:mm');
+    
+    return endTime;
   } catch (error) {
     console.error("Error calculating end_time:", error);
     return 'Error';
@@ -89,14 +98,29 @@ export default function ManageBookingsPage() {
         const endMinutes = startMinutes + (booking.duration * 60);
         const endHours = Math.floor(endMinutes / 60);
         const endMins = endMinutes % 60;
-        const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
         
-        // Create end datetime using the calculated end time
-        const bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
-        const now = new Date();
+        // Create start datetime
+        const bookingStartDateTime = new Date(`${booking.date}T${booking.start_time}`);
         
-        // Booking is in the past only if it has ended
-        return bookingEndDateTime < now;
+        // Create end datetime - if end time goes past midnight, add a day
+        let endDate = booking.date;
+        if (endHours >= 24) {
+          // Booking crosses midnight, adjust date and hour
+          const actualEndHours = endHours % 24;
+          const endTime = `${actualEndHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+          const bookingDate = new Date(booking.date);
+          bookingDate.setDate(bookingDate.getDate() + 1);
+          endDate = bookingDate.toISOString().split('T')[0];
+          const bookingEndDateTime = new Date(`${endDate}T${endTime}`);
+          const now = new Date();
+          return bookingEndDateTime < now;
+        } else {
+          // Normal booking within same day
+          const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+          const bookingEndDateTime = new Date(`${booking.date}T${endTime}`);
+          const now = new Date();
+          return bookingEndDateTime < now;
+        }
       } catch (e) {
         console.error("Error parsing booking date/time for past check (page):", e);
       }
