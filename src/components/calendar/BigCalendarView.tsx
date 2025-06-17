@@ -180,19 +180,28 @@ export function BigCalendarView({
       "Bay 3 (Entrance)": "#10b981", // emerald-500
     };
 
-    const backgroundColor = bayColors[booking.bay as keyof typeof bayColors] || "#6b7280";
+    let backgroundColor = bayColors[booking.bay as keyof typeof bayColors] || "#6b7280";
     
     // Differentiate booking types with borders and patterns
     let borderStyle = '0px';
     let opacity = isPast ? 0.4 : 0.9; // Make past bookings more transparent
     let backgroundImage = 'none';
+    let textDecoration = 'none';
+    let fontWeight = '500';
     
-    if (booking.booking_type === 'coaching') {
-      borderStyle = '2px dashed white';
-      opacity = isPast ? 0.4 : 0.95;
+    // Make coaching bookings much more distinct
+    if (booking.booking_type === 'coaching' || booking.booking_type?.toLowerCase().includes('coaching')) {
+      // Use a different background color for coaching
+      backgroundColor = '#8b5cf6'; // purple-500 for coaching
+      borderStyle = '3px solid #fbbf24'; // thick amber border
+      backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.2) 3px, rgba(255,255,255,0.2) 6px)';
+      opacity = isPast ? 0.4 : 1;
+      fontWeight = 'bold';
     } else if (booking.package_name || booking.booking_type === 'package') {
+      // Package bookings get amber border and subtle pattern
       borderStyle = '2px solid #fbbf24'; // amber border for packages
       backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px)';
+      fontWeight = '600';
     }
 
     return {
@@ -205,7 +214,8 @@ export function BigCalendarView({
         backgroundImage,
         display: 'block',
         fontSize: '12px',
-        fontWeight: '500',
+        fontWeight,
+        textDecoration,
         padding: '2px 4px',
       }
     };
@@ -221,11 +231,14 @@ export function BigCalendarView({
   // Custom event component to show customer name and booking type
   const EventComponent = ({ event }: { event: BigCalendarEvent }) => {
     const booking = event.resource.booking;
+    const isCoaching = booking.booking_type === 'coaching' || booking.booking_type?.toLowerCase().includes('coaching');
 
     return (
       <div className="truncate">
         <div className="font-medium text-xs">
           <span className="truncate">{booking.customer_name}</span>
+          {isCoaching && <span className="ml-1 text-xs">🏌️</span>}
+          {booking.package_name && !isCoaching && <span className="ml-1 text-xs">📦</span>}
         </div>
       </div>
     );

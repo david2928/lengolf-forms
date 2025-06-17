@@ -71,7 +71,13 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
     async function fetchPackages() {
       if (selectedCustomer) {
         try {
-          const response = await fetch(`/api/packages/customer/${selectedCustomer}`)
+          // Use server-side filtering instead of client-side
+          const includeExpired = !showActive;
+          const includeUsed = !showActive;
+          
+          const response = await fetch(
+            `/api/packages/customer/${selectedCustomer}?include_expired=${includeExpired}&include_used=${includeUsed}`
+          )
           const data = await response.json()
           setPackages(data)
         } catch (error) {
@@ -80,21 +86,14 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
       }
     }
     fetchPackages()
-  }, [selectedCustomer])
+  }, [selectedCustomer, showActive]) // Add showActive as dependency
 
   const filteredCustomers = customers?.filter(customer => 
     customer.customer_name.toLowerCase().includes(searchQuery.toLowerCase())
   ) ?? [];
 
-  const filteredPackages = showActive 
-    ? packages.filter(pkg => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const expirationDate = new Date(pkg.expiration_date);
-        expirationDate.setHours(0, 0, 0, 0);
-        return differenceInDays(expirationDate, today) >= 0;
-      })
-    : packages;
+  // Remove client-side filtering since we're now doing it server-side
+  const filteredPackages = packages;
 
   const togglePackageExpand = (packageId: string) => {
     setExpandedPackages(prev => {

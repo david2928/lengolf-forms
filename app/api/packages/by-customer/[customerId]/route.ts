@@ -9,13 +9,12 @@ export async function GET(
 ) {
   try {
     const { data, error } = await refacSupabaseAdmin
-      .schema('backoffice')
-      .rpc('get_packages_by_customer_name', {
+      .rpc('get_active_packages_by_customer', {
         p_customer_name: decodeURIComponent(params.customerId)
       })
 
     if (error) {
-      console.error('Error fetching packages by customer name:', error)
+      console.error('Error fetching active packages by customer:', error)
       return NextResponse.json(
         { error: 'Failed to fetch packages' },
         { status: 500 }
