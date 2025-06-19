@@ -350,7 +350,8 @@ export function TimeReportsDashboard() {
       }
 
       setTimeEntries(entries)
-      generateStaffSummaries(entries)
+      const summaries = calculateStaffSummaries(entries)
+      setStaffSummaries(summaries)
     } catch (err) {
       console.error('Error fetching time entries:', err)
       setError('Failed to load time entries')
@@ -359,57 +360,7 @@ export function TimeReportsDashboard() {
     }
   }
 
-  const generateStaffSummaries = (entries: TimeEntry[]) => {
-    const staffMap = new Map<number, StaffSummary>()
 
-    entries.forEach(entry => {
-      if (!staffMap.has(entry.staff_id)) {
-        staffMap.set(entry.staff_id, {
-          staff_id: entry.staff_id,
-          staff_name: entry.staff_name,
-          total_hours: 0,
-          days_worked: 0,
-          total_entries: 0,
-          clock_ins: 0,
-          clock_outs: 0,
-          photos_captured: 0,
-          overtime_hours: 0,
-          has_issues: false
-        })
-      }
-
-      const summary = staffMap.get(entry.staff_id)!
-      summary.total_entries++
-      
-      if (entry.action === 'clock_in') {
-        summary.clock_ins++
-      } else {
-        summary.clock_outs++
-      }
-
-      if (entry.photo_captured) {
-        summary.photos_captured++
-      }
-
-      // Check for issues (mismatched clock ins/outs)
-      if (summary.clock_ins !== summary.clock_outs) {
-        summary.has_issues = true
-      }
-    })
-
-    // Calculate days worked and hours
-    staffMap.forEach(summary => {
-      const staffEntries = entries.filter(e => e.staff_id === summary.staff_id)
-      const uniqueDates = new Set(staffEntries.map(e => e.date_only))
-      summary.days_worked = uniqueDates.size
-
-      // Simple hour calculation (this could be enhanced)
-      summary.total_hours = summary.clock_outs * 8 // Assuming 8-hour shifts
-      summary.overtime_hours = Math.max(0, summary.total_hours - (summary.days_worked * 8))
-    })
-
-    setStaffSummaries(Array.from(staffMap.values()))
-  }
 
   useEffect(() => {
     fetchStaffList()
