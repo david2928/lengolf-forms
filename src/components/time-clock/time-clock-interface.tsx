@@ -58,7 +58,7 @@ export function TimeClockInterface() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const lockoutTimerRef = useRef<NodeJS.Timeout>()
 
-  // Format time display
+  // HYDRATION FIX: Format time display without causing server/client mismatch
   const getCurrentTime = () => {
     return new Date().toLocaleString('en-US', {
       timeZone: 'Asia/Bangkok',
@@ -72,10 +72,15 @@ export function TimeClockInterface() {
     })
   }
 
-  const [currentTime, setCurrentTime] = useState(getCurrentTime())
+  // HYDRATION FIX: Start with empty time to prevent server/client mismatch
+  const [currentTime, setCurrentTime] = useState('')
+  const [isClient, setIsClient] = useState(false)
 
-  // Update time every second
+  // HYDRATION FIX: Only set time after component mounts on client
   useEffect(() => {
+    setIsClient(true)
+    setCurrentTime(getCurrentTime())
+    
     const timer = setInterval(() => {
       setCurrentTime(getCurrentTime())
     }, 1000)
@@ -443,7 +448,8 @@ export function TimeClockInterface() {
             <Clock className="h-6 w-6" />
             <CardTitle className="text-xl">Staff Time Clock</CardTitle>
           </div>
-          <p className="text-sm opacity-90">{currentTime}</p>
+          {/* HYDRATION FIX: Only show time after client-side render */}
+          <p className="text-sm opacity-90">{isClient ? currentTime : 'Loading...'}</p>
         </CardHeader>
 
         <CardContent className="space-y-6 p-6">
@@ -469,7 +475,7 @@ export function TimeClockInterface() {
             </div>
             <div className="text-center">
               <p className="text-sm text-muted-foreground">Position your face in the frame</p>
-              <p className="text-xs text-muted-foreground">Make sure you're well lit and looking at the camera</p>
+              <p className="text-xs text-muted-foreground">Make sure you&apos;re well lit and looking at the camera</p>
             </div>
           </div>
 
