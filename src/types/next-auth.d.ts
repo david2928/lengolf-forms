@@ -10,6 +10,8 @@ declare module "next-auth" {
       isAdmin?: boolean
       isCoach?: boolean
     }
+    lastValidated?: string
+    sessionType?: 'admin' | 'user'
   }
 }
 
