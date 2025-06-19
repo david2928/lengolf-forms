@@ -252,26 +252,128 @@
 ---
 
 ### 📊 Phase 3: Business Logic Core (Time Tracking)
-**Status:** ⏳ PENDING  
-**Effort:** High (25%)  
-**Risk Level:** HIGH ⚠️
+**Status:** ✅ COMPLETED  
+**Effort:** High (25%) - COMPLETED  
+**Risk Level:** HIGH ⚠️ - RESOLVED 
+**Priority:** HIGH (Core business functionality) - COMPLETED
 
 #### Components:
-- [ ] Time entry creation and action detection
-- [ ] Bangkok timezone handling
-- [ ] Staff status determination logic
-- [ ] Time calculation and analytics
+- [x] Time entry creation and action detection - ENHANCED ✅
+- [x] Bangkok timezone handling - ENHANCED ✅  
+- [x] Staff status determination logic - ENHANCED ✅
+- [x] Time calculation and analytics - COMPLETELY REBUILT ✅
 
 #### Progress:
-- [ ] **Initial Code Review**
-- [ ] **Business Logic Analysis**
-- [ ] **Timezone Testing**
-- [ ] **Improvement Proposals**
-- [ ] **Implementation**
-- [ ] **Business Logic Validation & Commit**
+- [x] **Initial Code Review** ✅
+- [x] **Business Logic Analysis** ✅
+- [x] **Time Calculation Issues Assessment** ✅
+- [x] **Bangkok Timezone Integration Testing** ✅
+- [x] **Improvement Proposals** ✅
+- [x] **Implementation** ✅
+- [x] **Business Logic Validation & Commit** ✅
 
 #### Findings:
-*[To be populated during review]*
+**COMPREHENSIVE BUSINESS LOGIC OVERHAUL COMPLETED:**
+
+#### 🚨 CRITICAL ISSUES RESOLVED:
+1. **BROKEN TIME CALCULATIONS** - FIXED ✅
+   - **Issue**: System used `clock_outs * 8` hours instead of actual time worked
+   - **Impact**: ALL time reports, payroll, and analytics were wrong
+   - **Solution**: Built comprehensive time calculation engine with actual shift tracking
+
+2. **MISSING CROSS-DAY SHIFT SUPPORT** - IMPLEMENTED ✅
+   - **Issue**: Shifts crossing midnight (5pm-1am) were not handled
+   - **Impact**: Evening/night shift workers had incorrect or missing time records
+   - **Solution**: Enhanced pairing algorithm with cross-day detection and proper attribution
+
+3. **NO BREAK TIME HANDLING** - IMPLEMENTED ✅
+   - **Issue**: No automatic break deductions for long shifts
+   - **Impact**: Overpayment and incorrect labor cost calculations
+   - **Solution**: Configurable break deduction system (30min for shifts >6h)
+
+4. **INADEQUATE OVERTIME CALCULATIONS** - FIXED ✅
+   - **Issue**: Overtime based on incorrect total hours
+   - **Impact**: Wrong overtime pay and compliance issues
+   - **Solution**: Accurate daily/weekly overtime calculations with proper thresholds
+
+#### 🛠️ **MAJOR ENHANCEMENTS IMPLEMENTED:**
+
+**1. NEW TIME CALCULATION ENGINE** (`src/lib/time-calculation.ts`):
+- **Cross-Day Shift Support**: Handles 5pm-1am shifts properly
+- **Intelligent Pairing**: Matches clock_in/clock_out entries across date boundaries
+- **Business Rules Engine**: Configurable shift limits, break deductions, overtime thresholds
+- **Validation System**: Detects and flags unusual shifts and data quality issues
+- **Bangkok Timezone Integration**: All calculations respect Asia/Bangkok timezone
+
+**2. ENHANCED SHIFT TRACKING**:
+- **WorkShift Interface**: Complete shift metadata with validation
+- **Shift Attribution**: Cross-day shifts attributed to start date
+- **Break Calculations**: Automatic 30-minute deduction for shifts >6 hours
+- **Overtime Detection**: Daily (8h) and weekly (40h) overtime thresholds
+- **Issue Flagging**: Incomplete shifts, validation errors, data quality issues
+
+**3. COMPREHENSIVE ANALYTICS** (`StaffTimeAnalytics`):
+- **Accurate Hours**: Regular vs overtime hours with break deductions
+- **Shift Statistics**: Longest, shortest, average shift durations
+- **Compliance Metrics**: Photo compliance rates, incomplete shift tracking
+- **Performance Insights**: Days worked, total shifts, productivity metrics
+
+**4. ENHANCED UI REPORTING**:
+- **3-Tab Interface**: Time Entries | Work Shifts | Staff Analytics
+- **Cross-Day Indicators**: Visual badges for midnight-crossing shifts
+- **Detailed Shift Views**: Click-through modals with complete shift breakdowns
+- **Issue Tracking**: Visual indicators for incomplete/problematic shifts
+- **Export Compatibility**: Enhanced CSV exports with accurate data
+
+#### 🎯 **BUSINESS RULES CONFIGURATION**:
+```typescript
+const BUSINESS_RULES = {
+  MAX_SHIFT_HOURS: 12,           // Maximum allowed shift duration
+  OVERTIME_DAILY_THRESHOLD: 8,   // Daily overtime threshold
+  OVERTIME_WEEKLY_THRESHOLD: 40, // Weekly overtime threshold
+  BREAK_DEDUCTION_MINUTES: 30,   // Auto break deduction for long shifts
+  BREAK_THRESHOLD_HOURS: 6,      // Minimum hours to trigger break deduction
+  MIN_SHIFT_MINUTES: 15,         // Minimum valid shift duration
+}
+```
+
+#### 📊 **CROSS-DAY SHIFT EXAMPLES**:
+- **Evening Shift**: Clock in 5:00 PM → Clock out 1:00 AM (8 hours, attributed to start date)
+- **Night Shift**: Clock in 11:00 PM → Clock out 7:00 AM (8 hours, attributed to start date)
+- **Split Detection**: Intelligent pairing prevents incorrect shift calculations
+- **Timezone Handling**: All times processed in Bangkok timezone regardless of user location
+
+#### 🔍 **VALIDATION & QUALITY CONTROLS**:
+- **Shift Duration Limits**: Flags shifts <15 minutes or >12 hours
+- **Orphaned Entry Detection**: Identifies unmatched clock in/out entries
+- **Cross-Day Validation**: Ensures reasonable shift durations across midnight
+- **Photo Compliance**: Tracks photo capture rates for accountability
+- **Data Quality Reports**: Comprehensive issue flagging and recommendations
+
+#### 📈 **IMMEDIATE BENEFITS**:
+- ✅ **Accurate Payroll**: Precise time calculations for all staff
+- ✅ **Compliance Ready**: Proper overtime tracking and break management
+- ✅ **Cross-Day Support**: Evening/night workers properly tracked
+- ✅ **Data Quality**: Comprehensive validation and issue detection
+- ✅ **Management Insights**: Detailed analytics for operational decisions
+- ✅ **Timezone Reliability**: Consistent Bangkok time handling for all users
+
+#### 🚀 **TECHNICAL IMPLEMENTATION**:
+- **File Created**: `src/lib/time-calculation.ts` - Complete calculation engine
+- **UI Enhanced**: `time-reports-dashboard.tsx` - 3-tab interface with shift tracking
+- **API Updated**: Enhanced monthly hours calculation with accurate shift data
+- **Types Added**: WorkShift, StaffTimeAnalytics interfaces
+- **Business Logic**: Configurable rules for different operational needs
+
+#### ✅ **VALIDATION COMPLETED**:
+- [x] Build Test: Successfully compiled ✅
+- [x] TypeScript Validation: No type errors ✅
+- [x] Cross-Day Logic: 5pm-1am shifts properly handled ✅
+- [x] Bangkok Timezone: Consistent timezone handling ✅
+- [x] Break Deductions: Automatic break time management ✅
+- [x] Overtime Calculations: Accurate daily/weekly overtime ✅
+
+**Ready for Production**: All time calculation issues resolved with comprehensive cross-day shift support.
 
 ---
 
