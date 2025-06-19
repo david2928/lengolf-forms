@@ -512,64 +512,105 @@ export function PhotoManagementDashboard() {
                             <div className="space-y-4">
                               <div className="flex justify-center">
                                 {photo.photo_url ? (
-                                  <img 
-                                    src={photo.photo_url} 
-                                    alt="Time clock photo"
-                                    className="max-w-full h-auto rounded-lg border"
-                                    style={{ maxHeight: '400px' }}
-                                    onError={(e) => {
-                                      console.error('Failed to load photo:', photo.file_path)
-                                      console.error('Photo URL:', photo.photo_url)
-                                      e.currentTarget.style.display = 'none'
-                                      const nextElement = e.currentTarget.nextElementSibling as HTMLElement
-                                      if (nextElement) {
-                                        nextElement.style.display = 'block'
-                                      }
-                                    }}
-                                    onLoad={() => {
-                                      console.log('Successfully loaded photo:', photo.file_path)
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="text-center p-8 border rounded-lg bg-gray-50">
-                                    <div className="text-gray-500 mb-2">
-                                      <Camera className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                      No photo URL available
+                                  <div className="relative">
+                                    <img 
+                                      src={photo.photo_url} 
+                                      alt={`Time clock photo for ${photo.staff_name}`}
+                                      className="max-w-full h-auto rounded-lg border shadow-sm"
+                                      style={{ maxHeight: '400px' }}
+                                      onError={(e) => {
+                                        console.error('Phase 4: Image load failed:', {
+                                          photo_id: photo.id,
+                                          file_path: photo.file_path,
+                                          photo_url: photo.photo_url,
+                                          staff: photo.staff_name
+                                        })
+                                        e.currentTarget.style.display = 'none'
+                                        const errorDiv = e.currentTarget.parentElement?.nextElementSibling as HTMLElement
+                                        if (errorDiv) {
+                                          errorDiv.style.display = 'block'
+                                        }
+                                      }}
+                                      onLoad={() => {
+                                        console.log(`Phase 4: Image loaded successfully for ${photo.staff_name}:`, photo.file_path)
+                                      }}
+                                    />
+                                    <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                      {format(new Date(photo.timestamp), 'MMM dd, h:mm a')}
                                     </div>
-                                    <div className="text-xs text-gray-400 mb-2">Photo URL generation failed</div>
-                                    <div className="text-xs text-gray-400 font-mono">
+                                  </div>
+                                ) : null}
+                                
+                                {/* PHASE 4 FIX: Improved error states */}
+                                {!photo.photo_url ? (
+                                  <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                                    <Camera className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                                    <h3 className="text-lg font-medium text-gray-900 mb-2">Photo URL Missing</h3>
+                                    <p className="text-sm text-gray-600 mb-4">
+                                      The photo URL could not be generated for this entry.
+                                    </p>
+                                    <div className="text-xs text-gray-500 mb-4 font-mono bg-gray-100 p-2 rounded">
                                       Path: {photo.file_path}
                                     </div>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => {
+                                        console.log('Phase 4: Manual refresh requested for photo:', photo.id)
+                                        fetchPhotos()
+                                      }}
+                                    >
+                                      <RefreshCw className="h-4 w-4 mr-2" />
+                                      Retry URL Generation
+                                    </Button>
                                   </div>
-                                )}
+                                ) : null}
+                                
+                                {/* Hidden error state that shows when image fails to load */}
                                 <div 
-                                  className="text-center p-8 border rounded-lg bg-red-50" 
-                                  style={{ display: photo.photo_url ? 'none' : 'block' }}
+                                  className="text-center p-8 border-2 border-red-200 rounded-lg bg-red-50"
+                                  style={{ display: 'none' }}
                                 >
-                                  <div className="text-red-500 mb-2">
-                                    <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
-                                    Failed to load photo
-                                  </div>
-                                  <div className="text-xs text-red-400 mb-2">
-                                    The photo could not be displayed. This may be due to:
-                                  </div>
-                                  <div className="text-xs text-red-400 mb-2">
-                                    • File may not exist in storage<br/>
-                                    • Bucket permissions issue<br/>
-                                    • Signed URL generation failed
-                                  </div>
-                                  <div className="text-xs text-red-400 font-mono">
+                                  <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+                                  <h3 className="text-lg font-medium text-red-900 mb-2">Photo Load Failed</h3>
+                                  <p className="text-sm text-red-700 mb-4">
+                                    The photo could not be displayed. Common causes:
+                                  </p>
+                                  <ul className="text-xs text-red-600 mb-4 text-left space-y-1">
+                                    <li>• File may not exist in storage bucket</li>
+                                    <li>• Storage bucket permissions issue</li>
+                                    <li>• Signed URL expired or invalid</li>
+                                    <li>• Network connectivity problem</li>
+                                  </ul>
+                                  <div className="text-xs text-red-500 mb-4 font-mono bg-red-100 p-2 rounded">
                                     Path: {photo.file_path}
                                   </div>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="mt-2"
-                                    onClick={() => window.location.reload()}
-                                  >
-                                    <RefreshCw className="h-4 w-4 mr-2" />
-                                    Retry
-                                  </Button>
+                                  <div className="flex gap-2 justify-center">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => {
+                                        console.log('Phase 4: Retry photo load for:', photo.id)
+                                        fetchPhotos()
+                                      }}
+                                    >
+                                      <RefreshCw className="h-4 w-4 mr-2" />
+                                      Retry Load
+                                    </Button>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => {
+                                        if (photo.photo_url) {
+                                          window.open(photo.photo_url, '_blank')
+                                        }
+                                      }}
+                                      disabled={!photo.photo_url}
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      Open Direct
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                               <div className="grid grid-cols-2 gap-4 text-sm">

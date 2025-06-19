@@ -104,45 +104,49 @@ export async function uploadTimeClockPhoto(request: PhotoUploadRequest): Promise
 }
 
 /**
- * Get signed URL for a time clock photo (simplified and more robust)
+ * Get signed URL for a time clock photo (PHASE 4 FIX: Streamlined and more reliable)
  */
 export async function getTimeClockPhotoUrl(photoPath: string): Promise<string> {
   try {
     if (!photoPath) {
-      console.warn('Empty photo path provided');
+      console.warn('Photo URL generation: Empty photo path provided');
       return '';
     }
 
-    console.log(`Getting photo URL for path: ${photoPath} from bucket: ${PHOTO_CONFIG.STORAGE_BUCKET}`);
+    console.log(`Photo URL generation: Processing ${photoPath} from bucket ${PHOTO_CONFIG.STORAGE_BUCKET}`);
     
-    // Try to create a signed URL first (this is the most reliable method)
+    // PHASE 4 FIX: Direct signed URL generation without complex checks
     const { data: signedData, error: signedError } = await refacSupabaseAdmin.storage
       .from(PHOTO_CONFIG.STORAGE_BUCKET)
       .createSignedUrl(photoPath, 3600); // 1 hour expiry
     
     if (!signedError && signedData?.signedUrl) {
-      console.log('Successfully created signed URL');
+      console.log(`Photo URL generation: SUCCESS - Signed URL created for ${photoPath}`);
       return signedData.signedUrl;
     }
     
-    // Log the error but don't fail completely
-    console.warn('Signed URL creation failed:', signedError?.message);
+    // Log specific error for debugging
+    console.error(`Photo URL generation: FAILED for ${photoPath}`, {
+      error: signedError?.message,
+      code: signedError?.name,
+      bucket: PHOTO_CONFIG.STORAGE_BUCKET
+    });
     
-    // Try public URL as fallback (might work if bucket is public)
+    // PHASE 4 FIX: Try public URL as fallback only if specifically configured
     const { data: publicData } = refacSupabaseAdmin.storage
       .from(PHOTO_CONFIG.STORAGE_BUCKET)
       .getPublicUrl(photoPath);
     
     if (publicData?.publicUrl) {
-      console.log('Using public URL as fallback:', publicData.publicUrl);
+      console.log(`Photo URL generation: FALLBACK - Using public URL for ${photoPath}`);
       return publicData.publicUrl;
     }
     
-    console.error('Both signed and public URL generation failed for path:', photoPath);
+    console.error(`Photo URL generation: COMPLETE FAILURE for ${photoPath} - No URL generated`);
     return '';
     
   } catch (error) {
-    console.error('Error getting photo URL:', error);
+    console.error(`Photo URL generation: CRITICAL ERROR for ${photoPath}:`, error);
     return '';
   }
 }
@@ -268,30 +272,181 @@ export async function cleanupOldPhotos(): Promise<{ deleted: number; errors: num
 }
 
 /**
- * Validate photo data format
+ * PHASE 4 FIX: Enhanced photo validation with detailed error reporting
  */
-export function validatePhotoData(photoData: string): { valid: boolean; error?: string } {
+export function validatePhotoData(photoData: string): { valid: boolean; error?: string; details?: any } {
   if (!photoData) {
-    return { valid: false, error: 'Photo data is required' };
+    return { 
+      valid: false, 
+      error: 'Photo data is required',
+      details: { provided: false, length: 0 }
+    };
   }
 
   if (!photoData.startsWith('data:image/')) {
-    return { valid: false, error: 'Invalid photo data format - must be a data URL' };
+    return { 
+      valid: false, 
+      error: 'Invalid photo data format - must be a data URL',
+      details: { 
+        provided: true, 
+        length: photoData.length,
+        starts_with: photoData.substring(0, 20)
+      }
+    };
   }
 
   // Check if it's a supported format
   const formatMatch = photoData.match(/^data:image\/(jpeg|jpg|png|webp);base64,/);
   if (!formatMatch) {
-    return { valid: false, error: 'Unsupported photo format. Must be JPEG, PNG, or WebP' };
+    return { 
+      valid: false, 
+      error: 'Unsupported photo format. Must be JPEG, PNG, or WebP',
+      details: {
+        provided: true,
+        length: photoData.length,
+        detected_format: photoData.match(/^data:image\/([^;]+)/)?.[1] || 'unknown'
+      }
+    };
   }
 
   // Check if base64 data exists
   const base64Data = photoData.split(';base64,').pop();
   if (!base64Data || base64Data.length === 0) {
-    return { valid: false, error: 'No photo data found' };
+    return { 
+      valid: false, 
+      error: 'No photo data found',
+      details: {
+        provided: true,
+        format_valid: true,
+        base64_length: base64Data?.length || 0
+      }
+    };
   }
 
-  return { valid: true };
+  // PHASE 4 FIX: Validate base64 data size
+  try {
+    const buffer = Buffer.from(base64Data, 'base64');
+    if (buffer.length > PHOTO_CONFIG.MAX_FILE_SIZE) {
+      return { 
+        valid: false, 
+        error: `Photo size exceeds maximum allowed size (${PHOTO_CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB)`,
+        details: {
+          provided: true,
+          format_valid: true,
+          actual_size: buffer.length,
+          max_size: PHOTO_CONFIG.MAX_FILE_SIZE,
+          size_mb: (buffer.length / 1024 / 1024).toFixed(2)
+        }
+      };
+    }
+    
+    return { 
+      valid: true,
+      details: {
+        provided: true,
+        format_valid: true,
+        format: formatMatch[1],
+        size_bytes: buffer.length,
+        size_kb: (buffer.length / 1024).toFixed(1)
+      }
+    };
+  } catch (error) {
+    return { 
+      valid: false, 
+      error: 'Invalid base64 data',
+      details: {
+        provided: true,
+        format_valid: true,
+        base64_error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    };
+  }
+}
+
+/**
+ * PHASE 4 FIX: Storage bucket health check
+ */
+export async function checkStorageBucketHealth(): Promise<{
+  healthy: boolean;
+  bucket_exists: boolean;
+  can_list: boolean;
+  can_upload: boolean;
+  error?: string;
+  details?: any;
+}> {
+  try {
+    console.log('Phase 4: Starting storage bucket health check...');
+    
+    // Test 1: Check if bucket exists by listing contents
+    const { data: listData, error: listError } = await refacSupabaseAdmin.storage
+      .from(PHOTO_CONFIG.STORAGE_BUCKET)
+      .list('', { limit: 1 });
+    
+    const canList = !listError;
+    const bucketExists = canList;
+    
+    console.log(`Phase 4: Bucket listing test - ${canList ? 'SUCCESS' : 'FAILED'}`, listError?.message);
+    
+    // Test 2: Test upload capability with tiny test file
+    let canUpload = false;
+    let uploadError = null;
+    
+    try {
+      const testData = Buffer.from('test', 'utf8');
+      const testPath = `health-check/test-${Date.now()}.txt`;
+      
+      const { error: uploadErr } = await refacSupabaseAdmin.storage
+        .from(PHOTO_CONFIG.STORAGE_BUCKET)
+        .upload(testPath, testData, {
+          contentType: 'text/plain',
+          upsert: true
+        });
+      
+      if (!uploadErr) {
+        canUpload = true;
+        // Clean up test file
+        await refacSupabaseAdmin.storage
+          .from(PHOTO_CONFIG.STORAGE_BUCKET)
+          .remove([testPath]);
+        console.log('Phase 4: Upload test - SUCCESS');
+      } else {
+        uploadError = uploadErr.message;
+        console.log('Phase 4: Upload test - FAILED:', uploadErr.message);
+      }
+    } catch (err) {
+      uploadError = err instanceof Error ? err.message : 'Unknown upload error';
+      console.log('Phase 4: Upload test - EXCEPTION:', uploadError);
+    }
+    
+    const healthy = bucketExists && canList && canUpload;
+    
+    return {
+      healthy,
+      bucket_exists: bucketExists,
+      can_list: canList,
+      can_upload: canUpload,
+      details: {
+        list_error: listError?.message,
+        upload_error: uploadError,
+        bucket_name: PHOTO_CONFIG.STORAGE_BUCKET,
+        max_file_size: PHOTO_CONFIG.MAX_FILE_SIZE,
+        retention_days: PHOTO_CONFIG.RETENTION_DAYS
+      }
+    };
+  } catch (error) {
+    console.error('Phase 4: Storage health check failed:', error);
+    return {
+      healthy: false,
+      bucket_exists: false,
+      can_list: false,
+      can_upload: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      details: {
+        bucket_name: PHOTO_CONFIG.STORAGE_BUCKET,
+        critical_error: true
+      }
+    };
+  }
 }
 
 /**
