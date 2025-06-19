@@ -1,17 +1,17 @@
 # 🛠️ Staff Time Clock System - Refactor Progress Tracker
 
-## 📊 Overall Progress: 35% Complete (Phase 1 ✅, Phase 4 ✅)
+## �� Overall Progress: 60% Complete (Phase 1 ✅, Phase 2 ✅, Phase 4 ✅)
 
 **Started:** January 15, 2025  
-**Current Phase:** Phase 4 - Photo Processing System (COMPLETED)  
-**Last Updated:** January 15, 2025 - Phase 4 Photo System COMPLETED ✅
+**Current Phase:** Phase 3 - Business Logic Core (Next Priority)  
+**Last Updated:** January 15, 2025 - Phase 2 Authentication & Security COMPLETED ✅
 
 ---
 
 ## 🎯 Project Overview
 
 **Objective:** Systematic review and refactor of Staff Time Clock System to eliminate bugs and improve stability  
-**Primary Focus:** Photo loading/viewing issues and overall system reliability  
+**Primary Focus:** Photo loading/viewing issues (RESOLVED ✅) and overall system reliability  
 **Approach:** 7-phase systematic review from foundation to user interface  
 **Risk Management:** GitHub branch with regular commits for rollback capability
 
@@ -20,7 +20,7 @@
 ## ⚠️ Key Constraints & Approach
 
 - ❌ **No test environment** → Careful analysis + production testing required
-- 🔧 **Primary bug focus:** Photo loading and viewing functionality  
+- 🔧 **Primary bug focus:** Photo loading and viewing functionality (RESOLVED ✅)
 - 🚨 **Production system** → Must fix issues that break functionality
 - 📦 **Rollback strategy** → Regular GitHub commits for each change
 - 🧪 **Testing approach** → Code analysis + controlled production validation
@@ -424,9 +424,11 @@
 
 ### Safe Rollback Points:
 - **Phase 1 Complete**: `54cb283` - "Phase 1: Critical infrastructure fixes" ✅
+- **Phase 2 Complete**: `19e640c` - "Phase 2: Authentication & Security Core - COMPLETED" ✅
 - **Phase 4 Complete**: `44531e2` - "Phase 4: Photo Processing System Fixes" ✅
 
 ### Recent Commits:
+- `19e640c` - "Phase 2: Authentication & Security Core - COMPLETED - Critical security fixes for PIN verification, lockout mechanism, admin authentication caching, and session management with 4-hour admin sessions" ✅
 - `54cb283` - "Phase 1: Critical infrastructure fixes - Remove dangerous fallback, enhance env validation" ✅
 - `44531e2` - "Phase 4: Photo Processing System Fixes - Improved URL generation, better error handling, enhanced UI feedback" ✅
 - `08233d8` - "HOTFIX: Photo Modal Loading State - Fixed stuck 'Loading photo...' issue" ✅
@@ -489,3 +491,52 @@ git push --force-with-lease origin [branch-name]
 
 **Last Updated:** January 15, 2025 - Phase 1 COMPLETED ✅  
 **Next Action:** Begin Phase 4 - Photo Processing System (Primary bug focus area) 
+
+## 🐛 Known Issues & Fixes
+
+### ❌ RESOLVED Issues:
+1. **Photo Loading & Modal Issues** - FIXED ✅
+   - **Issue**: Photos not loading, stuck in loading state
+   - **Root Cause**: URL generation issues and server/client hydration mismatch
+   - **Solution**: Enhanced URL generation with fallbacks, fixed hydration timing
+   - **Files Modified**: 
+     - `src/app/admin/time-clock/manage/page.tsx`
+     - `src/components/admin/PhotoModal.tsx`
+   - **Commit**: `44531e2`
+
+2. **Supabase Admin Fallback Vulnerability** - FIXED ✅
+   - **Issue**: Dangerous admin fallback that bypassed security checks
+   - **Root Cause**: Development shortcut left in production code
+   - **Solution**: Removed fallback, enhanced environment validation
+   - **Files Modified**: `src/lib/refac-supabase.ts`
+   - **Commit**: `54cb283`
+
+3. **Authentication & Security Vulnerabilities** - FIXED ✅
+   - **Issue**: Missing failed attempt tracking, weak lockout logic, no admin session management
+   - **Root Cause**: Incomplete security implementation
+   - **Solution**: Enhanced PIN verification, device-based rate limiting, admin session caching
+   - **Files Modified**: 
+     - `src/lib/staff-utils.ts`
+     - `src/lib/auth.ts`
+     - `src/lib/auth-config.ts`
+     - `src/types/next-auth.d.ts`
+   - **Commit**: `19e640c`
+
+4. **Timezone Issues - Latest Time Entries Not Loading** - FIXED ✅
+   - **Issue**: "Today" button and recent entries not loading due to timezone mismatch
+   - **Root Cause**: Frontend uses local timezone (US Central) but system expects Bangkok timezone (UTC+7)
+   - **Time Difference**: ~12-13 hours between US Central and Bangkok
+   - **Solution**: 
+     - Updated frontend to use Bangkok timezone for all date filtering
+     - Enhanced API endpoint to properly convert between timezones
+     - Added debug logging for timezone conversions
+   - **Files Modified**:
+     - `src/components/admin/time-reports/time-reports-dashboard.tsx` - Bangkok timezone filtering
+     - `app/api/time-clock/entries/route.ts` - Proper timezone conversion
+   - **Impact**: "Today" button and recent entries now load correctly regardless of user's local timezone
+   - **Commit**: [Current]
+
+### 🕒 Next Steps:
+- Test timezone fix with different user timezones
+- Monitor debug logs for proper timezone conversion
+- Consider adding timezone display indicators for admin users 

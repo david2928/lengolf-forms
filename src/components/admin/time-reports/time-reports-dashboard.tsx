@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subMonths, isSameMonth, isSameYear } from 'date-fns'
+import { getBangkokToday, getBangkokNow, formatBangkokTime, bangkokDateToApiFormat } from '@/lib/bangkok-timezone'
 
 interface TimeEntry {
   entry_id: number
@@ -170,10 +171,10 @@ export function TimeReportsDashboard() {
   const [previousMonthHours, setPreviousMonthHours] = useState(0)
   const [monthlyHoursLoading, setMonthlyHoursLoading] = useState(false)
   
-  // Filters
+  // Filters - TIMEZONE FIX: Use Bangkok timezone for proper date filtering
   const [filters, setFilters] = useState<ReportFilters>({
-    startDate: format(subDays(new Date(), 7), 'yyyy-MM-dd'), // Last 7 days
-    endDate: format(new Date(), 'yyyy-MM-dd'),
+    startDate: formatBangkokTime(subDays(getBangkokNow(), 7), 'yyyy-MM-dd'), // Last 7 days in Bangkok time
+    endDate: getBangkokToday(), // Today in Bangkok time
     staffId: 'all',
     action: 'all',
     photoFilter: 'all'
@@ -250,20 +251,21 @@ export function TimeReportsDashboard() {
     try {
       setMonthlyHoursLoading(true)
       
-      const today = new Date()
-      const currentMonthStart = startOfMonth(today)
-      const currentMonthToday = today
+      // TIMEZONE FIX: Use Bangkok timezone for monthly calculations
+      const bangkokToday = getBangkokNow()
+      const currentMonthStart = startOfMonth(bangkokToday)
+      const currentMonthToday = bangkokToday
       
       // Calculate same period in previous month
-      const previousMonth = subMonths(today, 1)
+      const previousMonth = subMonths(bangkokToday, 1)
       const previousMonthStart = startOfMonth(previousMonth)
-      const previousMonthSameDay = new Date(previousMonth.getFullYear(), previousMonth.getMonth(), today.getDate())
+      const previousMonthSameDay = new Date(previousMonth.getFullYear(), previousMonth.getMonth(), bangkokToday.getDate())
       
-      // Fetch current month data (from start of month to today)
-      const currentMonthResponse = await fetch(`/api/time-clock/entries?start_date=${format(currentMonthStart, 'yyyy-MM-dd')}&end_date=${format(currentMonthToday, 'yyyy-MM-dd')}`)
+      // Fetch current month data (from start of month to today) - Bangkok timezone
+      const currentMonthResponse = await fetch(`/api/time-clock/entries?start_date=${formatBangkokTime(currentMonthStart, 'yyyy-MM-dd')}&end_date=${formatBangkokTime(currentMonthToday, 'yyyy-MM-dd')}`)
       
-      // Fetch previous month data (from start of previous month to same day)
-      const previousMonthResponse = await fetch(`/api/time-clock/entries?start_date=${format(previousMonthStart, 'yyyy-MM-dd')}&end_date=${format(previousMonthSameDay, 'yyyy-MM-dd')}`)
+      // Fetch previous month data (from start of previous month to same day) - Bangkok timezone
+      const previousMonthResponse = await fetch(`/api/time-clock/entries?start_date=${formatBangkokTime(previousMonthStart, 'yyyy-MM-dd')}&end_date=${formatBangkokTime(previousMonthSameDay, 'yyyy-MM-dd')}`)
       
       if (currentMonthResponse.ok && previousMonthResponse.ok) {
         const currentMonthData = await currentMonthResponse.json()
@@ -399,12 +401,13 @@ export function TimeReportsDashboard() {
   }
 
   const handleQuickDateFilter = (days: number) => {
-    const end = new Date()
+    // TIMEZONE FIX: Use Bangkok timezone for consistent date filtering
+    const end = getBangkokNow()
     const start = subDays(end, days)
     setFilters(prev => ({
       ...prev,
-      startDate: format(start, 'yyyy-MM-dd'),
-      endDate: format(end, 'yyyy-MM-dd')
+      startDate: formatBangkokTime(start, 'yyyy-MM-dd'),
+      endDate: formatBangkokTime(end, 'yyyy-MM-dd')
     }))
   }
 
