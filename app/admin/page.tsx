@@ -75,6 +75,12 @@ const systemItems = [
     title: "Availability Performance",
     description: "Monitor real-time availability system performance",
     path: "/admin/performance"
+  },
+  {
+    icon: Clock,
+    title: "Time Clock",
+    description: "Comprehensive time tracking reports, staff management, and photo administration",
+    path: "/admin/time-clock"
   }
 ];
 

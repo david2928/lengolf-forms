@@ -68,5 +68,15 @@ export const menuItems: MenuItem[] = [
     title: "Customer Mapping",
     path: '/admin/customers/mapping',
     description: "Link unmapped bookings and sales to customers"
+    icon: Trophy,
+    title: "US Open",
+    path: '/special-events/us-open',
+    description: "Record US Open scores and results"
+  },
+  {
+    icon: Timer,
+    title: "Staff Time Clock",
+    path: '/time-clock',
+    description: "Staff clock in/out system"
   }
 ] 

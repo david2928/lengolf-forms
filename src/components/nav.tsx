@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
 import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog } from 'lucide-react'
+import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Timer, Clock } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
 import {
   DropdownMenu,
@@ -154,6 +155,18 @@ export function Nav() {
           </Link>
         )}
 
+        {/* Staff Time Clock */}
+        <Link href="/time-clock">
+          <Button
+            variant={pathname === '/time-clock' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Timer className="h-4 w-4" />
+            Time Clock
+          </Button>
+        </Link>
+
         {/* Admin Dropdown - Only for Admin Users */}
         {isAdmin && (
           <DropdownMenu>
@@ -236,6 +249,12 @@ export function Nav() {
                   Coaching Management
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/time-clock" className="flex items-center gap-2 w-full">
+                  <Clock className="h-4 w-4" />
+                  Time Clock
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -287,6 +306,15 @@ export function Nav() {
           </Button>
         </Link>
       )}
+      <Link href="/time-clock" className="flex-1">
+        <Button 
+          variant={pathname === '/time-clock' ? 'secondary' : 'ghost'} 
+          size="sm" 
+          className="w-full flex justify-center"
+        >
+          <Timer className="h-3.5 w-3.5" />
+        </Button>
+      </Link>
       {isAdmin && (
         <Link href="/admin" className="flex-1">
           <Button 
