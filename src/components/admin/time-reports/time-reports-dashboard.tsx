@@ -30,6 +30,15 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subMonths, isSameMonth, isSameYear } from 'date-fns'
 import { getBangkokToday, getBangkokNow, formatBangkokTime, bangkokDateToApiFormat } from '@/lib/bangkok-timezone'
+import { 
+  calculateWorkShifts, 
+  calculateStaffAnalytics, 
+  formatShiftDuration, 
+  getBusinessRules,
+  type WorkShift, 
+  type StaffTimeAnalytics,
+  type TimeEntry as TimeCalculationEntry
+} from '@/lib/time-calculation'
 
 interface TimeEntry {
   entry_id: number
@@ -44,6 +53,7 @@ interface TimeEntry {
   camera_error?: string | null
 }
 
+// Legacy interface - keeping for compatibility but will use StaffTimeAnalytics
 interface StaffSummary {
   staff_id: number
   staff_name: string
@@ -162,6 +172,8 @@ function PhotoDialog({ entry, loadPhotoUrl, photoUrls, loadingPhotos }: PhotoDia
 export function TimeReportsDashboard() {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
   const [staffSummaries, setStaffSummaries] = useState<StaffSummary[]>([])
+  const [staffAnalytics, setStaffAnalytics] = useState<StaffTimeAnalytics[]>([]) // NEW: Enhanced analytics
+  const [workShifts, setWorkShifts] = useState<WorkShift[]>([]) // NEW: Calculated shifts
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -194,57 +206,44 @@ export function TimeReportsDashboard() {
     }
   }
 
-  // Helper function to calculate staff summaries without setting state
+  // ENHANCED: Calculate staff summaries using new time calculation engine
   const calculateStaffSummaries = (entries: TimeEntry[]): StaffSummary[] => {
-    const staffMap = new Map<number, StaffSummary>()
+    // Convert to TimeCalculationEntry format for the new engine
+    const calculationEntries: TimeCalculationEntry[] = entries.map(entry => ({
+      entry_id: entry.entry_id,
+      staff_id: entry.staff_id,
+      staff_name: entry.staff_name,
+      action: entry.action,
+      timestamp: entry.timestamp,
+      date_only: entry.date_only,
+      time_only: entry.time_only,
+      photo_captured: entry.photo_captured,
+      camera_error: entry.camera_error
+    }));
 
-    entries.forEach(entry => {
-      if (!staffMap.has(entry.staff_id)) {
-        staffMap.set(entry.staff_id, {
-          staff_id: entry.staff_id,
-          staff_name: entry.staff_name,
-          total_hours: 0,
-          days_worked: 0,
-          total_entries: 0,
-          clock_ins: 0,
-          clock_outs: 0,
-          photos_captured: 0,
-          overtime_hours: 0,
-          has_issues: false
-        })
-      }
+    // Calculate work shifts with cross-day support
+    const shifts = calculateWorkShifts(calculationEntries);
+    setWorkShifts(shifts); // Update state with calculated shifts
+    
+    // Calculate enhanced analytics
+    const analytics = calculateStaffAnalytics(shifts, calculationEntries);
+    setStaffAnalytics(analytics); // Update state with analytics
 
-      const summary = staffMap.get(entry.staff_id)!
-      summary.total_entries++
-      
-      if (entry.action === 'clock_in') {
-        summary.clock_ins++
-      } else {
-        summary.clock_outs++
-      }
+    // Convert analytics back to legacy StaffSummary format for backward compatibility
+    const legacySummaries: StaffSummary[] = analytics.map(analytic => ({
+      staff_id: analytic.staff_id,
+      staff_name: analytic.staff_name,
+      total_hours: analytic.total_hours,
+      days_worked: analytic.days_worked,
+      total_entries: analytic.total_shifts * 2, // Approximate (clock_in + clock_out per shift)
+      clock_ins: analytic.total_shifts,
+      clock_outs: analytic.complete_shifts,
+      photos_captured: Math.round((analytic.photo_compliance_rate / 100) * analytic.total_shifts * 2),
+      overtime_hours: analytic.overtime_hours,
+      has_issues: analytic.incomplete_shifts > 0 || analytic.shifts_with_issues > 0
+    }));
 
-      if (entry.photo_captured) {
-        summary.photos_captured++
-      }
-
-      // Check for issues (mismatched clock ins/outs)
-      if (summary.clock_ins !== summary.clock_outs) {
-        summary.has_issues = true
-      }
-    })
-
-    // Calculate days worked and hours
-    staffMap.forEach(summary => {
-      const staffEntries = entries.filter(e => e.staff_id === summary.staff_id)
-      const uniqueDates = new Set(staffEntries.map(e => e.date_only))
-      summary.days_worked = uniqueDates.size
-
-      // Simple hour calculation (this could be enhanced)
-      summary.total_hours = summary.clock_outs * 8 // Assuming 8-hour shifts
-      summary.overtime_hours = Math.max(0, summary.total_hours - (summary.days_worked * 8))
-    })
-
-    return Array.from(staffMap.values())
+    return legacySummaries;
   }
 
   const fetchMonthlyHours = async () => {
@@ -271,15 +270,41 @@ export function TimeReportsDashboard() {
         const currentMonthData = await currentMonthResponse.json()
         const previousMonthData = await previousMonthResponse.json()
         
-        // Calculate hours for current month
+        // Calculate hours for current month using enhanced time calculation
         const currentMonthEntries = currentMonthData.entries || []
-        const currentMonthSummaries = calculateStaffSummaries(currentMonthEntries)
-        const currentHours = currentMonthSummaries.reduce((total: number, staff: StaffSummary) => total + staff.total_hours, 0)
+        const currentCalculationEntries: TimeCalculationEntry[] = currentMonthEntries.map((entry: any) => ({
+          entry_id: entry.entry_id,
+          staff_id: entry.staff_id,
+          staff_name: entry.staff_name,
+          action: entry.action,
+          timestamp: entry.timestamp,
+          date_only: entry.date_only,
+          time_only: entry.time_only,
+          photo_captured: entry.photo_captured,
+          camera_error: entry.camera_error
+        }));
+        const currentMonthShifts = calculateWorkShifts(currentCalculationEntries);
+        const currentHours = currentMonthShifts
+          .filter(shift => shift.is_complete)
+          .reduce((total: number, shift: WorkShift) => total + shift.net_hours, 0);
         
-        // Calculate hours for previous month
+        // Calculate hours for previous month using enhanced time calculation
         const previousMonthEntries = previousMonthData.entries || []
-        const previousMonthSummaries = calculateStaffSummaries(previousMonthEntries)
-        const previousHours = previousMonthSummaries.reduce((total: number, staff: StaffSummary) => total + staff.total_hours, 0)
+        const previousCalculationEntries: TimeCalculationEntry[] = previousMonthEntries.map((entry: any) => ({
+          entry_id: entry.entry_id,
+          staff_id: entry.staff_id,
+          staff_name: entry.staff_name,
+          action: entry.action,
+          timestamp: entry.timestamp,
+          date_only: entry.date_only,
+          time_only: entry.time_only,
+          photo_captured: entry.photo_captured,
+          camera_error: entry.camera_error
+        }));
+        const previousMonthShifts = calculateWorkShifts(previousCalculationEntries);
+        const previousHours = previousMonthShifts
+          .filter(shift => shift.is_complete)
+          .reduce((total: number, shift: WorkShift) => total + shift.net_hours, 0);
         
         setCurrentMonthHours(currentHours)
         setPreviousMonthHours(previousHours)
@@ -725,9 +750,10 @@ export function TimeReportsDashboard() {
 
       {/* Reports Tabs */}
       <Tabs defaultValue="entries" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="entries">Time Entries</TabsTrigger>
-          <TabsTrigger value="summaries">Staff Summaries</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="entries">Time Entries ({timeEntries.length})</TabsTrigger>
+          <TabsTrigger value="shifts">Work Shifts ({workShifts.length})</TabsTrigger>
+          <TabsTrigger value="summaries">Staff Analytics ({staffAnalytics.length})</TabsTrigger>
         </TabsList>
         
         <TabsContent value="entries" className="space-y-4">
@@ -800,12 +826,176 @@ export function TimeReportsDashboard() {
               </div>
             </CardContent>
           </Card>
+                  </TabsContent>
+
+        <TabsContent value="shifts" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Work Shifts Analysis ({workShifts.length} shifts)
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Enhanced shift tracking with cross-day support, break deductions, and overtime calculations
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[120px]">Date</TableHead>
+                      <TableHead className="min-w-[150px]">Staff Name</TableHead>
+                      <TableHead className="min-w-[100px] text-center">Clock In</TableHead>
+                      <TableHead className="min-w-[100px] text-center">Clock Out</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Duration</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Net Hours</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Overtime</TableHead>
+                      <TableHead className="min-w-[100px] text-center">Status</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {workShifts.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="h-24 text-center">
+                          No work shifts calculated for the selected criteria.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      workShifts
+                        .sort((a, b) => new Date(b.clock_in_time).getTime() - new Date(a.clock_in_time).getTime())
+                        .map((shift) => (
+                        <TableRow key={`${shift.staff_id}-${shift.clock_in_entry_id}`}>
+                          <TableCell>{format(new Date(shift.date), 'MMM dd, yyyy')}</TableCell>
+                          <TableCell className="font-medium">{shift.staff_name}</TableCell>
+                          <TableCell className="font-mono text-center">
+                            {format(new Date(shift.clock_in_time), 'HH:mm')}
+                          </TableCell>
+                          <TableCell className="font-mono text-center">
+                            {shift.clock_out_time ? format(new Date(shift.clock_out_time), 'HH:mm') : '—'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {shift.is_complete ? formatShiftDuration(shift.total_minutes) : '—'}
+                          </TableCell>
+                          <TableCell className="text-center font-medium">
+                            {shift.is_complete ? `${shift.net_hours}h` : '—'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {shift.overtime_hours > 0 ? (
+                              <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                                +{shift.overtime_hours}h
+                              </Badge>
+                            ) : (
+                              '—'
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {shift.is_complete ? (
+                              <div className="flex flex-col gap-1">
+                                <Badge variant="default" className="bg-green-100 text-green-800">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Complete
+                                </Badge>
+                                {shift.crosses_midnight && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Cross-day
+                                  </Badge>
+                                )}
+                              </div>
+                            ) : (
+                              <Badge variant="destructive">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Incomplete
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {(shift.shift_notes.length > 0 || shift.validation_issues.length > 0) && (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Shift Details - {shift.staff_name}</DialogTitle>
+                                    <DialogDescription>
+                                      {format(new Date(shift.date), 'MMMM dd, yyyy')}
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div className="text-center p-3 border rounded">
+                                        <div className="text-2xl font-bold text-blue-600">
+                                          {formatShiftDuration(shift.total_minutes)}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">Total Duration</div>
+                                      </div>
+                                      <div className="text-center p-3 border rounded">
+                                        <div className="text-2xl font-bold text-green-600">
+                                          {shift.net_hours}h
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">Net Hours</div>
+                                      </div>
+                                    </div>
+                                    
+                                    {shift.break_minutes > 0 && (
+                                      <div className="p-3 bg-gray-50 rounded">
+                                        <div className="text-sm font-medium">Break Deduction</div>
+                                                                                 <div className="text-sm text-muted-foreground">
+                                           {shift.break_minutes} minutes deducted (shift &gt; 6 hours)
+                                         </div>
+                                      </div>
+                                    )}
+                                    
+                                    {shift.shift_notes.length > 0 && (
+                                      <div>
+                                        <div className="text-sm font-medium mb-2">Notes:</div>
+                                        <ul className="text-sm text-muted-foreground space-y-1">
+                                          {shift.shift_notes.map((note, index) => (
+                                            <li key={index}>• {note}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    
+                                    {shift.validation_issues.length > 0 && (
+                                      <div>
+                                        <div className="text-sm font-medium mb-2 text-red-600">Issues:</div>
+                                        <ul className="text-sm text-red-600 space-y-1">
+                                          {shift.validation_issues.map((issue, index) => (
+                                            <li key={index}>• {issue}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
         
         <TabsContent value="summaries" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Staff Summaries ({staffSummaries.length})</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Enhanced Staff Analytics ({staffAnalytics.length})
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Comprehensive analytics with accurate time calculations, break deductions, and overtime tracking
+              </p>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border overflow-x-auto">
@@ -813,36 +1003,54 @@ export function TimeReportsDashboard() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="min-w-[150px]">Staff Name</TableHead>
-                      <TableHead className="min-w-[100px] text-center">Days Worked</TableHead>
-                      <TableHead className="min-w-[100px] text-center">Total Entries</TableHead>
-                      <TableHead className="min-w-[90px] text-center">Clock Ins</TableHead>
-                      <TableHead className="min-w-[90px] text-center">Clock Outs</TableHead>
-                      <TableHead className="min-w-[80px] text-center">Photos</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Days</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Shifts</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Regular</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Overtime</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Total</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Avg/Shift</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Photo %</TableHead>
                       <TableHead className="min-w-[100px] text-center">Status</TableHead>
-                      <TableHead className="min-w-[100px] text-center">Actions</TableHead>
+                      <TableHead className="min-w-[80px] text-center">Details</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {staffSummaries.length === 0 ? (
+                    {staffAnalytics.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="h-24 text-center">
-                          No staff summaries available.
+                        <TableCell colSpan={10} className="h-24 text-center">
+                          No staff analytics available.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      staffSummaries.map((summary) => (
-                        <TableRow key={summary.staff_id}>
-                          <TableCell className="font-medium">{summary.staff_name}</TableCell>
-                          <TableCell className="text-center">{summary.days_worked}</TableCell>
-                          <TableCell className="text-center">{summary.total_entries}</TableCell>
-                          <TableCell className="text-center">{summary.clock_ins}</TableCell>
-                          <TableCell className="text-center">{summary.clock_outs}</TableCell>
-                          <TableCell className="text-center">{summary.photos_captured}</TableCell>
+                      staffAnalytics.map((analytic) => (
+                        <TableRow key={analytic.staff_id}>
+                          <TableCell className="font-medium">{analytic.staff_name}</TableCell>
+                          <TableCell className="text-center">{analytic.days_worked}</TableCell>
+                          <TableCell className="text-center">{analytic.total_shifts}</TableCell>
+                          <TableCell className="text-center">{analytic.regular_hours.toFixed(1)}h</TableCell>
                           <TableCell className="text-center">
-                            {summary.has_issues ? (
+                            {analytic.overtime_hours > 0 ? (
+                              <span className="text-orange-600 font-medium">
+                                {analytic.overtime_hours.toFixed(1)}h
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center font-medium">{analytic.total_hours.toFixed(1)}h</TableCell>
+                          <TableCell className="text-center">
+                            {analytic.complete_shifts > 0 ? `${analytic.average_shift_hours.toFixed(1)}h` : '—'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={analytic.photo_compliance_rate >= 80 ? "default" : "secondary"}>
+                              {analytic.photo_compliance_rate.toFixed(0)}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {analytic.incomplete_shifts > 0 || analytic.shifts_with_issues > 0 ? (
                               <Badge variant="destructive">
                                 <AlertTriangle className="h-3 w-3 mr-1" />
-                                Issues
+                                Issues ({analytic.incomplete_shifts + analytic.shifts_with_issues})
                               </Badge>
                             ) : (
                               <Badge variant="default" className="bg-green-100 text-green-800">
@@ -852,49 +1060,67 @@ export function TimeReportsDashboard() {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            {summary.has_issues ? (
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="sm">
-                                    <AlertTriangle className="h-4 w-4 mr-1" />
-                                    View Issues
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-md">
-                                  <DialogHeader>
-                                    <DialogTitle>Issues for {summary.staff_name}</DialogTitle>
-                                    <DialogDescription>
-                                      Time clock entry issues that require attention.
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div className="text-center p-3 border rounded">
-                                        <div className="text-2xl font-bold text-blue-600">{summary.clock_ins}</div>
-                                        <div className="text-sm text-muted-foreground">Clock Ins</div>
-                                      </div>
-                                      <div className="text-center p-3 border rounded">
-                                        <div className="text-2xl font-bold text-orange-600">{summary.clock_outs}</div>
-                                        <div className="text-sm text-muted-foreground">Clock Outs</div>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Staff Analytics - {analytic.staff_name}</DialogTitle>
+                                  <DialogDescription>
+                                    Comprehensive work analysis and metrics
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-3 gap-4">
+                                    <div className="text-center p-3 border rounded">
+                                      <div className="text-2xl font-bold text-blue-600">{analytic.total_shifts}</div>
+                                      <div className="text-sm text-muted-foreground">Total Shifts</div>
+                                    </div>
+                                    <div className="text-center p-3 border rounded">
+                                      <div className="text-2xl font-bold text-green-600">{analytic.complete_shifts}</div>
+                                      <div className="text-sm text-muted-foreground">Complete</div>
+                                    </div>
+                                    <div className="text-center p-3 border rounded">
+                                      <div className="text-2xl font-bold text-red-600">{analytic.incomplete_shifts}</div>
+                                      <div className="text-sm text-muted-foreground">Incomplete</div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="text-center p-3 border rounded">
+                                      <div className="text-2xl font-bold text-purple-600">{analytic.longest_shift_hours.toFixed(1)}h</div>
+                                      <div className="text-sm text-muted-foreground">Longest Shift</div>
+                                    </div>
+                                    <div className="text-center p-3 border rounded">
+                                      <div className="text-2xl font-bold text-teal-600">{analytic.shortest_shift_hours.toFixed(1)}h</div>
+                                      <div className="text-sm text-muted-foreground">Shortest Shift</div>
+                                    </div>
+                                  </div>
+                                  
+                                  {analytic.total_breaks_minutes > 0 && (
+                                    <div className="p-3 bg-gray-50 rounded">
+                                      <div className="text-sm font-medium">Break Time Deductions</div>
+                                      <div className="text-sm text-muted-foreground">
+                                        {Math.round(analytic.total_breaks_minutes / 60 * 10) / 10} hours total breaks deducted
                                       </div>
                                     </div>
+                                  )}
+                                  
+                                  {(analytic.incomplete_shifts > 0 || analytic.shifts_with_issues > 0) && (
                                     <Alert variant="destructive">
                                       <AlertTriangle className="h-4 w-4" />
                                       <AlertDescription>
-                                        {summary.clock_ins > summary.clock_outs 
-                                          ? `Missing ${summary.clock_ins - summary.clock_outs} clock out entries. Staff may still be clocked in.`
-                                          : `Missing ${summary.clock_outs - summary.clock_ins} clock in entries. Check for manual corrections needed.`                                        }
+                                        {analytic.incomplete_shifts > 0 && `${analytic.incomplete_shifts} incomplete shifts found. `}
+                                        {analytic.shifts_with_issues > 0 && `${analytic.shifts_with_issues} shifts have validation issues.`}
                                       </AlertDescription>
                                     </Alert>
-                                    <div className="text-sm text-muted-foreground">
-                                      <strong>Recommendation:</strong> Review individual time entries for this staff member to identify and correct missing entries.
-                                    </div>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">No issues</span>
-                            )}
+                                  )}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
                           </TableCell>
                         </TableRow>
                       ))
