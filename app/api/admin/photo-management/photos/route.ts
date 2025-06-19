@@ -99,65 +99,81 @@ export async function GET(request: NextRequest) {
 
     console.log(`Found ${timeEntries?.length || 0} time entries with photos`)
 
-    // Process photos and generate signed URLs
+    // PHASE 4 FIX: Streamlined photo processing with better error handling
     const photosWithDetails: PhotoRecord[] = []
     let urlGenerationErrors = 0
+    let urlGenerationSuccess = 0
 
-    for (const entry of timeEntries || []) {
+    console.log(`Phase 4: Starting photo processing for ${timeEntries?.length || 0} entries`)
+
+    // PHASE 4 FIX: Process all photos with consistent structure
+    const processPromises = (timeEntries || []).map(async (entry) => {
       if (!entry.photo_url) {
-        console.warn(`Entry ${entry.id} has null photo_url, skipping`)
-        continue
+        console.warn(`Phase 4: Entry ${entry.id} has null photo_url, skipping`)
+        return null
       }
 
       try {
-        console.log(`Processing entry ${entry.id} with photo: ${entry.photo_url}`)
-        
-        // Generate signed URL for this photo using simplified method
+        // Generate signed URL for this photo
         const signedUrl = await getTimeClockPhotoUrl(entry.photo_url)
         
-        if (!signedUrl) {
-          console.warn(`Failed to generate URL for entry ${entry.id}, photo: ${entry.photo_url}`)
+        if (signedUrl) {
+          urlGenerationSuccess++
+          console.log(`Phase 4: SUCCESS - URL generated for entry ${entry.id}`)
+        } else {
           urlGenerationErrors++
+          console.warn(`Phase 4: FAILED - No URL for entry ${entry.id}, photo: ${entry.photo_url}`)
         }
         
-        // For now, use estimated file size since getting exact size is complex
-        // Most JPEG photos from camera are typically 15-30KB after optimization
-        const estimatedFileSize = 25 * 1024 // 25KB estimate (after optimization)
+        // PHASE 4 FIX: Consistent file size estimation based on photo config
+        const estimatedFileSize = 20 * 1024 // 20KB average after JPEG optimization at 50% quality
 
-        photosWithDetails.push({
+        return {
           id: entry.id.toString(),
           staff_id: entry.staff_id,
-          staff_name: (entry.staff as any)?.staff_name || 'Unknown',
+          staff_name: (entry.staff as any)?.staff_name || 'Unknown Staff',
           action: entry.action,
           timestamp: entry.timestamp,
           photo_url: signedUrl, // Will be empty string if failed
           file_path: entry.photo_url,
           file_size: estimatedFileSize,
           created_at: entry.created_at
-        })
-        
-        console.log(`Successfully processed entry ${entry.id}, URL generated: ${!!signedUrl}`)
+        }
       } catch (error) {
-        console.error(`Error processing photo for entry ${entry.id}:`, error)
         urlGenerationErrors++
+        console.error(`Phase 4: CRITICAL ERROR processing photo for entry ${entry.id}:`, error)
+        
         // Still include the entry but with empty photo URL
-        photosWithDetails.push({
+        return {
           id: entry.id.toString(),
           staff_id: entry.staff_id,
-          staff_name: (entry.staff as any)?.staff_name || 'Unknown',
+          staff_name: (entry.staff as any)?.staff_name || 'Unknown Staff',
           action: entry.action,
           timestamp: entry.timestamp,
           photo_url: '', // Empty due to error
           file_path: entry.photo_url,
-          file_size: 25 * 1024,
+          file_size: 20 * 1024,
           created_at: entry.created_at
-        })
+        }
       }
-    }
+    })
 
-    console.log(`Processed ${photosWithDetails.length} photos, ${photosWithDetails.filter(p => p.photo_url).length} with valid URLs`)
-    console.log(`URL generation errors: ${urlGenerationErrors}`)
-    console.log('=== PHOTOS API DEBUG END ===')
+    // PHASE 4 FIX: Process all photos concurrently with Promise.allSettled
+    const results = await Promise.allSettled(processPromises)
+    
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
+        photosWithDetails.push(result.value)
+      } else if (result.status === 'rejected') {
+        console.error(`Phase 4: Promise rejected for entry at index ${index}:`, result.reason)
+        urlGenerationErrors++
+      }
+    })
+
+    console.log(`Phase 4: Processing completed - ${photosWithDetails.length} photos total`)
+    console.log(`Phase 4: URL generation - ${urlGenerationSuccess} successful, ${urlGenerationErrors} failed`)
+    console.log(`Phase 4: Photos with valid URLs: ${photosWithDetails.filter(p => p.photo_url).length}`)
+    console.log('=== PHASE 4 PHOTOS API DEBUG END ===')
 
     return NextResponse.json({
       photos: photosWithDetails,
@@ -169,8 +185,10 @@ export async function GET(request: NextRequest) {
       },
       debug: {
         total_entries: timeEntries?.length || 0,
-        successful_urls: photosWithDetails.filter(p => p.photo_url).length,
-        failed_urls: urlGenerationErrors
+        successful_urls: urlGenerationSuccess,
+        failed_urls: urlGenerationErrors,
+        photos_with_valid_urls: photosWithDetails.filter(p => p.photo_url).length,
+        phase: "Phase 4 Optimized"
       }
     })
 
