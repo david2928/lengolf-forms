@@ -9,6 +9,8 @@ declare module "next-auth" {
       image?: string | null
       isAdmin?: boolean
     }
+    lastValidated?: string
+    sessionType?: 'admin' | 'user'
   }
 }
 
@@ -16,5 +18,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     email?: string
     isAdmin?: boolean
+    adminSessionExpiry?: number
   }
 } 
