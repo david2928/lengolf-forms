@@ -74,6 +74,9 @@ export function PhotoManagementDashboard() {
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoRecord | null>(null)
   const [cleanupRunning, setCleanupRunning] = useState(false)
   const [lastCleanupResult, setLastCleanupResult] = useState<CleanupResult | null>(null)
+  // PHASE 4 FIX: Add image loading state for modal
+  const [imageLoading, setImageLoading] = useState<boolean>(false)
+  const [imageError, setImageError] = useState<boolean>(false)
   
   // Filters
   const [filters, setFilters] = useState({
@@ -493,8 +496,11 @@ export function PhotoManagementDashboard() {
                               variant="outline" 
                               size="sm"
                               onClick={() => {
-                                console.log('View button clicked for photo:', photo.id, 'URL:', photo.photo_url)
+                                console.log('Phase 4: View button clicked for photo:', photo.id, 'URL:', photo.photo_url)
                                 setSelectedPhoto(photo)
+                                // PHASE 4 FIX: Reset image states when opening modal
+                                setImageLoading(true)
+                                setImageError(false)
                               }}
                             >
                               <Eye className="h-4 w-4 mr-1" />
@@ -513,10 +519,22 @@ export function PhotoManagementDashboard() {
                               <div className="flex justify-center">
                                 {photo.photo_url ? (
                                   <div className="relative">
+                                    {/* PHASE 4 FIX: Loading spinner while image loads */}
+                                    {imageLoading && !imageError && (
+                                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg" style={{ minHeight: '200px' }}>
+                                        <div className="text-center">
+                                          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-gray-500" />
+                                          <p className="text-sm text-gray-600">Loading photo...</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                    
                                     <img 
                                       src={photo.photo_url} 
                                       alt={`Time clock photo for ${photo.staff_name}`}
-                                      className="max-w-full h-auto rounded-lg border shadow-sm"
+                                      className={`max-w-full h-auto rounded-lg border shadow-sm transition-opacity duration-300 ${
+                                        imageLoading ? 'opacity-0' : 'opacity-100'
+                                      }`}
                                       style={{ maxHeight: '400px' }}
                                       onError={(e) => {
                                         console.error('Phase 4: Image load failed:', {
@@ -525,19 +543,22 @@ export function PhotoManagementDashboard() {
                                           photo_url: photo.photo_url,
                                           staff: photo.staff_name
                                         })
-                                        e.currentTarget.style.display = 'none'
-                                        const errorDiv = e.currentTarget.parentElement?.nextElementSibling as HTMLElement
-                                        if (errorDiv) {
-                                          errorDiv.style.display = 'block'
-                                        }
+                                        setImageLoading(false)
+                                        setImageError(true)
                                       }}
                                       onLoad={() => {
                                         console.log(`Phase 4: Image loaded successfully for ${photo.staff_name}:`, photo.file_path)
+                                        setImageLoading(false)
+                                        setImageError(false)
                                       }}
                                     />
-                                    <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                                      {format(new Date(photo.timestamp), 'MMM dd, h:mm a')}
-                                    </div>
+                                    
+                                    {/* Timestamp overlay - only show when image is loaded */}
+                                    {!imageLoading && !imageError && (
+                                      <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                        {format(new Date(photo.timestamp), 'MMM dd, h:mm a')}
+                                      </div>
+                                    )}
                                   </div>
                                 ) : null}
                                 
@@ -566,11 +587,9 @@ export function PhotoManagementDashboard() {
                                   </div>
                                 ) : null}
                                 
-                                {/* Hidden error state that shows when image fails to load */}
-                                <div 
-                                  className="text-center p-8 border-2 border-red-200 rounded-lg bg-red-50"
-                                  style={{ display: 'none' }}
-                                >
+                                {/* PHASE 4 FIX: Error state that shows when image fails to load */}
+                                {imageError && photo.photo_url && (
+                                  <div className="text-center p-8 border-2 border-red-200 rounded-lg bg-red-50">
                                   <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-500" />
                                   <h3 className="text-lg font-medium text-red-900 mb-2">Photo Load Failed</h3>
                                   <p className="text-sm text-red-700 mb-4">
@@ -612,6 +631,7 @@ export function PhotoManagementDashboard() {
                                     </Button>
                                   </div>
                                 </div>
+                                )}
                               </div>
                               <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
