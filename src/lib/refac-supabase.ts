@@ -1,39 +1,68 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Ensure environment variables are defined (consider adding runtime checks if needed)
-const supabaseUrl = process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl) {
-  console.error('Error: Missing environment variable NEXT_PUBLIC_REFAC_SUPABASE_URL');
-  // Potentially throw an error or handle appropriately
+// IMPROVEMENT: Enhanced environment variable validation with early failure
+function validateEnvironmentVariables() {
+  const required = {
+    'NEXT_PUBLIC_REFAC_SUPABASE_URL': process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL,
+    'NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY': process.env.NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY,
+    'REFAC_SUPABASE_SERVICE_ROLE_KEY': process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY
+  };
+  
+  const missing = Object.entries(required)
+    .filter(([name, value]) => !value)
+    .map(([name]) => name);
+  
+  if (missing.length > 0) {
+    throw new Error(
+      `🚨 CRITICAL: Missing required environment variables: ${missing.join(', ')}\n` +
+      'Please ensure these are set in your environment configuration.'
+    );
+  }
+  
+  // Validate URL format
+  const supabaseUrl = required['NEXT_PUBLIC_REFAC_SUPABASE_URL'];
+  if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
+    throw new Error(`🚨 CRITICAL: NEXT_PUBLIC_REFAC_SUPABASE_URL must be a valid HTTPS URL, got: ${supabaseUrl}`);
+  }
+  
+  return required;
 }
 
-if (!supabaseAnonKey) {
-  console.error('Error: Missing environment variable NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY');
-  // Potentially throw an error or handle appropriately
-}
+// Validate environment variables on module load
+const env = validateEnvironmentVariables();
+const supabaseUrl = env.NEXT_PUBLIC_REFAC_SUPABASE_URL!;
+const supabaseAnonKey = env.NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY!;
+const supabaseServiceRoleKey = env.REFAC_SUPABASE_SERVICE_ROLE_KEY!;
 
-// Check for service role key
-if (!supabaseServiceRoleKey) {
-  console.error('Error: Missing environment variable REFAC_SUPABASE_SERVICE_ROLE_KEY');
-}
-
-// Create a new Supabase client instance for the target project
-// Note: Using NEXT_PUBLIC_ prefix for client-side accessibility, adjust if only server-side needed.
-// If server-side only, use different env var names without NEXT_PUBLIC_ and load them accordingly.
+// Create a new Supabase client instance for the target project  
+// IMPROVEMENT: Client creation now guaranteed to have valid environment variables
 export const refacSupabase = createClient(
-  supabaseUrl || '', // Provide default empty string to satisfy type, error logged above
-  supabaseAnonKey || '' // Provide default empty string to satisfy type, error logged above
+  supabaseUrl,
+  supabaseAnonKey,
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+    },
+  }
 );
 
 // Create a service role client for server-side operations that need to bypass RLS
-// For now, let's temporarily fall back to the anon key if service role is missing
-// so we can see if the RLS policies are the issue or the key itself
-export const refacSupabaseAdmin = supabaseServiceRoleKey ? 
-  createClient(
-    supabaseUrl || '',
+// SECURITY FIX: Removed dangerous fallback to anonymous key - fails fast instead
+export const refacSupabaseAdmin = (() => {
+  if (!supabaseServiceRoleKey) {
+    throw new Error(
+      '🚨 CRITICAL: REFAC_SUPABASE_SERVICE_ROLE_KEY is required for admin operations. ' +
+      'This prevents potential security vulnerabilities from using anonymous key for admin operations.'
+    );
+  }
+  
+  if (!supabaseUrl) {
+    throw new Error('🚨 CRITICAL: NEXT_PUBLIC_REFAC_SUPABASE_URL is required');
+  }
+
+  return createClient(
+    supabaseUrl,
     supabaseServiceRoleKey,
     {
       auth: {
@@ -41,21 +70,8 @@ export const refacSupabaseAdmin = supabaseServiceRoleKey ?
         persistSession: false
       }
     }
-  ) : 
-  // Temporary fallback to anon key with warning
-  (() => {
-    console.warn('🚨 TEMPORARY: refacSupabaseAdmin using anon key - service role missing!');
-    return createClient(
-      supabaseUrl || '',
-      supabaseAnonKey || '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
-  })();
+  );
+})();
 
 // Connection test function using backoffice schema
 export async function checkRefacConnection() {
