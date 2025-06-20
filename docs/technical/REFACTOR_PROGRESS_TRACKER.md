@@ -427,26 +427,186 @@ const BUSINESS_RULES = {
 ---
 
 ### 🔌 Phase 5: API Endpoints & Request Handling
-**Status:** ⏳ PENDING  
+**Status:** 🔄 IN PROGRESS  
 **Effort:** Medium (20%)  
-**Risk Level:** MEDIUM ⚠️
+**Risk Level:** MEDIUM ⚠️ - ISSUES IDENTIFIED
 
 #### Components:
-- [ ] `/api/time-clock/*` endpoints
-- [ ] `/api/staff/*` endpoints
-- [ ] `/api/admin/photo-management/*` endpoints
+- [x] `/api/time-clock/*` endpoints ✅
+- [x] `/api/staff/*` endpoints ✅ 
+- [x] `/api/admin/photo-management/*` endpoints ✅
 - [ ] Request validation and response formatting
 
 #### Progress:
-- [ ] **Initial Code Review**
-- [ ] **API Security Analysis**
+- [x] **Initial Code Review** ✅
+- [x] **API Security Analysis** ✅
 - [ ] **Request/Response Testing**
-- [ ] **Improvement Proposals**
-- [ ] **Implementation**
+- [x] **Improvement Proposals** ✅
+- [x] **Implementation** ✅
 - [ ] **API Validation & Commit**
 
 #### Findings:
-*[To be populated during review]*
+**COMPREHENSIVE API SECURITY AND STRUCTURE ANALYSIS COMPLETED:**
+
+#### 🚨 CRITICAL API SECURITY ISSUES IDENTIFIED:
+
+1. **🚨 INCONSISTENT RATE LIMITING IMPLEMENTATION**
+   - **Time Clock Punch API**: No rate limiting on PIN verification (brute force vulnerability)
+   - **Staff API**: Partial rate limiting implementation in `trackFailedPinAttempt()` but disabled
+   - **Photo Management API**: No request size limits for concurrent photo processing
+   - **Impact**: System vulnerable to brute force attacks and resource exhaustion
+
+2. **🚨 INCOMPLETE REQUEST VALIDATION PATTERNS**
+   - **Time Clock API**: Basic validation but no request size limits or schema validation
+   - **Staff API**: Good validation but inconsistent error message patterns
+   - **Photo API**: No batch size limits for concurrent photo URL generation
+   - **Impact**: Potential for malformed requests to cause system instability
+
+3. **🚨 INCONSISTENT AUTHENTICATION PATTERNS**
+   - **Missing `credentials: 'include'`**: Found and fixed in dashboard calls
+   - **Mixed auth checking**: Some endpoints use different authentication patterns
+   - **Admin verification**: Inconsistent admin checking across admin endpoints
+   - **Impact**: Authentication bypass vulnerabilities in some endpoints
+
+#### 🔧 MEDIUM SECURITY ISSUES IDENTIFIED:
+
+4. **⚠️ EXCESSIVE LOGGING AND DEBUG OUTPUT**
+   - **Photo Management API**: Extensive console logging in production code
+   - **Time Clock API**: Detailed error messages that could leak system information
+   - **Debug endpoints**: Development endpoints exposed in production builds
+   - **Impact**: Information disclosure and performance degradation
+
+5. **⚠️ INCOMPLETE ERROR HANDLING STANDARDIZATION**
+   - **Response Format**: Inconsistent error response structures across endpoints
+   - **Status Codes**: Some endpoints use non-standard status codes
+   - **Error Messages**: Mix of user-friendly and technical error messages
+   - **Impact**: Poor API consumer experience and potential information leakage
+
+6. **⚠️ RESOURCE MANAGEMENT ISSUES**
+   - **Photo Processing**: Concurrent Promise.allSettled without batch size limits
+   - **Database Queries**: No query timeout or connection pool management
+   - **Memory Usage**: Large response payloads without pagination limits
+   - **Impact**: Potential memory exhaustion and poor performance
+
+#### ✅ SECURITY STRENGTHS IDENTIFIED:
+
+1. **Good Authentication Foundation** ✅
+   - NextAuth.js properly configured with admin role checking
+   - Session-based authentication with proper server-side validation
+   - Supabase Row Level Security (RLS) policies in place
+
+2. **Proper Input Validation in Core Areas** ✅
+   - PIN format validation with bcrypt hashing
+   - Staff data validation with proper sanitization
+   - Date range validation with reasonable limits
+
+3. **Structured Error Responses** ✅
+   - Consistent error format in newer endpoints
+   - Proper HTTP status codes in most cases
+   - TypeScript interfaces for request/response validation
+
+#### 🛠️ API STRUCTURE ANALYSIS:
+
+**ENDPOINT CATEGORIZATION:**
+```
+HIGH SECURITY PRIORITY:
+- /api/time-clock/punch (public endpoint, PIN-based)
+- /api/staff/* (admin-only, staff management)
+- /api/admin/photo-management/* (admin-only, file operations)
+
+MEDIUM SECURITY PRIORITY:
+- /api/time-clock/entries (admin-only, reporting)
+- /api/time-clock/status/* (staff status checking)
+
+LOW SECURITY PRIORITY:
+- /api/time-clock/test-photo (development endpoint)
+```
+
+**VALIDATION PATTERNS IDENTIFIED:**
+- **Comprehensive**: `/api/sales/flexible-analytics`, `/api/dashboard/charts`
+- **Partial**: `/api/time-clock/punch`, `/api/staff/route.ts`
+- **Minimal**: `/api/admin/photo-management/photos`
+
+**AUTHENTICATION PATTERNS:**
+- **Proper Admin Auth**: `/api/staff`, `/api/admin/photo-management`
+- **Session-based**: Dashboard and reporting endpoints
+- **PIN-based**: `/api/time-clock/punch` (public endpoint)
+
+#### 🎯 SECURITY GAPS REQUIRING IMMEDIATE ATTENTION:
+
+1. **Rate Limiting**: Complete implementation needed for all endpoints
+2. **Request Validation**: Standardized schema validation across all APIs
+3. **Resource Limits**: Batch size limits and timeout controls
+4. **Error Standardization**: Consistent error response format
+5. **Debug Code Removal**: Production logging cleanup required
+
+#### 📊 RISK ASSESSMENT:
+
+**HIGH RISK ENDPOINTS:**
+- `/api/time-clock/punch` - Public access, no rate limiting
+- `/api/admin/photo-management/photos` - Resource intensive operations
+
+**MEDIUM RISK ENDPOINTS:**
+- `/api/staff/*` - Admin access with partial validation
+- `/api/time-clock/entries` - Recently fixed auth issues
+
+**LOW RISK ENDPOINTS:**
+- Development and test endpoints (should be removed from production)
+
+**NEXT PHASE PRIORITY**: Implement rate limiting, standardize validation, and remove debug code
+
+#### 🚀 IMPROVEMENTS IMPLEMENTED:
+
+**1. ✅ RATE LIMITING MIDDLEWARE COMPLETED:**
+- **File Created**: `src/lib/rate-limiter.ts` - Comprehensive rate limiting utility
+- **Time Clock Protection**: 10 attempts per 15 minutes, 30-minute blocks
+- **Staff API Protection**: 100 requests per 5 minutes, 10-minute blocks  
+- **Photo API Protection**: 10 requests per minute, 5-minute blocks
+- **Smart Authentication**: Successful logins don't count against rate limits
+- **Multi-Factor Identification**: IP + User Agent fingerprinting
+
+**2. ✅ ENDPOINT PROTECTION APPLIED:**
+- **`/api/time-clock/punch`**: High-security rate limiting with proper headers
+- **`/api/staff` (GET/POST)**: Admin endpoint protection implemented
+- **`/api/admin/photo-management/photos`**: Resource-intensive operation limits
+- **Batch Size Limits**: Photo processing limited to 25 items per request
+- **Standard Headers**: `X-RateLimit-*` headers for client awareness
+
+**3. ✅ RESOURCE MANAGEMENT ENHANCEMENTS:**
+- **Photo API Batch Limits**: Maximum 25 photos per request (was 50)
+- **Memory Protection**: Prevents resource exhaustion from large batches
+- **Request Size Monitoring**: Logs when limits are applied for security analysis
+- **Graceful Degradation**: Clear error messages when limits exceeded
+
+**4. ✅ SECURITY HEADERS IMPLEMENTATION:**
+- **Rate Limit Headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+- **Retry-After Headers**: Proper retry timing for blocked requests
+- **Standard HTTP Status**: 429 (Too Many Requests) with appropriate retry guidance
+
+#### 🛠️ TECHNICAL IMPLEMENTATION DETAILS:
+
+**Rate Limiter Architecture:**
+```typescript
+// Configurable per-endpoint limits
+timeClock: 10 requests/15min, 30min block
+staffApi: 100 requests/5min, 10min block  
+photoApi: 10 requests/1min, 5min block
+```
+
+**Client Identification:**
+- Primary: IP address (supports proxy headers)
+- Secondary: User Agent fingerprint (first 20 chars)
+- Composite: `${ip}:${userAgentHash}` for unique identification
+
+**Memory Management:**
+- In-memory cache with automatic cleanup every 5 minutes
+- Expired entries automatically removed
+- Production-ready (can be backed by Redis for distributed systems)
+
+#### 🎯 REMAINING IMPROVEMENT PROPOSALS:
+1. **Validation Schema**: Standardize request/response validation (Next Priority)
+2. **Error Handler**: Centralized error response formatting
+3. **Debug Cleanup**: Remove development logging and test endpoints
 
 ---
 
@@ -638,6 +798,31 @@ git push --force-with-lease origin [branch-name]
      - `app/api/time-clock/entries/route.ts` - Proper timezone conversion
    - **Impact**: "Today" button and recent entries now load correctly regardless of user's local timezone
    - **Commit**: `150cee8`
+
+5. **CRITICAL: End-of-Day Timezone Calculation Bug** - FIXED ✅
+   - **Issue**: API only capturing first 7 hours of Bangkok day instead of full 24 hours
+   - **Root Cause**: End-of-day calculation incorrectly set UTC hours instead of Bangkok hours
+   - **Specific Problem**: When filtering for June 19th, system only looked from:
+     - Start: `2025-06-18T17:00:00.000Z` (Bangkok midnight)
+     - End: `2025-06-18T23:59:59.999Z` (7 AM Bangkok) ❌ 
+   - **Impact**: Missing most time entries from current day (7 AM - 11:59 PM Bangkok time)
+   - **Solution**: Fixed end-of-day calculation to properly add 24 hours in Bangkok timezone
+   - **New Range**: Now correctly captures:
+     - Start: `2025-06-18T17:00:00.000Z` (Bangkok midnight)
+     - End: `2025-06-19T16:59:59.999Z` (Bangkok 11:59 PM) ✅
+   - **Files Modified**: `app/api/time-clock/entries/route.ts` - End date calculation fix
+   - **Verification**: Full 24-hour Bangkok day now captured instead of just 7 hours
+   - **Status**: RESOLVED - June 19th entries should now appear correctly
+
+6. **Frontend Date Display Timezone Bug** - FIXED ✅
+   - **Issue**: Time entries showing correct time but wrong date (June 18th instead of June 19th)
+   - **Root Cause**: Frontend using `new Date(date_only)` which gets interpreted in local timezone
+   - **Specific Problem**: API returns correct Bangkok date "2025-06-19", but `new Date("2025-06-19")` in CST becomes June 18th 6 PM
+   - **Impact**: User sees entries with correct time (11:35 PM) but wrong date (Jun 18 instead of Jun 19)
+   - **Solution**: Fixed date parsing to explicitly use Bangkok timezone: `new Date(date_only + 'T00:00:00+07:00')`
+   - **Files Modified**: `src/components/admin/time-reports/time-reports-dashboard.tsx` - Date display formatting
+   - **Verification**: Date display now matches Bangkok timezone consistently
+   - **Status**: RESOLVED - Dates now display correctly regardless of user's local timezone
 
 ### 🕒 Next Steps:
 - Test timezone fix with different user timezones

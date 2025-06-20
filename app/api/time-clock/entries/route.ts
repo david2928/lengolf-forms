@@ -59,28 +59,31 @@ export async function GET(request: NextRequest) {
     // TIMEZONE FIX: Apply filters with proper Bangkok timezone handling
     if (startDate) {
       // Convert Bangkok date to UTC for database query
-      const bangkokStartDate = apiDateToBangkokDate(startDate);
-      const utcStartDate = new Date(bangkokStartDate.getTime() - (7 * 60 * 60 * 1000)); // Bangkok is UTC+7
+      // apiDateToBangkokDate already returns UTC Date (via parseBangkokTime)
+      const utcStartDate = apiDateToBangkokDate(startDate);
       query = query.gte('timestamp', utcStartDate.toISOString());
       
       console.log('TIMEZONE DEBUG - Start Date:', {
         input: startDate,
-        bangkokDate: bangkokStartDate.toISOString(),
-        utcForQuery: utcStartDate.toISOString()
+        utcForQuery: utcStartDate.toISOString(),
+        note: 'apiDateToBangkokDate already converts to UTC'
       });
     }
 
     if (endDate) {
       // Convert Bangkok date to UTC for database query (end of day)
-      const bangkokEndDate = apiDateToBangkokDate(endDate);
-      bangkokEndDate.setHours(23, 59, 59, 999); // End of day in Bangkok
-      const utcEndDate = new Date(bangkokEndDate.getTime() - (7 * 60 * 60 * 1000)); // Bangkok is UTC+7
-      query = query.lte('timestamp', utcEndDate.toISOString());
+      // FIXED: Need to calculate end of day in Bangkok timezone, then convert to UTC
+      const utcEndDate = apiDateToBangkokDate(endDate);
+      // Add 24 hours to get to the end of the Bangkok day, then subtract 1ms
+      const endOfBangkokDayUTC = new Date(utcEndDate.getTime() + (24 * 60 * 60 * 1000) - 1);
+      query = query.lte('timestamp', endOfBangkokDayUTC.toISOString());
       
       console.log('TIMEZONE DEBUG - End Date:', {
         input: endDate,
-        bangkokDate: bangkokEndDate.toISOString(),
-        utcForQuery: utcEndDate.toISOString()
+        startOfDayUTC: utcEndDate.toISOString(),
+        endOfDayUTC: endOfBangkokDayUTC.toISOString(),
+        bangkokEndTime: formatBangkokTime(endOfBangkokDayUTC),
+        note: 'Fixed to capture full Bangkok day'
       });
     }
 
@@ -100,9 +103,8 @@ export async function GET(request: NextRequest) {
 
     // TIMEZONE FIX: Format response using Bangkok timezone
     const formattedEntries: TimeEntryReport[] = (entries || []).map((entry: any) => {
-      // Convert UTC timestamp to Bangkok timezone for display
+      // formatBangkokTime already handles timezone conversion from UTC to Bangkok
       const utcTimestamp = new Date(entry.timestamp);
-      const bangkokTimestamp = new Date(utcTimestamp.getTime() + (7 * 60 * 60 * 1000)); // Add 7 hours for Bangkok
       
       return {
         entry_id: entry.id,
@@ -110,8 +112,8 @@ export async function GET(request: NextRequest) {
         staff_name: (entry.staff as any)?.staff_name || 'Unknown',
         action: entry.action,
         timestamp: entry.timestamp, // Keep original UTC timestamp
-        date_only: formatBangkokTime(bangkokTimestamp, 'yyyy-MM-dd'),
-        time_only: formatBangkokTime(bangkokTimestamp, 'HH:mm:ss'),
+        date_only: formatBangkokTime(utcTimestamp, 'yyyy-MM-dd'),
+        time_only: formatBangkokTime(utcTimestamp, 'HH:mm:ss'),
         photo_captured: entry.photo_captured,
         photo_url: entry.photo_url, // Return the storage path, not the full URL
         camera_error: entry.camera_error

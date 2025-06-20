@@ -2,6 +2,7 @@
 // Story: STAFF-001 - Database Schema & Backend Foundation
 
 import bcrypt from 'bcryptjs';
+import { DateTime } from 'luxon';
 import { refacSupabaseAdmin } from './refac-supabase';
 import { 
   Staff, 
@@ -325,6 +326,19 @@ export async function recordTimeEntry(
   deviceInfo?: any
 ) {
   try {
+    // TIMEZONE FIX: Use Bangkok timezone for time entry recording
+    // Store the current Bangkok time as UTC timestamp for database
+    const bangkokNow = DateTime.now().setZone('Asia/Bangkok');
+    const utcTimestamp = bangkokNow.toUTC().toISO();
+    
+    console.log('RECORDING TIME ENTRY:', {
+      staff_id: staffId,
+      action: action,
+      bangkok_time: bangkokNow.toISO(),
+      utc_timestamp: utcTimestamp,
+      date_in_bangkok: bangkokNow.toFormat('yyyy-MM-dd')
+    });
+    
     // Insert time entry directly into the database
     const { data, error } = await refacSupabaseAdmin
       .schema('backoffice')
@@ -332,7 +346,7 @@ export async function recordTimeEntry(
       .insert({
         staff_id: staffId,
         action: action,
-        timestamp: new Date().toISOString(),
+        timestamp: utcTimestamp,
         photo_url: photoUrl || null,
         photo_captured: photoCaptured,
         camera_error: cameraError || null,
