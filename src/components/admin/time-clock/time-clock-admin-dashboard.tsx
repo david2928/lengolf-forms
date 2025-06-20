@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { ArrowLeft, Users, Camera } from 'lucide-react'
 
 // Import existing dashboard components
@@ -81,7 +82,8 @@ export function TimeClockAdminDashboard() {
 
   // Main dashboard with time reports and action buttons
   return (
-    <div className="space-y-6">
+    <ErrorBoundary showTechnicalDetails={process.env.NODE_ENV === 'development'}>
+      <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Time Clock Administration</h1>
@@ -131,5 +133,6 @@ export function TimeClockAdminDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+    </ErrorBoundary>
   )
 } 

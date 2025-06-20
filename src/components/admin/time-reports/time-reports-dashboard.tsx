@@ -10,6 +10,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { Skeleton, TableRowSkeleton, StatsCardSkeleton } from '@/components/ui/skeleton-loader'
+import { 
+  ResponsiveTable, 
+  ResponsiveTableHeader, 
+  ResponsiveTableBody, 
+  ResponsiveTableRow, 
+  ResponsiveTableHead, 
+  ResponsiveTableCell 
+} from '@/components/ui/responsive-table'
 import { 
   Clock, 
   Users, 
@@ -823,37 +833,36 @@ export function TimeReportsDashboard() {
               <CardTitle>Time Entries ({timeEntries.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[120px]">Date</TableHead>
-                      <TableHead className="min-w-[100px] text-center">Time</TableHead>
-                      <TableHead className="min-w-[150px]">Staff</TableHead>
-                      <TableHead className="min-w-[100px] text-center">Action</TableHead>
-                      <TableHead className="min-w-[100px] text-center">Photo</TableHead>
-                      <TableHead className="min-w-[80px] text-center">View</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <ResponsiveTable enableKeyboardNavigation>
+                <ResponsiveTableHeader>
+                  <ResponsiveTableRow>
+                    <ResponsiveTableHead>Date</ResponsiveTableHead>
+                    <ResponsiveTableHead className="text-center">Time</ResponsiveTableHead>
+                    <ResponsiveTableHead>Staff</ResponsiveTableHead>
+                    <ResponsiveTableHead className="text-center">Action</ResponsiveTableHead>
+                    <ResponsiveTableHead className="text-center">Photo</ResponsiveTableHead>
+                    <ResponsiveTableHead className="text-center">View</ResponsiveTableHead>
+                  </ResponsiveTableRow>
+                </ResponsiveTableHeader>
+                <ResponsiveTableBody>
                     {timeEntries.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
+                      <ResponsiveTableRow>
+                        <ResponsiveTableCell colSpan={6} className="h-24 text-center">
                           No time entries found for the selected criteria.
-                        </TableCell>
-                      </TableRow>
+                        </ResponsiveTableCell>
+                      </ResponsiveTableRow>
                     ) : (
-                      timeEntries.map((entry) => (
-                        <TableRow key={entry.entry_id}>
-                          <TableCell>{format(new Date(entry.date_only + 'T00:00:00+07:00'), 'MMM dd, yyyy')}</TableCell>
-                          <TableCell className="font-mono text-center">{entry.time_only}</TableCell>
-                          <TableCell className="font-medium">{entry.staff_name}</TableCell>
-                          <TableCell className="text-center">
+                      timeEntries.map((entry, rowIndex) => (
+                        <ResponsiveTableRow key={entry.entry_id} index={rowIndex}>
+                          <ResponsiveTableCell index={0} rowIndex={rowIndex}>{format(new Date(entry.date_only + 'T00:00:00+07:00'), 'MMM dd, yyyy')}</ResponsiveTableCell>
+                          <ResponsiveTableCell index={1} rowIndex={rowIndex} className="font-mono text-center">{entry.time_only}</ResponsiveTableCell>
+                          <ResponsiveTableCell index={2} rowIndex={rowIndex} className="font-medium">{entry.staff_name}</ResponsiveTableCell>
+                          <ResponsiveTableCell index={3} rowIndex={rowIndex} className="text-center">
                             <Badge variant={entry.action === 'clock_in' ? 'default' : 'secondary'}>
                               {entry.action === 'clock_in' ? 'Clock In' : 'Clock Out'}
                             </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
+                          </ResponsiveTableCell>
+                          <ResponsiveTableCell index={4} rowIndex={rowIndex} className="text-center">
                             {entry.photo_captured ? (
                               <Badge variant="default" className="bg-green-100 text-green-800">
                                 <Camera className="h-3 w-3 mr-1" />
@@ -864,8 +873,8 @@ export function TimeReportsDashboard() {
                                 No
                               </Badge>
                             )}
-                          </TableCell>
-                          <TableCell className="text-center">
+                          </ResponsiveTableCell>
+                          <ResponsiveTableCell index={5} rowIndex={rowIndex} className="text-center">
                             {entry.photo_captured && entry.photo_url ? (
                               <PhotoDialog 
                                 entry={entry} 
@@ -878,13 +887,12 @@ export function TimeReportsDashboard() {
                                 <Eye className="h-4 w-4" />
                               </Button>
                             )}
-                          </TableCell>
-                        </TableRow>
+                          </ResponsiveTableCell>
+                        </ResponsiveTableRow>
                       ))
                     )}
-                  </TableBody>
-                </Table>
-              </div>
+                  </ResponsiveTableBody>
+                </ResponsiveTable>
             </CardContent>
           </Card>
         </TabsContent>

@@ -13,6 +13,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { PhotoGridSkeleton, StatsCardSkeleton } from '@/components/ui/skeleton-loader'
+import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { 
   Image as ImageIcon, 
   Trash2, 
@@ -267,16 +270,14 @@ export function PhotoManagementDashboard() {
   if (loading && !photos.length) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-          <p className="text-muted-foreground">Loading photo management...</p>
-        </div>
+        <LoadingSpinner size="lg" text="Loading photo management..." />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <ErrorBoundary showTechnicalDetails={process.env.NODE_ENV === 'development'}>
+      <div className="space-y-6">
       {error && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
@@ -365,10 +366,7 @@ export function PhotoManagementDashboard() {
               variant="outline"
             >
               {cleanupRunning ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Running Cleanup...
-                </>
+                <LoadingSpinner variant="inline" size="sm" text="Running Cleanup..." />
               ) : (
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -522,10 +520,7 @@ export function PhotoManagementDashboard() {
                                     {/* PHASE 4 FIX: Loading spinner while image loads */}
                                     {imageLoading && !imageError && (
                                       <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg" style={{ minHeight: '200px' }}>
-                                        <div className="text-center">
-                                          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-gray-500" />
-                                          <p className="text-sm text-gray-600">Loading photo...</p>
-                                        </div>
+                                        <LoadingSpinner size="lg" text="Loading photo..." />
                                       </div>
                                     )}
                                     
@@ -708,5 +703,6 @@ export function PhotoManagementDashboard() {
         </CardContent>
       </Card>
     </div>
+    </ErrorBoundary>
   )
 } 
