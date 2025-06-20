@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { 
   Clock, 
   Camera, 
@@ -486,8 +488,9 @@ export function TimeClockInterface() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto">
-      <Card className="border-0 shadow-lg">
+    <ErrorBoundary showTechnicalDetails={process.env.NODE_ENV === 'development'}>
+      <div className="w-full max-w-md mx-auto">
+        <Card className="border-0 shadow-lg">
         <CardHeader className="text-center bg-primary text-primary-foreground rounded-t-lg">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Clock className="h-6 w-6" />
@@ -514,7 +517,7 @@ export function TimeClockInterface() {
               />
               {!state.cameraStream && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
-                  <Camera className="h-12 w-12 text-gray-400" />
+                  <LoadingSpinner size="lg" text="Initializing camera..." />
                 </div>
               )}
             </div>
@@ -600,10 +603,7 @@ export function TimeClockInterface() {
               size="lg"
             >
               {state.loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
+                <LoadingSpinner variant="inline" size="sm" text="Processing..." />
               ) : (
                 'Clock In / Clock Out'
               )}
@@ -612,5 +612,6 @@ export function TimeClockInterface() {
         </CardContent>
       </Card>
     </div>
+    </ErrorBoundary>
   )
 } 
