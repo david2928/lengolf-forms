@@ -12,6 +12,7 @@ import {
   getActiveStaff 
 } from '@/lib/staff-utils';
 import { CreateStaffRequest, Staff } from '@/types/staff';
+import { staffApiRateLimit } from '@/lib/rate-limiter';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -22,6 +23,24 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
+    // PHASE 5 SECURITY: Apply rate limiting for admin endpoints
+    const rateLimitResult = staffApiRateLimit(request);
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please try again later.' },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)),
+            'X-RateLimit-Limit': '100',
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+            'X-RateLimit-Reset': String(Math.ceil(rateLimitResult.resetTime / 1000))
+          }
+        }
+      );
+    }
+
     // Verify admin access
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -92,6 +111,24 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // PHASE 5 SECURITY: Apply rate limiting for admin endpoints
+    const rateLimitResult = staffApiRateLimit(request);
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please try again later.' },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)),
+            'X-RateLimit-Limit': '100',
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+            'X-RateLimit-Reset': String(Math.ceil(rateLimitResult.resetTime / 1000))
+          }
+        }
+      );
+    }
+
     // Verify admin access
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {

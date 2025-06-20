@@ -183,9 +183,14 @@ export function TimeReportsDashboard() {
   const [previousMonthHours, setPreviousMonthHours] = useState(0)
   const [monthlyHoursLoading, setMonthlyHoursLoading] = useState(false)
   
+  // Month-to-date summary data (independent of filters)
+  const [monthToDateEntries, setMonthToDateEntries] = useState(0)
+  const [monthToDatePhotoCompliance, setMonthToDatePhotoCompliance] = useState(0)
+  const [monthToDateLoading, setMonthToDateLoading] = useState(false)
+  
   // Filters - TIMEZONE FIX: Use Bangkok timezone for proper date filtering
   const [filters, setFilters] = useState<ReportFilters>({
-    startDate: formatBangkokTime(subDays(getBangkokNow(), 7), 'yyyy-MM-dd'), // Last 7 days in Bangkok time
+    startDate: getBangkokToday(), // Start with today's entries in Bangkok time
     endDate: getBangkokToday(), // Today in Bangkok time
     staffId: 'all',
     action: 'all',
@@ -197,7 +202,9 @@ export function TimeReportsDashboard() {
 
   const fetchStaffList = async () => {
     try {
-      const response = await fetch('/api/staff')
+      const response = await fetch('/api/staff', {
+        credentials: 'include' // Include session cookies for authentication
+      })
       if (!response.ok) throw new Error('Failed to fetch staff')
       const data = await response.json()
       setStaffList(data.staff?.map((s: any) => ({ id: s.id, name: s.staff_name })) || [])
@@ -261,10 +268,14 @@ export function TimeReportsDashboard() {
       const previousMonthSameDay = new Date(previousMonth.getFullYear(), previousMonth.getMonth(), bangkokToday.getDate())
       
       // Fetch current month data (from start of month to today) - Bangkok timezone
-      const currentMonthResponse = await fetch(`/api/time-clock/entries?start_date=${formatBangkokTime(currentMonthStart, 'yyyy-MM-dd')}&end_date=${formatBangkokTime(currentMonthToday, 'yyyy-MM-dd')}`)
+      const currentMonthResponse = await fetch(`/api/time-clock/entries?start_date=${formatBangkokTime(currentMonthStart, 'yyyy-MM-dd')}&end_date=${formatBangkokTime(currentMonthToday, 'yyyy-MM-dd')}`, {
+        credentials: 'include' // Include session cookies for authentication
+      })
       
       // Fetch previous month data (from start of previous month to same day) - Bangkok timezone
-      const previousMonthResponse = await fetch(`/api/time-clock/entries?start_date=${formatBangkokTime(previousMonthStart, 'yyyy-MM-dd')}&end_date=${formatBangkokTime(previousMonthSameDay, 'yyyy-MM-dd')}`)
+      const previousMonthResponse = await fetch(`/api/time-clock/entries?start_date=${formatBangkokTime(previousMonthStart, 'yyyy-MM-dd')}&end_date=${formatBangkokTime(previousMonthSameDay, 'yyyy-MM-dd')}`, {
+        credentials: 'include' // Include session cookies for authentication
+      })
       
       if (currentMonthResponse.ok && previousMonthResponse.ok) {
         const currentMonthData = await currentMonthResponse.json()
@@ -316,10 +327,76 @@ export function TimeReportsDashboard() {
     }
   }
 
+  const fetchMonthToDateSummary = async () => {
+    try {
+      setMonthToDateLoading(true)
+      
+      // TIMEZONE FIX: Use Bangkok timezone for monthly calculations
+      const bangkokToday = getBangkokNow()
+      const currentMonthStart = startOfMonth(bangkokToday)
+      
+      console.log('Month-to-date summary fetch:', {
+        bangkokToday: bangkokToday.toISOString(),
+        currentMonthStart: currentMonthStart.toISOString(),
+        start: formatBangkokTime(currentMonthStart, 'yyyy-MM-dd'),
+        end: formatBangkokTime(bangkokToday, 'yyyy-MM-dd')
+      })
+      
+      const apiUrl = `/api/time-clock/entries?start_date=${formatBangkokTime(currentMonthStart, 'yyyy-MM-dd')}&end_date=${formatBangkokTime(bangkokToday, 'yyyy-MM-dd')}`
+      console.log('Month-to-date API URL:', apiUrl)
+      
+      // Fetch current month data (from start of month to today) - Bangkok timezone
+      const response = await fetch(apiUrl, {
+        credentials: 'include', // Include session cookies for authentication
+      })
+      
+      console.log('Month-to-date API response status:', response.status)
+      
+      if (response.ok) {
+        const data = await response.json()
+        const entries = data.entries || []
+        
+        console.log('Month-to-date API response:', {
+          entriesCount: entries.length,
+          sampleEntries: entries.slice(0, 3),
+          summary: data.summary
+        })
+        
+        // Calculate total entries
+        setMonthToDateEntries(entries.length)
+        
+        // Calculate photo compliance
+        const entriesWithPhotos = entries.filter((e: any) => e.photo_captured).length
+        const complianceRate = entries.length > 0 ? (entriesWithPhotos / entries.length) * 100 : 0
+        setMonthToDatePhotoCompliance(complianceRate)
+        
+        console.log('Month-to-date calculated values:', {
+          totalEntries: entries.length,
+          entriesWithPhotos,
+          complianceRate: complianceRate.toFixed(1)
+        })
+      } else {
+        const errorText = await response.text()
+        console.error('Month-to-date API error:', response.status, errorText)
+      }
+    } catch (err) {
+      console.error('Error fetching month-to-date summary:', err)
+    } finally {
+      setMonthToDateLoading(false)
+    }
+  }
+
   const fetchTimeEntries = async () => {
     try {
       setLoading(true)
       setError(null)
+
+      console.log('DASHBOARD FETCH DEBUG:', {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        bangkokToday: getBangkokToday(),
+        bangkokNow: getBangkokNow().toISOString()
+      })
 
       const params = new URLSearchParams({
         start_date: filters.startDate,
@@ -330,13 +407,19 @@ export function TimeReportsDashboard() {
         params.append('staff_id', filters.staffId)
       }
 
-      const response = await fetch(`/api/time-clock/entries?${params}`)
+      console.log('API request URL:', `/api/time-clock/entries?${params}`)
+
+      const response = await fetch(`/api/time-clock/entries?${params}`, {
+        credentials: 'include' // Include session cookies for authentication
+      })
       if (!response.ok) {
         throw new Error('Failed to fetch time entries')
       }
 
       const data = await response.json()
       let entries = data.entries || []
+      
+      console.log('API response entries:', entries.length, entries.slice(0, 3))
 
       // Apply client-side filters
       if (filters.action !== 'all') {
@@ -360,12 +443,11 @@ export function TimeReportsDashboard() {
     }
   }
 
-
-
   useEffect(() => {
     fetchStaffList()
     fetchTimeEntries()
     fetchMonthlyHours()
+    fetchMonthToDateSummary()
   }, [])
 
   useEffect(() => {
@@ -378,13 +460,23 @@ export function TimeReportsDashboard() {
 
   const handleQuickDateFilter = (days: number) => {
     // TIMEZONE FIX: Use Bangkok timezone for consistent date filtering
-    const end = getBangkokNow()
-    const start = subDays(end, days)
-    setFilters(prev => ({
-      ...prev,
-      startDate: formatBangkokTime(start, 'yyyy-MM-dd'),
-      endDate: formatBangkokTime(end, 'yyyy-MM-dd')
-    }))
+    if (days === 0) {
+      // Special case for "Today" - set both start and end to today
+      const today = getBangkokToday()
+      setFilters(prev => ({
+        ...prev,
+        startDate: today,
+        endDate: today
+      }))
+    } else {
+      const end = getBangkokNow()
+      const start = subDays(end, days)
+      setFilters(prev => ({
+        ...prev,
+        startDate: formatBangkokTime(start, 'yyyy-MM-dd'),
+        endDate: formatBangkokTime(end, 'yyyy-MM-dd')
+      }))
+    }
   }
 
   const handleExportCSV = async () => {
@@ -559,26 +651,40 @@ export function TimeReportsDashboard() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Entries</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Entries - {format(new Date(), 'MMM yyyy')}</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{timeEntries.length}</div>
+            {monthToDateLoading ? (
+              <div className="flex items-center space-x-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <div className="text-2xl font-bold">Loading...</div>
+              </div>
+            ) : (
+              <div className="text-2xl font-bold">{monthToDateEntries}</div>
+            )}
             <p className="text-xs text-muted-foreground">
-              Clock in/out records
+              Month-to-date clock records
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Photo Compliance</CardTitle>
+            <CardTitle className="text-sm font-medium">Photo Compliance - {format(new Date(), 'MMM yyyy')}</CardTitle>
             <Camera className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{getPhotoComplianceRate().toFixed(1)}%</div>
+            {monthToDateLoading ? (
+              <div className="flex items-center space-x-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <div className="text-2xl font-bold">Loading...</div>
+              </div>
+            ) : (
+              <div className="text-2xl font-bold">{monthToDatePhotoCompliance.toFixed(1)}%</div>
+            )}
             <p className="text-xs text-muted-foreground">
-              Entries with photos
+              Month-to-date photo rate
             </p>
           </CardContent>
         </Card>
@@ -682,7 +788,7 @@ export function TimeReportsDashboard() {
           </div>
           
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleQuickDateFilter(1)}>
+            <Button variant="outline" size="sm" onClick={() => handleQuickDateFilter(0)}>
               Today
             </Button>
             <Button variant="outline" size="sm" onClick={() => handleQuickDateFilter(7)}>
@@ -691,7 +797,11 @@ export function TimeReportsDashboard() {
             <Button variant="outline" size="sm" onClick={() => handleQuickDateFilter(30)}>
               Last 30 Days
             </Button>
-            <Button variant="outline" size="sm" onClick={fetchTimeEntries}>
+            <Button variant="outline" size="sm" onClick={() => {
+              fetchTimeEntries()
+              fetchMonthlyHours()
+              fetchMonthToDateSummary()
+            }}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
@@ -735,7 +845,7 @@ export function TimeReportsDashboard() {
                     ) : (
                       timeEntries.map((entry) => (
                         <TableRow key={entry.entry_id}>
-                          <TableCell>{format(new Date(entry.date_only), 'MMM dd, yyyy')}</TableCell>
+                          <TableCell>{format(new Date(entry.date_only + 'T00:00:00+07:00'), 'MMM dd, yyyy')}</TableCell>
                           <TableCell className="font-mono text-center">{entry.time_only}</TableCell>
                           <TableCell className="font-medium">{entry.staff_name}</TableCell>
                           <TableCell className="text-center">
@@ -777,7 +887,7 @@ export function TimeReportsDashboard() {
               </div>
             </CardContent>
           </Card>
-                  </TabsContent>
+        </TabsContent>
 
         <TabsContent value="shifts" className="space-y-4">
           <Card>
@@ -818,7 +928,7 @@ export function TimeReportsDashboard() {
                         .sort((a, b) => new Date(b.clock_in_time).getTime() - new Date(a.clock_in_time).getTime())
                         .map((shift) => (
                         <TableRow key={`${shift.staff_id}-${shift.clock_in_entry_id}`}>
-                          <TableCell>{format(new Date(shift.date), 'MMM dd, yyyy')}</TableCell>
+                          <TableCell>{format(new Date(shift.date + 'T00:00:00+07:00'), 'MMM dd, yyyy')}</TableCell>
                           <TableCell className="font-medium">{shift.staff_name}</TableCell>
                           <TableCell className="font-mono text-center">
                             {format(new Date(shift.clock_in_time), 'HH:mm')}
@@ -873,7 +983,7 @@ export function TimeReportsDashboard() {
                                   <DialogHeader>
                                     <DialogTitle>Shift Details - {shift.staff_name}</DialogTitle>
                                     <DialogDescription>
-                                      {format(new Date(shift.date), 'MMMM dd, yyyy')}
+                                      {format(new Date(shift.date + 'T00:00:00+07:00'), 'MMMM dd, yyyy')}
                                     </DialogDescription>
                                   </DialogHeader>
                                   <div className="space-y-4">

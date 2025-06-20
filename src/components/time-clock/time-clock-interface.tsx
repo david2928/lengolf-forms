@@ -78,6 +78,7 @@ export function TimeClockInterface() {
 
   // HYDRATION FIX: Only set time after component mounts on client
   useEffect(() => {
+    console.log('TimeClockInterface: Client-side hydration starting')
     setIsClient(true)
     setCurrentTime(getCurrentTime())
     
@@ -85,14 +86,29 @@ export function TimeClockInterface() {
       setCurrentTime(getCurrentTime())
     }, 1000)
 
+    console.log('TimeClockInterface: Time updates initialized')
     return () => clearInterval(timer)
   }, [])
+
+  // Emergency fallback - force isClient to true after 3 seconds if hydration seems stuck
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      if (!isClient) {
+        console.warn('TimeClockInterface: Forcing client-side render after timeout')
+        setIsClient(true)
+        setCurrentTime(getCurrentTime())
+      }
+    }, 3000)
+
+    return () => clearTimeout(fallbackTimer)
+  }, [isClient])
 
   // Ref to track current camera stream for cleanup
   const cameraStreamRef = useRef<MediaStream | null>(null)
 
   // Initialize camera when component mounts
   useEffect(() => {
+    console.log('TimeClockInterface: Initializing camera')
     initializeCamera()
     return () => {
       // Cleanup camera on unmount
@@ -140,6 +156,19 @@ export function TimeClockInterface() {
 
   const initializeCamera = async () => {
     try {
+      console.log('initializeCamera: Starting camera initialization')
+      
+      // Check if navigator.mediaDevices is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('initializeCamera: navigator.mediaDevices not available')
+        setState(prev => ({
+          ...prev,
+          cameraStream: null,
+          error: 'Camera not supported in this browser.'
+        }))
+        return
+      }
+
       // Stop any existing stream first
       if (cameraStreamRef.current) {
         console.log('Stopping existing camera stream before initializing new one')
@@ -147,6 +176,7 @@ export function TimeClockInterface() {
         cameraStreamRef.current = null
       }
 
+      console.log('initializeCamera: Requesting camera access')
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           width: 320, 
@@ -154,6 +184,8 @@ export function TimeClockInterface() {
           facingMode: 'user' 
         } 
       })
+      
+      console.log('initializeCamera: Camera access granted, setting up video element')
       
       // Store in ref for cleanup
       cameraStreamRef.current = stream
@@ -167,10 +199,23 @@ export function TimeClockInterface() {
     } catch (error) {
       console.error('Camera initialization failed:', error)
       cameraStreamRef.current = null
+      
+      // Provide more specific error messages
+      let errorMessage = 'Camera access denied. Please allow camera permissions and refresh the page.'
+      if (error instanceof Error) {
+        if (error.name === 'NotFoundError') {
+          errorMessage = 'No camera found on this device.'
+        } else if (error.name === 'NotAllowedError') {
+          errorMessage = 'Camera access denied. Please allow camera permissions and refresh the page.'
+        } else if (error.name === 'NotReadableError') {
+          errorMessage = 'Camera is already in use by another application.'
+        }
+      }
+      
       setState(prev => ({
         ...prev,
         cameraStream: null,
-        error: 'Camera access denied. Please allow camera permissions and refresh the page.'
+        error: errorMessage
       }))
     }
   }

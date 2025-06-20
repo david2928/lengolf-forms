@@ -5,6 +5,7 @@ import { isUserAdmin } from '@/lib/auth'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 import { getTimeClockPhotoUrl } from '@/lib/photo-storage'
 import { PHOTO_CONFIG } from '@/types/staff'
+import { photoApiRateLimit } from '@/lib/rate-limiter'
 
 interface PhotoRecord {
   id: string
@@ -20,6 +21,24 @@ interface PhotoRecord {
 
 export async function GET(request: NextRequest) {
   try {
+    // PHASE 5 SECURITY: Apply rate limiting for resource-intensive photo operations
+    const rateLimitResult = photoApiRateLimit(request);
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Photo processing is resource intensive.' },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)),
+            'X-RateLimit-Limit': '10',
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+            'X-RateLimit-Reset': String(Math.ceil(rateLimitResult.resetTime / 1000))
+          }
+        }
+      );
+    }
+
     console.log('=== PHOTOS API DEBUG START ===')
     
     // Verify admin access
@@ -37,14 +56,24 @@ export async function GET(request: NextRequest) {
 
     console.log('Admin access verified for:', session.user.email)
 
-    // Parse query parameters
+    // Parse query parameters with PHASE 5 SECURITY: Resource limits
     const url = new URL(request.url)
     const startDate = url.searchParams.get('start_date') || ''
     const endDate = url.searchParams.get('end_date') || ''
     const staffId = url.searchParams.get('staff_id')
     const action = url.searchParams.get('action')
-    const limit = parseInt(url.searchParams.get('limit') || '50')
+    const requestedLimit = parseInt(url.searchParams.get('limit') || '50')
+    const limit = Math.min(requestedLimit, 25) // PHASE 5: Max 25 photos per request to prevent resource exhaustion
     const offset = parseInt(url.searchParams.get('offset') || '0')
+    
+    // PHASE 5 SECURITY: Log resource-intensive requests
+    if (requestedLimit > 25) {
+      console.warn('Photo API request limit reduced for resource protection:', {
+        requestedLimit,
+        actualLimit: limit,
+        identifier: rateLimitResult.identifier
+      });
+    }
 
     console.log('Query parameters:', {
       startDate,

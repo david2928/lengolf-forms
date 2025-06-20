@@ -3,6 +3,7 @@ import { verifyStaffPin, recordTimeEntry, extractDeviceInfo } from '@/lib/staff-
 import { uploadTimeClockPhoto, validatePhotoData } from '@/lib/photo-storage';
 import { TimeClockPunchRequest, TimeClockPunchResponse } from '@/types/staff';
 import { DateTime } from 'luxon';
+import { timeClockRateLimit } from '@/lib/rate-limiter';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -13,6 +14,36 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
+    // PHASE 5 SECURITY: Apply rate limiting before processing
+    const rateLimitResult = timeClockRateLimit(request);
+    
+    if (!rateLimitResult.allowed) {
+      console.warn('Rate limit exceeded for time clock punch:', {
+        identifier: rateLimitResult.identifier,
+        blockExpires: rateLimitResult.blockExpires,
+        resetTime: rateLimitResult.resetTime
+      });
+      
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Too many attempts. Please try again later.',
+          retry_after: rateLimitResult.blockExpires ? 
+            Math.ceil((rateLimitResult.blockExpires - Date.now()) / 1000) : 
+            Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)
+        } as TimeClockPunchResponse,
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)),
+            'X-RateLimit-Limit': '10',
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+            'X-RateLimit-Reset': String(Math.ceil(rateLimitResult.resetTime / 1000))
+          }
+        }
+      );
+    }
+
     // Parse request body
     const body: TimeClockPunchRequest = await request.json();
     const { pin, photo_data, device_info } = body;
@@ -108,6 +139,9 @@ export async function POST(request: NextRequest) {
         cameraError,
         deviceInfo
       );
+
+      // PHASE 5 SECURITY: Record successful authentication (reduces rate limit count)
+      rateLimitResult.recordSuccess();
 
       // Generate success message
       const welcomeMessage = action === 'clock_in' 
