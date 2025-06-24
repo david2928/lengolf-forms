@@ -39,22 +39,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('=== PHOTOS API DEBUG START ===')
-    
     // Verify admin access
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
-      console.log('No session found')
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
     const userIsAdmin = await isUserAdmin(session.user.email)
     if (!userIsAdmin) {
-      console.log('User is not admin:', session.user.email)
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
-
-    console.log('Admin access verified for:', session.user.email)
 
     // Parse query parameters with PHASE 5 SECURITY: Resource limits
     const url = new URL(request.url)
@@ -75,14 +69,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log('Query parameters:', {
-      startDate,
-      endDate,
-      staffId,
-      action,
-      limit,
-      offset
-    })
+
 
     // Build query
     let query = refacSupabaseAdmin
@@ -115,7 +102,6 @@ export async function GET(request: NextRequest) {
       query = query.eq('action', action)
     }
 
-    console.log('Executing database query...')
     const { data: timeEntries, error } = await query
 
     if (error) {
@@ -126,19 +112,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log(`Found ${timeEntries?.length || 0} time entries with photos`)
-
     // PHASE 4 FIX: Streamlined photo processing with better error handling
     const photosWithDetails: PhotoRecord[] = []
     let urlGenerationErrors = 0
     let urlGenerationSuccess = 0
 
-    console.log(`Phase 4: Starting photo processing for ${timeEntries?.length || 0} entries`)
-
     // PHASE 4 FIX: Process all photos with consistent structure
     const processPromises = (timeEntries || []).map(async (entry) => {
       if (!entry.photo_url) {
-        console.warn(`Phase 4: Entry ${entry.id} has null photo_url, skipping`)
         return null
       }
 
@@ -148,10 +129,8 @@ export async function GET(request: NextRequest) {
         
         if (signedUrl) {
           urlGenerationSuccess++
-          console.log(`Phase 4: SUCCESS - URL generated for entry ${entry.id}`)
         } else {
           urlGenerationErrors++
-          console.warn(`Phase 4: FAILED - No URL for entry ${entry.id}, photo: ${entry.photo_url}`)
         }
         
         // PHASE 4 FIX: Consistent file size estimation based on photo config
@@ -199,10 +178,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    console.log(`Phase 4: Processing completed - ${photosWithDetails.length} photos total`)
-    console.log(`Phase 4: URL generation - ${urlGenerationSuccess} successful, ${urlGenerationErrors} failed`)
-    console.log(`Phase 4: Photos with valid URLs: ${photosWithDetails.filter(p => p.photo_url).length}`)
-    console.log('=== PHASE 4 PHOTOS API DEBUG END ===')
+
 
     return NextResponse.json({
       photos: photosWithDetails,
@@ -222,10 +198,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('=== PHOTOS API CRITICAL ERROR ===')
     console.error('Error in photo management API:', error)
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
-    console.error('=== END CRITICAL ERROR ===')
     
     return NextResponse.json(
       { 

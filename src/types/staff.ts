@@ -268,14 +268,16 @@ export const PIN_CONFIG = {
 } as const;
 
 export const PHOTO_CONFIG = {
-  MAX_FILE_SIZE: 2 * 1024 * 1024, // 2MB (reduced from 5MB due to optimizations)
+  MAX_FILE_SIZE: 1 * 1024 * 1024, // 1MB (Phase 4: reduced from 2MB for ultra performance)
   ALLOWED_FORMATS: ['image/jpeg', 'image/png', 'image/webp'],
   STORAGE_BUCKET: 'time-clock-photos',
   RETENTION_DAYS: 30,
-  // Photo capture settings for optimal file size vs quality balance
+  // Phase 4: Ultra-compressed photo settings for maximum performance
   CAPTURE_RESOLUTION: {
-    WIDTH: 320,
-    HEIGHT: 240
+    WIDTH: 240,  // Reduced from 320
+    HEIGHT: 180  // Reduced from 240 (maintains 4:3 aspect ratio)
   },
-  JPEG_QUALITY: 0.5, // 50% quality - adequate for staff identification
+  JPEG_QUALITY: 0.3, // Phase 4: 30% quality (reduced from 50%) - still adequate for staff identification
+  // Phase 4: Performance targets
+  TARGET_FILE_SIZE_KB: 50, // Target <50KB per photo for optimal performance
 } as const; 

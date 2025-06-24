@@ -43,45 +43,56 @@ export function PerformanceMonitor() {
   const fetchPerformanceMetrics = async () => {
     setLoading(true)
     try {
-      // Simulate metrics collection - in real implementation this would call actual monitoring APIs
-      const mockMetrics: PerformanceMetrics = {
-        avgResponseTime: Math.random() * 50 + 10, // 10-60ms
-        totalRequests: Math.floor(Math.random() * 1000) + 500,
-        errorRate: Math.random() * 2, // 0-2% error rate
-        lastUpdated: new Date(),
-        realtimeConnections: Math.floor(Math.random() * 20) + 5,
-        databaseQueries: Math.floor(Math.random() * 100) + 50,
-        cacheHitRate: Math.random() * 10 + 90 // 90-100% cache hit rate
+      const response = await fetch('/api/admin/performance', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch performance metrics: ${response.status}`)
       }
 
-      const mockEndpoints: ApiEndpointMetrics[] = [
-        {
-          endpoint: '/api/bookings/availability',
-          avgResponseTime: Math.random() * 30 + 5,
-          requests: Math.floor(Math.random() * 200) + 100,
-          errors: Math.floor(Math.random() * 3),
-          lastCalled: new Date(Date.now() - Math.random() * 60000)
-        },
-        {
-          endpoint: '/api/bookings/check-slot-for-all-bays',
-          avgResponseTime: Math.random() * 20 + 3,
-          requests: Math.floor(Math.random() * 150) + 75,
-          errors: Math.floor(Math.random() * 2),
-          lastCalled: new Date(Date.now() - Math.random() * 120000)
-        },
-        {
-          endpoint: '/api/bookings/available-slots',
-          avgResponseTime: Math.random() * 40 + 8,
-          requests: Math.floor(Math.random() * 100) + 50,
-          errors: Math.floor(Math.random() * 1),
-          lastCalled: new Date(Date.now() - Math.random() * 180000)
-        }
-      ]
+      const data = await response.json()
 
-      setMetrics(mockMetrics)
-      setEndpointMetrics(mockEndpoints)
+      // Transform API response to component state
+      const transformedMetrics: PerformanceMetrics = {
+        avgResponseTime: data.api.summary.avgResponseTime,
+        totalRequests: data.api.summary.totalRequests,
+        errorRate: data.api.summary.errorRate,
+        lastUpdated: new Date(data.timestamp),
+        realtimeConnections: data.connections.active,
+        databaseQueries: data.database.summary.totalQueries,
+        cacheHitRate: data.cache.hitRate
+      }
+
+      const transformedEndpoints: ApiEndpointMetrics[] = data.api.recentEndpoints.map((endpoint: any) => ({
+        endpoint: endpoint.endpoint,
+        avgResponseTime: endpoint.avgResponseTime,
+        requests: endpoint.totalRequests,
+        errors: Math.round(endpoint.totalRequests * endpoint.errorRate / 100),
+        lastCalled: new Date(endpoint.lastCalled)
+      }))
+
+      setMetrics(transformedMetrics)
+      setEndpointMetrics(transformedEndpoints)
     } catch (error) {
       console.error('Error fetching performance metrics:', error)
+      
+      // Fallback to mock data if API fails
+      const fallbackMetrics: PerformanceMetrics = {
+        avgResponseTime: 0,
+        totalRequests: 0,
+        errorRate: 0,
+        lastUpdated: new Date(),
+        realtimeConnections: 0,
+        databaseQueries: 0,
+        cacheHitRate: 0
+      }
+      
+      setMetrics(fallbackMetrics)
+      setEndpointMetrics([])
     } finally {
       setLoading(false)
     }

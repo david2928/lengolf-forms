@@ -81,11 +81,22 @@ export function StaffManagementDashboard() {
   const fetchStaff = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/staff')
+      // Include inactive staff in admin dashboard so they can be managed
+      const timestamp = Date.now();
+      const url = `/api/staff?includeInactive=true&t=${timestamp}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'X-Request-Source': 'staff-management-dashboard'
+        }
+      })
       if (!response.ok) {
         throw new Error('Failed to fetch staff')
       }
       const data = await response.json()
+      
       // Map API response to StaffMember interface
       const mappedStaff = (data.data || []).map((member: any) => ({
         id: member.id,
@@ -94,10 +105,11 @@ export function StaffManagementDashboard() {
         is_active: member.is_active,
         failed_attempts: member.failed_attempts,
         is_locked_out: member.is_locked || (member.locked_until ? new Date(member.locked_until) > new Date() : false),
-        last_clock_activity: null, // Not provided by current API
+        last_clock_activity: member.last_activity, // Now provided by API
         created_at: member.created_at,
         updated_at: member.updated_at
       }))
+      
       setStaff(mappedStaff)
     } catch (err) {
       console.error('Error fetching staff:', err)
@@ -127,10 +139,11 @@ export function StaffManagementDashboard() {
           break
         case 'activate':
         case 'deactivate':
+          const isActive = action === 'activate';
           response = await fetch(`/api/staff/${staffId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ is_active: action === 'activate' })
+            body: JSON.stringify({ is_active: isActive })
           })
           break
         case 'unlock':
@@ -145,8 +158,17 @@ export function StaffManagementDashboard() {
       }
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Failed to ${action} staff member`)
+        let errorMessage = `Failed to ${action} staff member`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (parseError) {
+          // Server returned HTML instead of JSON (likely 500 error)
+          const textResponse = await response.text()
+          console.error(`Server error (${response.status}):`, textResponse.substring(0, 200))
+          errorMessage = `Server error (${response.status}). Check console for details.`
+        }
+        throw new Error(errorMessage)
       }
 
       await fetchStaff() // Refresh the list
@@ -277,14 +299,13 @@ export function StaffManagementDashboard() {
                   <TableHead className="w-[100px]">PIN</TableHead>
                   <TableHead className="w-[100px]">Status</TableHead>
                   <TableHead className="w-[150px]">Last Activity</TableHead>
-                  <TableHead className="w-[120px]">Failed Attempts</TableHead>
                   <TableHead className="w-[150px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredStaff.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       {searchTerm ? 'No staff found matching your search.' : 'No staff members yet.'}
                     </TableCell>
                   </TableRow>
@@ -296,15 +317,6 @@ export function StaffManagementDashboard() {
                       <TableCell>{getStatusBadge(member)}</TableCell>
                       <TableCell className="text-sm">
                         {formatLastActivity(member.last_clock_activity)}
-                      </TableCell>
-                      <TableCell>
-                        {member.failed_attempts > 0 ? (
-                          <Badge variant="outline" className="text-orange-600">
-                            {member.failed_attempts}
-                          </Badge>
-                        ) : (
-                          '0'
-                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">

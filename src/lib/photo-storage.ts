@@ -61,8 +61,6 @@ export async function uploadTimeClockPhoto(request: PhotoUploadRequest): Promise
     const timeStr = now.getTime(); // Unix timestamp
     const filePath = `${dateStr}/timeclock_${timeStr}_${staffId}_${action}.jpg`;
 
-    console.log(`Uploading time clock photo to bucket: '${PHOTO_CONFIG.STORAGE_BUCKET}', path: '${filePath}'`);
-
     // Upload to Supabase storage (same pattern as signature upload)
     const { data: uploadData, error: uploadError } = await refacSupabaseAdmin.storage
       .from(PHOTO_CONFIG.STORAGE_BUCKET)
@@ -87,8 +85,6 @@ export async function uploadTimeClockPhoto(request: PhotoUploadRequest): Promise
       };
     }
 
-    console.log('Time clock photo uploaded successfully, path:', uploadData.path);
-    
     return {
       success: true,
       photoUrl: uploadData.path
@@ -109,19 +105,15 @@ export async function uploadTimeClockPhoto(request: PhotoUploadRequest): Promise
 export async function getTimeClockPhotoUrl(photoPath: string): Promise<string> {
   try {
     if (!photoPath) {
-      console.warn('Photo URL generation: Empty photo path provided');
       return '';
     }
 
-    console.log(`Photo URL generation: Processing ${photoPath} from bucket ${PHOTO_CONFIG.STORAGE_BUCKET}`);
-    
     // PHASE 4 FIX: Direct signed URL generation without complex checks
     const { data: signedData, error: signedError } = await refacSupabaseAdmin.storage
       .from(PHOTO_CONFIG.STORAGE_BUCKET)
       .createSignedUrl(photoPath, 3600); // 1 hour expiry
     
     if (!signedError && signedData?.signedUrl) {
-      console.log(`Photo URL generation: SUCCESS - Signed URL created for ${photoPath}`);
       return signedData.signedUrl;
     }
     
@@ -138,7 +130,6 @@ export async function getTimeClockPhotoUrl(photoPath: string): Promise<string> {
       .getPublicUrl(photoPath);
     
     if (publicData?.publicUrl) {
-      console.log(`Photo URL generation: FALLBACK - Using public URL for ${photoPath}`);
       return publicData.publicUrl;
     }
     
@@ -165,7 +156,6 @@ export async function deleteTimeClockPhoto(photoPath: string): Promise<boolean> 
       return false;
     }
 
-    console.log('Time clock photo deleted successfully:', photoPath);
     return true;
   } catch (error) {
     console.error('Error in deleteTimeClockPhoto:', error);
@@ -230,17 +220,12 @@ export async function cleanupOldPhotos(): Promise<{ deleted: number; errors: num
     cutoffDate.setDate(cutoffDate.getDate() - PHOTO_CONFIG.RETENTION_DAYS);
     const cutoffDateStr = cutoffDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
-    console.log(`Starting cleanup of time clock photos older than ${cutoffDateStr}`);
-
     // List photos older than cutoff date
     const oldPhotos = await listTimeClockPhotos('2020-01-01', cutoffDateStr);
     
     if (oldPhotos.length === 0) {
-      console.log('No old photos to cleanup');
       return { deleted: 0, errors: 0 };
     }
-
-    console.log(`Found ${oldPhotos.length} photos to cleanup`);
 
     // Delete photos in batches
     const batchSize = 100;
@@ -259,11 +244,9 @@ export async function cleanupOldPhotos(): Promise<{ deleted: number; errors: num
         errors += batch.length;
       } else {
         deleted += batch.length;
-        console.log(`Deleted batch ${i / batchSize + 1}: ${batch.length} photos`);
       }
     }
 
-    console.log(`Cleanup completed: ${deleted} deleted, ${errors} errors`);
     return { deleted, errors };
   } catch (error) {
     console.error('Error in cleanupOldPhotos:', error);
@@ -375,8 +358,6 @@ export async function checkStorageBucketHealth(): Promise<{
   details?: any;
 }> {
   try {
-    console.log('Phase 4: Starting storage bucket health check...');
-    
     // Test 1: Check if bucket exists by listing contents
     const { data: listData, error: listError } = await refacSupabaseAdmin.storage
       .from(PHOTO_CONFIG.STORAGE_BUCKET)
@@ -384,8 +365,6 @@ export async function checkStorageBucketHealth(): Promise<{
     
     const canList = !listError;
     const bucketExists = canList;
-    
-    console.log(`Phase 4: Bucket listing test - ${canList ? 'SUCCESS' : 'FAILED'}`, listError?.message);
     
     // Test 2: Test upload capability with tiny test file
     let canUpload = false;
@@ -408,14 +387,11 @@ export async function checkStorageBucketHealth(): Promise<{
         await refacSupabaseAdmin.storage
           .from(PHOTO_CONFIG.STORAGE_BUCKET)
           .remove([testPath]);
-        console.log('Phase 4: Upload test - SUCCESS');
       } else {
         uploadError = uploadErr.message;
-        console.log('Phase 4: Upload test - FAILED:', uploadErr.message);
       }
     } catch (err) {
       uploadError = err instanceof Error ? err.message : 'Unknown upload error';
-      console.log('Phase 4: Upload test - EXCEPTION:', uploadError);
     }
     
     const healthy = bucketExists && canList && canUpload;

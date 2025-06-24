@@ -56,29 +56,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const includeInactive = searchParams.get('includeInactive') === 'true';
 
-    // Build query
-    let query = refacSupabaseAdmin
-      .schema('backoffice')
-      .from('staff')
-      .select('id, staff_name, staff_id, is_active, failed_attempts, locked_until, created_at, updated_at')
-      .order('staff_name');
+    // Get staff with last activity data
+    const { getStaffWithLastActivity } = await import('@/lib/staff-utils');
+    const staffWithActivity = await getStaffWithLastActivity();
 
-    if (!includeInactive) {
-      query = query.eq('is_active', true);
-    }
-
-    const { data: staff, error } = await query;
-
-    if (error) {
-      console.error('Error fetching staff:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch staff members' },
-        { status: 500 }
-      );
-    }
+    // Filter by active status if requested
+    const filteredStaff = includeInactive 
+      ? staffWithActivity 
+      : staffWithActivity.filter(member => member.is_active);
 
     // Format response (exclude pin_hash for security)
-    const formattedStaff = staff?.map(member => ({
+    const formattedStaff = filteredStaff.map(member => ({
       id: member.id,
       staff_name: member.staff_name,
       staff_id: member.staff_id,
@@ -86,9 +74,10 @@ export async function GET(request: NextRequest) {
       failed_attempts: member.failed_attempts,
       is_locked: member.locked_until ? new Date(member.locked_until) > new Date() : false,
       locked_until: member.locked_until,
+      last_activity: member.last_activity, // Now includes last activity
       created_at: member.created_at,
       updated_at: member.updated_at
-    })) || [];
+    }));
 
     return NextResponse.json({
       success: true,

@@ -1,0 +1,26 @@
+{
+  "extends": [".eslintrc.json"],
+  "rules": {
+    "@next/next/no-img-element": "warn",
+    "react-hooks/exhaustive-deps": "warn",
+    "react-hooks/rules-of-hooks": "error",
+    "no-unused-vars": "warn",
+    "@typescript-eslint/no-unused-vars": "warn",
+    "no-console": "warn",
+    "no-debugger": "error"
+  },
+  "overrides": [
+    {
+      "files": ["app/api/**/*.ts"],
+      "rules": {
+        "@next/next/no-img-element": "off"
+      }
+    },
+    {
+      "files": ["src/components/admin/**/*.tsx"],
+      "rules": {
+        "react-hooks/exhaustive-deps": "warn"
+      }
+    }
+  ]
+} 
