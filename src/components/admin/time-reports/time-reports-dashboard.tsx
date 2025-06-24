@@ -162,7 +162,7 @@ function PhotoDialog({ entry, loadPhotoUrl, photoUrls, loadingPhotos }: PhotoDia
                 setError('Image failed to load')
               }}
               onLoad={() => {
-                console.log('Photo loaded successfully:', photoUrl)
+        
               }}
             />
           ) : (
@@ -345,32 +345,16 @@ export function TimeReportsDashboard() {
       const bangkokToday = getBangkokNow()
       const currentMonthStart = startOfMonth(bangkokToday)
       
-      console.log('Month-to-date summary fetch:', {
-        bangkokToday: bangkokToday.toISOString(),
-        currentMonthStart: currentMonthStart.toISOString(),
-        start: formatBangkokTime(currentMonthStart, 'yyyy-MM-dd'),
-        end: formatBangkokTime(bangkokToday, 'yyyy-MM-dd')
-      })
-      
       const apiUrl = `/api/time-clock/entries?start_date=${formatBangkokTime(currentMonthStart, 'yyyy-MM-dd')}&end_date=${formatBangkokTime(bangkokToday, 'yyyy-MM-dd')}`
-      console.log('Month-to-date API URL:', apiUrl)
       
       // Fetch current month data (from start of month to today) - Bangkok timezone
       const response = await fetch(apiUrl, {
         credentials: 'include', // Include session cookies for authentication
       })
       
-      console.log('Month-to-date API response status:', response.status)
-      
       if (response.ok) {
         const data = await response.json()
         const entries = data.entries || []
-        
-        console.log('Month-to-date API response:', {
-          entriesCount: entries.length,
-          sampleEntries: entries.slice(0, 3),
-          summary: data.summary
-        })
         
         // Calculate total entries
         setMonthToDateEntries(entries.length)
@@ -379,12 +363,6 @@ export function TimeReportsDashboard() {
         const entriesWithPhotos = entries.filter((e: any) => e.photo_captured).length
         const complianceRate = entries.length > 0 ? (entriesWithPhotos / entries.length) * 100 : 0
         setMonthToDatePhotoCompliance(complianceRate)
-        
-        console.log('Month-to-date calculated values:', {
-          totalEntries: entries.length,
-          entriesWithPhotos,
-          complianceRate: complianceRate.toFixed(1)
-        })
       } else {
         const errorText = await response.text()
         console.error('Month-to-date API error:', response.status, errorText)
@@ -401,13 +379,6 @@ export function TimeReportsDashboard() {
       setLoading(true)
       setError(null)
 
-      console.log('DASHBOARD FETCH DEBUG:', {
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        bangkokToday: getBangkokToday(),
-        bangkokNow: getBangkokNow().toISOString()
-      })
-
       const params = new URLSearchParams({
         start_date: filters.startDate,
         end_date: filters.endDate
@@ -416,8 +387,6 @@ export function TimeReportsDashboard() {
       if (filters.staffId !== 'all') {
         params.append('staff_id', filters.staffId)
       }
-
-      console.log('API request URL:', `/api/time-clock/entries?${params}`)
 
       const response = await fetch(`/api/time-clock/entries?${params}`, {
         credentials: 'include' // Include session cookies for authentication
@@ -428,8 +397,6 @@ export function TimeReportsDashboard() {
 
       const data = await response.json()
       let entries = data.entries || []
-      
-      console.log('API response entries:', entries.length, entries.slice(0, 3))
 
       // Apply client-side filters
       if (filters.action !== 'all') {
@@ -561,7 +528,6 @@ export function TimeReportsDashboard() {
     try {
       setLoadingPhotos(prev => new Set(prev).add(photoPath))
       
-      console.log('Requesting photo URL for path:', photoPath)
       const response = await fetch('/api/admin/photo-management/simple-photo-url', {
         method: 'POST',
         headers: {
@@ -570,8 +536,6 @@ export function TimeReportsDashboard() {
         body: JSON.stringify({ photo_path: photoPath }),
       })
       
-      console.log('Photo URL API response status:', response.status)
-      
       if (!response.ok) {
         const errorText = await response.text()
         console.error('Photo URL API error:', response.status, errorText)
@@ -579,7 +543,6 @@ export function TimeReportsDashboard() {
       }
       
       const data = await response.json()
-      console.log('Photo URL API response:', data)
       
       if (data.success && data.photo_url) {
         // Cache the URL

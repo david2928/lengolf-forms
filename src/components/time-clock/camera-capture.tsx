@@ -25,10 +25,8 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
     return () => {
       // Cleanup camera on component unmount
       if (streamRef.current) {
-        console.log('Cleaning up camera stream on CameraCapture unmount')
         streamRef.current.getTracks().forEach(track => {
           track.stop()
-          console.log('Stopped camera track:', track.kind)
         })
         streamRef.current = null
       }
@@ -39,14 +37,12 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (streamRef.current) {
-        console.log('Cleaning up CameraCapture stream on page unload')
         streamRef.current.getTracks().forEach(track => track.stop())
       }
     }
 
     const handleVisibilityChange = () => {
       if (document.hidden && streamRef.current) {
-        console.log('Page hidden, stopping CameraCapture stream')
         streamRef.current.getTracks().forEach(track => track.stop())
         streamRef.current = null
         setStream(null)
@@ -69,7 +65,6 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
       
       // Stop any existing stream first
       if (streamRef.current) {
-        console.log('Stopping existing CameraCapture stream before starting new one')
         streamRef.current.getTracks().forEach(track => track.stop())
         streamRef.current = null
       }
@@ -90,8 +85,6 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream
       }
-      
-      console.log('CameraCapture initialized successfully')
       setLoading(false)
     } catch (err) {
       console.error('Camera access error:', err)

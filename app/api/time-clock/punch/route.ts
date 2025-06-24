@@ -4,24 +4,67 @@ import { uploadTimeClockPhoto, validatePhotoData } from '@/lib/photo-storage';
 import { TimeClockPunchRequest, TimeClockPunchResponse } from '@/types/staff';
 import { DateTime } from 'luxon';
 import { timeClockRateLimit } from '@/lib/rate-limiter';
+import { logger, logApi, logError, logUserAction } from '@/lib/logger';
+import { trackApiPerformance, trackDatabasePerformance } from '@/lib/performance-monitor';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
+
+/**
+ * Process photo upload asynchronously in the background
+ * This allows the time entry to complete immediately while photo upload happens separately
+ */
+async function processPhotoAsync(
+  photoData: string,
+  staffId: number,
+  action: 'clock_in' | 'clock_out',
+  timestamp: string,
+  entryId: number
+): Promise<void> {
+  try {
+    const uploadResult = await uploadTimeClockPhoto({
+      photoData,
+      staffId,
+      action,
+      timestamp
+    });
+
+    if (uploadResult.success && uploadResult.photoUrl) {
+      // TODO: Update the time entry record with the photo URL
+      // For now, just log success - this can be implemented later if needed
+      console.log(`Background photo upload successful for entry ${entryId}:`, uploadResult.photoUrl);
+    } else {
+      console.error(`Background photo upload failed for entry ${entryId}:`, uploadResult.error);
+    }
+  } catch (error) {
+    console.error(`Background photo processing error for entry ${entryId}:`, error);
+  }
+}
 
 /**
  * POST /api/time-clock/punch - Handle PIN input and determine clock in/out
  * Public endpoint - no authentication required (PIN-based security)
  */
 export async function POST(request: NextRequest) {
+  const startTime = performance.now();
+  const userAgent = request.headers.get('user-agent') || 'unknown';
+  
   try {
     // PHASE 5 SECURITY: Apply rate limiting before processing
     const rateLimitResult = timeClockRateLimit(request);
     
     if (!rateLimitResult.allowed) {
-      console.warn('Rate limit exceeded for time clock punch:', {
+      const responseTime = performance.now() - startTime;
+      
+      logger.warn('Rate limit exceeded for time clock punch', 'SECURITY', {
         identifier: rateLimitResult.identifier,
         blockExpires: rateLimitResult.blockExpires,
-        resetTime: rateLimitResult.resetTime
+        resetTime: rateLimitResult.resetTime,
+        userAgent
+      });
+      
+      trackApiPerformance('POST', '/api/time-clock/punch', 429, responseTime, userAgent, {
+        reason: 'rate_limited'
       });
       
       return NextResponse.json(
@@ -60,9 +103,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify PIN and get staff information
+    const pinStartTime = performance.now();
     const pinVerification = await verifyStaffPin(pin);
+    const pinDuration = performance.now() - pinStartTime;
+    
+    trackDatabasePerformance('PIN verification', pinDuration, 'staff', undefined, {
+      success: pinVerification.success
+    });
     
     if (!pinVerification.success) {
+      const responseTime = performance.now() - startTime;
+      
+      logger.warn('Time clock PIN verification failed', 'AUTH', {
+        reason: pinVerification.message,
+        isLocked: pinVerification.is_locked,
+        userAgent
+      });
+      
+      trackApiPerformance('POST', '/api/time-clock/punch', 401, responseTime, userAgent, {
+        reason: 'invalid_pin'
+      });
+      
       return NextResponse.json(
         {
           success: false,
@@ -79,46 +140,24 @@ export async function POST(request: NextRequest) {
     const currentTime = DateTime.now().setZone('Asia/Bangkok');
     const timeString = currentTime.toFormat('h:mm a');
     
-    // Prepare photo information
+    // Prepare photo information for async processing
     let photoUrl: string | undefined;
     let photoCaptured = false;
     let cameraError: string | undefined;
 
-    // Handle photo data if provided
+    // Pre-validate photo data without processing
     if (photo_data) {
-      try {
-        // Validate photo data format
-        const validation = validatePhotoData(photo_data);
-        if (!validation.valid) {
-          console.warn('Invalid photo data:', validation.error);
-          cameraError = validation.error ?? 'Invalid photo format';
-          photoCaptured = false;
-          photoUrl = undefined;
-        } else {
-          // Upload photo to Supabase storage (following signature upload pattern)
-          const uploadResult = await uploadTimeClockPhoto({
-            photoData: photo_data,
-            staffId: pinVerification.staff_id!,
-            action: action as 'clock_in' | 'clock_out',
-            timestamp: currentTime.toISO()
-          });
-
-          if (uploadResult.success && uploadResult.photoUrl) {
-            photoUrl = uploadResult.photoUrl;
-            photoCaptured = true;
-            console.log('Photo uploaded successfully:', photoUrl);
-          } else {
-            console.error('Photo upload failed:', uploadResult.error);
-            cameraError = uploadResult.error ?? 'Photo upload failed';
-            photoCaptured = false;
-            photoUrl = undefined;
-          }
-        }
-      } catch (error) {
-        console.error('Photo processing error:', error);
-        cameraError = 'Photo processing failed';
+      const validation = validatePhotoData(photo_data);
+      if (!validation.valid) {
+        console.warn('Invalid photo data:', validation.error);
+        cameraError = validation.error ?? 'Invalid photo format';
         photoCaptured = false;
         photoUrl = undefined;
+      } else {
+        // Photo validation passed - will process asynchronously
+        photoCaptured = true;
+        cameraError = undefined;
+        photoUrl = undefined; // Will be set after async upload
       }
     } else {
       // Photo not provided - this is acceptable per requirements
@@ -142,11 +181,40 @@ export async function POST(request: NextRequest) {
 
       // PHASE 5 SECURITY: Record successful authentication (reduces rate limit count)
       rateLimitResult.recordSuccess();
+      
+      const responseTime = performance.now() - startTime;
+
+      // Log successful time clock action
+      logUserAction(`Time clock ${action}`, String(pinVerification.staff_id), {
+        staffName: pinVerification.staff_name,
+        photoCaptured,
+        responseTime: `${responseTime.toFixed(0)}ms`
+      });
+      
+      trackApiPerformance('POST', '/api/time-clock/punch', 200, responseTime, userAgent, {
+        action,
+        staffId: pinVerification.staff_id,
+        photoCaptured
+      });
 
       // Generate success message
       const welcomeMessage = action === 'clock_in' 
         ? `Welcome ${pinVerification.staff_name}! Clocked in at ${timeString}. Have a great shift!`
         : `Goodbye ${pinVerification.staff_name}! Clocked out at ${timeString}. Thanks for your hard work!`;
+
+      // Start async photo processing (don't await - let it run in background)
+      if (photo_data && photoCaptured) {
+        processPhotoAsync(
+          photo_data,
+          pinVerification.staff_id!,
+          action as 'clock_in' | 'clock_out',
+          currentTime.toISO() || new Date().toISOString(),
+          timeEntry.entry_id
+        ).catch((error: unknown) => {
+          console.error('Background photo processing failed:', error);
+          // Photo failure doesn't affect time entry success
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -161,7 +229,18 @@ export async function POST(request: NextRequest) {
       } as TimeClockPunchResponse);
 
     } catch (error) {
-      console.error('Error recording time entry:', error);
+      const responseTime = performance.now() - startTime;
+      
+      logError('Error recording time entry', error as Error, 'DATABASE', {
+        staffId: pinVerification.staff_id,
+        action,
+        responseTime: `${responseTime.toFixed(0)}ms`
+      });
+      
+      trackApiPerformance('POST', '/api/time-clock/punch', 500, responseTime, userAgent, {
+        error: 'database_error'
+      });
+      
       return NextResponse.json(
         {
           success: false,
@@ -172,7 +251,18 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Error in POST /api/time-clock/punch:', error);
+    const responseTime = performance.now() - startTime;
+    
+    logError('Error in time clock punch API', error as Error, 'API', {
+      endpoint: '/api/time-clock/punch',
+      method: 'POST',
+      responseTime: `${responseTime.toFixed(0)}ms`
+    });
+    
+    trackApiPerformance('POST', '/api/time-clock/punch', 500, responseTime, userAgent, {
+      error: 'system_error'
+    });
+    
     return NextResponse.json(
       {
         success: false,

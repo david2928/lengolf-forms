@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:production": "node scripts/production-build.js",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "npx tsc --noEmit",
+    "lint:production": "next lint --config .eslintrc.production.json",
     "test:crm": "node scripts/test-crm-sync.js",
     "test:crm:prod": "node scripts/test-crm-sync.js production"
   },

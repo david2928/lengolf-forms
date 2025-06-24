@@ -18,6 +18,7 @@ export async function DELETE(
 
     // Get the photo record to find the file path
     const { data: timeEntry, error: fetchError } = await refacSupabaseAdmin
+      .schema('backoffice')
       .from('time_entries')
       .select('photo_url')
       .eq('id', parseInt(photoId))
@@ -41,6 +42,7 @@ export async function DELETE(
 
     // Update the database record to remove photo reference
     const { error: updateError } = await refacSupabaseAdmin
+      .schema('backoffice')
       .from('time_entries')
       .update({ 
         photo_url: null,

@@ -80,7 +80,6 @@ export function TimeClockInterface() {
 
   // HYDRATION FIX: Only set time after component mounts on client
   useEffect(() => {
-    console.log('TimeClockInterface: Client-side hydration starting')
     setIsClient(true)
     setCurrentTime(getCurrentTime())
     
@@ -88,7 +87,6 @@ export function TimeClockInterface() {
       setCurrentTime(getCurrentTime())
     }, 1000)
 
-    console.log('TimeClockInterface: Time updates initialized')
     return () => clearInterval(timer)
   }, [])
 
@@ -96,7 +94,6 @@ export function TimeClockInterface() {
   useEffect(() => {
     const fallbackTimer = setTimeout(() => {
       if (!isClient) {
-        console.warn('TimeClockInterface: Forcing client-side render after timeout')
         setIsClient(true)
         setCurrentTime(getCurrentTime())
       }
@@ -110,15 +107,12 @@ export function TimeClockInterface() {
 
   // Initialize camera when component mounts
   useEffect(() => {
-    console.log('TimeClockInterface: Initializing camera')
     initializeCamera()
     return () => {
       // Cleanup camera on unmount
       if (cameraStreamRef.current) {
-        console.log('Cleaning up camera stream on unmount')
         cameraStreamRef.current.getTracks().forEach(track => {
           track.stop()
-          console.log('Stopped camera track:', track.kind)
         })
         cameraStreamRef.current = null
       }
@@ -129,7 +123,6 @@ export function TimeClockInterface() {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (cameraStreamRef.current) {
-        console.log('Cleaning up camera stream on page unload')
         cameraStreamRef.current.getTracks().forEach(track => {
           track.stop()
         })
@@ -138,7 +131,6 @@ export function TimeClockInterface() {
 
     const handleVisibilityChange = () => {
       if (document.hidden && cameraStreamRef.current) {
-        console.log('Page hidden, stopping camera stream')
         cameraStreamRef.current.getTracks().forEach(track => {
           track.stop()
         })
@@ -158,8 +150,6 @@ export function TimeClockInterface() {
 
   const initializeCamera = async () => {
     try {
-      console.log('initializeCamera: Starting camera initialization')
-      
       // Check if navigator.mediaDevices is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error('initializeCamera: navigator.mediaDevices not available')
@@ -173,12 +163,10 @@ export function TimeClockInterface() {
 
       // Stop any existing stream first
       if (cameraStreamRef.current) {
-        console.log('Stopping existing camera stream before initializing new one')
         cameraStreamRef.current.getTracks().forEach(track => track.stop())
         cameraStreamRef.current = null
       }
 
-      console.log('initializeCamera: Requesting camera access')
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           width: 320, 
@@ -187,8 +175,6 @@ export function TimeClockInterface() {
         } 
       })
       
-      console.log('initializeCamera: Camera access granted, setting up video element')
-      
       // Store in ref for cleanup
       cameraStreamRef.current = stream
       
@@ -196,7 +182,6 @@ export function TimeClockInterface() {
         videoRef.current.srcObject = stream
       }
       
-      console.log('Camera initialized successfully')
       setState(prev => ({ ...prev, cameraStream: stream, error: null }))
     } catch (error) {
       console.error('Camera initialization failed:', error)
@@ -225,10 +210,8 @@ export function TimeClockInterface() {
   // Function to stop camera stream
   const stopCamera = useCallback(() => {
     if (cameraStreamRef.current) {
-      console.log('Stopping camera stream manually')
       cameraStreamRef.current.getTracks().forEach(track => {
         track.stop()
-        console.log('Stopped camera track:', track.kind)
       })
       if (videoRef.current) {
         videoRef.current.srcObject = null
@@ -311,9 +294,9 @@ export function TimeClockInterface() {
     
     if (!context) return null
 
-    // Use smaller, consistent resolution for photos
-    const targetWidth = 320
-    const targetHeight = 240
+    // Phase 4: Ultra-compressed photo settings for maximum performance
+    const targetWidth = 240  // Reduced from 320
+    const targetHeight = 180 // Reduced from 240 (maintains 4:3 aspect ratio)
     
     canvas.width = targetWidth
     canvas.height = targetHeight
@@ -321,8 +304,9 @@ export function TimeClockInterface() {
     // Draw video to canvas with consistent sizing
     context.drawImage(video, 0, 0, targetWidth, targetHeight)
     
-    // Lower quality for smaller file sizes (50% quality is adequate for identification)
-    return canvas.toDataURL('image/jpeg', 0.5)
+    // Phase 4: Further reduced quality (30% vs 50%) for smaller files
+    // Still adequate for staff identification while significantly reducing file size
+    return canvas.toDataURL('image/jpeg', 0.3)
   }
 
   const handleClockInOut = async () => {
@@ -335,7 +319,7 @@ export function TimeClockInterface() {
       return
     }
 
-    // Capture photo automatically
+    // Capture photo automatically with compression validation
     const photoData = capturePhoto()
     if (!photoData) {
       setState(prev => ({
@@ -345,36 +329,12 @@ export function TimeClockInterface() {
       return
     }
 
+    // Phase 5.5: Skip photo size validation for maximum performance
+
     try {
       setState(prev => ({ ...prev, loading: true, error: null }))
 
-      // First verify PIN to get staff info
-      const statusResponse = await fetch(`/api/time-clock/status/${state.pin}`)
-      const statusData = await statusResponse.json()
-
-      if (!statusResponse.ok) {
-        if (statusData.lockoutInfo) {
-          setState(prev => ({
-            ...prev,
-            loading: false,
-            error: statusData.message,
-            lockoutInfo: {
-              isLocked: statusData.lockoutInfo.isLocked,
-              timeRemaining: statusData.lockoutInfo.timeRemaining,
-              attempts: statusData.lockoutInfo.attempts
-            }
-          }))
-        } else {
-          setState(prev => ({
-            ...prev,
-            loading: false,
-            error: statusData.message || 'Invalid PIN'
-          }))
-        }
-        return
-      }
-
-      // Now perform the punch with photo
+      // Direct punch API call - eliminates redundant status check
       const punchResponse = await fetch('/api/time-clock/punch', {
         method: 'POST',
         headers: {
@@ -383,13 +343,8 @@ export function TimeClockInterface() {
         body: JSON.stringify({
           pin: state.pin,
           photo_data: photoData,
+          // Phase 5.5: Minimal device info for performance
           device_info: {
-            userAgent: navigator.userAgent,
-            platform: navigator.platform,
-            screen: {
-              width: screen.width,
-              height: screen.height
-            },
             timestamp: new Date().toISOString()
           }
         }),
@@ -398,11 +353,26 @@ export function TimeClockInterface() {
       const punchData = await punchResponse.json()
       
       if (!punchResponse.ok) {
-        setState(prev => ({
-          ...prev,
-          loading: false,
-          error: punchData.message || 'Clock in/out failed'
-        }))
+        // Handle lockout scenarios
+        if (punchData.is_locked || punchData.lock_expires_at) {
+          setState(prev => ({
+            ...prev,
+            loading: false,
+            error: punchData.message,
+            lockoutInfo: {
+              isLocked: true,
+              timeRemaining: punchData.lock_expires_at ? 
+                Math.max(0, Math.floor((new Date(punchData.lock_expires_at).getTime() - Date.now()) / 1000)) : 0,
+              attempts: 0
+            }
+          }))
+        } else {
+          setState(prev => ({
+            ...prev,
+            loading: false,
+            error: punchData.message || 'Clock in/out failed'
+          }))
+        }
         return
       }
 

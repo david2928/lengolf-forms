@@ -185,8 +185,8 @@ export async function verifyStaffPin(pin: string, deviceId?: string): Promise<Pi
       };
     }
 
-    // Get all active staff members
-    const { data: staffMembers, error: staffError } = await refacSupabaseAdmin
+    // Phase 5: Optimized PIN verification - get only active staff
+    const { data: staffData, error: staffError } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('staff')
       .select('id, staff_name, staff_id, pin_hash, is_active, failed_attempts, locked_until')
@@ -202,7 +202,7 @@ export async function verifyStaffPin(pin: string, deviceId?: string): Promise<Pi
       };
     }
 
-    if (!staffMembers || staffMembers.length === 0) {
+    if (!staffData || staffData.length === 0) {
       return {
         success: false,
         message: 'No active staff members found',
@@ -211,16 +211,14 @@ export async function verifyStaffPin(pin: string, deviceId?: string): Promise<Pi
       };
     }
 
-    // Find matching staff member by PIN verification
-    let matchedStaff: any = null;
-    
-    for (const staff of staffMembers) {
+    // Phase 5: Parallel PIN verification for better performance
+    const pinVerificationPromises = staffData.map(async (staff) => {
       const isMatch = await verifyPin(pin, staff.pin_hash);
-      if (isMatch) {
-        matchedStaff = staff;
-        break;
-      }
-    }
+      return isMatch ? staff : null;
+    });
+    
+    const results = await Promise.all(pinVerificationPromises);
+    const matchedStaff = results.find(result => result !== null);
 
     // SECURITY FIX: Handle failed PIN attempt
     if (!matchedStaff) {
@@ -229,7 +227,7 @@ export async function verifyStaffPin(pin: string, deviceId?: string): Promise<Pi
         pin_length: pin.length,
         device_id: deviceId,
         timestamp: new Date().toISOString(),
-        active_staff_count: staffMembers.length
+        active_staff_count: staffData.length
       });
       
       return {
@@ -256,8 +254,8 @@ export async function verifyStaffPin(pin: string, deviceId?: string): Promise<Pi
       };
     }
 
-    // Get current clock-in status
-    const { data: lastEntry, error: entryError } = await refacSupabaseAdmin
+    // Phase 5: Get current clock-in status with optimized query
+    const { data: lastEntry } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('time_entries')
       .select('action')
@@ -266,31 +264,45 @@ export async function verifyStaffPin(pin: string, deviceId?: string): Promise<Pi
       .limit(1)
       .single();
 
-    const currentlyClockedIn = !entryError && lastEntry?.action === 'clock_in';
+    const currentlyClockedIn = lastEntry?.action === 'clock_in';
 
-    // Clear failed attempts and unlock if needed (successful authentication)
+    // Phase 5: Async cleanup of failed attempts (don't block response)
     if (matchedStaff.failed_attempts > 0 || matchedStaff.locked_until) {
-      await refacSupabaseAdmin
-        .schema('backoffice')
-        .from('staff')
-        .update({
-          failed_attempts: 0,
-          locked_until: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', matchedStaff.id);
-        
-      // Log successful authentication after previous issues
-      if (matchedStaff.locked_until) {
-        await logStaffAction(
-          matchedStaff.id,
-          'unlocked',
-          'system',
-          'successful_pin_entry',
-          `Account automatically unlocked after successful PIN verification`,
-          'Automatic unlock on successful authentication'
-        );
-      }
+      // Background cleanup - don't await
+      const cleanupPromise = async () => {
+        try {
+          await refacSupabaseAdmin
+            .schema('backoffice')
+            .from('staff')
+            .update({
+              failed_attempts: 0,
+              locked_until: null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', matchedStaff.id);
+            
+          // Background logging - don't block
+          if (matchedStaff.locked_until) {
+            try {
+              await logStaffAction(
+                matchedStaff.id,
+                'unlocked',
+                'system',
+                'successful_pin_entry',
+                `Account automatically unlocked after successful PIN verification`,
+                'Automatic unlock on successful authentication'
+              );
+            } catch (error) {
+              console.error('Background audit log failed:', error);
+            }
+          }
+        } catch (error) {
+          console.error('Background staff update failed:', error);
+        }
+      };
+      
+      // Execute in background without blocking
+      cleanupPromise();
     }
 
     return {
@@ -330,14 +342,6 @@ export async function recordTimeEntry(
     // Store the current Bangkok time as UTC timestamp for database
     const bangkokNow = DateTime.now().setZone('Asia/Bangkok');
     const utcTimestamp = bangkokNow.toUTC().toISO();
-    
-    console.log('RECORDING TIME ENTRY:', {
-      staff_id: staffId,
-      action: action,
-      bangkok_time: bangkokNow.toISO(),
-      utc_timestamp: utcTimestamp,
-      date_in_bangkok: bangkokNow.toFormat('yyyy-MM-dd')
-    });
     
     // Insert time entry directly into the database
     const { data, error } = await refacSupabaseAdmin
@@ -538,25 +542,22 @@ export async function logStaffAction(
 // ==========================================
 
 /**
- * Extract device information from request headers (server-side)
+ * Extract minimal device information (Phase 5.5: Streamlined for performance)
  */
 export function extractDeviceInfo(headers: any): any {
   return {
-    userAgent: headers['user-agent'] || 'Unknown',
-    xForwardedFor: headers['x-forwarded-for'],
-    xRealIp: headers['x-real-ip'],
     timestamp: new Date().toISOString(),
   };
 }
 
 /**
- * Validate device info format
+ * Validate device info format (Phase 5.5: Minimal validation)
  */
 export function validateDeviceInfo(deviceInfo: any): boolean {
   if (!deviceInfo || typeof deviceInfo !== 'object') return false;
   
-  // Basic validation - should have at least userAgent or platform
-  return !!(deviceInfo.userAgent || deviceInfo.platform);
+  // Phase 5.5: Just check for timestamp - minimal validation for performance
+  return !!(deviceInfo.timestamp);
 }
 
 // ==========================================
@@ -630,4 +631,52 @@ export function validateStaffId(staffId?: string): { valid: boolean; error?: str
   }
   
   return { valid: true };
+}
+
+/**
+ * Get staff status with last activity information
+ */
+export async function getStaffWithLastActivity(): Promise<any[]> {
+  try {
+    // Get all staff members (excluding pin_hash for security)
+    const { data: staff, error: staffError } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('staff')
+      .select('id, staff_name, staff_id, is_active, failed_attempts, locked_until, created_at, updated_at')
+      .order('staff_name');
+
+    if (staffError) {
+      console.error('Error fetching staff:', staffError);
+      throw new Error('Failed to fetch staff members');
+    }
+
+    if (!staff || staff.length === 0) {
+      return [];
+    }
+
+    // Get last activity for each staff member
+    const staffWithActivity = await Promise.all(
+      staff.map(async (member) => {
+        // Get last time entry for this staff member
+        const { data: lastEntry, error: entryError } = await refacSupabaseAdmin
+          .schema('backoffice')
+          .from('time_entries')
+          .select('timestamp, action')
+          .eq('staff_id', member.id)
+          .order('timestamp', { ascending: false })
+          .limit(1)
+          .single();
+
+        return {
+          ...member,
+          last_activity: !entryError && lastEntry ? lastEntry.timestamp : null
+        };
+      })
+    );
+
+    return staffWithActivity;
+  } catch (error) {
+    console.error('Error fetching staff with last activity:', error);
+    throw new Error('Database error while fetching staff with activity');
+  }
 } 
