@@ -46,7 +46,7 @@ const PARSING_CONFIGS = {
   golf_coaching_ratchavin: {
     expectedColumns: {
       date: ['Date', 'Lesson Date', 'Class Date', 'date', 'วันที่', 'เวลา', 'Date/Time'],
-      customer: ['Student', 'Student Name', 'Name', 'Customer', 'customer_name', 'ชื่อ', 'ลูกค้า'],
+      customer: ['Name', 'Student', 'Student Name', 'Customer', 'customer_name', 'ชื่อ', 'ลูกค้า'],
       quantity: ['QTY', 'Qty', 'Lessons', 'Lesson Count', 'Sessions', 'quantity', 'จำนวน', 'จำนวนครั้ง', 'Count'],
       amount: ['AMOUNT', 'Amount', 'Total', 'Fee', 'Price', 'total_amount', 'ราคา', 'จำนวนเงิน'],
       unitPrice: ['UNIT PRICE', 'Unit Price', 'Per Lesson', 'Lesson Fee', 'Rate', 'unit_price', 'ราคาต่อครั้ง'],
@@ -58,7 +58,7 @@ const PARSING_CONFIGS = {
   golf_coaching_boss: {
     expectedColumns: {
       date: ['Date', 'Lesson Date', 'Class Date', 'date', 'วันที่', 'เวลา', 'Date/Time'],
-      customer: ['Student', 'Student Name', 'Name', 'Customer', 'customer_name', 'ชื่อ', 'ลูกค้า'],
+      customer: ['Name', 'Student', 'Student Name', 'Customer', 'customer_name', 'ชื่อ', 'ลูกค้า'],
       quantity: ['QTY', 'Qty', 'Lessons', 'Lesson Count', 'Sessions', 'quantity', 'จำนวน', 'จำนวนครั้ง', 'Count'],
       amount: ['AMOUNT', 'Amount', 'Total', 'Fee', 'Price', 'total_amount', 'ราคา', 'จำนวนเงิน'],
       unitPrice: ['UNIT PRICE', 'Unit Price', 'Per Lesson', 'Lesson Fee', 'Rate', 'unit_price', 'ราคาต่อครั้ง'],
@@ -116,9 +116,7 @@ export async function POST(request: NextRequest) {
     const config = PARSING_CONFIGS[reconciliationType as keyof typeof PARSING_CONFIGS];
 
     // Debug configuration
-    console.log('Reconciliation type:', reconciliationType);
-    console.log('Config found:', !!config);
-    console.log('Config structure:', config ? Object.keys(config) : 'none');
+    console.log('Processing reconciliation type:', reconciliationType);
 
     if (!config) {
       return NextResponse.json({ 
@@ -188,27 +186,82 @@ async function parseCSVFile(file: File, config: any): Promise<ParsedInvoiceData>
   const parseErrors: string[] = [];
   
   try {
-    // Parse CSV with headers
-    const records = parse(text, {
-      columns: true,
+    // First, parse without headers to find the actual data table
+    const allRows = parse(text, {
+      columns: false,
       skip_empty_lines: true,
       trim: true,
       quote: '"',
       escape: '"'
     });
 
+    console.log('Total CSV rows parsed:', allRows.length);
+
+    // Find the header row (look for rows with column names like Type, Name, Date, etc.)
+    let headerRowIndex = -1;
+    let headers: string[] = [];
+    
+    for (let i = 0; i < allRows.length; i++) {
+      const row = allRows[i] as string[];
+      if (row && row.length > 0) {
+        const nonEmptyValues = row.filter(cell => cell && cell.toString().trim() !== '');
+        // Look for rows with at least 4 columns that look like headers
+        if (nonEmptyValues.length >= 4) {
+          const hasCommonHeaders = row.some(cell => 
+            cell && (
+              cell.toString().toLowerCase().includes('date') ||
+              cell.toString().toLowerCase().includes('name') ||
+              cell.toString().toLowerCase().includes('type') ||
+              cell.toString().toLowerCase().includes('amount') ||
+              cell.toString().toLowerCase().includes('total') ||
+              cell.toString().toLowerCase().includes('price') ||
+              cell.toString().toLowerCase().includes('qty')
+            )
+          );
+          
+          if (hasCommonHeaders) {
+            headerRowIndex = i;
+            headers = row;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (headerRowIndex === -1) {
+      // Fallback to first row if no clear header found
+      headerRowIndex = 0;
+      headers = allRows[0] as string[];
+    }
+    
+    console.log('CSV header row found at index:', headerRowIndex);
+    console.log('CSV headers detected:', headers);
+    
+    const dataRows = allRows.slice(headerRowIndex + 1);
+
     const items: InvoiceItem[] = [];
     let totalAmount = 0;
 
-    records.forEach((record: any, index: number) => {
+    dataRows.forEach((row: any, index: number) => {
       try {
-        const item = parseRecord(record, config, index + 1);
+        const record: any = {};
+        headers.forEach((header, colIndex) => {
+          record[header] = row[colIndex] || '';
+        });
+
+        // Debug first record
+        if (index === 0) {
+          console.log('First CSV record object:', record);
+          console.log('Available CSV columns:', Object.keys(record));
+        }
+
+        const item = parseRecord(record, config, headerRowIndex + index + 2); // Adjust row number
         if (item) {
           items.push(item);
           totalAmount += item.totalAmount;
         }
       } catch (error) {
-        parseErrors.push(`Row ${index + 1}: ${error instanceof Error ? error.message : 'Parse error'}`);
+        parseErrors.push(`Row ${headerRowIndex + index + 2}: ${error instanceof Error ? error.message : 'Parse error'}`);
       }
     });
 
@@ -460,4 +513,6 @@ function parseNumber(value: any, currencySymbols: string[] = []): number {
   str = str.replace(/[,\s]/g, ''); // Remove commas and spaces
   
   return parseFloat(str) || 0;
-} 
+}
+
+ 
