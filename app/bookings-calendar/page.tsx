@@ -81,20 +81,21 @@ export default function BookingsCalendarPage() {
   const consolidateBookings = (events: ProcessedBooking[]): ProcessedBooking[] => {
     if (!events.length) return [];
     
-    // Group events by customer name, bay, and adjacent times
+    // Group events by customer name, bay, and booking type to keep different booking types separate
     const groupedByCustomerAndBay: Record<string, ProcessedBooking[]> = {};
     
     events.forEach(event => {
       if (!event.start || !event.end) return;
       
-      const key = `${event.customer_name}_${event.bay}`;
+      // Include booking_type in the key to prevent merging different booking types
+      const key = `${event.customer_name}_${event.bay}_${event.booking_type || 'default'}`;
       if (!groupedByCustomerAndBay[key]) {
         groupedByCustomerAndBay[key] = [];
       }
       groupedByCustomerAndBay[key].push(event);
     });
     
-    // Process each customer's bookings by bay
+    // Process each customer's bookings by bay and booking type
     const processedBookings: ProcessedBooking[] = [];
     
     Object.values(groupedByCustomerAndBay).forEach(customerEvents => {
@@ -105,7 +106,7 @@ export default function BookingsCalendarPage() {
         return new Date(a.start).getTime() - new Date(b.start).getTime();
       });
       
-      // Merge adjacent bookings
+      // Merge adjacent bookings of the same type only
       const mergedBookings: ProcessedBooking[] = [];
       let currentBooking = { ...customerEvents[0] };
       
@@ -201,7 +202,19 @@ export default function BookingsCalendarPage() {
       }
     }
     
+    // Initial fetch
     fetchBookingsFromDatabase();
+    
+    // Set up auto-refresh every 120 seconds (2 minutes)
+    const refreshInterval = setInterval(() => {
+      console.log('Auto-refreshing calendar data...');
+      fetchBookingsFromDatabase();
+    }, 120000); // 120 seconds = 120,000 milliseconds
+    
+    // Cleanup interval on unmount or when selectedDate changes
+    return () => {
+      clearInterval(refreshInterval);
+    };
   }, [selectedDate]);
 
   // Navigate to previous day

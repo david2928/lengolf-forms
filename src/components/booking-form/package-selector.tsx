@@ -24,13 +24,17 @@ export function PackageSelector({
   onChange,
   error
 }: PackageSelectorProps) {
-  // Determine if this is a coaching booking that should include inactive packages
+  // Determine if this is a coaching or package booking that should include inactive packages
   const isCoachingBooking = bookingType?.toLowerCase().includes('coaching') || false
+  const isPackageBooking = bookingType === 'Package'
+  
+  // Include inactive packages for both coaching and package bookings
+  const shouldIncludeInactive = isCoachingBooking || isPackageBooking
   
   const { packages, isLoading, error: packagesError } = useCustomerPackages(
     customerName, 
     customerPhone,
-    isCoachingBooking // Include inactive packages for coaching bookings
+    shouldIncludeInactive
   )
   const [newPackageName, setNewPackageName] = useState("")
 
@@ -52,11 +56,18 @@ export function PackageSelector({
   }
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+    if (!date || date === 'No expiry') {
+      return 'No expiry'
+    }
+    try {
+      return new Date(date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    } catch {
+      return 'No expiry'
+    }
   }
 
   const handleValueChange = (selectedId: string) => {
@@ -79,8 +90,21 @@ export function PackageSelector({
     }
   }
 
+  // Filter packages based on booking type
+  const filteredPackages = packages?.filter(pkg => {
+    if (isCoachingBooking) {
+      // For coaching bookings, show coaching packages
+      return pkg.details.packageTypeName.toLowerCase().includes('coaching')
+    } else if (isPackageBooking) {
+      // For package bookings, show non-coaching packages (Monthly, Unlimited)
+      return !pkg.details.packageTypeName.toLowerCase().includes('coaching')
+    }
+    // For other booking types, show all packages
+    return true
+  }) || []
+
   // If no packages available, show only "will-buy" option
-  if (!packages || packages.length === 0) {
+  if (!filteredPackages || filteredPackages.length === 0) {
     return (
       <div className="space-y-4">
         <div className="relative">
@@ -123,7 +147,7 @@ export function PackageSelector({
         onValueChange={handleValueChange}
         className="grid grid-cols-1 gap-3"
       >
-        {packages.map((pkg) => (
+        {filteredPackages.map((pkg) => (
           <div key={pkg.id} className="relative">
             <RadioGroupItem
               value={pkg.id}

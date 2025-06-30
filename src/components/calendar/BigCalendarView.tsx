@@ -189,15 +189,19 @@ export function BigCalendarView({
     let textDecoration = 'none';
     let fontWeight = '500';
     
-    // Make coaching bookings much more distinct
-    if (booking.booking_type === 'coaching' || booking.booking_type?.toLowerCase().includes('coaching')) {
-      // Use a different background color for coaching
-      backgroundColor = '#8b5cf6'; // purple-500 for coaching
+    // Check if this is a coaching booking (case-insensitive)
+    const isCoaching = booking.booking_type?.toLowerCase().includes('coaching');
+    
+    // Check if this is a package booking (case-insensitive or has package_name)
+    const isPackage = booking.package_name || booking.booking_type?.toLowerCase() === 'package';
+    
+    if (isCoaching) {
+      // Keep the bay color but add distinctive striped pattern and border
       borderStyle = '3px solid #fbbf24'; // thick amber border
-      backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.2) 3px, rgba(255,255,255,0.2) 6px)';
+      backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.3) 3px, rgba(255,255,255,0.3) 6px)';
       opacity = isPast ? 0.4 : 1;
       fontWeight = 'bold';
-    } else if (booking.package_name || booking.booking_type === 'package') {
+    } else if (isPackage) {
       // Package bookings get amber border and subtle pattern
       borderStyle = '2px solid #fbbf24'; // amber border for packages
       backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px)';
@@ -231,14 +235,17 @@ export function BigCalendarView({
   // Custom event component to show customer name and booking type
   const EventComponent = ({ event }: { event: BigCalendarEvent }) => {
     const booking = event.resource.booking;
-    const isCoaching = booking.booking_type === 'coaching' || booking.booking_type?.toLowerCase().includes('coaching');
+    
+    // Use the same logic as styling to detect booking types
+    const isCoaching = booking.booking_type?.toLowerCase().includes('coaching');
+    const isPackage = booking.package_name || booking.booking_type?.toLowerCase() === 'package';
 
     return (
       <div className="truncate">
         <div className="font-medium text-xs">
           <span className="truncate">{booking.customer_name}</span>
           {isCoaching && <span className="ml-1 text-xs">🏌️</span>}
-          {booking.package_name && !isCoaching && <span className="ml-1 text-xs">📦</span>}
+          {isPackage && !isCoaching && <span className="ml-1 text-xs">📦</span>}
         </div>
       </div>
     );
