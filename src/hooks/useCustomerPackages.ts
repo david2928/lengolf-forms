@@ -14,7 +14,11 @@ interface Package {
   details: PackageDetails
 }
 
-export function useCustomerPackages(customerName: string | null, contactNumber?: string | null) {
+export function useCustomerPackages(
+  customerName: string | null, 
+  contactNumber?: string | null,
+  includeInactive: boolean = false
+) {
   const [packages, setPackages] = useState<Package[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,8 +38,9 @@ export function useCustomerPackages(customerName: string | null, contactNumber?:
           ? `${customerName} (${contactNumber})`
           : customerName
 
-        // Use the API endpoint instead of direct table access
-        const response = await fetch(`/api/packages/by-customer/${encodeURIComponent(searchName)}`)
+        // Use the API endpoint with include_inactive parameter
+        const url = `/api/packages/by-customer/${encodeURIComponent(searchName)}${includeInactive ? '?include_inactive=true' : ''}`
+        const response = await fetch(url)
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
@@ -66,7 +71,7 @@ export function useCustomerPackages(customerName: string | null, contactNumber?:
     }
 
     fetchPackages()
-  }, [customerName, contactNumber])
+  }, [customerName, contactNumber, includeInactive])
 
   return { packages, isLoading, error }
 }

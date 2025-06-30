@@ -11,6 +11,7 @@ interface PackageSelectorProps {
   value: string
   customerName: string
   customerPhone?: string
+  bookingType?: string | null
   onChange: (value: string | null, packageName: string) => void
   error?: string
 }
@@ -19,10 +20,18 @@ export function PackageSelector({
   value,
   customerName,
   customerPhone,
+  bookingType,
   onChange,
   error
 }: PackageSelectorProps) {
-  const { packages, isLoading, error: packagesError } = useCustomerPackages(customerName, customerPhone)
+  // Determine if this is a coaching booking that should include inactive packages
+  const isCoachingBooking = bookingType?.toLowerCase().includes('coaching') || false
+  
+  const { packages, isLoading, error: packagesError } = useCustomerPackages(
+    customerName, 
+    customerPhone,
+    isCoachingBooking // Include inactive packages for coaching bookings
+  )
   const [newPackageName, setNewPackageName] = useState("")
 
   if (!customerName) {
@@ -128,7 +137,9 @@ export function PackageSelector({
               <Card 
                 className={cn(
                   "relative p-4 hover:bg-accent transition-colors",
-                  value === pkg.id && "border-primary"
+                  value === pkg.id && "border-primary",
+                  // Add visual indicator for unactivated packages
+                  pkg.details.firstUseDate === 'Not activated' && "border-orange-300 bg-orange-50/50"
                 )}
               >
                 <div className="flex items-start">
@@ -141,6 +152,11 @@ export function PackageSelector({
                   <div className="ml-4 flex-1">
                     <div className="font-medium">
                       {pkg.details.packageTypeName}
+                      {pkg.details.firstUseDate === 'Not activated' && (
+                        <span className="ml-2 text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                          Not Activated
+                        </span>
+                      )}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       Remaining: {pkg.details.remainingHours ?? 'Unlimited'} hours
@@ -148,6 +164,11 @@ export function PackageSelector({
                     <div className="text-sm text-muted-foreground">
                       Expires: {formatDate(pkg.details.expirationDate)}
                     </div>
+                    {pkg.details.firstUseDate === 'Not activated' && (
+                      <div className="text-sm text-orange-600 font-medium">
+                        Will be activated when used
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>

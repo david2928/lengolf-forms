@@ -54,6 +54,7 @@ export function CustomerStep() {
           <PackageSelector
             customerName={formData.customerName}
             customerPhone={formData.customerPhone}
+            bookingType={formData.bookingType}
             value={formData.packageId || ''}
             onChange={handlePackageSelection}
             error={errors.packageId}

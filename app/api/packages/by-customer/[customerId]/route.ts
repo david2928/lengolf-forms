@@ -8,13 +8,19 @@ export async function GET(
   { params }: { params: { customerId: string } }
 ) {
   try {
+    // Get query parameters to determine if we should include inactive packages
+    const { searchParams } = new URL(request.url);
+    const includeInactive = searchParams.get('include_inactive') === 'true';
+    
     const { data, error } = await refacSupabaseAdmin
-      .rpc('get_active_packages_by_customer', {
-        p_customer_name: decodeURIComponent(params.customerId)
+      .schema('backoffice')
+      .rpc('get_customer_packages', {
+        p_customer_name: decodeURIComponent(params.customerId),
+        p_active: includeInactive ? null : true // null = all packages, true = only active
       })
 
     if (error) {
-      console.error('Error fetching active packages by customer:', error)
+      console.error('Error fetching packages by customer:', error)
       return NextResponse.json(
         { error: 'Failed to fetch packages' },
         { status: 500 }
