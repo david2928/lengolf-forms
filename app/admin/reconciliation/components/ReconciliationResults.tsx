@@ -101,6 +101,13 @@ export default function ReconciliationResults({
     setProgress(0);
 
     try {
+      // Validate date range before starting
+      if (!dateRange.start || !dateRange.end) {
+        throw new Error('Date range is required for reconciliation. Please ensure your invoice file contains valid dates.');
+      }
+
+      console.log('Starting reconciliation with date range:', dateRange);
+
       // Step 1: Fetch POS data
       setProcessingStep('Fetching POS data...');
       setProgress(20);
@@ -112,6 +119,8 @@ export default function ReconciliationResults({
       }));
 
       if (!posResponse.ok) {
+        const errorText = await posResponse.text();
+        console.error('POS data fetch error:', errorText);
         throw new Error(`Failed to fetch POS data: ${posResponse.statusText}`);
       }
 

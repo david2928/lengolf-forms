@@ -53,13 +53,13 @@ export default function ReconciliationPage() {
         )}
         
         {/* Detailed Reconciliation Results */}
-        {uploadedData && reconciliationOptions && (
+        {uploadedData && reconciliationOptions && uploadedData.autoDetectedDateRange && (
           <ReconciliationResults 
             uploadedData={uploadedData}
             reconciliationType={reconciliationOptions.type}
             dateRange={{
-              start: reconciliationOptions.startDate || uploadedData.autoDetectedDateRange?.start || '',
-              end: reconciliationOptions.endDate || uploadedData.autoDetectedDateRange?.end || ''
+              start: reconciliationOptions.startDate || uploadedData.autoDetectedDateRange.start,
+              end: reconciliationOptions.endDate || uploadedData.autoDetectedDateRange.end
             }}
             onStartReconciliation={() => {}}
           />
