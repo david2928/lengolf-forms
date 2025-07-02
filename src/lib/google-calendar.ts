@@ -89,6 +89,14 @@ ${inputData.customer_notes ? `\nNotes: ${inputData.customer_notes}` : ''}`.trim(
 
 export function getRelevantCalendarIds(inputData: CalendarFormatInput): string[] {
   const calendarIds: string[] = [];
+  
+  // Only create calendar events for coaching bookings
+  if (!(inputData.bookingType in COACHING_CALENDARS)) {
+    console.log(`Skipping calendar event creation for non-coaching booking type: ${inputData.bookingType}`);
+    return calendarIds; // Return empty array for non-coaching bookings
+  }
+  
+  // This is a coaching booking - create both bay and coaching calendar events
   const simpleBayName = inputData.bay;
 
   let calendarKey: BayName | undefined;
@@ -100,6 +108,7 @@ export function getRelevantCalendarIds(inputData: CalendarFormatInput): string[]
       calendarKey = 'Bay 3 (Entrance)';
   }
 
+  // Add bay calendar for coaching bookings
   if (calendarKey && calendarKey in BAY_CALENDARS) {
     const bayCalendarId = BAY_CALENDARS[calendarKey];
     if (bayCalendarId) {
@@ -113,17 +122,17 @@ export function getRelevantCalendarIds(inputData: CalendarFormatInput): string[]
     }
   }
 
-  if (inputData.bookingType in COACHING_CALENDARS) {
-    const coachingCalendarId = COACHING_CALENDARS[inputData.bookingType as BookingType];
-    if (coachingCalendarId) {
-        if (!calendarIds.includes(coachingCalendarId)) {
-            calendarIds.push(coachingCalendarId);
-        }
-    } else {
-        console.warn(`Calendar ID for coaching type '${inputData.bookingType}' is empty or missing in environment variables.`);
-    }
+  // Add coaching calendar
+  const coachingCalendarId = COACHING_CALENDARS[inputData.bookingType as BookingType];
+  if (coachingCalendarId) {
+      if (!calendarIds.includes(coachingCalendarId)) {
+          calendarIds.push(coachingCalendarId);
+      }
+  } else {
+      console.warn(`Calendar ID for coaching type '${inputData.bookingType}' is empty or missing in environment variables.`);
   }
 
+  console.log(`Creating calendar events for coaching booking type '${inputData.bookingType}' in ${calendarIds.length} calendar(s)`);
   return calendarIds;
 }
 
