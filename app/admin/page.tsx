@@ -9,7 +9,8 @@ import {
   FileText,
   Shield,
   Activity,
-  Mail
+  Mail,
+  Receipt
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -29,6 +30,12 @@ const analyticsItems = [
     title: "Sales Dashboard",
     description: "View revenue trends, KPIs, and business analytics",
     path: "/admin/sales-dashboard"
+  },
+  {
+    icon: Receipt,
+    title: "Transaction History",
+    description: "View and manage POS transactions",
+    path: "/admin/transactions"
   },
   {
     icon: Calculator,

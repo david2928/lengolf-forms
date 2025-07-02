@@ -25,6 +25,7 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 - **[Admin Panel](./features/ADMIN_PANEL.md)** - Administrative interface with role-based access and business intelligence tools
 - **[Sales Dashboard](./features/SALES_DASHBOARD.md)** - Comprehensive analytics with KPIs, charts, and flexible date filtering
 - **[Inventory Dashboard](./features/INVENTORY_DASHBOARD.md)** - Stock level monitoring, reorder alerts, and product management with real-time tracking
+- **[Transaction Management](./features/TRANSACTION_MANAGEMENT.md)** - Professional POS transaction management with TanStack Table, advanced filtering, sorting, Thailand timezone handling, and modern UI design
 - **[POS Data Pipeline](./features/POS_DATA_PIPELINE.md)** - Complete data flow from external POS systems through staging to production tables, ETL functions, and BigQuery compatibility
 - **[Native Availability System](./features/NATIVE_AVAILABILITY_SYSTEM.md)** - Supabase-native availability checking with real-time updates, 10-40x performance improvement, and zero external dependencies
 
@@ -103,8 +104,8 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 
 - **New Developers**: [Project Structure](./PROJECT_STRUCTURE.md) → [Backend Documentation](./BACKEND_DOCUMENTATION.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
 - **System Administrators**: [Admin Panel](./features/ADMIN_PANEL.md) → [Database Schema](./technical/DATABASE_SCHEMA.md) → [Customer Management](./features/CUSTOMER_MANAGEMENT.md)
-- **Business Users**: [Booking System](./features/BOOKING_SYSTEM.md) → [Package Management](./features/PACKAGE_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
-- **Operations Managers**: [Inventory Dashboard](./features/INVENTORY_DASHBOARD.md) → [Inventory Management](./features/INVENTORY_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
+- **Business Users**: [Booking System](./features/BOOKING_SYSTEM.md) → [Package Management](./features/PACKAGE_MANAGEMENT.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
+- **Operations Managers**: [Inventory Dashboard](./features/INVENTORY_DASHBOARD.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Inventory Management](./features/INVENTORY_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
 - **Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [Calendar Integration](./features/CALENDAR_INTEGRATION.md)
 
 ## 📝 Documentation Standards
@@ -125,10 +126,10 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 **Focus**: Current system state documentation  
 
 ### ✅ What's Fully Documented
-- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management, invoice management
+- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management, invoice management, transaction management
 - **Technical Systems**: Authentication, database schema, API endpoints, POS data pipeline
 - **Integrations**: LINE messaging, Google Calendar, CRM synchronization  
-- **Special Features**: Inventory management, US Open scoring system, professional invoicing
+- **Special Features**: Inventory management, US Open scoring system, professional invoicing, TanStack Table implementation
 - **Architecture**: Project structure, backend/frontend organization
 
 ### 📝 Practical Documentation Needed
