@@ -2,14 +2,12 @@ import { NextResponse } from 'next/server';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import type { Booking } from '@/types/booking'; 
 import { 
-    isTimeSlotAvailable, 
     formatCalendarEvent, 
     getRelevantCalendarIds, 
     createCalendarEvents, 
     updateCalendarEvent, 
     deleteCalendarEvent, 
     initializeCalendar,
-    getBayAvailability,
     type CalendarFormatInput, // Import this type
     type CalendarEventResult,
     getCalendarEventDetails // Added import
@@ -34,7 +32,7 @@ interface UpdateBookingPayload {
   availability_overridden?: boolean; // Add this field
 }
 
-// Helper to map simple bay names to the format expected by the availability API
+// Helper to map simple bay names to the format expected by Google Calendar API (for event creation only)
 function mapSimpleBayToApiBayName(simpleBay: 'Bay 1' | 'Bay 2' | 'Bay 3' | null): string | null {
   if (simpleBay === 'Bay 1') return 'Bay 1 (Bar)';
   if (simpleBay === 'Bay 2') return 'Bay 2';
@@ -245,86 +243,35 @@ export async function PUT(
     const availabilityOverridden = payload.availability_overridden === true; // Fix: check payload instead of request
 
     if (slotChanged && !availabilityOverridden) {
-      console.log('Slot changed. Checking availability...');
-      const apiBayName = mapSimpleBayToApiBayName(proposedBay as 'Bay 1' | 'Bay 2' | 'Bay 3' | null);
-      if (!apiBayName) {
+      console.log('Slot changed. Checking availability using native database function...');
+      
+      if (!proposedBay) {
         return NextResponse.json({ error: 'Invalid bay for availability check.' }, { status: 400 });
       }
 
       try {
-        const auth = await getServiceAccountAuth();
-        const calendar = initializeCalendar(auth);
-
-        const proposedDayStart = startOfDay(parseDateFns(proposedDate, "yyyy-MM-dd", new Date()));
-        const proposedDayEnd = endOfDay(parseDateFns(proposedDate, "yyyy-MM-dd", new Date()));
+        // Use native database availability checking instead of Google Calendar
+        const proposedDurationInHours = proposedDurationInMinutes / 60;
         
-        // For availability checking, get the bay calendar ID directly from BAY_CALENDARS
-        // This should work regardless of booking type since we need to check bay availability
-        const { BAY_CALENDARS } = await import('@/lib/constants');
-        let calendarIdForBay: string | undefined;
-        
-        if (apiBayName === 'Bay 1 (Bar)') {
-            calendarIdForBay = BAY_CALENDARS['Bay 1 (Bar)'];
-        } else if (apiBayName === 'Bay 2') {
-            calendarIdForBay = BAY_CALENDARS['Bay 2'];
-        } else if (apiBayName === 'Bay 3 (Entrance)') {
-            calendarIdForBay = BAY_CALENDARS['Bay 3 (Entrance)'];
-        }
-        
-        if (!calendarIdForBay) {
-            console.error(`No calendar ID found for bay: ${proposedBay} (mapped to: ${apiBayName})`);
-            return NextResponse.json({ error: 'Configuration error: Bay calendar ID not found.' }, { status: 500 });
-        }
-
-        const eventsResponse = await calendar.events.list({
-            calendarId: calendarIdForBay,
-            timeMin: proposedDayStart.toISOString(),
-            timeMax: proposedDayEnd.toISOString(),
-            singleEvents: true,
-            orderBy: 'startTime',
-            timeZone: 'Asia/Bangkok', // Explicitly set timezone, though ISO strings should be unambiguous
+        const { data: isAvailable, error: availabilityError } = await refacSupabaseAdmin.rpc('check_availability', {
+          p_date: proposedDate,
+          p_bay: proposedBay,
+          p_start_time: proposedStartTime,
+          p_duration: proposedDurationInHours,
+          p_exclude_booking_id: bookingId // Exclude current booking from conflict check
         });
 
-        const events = eventsResponse.data?.items;
-        let isProposedSlotActuallyAvailable = true;
-
-        const slotStartDateTime = parseISO(`${proposedDate}T${proposedStartTime}:00+07:00`); // Use parseISO with explicit offset
-        const slotEndDateTime = parseISO(`${proposedDate}T${proposedEndTime}:00+07:00`);   // Use parseISO with explicit offset
-
-        console.log(`Constructed Slot for Check: Start=${slotStartDateTime.toISOString()}, End=${slotEndDateTime.toISOString()}`);
-
-        if (events) {
-          for (const event of events) {
-            if (event.status === 'cancelled') continue;
-
-            const eventBookingId = getBookingIdFromDescription(event.description);
-            if (eventBookingId === bookingId) { // bookingId is from params
-              console.log(`Skipping event for current booking ID: ${eventBookingId}`);
-              continue; // This is the event associated with the booking being modified, skip it.
-            }
-
-            const eventStartStr = event.start?.dateTime;
-            const eventEndStr = event.end?.dateTime;
-
-            if (eventStartStr && eventEndStr) {
-              const eventStart = parseISO(eventStartStr);
-              const eventEnd = parseISO(eventEndStr);
-
-              console.log(`Comparing with Event: Summary=${event.summary}, Start=${eventStart.toISOString()}, End=${eventEnd.toISOString()}`);
-
-              // Check for overlap: (SlotStart < EventEnd) and (SlotEnd > EventStart)
-              if (isBefore(slotStartDateTime, eventEnd) && isBefore(eventStart, slotEndDateTime)) {
-                isProposedSlotActuallyAvailable = false;
-                console.log(`Conflict detected with event: ${event.summary} (ID: ${event.id})`);
-                break; 
-              }
-            }
-          }
+        if (availabilityError) {
+          console.error('Database error checking slot availability:', availabilityError);
+          return NextResponse.json({ error: 'Failed to check slot availability', details: availabilityError.message }, { status: 500 });
         }
-        if (!isProposedSlotActuallyAvailable) {
+
+        if (!isAvailable) {
           return NextResponse.json({ error: 'The proposed time slot is not available.' }, { status: 409 }); // 409 Conflict
         }
+        
         console.log('Proposed slot is available.');
+        isProposedSlotActuallyAvailable = true;
       } catch (availabilityError: any) {
         console.error('Error checking slot availability:', availabilityError);
         return NextResponse.json({ error: 'Failed to check slot availability', details: availabilityError.message }, { status: 500 });
