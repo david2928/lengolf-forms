@@ -258,9 +258,21 @@ export async function PUT(
         const proposedDayStart = startOfDay(parseDateFns(proposedDate, "yyyy-MM-dd", new Date()));
         const proposedDayEnd = endOfDay(parseDateFns(proposedDate, "yyyy-MM-dd", new Date()));
         
-        const calendarIdForBay = getRelevantCalendarIds({ bay: proposedBay } as CalendarFormatInput)[0]; // Assuming first is the bay calendar
+        // For availability checking, get the bay calendar ID directly from BAY_CALENDARS
+        // This should work regardless of booking type since we need to check bay availability
+        const { BAY_CALENDARS } = await import('@/lib/constants');
+        let calendarIdForBay: string | undefined;
+        
+        if (apiBayName === 'Bay 1 (Bar)') {
+            calendarIdForBay = BAY_CALENDARS['Bay 1 (Bar)'];
+        } else if (apiBayName === 'Bay 2') {
+            calendarIdForBay = BAY_CALENDARS['Bay 2'];
+        } else if (apiBayName === 'Bay 3 (Entrance)') {
+            calendarIdForBay = BAY_CALENDARS['Bay 3 (Entrance)'];
+        }
+        
         if (!calendarIdForBay) {
-            console.error(`No calendar ID found for bay: ${proposedBay}`);
+            console.error(`No calendar ID found for bay: ${proposedBay} (mapped to: ${apiBayName})`);
             return NextResponse.json({ error: 'Configuration error: Bay calendar ID not found.' }, { status: 500 });
         }
 
