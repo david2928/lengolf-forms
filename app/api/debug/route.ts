@@ -1,6 +1,9 @@
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 import { NextResponse } from 'next/server'
 
+// Force dynamic since this tests DB connection
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     // Test database connection

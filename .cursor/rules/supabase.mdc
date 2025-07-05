@@ -3,7 +3,7 @@ description:
 globs: 
 alwaysApply: true
 ---
-You have MCP access to the supabase server of this application. YOu can use it to lookup data, functions, tables, schema.
+You have MCP access to the supabase server of this application. YOu can use it to lookup data, functions, tables, schema. Project id is bisimqmtxjsptehhqpeg.
 
 
 Also most of the time npm run dev is already running, so you can call the application directly.

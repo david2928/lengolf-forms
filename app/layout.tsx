@@ -1,6 +1,7 @@
 import { Inter } from 'next/font/google'
 import { Nav } from '@/components/nav'
 import { Toaster } from '@/components/ui/toaster'
+import { Toaster as SonnerToaster } from 'sonner'
 import './globals.css'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-config'
@@ -23,6 +24,7 @@ export default async function RootLayout({
             <Nav />
             <main className="flex-1">{children}</main>
             <Toaster />
+            <SonnerToaster position="top-right" />
           </div>
         </SessionProvider>
       </body>

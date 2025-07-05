@@ -1,29 +1,37 @@
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
+import { withAuth, NextRequestWithAuth } from "next-auth/middleware";
+import type { NextFetchEvent } from 'next/server';
 
-export default withAuth(
-  function middleware(req) {
-    // Add pathname to headers for layout access
+// Custom middleware that completely bypasses auth in development
+function customMiddleware(request: NextRequest, event: NextFetchEvent) {
+  // Development bypass - skip all auth checks
+  const shouldBypass = (
+    process.env.NODE_ENV === 'development' &&
+    process.env.SKIP_AUTH === 'true'
+  );
+  
+  if (shouldBypass) {
     const response = NextResponse.next();
-    response.headers.set('x-pathname', req.nextUrl.pathname);
-    
-    // Check admin routes
-    if (req.nextUrl.pathname.startsWith('/admin')) {
-      const isAdmin = req.nextauth.token?.isAdmin;
-      if (!isAdmin) {
-        console.log('Admin access denied for user:', req.nextauth.token?.email);
-        return NextResponse.redirect(new URL('/', req.url));
-      }
-    }
-    
+    response.headers.set('x-pathname', request.nextUrl.pathname);
     return response;
-  },
-  {
-    callbacks: {
-      authorized: ({ token }) => !!token,
-    },
   }
-);
+
+  // Production - use NextAuth middleware
+  return withAuth(
+    (req) => {
+      const response = NextResponse.next();
+      response.headers.set('x-pathname', req.nextUrl.pathname);
+      return response;
+    },
+    {
+      callbacks: {
+        authorized: ({ token }) => !!token,
+      },
+    }
+  )(request as NextRequestWithAuth, event);
+}
+
+export default customMiddleware;
 
 export const config = {
   matcher: [

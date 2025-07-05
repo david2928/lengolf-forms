@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Trophy, Calendar } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Trophy, Calendar, Users, GraduationCap } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -56,5 +56,17 @@ export const menuItems: MenuItem[] = [
     title: "US Open",
     path: '/special-events/us-open',
     description: "Record US Open scores and results"
+  },
+  {
+    icon: Users,
+    title: "Coaching Dashboard",
+    path: '/admin/coaching',
+    description: "Manage coaches, sessions, and earnings"
+  },
+  {
+    icon: GraduationCap,
+    title: "Coach Portal",
+    path: '/coaching',
+    description: "View your coaching schedule and earnings"
   }
 ] 

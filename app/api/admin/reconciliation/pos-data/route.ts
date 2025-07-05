@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Validate reconciliation type
-    const validTypes = ['restaurant', 'golf_coaching_ratchavin', 'golf_coaching_boss', 'golf_coaching_noon'];
+    const validTypes = ['restaurant', 'golf_coaching_ratchavin', 'golf_coaching_boss', 'golf_coaching_noon', 'smith_and_co_restaurant'];
     if (!validTypes.includes(reconciliationType)) {
       return NextResponse.json({
         error: `Invalid reconciliation type: ${reconciliationType}`,
@@ -105,6 +105,34 @@ export async function GET(request: NextRequest) {
       summary = {
         totalRecords: data.length,
         totalAmount: data.reduce((sum, item) => sum + item.totalAmount, 0),
+        dateRange: { start: startDate, end: endDate },
+        reconciliationType
+      };
+
+    } else if (reconciliationType === 'smith_and_co_restaurant') {
+      const { data: skuData, error } = await supabase
+        .rpc('get_sales_by_sku', {
+          start_date: startDate,
+          end_date: endDate
+        });
+
+      if (error) {
+        console.error('Supabase error (Smith & Co):', error);
+        return NextResponse.json({
+          error: 'Failed to fetch Smith & Co data',
+          details: error.message
+        }, { status: 500 });
+      }
+
+      data = skuData?.map((item: any) => ({
+        ...item,
+        totalAmount: parseFloat(item.total_amount || '0'),
+        quantity: parseInt(item.total_quantity || '0', 10)
+      })) || [];
+
+      summary = {
+        totalRecords: data.length,
+        totalAmount: data.reduce((sum: number, item: any) => sum + item.totalAmount, 0),
         dateRange: { start: startDate, end: endDate },
         reconciliationType
       };

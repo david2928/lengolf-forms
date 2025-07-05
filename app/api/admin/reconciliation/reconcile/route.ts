@@ -21,6 +21,7 @@ interface InvoiceItem {
   unitPrice: number;
   totalAmount: number;
   rawData: Record<string, any>;
+  sku?: string;
 }
 
 interface POSSalesRecord {
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid invoice data' }, { status: 400 });
     }
 
-    if (!reconciliationType || !['restaurant', 'golf_coaching_ratchavin', 'golf_coaching_boss'].includes(reconciliationType)) {
+    if (!reconciliationType || !['golf_coaching_ratchavin', 'golf_coaching_boss', 'smith_and_co_restaurant'].includes(reconciliationType)) {
       return NextResponse.json({ error: 'Invalid reconciliation type' }, { status: 400 });
     }
 
@@ -133,19 +134,27 @@ async function fetchPOSData(reconciliationType: string, dateRange: { start: stri
   let query;
   
   switch (reconciliationType) {
-    case 'restaurant':
-      // Restaurant reconciliation: items with SKU numbers
-      query = supabase
-        .schema('pos')
-        .from('lengolf_sales')
-        .select('*')
-        .gte('date', dateRange.start)
-        .lte('date', dateRange.end)
-        .neq('sku_number', '-')
-        .not('sku_number', 'is', null)
-        .eq('is_voided', false)
-        .order('date', { ascending: true });
-      break;
+    case 'smith_and_co_restaurant':
+      const { data: skuData, error } = await supabase.rpc('get_sales_by_sku', {
+        start_date: dateRange.start,
+        end_date: dateRange.end,
+      });
+
+      if (error) {
+        throw new Error(`Failed to fetch Smith & Co POS data: ${error.message}`);
+      }
+      
+      return (skuData || []).map((record: any) => ({
+        id: record.sku_number, // Use SKU as a unique identifier for this context
+        date: record.date,
+        customerName: 'N/A', // Not applicable for SKU-based reconciliation
+        productName: record.product_name,
+        productCategory: 'N/A',
+        quantity: record.total_quantity,
+        totalAmount: record.total_amount,
+        skuNumber: record.sku_number,
+        isVoided: false,
+      }));
 
     case 'golf_coaching_ratchavin':
       // Golf lessons for Pro Ratchavin
@@ -228,21 +237,39 @@ async function performReconciliation(
 
   // Process each invoice item
   const optionsWithType = { ...options, reconciliationType };
-  for (const invoiceItem of invoiceData) {
-    const matches = findMatches(invoiceItem, posOnly, optionsWithType);
-    
-    if (matches.length > 0) {
-      // Take the best match (highest confidence)
-      const bestMatch = matches[0];
-      matched.push(bestMatch);
-      
-      // Remove matched POS record from remaining pool
-      const index = posOnly.findIndex(pos => pos.id === bestMatch.posRecord.id);
-      if (index > -1) {
-        posOnly.splice(index, 1);
+
+  if (reconciliationType === 'smith_and_co_restaurant') {
+    // SKU-based matching for Smith & Co
+    for (const invoiceItem of invoiceData) {
+      const match = findSkuMatch(invoiceItem, posOnly, optionsWithType);
+      if (match) {
+        matched.push(match);
+        const index = posOnly.findIndex(pos => pos.skuNumber === match.posRecord.skuNumber && pos.date === match.posRecord.date);
+        if (index > -1) {
+          posOnly.splice(index, 1);
+        }
+      } else {
+        invoiceOnly.push(invoiceItem);
       }
-    } else {
-      invoiceOnly.push(invoiceItem);
+    }
+  } else {
+    // Original customer name-based matching for coaching
+    for (const invoiceItem of invoiceData) {
+      const matches = findMatches(invoiceItem, posOnly, optionsWithType);
+      
+      if (matches.length > 0) {
+        // Take the best match (highest confidence)
+        const bestMatch = matches[0];
+        matched.push(bestMatch);
+        
+        // Remove matched POS record from remaining pool
+        const index = posOnly.findIndex(pos => pos.id === bestMatch.posRecord.id);
+        if (index > -1) {
+          posOnly.splice(index, 1);
+        }
+      } else {
+        invoiceOnly.push(invoiceItem);
+      }
     }
   }
 
@@ -293,6 +320,43 @@ async function performReconciliation(
     summary,
     sessionId
   };
+}
+
+function findSkuMatch(invoiceItem: InvoiceItem, posRecords: POSSalesRecord[], options: any): MatchedItem | null {
+  if (!invoiceItem.sku) {
+    return null;
+  }
+
+  const potentialMatch = posRecords.find(pos =>
+    pos.skuNumber === invoiceItem.sku &&
+    pos.date === invoiceItem.date
+  );
+
+  if (!potentialMatch) {
+    return null;
+  }
+
+  // For SKU matching, we can assume high confidence if SKU and date match.
+  // We can also check quantity and amount for a more detailed match.
+  const quantityDiff = Math.abs(invoiceItem.quantity - potentialMatch.quantity);
+  const amountDiff = Math.abs(invoiceItem.totalAmount - potentialMatch.totalAmount);
+
+  // Consider it a match if SKU and date are the same, and quantity is exact.
+  if (quantityDiff === 0) {
+    return {
+      invoiceItem,
+      posRecord: potentialMatch,
+      matchType: 'exact',
+      confidence: 1.0,
+      variance: {
+        amountDiff,
+        quantityDiff,
+        nameSimilarity: 1.0 // N/A for SKU match
+      }
+    };
+  }
+
+  return null;
 }
 
 function findMatches(invoiceItem: InvoiceItem, posRecords: POSSalesRecord[], options: any): MatchedItem[] {

@@ -8,7 +8,8 @@ import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import type { calendar_v3 } from 'googleapis';
 
 const TIMEZONE = 'Asia/Bangkok';
-const SYNC_PERIOD_DAYS = 14; // Sync 2 weeks ahead
+const SYNC_PERIOD_DAYS = 7; // Reduced from 14 to 7 days for faster processing
+const MAX_PROCESSING_TIME = 55000; // 55 seconds max processing time
 
 interface SyncResult {
   success: boolean;
@@ -19,8 +20,10 @@ interface SyncResult {
     events_updated: number;
     events_deleted: number;
     errors: number;
+    processing_time_ms: number;
   };
   errors?: string[];
+  warnings?: string[];
 }
 
 interface DayBusyTimes {
@@ -35,7 +38,7 @@ interface BusyTimeBlock {
 }
 
 export async function POST() {
-  console.log('🗓️ Starting calendar sync job...');
+  console.log('🗓️ Starting optimized calendar sync job...');
   const startTime = Date.now();
   
   try {
@@ -51,18 +54,25 @@ export async function POST() {
         events_created: 0,
         events_updated: 0,
         events_deleted: 0,
-        errors: 0
+        errors: 0,
+        processing_time_ms: 0
       },
-      errors: []
+      errors: [],
+      warnings: []
     };
 
-    // Define sync date range (today + next 14 days)
+    // Define sync date range (today + next 7 days for faster processing)
     const today = new Date();
     const endDate = addDays(today, SYNC_PERIOD_DAYS);
     const startDateStr = format(today, 'yyyy-MM-dd');
     const endDateStr = format(endDate, 'yyyy-MM-dd');
     
-    console.log(`📅 Syncing bookings from ${startDateStr} to ${endDateStr}`);
+    console.log(`📅 Syncing bookings from ${startDateStr} to ${endDateStr} (${SYNC_PERIOD_DAYS} days)`);
+
+    // Check processing time early
+    if (Date.now() - startTime > MAX_PROCESSING_TIME) {
+      throw new Error('Sync cancelled: Processing time exceeded limit');
+    }
 
     // Get all confirmed bookings in the sync period
     const { data: bookings, error: bookingsError } = await refacSupabaseAdmin
@@ -80,6 +90,11 @@ export async function POST() {
 
     console.log(`📋 Found ${bookings?.length || 0} confirmed bookings to sync`);
 
+    // Check processing time before heavy operations
+    if (Date.now() - startTime > MAX_PROCESSING_TIME) {
+      throw new Error('Sync cancelled: Processing time exceeded after fetching bookings');
+    }
+
     // Group bookings by bay calendar and date
     const bayCalendarData: Record<string, DayBusyTimes[]> = {};
 
@@ -88,6 +103,12 @@ export async function POST() {
     
     for (const booking of bookings || []) {
       try {
+        // Check processing time during loop
+        if (Date.now() - startTime > MAX_PROCESSING_TIME) {
+          syncResult.warnings?.push('Processing time limit reached during booking processing');
+          break;
+        }
+
         if (booking.bay) {
           const bayCalendarId = getBayCalendarId(booking.bay);
           if (bayCalendarId) {
@@ -109,6 +130,12 @@ export async function POST() {
 
     // Calculate consolidated busy periods for each bay and date
     for (const [bayCalendarId, dateBookings] of Object.entries(bookingsByBayAndDate)) {
+      // Check processing time
+      if (Date.now() - startTime > MAX_PROCESSING_TIME) {
+        syncResult.warnings?.push('Processing time limit reached during period calculation');
+        break;
+      }
+
       bayCalendarData[bayCalendarId] = [];
       
       for (const [date, dayBookings] of Object.entries(dateBookings)) {
@@ -126,9 +153,15 @@ export async function POST() {
       }
     }
 
-    // Sync bay calendars
+    // Sync bay calendars with timeout checking
     for (const [calendarId, dayBusyTimes] of Object.entries(bayCalendarData)) {
       try {
+        // Check processing time before each calendar sync
+        if (Date.now() - startTime > MAX_PROCESSING_TIME) {
+          syncResult.warnings?.push(`Processing time limit reached. Stopped at calendar ${calendarId}`);
+          break;
+        }
+
         await syncCalendarDayBusyTimes(calendar, calendarId, dayBusyTimes);
         syncResult.stats.bays_processed++;
         console.log(`✅ Synced ${dayBusyTimes.length} days to bay calendar ${calendarId.substring(0, 20)}...`);
@@ -144,10 +177,15 @@ export async function POST() {
     const duration = Date.now() - startTime;
     const totalCalendars = syncResult.stats.bays_processed;
     
+    syncResult.stats.processing_time_ms = duration;
     syncResult.success = syncResult.stats.errors === 0;
     syncResult.message = syncResult.success 
       ? `Successfully synced ${totalCalendars} calendars in ${duration}ms`
       : `Completed with ${syncResult.stats.errors} errors in ${duration}ms`;
+
+    if (syncResult.warnings && syncResult.warnings.length > 0) {
+      syncResult.message += ` (${syncResult.warnings.length} warnings)`;
+    }
 
     console.log(`🎯 Calendar sync completed: ${syncResult.message}`);
     
@@ -165,15 +203,14 @@ export async function POST() {
         events_created: 0,
         events_updated: 0,
         events_deleted: 0,
-        errors: 1
+        errors: 1,
+        processing_time_ms: duration
       },
       errors: [error instanceof Error ? error.message : 'Unknown error'],
-      duration
+      warnings: []
     }, { status: 500 });
   }
 }
-
-
 
 function getBayCalendarId(bay: string): string | null {
   // Map simple bay names to calendar keys

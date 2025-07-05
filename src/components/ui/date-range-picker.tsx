@@ -77,6 +77,7 @@ export function DateRangePicker({
                   selected={startDate || undefined}
                   onSelect={(date) => onStartDateChange(date || null)}
                   disabled={(date) => endDate ? date > endDate : false}
+                  defaultMonth={startDate || endDate || new Date()}
                 />
               </div>
               <div className="space-y-2">
@@ -86,6 +87,7 @@ export function DateRangePicker({
                   selected={endDate || undefined}
                   onSelect={(date) => onEndDateChange(date || null)}
                   disabled={(date) => startDate ? date < startDate : false}
+                  defaultMonth={endDate || startDate || new Date()}
                 />
               </div>
             </div>
