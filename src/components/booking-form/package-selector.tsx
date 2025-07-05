@@ -24,11 +24,13 @@ export function PackageSelector({
   onChange,
   error
 }: PackageSelectorProps) {
-  // Determine if this is a coaching or package booking that should include inactive packages
+  // Determine if this is a coaching or package booking
   const isCoachingBooking = bookingType?.toLowerCase().includes('coaching') || false
   const isPackageBooking = bookingType === 'Package'
   
-  // Include inactive packages for both coaching and package bookings
+  // Include inactive packages for coaching and package bookings 
+  // The database function now properly filters out only expired/used packages
+  // but includes unactivated packages which can be activated on first use
   const shouldIncludeInactive = isCoachingBooking || isPackageBooking
   
   const { packages, isLoading, error: packagesError } = useCustomerPackages(
@@ -90,8 +92,23 @@ export function PackageSelector({
     }
   }
 
-  // Filter packages based on booking type
+  // Filter packages based on booking type and availability
   const filteredPackages = packages?.filter(pkg => {
+    // Check if package is usable for booking
+    const hasRemainingHours = pkg.details.remainingHours === null || pkg.details.remainingHours > 0
+    const isUnactivated = pkg.details.firstUseDate === 'Not activated' // Can be activated on first use
+    const isActivatedAndNotExpired = pkg.details.firstUseDate !== 'Not activated' && 
+                                    (pkg.details.expirationDate === 'No expiry' || 
+                                     new Date(pkg.details.expirationDate) > new Date())
+    
+    // Package is available if it's either unactivated OR (activated + not expired + has hours)
+    const isUsableForBooking = hasRemainingHours && (isUnactivated || isActivatedAndNotExpired)
+    
+    if (!isUsableForBooking) {
+      return false
+    }
+    
+    // Then filter by booking type
     if (isCoachingBooking) {
       // For coaching bookings, show coaching packages
       return pkg.details.packageTypeName.toLowerCase().includes('coaching')
@@ -99,7 +116,7 @@ export function PackageSelector({
       // For package bookings, show non-coaching packages (Monthly, Unlimited)
       return !pkg.details.packageTypeName.toLowerCase().includes('coaching')
     }
-    // For other booking types, show all packages
+    // For other booking types, show all usable packages
     return true
   }) || []
 
