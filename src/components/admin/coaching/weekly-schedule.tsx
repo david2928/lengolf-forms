@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,12 @@ export function WeeklySchedule({
   onCurrentWeek,
   onSlotHover
 }: WeeklyScheduleProps) {
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const dayNames = getDayNames();
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    setMousePosition({ x: e.clientX, y: e.clientY });
+  };
 
   const filteredCoaches = coaches.filter(coach => 
     selectedCoach === 'all' || coach.coach_id === selectedCoach
@@ -58,13 +64,13 @@ export function WeeklySchedule({
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => onWeekNavigate('prev')}>
+            <Button type="button" variant="outline" size="sm" onClick={() => onWeekNavigate('prev')}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={onCurrentWeek}>
+            <Button type="button" variant="outline" size="sm" onClick={onCurrentWeek}>
               Current Week
             </Button>
-            <Button variant="outline" size="sm" onClick={() => onWeekNavigate('next')}>
+            <Button type="button" variant="outline" size="sm" onClick={() => onWeekNavigate('next')}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -114,13 +120,19 @@ export function WeeklySchedule({
                           className="p-3 text-center relative"
                           onMouseEnter={() => onSlotHover(slotId)}
                           onMouseLeave={() => onSlotHover(null)}
+                          onMouseMove={handleMouseMove}
                         >
                           <div className="bg-gray-100 rounded-lg p-2 border border-gray-200">
                             <div className="text-xs text-gray-500">No Data</div>
                           </div>
                           {/* Hover Details for No Data */}
                           {hoveredSlot === slotId && (
-                            <div className="absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 mb-2 bottom-full left-1/2 transform -translate-x-1/2 min-w-48 max-w-64">
+                            <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-48 max-w-64 pointer-events-none" 
+                                 style={{
+                                   left: Math.min(mousePosition.x, window.innerWidth - 256) + 'px',
+                                   top: Math.max(mousePosition.y - 120, 10) + 'px',
+                                   transform: 'translateX(-50%)'
+                                 }}>
                               <div className="text-sm font-medium mb-2">
                                 {coach.coach_display_name} - {formatDate(date)}
                               </div>
@@ -142,6 +154,7 @@ export function WeeklySchedule({
                         className="p-3 text-center relative"
                         onMouseEnter={() => onSlotHover(slotId)}
                         onMouseLeave={() => onSlotHover(null)}
+                        onMouseMove={handleMouseMove}
                       >
                         <div className={`rounded-lg p-3 border transition-all duration-200 cursor-pointer ${getAvailabilityStatusColor(dayData.status)}`}>
                           <div className="flex items-center justify-center gap-1 mb-2">
@@ -166,13 +179,18 @@ export function WeeklySchedule({
 
                           {/* Hover Details */}
                           {hoveredSlot === slotId && (
-                            <div className="absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 mb-2 bottom-full left-1/2 transform -translate-x-1/2 min-w-48 max-w-64">
+                            <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-48 max-w-64 pointer-events-none"
+                                 style={{
+                                   left: Math.min(mousePosition.x, window.innerWidth - 256) + 'px',
+                                   top: Math.max(mousePosition.y - 120, 10) + 'px',
+                                   transform: 'translateX(-50%)'
+                                 }}>
                               <div className="text-sm font-medium mb-2">
                                 {coach.coach_display_name} - {formatDate(date)}
                               </div>
                               {dayData.slots && dayData.slots.length > 0 ? (
-                                <div className="space-y-1 max-h-32 overflow-y-auto">
-                                  {dayData.slots.slice(0, 6).map(slot => (
+                                <div className="space-y-1">
+                                  {dayData.slots.slice(0, 4).map(slot => (
                                     <div 
                                       key={slot.start_time}
                                       className={`flex justify-between text-xs p-1 rounded ${
@@ -183,9 +201,9 @@ export function WeeklySchedule({
                                       <span>{slot.is_booked ? 'Booked' : 'Available'}</span>
                                     </div>
                                   ))}
-                                  {dayData.slots.length > 6 && (
+                                  {dayData.slots.length > 4 && (
                                     <div className="text-xs text-gray-500 text-center">
-                                      +{dayData.slots.length - 6} more slots
+                                      +{dayData.slots.length - 4} more slots
                                     </div>
                                   )}
                                 </div>

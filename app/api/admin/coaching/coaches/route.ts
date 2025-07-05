@@ -10,13 +10,8 @@ const supabase = createClient(
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔧 COACHING API: GET request received');
-    console.log('🔧 Auth header:', request.headers.get('Authorization'));
-    console.log('🔧 NODE_ENV:', process.env.NODE_ENV);
-    
     // Get session using our dev-session wrapper
     const session = await getDevSession(authOptions, request);
-    console.log('🔧 Session result:', session ? 'SUCCESS' : 'NULL');
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -26,7 +21,6 @@ export async function GET(request: NextRequest) {
     if (process.env.NODE_ENV === 'development') {
       // In development, trust the JWT token's isAdmin field or bypass entirely
       isAdmin = session.user.isAdmin || true; // Allow all authenticated users in dev
-      console.log('🔧 Development mode: Admin check bypassed for user:', session.user.email);
     } else {
       // Production: Check database for admin status
       const { data: user, error: userError } = await supabase
@@ -149,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     // Admin check with development bypass
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔧 Development mode: Admin check bypassed for POST');
+      // Development mode: Admin check bypassed
     } else {
       // Production: Check database for admin status
       const { data: user, error: userError } = await supabase

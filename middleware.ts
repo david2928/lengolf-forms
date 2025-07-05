@@ -4,13 +4,6 @@ import type { NextFetchEvent } from 'next/server';
 
 // Custom middleware that completely bypasses auth in development
 function customMiddleware(request: NextRequest, event: NextFetchEvent) {
-  console.log('🔧 Middleware called for:', request.nextUrl.pathname);
-  console.log('🔧 Environment check:', {
-    NODE_ENV: process.env.NODE_ENV,
-    SKIP_AUTH: process.env.SKIP_AUTH,
-    VERCEL_ENV: process.env.VERCEL_ENV
-  });
-  
   // Development bypass - skip all auth checks
   const shouldBypass = (
     process.env.NODE_ENV === 'development' &&
@@ -18,13 +11,10 @@ function customMiddleware(request: NextRequest, event: NextFetchEvent) {
   );
   
   if (shouldBypass) {
-    console.log('🔧 Development middleware: Complete auth bypass active');
     const response = NextResponse.next();
     response.headers.set('x-pathname', request.nextUrl.pathname);
     return response;
   }
-
-  console.log('🔧 Using production auth middleware');
 
   // Production - use NextAuth middleware
   return withAuth(

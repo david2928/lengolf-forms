@@ -17,8 +17,6 @@ export function createDevAwareMiddleware() {
     function middleware(req: NextRequest & { nextauth?: any }) {
       // Development bypass check
       if (isDevAuthBypassEnabled()) {
-        console.log('🔧 Development middleware bypass active');
-        
         // Create response with mock session headers
         const response = NextResponse.next();
         response.headers.set('x-pathname', req.nextUrl.pathname);
@@ -50,7 +48,6 @@ export function createDevAwareMiddleware() {
         authorized: ({ token, req }) => {
           // Development bypass
           if (isDevAuthBypassEnabled()) {
-            console.log('🔧 Development auth bypass: Authorization granted');
             return true;
           }
 
@@ -77,7 +74,6 @@ export async function getSessionWithDevBypass(
   getServerSessionFn: () => Promise<any>
 ): Promise<any> {
   if (isDevAuthBypassEnabled()) {
-    console.log('🔧 Development session bypass: Using mock session');
     return createMockSession();
   }
 

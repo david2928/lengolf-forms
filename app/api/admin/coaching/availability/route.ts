@@ -49,8 +49,10 @@ export async function GET(request: NextRequest) {
 
     // OPTIMIZATION: Get all data in batch queries to reduce API calls
     const coachIds = (coaches || []).map(c => c.id);
-    const today = new Date().toLocaleDateString('en-CA');
-    const todayDayOfWeek = new Date().getDay();
+    // Use the selected date or today if no specific date range is provided
+    const targetDate = fromDate || selectedDate;
+    const today = targetDate || new Date().toLocaleDateString('en-CA');
+    const todayDayOfWeek = new Date(today).getDay();
     
     // Batch fetch all availability data
     const [weeklySchedulesResult, dateOverridesResult, recurringBlocksResult, todayBookingsResult, allStudentBookingsResult] = await Promise.all([
@@ -140,14 +142,14 @@ export async function GET(request: NextRequest) {
         coach_name: coach.coach_display_name || coach.coach_name,
         next_available: nextAvailable,
         duration_available: Math.max(0, availableHoursActual - bookedHours),
-        is_available_today: isAvailableToday && (availableHoursActual - bookedHours) > 0,
+        is_available_today: isAvailableToday,
         total_students: uniqueStudents,
         utilization_rate: realUtilizationRate
       };
     });
 
     // OPTIMIZATION: Generate weekly schedule data more efficiently
-    const weeklyAvailability: { [date: string]: { [coachId: string]: string } } = {};
+    const weeklyAvailability: { [date: string]: { [coachId: string]: any } } = {};
     
     // Determine date range to process
     let weekDates = [];
@@ -275,9 +277,23 @@ export async function GET(request: NextRequest) {
         // IMPORTANT: If no schedule exists (not dateOverride and not weeklySchedule), show as unavailable
         if (!dateOverride && !weeklySchedule) {
           // No availability configured for this coach on this day
-          weeklyAvailability[dayString][coach.id] = 'unavailable';
+          weeklyAvailability[dayString][coach.id] = {
+            status: 'unavailable',
+            start_time: null,
+            end_time: null,
+            available_hours: 0,
+            booked_hours: 0,
+            bookings: []
+          };
         } else if (!isCoachAvailable || availableHours === 0) {
-          weeklyAvailability[dayString][coach.id] = 'unavailable';
+          weeklyAvailability[dayString][coach.id] = {
+            status: 'unavailable',
+            start_time: null,
+            end_time: null,
+            available_hours: 0,
+            booked_hours: 0,
+            bookings: []
+          };
         } else {
           // Determine status
           let status = 'available';
@@ -289,12 +305,14 @@ export async function GET(request: NextRequest) {
 
           // Include schedule information
           const schedule = dateOverride ? {
+            status,
             start_time: dateOverride.start_time,
             end_time: dateOverride.end_time,
             available_hours: availableHours,
             booked_hours: totalBookedHours,
             bookings: dayBookings.map(b => ({ start_time: b.start_time, duration: b.duration }))
           } : {
+            status,
             start_time: weeklySchedule.start_time,
             end_time: weeklySchedule.end_time,
             available_hours: availableHours,
@@ -302,7 +320,7 @@ export async function GET(request: NextRequest) {
             bookings: dayBookings.map(b => ({ start_time: b.start_time, duration: b.duration }))
           };
 
-          weeklyAvailability[dayString][coach.id] = status;
+          weeklyAvailability[dayString][coach.id] = schedule;
         }
       }
     });

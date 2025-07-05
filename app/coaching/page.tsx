@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UserCog } from 'lucide-react';
 import { StudentsModal } from '@/components/coaching/StudentsModal';
@@ -122,6 +121,17 @@ export default function CoachDashboard() {
   }
 
   const { coach, earnings, monthly_earnings, upcoming_sessions, isAdminView, availableCoaches, recent_bookings } = dashboardData;
+  
+  if (!coach) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900">Coach Not Found</h1>
+          <p className="text-gray-600 mt-2">Unable to load coach information</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-gray-50 p-6">

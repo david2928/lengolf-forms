@@ -75,7 +75,11 @@ export const navigateWeek = (selectedWeek: Date, direction: 'prev' | 'next') => 
 export const goToCurrentWeek = () => {
   const today = new Date();
   const monday = new Date(today);
-  monday.setDate(today.getDate() - today.getDay() + 1);
+  // If today is Sunday (day 0), we want to show the week that just ended
+  // Otherwise, show the week that contains today
+  const dayOfWeek = today.getDay();
+  const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  monday.setDate(today.getDate() - daysToSubtract);
   return monday;
 };
 

@@ -30,9 +30,17 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
   const [groupedSlots, setGroupedSlots] = useState<GroupedAvailableSlots>({});
   const [coachGroupedSlots, setCoachGroupedSlots] = useState<CoachGroupedSlots>({});
 
+  // Initial load - fetch coaches and package data
   useEffect(() => {
-    fetchData();
-  }, [selectedWeek, selectedStartDate, selectedEndDate]);
+    fetchStaticData();
+  }, []);
+
+  // Fetch availability data when week/date selection changes
+  useEffect(() => {
+    if (coaches.length > 0) {
+      fetchAvailabilityData();
+    }
+  }, [selectedWeek, selectedStartDate, selectedEndDate, coaches]);
 
   useEffect(() => {
     if (coaches.length > 0) {
@@ -61,22 +69,43 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
     }
   };
 
-  const fetchData = async () => {
+  const fetchStaticData = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // First fetch coaches data
-      const coachesRes = await fetch('/api/admin/coaching/coaches');
-      let coachesData = [];
+      // Fetch coaches and package data that doesn't change with week selection
+      const [coachesRes, packageHoursRes] = await Promise.all([
+        fetch('/api/admin/coaching/coaches'),
+        fetch('/api/admin/coaching/package-hours')
+      ]);
       
       if (coachesRes.ok) {
         const data = await coachesRes.json();
-        coachesData = data.coaches || [];
-        setCoaches(coachesData);
+        setCoaches(data.coaches || []);
       }
 
-      // Then fetch availability and package data in parallel
+      if (packageHoursRes.ok) {
+        const packageData = await packageHoursRes.json();
+        setPackageHoursRemaining(packageData.total_hours_remaining || 0);
+      }
+
+    } catch (error) {
+      console.error('Error fetching static data:', error);
+      setError('Failed to load coaching data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAvailabilityData = async () => {
+    try {
+      // Only show loading for initial load, not for week changes
+      if (Object.keys(weeklySchedule).length === 0) {
+        setLoading(true);
+      }
+      setError(null);
+      
       const startDateStr = selectedStartDate.toLocaleDateString('en-CA');
       const endDateStr = selectedEndDate.toLocaleDateString('en-CA');
       const weekStr = selectedWeek.toLocaleDateString('en-CA');
@@ -87,24 +116,16 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
       
       console.log('Fetching availability with URL:', availabilityUrl);
       
-      const [availabilityRes, packageHoursRes] = await Promise.all([
-        fetch(availabilityUrl),
-        fetch('/api/admin/coaching/package-hours')
-      ]);
+      const availabilityRes = await fetch(availabilityUrl);
 
       if (availabilityRes.ok) {
         const availabilityData = await availabilityRes.json();
-        processAvailabilityData(availabilityData, coachesData);
-      }
-
-      if (packageHoursRes.ok) {
-        const packageData = await packageHoursRes.json();
-        setPackageHoursRemaining(packageData.total_hours_remaining || 0);
+        processAvailabilityData(availabilityData, coaches);
       }
 
     } catch (error) {
-      console.error('Error fetching data:', error);
-      setError('Failed to load coaching data');
+      console.error('Error fetching availability data:', error);
+      setError('Failed to load availability data');
     } finally {
       setLoading(false);
     }
@@ -129,7 +150,7 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
           
           // Handle both old format (string) and new format (object)
           const status = typeof availabilityData === 'string' ? availabilityData : availabilityData.status;
-          const coachSchedule = typeof availabilityData === 'object' ? availabilityData.schedule : null;
+          const coachSchedule = typeof availabilityData === 'object' ? availabilityData : null;
           
           if (coach) {
             // Generate time slots based on the coach's availability status
@@ -243,35 +264,15 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
 
   const generateTimeSlotsForDate = (coach: Coach, dateString: string, status: string): AvailableSlot[] => {
     const slots: AvailableSlot[] = [];
-    const timeSlots = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
     
-    // Only generate slots if coach has some availability
-    if (status !== 'unavailable') {
-      timeSlots.forEach(time => {
-        // Determine if slot is booked based on status
-        let isBooked = false;
-        if (status === 'fully_booked') {
-          isBooked = true;
-        } else if (status === 'partially_booked') {
-          // For partially booked, randomly assign some slots as booked
-          isBooked = Math.random() > 0.5;
-        }
-        // For 'available' status, isBooked remains false
-        
-        slots.push({
-          coach_id: coach.coach_id,
-          coach_name: coach.coach_display_name,
-          date: dateString,
-          start_time: time,
-          end_time: `${parseInt(time.split(':')[0]) + 1}:00`,
-          duration_hours: 1,
-          is_today: dateString === new Date().toLocaleDateString('en-CA'),
-          is_booked: isBooked,
-          booking_customer: isBooked ? 'Student' : undefined
-        });
-      });
+    // Don't generate any slots for unavailable status
+    if (status === 'unavailable') {
+      return slots;
     }
 
+    // If we don't have schedule data, we can't generate accurate slots
+    // Return empty array to avoid showing incorrect time slots
+    console.warn(`No schedule data available for coach ${coach.coach_display_name} on ${dateString}`);
     return slots;
   };
 
@@ -331,6 +332,11 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
     coachesWithoutSchedule,
     groupedSlots,
     coachGroupedSlots,
-    refetch: fetchData
+    refetch: () => {
+      fetchStaticData();
+      if (coaches.length > 0) {
+        fetchAvailabilityData();
+      }
+    }
   };
 }

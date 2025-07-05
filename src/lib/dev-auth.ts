@@ -29,8 +29,6 @@ export function isDevAuthBypassEnabledMiddleware(): boolean {
   const notProd = process.env.VERCEL_ENV !== 'production';
   const skipAuth = process.env.SKIP_AUTH === 'true';
   
-  console.log('🔧 Middleware auth check:', { isDev, notProd, skipAuth });
-  
   return isDev && notProd && skipAuth;
 }
 
@@ -83,7 +81,6 @@ export async function getDevSessionWithBypass(
 ): Promise<Session | null> {
   // If development bypass is enabled, return mock session
   if (isDevAuthBypassEnabled()) {
-    console.log('🔧 Development auth bypass: Using mock session');
     return createMockSession();
   }
 

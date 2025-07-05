@@ -17,16 +17,16 @@ export default function CoachingDashboard() {
   const [selectedCoach, setSelectedCoach] = useState<string>('all');
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<Date>(() => {
-    const today = new Date();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - today.getDay() + 1);
-    return monday;
+    return goToCurrentWeek();
   });
-  const [selectedStartDate, setSelectedStartDate] = useState<Date>(new Date());
+  const [selectedStartDate, setSelectedStartDate] = useState<Date>(() => {
+    return goToCurrentWeek();
+  });
   const [selectedEndDate, setSelectedEndDate] = useState<Date>(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 21);
-    return date;
+    const startDate = goToCurrentWeek();
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 21);
+    return endDate;
   });
 
   const {
@@ -48,11 +48,19 @@ export default function CoachingDashboard() {
   const weekDates = generateWeekDates(selectedWeek);
 
   const handleWeekNavigate = (direction: 'prev' | 'next') => {
-    setSelectedWeek(navigateWeek(selectedWeek, direction));
+    const newWeek = navigateWeek(selectedWeek, direction);
+    // Only update if the date actually changed
+    if (newWeek.getTime() !== selectedWeek.getTime()) {
+      setSelectedWeek(newWeek);
+    }
   };
 
   const handleCurrentWeek = () => {
-    setSelectedWeek(goToCurrentWeek());
+    const currentWeek = goToCurrentWeek();
+    // Only update if we're not already on the current week
+    if (currentWeek.getTime() !== selectedWeek.getTime()) {
+      setSelectedWeek(currentWeek);
+    }
   };
 
   const handleNewBooking = () => {
@@ -61,15 +69,15 @@ export default function CoachingDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-full py-20">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-full bg-gray-50">
+      <div className="container mx-auto px-4 py-4">
         <CoachingDashboardHeader onNewBooking={handleNewBooking} />
 
         {error && (
