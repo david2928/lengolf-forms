@@ -16,7 +16,7 @@ interface ReconciliationTypeSelectorProps {
 
 const reconciliationTypes = [
   {
-    id: 'restaurant',
+    id: 'smith_and_co_restaurant',
     label: 'Restaurant Reconciliation',
     description: 'Match restaurant invoice with POS sales data (items with SKU numbers)',
     icon: ChefHat,

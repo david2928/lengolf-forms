@@ -28,6 +28,7 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 - **[Transaction Management](./features/TRANSACTION_MANAGEMENT.md)** - Professional POS transaction management with TanStack Table, advanced filtering, sorting, Thailand timezone handling, and modern UI design
 - **[POS Data Pipeline](./features/POS_DATA_PIPELINE.md)** - Complete data flow from external POS systems through staging to production tables, ETL functions, and BigQuery compatibility
 - **[Native Availability System](./features/NATIVE_AVAILABILITY_SYSTEM.md)** - Supabase-native availability checking with real-time updates, 10-40x performance improvement, and zero external dependencies
+- **[Coaching System](./features/COACHING_SYSTEM.md)** - Comprehensive golf coaching management with coach dashboards, admin booking assistant, availability management, student tracking, and earnings analytics
 
 ### Feature Documentation (Implemented)
 - **[Customer Management](./features/CUSTOMER_MANAGEMENT.md)** - Complete customer lifecycle with CRM integration, VIP management, profile linking, and data synchronization
@@ -37,7 +38,10 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 
 ### Technical Documentation (Implemented)
 - **[API Reference](./api/API_REFERENCE.md)** - Complete API endpoint documentation with request/response examples, error handling, and rate limiting
+- **[Coaching API Reference](./api/COACHING_API_REFERENCE.md)** - Detailed documentation for all coaching-related API endpoints with examples and response structures
 - **[Authentication System](./technical/AUTHENTICATION_SYSTEM.md)** - NextAuth.js v5 implementation with Google OAuth, role-based access control, and session management
+- **[Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md)** - Comprehensive development authentication bypass system with Bearer tokens, frontend bypass, and production safety
+- **[Coaching System Technical](./technical/COACHING_SYSTEM_TECHNICAL.md)** - Technical implementation details, architecture, performance optimizations, and development setup for the coaching system
 
 ### Integration Documentation (Implemented)
 - **[LINE Messaging Integration](./integrations/LINE_MESSAGING_INTEGRATION.md)** - Complete LINE API integration with multi-group messaging, automated notifications, error handling, and webhook management
@@ -102,11 +106,12 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 
 ## 🚀 Quick Start Navigation
 
-- **New Developers**: [Project Structure](./PROJECT_STRUCTURE.md) → [Backend Documentation](./BACKEND_DOCUMENTATION.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
+- **New Developers**: [Project Structure](./PROJECT_STRUCTURE.md) → [Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md) → [Backend Documentation](./BACKEND_DOCUMENTATION.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
 - **System Administrators**: [Admin Panel](./features/ADMIN_PANEL.md) → [Database Schema](./technical/DATABASE_SCHEMA.md) → [Customer Management](./features/CUSTOMER_MANAGEMENT.md)
 - **Business Users**: [Booking System](./features/BOOKING_SYSTEM.md) → [Package Management](./features/PACKAGE_MANAGEMENT.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
+- **Coaches**: [Coaching System](./features/COACHING_SYSTEM.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
 - **Operations Managers**: [Inventory Dashboard](./features/INVENTORY_DASHBOARD.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Inventory Management](./features/INVENTORY_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
-- **Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [Calendar Integration](./features/CALENDAR_INTEGRATION.md)
+- **Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [Calendar Integration](./features/CALENDAR_INTEGRATION.md)
 
 ## 📝 Documentation Standards
 
@@ -126,11 +131,11 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 **Focus**: Current system state documentation  
 
 ### ✅ What's Fully Documented
-- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management, invoice management, transaction management
-- **Technical Systems**: Authentication, database schema, API endpoints, POS data pipeline
+- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management, invoice management, transaction management, coaching system
+- **Technical Systems**: Authentication, database schema, API endpoints, POS data pipeline, coaching system technical architecture
 - **Integrations**: LINE messaging, Google Calendar, CRM synchronization  
-- **Special Features**: Inventory management, US Open scoring system, professional invoicing, TanStack Table implementation
-- **Architecture**: Project structure, backend/frontend organization
+- **Special Features**: Inventory management, US Open scoring system, professional invoicing, TanStack Table implementation, coaching availability management
+- **Architecture**: Project structure, backend/frontend organization, coaching system component architecture
 
 ### 📝 Practical Documentation Needed
 1. **Development Setup** - Environment configuration and dependencies

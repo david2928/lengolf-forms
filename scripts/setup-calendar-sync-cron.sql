@@ -31,7 +31,7 @@ ORDER BY jobid;
 -- ==========================================
 
 -- Create function to make HTTP requests to our calendar sync API
--- Following the pattern from existing sales sync automation
+-- Using async mode to avoid blocking database connection
 CREATE OR REPLACE FUNCTION public.http_post_calendar_sync(
   url text,
   headers jsonb DEFAULT '{}'::jsonb,
@@ -42,27 +42,83 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  request_id int;
-  response jsonb;
-  timeout_seconds int := 300; -- 5 minutes timeout for calendar sync
+  request_id bigint;
+  response net.http_response_result;
+  timeout_ms int := 60000; -- 1 minute timeout to stay under statement_timeout
 BEGIN
   -- Use pg_net extension for HTTP requests (available in Supabase)
   SELECT net.http_post(
     url := url,
+    body := data,
+    params := '{}'::jsonb,
     headers := headers,
-    body := data::text
+    timeout_milliseconds := timeout_ms
   ) INTO request_id;
   
-  -- Wait for response with timeout
-  SELECT net.http_get_result(request_id, timeout_seconds) INTO response;
+  -- Wait for response (synchronous, but with shorter timeout)
+  SELECT net.http_collect_response(request_id, false) INTO response;
   
-  RETURN response;
+  -- Check if the request was successful
+  IF response.status = 'SUCCESS' THEN
+    RETURN jsonb_build_object(
+      'status', response.status,
+      'status_code', (response.response).status_code,
+      'content', (response.response).content::text::jsonb
+    );
+  ELSE
+    RETURN jsonb_build_object(
+      'error', true,
+      'status', response.status,
+      'message', response.message
+    );
+  END IF;
+  
 EXCEPTION
   WHEN OTHERS THEN
     RETURN jsonb_build_object(
       'error', true,
       'message', SQLERRM,
-      'detail', 'HTTP request failed'
+      'detail', 'HTTP request failed with exception'
+    );
+END;
+$$;
+
+-- Create an async version that just triggers the sync without waiting
+CREATE OR REPLACE FUNCTION public.http_post_calendar_sync_async(
+  url text,
+  headers jsonb DEFAULT '{}'::jsonb,
+  data jsonb DEFAULT '{}'::jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  request_id bigint;
+BEGIN
+  -- Use pg_net extension for HTTP requests (available in Supabase)
+  SELECT net.http_post(
+    url := url,
+    body := data,
+    params := '{}'::jsonb,
+    headers := headers,
+    timeout_milliseconds := 120000 -- 2 minutes, but async
+  ) INTO request_id;
+  
+  -- Return immediately without waiting for response
+  RETURN jsonb_build_object(
+    'success', true,
+    'message', 'Calendar sync triggered asynchronously',
+    'request_id', request_id,
+    'url', url
+  );
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(
+      'error', true,
+      'message', SQLERRM,
+      'detail', 'Failed to trigger async HTTP request'
     );
 END;
 $$;
@@ -74,7 +130,7 @@ GRANT EXECUTE ON FUNCTION public.http_post_calendar_sync(text, jsonb, jsonb) TO 
 -- 3. CREATE CALENDAR SYNC TRIGGER FUNCTION  
 -- ==========================================
 
--- Main function that will be called by pg_cron
+-- Main function that will be called by pg_cron (async version)
 CREATE OR REPLACE FUNCTION public.trigger_calendar_sync()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -101,9 +157,82 @@ BEGIN
   api_endpoint := app_url || '/api/admin/calendar-sync';
   
   -- Log the sync attempt
-  RAISE NOTICE 'Calendar Sync: Calling API endpoint: %', api_endpoint;
+  RAISE NOTICE 'Calendar Sync: Triggering async sync to endpoint: %', api_endpoint;
   
-  -- Make HTTP POST request to trigger calendar sync
+  -- Make async HTTP POST request to trigger calendar sync
+  SELECT public.http_post_calendar_sync_async(
+    api_endpoint,
+    '{"Content-Type": "application/json"}'::jsonb,
+    '{}'::jsonb
+  ) INTO sync_response;
+  
+  end_time := clock_timestamp();
+  duration_ms := extract(epoch from (end_time - start_time)) * 1000;
+  
+  -- Log the result
+  IF sync_response->>'error' = 'true' THEN
+    RAISE WARNING 'Calendar Sync Trigger Failed: % (Duration: %ms)', sync_response->>'message', duration_ms;
+  ELSE
+    RAISE NOTICE 'Calendar Sync Triggered: % (Duration: %ms)', sync_response->>'message', duration_ms;
+  END IF;
+  
+  -- Return the response with timing information
+  RETURN jsonb_build_object(
+    'success', sync_response->>'error' != 'true',
+    'response', sync_response,
+    'duration_ms', duration_ms,
+    'timestamp', start_time,
+    'endpoint', api_endpoint,
+    'mode', 'async'
+  );
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    end_time := clock_timestamp();
+    duration_ms := extract(epoch from (end_time - start_time)) * 1000;
+    
+    RAISE WARNING 'Calendar Sync Trigger Exception: % (Duration: %ms)', SQLERRM, duration_ms;
+    
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', SQLERRM,
+      'duration_ms', duration_ms,
+      'timestamp', start_time,
+      'endpoint', api_endpoint,
+      'mode', 'async'
+    );
+END;
+$$;
+
+-- Synchronous version for manual testing (use with caution)
+CREATE OR REPLACE FUNCTION public.trigger_calendar_sync_sync()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  sync_response jsonb;
+  app_url text;
+  api_endpoint text;
+  start_time timestamptz;
+  end_time timestamptz;
+  duration_ms int;
+BEGIN
+  start_time := clock_timestamp();
+  
+  -- Get the application URL from environment or use default
+  app_url := coalesce(
+    current_setting('app.base_url', true),
+    'https://lengolf-forms.vercel.app',
+    'http://localhost:3000'
+  );
+  
+  api_endpoint := app_url || '/api/admin/calendar-sync';
+  
+  -- Log the sync attempt
+  RAISE NOTICE 'Calendar Sync: Calling sync endpoint (synchronous): %', api_endpoint;
+  
+  -- Make synchronous HTTP POST request (shorter timeout)
   SELECT public.http_post_calendar_sync(
     api_endpoint,
     '{"Content-Type": "application/json"}'::jsonb,
@@ -126,7 +255,8 @@ BEGIN
     'response', sync_response,
     'duration_ms', duration_ms,
     'timestamp', start_time,
-    'endpoint', api_endpoint
+    'endpoint', api_endpoint,
+    'mode', 'sync'
   );
   
 EXCEPTION
@@ -141,13 +271,15 @@ EXCEPTION
       'error', SQLERRM,
       'duration_ms', duration_ms,
       'timestamp', start_time,
-      'endpoint', api_endpoint
+      'endpoint', api_endpoint,
+      'mode', 'sync'
     );
 END;
 $$;
 
 -- Grant execute permission
 GRANT EXECUTE ON FUNCTION public.trigger_calendar_sync() TO postgres;
+GRANT EXECUTE ON FUNCTION public.trigger_calendar_sync_sync() TO postgres;
 
 -- ==========================================
 -- 4. CREATE pg_cron JOB

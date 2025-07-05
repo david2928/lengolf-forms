@@ -1,6 +1,13 @@
 import { refacSupabaseAdmin } from './refac-supabase';
+import { isDevAuthBypassEnabled } from './dev-auth';
 
 export async function isUserAllowed(email: string | null | undefined): Promise<boolean> {
+  // Development auth bypass
+  if (isDevAuthBypassEnabled()) {
+    console.log(`🔧 Development auth bypass: Access granted for ${email || 'anonymous'}`);
+    return true;
+  }
+
   if (!email) return false;
   
   try {
@@ -29,6 +36,12 @@ export async function isUserAllowed(email: string | null | undefined): Promise<b
 }
 
 export async function isUserAdmin(email: string | null | undefined): Promise<boolean> {
+  // Development auth bypass - always grant admin in development
+  if (isDevAuthBypassEnabled()) {
+    console.log(`🔧 Development auth bypass: Admin access granted for ${email || 'anonymous'}`);
+    return true;
+  }
+
   if (!email) return false;
   
   try {

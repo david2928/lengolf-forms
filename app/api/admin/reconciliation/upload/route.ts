@@ -19,29 +19,42 @@ interface ParsedInvoiceData {
 
 interface InvoiceItem {
   id: string;
-  date: string;           // YYYY-MM-DD format
+  date: string;
   customerName: string;
-  productType?: string;   // Golf lesson type, menu item, etc.
+  productType?: string;
   quantity: number;
   unitPrice: number;
   totalAmount: number;
   notes?: string;
-  rawData: Record<string, any>;  // Original parsed row
+  rawData: Record<string, any>;
+  sku?: string;
 }
 
 // Configuration for different reconciliation types
 const PARSING_CONFIGS = {
   restaurant: {
     expectedColumns: {
-      date: ['Date', 'Transaction Date', 'Order Date', 'date'],
-      customer: ['Customer', 'Customer Name', 'Name', 'customer_name'],
-      product: ['Item', 'Product', 'Description', 'Product Name', 'product_name'],
-      quantity: ['Qty', 'Quantity', 'Amount', 'quantity'],
-      amount: ['Total', 'Amount', 'Price', 'Total Amount', 'total_amount', 'item_price_incl_vat'],
+      date: ['Date', 'Transaction Date', 'Order Date', 'date', 'วันที่'],
+      customer: ['Customer', 'Customer Name', 'Name', 'customer_name', 'สาขา'],
+      product: ['Item', 'Product', 'Description', 'Product Name', 'product_name', 'ชื่อสินค้า', 'หมวดสินค้า'],
+      quantity: ['Qty', 'Quantity', 'Amount', 'quantity', 'จำนวนการขาย'],
+      amount: ['Total', 'Amount', 'Price', 'Total Amount', 'total_amount', 'item_price_incl_vat', 'ราคาสุทธิ'],
       unitPrice: ['Unit Price', 'Per Item', 'Price Each', 'unit_price']
     },
     dateFormats: ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD', 'DD-MM-YYYY'],
     currencySymbols: ['฿', 'THB', '$', '€', '£']
+  },
+  smith_and_co_restaurant: {
+    expectedColumns: {
+      date: ['Date', 'Transaction Date', 'Order Date', 'date', 'วันที่'],
+      customer: ['สาขา'],
+      product: ['Item', 'Product', 'Description', 'Product Name', 'product_name', 'ชื่อสินค้า'],
+      quantity: ['Qty', 'Quantity', 'Amount', 'quantity', 'จำนวนการขาย'],
+      amount: ['Total', 'Amount', 'Price', 'Total Amount', 'total_amount', 'ราคาสุทธิ'],
+      unitPrice: ['Unit Price', 'Per Item', 'Price Each', 'unit_price']
+    },
+    dateFormats: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'],
+    currencySymbols: ['฿', 'THB']
   },
   golf_coaching_ratchavin: {
     expectedColumns: {
@@ -71,13 +84,11 @@ const PARSING_CONFIGS = {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check admin authentication
     const session = await getServerSession(authOptions);
     if (!session?.user?.email || !session.user.isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Parse form data
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const reconciliationType = formData.get('reconciliationType') as string;
@@ -92,7 +103,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid reconciliation type' }, { status: 400 });
     }
 
-    // Validate file type
     const fileName = file.name.toLowerCase();
     const isCSV = fileName.endsWith('.csv');
     const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
@@ -103,19 +113,16 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate file size (10MB limit)
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json({ 
         error: 'File too large. Maximum size is 10MB.' 
       }, { status: 400 });
     }
 
-    // Parse file based on type
     let parsedData: ParsedInvoiceData;
     const config = PARSING_CONFIGS[reconciliationType as keyof typeof PARSING_CONFIGS];
 
-    // Debug configuration
     console.log('Processing reconciliation type:', reconciliationType);
 
     if (!config) {
@@ -125,12 +132,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (isCSV) {
-      parsedData = await parseCSVFile(file, config);
+      parsedData = await parseCSVFile(file, config, reconciliationType);
     } else {
-      parsedData = await parseExcelFile(file, config);
+      parsedData = await parseExcelFile(file, config, reconciliationType);
     }
 
-    // Auto-detect date range from invoice data if not provided
     let autoDetectedDateRange: { start: string; end: string } | null = null;
     if (parsedData.items.length > 0) {
       const dates = parsedData.items.map(item => item.date).sort();
@@ -140,7 +146,6 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Filter data by date range if manually provided
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
@@ -150,16 +155,15 @@ export async function POST(request: NextRequest) {
         return itemDate >= start && itemDate <= end;
       });
       
-      // Update summary
       parsedData.summary.totalItems = parsedData.items.length;
       parsedData.summary.totalAmount = parsedData.items.reduce((sum, item) => sum + item.totalAmount, 0);
     }
 
-    // Create preview (first 10 rows)
     parsedData.preview = parsedData.items.slice(0, 10).map(item => ({
       Date: item.date,
       Customer: item.customerName,
       Product: item.productType || 'N/A',
+      SKU: item.sku || 'N/A',
       Quantity: item.quantity,
       'Unit Price': item.unitPrice,
       'Total Amount': item.totalAmount
@@ -181,12 +185,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function parseCSVFile(file: File, config: any): Promise<ParsedInvoiceData> {
+async function parseCSVFile(file: File, config: any, reconciliationType: string): Promise<ParsedInvoiceData> {
   const text = await file.text();
   const parseErrors: string[] = [];
   
   try {
-    // First, parse without headers to find the actual data table
     const allRows = parse(text, {
       columns: false,
       skip_empty_lines: true,
@@ -197,7 +200,6 @@ async function parseCSVFile(file: File, config: any): Promise<ParsedInvoiceData>
 
     console.log('Total CSV rows parsed:', allRows.length);
 
-    // Find the header row (look for rows with column names like Type, Name, Date, etc.)
     let headerRowIndex = -1;
     let headers: string[] = [];
     
@@ -205,7 +207,6 @@ async function parseCSVFile(file: File, config: any): Promise<ParsedInvoiceData>
       const row = allRows[i] as string[];
       if (row && row.length > 0) {
         const nonEmptyValues = row.filter(cell => cell && cell.toString().trim() !== '');
-        // Look for rows with at least 4 columns that look like headers
         if (nonEmptyValues.length >= 4) {
           const hasCommonHeaders = row.some(cell => 
             cell && (
@@ -229,7 +230,6 @@ async function parseCSVFile(file: File, config: any): Promise<ParsedInvoiceData>
     }
     
     if (headerRowIndex === -1) {
-      // Fallback to first row if no clear header found
       headerRowIndex = 0;
       headers = allRows[0] as string[];
     }
@@ -249,13 +249,12 @@ async function parseCSVFile(file: File, config: any): Promise<ParsedInvoiceData>
           record[header] = row[colIndex] || '';
         });
 
-        // Debug first record
         if (index === 0) {
           console.log('First CSV record object:', record);
           console.log('Available CSV columns:', Object.keys(record));
         }
 
-        const item = parseRecord(record, config, headerRowIndex + index + 2); // Adjust row number
+        const item = parseRecord(record, config, headerRowIndex + index + 2, reconciliationType);
         if (item) {
           items.push(item);
           totalAmount += item.totalAmount;
@@ -280,7 +279,7 @@ async function parseCSVFile(file: File, config: any): Promise<ParsedInvoiceData>
   }
 }
 
-async function parseExcelFile(file: File, config: any): Promise<ParsedInvoiceData> {
+async function parseExcelFile(file: File, config: any, reconciliationType: string): Promise<ParsedInvoiceData> {
   const buffer = await file.arrayBuffer();
   const parseErrors: string[] = [];
   
@@ -289,7 +288,6 @@ async function parseExcelFile(file: File, config: any): Promise<ParsedInvoiceDat
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     
-    // Convert to JSON with headers
     const records = XLSX.utils.sheet_to_json(worksheet, { 
       header: 1,
       defval: '',
@@ -300,7 +298,8 @@ async function parseExcelFile(file: File, config: any): Promise<ParsedInvoiceDat
       throw new Error('Excel file must contain at least a header row and one data row');
     }
 
-    // Find the header row (look for rows with multiple non-empty columns)
+    const allExpectedHeaders = (Object.values(config.expectedColumns) as string[][]).flat().map(h => h.toString().toLowerCase());
+
     let headerRowIndex = -1;
     let headers: string[] = [];
     
@@ -308,21 +307,17 @@ async function parseExcelFile(file: File, config: any): Promise<ParsedInvoiceDat
       const row = records[i] as string[];
       if (row && row.length > 0) {
         const nonEmptyValues = row.filter(cell => cell && cell.toString().trim() !== '');
-        // Look for rows with at least 4 columns that look like headers
-        if (nonEmptyValues.length >= 4) {
-          const hasCommonHeaders = row.some(cell => 
-            cell && (
-              cell.toString().toLowerCase().includes('date') ||
-              cell.toString().toLowerCase().includes('name') ||
-              cell.toString().toLowerCase().includes('amount') ||
-              cell.toString().toLowerCase().includes('total') ||
-              cell.toString().toLowerCase().includes('price')
-            )
-          );
+        if (nonEmptyValues.length >= 3) {
+          let matchCount = 0;
+          for (const cell of row) {
+            if (cell && allExpectedHeaders.includes(cell.toString().toLowerCase())) {
+              matchCount++;
+            }
+          }
           
-          if (hasCommonHeaders) {
+          if (matchCount >= 3) {
             headerRowIndex = i;
-            headers = row;
+            headers = row.map(h => h.toString());
             break;
           }
         }
@@ -330,14 +325,12 @@ async function parseExcelFile(file: File, config: any): Promise<ParsedInvoiceDat
     }
     
     if (headerRowIndex === -1) {
-      // Fallback to first row if no clear header found
       headerRowIndex = 0;
-      headers = records[0] as string[];
+      headers = (records[0] as any[]).map(h => h.toString());
     }
     
     const dataRows = records.slice(headerRowIndex + 1);
     
-    // Debug headers
     console.log('Excel header row found at index:', headerRowIndex);
     console.log('Excel headers detected:', headers);
     console.log('Sample first data row:', dataRows[0]);
@@ -352,13 +345,12 @@ async function parseExcelFile(file: File, config: any): Promise<ParsedInvoiceDat
           record[header] = row[colIndex] || '';
         });
 
-        // Debug first record
         if (index === 0) {
           console.log('First record object:', record);
           console.log('Available columns:', Object.keys(record));
         }
 
-        const item = parseRecord(record, config, headerRowIndex + index + 2); // Adjust row number
+        const item = parseRecord(record, config, headerRowIndex + index + 2, reconciliationType);
         if (item) {
           items.push(item);
           totalAmount += item.totalAmount;
@@ -383,48 +375,51 @@ async function parseExcelFile(file: File, config: any): Promise<ParsedInvoiceDat
   }
 }
 
-function parseRecord(record: any, config: any, rowNumber: number): InvoiceItem | null {
-  // Validate config structure
+function parseRecord(record: any, config: any, rowNumber: number, reconciliationType: string): InvoiceItem | null {
   if (!config || !config.expectedColumns) {
     throw new Error('Invalid configuration: missing expectedColumns');
   }
 
-  // Find matching columns with fallback to empty array if undefined
   const dateValue = findColumnValue(record, config.expectedColumns.date || []);
   const customerValue = findColumnValue(record, config.expectedColumns.customer || []);
   const quantityValue = findColumnValue(record, config.expectedColumns.quantity || []);
   const amountValue = findColumnValue(record, config.expectedColumns.amount || []);
   const productValue = findColumnValue(record, config.expectedColumns.product || []) || 'N/A';
   const unitPriceValue = findColumnValue(record, config.expectedColumns.unitPrice || []);
+  let skuValue = findColumnValue(record, config.expectedColumns.sku || []);
 
-  // Validate required fields
-  if (!dateValue || !customerValue || !quantityValue || !amountValue) {
-    throw new Error('Missing required fields (date, customer, quantity, amount)');
+  if (reconciliationType === 'smith_and_co_restaurant') {
+    skuValue = productValue;
   }
 
-  // Parse and validate date
+  if (!dateValue || !quantityValue || !amountValue) {
+    throw new Error('Missing required fields (date, quantity, amount)');
+  }
+  if (!customerValue && !skuValue) {
+    throw new Error('Missing required customer or SKU identifier');
+  }
+
   const parsedDateComponents = parseDate(dateValue, config.dateFormats);
   if (!parsedDateComponents) {
     throw new Error(`Invalid date format: ${dateValue}`);
   }
 
-  // Parse numeric values
   const quantity = parseNumber(quantityValue);
   const totalAmount = parseNumber(amountValue, config.currencySymbols);
-  const unitPrice = unitPriceValue ? parseNumber(unitPriceValue, config.currencySymbols) : totalAmount / quantity;
+  const unitPrice = unitPriceValue ? parseNumber(unitPriceValue, config.currencySymbols) : (quantity > 0 ? totalAmount / quantity : 0);
 
   if (isNaN(quantity) || isNaN(totalAmount)) {
     throw new Error('Invalid numeric values for quantity or amount');
   }
 
-  // Format date as YYYY-MM-DD to avoid timezone issues
   const formattedDate = `${parsedDateComponents.year}-${parsedDateComponents.month.toString().padStart(2, '0')}-${parsedDateComponents.day.toString().padStart(2, '0')}`;
 
   return {
     id: `row_${rowNumber}_${Date.now()}`,
     date: formattedDate,
-    customerName: customerValue.toString().trim(),
+    customerName: customerValue ? customerValue.toString().trim() : 'N/A',
     productType: productValue.toString().trim(),
+    sku: skuValue ? skuValue.toString().trim() : undefined,
     quantity,
     unitPrice,
     totalAmount,
@@ -433,7 +428,6 @@ function parseRecord(record: any, config: any, rowNumber: number): InvoiceItem |
 }
 
 function findColumnValue(record: any, possibleColumns: string[]): any {
-  // Validate input
   if (!Array.isArray(possibleColumns)) {
     console.error('possibleColumns is not an array:', possibleColumns);
     return null;
@@ -456,38 +450,22 @@ function findColumnValue(record: any, possibleColumns: string[]): any {
 function parseDate(dateStr: string, formats: string[]): { year: number; month: number; day: number } | null {
   const str = dateStr.toString().trim();
   
-  // Try MM/DD/YYYY format (most common for Excel exports)
-  const mmddyyyyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (mmddyyyyMatch) {
-    const [, month, day, year] = mmddyyyyMatch;
-    return {
-      year: parseInt(year),
-      month: parseInt(month),
-      day: parseInt(day)
-    };
-  }
-  
-  // Try DD/MM/YYYY format  
   const ddmmyyyyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (ddmmyyyyMatch) {
-    const [, part1, part2, year] = ddmmyyyyMatch;
-    // If first part is > 12, it's definitely DD/MM/YYYY
-    if (parseInt(part1) > 12) {
-      return {
-        year: parseInt(year),
-        month: parseInt(part2),
-        day: parseInt(part1)
-      };
+    const [, day, month, year] = ddmmyyyyMatch;
+    const dayInt = parseInt(day);
+    const monthInt = parseInt(month);
+    
+    if (dayInt > 12) {
+      return { year: parseInt(year), month: monthInt, day: dayInt };
     }
-    // Otherwise assume MM/DD/YYYY (American format more common in Excel)
-    return {
-      year: parseInt(year),
-      month: parseInt(part1),
-      day: parseInt(part2)
-    };
+    if (monthInt > 12) {
+      return { year: parseInt(year), month: dayInt, day: monthInt };
+    }
+    
+    return { year: parseInt(year), month: monthInt, day: dayInt };
   }
   
-  // Try YYYY-MM-DD format
   const yyyymmddMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (yyyymmddMatch) {
     const [, year, month, day] = yyyymmddMatch;
@@ -497,22 +475,31 @@ function parseDate(dateStr: string, formats: string[]): { year: number; month: n
       day: parseInt(day)
     };
   }
+  
+  const mmddyyyyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mmddyyyyMatch) {
+      const [, month, day, year] = mmddyyyyMatch;
+      return { year: parseInt(year), month: parseInt(month), day: parseInt(day) };
+  }
 
+  console.warn(`Unmatched date format for: ${dateStr}`);
   return null;
 }
 
 function parseNumber(value: any, currencySymbols: string[] = []): number {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+  
   let str = value.toString().trim();
   
-  // Remove currency symbols
-  currencySymbols.forEach(symbol => {
-    str = str.replace(new RegExp(`\\${symbol}`, 'g'), '');
-  });
+  for (const symbol of currencySymbols) {
+    str = str.replace(symbol, '');
+  }
   
-  // Remove common formatting
-  str = str.replace(/[,\s]/g, ''); // Remove commas and spaces
+  str = str.replace(/,/g, '');
   
-  return parseFloat(str) || 0;
+  const num = parseFloat(str);
+  
+  return isNaN(num) ? 0 : num;
 }
-
- 

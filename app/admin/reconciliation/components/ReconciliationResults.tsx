@@ -63,6 +63,7 @@ interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   totalAmount: number;
+  sku?: string;
 }
 
 interface POSRecord {
@@ -72,6 +73,7 @@ interface POSRecord {
   productName: string;
   quantity: number;
   totalAmount: number;
+  skuNumber?: string;
 }
 
 export default function ReconciliationResults({ 
@@ -223,8 +225,6 @@ export default function ReconciliationResults({
         </Alert>
       )}
 
-
-
       {/* Reconciliation Results */}
       {reconciliationResult && (
         <div className="space-y-6">
@@ -277,114 +277,148 @@ export default function ReconciliationResults({
           </div>
 
           {/* Detailed Results */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Reconciliation Details</CardTitle>
-              <CardDescription>
-                Review matched items and resolve discrepancies
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="matched" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="matched" className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4" />
-                    Matched ({reconciliationResult.matched.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="invoice-only" className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Invoice Only ({reconciliationResult.invoiceOnly.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="pos-only" className="flex items-center gap-2">
-                    <XCircle className="h-4 w-4" />
-                    POS Only ({reconciliationResult.posOnly.length})
-                  </TabsTrigger>
-                </TabsList>
+          <Tabs defaultValue="unmatched_invoice" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="matched">
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Matched ({reconciliationResult.matched.length})
+              </TabsTrigger>
+              <TabsTrigger value="unmatched_invoice">
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Invoice Only ({reconciliationResult.invoiceOnly.length})
+              </TabsTrigger>
+              <TabsTrigger value="unmatched_pos">
+                <XCircle className="mr-2 h-4 w-4" />
+                POS Only ({reconciliationResult.posOnly.length})
+              </TabsTrigger>
+            </TabsList>
 
-                <TabsContent value="matched" className="space-y-4">
-                  <div className="space-y-2">
-                    {reconciliationResult.matched.length === 0 ? (
-                      <p className="text-gray-500 text-center py-8">No matched items found.</p>
-                    ) : (
-                      reconciliationResult.matched.map((match, index) => (
-                        <div key={index} className="border rounded-lg p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Badge className={getMatchTypeColor(match.matchType)}>
-                                {match.matchType.replace('_', ' ')}
-                              </Badge>
-                              <span className="text-sm text-gray-500">
-                                {(match.confidence * 100).toFixed(0)}% confidence
-                              </span>
-                            </div>
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4 mr-1" />
-                              Details
-                            </Button>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <strong>Invoice:</strong> {match.invoiceItem.customerName} - 
-                              ฿{match.invoiceItem.totalAmount} ({match.invoiceItem.date})
-                            </div>
-                            <div>
-                              <strong>POS:</strong> {match.posRecord.customerName} - 
-                              ฿{match.posRecord.totalAmount} ({match.posRecord.date})
-                            </div>
-                          </div>
-
+            {/* Matched Items */}
+            <TabsContent value="matched">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Matched Items</CardTitle>
+                  <CardDescription>
+                    These items were successfully matched between invoice and POS data.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {reconciliationResult.matched.map((item, index) => (
+                    <div key={index} className="p-4 border rounded-lg bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="font-semibold">
+                          {reconciliationType === 'smith_and_co_restaurant'
+                            ? `SKU: ${item.invoiceItem.sku}`
+                            : item.invoiceItem.customerName}
                         </div>
-                      ))
-                    )}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="invoice-only" className="space-y-4">
-                  <div className="space-y-2">
-                    {reconciliationResult.invoiceOnly.length === 0 ? (
-                      <p className="text-gray-500 text-center py-8">All invoice items were matched!</p>
-                    ) : (
-                      reconciliationResult.invoiceOnly.map((item, index) => (
-                        <div key={index} className="border rounded-lg p-4 bg-yellow-50">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <strong>{item.customerName}</strong> - {item.productType}
-                            </div>
-                            <div className="text-right">
-                              <div>฿{item.totalAmount}</div>
-                              <div className="text-sm text-gray-500">{item.date}</div>
-                            </div>
+                        <Badge className={getMatchTypeColor(item.matchType)}>
+                          {item.matchType.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        {reconciliationType === 'smith_and_co_restaurant'
+                          ? item.invoiceItem.productType
+                          : `Invoice: ${item.invoiceItem.productType}`}
+                      </div>
+                      <div className="text-sm text-gray-500">{item.invoiceItem.date}</div>
+                      <hr className="my-3" />
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <div className="font-medium text-gray-700">Invoice</div>
+                          <div>Qty: {item.invoiceItem.quantity}</div>
+                          <div>Amt: ฿{item.invoiceItem.totalAmount.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-700">POS</div>
+                          <div>Qty: {item.posRecord.quantity}</div>
+                          <div>Amt: ฿{item.posRecord.totalAmount.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-700">Variance</div>
+                          <div className="flex items-center gap-1">
+                            {getVarianceIcon(item.variance.quantityDiff)}
+                            Qty: {item.variance.quantityDiff}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {getVarianceIcon(item.variance.amountDiff)}
+                            Amt: ฿{item.variance.amountDiff.toFixed(2)}
                           </div>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </TabsContent>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                <TabsContent value="pos-only" className="space-y-4">
-                  <div className="space-y-2">
-                    {reconciliationResult.posOnly.length === 0 ? (
-                      <p className="text-gray-500 text-center py-8">All POS records were matched!</p>
-                    ) : (
-                      reconciliationResult.posOnly.map((record, index) => (
-                        <div key={index} className="border rounded-lg p-4 bg-blue-50">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <strong>{record.customerName}</strong> - {record.productName}
-                            </div>
-                            <div className="text-right">
-                              <div>฿{record.totalAmount}</div>
-                              <div className="text-sm text-gray-500">{record.date}</div>
-                            </div>
-                          </div>
+            {/* Unmatched Invoice Items */}
+            <TabsContent value="unmatched_invoice">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Invoice Items Not in POS</CardTitle>
+                  <CardDescription>
+                    These items were found in the invoice but not in the POS data.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {reconciliationResult.invoiceOnly.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 border rounded-md">
+                      <div>
+                        <div className="font-semibold">
+                          {reconciliationType === 'smith_and_co_restaurant'
+                            ? `SKU: ${item.sku}`
+                            : item.customerName}
                         </div>
-                      ))
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+                        <div className="text-sm text-gray-600">
+                          {item.productType}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-gray-800">
+                          ฿{item.totalAmount.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-gray-500">{item.date}</div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Unmatched POS Items */}
+            <TabsContent value="unmatched_pos">
+              <Card>
+                <CardHeader>
+                  <CardTitle>POS Items Not in Invoice</CardTitle>
+                  <CardDescription>
+                    These items were found in the POS data but not in the invoice.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {reconciliationResult.posOnly.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 border rounded-md">
+                      <div>
+                        <div className="font-semibold">
+                          {reconciliationType === 'smith_and_co_restaurant'
+                            ? `SKU: ${item.skuNumber}`
+                            : item.customerName}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {item.productName}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-gray-800">
+                          ฿{item.totalAmount.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-gray-500">{item.date}</div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
           {/* Actions */}
           <Card>
