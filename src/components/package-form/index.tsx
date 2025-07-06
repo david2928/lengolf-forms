@@ -86,7 +86,7 @@ export default function PackageForm() {
         if (customersError) throw customersError
         
         // Transform and enrich customer data for UI
-        const transformedCustomers = customersData.map(customer => ({
+        const transformedCustomers = customersData.map((customer: any) => ({
           ...customer,
           displayName: customer.contact_number 
             ? `${customer.customer_name} (${customer.contact_number})`
