@@ -5,12 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
-import { ArrowLeft, Users, Camera } from 'lucide-react'
+import { ArrowLeft, Users, Camera, Calculator } from 'lucide-react'
 
 // Import existing dashboard components
 import { TimeReportsDashboard } from '@/components/admin/time-reports/time-reports-dashboard'
 import { StaffManagementDashboard } from '@/components/admin/staff-management/staff-management-dashboard'
 import { PhotoManagementDashboard } from '@/components/admin/photo-management/photo-management-dashboard'
+import { PayrollDashboard } from '@/components/admin/payroll/payroll-dashboard'
 
 export function TimeClockAdminDashboard() {
   const router = useRouter()
@@ -24,6 +25,8 @@ export function TimeClockAdminDashboard() {
   useEffect(() => {
     if (view === 'photos') {
       // Photo management is handled by URL routing
+    } else if (view === 'payroll') {
+      // Payroll management is handled by URL routing
     } else if (view === 'staff') {
       setStaffModalOpen(true)
     }
@@ -42,7 +45,12 @@ export function TimeClockAdminDashboard() {
     router.push('/admin/time-clock?view=photos')
   }
 
-  // Navigate back from photo management
+  // Navigate to payroll management full page
+  const handlePayrollManagement = () => {
+    router.push('/admin/time-clock?view=payroll')
+  }
+
+  // Navigate back from photo management or payroll
   const handleBackToReports = () => {
     router.push('/admin/time-clock')
   }
@@ -80,6 +88,34 @@ export function TimeClockAdminDashboard() {
     )
   }
 
+  // Render payroll management full page
+  if (view === 'payroll') {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBackToReports}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Reports
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Run Payroll</h1>
+              <p className="text-muted-foreground">
+                Review time entries, calculate compensation, and process monthly payroll
+              </p>
+            </div>
+          </div>
+        </div>
+        <PayrollDashboard />
+      </div>
+    )
+  }
+
   // Main dashboard with time reports and action buttons
   return (
     <ErrorBoundary showTechnicalDetails={process.env.NODE_ENV === 'development'}>
@@ -111,6 +147,15 @@ export function TimeClockAdminDashboard() {
           >
             <Camera className="h-4 w-4" />
             Photo Management
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handlePayrollManagement}
+            className="flex items-center gap-2"
+          >
+            <Calculator className="h-4 w-4" />
+            Run Payroll
           </Button>
         </div>
       </div>

@@ -83,7 +83,7 @@ export function PhotoManagementDashboard() {
   
   // Filters
   const [filters, setFilters] = useState({
-    startDate: format(subDays(new Date(), 7), 'yyyy-MM-dd'),
+    startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
     staffId: 'all',
     action: 'all'

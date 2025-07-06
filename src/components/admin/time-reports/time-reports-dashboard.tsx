@@ -97,8 +97,11 @@ function PhotoDialog({ entry, loadPhotoUrl, photoUrls, loadingPhotos }: PhotoDia
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isOpen, setIsOpen] = useState(false)
 
   const handleOpenChange = async (open: boolean) => {
+    setIsOpen(open)
+    
     if (open && entry.photo_url && !photoUrl) {
       setIsLoading(true)
       setError(null)
@@ -110,7 +113,7 @@ function PhotoDialog({ entry, loadPhotoUrl, photoUrls, loadingPhotos }: PhotoDia
         } else {
           setError('Failed to load photo URL')
         }
-              } catch (err) {
+      } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error'
         setError(`Error loading photo: ${errorMessage}`)
         console.error('Error loading photo:', err)
@@ -121,9 +124,14 @@ function PhotoDialog({ entry, loadPhotoUrl, photoUrls, loadingPhotos }: PhotoDia
   }
 
   return (
-    <Dialog onOpenChange={handleOpenChange}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button 
+          variant="outline" 
+          size="sm"
+          className="hover:bg-blue-50 hover:border-blue-300"
+          title="View Time Entry Photo"
+        >
           <Eye className="h-4 w-4" />
         </Button>
       </DialogTrigger>
@@ -160,9 +168,6 @@ function PhotoDialog({ entry, loadPhotoUrl, photoUrls, loadingPhotos }: PhotoDia
               style={{ maxHeight: '400px' }}
               onError={() => {
                 setError('Image failed to load')
-              }}
-              onLoad={() => {
-        
               }}
             />
           ) : (
@@ -846,7 +851,13 @@ export function TimeReportsDashboard() {
                                 loadingPhotos={loadingPhotos}
                               />
                             ) : (
-                              <Button variant="outline" size="sm" disabled>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                disabled
+                                className="text-gray-400"
+                                title="No photo available"
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
                             )}

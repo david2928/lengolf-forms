@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   Users, 
   Plus, 
@@ -24,12 +25,14 @@ import { StaffMember } from '@/types/staff'
 import { AddStaffModal } from './add-staff-modal'
 import { EditStaffModal } from './edit-staff-modal'
 import { ConfirmationModal } from './confirmation-modal'
+import { StaffCompensationSettings } from '../payroll/staff-compensation-settings'
 
 export function StaffManagementDashboard() {
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [activeTab, setActiveTab] = useState('staff')
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false)
@@ -230,153 +233,166 @@ export function StaffManagementDashboard() {
         </Alert>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{staff.length}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Staff</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {staff.filter(s => s.is_active).length}
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Locked Out</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {staff.filter(s => s.is_locked_out).length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="staff">Staff Management</TabsTrigger>
+          <TabsTrigger value="compensation">Compensation Settings</TabsTrigger>
+        </TabsList>
 
-      {/* Actions Bar */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <CardTitle>Staff Members</CardTitle>
-            <div className="flex flex-col gap-2 md:flex-row md:items-center">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search staff..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 w-full md:w-64"
-                />
+        <TabsContent value="staff" className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{staff.length}</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active Staff</CardTitle>
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {staff.filter(s => s.is_active).length}
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Locked Out</CardTitle>
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {staff.filter(s => s.is_locked_out).length}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Actions Bar */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <CardTitle>Staff Members</CardTitle>
+                <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search staff..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-8 w-full md:w-64"
+                    />
+                  </div>
+                  <Button onClick={() => setShowAddModal(true)} className="shrink-0">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Staff
+                  </Button>
+                </div>
               </div>
-              <Button onClick={() => setShowAddModal(true)} className="shrink-0">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Staff
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">Name</TableHead>
-                  <TableHead className="w-[100px]">PIN</TableHead>
-                  <TableHead className="w-[100px]">Status</TableHead>
-                  <TableHead className="w-[150px]">Last Activity</TableHead>
-                  <TableHead className="w-[150px] text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStaff.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
-                      {searchTerm ? 'No staff found matching your search.' : 'No staff members yet.'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredStaff.map((member) => (
-                    <TableRow key={member.id}>
-                      <TableCell className="font-medium">{member.name}</TableCell>
-                      <TableCell className="font-mono">{member.pin}</TableCell>
-                      <TableCell>{getStatusBadge(member)}</TableCell>
-                      <TableCell className="text-sm">
-                        {formatLastActivity(member.last_clock_activity)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedStaff(member)
-                              setShowEditModal(true)
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          
-                          {member.is_locked_out && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleConfirmAction('unlock', member)}
-                              title="Unlock staff member"
-                            >
-                              <Unlock className="h-4 w-4" />
-                            </Button>
-                          )}
-                          
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleConfirmAction(
-                              member.is_active ? 'deactivate' : 'activate', 
-                              member
-                            )}
-                            title={member.is_active ? 'Deactivate' : 'Activate'}
-                          >
-                            {member.is_active ? (
-                              <UserX className="h-4 w-4" />
-                            ) : (
-                              <UserCheck className="h-4 w-4" />
-                            )}
-                          </Button>
-                          
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleConfirmAction('delete', member)}
-                            className="text-destructive hover:text-destructive"
-                            title="Delete staff member"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+            </CardHeader>
+            
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[200px]">Name</TableHead>
+                      <TableHead className="w-[100px]">PIN</TableHead>
+                      <TableHead className="w-[100px]">Status</TableHead>
+                      <TableHead className="w-[150px]">Last Activity</TableHead>
+                      <TableHead className="w-[150px] text-right">Actions</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStaff.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                          {searchTerm ? 'No staff found matching your search.' : 'No staff members yet.'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredStaff.map((member) => (
+                        <TableRow key={member.id}>
+                          <TableCell className="font-medium">{member.name}</TableCell>
+                          <TableCell className="font-mono">{member.pin}</TableCell>
+                          <TableCell>{getStatusBadge(member)}</TableCell>
+                          <TableCell className="text-sm">
+                            {formatLastActivity(member.last_clock_activity)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedStaff(member)
+                                  setShowEditModal(true)
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              
+                              {member.is_locked_out && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleConfirmAction('unlock', member)}
+                                  title="Unlock staff member"
+                                >
+                                  <Unlock className="h-4 w-4" />
+                                </Button>
+                              )}
+                              
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleConfirmAction(
+                                  member.is_active ? 'deactivate' : 'activate', 
+                                  member
+                                )}
+                                title={member.is_active ? 'Deactivate' : 'Activate'}
+                              >
+                                {member.is_active ? (
+                                  <UserX className="h-4 w-4" />
+                                ) : (
+                                  <UserCheck className="h-4 w-4" />
+                                )}
+                              </Button>
+                              
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleConfirmAction('delete', member)}
+                                className="text-destructive hover:text-destructive"
+                                title="Delete staff member"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="compensation" className="space-y-6">
+          <StaffCompensationSettings />
+        </TabsContent>
+      </Tabs>
 
       {/* Modals */}
       <AddStaffModal

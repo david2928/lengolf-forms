@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Execute SQL Script</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Execute SQL Script - Add New Staff Members</h1>
+        
+        <div>
+            <h3>This script will:</h3>
+            <ul>
+                <li>Add 4 new staff members: Dolly, Net, May, Winnie</li>
+                <li>Set their salaries and service charge eligibility</li>
+                <li>Add test time entries for June 2025</li>
+            </ul>
+        </div>
+        
+        <select id="scriptSelect" onchange="updateScriptInfo()">
+            <option value="add-new-staff-and-data">Add New Staff and Data</option>
+            <option value="debug-new-staff">Debug New Staff Status</option>
+            <option value="fix-service-charge-june">Fix Service Charge (June 2025)</option>
+            <option value="debug-hours-june">Debug Hours Calculation (June 2025)</option>
+        </select>
+        
+        <button id="previewBtn" onclick="previewScript()">Preview Script</button>
+        <button id="executeBtn" onclick="executeScript()">Execute Script</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function updateScriptInfo() {
+            const scriptSelect = document.getElementById('scriptSelect');
+            const scriptName = scriptSelect.value;
+            
+            if (scriptName === 'debug-new-staff') {
+                document.querySelector('h1').textContent = 'Debug New Staff Status';
+                document.querySelector('h3').textContent = 'This script will:';
+                document.querySelector('ul').innerHTML = `
+                    <li>Check if new staff members exist in database</li>
+                    <li>Verify service charge eligibility settings</li>
+                    <li>Check time entries for June 2025</li>
+                    <li>Identify any mismatches or issues</li>
+                `;
+            } else if (scriptName === 'fix-service-charge-june') {
+                document.querySelector('h1').textContent = 'Fix Service Charge (June 2025)';
+                document.querySelector('h3').textContent = 'This script will:';
+                document.querySelector('ul').innerHTML = `
+                    <li>Add ฿12,000 total service charge for June 2025</li>
+                    <li>Enable service charge calculation for eligible staff</li>
+                    <li>Show preview of service charge per staff</li>
+                    <li>Fix "not eligible" display issue</li>
+                `;
+            } else if (scriptName === 'debug-hours-june') {
+                document.querySelector('h1').textContent = 'Debug Hours Calculation (June 2025)';
+                document.querySelector('h3').textContent = 'This script will:';
+                document.querySelector('ul').innerHTML = `
+                    <li>Analyze time entries for June 2025</li>
+                    <li>Check daily hours calculation (requires ≥6 hours/day)</li>
+                    <li>Identify missing clock-outs</li>
+                    <li>Show why hours might not appear in payroll</li>
+                `;
+            } else {
+                document.querySelector('h1').textContent = 'Execute SQL Script - Add New Staff Members';
+                document.querySelector('h3').textContent = 'This script will:';
+                document.querySelector('ul').innerHTML = `
+                    <li>Add 4 new staff members: Dolly, Net, May, Winnie</li>
+                    <li>Set their salaries and service charge eligibility</li>
+                    <li>Add test time entries for June 2025</li>
+                `;
+            }
+        }
+
+        async function previewScript() {
+            const resultDiv = document.getElementById('result');
+            const previewBtn = document.getElementById('previewBtn');
+            const scriptSelect = document.getElementById('scriptSelect');
+            
+            previewBtn.disabled = true;
+            resultDiv.innerHTML = '<div class="loading">Loading script preview...</div>';
+            
+            try {
+                const response = await fetch('/api/admin/execute-sql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        scriptName: scriptSelect.value,
+                        executeStatements: false
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="info">
+                            <h4>Script Preview</h4>
+                            <p><strong>Script:</strong> ${result.scriptName}</p>
+                            <p><strong>Statements:</strong> ${result.statementCount}</p>
+                            <details>
+                                <summary>Click to view SQL content</summary>
+                                <pre>${result.content}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            } finally {
+                previewBtn.disabled = false;
+            }
+        }
+
+        async function executeScript() {
+            const resultDiv = document.getElementById('result');
+            const executeBtn = document.getElementById('executeBtn');
+            const scriptSelect = document.getElementById('scriptSelect');
+            
+            executeBtn.disabled = true;
+            resultDiv.innerHTML = '<div class="loading">Executing SQL script...</div>';
+            
+            try {
+                const response = await fetch('/api/admin/execute-sql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        scriptName: scriptSelect.value,
+                        executeStatements: true
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const successCount = result.results.filter(r => r.success).length;
+                    const errorCount = result.results.filter(r => !r.success).length;
+                    
+                    let html = `
+                        <div class="${errorCount > 0 ? 'error' : 'success'}">
+                            <h4>Script Execution Results</h4>
+                            <p><strong>Total Statements:</strong> ${result.totalStatements}</p>
+                            <p><strong>Successful:</strong> ${successCount}</p>
+                            <p><strong>Errors:</strong> ${errorCount}</p>
+                            
+                            <details>
+                                <summary>Click to view detailed results</summary>
+                                <div style="max-height: 300px; overflow-y: auto;">
+                    `;
+                    
+                    result.results.forEach(r => {
+                        html += `
+                            <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <strong>Statement ${r.statement}:</strong> ${r.success ? '✅ Success' : '❌ Error'}
+                                ${r.error ? `<br><span style="color: red;">Error: ${r.error}</span>` : ''}
+                                ${r.data ? `<br><span style="color: green;">Data: ${JSON.stringify(r.data)}</span>` : ''}
+                                <br><small style="color: #666;">SQL: ${r.sql}</small>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                                </div>
+                            </details>
+                        </div>
+                    `;
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            } finally {
+                executeBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html> 

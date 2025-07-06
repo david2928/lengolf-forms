@@ -1,0 +1,119 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-config';
+import { calculatePayrollForMonth, getServiceCharge } from '@/lib/payroll-calculations';
+import { 
+  validateMonthFormat, 
+  getUserFriendlyMessage, 
+  createPayrollError, 
+  PAYROLL_ERROR_CODES 
+} from '@/lib/payroll-error-handling';
+
+interface RouteParams {
+  month: string;
+}
+
+// GET /api/admin/payroll/[month]/calculations - Returns all payroll calculations for a month
+export async function GET(request: NextRequest, { params }: { params: RouteParams }) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { month } = params;
+    
+    // Validate month format using enhanced validation
+    const monthValidation = validateMonthFormat(month);
+    if (!monthValidation.isValid) {
+      return NextResponse.json({ 
+        error: monthValidation.errors[0],
+        details: monthValidation.errors.join(', '),
+        warnings: monthValidation.warnings.length > 0 ? monthValidation.warnings : undefined
+      }, { status: 400 });
+    }
+
+    console.log(`Calculating payroll for month: ${month}`);
+    
+    // Calculate payroll for the month
+    const payrollResults = await calculatePayrollForMonth(month);
+    
+    // Get service charge information
+    const totalServiceCharge = await getServiceCharge(month);
+    const eligibleStaffCount = payrollResults.filter(result => result.service_charge > 0).length;
+    const serviceChargePerStaff = eligibleStaffCount > 0 ? totalServiceCharge / eligibleStaffCount : 0;
+    
+    // Group results by category for the UI
+    const summary = {
+      total_staff: payrollResults.length,
+      total_regular_hours: payrollResults.reduce((sum, result) => sum + result.total_hours, 0),
+      total_ot_hours: payrollResults.reduce((sum, result) => sum + result.overtime_hours, 0),
+      total_payroll: payrollResults.reduce((sum, result) => sum + result.total_payout, 0)
+    };
+
+    // Format response according to UI requirements
+    const response = {
+      month,
+      summary,
+      
+      // Staff payroll data for UI tables
+      staff_payroll: payrollResults.map(result => ({
+        staff_id: result.staff_id,
+        staff_name: result.staff_name,
+        base_salary: result.base_salary,
+        regular_hours: result.total_hours,
+        ot_hours: result.overtime_hours,
+        ot_pay: result.overtime_pay,
+        holiday_hours: result.holiday_hours,
+        holiday_pay: result.holiday_pay,
+        working_days: result.working_days,
+        total_allowance: result.daily_allowance,
+        service_charge: result.service_charge,
+        total_payout: result.total_payout
+      })),
+      
+      // Service charge summary
+      service_charge_summary: {
+        total_amount: totalServiceCharge,
+        eligible_staff_count: eligibleStaffCount,
+        per_staff_amount: serviceChargePerStaff,
+        total_distributed: eligibleStaffCount * serviceChargePerStaff
+      },
+      
+      calculated_at: new Date().toISOString()
+    };
+
+    console.log(`Payroll calculation completed for ${payrollResults.length} staff members`);
+    return NextResponse.json(response);
+
+  } catch (error) {
+    console.error('Error calculating payroll:', error);
+    
+    // Handle PayrollError types with user-friendly messages
+    if (error instanceof Error && error.message.includes('PAYROLL_ERROR')) {
+      try {
+        const payrollError = JSON.parse(error.message);
+        return NextResponse.json({ 
+          error: getUserFriendlyMessage(payrollError),
+          details: payrollError.details,
+          code: payrollError.code,
+          retryable: payrollError.retryable
+        }, { status: payrollError.code === PAYROLL_ERROR_CODES.MISSING_COMPENSATION_SETTINGS ? 400 : 500 });
+      } catch (parseError) {
+        // Fallback if not a proper PayrollError
+      }
+    }
+    
+    return NextResponse.json({ 
+      error: 'Failed to calculate payroll',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      userMessage: 'Unable to calculate payroll data. Please check that all staff have compensation settings configured and try again.'
+    }, { status: 500 });
+  }
+}
+
+// POST /api/admin/payroll/[month]/calculations - Refresh calculations (same as GET for now)
+export async function POST(request: NextRequest, { params }: { params: RouteParams }) {
+  // For now, refresh is the same as GET - just recalculate
+  return GET(request, { params });
+} 

@@ -4,8 +4,7 @@ import { formatBangkokTime } from './bangkok-timezone';
 // Business configuration - these could be moved to environment variables or database
 const BUSINESS_RULES = {
   MAX_SHIFT_HOURS: 12,
-  OVERTIME_DAILY_THRESHOLD: 8,
-  OVERTIME_WEEKLY_THRESHOLD: 40,
+  OVERTIME_WEEKLY_THRESHOLD: 48, // OT after 48 hours per week (Monday-Sunday)
   BREAK_DEDUCTION_MINUTES: 30, // Automatic break deduction for shifts > 6 hours
   BREAK_THRESHOLD_HOURS: 6,
   MIN_SHIFT_MINUTES: 15,
@@ -90,7 +89,10 @@ export function calculateWorkShifts(entries: TimeEntry[]): WorkShift[] {
     shifts.push(...staffShifts);
   });
   
-  return shifts;
+  // Calculate weekly overtime for all shifts
+  const shiftsWithWeeklyOT = calculateWeeklyOvertime(shifts);
+  
+  return shiftsWithWeeklyOT;
 }
 
 /**
@@ -127,6 +129,79 @@ function calculateStaffShifts(entries: TimeEntry[]): WorkShift[] {
   }
   
   return shifts;
+}
+
+/**
+ * Calculate weekly overtime for all shifts
+ * Groups shifts by staff and week, then calculates overtime for hours > 48 per week
+ */
+function calculateWeeklyOvertime(shifts: WorkShift[]): WorkShift[] {
+  // Helper function to get Monday of the week (start of week)
+  const getWeekStart = (date: string): string => {
+    const d = DateTime.fromISO(date + 'T00:00:00', { zone: 'Asia/Bangkok' });
+    const monday = d.startOf('week'); // luxon starts week on Monday
+    return monday.toFormat('yyyy-MM-dd');
+  };
+  
+  // Group complete shifts by staff and week
+  const weeklyGroups = new Map<string, WorkShift[]>();
+  
+  shifts.forEach(shift => {
+    if (!shift.is_complete) return; // Skip incomplete shifts
+    
+    const weekStart = getWeekStart(shift.date);
+    const key = `${shift.staff_id}-${weekStart}`;
+    
+    if (!weeklyGroups.has(key)) {
+      weeklyGroups.set(key, []);
+    }
+    weeklyGroups.get(key)!.push(shift);
+  });
+  
+  // Calculate overtime for each week
+  const updatedShifts = [...shifts];
+  
+  weeklyGroups.forEach((weekShifts, key) => {
+    const totalWeeklyHours = weekShifts.reduce((sum, shift) => sum + shift.net_hours, 0);
+    
+    if (totalWeeklyHours > BUSINESS_RULES.OVERTIME_WEEKLY_THRESHOLD) {
+      const weeklyOvertimeHours = totalWeeklyHours - BUSINESS_RULES.OVERTIME_WEEKLY_THRESHOLD;
+      
+      // Distribute overtime proportionally across shifts in the week
+      // This ensures that overtime is attributed to the shifts that caused it
+      let remainingOvertimeHours = weeklyOvertimeHours;
+      
+      // Sort shifts by date to allocate overtime to later shifts first
+      const sortedWeekShifts = weekShifts.sort((a, b) => b.date.localeCompare(a.date));
+      
+      for (const shift of sortedWeekShifts) {
+        if (remainingOvertimeHours <= 0) break;
+        
+        const shiftOvertimeHours = Math.min(remainingOvertimeHours, shift.net_hours);
+        remainingOvertimeHours -= shiftOvertimeHours;
+        
+        // Find and update the shift in the main array
+        const shiftIndex = updatedShifts.findIndex(s => 
+          s.staff_id === shift.staff_id && 
+          s.clock_in_entry_id === shift.clock_in_entry_id
+        );
+        
+        if (shiftIndex !== -1) {
+          updatedShifts[shiftIndex] = {
+            ...updatedShifts[shiftIndex],
+            is_overtime: shiftOvertimeHours > 0,
+            overtime_hours: parseFloat(shiftOvertimeHours.toFixed(2)),
+            shift_notes: [
+              ...updatedShifts[shiftIndex].shift_notes,
+              `${shiftOvertimeHours.toFixed(2)} hours overtime (weekly total: ${totalWeeklyHours.toFixed(2)}h > ${BUSINESS_RULES.OVERTIME_WEEKLY_THRESHOLD}h)`
+            ]
+          };
+        }
+      }
+    }
+  });
+  
+  return updatedShifts;
 }
 
 /**
@@ -178,20 +253,10 @@ function createCompleteShift(clockInEntry: TimeEntry, clockOutEntry: TimeEntry):
   // Check if shift crosses midnight
   const crossesMidnight = clockOutDateTime.day !== clockInDateTime.day;
   
-  // Calculate break deduction
-  const totalHours = totalMinutes / 60;
-  const breakMinutes = totalHours > BUSINESS_RULES.BREAK_THRESHOLD_HOURS 
-    ? BUSINESS_RULES.BREAK_DEDUCTION_MINUTES 
-    : 0;
-  
-  const netMinutes = Math.max(0, totalMinutes - breakMinutes);
+  // No automatic break deduction - calculate net hours directly from total minutes
+  const netMinutes = totalMinutes;
   const netHours = netMinutes / 60;
-  
-  // Calculate overtime
-  const isOvertime = netHours > BUSINESS_RULES.OVERTIME_DAILY_THRESHOLD;
-  const overtimeHours = isOvertime 
-    ? netHours - BUSINESS_RULES.OVERTIME_DAILY_THRESHOLD 
-    : 0;
+  const totalHours = totalMinutes / 60; // For validation purposes
   
   // Generate notes and validate
   const notes: string[] = [];
@@ -199,14 +264,6 @@ function createCompleteShift(clockInEntry: TimeEntry, clockOutEntry: TimeEntry):
   
   if (crossesMidnight) {
     notes.push(`Shift crosses midnight: ${clockInDateTime.toFormat('MMM dd HH:mm')} → ${clockOutDateTime.toFormat('MMM dd HH:mm')}`);
-  }
-  
-  if (breakMinutes > 0) {
-    notes.push(`${breakMinutes} minute break deducted (shift > ${BUSINESS_RULES.BREAK_THRESHOLD_HOURS} hours)`);
-  }
-  
-  if (isOvertime) {
-    notes.push(`${overtimeHours.toFixed(2)} hours overtime (daily threshold: ${BUSINESS_RULES.OVERTIME_DAILY_THRESHOLD}h)`);
   }
   
   // Validation checks
@@ -227,12 +284,12 @@ function createCompleteShift(clockInEntry: TimeEntry, clockOutEntry: TimeEntry):
     clock_in_entry_id: clockInEntry.entry_id,
     clock_out_entry_id: clockOutEntry.entry_id,
     total_minutes: totalMinutes,
-    break_minutes: breakMinutes,
+    break_minutes: 0, // No automatic break deduction
     net_minutes: netMinutes,
     net_hours: parseFloat(netHours.toFixed(2)),
     is_complete: true,
-    is_overtime: isOvertime,
-    overtime_hours: parseFloat(overtimeHours.toFixed(2)),
+    is_overtime: false, // Will be calculated weekly
+    overtime_hours: 0, // Will be calculated weekly
     crosses_midnight: crossesMidnight,
     shift_notes: notes,
     validation_issues: validationIssues,
