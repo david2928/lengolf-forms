@@ -15,7 +15,7 @@ import {
   Lightbulb,
   AlertTriangle
 } from 'lucide-react';
-import { refacSupabaseAdmin } from '@/lib/refac-supabase';
+// Removed direct Supabase import - using API endpoint instead
 
 // =============================================================================
 // INTERFACES
@@ -66,13 +66,14 @@ const useMetricsDocumentation = () => {
     const fetchDocumentation = async () => {
       try {
         setIsLoading(true);
-        const { data, error } = await refacSupabaseAdmin.rpc('get_dashboard_calculations_documentation');
+        const response = await fetch('/api/dashboard/calculations-documentation');
         
-        if (error) {
-          throw new Error(error.message);
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
         }
         
-        setDocumentation(data);
+        const result = await response.json();
+        setDocumentation(result.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load documentation');
       } finally {

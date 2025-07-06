@@ -8,12 +8,10 @@ const supabaseServiceRoleKey = typeof window === 'undefined' ? process.env.REFAC
 
 if (!supabaseUrl) {
   console.error('Error: Missing environment variable NEXT_PUBLIC_REFAC_SUPABASE_URL');
-  // Potentially throw an error or handle appropriately
 }
 
 if (!supabaseAnonKey) {
   console.error('Error: Missing environment variable NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY');
-  // Potentially throw an error or handle appropriately
 }
 
 // Check for service role key only on server side
@@ -21,46 +19,25 @@ if (typeof window === 'undefined' && !supabaseServiceRoleKey) {
   console.error('Error: Missing environment variable REFAC_SUPABASE_SERVICE_ROLE_KEY');
 }
 
-// Create a new Supabase client instance for the target project
-// Note: Using NEXT_PUBLIC_ prefix for client-side accessibility, adjust if only server-side needed.
-// If server-side only, use different env var names without NEXT_PUBLIC_ and load them accordingly.
-
-// Fix RealtimeClient constructor issue by using a different approach
-let refacSupabase: any;
-
-try {
-  // First try with minimal config that should avoid realtime initialization
-  refacSupabase = createClient(
-    supabaseUrl || '',
-    supabaseAnonKey || '',
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false
-      },
-      global: {
-        headers: {
-          'X-Client-Info': 'lengolf-forms-minimal'
-        }
+// Create Supabase client with minimal configuration to avoid realtime issues
+export const refacSupabase = createClient(
+  supabaseUrl || '',
+  supabaseAnonKey || '',
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'lengolf-forms'
       }
     }
-  );
-  console.log('✅ Supabase client created successfully with minimal config');
-} catch (error) {
-  console.error('❌ Failed to create Supabase client:', error);
-  // Create a mock client that can still be imported but will throw helpful errors
-  refacSupabase = {
-    rpc: () => Promise.reject(new Error('Supabase client failed to initialize')),
-    from: () => ({ select: () => Promise.reject(new Error('Supabase client failed to initialize')) })
-  };
-}
-
-export { refacSupabase };
+  }
+);
 
 // Create a service role client for server-side operations that need to bypass RLS
-// For now, let's temporarily fall back to the anon key if service role is missing
-// so we can see if the RLS policies are the issue or the key itself
 export const refacSupabaseAdmin = supabaseServiceRoleKey ? 
   createClient(
     supabaseUrl || '',
@@ -80,27 +57,10 @@ export const refacSupabaseAdmin = supabaseServiceRoleKey ?
       }
     }
   ) : 
-  // Temporary fallback to anon key with warning
+  // Fallback to anon key with warning
   (() => {
-    console.warn('🚨 TEMPORARY: refacSupabaseAdmin using anon key - service role missing!');
-    return createClient(
-      supabaseUrl || '',
-      supabaseAnonKey || '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        },
-        db: {
-          schema: 'public'
-        },
-        global: {
-          headers: {
-            'X-Client-Info': 'lengolf-forms-admin-fallback'
-          }
-        }
-      }
-    );
+    console.warn('🚨 Using anon key for admin client - service role missing!');
+    return refacSupabase;
   })();
 
 // Connection test function using backoffice schema
