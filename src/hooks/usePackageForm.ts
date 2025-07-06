@@ -65,7 +65,7 @@ export function usePackageForm() {
         if (customersError) throw customersError
         
         // Transform the customers data
-        const transformedCustomers = customersData.map(customer => ({
+        const transformedCustomers = customersData.map((customer: any) => ({
           ...customer,
           displayName: customer.contact_number 
             ? `${customer.customer_name} (${customer.contact_number})`
