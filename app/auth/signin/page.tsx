@@ -2,20 +2,30 @@
 
 import { Button } from "@/components/ui/button";
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from 'next/navigation';
 
 export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const searchParams = useSearchParams();
+  const [callbackUrl, setCallbackUrl] = useState('/');
+
+  useEffect(() => {
+    // Get the callback URL from query params, default to '/'
+    const callback = searchParams.get('callbackUrl') || '/';
+    setCallbackUrl(callback);
+  }, [searchParams]);
 
   const handleSignIn = async () => {
     try {
       setLoading(true);
       setError('');
       console.log('Starting Google sign in...');
+      console.log('Callback URL:', callbackUrl);
       
       await signIn('google', { 
-        callbackUrl: '/',
+        callbackUrl: callbackUrl,
       }).catch((error) => {
         console.error('Sign in promise error:', error);
         setError('Failed to sign in with Google');

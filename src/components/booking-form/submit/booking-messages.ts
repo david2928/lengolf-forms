@@ -34,6 +34,8 @@ interface BookingDetails {
   bay: string;
   players: string;
   notes?: string;
+  isCoaching: boolean;
+  coachName?: string;
 }
 
 function formatTime(time: string | Date | null): string {
@@ -78,6 +80,19 @@ function getBookingDetails(formData: BookingFormData): BookingDetails | null {
   const startTime = formatTime(formData.startTime);
   const endTime = formatTime(formData.endTime);
 
+  // Check if it's a coaching booking and extract coach name
+  const bookingType = formData.bookingType || '';
+  const isCoaching = bookingType.toLowerCase().includes('coaching');
+  let coachName = '';
+  
+  if (isCoaching) {
+    // Extract coach name from booking type - get text within parentheses
+    const match = bookingType.match(/\(([^)]+)\)/);
+    if (match && match[1]) {
+      coachName = match[1]; // This will extract "Boss", "Boss - Ratchavin", or "Noon"
+    }
+  }
+
   return {
     date: `${weekday}, ${month} ${day}`,
     time: `${startTime} - ${endTime}`,
@@ -86,7 +101,9 @@ function getBookingDetails(formData: BookingFormData): BookingDetails | null {
     type: formData.bookingType || '',
     bay: formData.bayNumber || '',
     players: `${formData.numberOfPax}`,
-    notes: formData.notes
+    notes: formData.notes,
+    isCoaching,
+    coachName
   };
 }
 
@@ -105,9 +122,14 @@ export function generateMessages(formData: BookingFormData) {
   const thaiDate = formData.bookingDate ? formatThaiDate(formData.bookingDate) : '';
   const thaiPlayers = `${details.players} ท่าน`;
 
+  // Conditional text based on booking type
+  const bookingConfirmation = details.isCoaching ? 'Your coaching session booking has been confirmed.' : 'Your bay booking has been confirmed.';
+  const thaiBookingConfirmation = details.isCoaching ? 'ยืนยันการจองคลาสเรียนเรียบร้อยค่ะ' : 'ยืนยันการจองเบย์เรียบร้อยค่ะ';
+
   // English Messages
   const enShort = [
-    `Your bay booking has been confirmed.`,
+    bookingConfirmation,
+    details.isCoaching && details.coachName ? `Coach: ${details.coachName}` : '',
     ``,
     `Date: ${details.date}`,
     `Time: ${details.time}`,
@@ -116,7 +138,8 @@ export function generateMessages(formData: BookingFormData) {
   ].filter(Boolean).join('\n');
 
   const enLong = [
-    `Your bay booking has been confirmed.`,
+    bookingConfirmation,
+    details.isCoaching && details.coachName ? `Coach: ${details.coachName}` : '',
     ``,
     `Date: ${details.date}`,
     `Time: ${details.time}`,
@@ -131,7 +154,8 @@ export function generateMessages(formData: BookingFormData) {
 
   // Thai Messages
   const thShort = [
-    `ยืนยันการจองเบย์เรียบร้อยค่ะ`,
+    thaiBookingConfirmation,
+    details.isCoaching && details.coachName ? `Coach: ${details.coachName}` : '',
     ``,
     `วันที่: ${thaiDate}`,
     `เวลา: ${details.time}`,
@@ -140,7 +164,8 @@ export function generateMessages(formData: BookingFormData) {
   ].filter(Boolean).join('\n');
 
   const thLong = [
-    `ยืนยันการจองเบย์เรียบร้อยค่ะ`,
+    thaiBookingConfirmation,
+    details.isCoaching && details.coachName ? `Coach: ${details.coachName}` : '',
     ``,
     `วันที่: ${thaiDate}`,
     `เวลา: ${details.time}`,

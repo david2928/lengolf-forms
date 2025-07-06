@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
-import { refacSupabase } from '@/lib/refac-supabase'
+// Removed direct Supabase import - using API endpoints instead
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { format } from 'date-fns'
@@ -67,27 +67,21 @@ export default function PackageForm() {
   useEffect(() => {
     async function fetchData() {
       try {
-        // Fetch package types
-        const { data: packageData, error: packageError } = await refacSupabase
-          .schema('backoffice')
-          .from('package_types')
-          .select('id, name, display_order, type')
-          .order('display_order', { ascending: true })
+        // Fetch package types via API
+        const packageResponse = await fetch('/api/package-types');
+        if (!packageResponse.ok) throw new Error('Failed to fetch package types');
+        const packageResult = await packageResponse.json();
 
-        if (packageError) throw packageError
-
-        // Fetch customers
-        const { data: customersData, error: customersError } = await refacSupabase
-          .schema('backoffice')
-          .from('customers')
-          .select('*')
-          .order('customer_name', { ascending: true })
-
-        if (customersError) throw customersError
+        // Fetch customers via API
+        const customersResponse = await fetch('/api/customers');
+        if (!customersResponse.ok) throw new Error('Failed to fetch customers');
+        const customersData = await customersResponse.json();
         
         // Transform and enrich customer data for UI
         const transformedCustomers = customersData.map((customer: any) => ({
-          ...customer,
+          id: parseInt(customer.id), // Convert string id back to number
+          customer_name: customer.customer_name,
+          contact_number: customer.contact_number,
           displayName: customer.contact_number 
             ? `${customer.customer_name} (${customer.contact_number})`
             : customer.customer_name
@@ -95,7 +89,7 @@ export default function PackageForm() {
         
         setFormState(prev => ({
           ...prev,
-          packageTypes: packageData || [],
+          packageTypes: packageResult.data || [],
           customers: transformedCustomers
         }))
 
@@ -219,18 +213,25 @@ export default function PackageForm() {
     setFormState(prev => ({ ...prev, isLoading: true, showConfirmation: false }))
 
     try {
-      const { error } = await refacSupabase
-        .schema('backoffice')
-        .from('packages')
-        .insert([{
+      const response = await fetch('/api/packages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           employee_name: formState.formData.employeeName,
           customer_name: formState.formData.customerName,
           package_type_id: formState.formData.packageTypeId,
           purchase_date: format(formState.selectedDates.purchase!, 'yyyy-MM-dd'),
           first_use_date: null
-        }])
+        })
+      });
 
-      if (error) throw error
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create package');
+      }
+
       alert('Package created successfully! The package has been created as inactive and will need to be activated manually when the customer is ready to use it.')
       
       resetForm()
@@ -239,7 +240,7 @@ export default function PackageForm() {
       console.error('Error creating package:', error)
       setFormState(prev => ({
         ...prev,
-        error: 'Error creating package. Please try again.'
+        error: error instanceof Error ? error.message : 'Error creating package. Please try again.'
       }))
     } finally {
       setFormState(prev => ({ ...prev, isLoading: false }))

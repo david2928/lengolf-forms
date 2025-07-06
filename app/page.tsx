@@ -31,8 +31,8 @@ const operationsItems = appMenuItems.filter(item =>
   item.title === "Inventory Management"
 );
 
-const specialEventsItems = appMenuItems.filter(item => 
-  item.title === "US Open"
+const coachingItems = appMenuItems.filter(item => 
+  item.title === "Coaching Dashboard"
 );
 
 export default function Home() {
@@ -253,9 +253,9 @@ export default function Home() {
           </div>
         </div>
         <div>
-          <h2 className="text-lg font-semibold mb-3">Special Events</h2>
+          <h2 className="text-lg font-semibold mb-3">Coaching</h2>
           <div className="space-y-3">
-            {specialEventsItems.map((item: AppMenuItemType) => (
+            {coachingItems.map((item: AppMenuItemType) => (
               <MobileMenuItem
                 key={item.title}
                 icon={item.icon}
@@ -313,9 +313,9 @@ export default function Home() {
           </div>
         </div>
         <div>
-          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Special Events</h2>
+          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Coaching</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
-            {specialEventsItems.map((item: AppMenuItemType) => (
+            {coachingItems.map((item: AppMenuItemType) => (
               <DesktopMenuItem
                 key={item.title}
                 icon={item.icon}

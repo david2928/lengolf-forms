@@ -16,7 +16,7 @@ function customMiddleware(request: NextRequest, event: NextFetchEvent) {
     return response;
   }
 
-  // Production - use NextAuth middleware
+  // Production - use NextAuth middleware with proper redirect
   return withAuth(
     (req) => {
       const response = NextResponse.next();
@@ -26,6 +26,9 @@ function customMiddleware(request: NextRequest, event: NextFetchEvent) {
     {
       callbacks: {
         authorized: ({ token }) => !!token,
+      },
+      pages: {
+        signIn: '/auth/signin',
       },
     }
   )(request as NextRequestWithAuth, event);
