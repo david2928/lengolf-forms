@@ -14,8 +14,7 @@ interface Coach {
   id: string;
   coach_name: string;
   coach_display_name: string;
-  coach_email: string;
-  is_active_coach: boolean;
+  email: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -69,9 +68,25 @@ export async function GET(request: NextRequest) {
       const { data: allCoachesRaw, error: coachesError } = await supabase
         .schema('backoffice')
         .from('allowed_users')
-        .select('id, coach_name, coach_display_name, coach_phone, coach_email, is_active_coach')
+        .select('id, coach_name, coach_display_name, coach_phone, email')
         .eq('is_coach', true)
         .order('coach_display_name');
+
+      if (coachesError) {
+        console.error('Error fetching coaches for admin selection:', coachesError);
+        return NextResponse.json({
+          isAdminView: true,
+          requiresCoachSelection: true,
+          availableCoaches: [],
+          currentUser: {
+            id: currentUser.id,
+            email: currentUser.email,
+            isAdmin: currentUser.is_admin,
+            isCoach: currentUser.is_coach
+          },
+          error: 'Failed to fetch coaches'
+        });
+      }
 
       // Remove duplicates by coach_display_name (keep first occurrence)
       const seenDisplayNames = new Set();
@@ -315,21 +330,25 @@ export async function GET(request: NextRequest) {
       const { data: allCoachesRaw, error: coachesError } = await supabase
         .schema('backoffice')
         .from('allowed_users')
-        .select('id, coach_name, coach_display_name, coach_phone, coach_email, is_active_coach')
+        .select('id, coach_name, coach_display_name, coach_phone, email')
         .eq('is_coach', true)
         .order('coach_display_name');
 
-      // Remove duplicates by coach_display_name (keep first occurrence)
-      const seenDisplayNames = new Set();
-      const allCoaches = (allCoachesRaw || []).filter(coach => {
-        if (seenDisplayNames.has(coach.coach_display_name)) {
-          return false;
-        }
-        seenDisplayNames.add(coach.coach_display_name);
-        return true;
-      });
+      if (coachesError) {
+        console.error('Error fetching coaches for admin view:', coachesError);
+      } else {
+        // Remove duplicates by coach_display_name (keep first occurrence)
+        const seenDisplayNames = new Set();
+        const allCoaches = (allCoachesRaw || []).filter(coach => {
+          if (seenDisplayNames.has(coach.coach_display_name)) {
+            return false;
+          }
+          seenDisplayNames.add(coach.coach_display_name);
+          return true;
+        });
 
-      availableCoaches = allCoaches as Coach[] || [];
+        availableCoaches = allCoaches as Coach[] || [];
+      }
     }
 
     const responsePayload = {

@@ -153,49 +153,231 @@ export const authConfig: NextAuthConfig = {
 
 ## Role-Based Access Control
 
-### Admin System
+### Multi-Role System
 
-The system implements a binary admin role system:
+The system implements a comprehensive role-based access control with three primary roles:
 
-#### Admin Identification
-Admins are identified by their Google email addresses stored in environment variables:
+#### User Role Types
 
-```bash
-# Admin Configuration
-ADMIN_EMAILS=admin1@lengolf.com,admin2@lengolf.com,staff@lengolf.com
+1. **Admin Users** (`is_admin: true`)
+   - Full system access including admin features
+   - Can access all coaching functionality
+   - System-wide management capabilities
+
+2. **Coach Users** (`is_coach: true`)
+   - Access to coaching portal (`/coaching`)
+   - View own coaching data and students
+   - Manage personal availability and earnings
+
+3. **Coach + Admin Users** (`is_coach: true, is_admin: true`)
+   - Combined access to both roles
+   - Can switch between coach and admin views
+   - Full system privileges
+
+#### Role Identification
+
+Roles are stored in the Supabase `backoffice.allowed_users` table:
+
+```sql
+CREATE TABLE backoffice.allowed_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  is_admin BOOLEAN DEFAULT false,
+  is_coach BOOLEAN DEFAULT false,
+  coach_name TEXT,
+  coach_display_name TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
 ```
 
-#### Admin Check Logic
+#### Role Check Functions
+
 ```typescript
-function isAdmin(userEmail: string): boolean {
-  const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-  return adminEmails.includes(userEmail);
+// src/lib/auth.ts
+export async function isUserAdmin(email: string): Promise<boolean> {
+  if (isDevAuthBypassEnabled()) return true;
+  
+  const { data, error } = await refacSupabaseAdmin
+    .schema('backoffice')
+    .from('allowed_users')
+    .select('is_admin')
+    .eq('email', email.toLowerCase())
+    .single();
+    
+  return data?.is_admin === true;
 }
 
-// Middleware usage
-export function middleware(request: NextRequest) {
-  const { auth } = request;
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
+export async function isUserCoach(email: string): Promise<boolean> {
+  if (isDevAuthBypassEnabled()) return true;
   
-  if (isAdminRoute && !isAdmin(auth?.user?.email)) {
-    return NextResponse.redirect(new URL('/unauthorized', request.url));
+  const { data, error } = await refacSupabaseAdmin
+    .schema('backoffice')
+    .from('allowed_users')
+    .select('is_coach')
+    .eq('email', email.toLowerCase())
+    .single();
+    
+  return data?.is_coach === true;
+}
+```
+
+#### NextAuth Integration
+
+```typescript
+// src/lib/auth-config.ts
+export const authOptions: NextAuthOptions = {
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user?.email) {
+        const adminStatus = await isUserAdmin(user.email);
+        const coachStatus = await isUserCoach(user.email);
+        token.isAdmin = adminStatus;
+        token.isCoach = coachStatus;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.isAdmin = token.isAdmin;
+        session.user.isCoach = token.isCoach;
+      }
+      return session;
+    }
+  }
+};
+```
+
+### Access Control Implementation
+
+#### Middleware-Level Protection
+
+```typescript
+// middleware.ts
+async function customMiddleware(request: NextRequest, event: NextFetchEvent) {
+  return withAuth(
+    async (req) => {
+      // Role-based access control for coaches
+      if (req.nextUrl.pathname.startsWith('/coaching')) {
+        // Coaching portal access - allow coaches and admins
+        return NextResponse.next();
+      } else if (req.nextUrl.pathname !== '/coaching' && req.nextUrl.pathname !== '/') {
+        // Check if user is coach-only
+        const { data: user } = await supabase
+          .schema('backoffice')
+          .from('allowed_users')
+          .select('is_coach, is_admin')
+          .eq('email', req.nextauth.token?.email)
+          .single();
+
+        // Redirect coach-only users to coaching portal
+        if (user?.is_coach && !user?.is_admin) {
+          return NextResponse.redirect(new URL('/coaching', req.url));
+        }
+      }
+      
+      return NextResponse.next();
+    }
+  )(request as NextRequestWithAuth, event);
+}
+```
+
+#### API Route Protection
+
+```typescript
+// Protected API pattern
+export async function GET(request: NextRequest) {
+  const session = await getDevSession(authOptions, request);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { data: currentUser } = await supabase
+    .schema('backoffice')
+    .from('allowed_users')
+    .select('is_admin, is_coach')
+    .eq('email', session.user.email)
+    .single();
+
+  // Different access patterns based on endpoint
+  if (request.nextUrl.pathname.startsWith('/api/admin/')) {
+    if (!currentUser.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+  } else if (request.nextUrl.pathname.startsWith('/api/coaching/')) {
+    if (!currentUser.is_coach && !currentUser.is_admin) {
+      return NextResponse.json({ error: 'Coach or admin access required' }, { status: 403 });
+    }
   }
 }
 ```
 
 ### Route Protection
 
-#### Protected Routes
+#### Coach-Only Routes
+- `/coaching`: Personal coaching dashboard
+- `/coaching/availability`: Coach availability management
+
+#### Admin Routes
 - `/admin/*`: Admin panel and management features
+- `/admin/coaching`: Admin coaching portal
 - `/booking/*`: Booking management (admin only)
 - `/inventory/*`: Inventory management (staff/admin)
 - `/crm/*`: Customer relationship management (admin only)
 
+#### Shared Routes (Coach + Admin)
+- `/api/coaching/*`: Coaching API endpoints (role-specific data)
+
 #### Public Routes
-- `/`: Home page and public booking form
+- `/`: Home page (coaches auto-redirected to coaching portal)
 - `/auth/*`: Authentication pages
 - `/api/bookings/create`: Public booking creation
 - `/api/availability`: Public availability checking
+
+### Navigation Control
+
+```typescript
+// Navigation component with role-based visibility
+const isAdmin = session?.user?.isAdmin || false;
+const isCoach = session?.user?.isCoach || false;
+
+// Coaching portal link for coaches
+{isCoach && (
+  <Link href="/coaching">
+    <Button>Coaching Portal</Button>
+  </Link>
+)}
+
+// Admin dropdown with full admin features
+{isAdmin && (
+  <DropdownMenu>
+    <DropdownMenuItem>
+      <Link href="/admin/coaching">Coaching Portal</Link>
+    </DropdownMenuItem>
+    {/* Other admin items */}
+  </DropdownMenu>
+)}
+```
+
+### Client-Side Protection
+
+```typescript
+// CoachRedirect component for automatic redirects
+export function CoachRedirect() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      // Redirect coach-only users to coaching portal
+      if (session.user.isCoach && !session.user.isAdmin) {
+        router.replace('/coaching');
+      }
+    }
+  }, [session, status, router]);
+
+  return null;
+}
+```
 
 ## User Profile Management
 
@@ -583,4 +765,10 @@ This provides detailed logs for:
 - **Database Sessions**: Optional database session storage
 - **Token Refresh**: Automatic token refresh
 - **Audit Logging**: Comprehensive audit trails
-- **Security Enhancements**: Additional security layers 
+- **Security Enhancements**: Additional security layers
+
+---
+
+**Last Updated**: January 2025  
+**Version**: 2.1  
+**Focus**: Multi-role access control and coaching integration 

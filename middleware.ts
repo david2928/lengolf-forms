@@ -27,8 +27,8 @@ async function customMiddleware(request: NextRequest, event: NextFetchEvent) {
       if (req.nextUrl.pathname.startsWith('/coaching') || req.nextUrl.pathname === '/coaching') {
         // Coaching portal access - allow coaches and admins
         return response;
-      } else if (req.nextUrl.pathname !== '/coaching' && req.nextUrl.pathname !== '/') {
-        // Non-coaching routes - check if user is coach-only
+      } else {
+        // For all other routes (including root '/'), check if user is coach-only
         try {
           const supabase = createClient(
             process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!,

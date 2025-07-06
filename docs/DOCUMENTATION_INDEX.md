@@ -41,7 +41,7 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 ### Technical Documentation (Implemented)
 - **[API Reference](./api/API_REFERENCE.md)** - Complete API endpoint documentation with request/response examples, error handling, and rate limiting
 - **[Coaching API Reference](./api/COACHING_API_REFERENCE.md)** - Detailed documentation for all coaching-related API endpoints with examples and response structures
-- **[Authentication System](./technical/AUTHENTICATION_SYSTEM.md)** - NextAuth.js v5 implementation with Google OAuth, role-based access control, and session management
+- **[Authentication System](./technical/AUTHENTICATION_SYSTEM.md)** - NextAuth.js v5 implementation with Google OAuth, multi-role access control (admin/coach), automatic redirects, and session management
 - **[Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md)** - Comprehensive development authentication bypass system with Bearer tokens, frontend bypass, and production safety
 - **[Coaching System Technical](./technical/COACHING_SYSTEM_TECHNICAL.md)** - Technical implementation details, architecture, performance optimizations, and development setup for the coaching system
 

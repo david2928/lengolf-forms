@@ -364,35 +364,194 @@ CREATE TABLE coach_earnings (
 
 ### Role-Based Access Control
 
+The coaching system implements comprehensive role-based access control with automatic redirects and navigation restrictions.
+
+#### User Role Types
+
+1. **Coach-Only Users** (`is_coach: true, is_admin: false`)
+   - Restricted to coaching portal only (`/coaching`)
+   - Automatically redirected from other pages
+   - No access to main navigation or admin features
+
+2. **Admin Users** (`is_admin: true`)
+   - Full system access including admin coaching portal (`/admin/coaching`)
+   - Can view any coach's data
+   - Access to system-wide analytics and management
+
+3. **Coach + Admin Users** (`is_coach: true, is_admin: true`)
+   - Combined access to both coach and admin features
+   - Can switch between personal coaching dashboard and admin view
+
+#### Authentication Functions
+
 ```typescript
-// Coach access pattern
-const isCoach = await checkCoachRole(session.user.email);
-if (!isCoach) {
-  return NextResponse.json({ error: "Coach access required" }, { status: 403 });
+// Core authentication functions in /src/lib/auth.ts
+export async function isUserCoach(email: string): Promise<boolean>
+export async function isUserAdmin(email: string): Promise<boolean>
+
+// Usage in API routes
+const { data: currentUser } = await supabase
+  .schema('backoffice')
+  .from('allowed_users')
+  .select('id, email, is_admin, is_coach, coach_name, coach_display_name')
+  .eq('email', session.user.email)
+  .single();
+
+if (!currentUser.is_coach && !currentUser.is_admin) {
+  return NextResponse.json({ error: 'Not authorized to view coaching data' }, { status: 403 });
+}
+```
+
+#### NextAuth Integration
+
+```typescript
+// JWT token includes both admin and coach status
+async jwt({ token, user }) {
+  if (user?.email) {
+    const adminStatus = await isUserAdmin(user.email);
+    const coachStatus = await isUserCoach(user.email);
+    token.isAdmin = adminStatus;
+    token.isCoach = coachStatus;
+  }
+  return token;
 }
 
-// Admin access pattern  
-const isAdmin = await checkAdminRole(session.user.email);
-if (!isAdmin) {
-  return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+// Session includes role information
+async session({ session, token }) {
+  if (session.user) {
+    session.user.isAdmin = token.isAdmin;
+    session.user.isCoach = token.isCoach;
+  }
+  return session;
 }
+```
+
+### Access Control Implementation
+
+#### Middleware-Level Protection
+
+```typescript
+// middleware.ts - Production role-based redirects
+if (req.nextUrl.pathname.startsWith('/coaching')) {
+  // Coaching portal access - allow coaches and admins
+  return response;
+} else if (req.nextUrl.pathname !== '/coaching' && req.nextUrl.pathname !== '/') {
+  // Check if user is coach-only
+  const { data: user } = await supabase
+    .schema('backoffice')
+    .from('allowed_users')
+    .select('is_coach, is_admin')
+    .eq('email', req.nextauth.token?.email)
+    .single();
+
+  // Redirect coach-only users to coaching portal
+  if (user?.is_coach && !user?.is_admin) {
+    return NextResponse.redirect(new URL('/coaching', req.url));
+  }
+}
+```
+
+#### Client-Side Protection
+
+```typescript
+// CoachRedirect component for home page
+export function CoachRedirect() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      // Redirect coach-only users to coaching portal
+      if (session.user.isCoach && !session.user.isAdmin) {
+        router.replace('/coaching');
+      }
+    }
+  }, [session, status, router]);
+
+  return null;
+}
+```
+
+#### Navigation System
+
+```typescript
+// Navigation components with role-based visibility
+const isAdmin = session?.user?.isAdmin || false;
+const isCoach = session?.user?.isCoach || false;
+
+// Coaching portal link for coaches
+{isCoach && (
+  <Link href="/coaching">
+    <Button variant={pathname.startsWith('/coaching') ? 'secondary' : 'ghost'}>
+      Coaching Portal
+    </Button>
+  </Link>
+)}
+
+// Admin dropdown with coaching portal
+{isAdmin && (
+  <DropdownMenuItem asChild>
+    <Link href="/admin/coaching">Coaching Portal</Link>
+  </DropdownMenuItem>
+)}
 ```
 
 ### Data Access Rules
 
-1. **Coaches**: Can only access their own data
-2. **Admins**: Can access any coach's data via `coach_id` parameter
-3. **Cross-coach queries**: Admin-only (e.g., system-wide availability)
+1. **Coach-Only Users**:
+   - Can only access `/coaching` portal
+   - View their own coaching data only
+   - Automatically redirected from other pages
+   - No main application navigation
+
+2. **Admin Users**:
+   - Full access to `/admin/coaching` portal
+   - Can view any coach's data via `coach_id` parameter
+   - Access to system-wide availability and analytics
+   - Complete application access
+
+3. **Coach + Admin Users**:
+   - Access to both coach and admin features
+   - Can view own data in coach portal
+   - Can view any coach's data in admin portal
+   - Full navigation and feature access
 
 ### Development Authentication Bypass
 
 ```typescript
-// Development mode bypass
-if (process.env.SKIP_AUTH === 'true' && process.env.NODE_ENV === 'development') {
-  // Skip authentication checks
-  // Use mock coach/admin data
+// Development mode bypass in /src/lib/auth.ts
+export async function isUserCoach(email: string): Promise<boolean> {
+  // Development auth bypass - always grant coach in development
+  if (isDevAuthBypassEnabled()) {
+    return true;
+  }
+  // Production logic...
 }
+
+// Middleware bypass
+const shouldBypass = (
+  process.env.NODE_ENV === 'development' &&
+  process.env.SKIP_AUTH === 'true'
+);
 ```
+
+### Security Features
+
+1. **Multiple Protection Layers**:
+   - Middleware-level redirects
+   - Client-side route protection
+   - API endpoint authentication
+   - Navigation visibility control
+
+2. **Production Safety**:
+   - Development bypass only works with explicit environment variables
+   - Multiple environment checks prevent accidental production deployment
+   - Role verification at database level
+
+3. **Session Integration**:
+   - Role information included in JWT tokens
+   - Real-time role checking
+   - Automatic session updates
 
 ## Availability Management
 
@@ -520,7 +679,7 @@ interface AdminKPIs {
 ---
 
 **Last Updated**: January 2025  
-**Version**: 1.0  
+**Version**: 1.1  
 **Maintainer**: Development Team
 
 **Related Documentation**:
