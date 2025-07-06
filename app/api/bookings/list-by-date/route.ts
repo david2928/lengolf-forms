@@ -18,6 +18,9 @@ interface FetchedBookingData {
   booking_type: string | null;
   package_name: string | null;
   google_calendar_sync_status?: string | null; // Added field
+  package_id?: string | null; // Package ID for foreign key
+  referral_source?: string | null; // Where customer heard about us
+  is_new_customer?: boolean; // Auto-detected via trigger
   // Add other fields that are selected if they are directly used before mapping to Booking
 }
 
@@ -37,7 +40,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await refacSupabaseAdmin
       .from('bookings')
-      .select('id, name, email, phone_number, date, start_time, duration, bay, status, number_of_people, customer_notes, booking_type, package_name, google_calendar_sync_status') // Added fields needed for calendar
+      .select('id, name, email, phone_number, date, start_time, duration, bay, status, number_of_people, customer_notes, booking_type, package_name, google_calendar_sync_status, package_id, referral_source, is_new_customer') // Added new fields for Phase 4
       .eq('date', date)
       .order('start_time', { ascending: true });
 
@@ -63,6 +66,9 @@ export async function GET(request: NextRequest) {
       booking_type: b.booking_type,
       package_name: b.package_name,
       google_calendar_sync_status: b.google_calendar_sync_status,
+      package_id: b.package_id,
+      referral_source: b.referral_source,
+      is_new_customer: b.is_new_customer,
       // Optional fields not needed for calendar display
       created_at: undefined,
       updated_at: undefined,

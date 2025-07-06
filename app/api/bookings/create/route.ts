@@ -6,7 +6,6 @@ export async function POST(req: Request) {
   try {
     const bookingDataForDb: Booking = await req.json();
 
-    console.log('Received booking data for insertion:', bookingDataForDb);
 
     if (!bookingDataForDb.id || !bookingDataForDb.user_id || !bookingDataForDb.name || !bookingDataForDb.email || !bookingDataForDb.phone_number || !bookingDataForDb.date || !bookingDataForDb.start_time || !bookingDataForDb.duration || !bookingDataForDb.number_of_people || !bookingDataForDb.status) {
       console.error('Validation Error: Missing required fields in booking data', bookingDataForDb);
@@ -14,6 +13,10 @@ export async function POST(req: Request) {
         { success: false, error: 'Missing required booking fields.' },
         { status: 400 }
       );
+    }
+
+    // Log package_id for debugging
+    if (bookingDataForDb.package_id) {
     }
 
     const { data: insertedData, error: insertError } = await refacSupabaseAdmin
@@ -32,7 +35,6 @@ export async function POST(req: Request) {
         throw new Error('Database insert failed: No data returned after insert.');
     }
 
-    console.log('Successfully inserted booking with ID:', insertedData.id);
 
     return NextResponse.json({ 
       success: true, 

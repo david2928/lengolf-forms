@@ -19,8 +19,10 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 - **[Frontend Documentation](./frontend/FRONTEND_OVERVIEW.md)** - Component architecture, hooks, and UI patterns
 - **[Database Schema](./technical/DATABASE_SCHEMA.md)** - Complete database structure and relationships
 
-### Feature Documentation (Implemented)
+### Core Features Documentation (Implemented)
 - **[Booking System](./features/BOOKING_SYSTEM.md)** - Complete booking management workflow with multi-step creation, calendar integration, and audit trails
+- **[Booking Management](./features/BOOKING_MANAGEMENT.md)** - Comprehensive booking interface with search, filtering, visual indicators, and responsive design
+- **[Booking Editing](./features/BOOKING_EDITING.md)** - Advanced booking edit system with tabbed interface, conditional permissions, and real-time validation
 - **[Package Management](./features/PACKAGE_MANAGEMENT.md)** - Customer packages, usage tracking, expiration monitoring, and unlimited package support
 - **[Admin Panel](./features/ADMIN_PANEL.md)** - Administrative interface with role-based access and business intelligence tools
 - **[Sales Dashboard](./features/SALES_DASHBOARD.md)** - Comprehensive analytics with KPIs, charts, and flexible date filtering

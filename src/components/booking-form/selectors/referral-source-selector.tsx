@@ -4,58 +4,56 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
-import { Package, Users, Gamepad2, Calendar, PenSquare } from "lucide-react"
+import { Instagram, Facebook, Search, Music, Users, MapPin, PenSquare } from "lucide-react"
 
-interface BookingTypeSelectorProps {
+interface ReferralSourceSelectorProps {
   value: string | null
   onChange: (value: string) => void
   error?: string
   disabled?: boolean
 }
 
-export function BookingTypeSelector({
+export function ReferralSourceSelector({
   value,
   onChange,
   error,
   disabled = false
-}: BookingTypeSelectorProps) {
-  const [otherType, setOtherType] = useState('')
+}: ReferralSourceSelectorProps) {
+  const [otherText, setOtherText] = useState('')
 
-  const bookingTypes = [
-    { value: 'Package', label: 'Package', icon: Package },
-    { value: 'Coaching (Boss)', label: 'Coaching (Boss)', icon: Users },
-    { value: 'Coaching (Boss - Ratchavin)', label: 'Coaching (Boss - Ratchavin)', icon: Users },
-    { value: 'Coaching (Noon)', label: 'Coaching (Noon)', icon: Users },
-    { value: 'Normal Bay Rate', label: 'Normal Bay Rate', icon: Calendar },
-    { value: 'ClassPass', label: 'ClassPass', icon: Calendar },
-    { value: 'VR', label: 'VR', icon: Gamepad2 },
-    { value: 'Others (e.g. Events)', label: 'Others (e.g. Events)', icon: PenSquare },
+  const referralSources = [
+    { value: 'Instagram', label: 'Instagram', icon: Instagram },
+    { value: 'Facebook', label: 'Facebook', icon: Facebook },
+    { value: 'Google', label: 'Google', icon: Search },
+    { value: 'TikTok', label: 'TikTok', icon: Music },
+    { value: 'Friends', label: 'Friends', icon: Users },
+    { value: 'Mall Advertisement', label: 'Mall Advertisement', icon: MapPin },
   ]
 
   return (
     <div className="space-y-3">
-      <Label className="text-base">Type of Booking</Label>
+      <Label className="text-base">Where did they hear about us?</Label>
       <RadioGroup value={value || ''} onValueChange={disabled ? undefined : onChange}>
         <div className="grid gap-3">
-          {bookingTypes.map((type) => {
-            const Icon = type.icon
+          {referralSources.map((source) => {
+            const Icon = source.icon
             return (
               <label
-                key={type.value}
+                key={source.value}
                 className={disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                htmlFor={`booking-${type.value.toLowerCase().replace(/\s+/g, '-')}`}
+                htmlFor={`referral-${source.value.toLowerCase().replace(/\s+/g, '-')}`}
               >
                 <div className={`flex items-center rounded-lg border p-3 ${disabled ? '' : 'hover:bg-accent'}`}>
                   <RadioGroupItem
-                    value={type.value}
-                    id={`booking-${type.value.toLowerCase().replace(/\s+/g, '-')}`}
+                    value={source.value}
+                    id={`referral-${source.value.toLowerCase().replace(/\s+/g, '-')}`}
                     className="mr-3"
                     disabled={disabled}
                   />
                   <div className="flex items-center flex-grow gap-3">
                     <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                     <span className="block">
-                      {type.label}
+                      {source.label}
                     </span>
                   </div>
                 </div>
@@ -67,17 +65,17 @@ export function BookingTypeSelector({
           <div className={`flex items-center rounded-lg border p-3 ${disabled ? 'opacity-50' : ''}`}>
             <RadioGroupItem 
               value="other" 
-              id="booking-other"
+              id="referral-other"
               className="mr-3"
-              checked={value === otherType}
+              checked={value === otherText}
               disabled={disabled}
             />
             <PenSquare className="h-5 w-5 text-muted-foreground mr-3" />
             <Input
-              placeholder="Other booking type..."
-              value={otherType}
+              placeholder="Other referral source..."
+              value={otherText}
               onChange={(e) => {
-                setOtherType(e.target.value)
+                setOtherText(e.target.value)
                 if (e.target.value) {
                   onChange(e.target.value)
                 }

@@ -12,6 +12,8 @@ export interface CalendarEvent {
   number_of_pax: string;
   color?: string;
   summary?: string;
+  is_new_customer?: boolean;
+  referral_source?: string;
 }
 
 // Bay color mapping (matching current calendar implementation)
@@ -78,7 +80,9 @@ export function formatBookingForCalendar(booking: Booking): CalendarEvent {
     package_name: booking.package_name || undefined,
     number_of_pax: booking.number_of_people.toString(),
     color: getBayColor(booking.bay),
-    summary: summary
+    summary: summary,
+    is_new_customer: booking.is_new_customer,
+    referral_source: booking.referral_source || undefined
   };
 }
 

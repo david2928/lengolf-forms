@@ -76,7 +76,7 @@ CREATE TABLE public.bookings (
   user_id UUID NOT NULL,
   name TEXT NOT NULL,
   email TEXT NOT NULL,
-  phone_number TEXT NOT NULL,
+  phone_number TEXT NOT NULL,                 -- Auto-normalized via normalize_phone_number()
   date DATE NOT NULL,
   start_time TEXT NOT NULL,
   duration INTEGER NOT NULL,
@@ -86,19 +86,35 @@ CREATE TABLE public.bookings (
   customer_notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Enhancement fields (Phase 3)
+  package_id TEXT,                            -- Links to backoffice.packages(id)
+  booking_type TEXT DEFAULT 'Walk In',        -- Type of booking
+  referral_source TEXT,                       -- How customer found us
+  is_new_customer BOOLEAN DEFAULT FALSE,      -- Auto-set by check_new_customer()
+  
+  -- Audit fields
   updated_by_type TEXT,
   updated_by_identifier TEXT,
   cancelled_by_type TEXT,
   cancelled_by_identifier TEXT,
   cancellation_reason TEXT,
+  
+  -- Calendar integration
   google_calendar_sync_status TEXT,
-  calendar_event_id TEXT,
+  calendar_event_id TEXT,                     -- Deprecated: use calendar_events
   calendar_events JSONB,
-  booking_type TEXT,
-  package_name TEXT,
-  stable_hash_id TEXT
+  package_name TEXT,                          -- Deprecated: use package_id
+  stable_hash_id TEXT                         -- Links to backoffice.customers
 );
 ```
+
+#### Recent Enhancements (Phase 3)
+- **package_id**: Direct foreign key to packages table
+- **booking_type**: Standardized booking type classification
+- **referral_source**: Marketing attribution tracking
+- **is_new_customer**: Automatic new customer detection
+- **phone_number**: Automatic normalization on insert/update
 
 #### Booking Status Values
 - `confirmed`: Active booking
@@ -456,6 +472,86 @@ BEGIN
   WHERE date BETWEEN start_date AND end_date;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+### Enhancement Functions (Phase 3)
+
+#### Phone Number Normalization
+```sql
+CREATE OR REPLACE FUNCTION normalize_phone_number(phone TEXT)
+RETURNS TEXT AS $$
+BEGIN
+  IF phone IS NULL OR phone = '' THEN
+    RETURN phone;
+  END IF;
+  
+  -- Remove all non-digit characters except + at the beginning
+  phone := REGEXP_REPLACE(phone, '[^\d+]', '', 'g');
+  
+  -- Handle different phone number formats
+  IF phone ~ '^\+66' THEN
+    -- Already in international format
+    RETURN phone;
+  ELSIF phone ~ '^66' THEN
+    -- Thai format without +
+    RETURN '+' || phone;
+  ELSIF phone ~ '^0' AND LENGTH(phone) = 10 THEN
+    -- Thai mobile format (0xxxxxxxxx)
+    RETURN '+66' || SUBSTRING(phone FROM 2);
+  ELSIF LENGTH(phone) = 9 THEN
+    -- Thai mobile without leading 0
+    RETURN '+66' || phone;
+  ELSE
+    -- Return as-is if format not recognized
+    RETURN phone;
+  END IF;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+```
+
+#### New Customer Detection
+```sql
+CREATE OR REPLACE FUNCTION check_new_customer()
+RETURNS TRIGGER AS $$
+DECLARE
+  existing_bookings INTEGER;
+BEGIN
+  -- Count existing bookings for this phone number
+  SELECT COUNT(*) INTO existing_bookings
+  FROM public.bookings
+  WHERE phone_number = NEW.phone_number
+    AND id != NEW.id  -- Exclude current booking
+    AND status = 'confirmed';
+  
+  -- Set is_new_customer flag
+  NEW.is_new_customer := (existing_bookings = 0);
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for new customer detection
+CREATE OR REPLACE TRIGGER bookings_check_new_customer
+  BEFORE INSERT OR UPDATE ON public.bookings
+  FOR EACH ROW
+  EXECUTE FUNCTION check_new_customer();
+```
+
+#### Phone Number Normalization Trigger
+```sql
+-- Create trigger to auto-normalize phone numbers
+CREATE OR REPLACE TRIGGER bookings_normalize_phone
+  BEFORE INSERT OR UPDATE ON public.bookings
+  FOR EACH ROW
+  EXECUTE FUNCTION normalize_phone_number_trigger();
+
+CREATE OR REPLACE FUNCTION normalize_phone_number_trigger()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.phone_number := normalize_phone_number(NEW.phone_number);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 ```
 
 ## Security & RLS

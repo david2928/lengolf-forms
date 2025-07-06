@@ -284,7 +284,7 @@ git push origin main  # Auto-deploys to Vercel
 
 **Pre-deployment:**
 1. `npm run build` locally
-2. Check TypeScript errors
+2. `npm run typecheck` - Check TypeScript errors
 3. Test critical paths
 
 ## Troubleshooting

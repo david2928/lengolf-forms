@@ -37,17 +37,25 @@ export async function GET(request: NextRequest) {
     const toDate = searchParams.get('toDate');
 
     // Get all active coaches
-    const { data: coaches, error: coachesError } = await supabase
+    const { data: allCoaches, error: coachesError } = await supabase
       .schema('backoffice')
       .from('allowed_users')
-      .select('id, coach_name, coach_display_name, coach_email')
+      .select('id, coach_name, coach_display_name, email')
       .eq('is_coach', true)
-      .eq('is_active_coach', true)
       .order('coach_display_name');
 
     if (coachesError) {
       return NextResponse.json({ error: 'Failed to fetch coaches' }, { status: 500 });
     }
+
+    // Deduplicate coaches by coach_display_name (use the first occurrence)
+    const coaches = allCoaches?.reduce((acc, coach) => {
+      const displayName = coach.coach_display_name || coach.coach_name;
+      if (!acc.find(existing => (existing.coach_display_name || existing.coach_name) === displayName)) {
+        acc.push(coach);
+      }
+      return acc;
+    }, [] as typeof allCoaches) || [];
 
     // OPTIMIZATION: Get all data in batch queries to reduce API calls
     const coachIds = (coaches || []).map(c => c.id);

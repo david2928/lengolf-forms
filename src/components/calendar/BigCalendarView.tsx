@@ -26,6 +26,8 @@ interface ProcessedBooking {
   color?: string;
   displayName?: string;
   summary?: string;
+  is_new_customer?: boolean;
+  referral_source?: string;
 }
 
 interface BigCalendarEvent extends Event {
@@ -55,7 +57,6 @@ export function BigCalendarView({
 }: BigCalendarViewProps) {
   const [date, setDate] = useState(() => {
     const today = selectedDate || new Date();
-    console.log('BigCalendarView - Initial date set to:', today);
     return today;
   });
 
@@ -98,14 +99,12 @@ export function BigCalendarView({
   // Update internal date when selectedDate prop changes
   useEffect(() => {
     if (selectedDate) {
-      console.log('BigCalendarView - Updating date to:', selectedDate);
       setDate(selectedDate);
     }
   }, [selectedDate]);
 
   // Convert bookings to react-big-calendar events with proper timezone handling
   const events: BigCalendarEvent[] = useMemo(() => {
-    console.log('BigCalendarView - Raw bookings:', bookings);
     
     const convertedEvents = bookings.map((booking) => {
       // Parse the ISO strings with Luxon to get the Bangkok timezone
@@ -128,24 +127,6 @@ export function BigCalendarView({
         .second(endTime.second)
         .toDate();
 
-      console.log('Converting booking:', {
-        id: booking.id,
-        customer: booking.customer_name,
-        bay: booking.bay,
-        originalStart: booking.start,
-        originalEnd: booking.end,
-        extractedStartTime: `${startTime.hour}:${startTime.minute.toString().padStart(2, '0')}`,
-        extractedEndTime: `${endTime.hour}:${endTime.minute.toString().padStart(2, '0')}`,
-        calendarMoment: calendarMoment.format('YYYY-MM-DD'),
-        createdStartDate: startDate.toISOString(),
-        createdEndDate: endDate.toISOString(),
-        startDateLocal: startDate.toString(),
-        endDateLocal: endDate.toString(),
-        finalTimes: {
-          start: `${startDate.getHours()}:${startDate.getMinutes().toString().padStart(2, '0')}`,
-          end: `${endDate.getHours()}:${endDate.getMinutes().toString().padStart(2, '0')}`
-        }
-      });
 
       return {
         id: booking.id,
@@ -160,7 +141,6 @@ export function BigCalendarView({
       };
     });
 
-    console.log('BigCalendarView - Converted events:', convertedEvents);
     return convertedEvents;
   }, [bookings, date]); // Include date in dependencies
 
@@ -195,6 +175,9 @@ export function BigCalendarView({
     // Check if this is a package booking (case-insensitive or has package_name)
     const isPackage = booking.package_name || booking.booking_type?.toLowerCase() === 'package';
     
+    // Check if this is a new customer
+    const isNewCustomer = booking.is_new_customer;
+    
     if (isCoaching) {
       // Keep the bay color but add distinctive striped pattern and border
       borderStyle = '3px solid #fbbf24'; // thick amber border
@@ -206,6 +189,13 @@ export function BigCalendarView({
       borderStyle = '2px solid #fbbf24'; // amber border for packages
       backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px)';
       fontWeight = '600';
+    }
+    
+    // New customer styling: add green border
+    if (isNewCustomer && !isCoaching) {
+      borderStyle = '2px solid #10b981'; // green border for new customers
+    } else if (isNewCustomer && isCoaching) {
+      borderStyle = '3px solid #10b981'; // thicker green border for new customer coaching
     }
 
     return {
@@ -239,11 +229,13 @@ export function BigCalendarView({
     // Use the same logic as styling to detect booking types
     const isCoaching = booking.booking_type?.toLowerCase().includes('coaching');
     const isPackage = booking.package_name || booking.booking_type?.toLowerCase() === 'package';
+    const isNewCustomer = booking.is_new_customer;
 
     return (
       <div className="truncate">
         <div className="font-medium text-xs">
           <span className="truncate">{booking.customer_name}</span>
+          {isNewCustomer && <span className="ml-1 text-xs">⭐</span>}
           {isCoaching && <span className="ml-1 text-xs">🏌️</span>}
           {isPackage && !isCoaching && <span className="ml-1 text-xs">📦</span>}
         </div>
@@ -260,20 +252,6 @@ export function BigCalendarView({
     }));
   }, []);
 
-  console.log('BigCalendarView render - Current state:', {
-    date,
-    eventsCount: events.length,
-    selectedDate,
-    events: events.map(e => ({
-      id: e.id,
-      title: e.title,
-      start: e.start,
-      end: e.end,
-      startTime: `${e.start.getHours()}:${e.start.getMinutes().toString().padStart(2, '0')}`,
-      endTime: `${e.end.getHours()}:${e.end.getMinutes().toString().padStart(2, '0')}`,
-      valid: e.start instanceof Date && e.end instanceof Date && !isNaN(e.start.getTime()) && !isNaN(e.end.getTime())
-    }))
-  });
 
   return (
     <div className="flex flex-col h-full">
@@ -338,6 +316,10 @@ export function BigCalendarView({
               <div className="w-4 h-3 bg-blue-500 rounded border-2 border-amber-400" style={{
                 backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 1px, rgba(255,255,255,0.2) 1px, rgba(255,255,255,0.2) 2px)'
               }}></div>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>New Customer ⭐</span>
+              <div className="w-4 h-3 bg-blue-500 rounded border-2 border-green-500"></div>
             </div>
           </div>
         </div>

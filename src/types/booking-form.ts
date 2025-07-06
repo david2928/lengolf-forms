@@ -2,6 +2,19 @@ export type BookingSource = 'LINE' | 'Facebook' | 'Instagram' | 'Walk-in' | 'Pho
 
 export type BookingType = 'Normal Bay Rate' | 'Package' | 'Event' | 'Class';
 
+// Phase 1 booking enhancement: Referral source constants
+export const REFERRAL_SOURCES = [
+  'Instagram',
+  'Facebook', 
+  'Google',
+  'TikTok',
+  'Friends',
+  'Mall Advertisement',
+  'Other'
+] as const;
+
+export type ReferralSource = typeof REFERRAL_SOURCES[number];
+
 export interface BookingFormData {
   employeeName: string | null;
   customerContactedVia: string | null;
@@ -21,6 +34,8 @@ export interface BookingFormData {
   customerStableHashId?: string | null;
   packageId?: string;
   packageName?: string;
+  // Phase 1 booking enhancement fields
+  referralSource?: ReferralSource | null;
   errors?: { [key: string]: string };
   isSubmitted?: boolean;
   submissionStatus?: {

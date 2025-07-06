@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +18,10 @@ import { Booking } from '@/types/booking';
 import { format, parseISO, isValid, parse, addMinutes, isWithinInterval, isEqual, startOfDay, endOfDay, subHours, isBefore } from 'date-fns';
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from '@/components/ui/badge';
+import { PackageSelector } from '@/components/booking-form/package-selector';
+import { EditPackageSelector } from '@/components/booking-form/selectors/edit-package-selector';
+import { SimpleBookingTypeSelector } from '@/components/booking-form/selectors/simple-booking-type-selector';
+import { SimpleReferralSourceSelector } from '@/components/booking-form/selectors/simple-referral-source-selector';
 
 // Bay mapping to match API expectations
 const BAY_NAME_TO_API_BAY_NAME: { [key: string]: string } = {
@@ -57,6 +62,10 @@ interface EditBookingFormData {
   number_of_people: number;
   customer_notes: string;
   employee_name: string;
+  // New fields for Phase 3 enhancements
+  package_id: string | null;
+  booking_type: string;
+  referral_source: string | null;
 }
 
 // Helper to convert HH:mm time and date string to a Date object
@@ -131,17 +140,22 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
         number_of_people: booking.number_of_people || 1,
         customer_notes: booking.customer_notes || '',
         employee_name: booking?.updated_by_identifier || '',
+        // New fields for Phase 3 enhancements
+        package_id: booking.package_id || null,
+        booking_type: booking.booking_type || '',
+        referral_source: booking.referral_source || null,
       };
       setFormData(initialFormData);
       setOriginalSlot({
-        date: booking.date,
+        date: format(initialDate, 'yyyy-MM-dd'), // Convert to same format as formData will use
         start_time: booking.start_time,
-        duration: booking.duration,
+        duration: durationInMinutes, // Use the same converted duration as formData
         bay: booking.bay
       });
       setError(null);
-      setAvailabilityStatus('idle');
-      setIsSlotAvailable(false);
+      setAvailabilityStatus('available'); // Original booking slot is available by default
+      // For the original booking, the slot should be available initially since it's already booked
+      setIsSlotAvailable(true); // This will be updated by the availability check if user changes time/bay
       setBayAvailabilityData([]);
       setIsCheckingAllBays(false);
       setAllowOverwrite(false);
@@ -179,15 +193,16 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           console.error("Error parsing booking date/time for past check:", e);
         }
       }
-      if (isPastBooking) {
-        setFormData({}); // Clear form data or set to read-only values if preferred
-        setError("This booking cannot be edited as it has already ended.");
-        // Further disable all inputs and save button if isPastBooking is true (handled by disabled prop on elements)
+      // Don't clear form data for past bookings - we allow editing secondary info
+      // The UI will handle disabling main info fields
+
+      // For the original booking, ensure the bay selection state is properly initialized
+      if (initialFormData.bay) {
+        setAvailabilityStatus('available');
+        setIsSlotAvailable(true);
       }
 
-      if (initialFormData.date && initialFormData.start_time && initialFormData.duration && initialFormData.duration > 0 && !isPastBooking) {
-        fetchAllBaysAvailability(initialFormData.date, initialFormData.start_time, initialFormData.duration);
-      }
+      setIsInitialSetupComplete(true);
 
     } else if (!isOpen) {
       setFormData({});
@@ -197,6 +212,10 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       setIsCheckingAllBays(false);
       setIsSlotAvailable(false);
       setAllowOverwrite(false);
+      setIsInitialLoad(true);
+      setIsInitialSetupComplete(false);
+      setIsBaySelectionInProgress(false);
+      setLastAvailabilityCheck(null);
     }
   }, [booking, isOpen]);
 
@@ -225,6 +244,9 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
   const handleBayButtonClick = (bayName: string) => {
     const selectedBayInfo = bayAvailabilityData.find(b => b.name === bayName);
 
+    // Set flag to prevent availability check when user is just selecting a bay
+    setIsBaySelectionInProgress(true);
+    
     if (allowOverwrite || (selectedBayInfo && selectedBayInfo.isAvailable)) {
       setFormData(prev => ({ ...prev, bay: bayName }));
       // If overwriting an unavailable slot, mark as overridden
@@ -243,9 +265,14 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
         setIsSlotAvailable(false);
       }
     }
+    
+    // Reset flag after bay selection is complete
+    setTimeout(() => {
+      setIsBaySelectionInProgress(false);
+    }, 50);
   };
 
-  const fetchAllBaysAvailability = useCallback(async (date: Date | undefined, startTime: string | undefined, duration: number | undefined) => {
+  const fetchAllBaysAvailability = useCallback(async (date: Date | undefined, startTime: string | undefined, duration: number | undefined, bayToCheck?: string, originalSlotToCheck?: any) => {
     if (!date || !startTime || typeof duration !== 'number' || duration <= 0) {
       setBayAvailabilityData([]);
       setIsCheckingAllBays(false);
@@ -275,11 +302,22 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       const results: Array<{ name: string; apiName: string; isAvailable: boolean }> = await response.json();
       setBayAvailabilityData(results);
 
-      const currentSelectedBayInfo = results.find(b => b.name === formData.bay);
-      if (formData.bay && currentSelectedBayInfo && currentSelectedBayInfo.isAvailable) {
+      // Use passed parameters if available, otherwise fall back to current state
+      const currentBay = bayToCheck || formData.bay;
+      const currentOriginalSlot = originalSlotToCheck || originalSlot;
+      
+      const currentSelectedBayInfo = results.find(b => b.name === currentBay);
+      
+      // If this is the original bay and slot, it should always be available (since this booking already owns it)
+      const isOriginalBayAndSlot = currentBay === currentOriginalSlot?.bay && 
+                                   format(date || new Date(), 'yyyy-MM-dd') === currentOriginalSlot?.date &&
+                                   startTime === currentOriginalSlot?.start_time &&
+                                   duration === currentOriginalSlot?.duration;
+      
+      if (currentBay && (isOriginalBayAndSlot || (currentSelectedBayInfo && currentSelectedBayInfo.isAvailable))) {
         setIsSlotAvailable(true);
         setAvailabilityStatus('available');
-      } else if (formData.bay) {
+      } else if (currentBay) {
         setIsSlotAvailable(false);
         setAvailabilityStatus('unavailable');
       } else {
@@ -300,54 +338,125 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
 
   const debouncedFetchAllBays = useCallback(debounce(fetchAllBaysAvailability, 750), [fetchAllBaysAvailability]);
 
+  // Track if this is the initial load vs user changes
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // Track if the initial setup is complete
+  const [isInitialSetupComplete, setIsInitialSetupComplete] = useState(false);
+  // Track when user is selecting a bay to prevent unnecessary availability checks
+  const [isBaySelectionInProgress, setIsBaySelectionInProgress] = useState(false);
+  // Track the last availability check parameters to avoid redundant checks
+  const [lastAvailabilityCheck, setLastAvailabilityCheck] = useState<string | null>(null);
+
+  // Separate useEffect to check bay availability on modal open (after fetchAllBaysAvailability is defined)
   useEffect(() => {
-    if (isOpen && formData.date && formData.start_time && typeof formData.duration === 'number' && formData.duration > 0) {
-      debouncedFetchAllBays(formData.date, formData.start_time, formData.duration);
-    } else if (isOpen) {
+    if (isOpen && booking && isInitialSetupComplete && formData.bay && formData.date && formData.start_time && typeof formData.duration === 'number') {
+      // Check real availability for all bays to enable bay switching
+      fetchAllBaysAvailability(
+        formData.date, 
+        formData.start_time, 
+        formData.duration,
+        formData.bay,
+        originalSlot
+      );
+    }
+  }, [isOpen, booking, isInitialSetupComplete, formData.bay, formData.date, formData.start_time, formData.duration, fetchAllBaysAvailability, originalSlot]);
+  
+  useEffect(() => {
+    
+    if (!isOpen) {
+      return;
+    }
+    
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+      return;
+    }
+    
+    if (!isInitialSetupComplete) {
+      return;
+    }
+    
+    if (isBaySelectionInProgress) {
+      return;
+    }
+    
+    
+    // Only trigger availability check if the user has made changes from the original data
+    // This prevents unnecessary checks when the form is initially populated
+    if (formData.date && formData.start_time && typeof formData.duration === 'number' && formData.duration > 0) {
+      // Create a unique key for the current availability check parameters
+      const currentCheckKey = `${format(formData.date, 'yyyy-MM-dd')}-${formData.start_time}-${formData.duration}`;
+      
+      // Convert booking duration to minutes for comparison (same as formData)
+      const bookingDurationInMinutes = booking && typeof booking.duration === 'number' 
+        ? (booking.duration <= 12 ? booking.duration * 60 : booking.duration)
+        : 0;
+      
+      // Check if this is different from the original booking data
+      const dateChanged = booking && format(formData.date, 'yyyy-MM-dd') !== booking.date;
+      const timeChanged = booking && formData.start_time !== booking.start_time;
+      const durationChanged = booking && formData.duration !== bookingDurationInMinutes;
+      const bayChanged = booking && formData.bay !== booking.bay;
+      
+      const hasChanges = dateChanged || timeChanged || durationChanged;
+      const hasAvailabilityRelevantChanges = dateChanged || timeChanged || durationChanged;
+      const needsNewAvailabilityCheck = hasAvailabilityRelevantChanges && currentCheckKey !== lastAvailabilityCheck;
+      
+      if (needsNewAvailabilityCheck) {
+        setLastAvailabilityCheck(currentCheckKey);
+        debouncedFetchAllBays(formData.date, formData.start_time, formData.duration, formData.bay, originalSlot);
+      }
+    } else if (isInitialSetupComplete) {
       setBayAvailabilityData([]);
       setAvailabilityStatus('not_applicable');
       setIsSlotAvailable(false);
     }
-  }, [isOpen, formData.date, formData.start_time, formData.duration, debouncedFetchAllBays]);
+  }, [isOpen, formData.date, formData.start_time, formData.duration, formData.bay, originalSlot, debouncedFetchAllBays, isInitialLoad, isInitialSetupComplete, isBaySelectionInProgress, lastAvailabilityCheck, booking]);
 
   const handleSubmit = async () => {
     setError(null);
-    if (!formData.bay) {
-      setError("Bay selection is required.");
-      toast({ title: "Validation Error", description: "Please select a bay.", variant: "destructive" });
-      return;
+    
+    // Validate main info fields only if they are editable
+    if (isMainInfoEditable) {
+      if (!formData.bay) {
+        setError("Bay selection is required.");
+        toast({ title: "Validation Error", description: "Please select a bay.", variant: "destructive" });
+        return;
+      }
+      if (!formData.date) {
+        setError("Date is required.");
+        toast({ title: "Validation Error", description: "Date is required.", variant: "destructive" });
+        return;
+      }
+      if (!formData.start_time?.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+        setError("Valid start time (HH:mm) is required.");
+        toast({ title: "Validation Error", description: "Valid start time (HH:mm) is required.", variant: "destructive" });
+        return;
+      }
+      const durationMinutes = parseInt(formData.duration?.toString() || '0');
+      if (isNaN(durationMinutes) || durationMinutes <= 0) {
+        setError("Valid duration (must be greater than 0 minutes) is required.");
+        toast({ title: "Validation Error", description: "Valid duration (must be greater than 0 minutes) is required.", variant: "destructive" });
+        return;
+      }
+      const numberOfPeople = parseInt(formData.number_of_people?.toString() || '0', 10);
+      if (isNaN(numberOfPeople) || numberOfPeople <= 0) {
+        setError("Valid number of people (must be > 0) is required.");
+        toast({ title: "Validation Error", description: "Valid number of people (must be > 0) is required.", variant: "destructive" });
+        return;
+      }
+      
+      if (!isSlotAvailable && !allowOverwrite) {
+        setError('Selected bay and time slot is not available. Please choose a different slot or bay, or enable overwrite.');
+        toast({ title: "Availability Error", description: "The selected bay/time is not available without overwrite.", variant: "destructive" });
+        return;
+      }
     }
-    if (!formData.date) {
-      setError("Date is required.");
-      toast({ title: "Validation Error", description: "Date is required.", variant: "destructive" });
-      return;
-    }
-    if (!formData.start_time?.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
-      setError("Valid start time (HH:mm) is required.");
-      toast({ title: "Validation Error", description: "Valid start time (HH:mm) is required.", variant: "destructive" });
-      return;
-    }
-    const durationMinutes = parseInt(formData.duration?.toString() || '0');
-    if (isNaN(durationMinutes) || durationMinutes <= 0) {
-      setError("Valid duration (must be greater than 0 minutes) is required.");
-      toast({ title: "Validation Error", description: "Valid duration (must be greater than 0 minutes) is required.", variant: "destructive" });
-      return;
-    }
-    const numberOfPeople = parseInt(formData.number_of_people?.toString() || '0', 10);
-    if (isNaN(numberOfPeople) || numberOfPeople <= 0) {
-      setError("Valid number of people (must be > 0) is required.");
-      toast({ title: "Validation Error", description: "Valid number of people (must be > 0) is required.", variant: "destructive" });
-      return;
-    }
+    
+    // Always validate employee name
     if (!formData.employee_name?.trim()) {
       setError('Employee name is required for making changes.');
       toast({ title: "Validation Error", description: "Employee name is required.", variant: "destructive" });
-      return;
-    }
-
-    if (!isSlotAvailable && !allowOverwrite) {
-      setError('Selected bay and time slot is not available. Please choose a different slot or bay, or enable overwrite.');
-      toast({ title: "Availability Error", description: "The selected bay/time is not available without overwrite.", variant: "destructive" });
       return;
     }
     
@@ -358,12 +467,27 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       availability_overridden: allowOverwrite && availabilityStatus === 'overridden',
     };
 
-    if (formData.bay) payload.bay = formData.bay;
-    if (formData.date) payload.date = format(formData.date, 'yyyy-MM-dd');
-    if (formData.start_time) payload.start_time = formData.start_time;
-    payload.duration = durationMinutes;
-    if (formData.number_of_people) payload.number_of_people = numberOfPeople;
-    if (formData.customer_notes !== undefined && formData.customer_notes !== null) {
+    // Only include main info fields if they are editable
+    if (isMainInfoEditable) {
+      if (formData.bay) payload.bay = formData.bay;
+      if (formData.date) payload.date = format(formData.date, 'yyyy-MM-dd');
+      if (formData.start_time) payload.start_time = formData.start_time;
+      const durationMinutes = parseInt(formData.duration?.toString() || '0');
+      payload.duration = durationMinutes;
+      const numberOfPeople = parseInt(formData.number_of_people?.toString() || '0', 10);
+      if (formData.number_of_people) payload.number_of_people = numberOfPeople;
+      if (formData.customer_notes !== undefined && formData.customer_notes !== null) {
+        payload.customer_notes = formData.customer_notes;
+      }
+    }
+    
+    // Always include secondary info fields (these can be edited even for past bookings)
+    if (formData.package_id !== undefined) payload.package_id = formData.package_id;
+    if (formData.booking_type !== undefined) payload.booking_type = formData.booking_type;
+    if (formData.referral_source !== undefined) payload.referral_source = formData.referral_source;
+    
+    // Customer notes can be edited for past bookings too (moved outside the main info check)
+    if (!isMainInfoEditable && formData.customer_notes !== undefined && formData.customer_notes !== null) {
       payload.customer_notes = formData.customer_notes;
     }
     
@@ -398,15 +522,27 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
             if (payload.date && originalSlot.date !== payload.date) changesSummary.push(`Date: ${originalSlot.date} -> ${payload.date}`);
             if (payload.start_time && originalSlot.start_time !== payload.start_time) changesSummary.push(`Time: ${originalSlot.start_time} -> ${payload.start_time}`);
             if (payload.bay && originalSlot.bay !== payload.bay) changesSummary.push(`Bay: ${originalSlot.bay} -> ${payload.bay}`);
-            if (payload.duration && (originalSlot.duration * 60) !== payload.duration) changesSummary.push(`Duration: ${originalSlot.duration}h -> ${payload.duration/60}h`);
+            if (payload.duration && originalSlot.duration !== payload.duration) changesSummary.push(`Duration: ${originalSlot.duration/60}h -> ${payload.duration/60}h`);
           }
           if (payload.number_of_people && booking.number_of_people !== payload.number_of_people) changesSummary.push(`Pax: ${booking.number_of_people} -> ${payload.number_of_people}`);
           if (payload.customer_notes !== undefined && (booking.customer_notes || '') !== (payload.customer_notes || '')) changesSummary.push('Notes updated');
+          
+          // Track new editable fields
+          if (payload.booking_type && booking.booking_type !== payload.booking_type) changesSummary.push(`Type: ${booking.booking_type || 'None'} -> ${payload.booking_type}`);
+          if (payload.package_id !== undefined && booking.package_id !== payload.package_id) {
+            const oldPackage = booking.package_name || 'None';
+            const newPackage = payload.package_id === null ? 'Keep Current' : (payload.package_id === '' ? 'None' : 'Changed');
+            changesSummary.push(`Package: ${oldPackage} -> ${newPackage}`);
+          }
+          if (payload.referral_source && booking.referral_source !== payload.referral_source) changesSummary.push(`Referral: ${booking.referral_source || 'None'} -> ${payload.referral_source}`);
 
           const summaryText = changesSummary.length > 0 ? changesSummary.join(', ') : 'Details updated';
           const overriddenText = (payload.availability_overridden) ? "\n⚠️ AVAILABILITY OVERRIDDEN ⚠️" : "";
 
-          const lineMessage = `ℹ️ BOOKING MODIFIED (ID: ${updatedBookingData.id}) 🔄\n----------------------------------\n👤 Customer: ${updatedBookingData.name}\n📞 Phone: ${updatedBookingData.phone_number || 'N/A'}\n👥 Pax: ${updatedBookingData.number_of_people || 1}\n🗓️ Date: ${format(new Date(updatedBookingData.date), 'EEE, MMM dd')}\n⏰ Time: ${updatedBookingData.start_time} (Duration: ${updatedBookingData.duration}H)\n⛳ Bay: ${updatedBookingData.bay || 'N/A'}\n💡 Type: ${updatedBookingData.booking_type || 'N/A'}${(updatedBookingData.package_name) ? ` (${updatedBookingData.package_name})` : ''}${overriddenText}\n----------------------------------\n🛠️ Changes: ${summaryText}\n🧑‍💼 By: ${formData.employee_name?.trim() || 'Staff'}`;
+          const referralInfo = updatedBookingData.referral_source ? `\n📍 Referral: ${updatedBookingData.referral_source}` : '';
+          const newCustomerBadge = updatedBookingData.is_new_customer ? ' ⭐ NEW' : '';
+          
+          const lineMessage = `ℹ️ BOOKING MODIFIED (ID: ${updatedBookingData.id}) 🔄\n----------------------------------\n👤 Customer: ${updatedBookingData.name}${newCustomerBadge}\n📞 Phone: ${updatedBookingData.phone_number || 'N/A'}\n👥 Pax: ${updatedBookingData.number_of_people || 1}\n🗓️ Date: ${format(new Date(updatedBookingData.date), 'EEE, MMM dd')}\n⏰ Time: ${updatedBookingData.start_time} (Duration: ${updatedBookingData.duration}H)\n⛳ Bay: ${updatedBookingData.bay || 'N/A'}\n💡 Type: ${updatedBookingData.booking_type || 'N/A'}${(updatedBookingData.package_name) ? ` (${updatedBookingData.package_name})` : ''}${referralInfo}${overriddenText}\n----------------------------------\n🛠️ Changes: ${summaryText}\n🧑‍💼 By: ${formData.employee_name?.trim() || 'Staff'}`;
 
           const notifyResponse = await fetch('/api/notify', {
             method: 'POST',
@@ -422,7 +558,6 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
             const notifyErrorText = await notifyResponse.text();
             console.error('EditBookingModal: Failed to send LINE notification:', notifyErrorText);
           } else {
-            console.log('EditBookingModal: LINE notification for modification sent successfully.');
           }
         } catch (notifyError) {
           console.error('EditBookingModal: Error sending LINE notification:', notifyError);
@@ -455,6 +590,10 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
   }
 
   let isBookingEditable = true;
+  let isMainInfoEditable = true;
+  let isSecondaryInfoEditable = true; // Secondary info is always editable
+  let isPastBooking = false;
+  
   if (booking && booking.date && booking.start_time && booking.duration) {
     try {
       const [hours, minutes] = booking.start_time.split(':').map(Number);
@@ -481,10 +620,16 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       }
       
       const now = new Date();
-      isBookingEditable = bookingEndDateTime >= now;
+      isPastBooking = bookingEndDateTime < now;
+      isBookingEditable = !isPastBooking;
+      isMainInfoEditable = !isPastBooking; // Main info (time/date/bay) can only be edited if booking is not past
+      isSecondaryInfoEditable = true; // Secondary info (phone, booking type, package, referral) can ALWAYS be edited
     } catch (e) {
       console.error("Error parsing booking date/time for editability check:", e);
       isBookingEditable = false; // Default to not editable on error
+      isMainInfoEditable = false;
+      isSecondaryInfoEditable = true; // But still allow secondary info editing
+      isPastBooking = true;
     }
   }
 
@@ -492,7 +637,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
 
   return (
     <Dialog open={isOpen} onOpenChange={(openState) => !openState && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Edit Booking (ID: {booking.id})</DialogTitle>
           <DialogDescription>
@@ -567,25 +712,42 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           )}
         </div>
 
-        <div className="w-full grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
+        <Tabs defaultValue={isPastBooking ? "secondary" : "main"} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="main" disabled={isPastBooking}>
+              Main Information
+              {isPastBooking && <span className="ml-1 text-xs">(Past Booking)</span>}
+            </TabsTrigger>
+            <TabsTrigger value="secondary">Additional Details</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="main" className="max-h-[50vh] overflow-y-auto pr-2">
+            <div className="w-full grid gap-4 py-4">
+          {/* Past booking warning */}
+          {!isMainInfoEditable && (
+            <div className="col-span-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+              <p className="text-yellow-700 text-sm">This booking is in the past. Time, date, and bay cannot be changed.</p>
+            </div>
+          )}
+          
           {/* Date */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right">Date</Label>
             <div className="col-span-3">
-              <DatePicker value={formData.date} onChange={handleDateChange} label="" disabled={!isBookingEditable} />
+              <DatePicker value={formData.date} onChange={handleDateChange} label="" disabled={!isMainInfoEditable} />
             </div>
           </div>
 
           {/* Start Time */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="start_time" className="text-right">Start Time</Label>
-            <Input id="start_time" name="start_time" type="time" value={formData.start_time || ''} onChange={handleInputChange} className="col-span-3" placeholder="HH:mm" disabled={!isBookingEditable} />
+            <Input id="start_time" name="start_time" type="time" value={formData.start_time || ''} onChange={handleInputChange} className="col-span-3" placeholder="HH:mm" disabled={!isMainInfoEditable} />
           </div>
 
           {/* Duration */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="duration" className="text-right">Duration (minutes)</Label>
-            <Input id="duration" name="duration" type="number" value={formData.duration === undefined ? '' : formData.duration} onChange={handleInputChange} className="col-span-3" min="1" step="1" disabled={!isBookingEditable} />
+            <Input id="duration" name="duration" type="number" value={formData.duration === undefined ? '' : formData.duration} onChange={handleInputChange} className="col-span-3" min="1" step="1" disabled={!isMainInfoEditable} />
           </div>
           
           {/* Availability Status Display (for selected bay/time) */}
@@ -603,7 +765,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
                 id="allow-overwrite"
                 checked={allowOverwrite}
                 onCheckedChange={setAllowOverwrite}
-                disabled={!isBookingEditable}
+                disabled={!isMainInfoEditable}
               />
               {allowOverwrite && <span className="ml-2 text-sm text-orange-600">Warning: Availability checks bypassed!</span>}
             </div>
@@ -622,7 +784,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
                     type="button"
                     variant={formData.bay === bayInfo.name ? 'default' : 'outline'}
                     onClick={() => handleBayButtonClick(bayInfo.name)}
-                    disabled={(!bayInfo.isAvailable && !allowOverwrite) || !isBookingEditable}
+                    disabled={(!bayInfo.isAvailable && !allowOverwrite) || !isMainInfoEditable}
                     className={`w-full ${(!bayInfo.isAvailable && !allowOverwrite) ? 'opacity-50 cursor-not-allowed' : ''} ${
                       formData.bay === bayInfo.name && availabilityStatus === 'overridden' ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''
                     }`}
@@ -646,23 +808,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           {/* Number of People */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="number_of_people" className="text-right">People</Label>
-            <Input id="number_of_people" name="number_of_people" type="number" value={formData.number_of_people === undefined ? '' : formData.number_of_people} onChange={handleInputChange} className="col-span-3" min="1" disabled={!isBookingEditable}/>
-          </div>
-
-          {/* Customer Notes (Internal) */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="customer_notes" className="text-right">
-              {booking.customer_notes ? 'Update Notes' : 'Internal Notes'}
-            </Label>
-            <Textarea 
-              id="customer_notes" 
-              name="customer_notes" 
-              value={formData.customer_notes || ''} 
-              onChange={handleInputChange} 
-              className="col-span-3" 
-              placeholder={booking.customer_notes ? "Update or add to existing notes" : "Internal notes for staff"} 
-              disabled={!isBookingEditable}
-            />
+            <Input id="number_of_people" name="number_of_people" type="number" value={formData.number_of_people === undefined ? '' : formData.number_of_people} onChange={handleInputChange} className="col-span-3" min="1" disabled={!isMainInfoEditable}/>
           </div>
 
           {/* Employee Name (Mandatory) */}
@@ -677,7 +823,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
                   setFormData(prev => ({ ...prev, employee_name: value }));
                 }}
               >
-                <SelectTrigger className="w-full" disabled={!isBookingEditable}>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select your name" />
                 </SelectTrigger>
                 <SelectContent>
@@ -696,21 +842,132 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
               <p className="text-red-700 font-medium">{error}</p>
             </div>
           )}
-        </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="secondary" className="max-h-[50vh] overflow-y-auto pr-2">
+            <div className="w-full grid gap-4 py-4">
+          {/* Booking Type */}
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right pt-2">Booking Type</Label>
+            <div className="col-span-3">
+              <SimpleBookingTypeSelector
+                value={formData.booking_type || ''}
+                onChange={(value) => setFormData(prev => ({ ...prev, booking_type: value }))}
+              />
+            </div>
+          </div>
+
+          {/* Package Selection - Only show if booking type contains "package" */}
+          {formData.booking_type && formData.booking_type.toLowerCase().includes('package') && (
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">Package</Label>
+              <div className="col-span-3">
+                <EditPackageSelector
+                  value={formData.package_id || null}
+                  customerName={booking?.name || ''}
+                  customerPhone={booking?.phone_number || ''}
+                  currentPackageName={booking?.package_name}
+                  onChange={(packageId) => {
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      package_id: packageId,
+                    }));
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Referral Source - Only editable for new customers */}
+          {booking?.is_new_customer && (
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">Referral Source</Label>
+              <div className="col-span-3">
+                <div className="space-y-2">
+                  <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded-md border border-blue-200">
+                    💡 This customer is new - please add their referral source for tracking
+                  </div>
+                  <SimpleReferralSourceSelector
+                    value={formData.referral_source || ''}
+                    onChange={(source) => setFormData(prev => ({ ...prev, referral_source: source }))}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Show referral source for existing customers (read-only) */}
+          {!booking?.is_new_customer && booking?.referral_source && (
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">Referral Source</Label>
+              <div className="col-span-3">
+                <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded-md border">
+                  {booking.referral_source}
+                  <div className="text-xs text-gray-500 mt-1">
+                    (Referral source can only be set for new customers)
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Customer Notes (Internal) */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="customer_notes" className="text-right">
+              {booking.customer_notes ? 'Update Notes' : 'Internal Notes'}
+            </Label>
+            <Textarea 
+              id="customer_notes" 
+              name="customer_notes" 
+              value={formData.customer_notes || ''} 
+              onChange={handleInputChange} 
+              className="col-span-3" 
+              placeholder={booking.customer_notes ? "Update or add to existing notes" : "Internal notes for staff"} 
+            />
+          </div>
+
+          {/* Employee Name - Required field */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="employee_name_secondary" className="text-right pt-2">
+              Your Name <span className="text-red-500">*</span>
+            </Label>
+            <div className="col-span-3">
+              <Select
+                value={formData.employee_name || ''}
+                onValueChange={(value) => {
+                  setFormData(prev => ({ ...prev, employee_name: value }));
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select your name" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EMPLOYEES_LIST.map((employee) => (
+                    <SelectItem key={employee.value} value={employee.value}>
+                      {employee.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+            </div>
+          </TabsContent>
+        </Tabs>
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" onClick={onClose}>Cancel</Button>
           </DialogClose>
-          <Button 
+<Button 
             type="button" 
             onClick={handleSubmit} 
             disabled={
               isSubmitting || 
-              (!isSlotAvailable && !allowOverwrite) ||
-              !formData.bay || 
+              (!isSlotAvailable && !allowOverwrite && isMainInfoEditable) ||
+              (!formData.bay && isMainInfoEditable) || 
               !formData.employee_name?.trim() ||
-              isCheckingAllBays || 
-              !isBookingEditable
+              (isCheckingAllBays && isMainInfoEditable)
             }
           >
             {isSubmitting ? 'Saving...' : 'Save Changes'}

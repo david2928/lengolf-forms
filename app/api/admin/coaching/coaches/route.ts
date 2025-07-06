@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const { data: allCoaches, error: coachesError } = await supabase
       .schema('backoffice')
       .from('allowed_users')
-      .select('id, coach_name, coach_display_name, coach_email, is_active_coach')
+      .select('id, coach_name, coach_display_name, email, is_coach')
       .eq('is_coach', true)
       .order('coach_display_name');
 
@@ -49,9 +49,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch coaches' }, { status: 500 });
     }
 
+    // Deduplicate coaches by coach_display_name (use the first occurrence)
+    const uniqueCoaches = allCoaches?.reduce((acc, coach) => {
+      const displayName = coach.coach_display_name || coach.coach_name;
+      if (!acc.find(existing => (existing.coach_display_name || existing.coach_name) === displayName)) {
+        acc.push(coach);
+      }
+      return acc;
+    }, [] as typeof allCoaches) || [];
+
     // Calculate operational metrics for each coach
     const coaches = await Promise.all(
-      (allCoaches || []).map(async (coach) => {
+      uniqueCoaches.map(async (coach) => {
         const coachDisplayName = coach.coach_display_name || coach.coach_name;
         const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
         
@@ -104,8 +113,8 @@ export async function GET(request: NextRequest) {
           coach_id: coach.id,
           coach_name: coach.coach_name,
           coach_display_name: coach.coach_display_name,
-          coach_email: coach.coach_email,
-          is_active_coach: coach.is_active_coach,
+          email: coach.email,
+          is_coach: coach.is_coach,
           current_month_sessions: currentSessions?.length || 0,
           total_sessions: totalSessions?.length || 0,
           student_count: uniqueStudents,
@@ -169,7 +178,6 @@ export async function POST(request: NextRequest) {
       coach_experience_years,
       coach_specialties,
       coach_phone,
-      coach_email,
       coach_started_date
     } = body;
 
@@ -186,7 +194,6 @@ export async function POST(request: NextRequest) {
         coach_experience_years,
         coach_specialties,
         coach_phone,
-        coach_email,
         coach_started_date
       }, {
         onConflict: 'email'

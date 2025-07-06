@@ -35,6 +35,8 @@ interface ProcessedBooking {
   color?: string;
   displayName?: string;
   summary?: string;
+  is_new_customer?: boolean;
+  referral_source?: string;
 }
 
 export default function BookingsCalendarPage() {
@@ -207,7 +209,6 @@ export default function BookingsCalendarPage() {
     
     // Set up auto-refresh every 120 seconds (2 minutes)
     const refreshInterval = setInterval(() => {
-      console.log('Auto-refreshing calendar data...');
       fetchBookingsFromDatabase();
     }, 120000); // 120 seconds = 120,000 milliseconds
     

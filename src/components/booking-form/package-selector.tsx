@@ -14,6 +14,7 @@ interface PackageSelectorProps {
   bookingType?: string | null
   onChange: (value: string | null, packageName: string) => void
   error?: string
+  disabled?: boolean
 }
 
 export function PackageSelector({ 
@@ -22,7 +23,8 @@ export function PackageSelector({
   customerPhone,
   bookingType,
   onChange,
-  error
+  error,
+  disabled = false
 }: PackageSelectorProps) {
   // Determine if this is a coaching or package booking
   const isCoachingBooking = bookingType?.toLowerCase().includes('coaching') || false
@@ -125,7 +127,7 @@ export function PackageSelector({
     return (
       <div className="space-y-4">
         <div className="relative">
-          <Card className="relative p-4">
+          <Card className={`relative p-4 ${disabled ? 'opacity-50' : ''}`}>
             <div className="flex items-start">
               <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-primary ring-offset-background">
                 <div className="h-2 w-2 rounded-full bg-primary" />
@@ -140,6 +142,7 @@ export function PackageSelector({
                     value={newPackageName}
                     onChange={handleNewPackageNameChange}
                     className="max-w-md"
+                    disabled={disabled}
                   />
                 </div>
               </div>
@@ -161,7 +164,7 @@ export function PackageSelector({
     <div className="space-y-4">
       <RadioGroup
         value={value}
-        onValueChange={handleValueChange}
+        onValueChange={disabled ? undefined : handleValueChange}
         className="grid grid-cols-1 gap-3"
       >
         {filteredPackages.map((pkg) => (
@@ -170,14 +173,16 @@ export function PackageSelector({
               value={pkg.id}
               id={pkg.id}
               className="sr-only"
+              disabled={disabled}
             />
             <label
               htmlFor={pkg.id}
-              className="cursor-pointer block"
+              className={disabled ? "cursor-not-allowed block" : "cursor-pointer block"}
             >
               <Card 
                 className={cn(
-                  "relative p-4 hover:bg-accent transition-colors",
+                  "relative p-4 transition-colors",
+                  disabled ? "opacity-50" : "hover:bg-accent",
                   value === pkg.id && "border-primary",
                   // Add visual indicator for unactivated packages
                   pkg.details.firstUseDate === 'Not activated' && "border-orange-300 bg-orange-50/50"

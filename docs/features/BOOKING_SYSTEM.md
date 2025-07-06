@@ -49,14 +49,30 @@ type BookingType =
 ```
 
 ### 2. Booking Management (`/manage-bookings`)
-Comprehensive interface for managing existing bookings.
+Comprehensive interface for managing existing bookings with enhanced edit capabilities.
 
 #### Features
 - **Search & Filter**: Advanced search by customer, date, status
-- **Bulk Operations**: Multi-select for bulk actions
+- **Visual Indicators**: New customer badges and package displays
+- **Edit Bookings**: Tabbed interface for editing booking details
+- **Past Booking Management**: Limited editing for past bookings
 - **Status Management**: Confirm, cancel, modify bookings
 - **History Tracking**: Complete audit trail of changes
-- **Export Capabilities**: Data export for reporting
+- **Employee Tracking**: Track which staff member makes changes
+
+#### Edit Booking Modal
+Multi-tab interface for comprehensive booking editing:
+
+**Main Information Tab**:
+- Date, time, duration, and bay selection
+- Real-time availability checking
+- Disabled for past bookings
+
+**Additional Details Tab**:
+- Booking type and package selection
+- Referral source (for new customers only)
+- Internal notes and employee name
+- Available for all bookings including past ones
 
 ### 3. Bookings Calendar (`/bookings-calendar`)
 Visual calendar interface for day-to-day booking management.
@@ -91,6 +107,7 @@ interface Step2Data {
   customerPhone?: string;         // Contact number
   packageId?: string;             // Selected package (if applicable)
   packageName?: string;           // Package name
+  referralSource?: string;        // How customer found us (new customers only)
 }
 ```
 
@@ -197,7 +214,25 @@ interface CancellationRequest {
 ```
 
 #### Update Booking
-Future feature for modifying existing bookings with change tracking.
+```typescript
+interface BookingUpdateRequest {
+  // Main information (only for future bookings)
+  date?: string;
+  start_time?: string;
+  duration?: number;
+  bay?: string;
+  number_of_people?: number;
+  
+  // Additional details (available for all bookings)
+  booking_type?: string;
+  package_id?: string;
+  referral_source?: string;  // Only for new customer bookings
+  customer_notes?: string;
+  employee_name: string;     // Required for audit
+}
+```
+
+The system supports partial updates with automatic change tracking and LINE notifications.
 
 ### Audit Trail
 Every booking change is tracked with complete audit information:
@@ -281,7 +316,7 @@ CREATE TABLE bookings (
   user_id UUID NOT NULL,
   name TEXT NOT NULL,                    -- Customer name
   email TEXT NOT NULL,                   -- Customer email (placeholder)
-  phone_number TEXT NOT NULL,            -- Customer phone
+  phone_number TEXT NOT NULL,            -- Customer phone (normalized)
   date DATE NOT NULL,                    -- Booking date (YYYY-MM-DD)
   start_time TEXT NOT NULL,              -- Start time (HH:mm)
   duration INTEGER NOT NULL,             -- Duration in hours
@@ -291,6 +326,12 @@ CREATE TABLE bookings (
   customer_notes TEXT,                   -- Customer notes
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Enhancement fields (Phase 3)
+  package_id TEXT,                       -- Selected package ID
+  booking_type TEXT DEFAULT 'Walk In',   -- Type of booking
+  referral_source TEXT,                  -- How customer found us
+  is_new_customer BOOLEAN DEFAULT FALSE, -- New customer flag
   
   -- Audit fields
   updated_by_type TEXT,
@@ -303,11 +344,16 @@ CREATE TABLE bookings (
   google_calendar_sync_status TEXT,
   calendar_event_id TEXT,               -- Deprecated
   calendar_events JSONB,                -- Current: array of events
-  booking_type TEXT,
-  package_name TEXT,
+  package_name TEXT,                    -- Deprecated: use package_id
   stable_hash_id TEXT                   -- CRM customer ID
 );
 ```
+
+#### Enhancement Features
+- **Phone Normalization**: Automatic phone number formatting via `normalize_phone_number()` function
+- **New Customer Detection**: Automatic detection via `check_new_customer()` trigger
+- **Package Integration**: Direct link to package system via `package_id`
+- **Referral Tracking**: Source attribution for marketing analytics
 
 ### Booking History Table
 ```sql
@@ -376,6 +422,25 @@ Response:
       "package_name": "Premium Package"
     }
   ]
+}
+```
+
+### Booking Update
+```
+PUT /api/bookings/{bookingId}
+Content-Type: application/json
+
+{
+  "date": "2025-06-16",           // Optional: only for future bookings
+  "start_time": "15:00",          // Optional: only for future bookings
+  "duration": 2,                  // Optional: only for future bookings
+  "bay": "Bay 2",                 // Optional: only for future bookings
+  "number_of_people": 3,          // Optional: only for future bookings
+  "booking_type": "Package",      // Optional: all bookings
+  "package_id": "pkg_123",        // Optional: all bookings
+  "referral_source": "Google",    // Optional: new customers only
+  "customer_notes": "Updated",    // Optional: all bookings
+  "employee_name": "Staff Member" // Required: for audit trail
 }
 ```
 
@@ -460,6 +525,19 @@ Advanced table with filtering, search, and bulk operations.
 
 #### ViewBookingModal
 Detailed booking view with action buttons and history.
+
+#### EditBookingModal
+Tabbed interface for comprehensive booking editing:
+- **Tabs Component**: Separates main information from additional details
+- **Conditional Editing**: Restricts main info editing for past bookings
+- **Real-time Validation**: Bay availability checking during edits
+- **Package Integration**: EditPackageSelector for simplified package selection
+- **Referral Source Tracking**: Only available for new customer bookings
+
+#### New Selector Components
+- **SimpleBookingTypeSelector**: Streamlined booking type selection
+- **SimpleReferralSourceSelector**: Referral source options with "Other" input
+- **EditPackageSelector**: Shows current package + available alternatives
 
 ## Business Logic
 

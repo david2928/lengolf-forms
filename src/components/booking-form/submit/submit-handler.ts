@@ -33,7 +33,6 @@ function formatBookingData(formData: FormData): Booking {
       throw new Error('Missing required date/time fields in formData.');
   }
 
-  console.log('Formatting booking data for DB insert from:', formData);
 
   // Ensure bookingDate is a valid Date or parseable string
   let bookingDateObj: Date;
@@ -143,9 +142,9 @@ function formatBookingData(formData: FormData): Booking {
     booking_type: formData.bookingType || null,
     package_name: formData.packageName || null,
     stable_hash_id: formData.customerStableHashId || null,
+    package_id: formData.packageId || null,
   };
 
-  console.log('Formatted booking for DB insertion:', bookingForDb);
   return bookingForDb;
 }
 
@@ -158,7 +157,6 @@ function getOrdinalSuffix(day: number): string {
 }
 
 function formatLineMessage(formData: FormData, bookingId?: string): string {
-  console.log('Formatting LINE message from formData:', formData);
 
   // Check required fields first
   if (!formData.bookingDate || !formData.startTime || !formData.endTime || !formData.bayNumber || !formData.employeeName || !formData.customerName || !formData.customerPhone || !formData.numberOfPax) {
@@ -228,19 +226,16 @@ function formatLineMessage(formData: FormData, bookingId?: string): string {
     message += `\nNotes: ${formData.notes}`;
   }
 
-  console.log('Formatted LINE message:', message);
   return message.trim();
 }
 
 export async function handleFormSubmit(formData: FormData): Promise<SubmitResponse> {
   let bookingId: string | undefined = undefined;
   try {
-    console.log('Starting form submission with data:', formData);
     
     // 1. Format data SPECIFICALLY for the database insert using the refactored function
     const dbBookingData = formatBookingData(formData); 
     bookingId = dbBookingData.id;
-    console.log('Data formatted for DB insert:', dbBookingData);
     
     // 2. Create booking record using the NEW API endpoint and NEW client (Update in BKM-T4)
     // IMPORTANT: This fetch call needs updating in BKM-T4 to use the new endpoint 
@@ -263,7 +258,6 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
     if (bookingResult.bookingId !== bookingId) {
       console.warn(`API returned bookingId ${bookingResult.bookingId} which differs from generated ID ${bookingId}`);
     }
-    console.log('Booking record created successfully. Booking ID:', bookingId);
 
     // --- Step 3: Prepare Data for Calendar Formatting ---
     // Construct the CalendarFormatInput object required by formatCalendarEvent (BKM-T6)
@@ -282,13 +276,11 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
       bookingType: formData.bookingType || 'Unknown Type', // Ensure non-null
       packageName: formData.packageName,
     };
-    console.log('Data prepared for calendar API:', calendarInputData);
 
     // --- Step 4: Create Calendar Events via API ---
     let calendarEventCreationSuccessful = false;
     let calendarEventsToLink: any[] = [];
     
-    console.log('Attempting to create calendar event(s)...');
     try {
       const calendarResponse = await fetch('/api/bookings/calendar', {
         method: 'POST',
@@ -307,12 +299,10 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
       }
 
       const calendarResultData = await calendarResponse.json();
-      console.log('Calendar event creation request successful. Response:', calendarResultData);
       
       if (calendarResultData.success && Array.isArray(calendarResultData.data) && calendarResultData.data.length > 0) {
         calendarEventsToLink = calendarResultData.data;
         calendarEventCreationSuccessful = true;
-        console.log(`Successfully created ${calendarEventsToLink.length} calendar event(s)`);
       } else {
         console.warn('Calendar API returned success but no events created:', calendarResultData);
         throw new Error('No calendar events were created despite successful API response');
@@ -335,7 +325,6 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
         if (!syncStatusResponse.ok) {
           console.error('Failed to mark booking with error sync status');
         } else {
-          console.log('Marked booking with error sync status due to calendar creation failure');
         }
       } catch (statusError) {
         console.error('Error updating sync status after calendar failure:', statusError);
@@ -350,7 +339,6 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
       );
 
       if (isValidStructure) {
-        console.log(`Attempting to link ${calendarEventsToLink.length} calendar event(s) to booking ${bookingId}...`);
         try {
           const linkEventsResponse = await fetch(`/api/bookings/${bookingId}/link-calendar-events`, {
             method: 'PUT',
@@ -381,7 +369,6 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
             }
           } else {
             const linkResult = await linkEventsResponse.json();
-            console.log(`Successfully linked calendar events for booking ${bookingId}. Response:`, linkResult);
           }
         } catch (linkError) {
           console.error(`Error calling link-calendar-events endpoint for booking ${bookingId}:`, linkError);
@@ -422,7 +409,6 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
 
     // --- Step 5: Format LINE Notification ---
     const message = formatLineMessage(formData, bookingId);
-    console.log('Sending LINE notification...');
     
     // --- Step 6: Send LINE notification via API ---
     if (message.startsWith('Error:')) {
@@ -442,7 +428,6 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
         try { errorBody = await notifyResponse.text(); } catch (_) { /* Ignore */ }
         console.warn('Failed to send LINE notification. Status:', notifyResponse.status, 'Body:', errorBody);
       } else {
-        console.log('LINE notification request successful.');
       }
     }
 

@@ -24,6 +24,10 @@ export interface Booking {
   booking_type?: string | null; // TEXT, nullable, Added for storing booking type
   package_name?: string | null; // TEXT, nullable, Added for storing package name
   stable_hash_id?: string | null; // TEXT, nullable, Stores the stable_hash_id of the CRM customer
+  // Phase 1 booking enhancement fields
+  package_id?: string | null; // uuid, nullable, Foreign key to backoffice.packages(id)
+  referral_source?: string | null; // text, nullable, Where customer heard about us
+  is_new_customer?: boolean; // boolean, nullable, Auto-detected via trigger
 }
 
 export interface CalendarEvent {

@@ -30,6 +30,11 @@ interface UpdateBookingPayload {
   number_of_people?: number;
   employee_name: string; // Mandatory for staff changes
   availability_overridden?: boolean; // Add this field
+  // New fields from Phase 3 enhancements
+  phone_number?: string;
+  package_id?: string | null;
+  booking_type?: string;
+  referral_source?: string | null;
 }
 
 // Helper to map simple bay names to the format expected by Google Calendar API (for event creation only)
@@ -53,6 +58,8 @@ function generateChangesSummary(oldBooking: Booking, newBookingData: Partial<Boo
   const oldEndTime = calculateEndTime(oldBooking.date, oldBooking.start_time, oldBooking.duration * 60);
   const newProposedDate = newBookingData.date || oldBooking.date;
   const newProposedStartTime = newBookingData.start_time || oldBooking.start_time;
+  
+  // Fix: newBookingData.duration is already in hours (from database), not minutes
   const newProposedDurationMinutes = newBookingData.duration ? newBookingData.duration * 60 : oldBooking.duration * 60; 
   const newProposedEndTime = calculateEndTime(newProposedDate, newProposedStartTime, newProposedDurationMinutes);
   const newProposedBay = newBookingData.bay !== undefined ? newBookingData.bay : oldBooking.bay;
@@ -63,9 +70,9 @@ function generateChangesSummary(oldBooking: Booking, newBookingData: Partial<Boo
   if (newBookingData.start_time && oldBooking.start_time !== newBookingData.start_time) {
     changes.push(`Start time from ${oldBooking.start_time} to ${newBookingData.start_time}`);
   }
-  // Check end time / duration change based on calculated new proposed end time
-  if (newProposedEndTime !== oldEndTime) {
-      changes.push(`End time/Duration from ${oldEndTime} (duration ${oldBooking.duration}h) to ${newProposedEndTime} (duration ${newProposedDurationMinutes/60}h)`);
+  // Check end time / duration change - only show if duration actually changed
+  if (newBookingData.duration !== undefined && oldBooking.duration !== newBookingData.duration) {
+      changes.push(`Duration: ${oldBooking.duration}h → ${newBookingData.duration}h`);
   }
   if (newBookingData.bay !== undefined && oldBooking.bay !== newBookingData.bay) {
     changes.push(`Bay from ${oldBooking.bay || 'N/A'} to ${newBookingData.bay || 'N/A'}`);
@@ -76,7 +83,18 @@ function generateChangesSummary(oldBooking: Booking, newBookingData: Partial<Boo
   if (newBookingData.customer_notes !== undefined && oldBooking.customer_notes !== newBookingData.customer_notes) {
     changes.push(`Notes changed`); // Keep it simple for notes
   }
-  // Add other fields from UpdateBookingPayload as needed for summary
+  if (newBookingData.phone_number !== undefined && oldBooking.phone_number !== newBookingData.phone_number) {
+    changes.push(`Phone from ${oldBooking.phone_number || 'N/A'} to ${newBookingData.phone_number || 'N/A'}`);
+  }
+  if (newBookingData.package_id !== undefined && oldBooking.package_id !== newBookingData.package_id) {
+    changes.push(`Package changed`);
+  }
+  if (newBookingData.booking_type !== undefined && oldBooking.booking_type !== newBookingData.booking_type) {
+    changes.push(`Type from ${oldBooking.booking_type || 'N/A'} to ${newBookingData.booking_type || 'N/A'}`);
+  }
+  if (newBookingData.referral_source !== undefined && oldBooking.referral_source !== newBookingData.referral_source) {
+    changes.push(`Referral: ${oldBooking.referral_source || 'None'} → ${newBookingData.referral_source || 'None'}`);
+  }
 
   if (changes.length === 0) return 'No direct field changes detected (audit fields updated).';
   return changes.join(', ') + ` by ${payload.employee_name}.`;
@@ -172,8 +190,21 @@ export async function PUT(
     return NextResponse.json({ error: 'Provide either end_time or duration, not both.'}, {status: 400});
   }
   
-  // Placeholder for the rest of the logic
-  console.log(`PUT /api/bookings/${bookingId} called with payload:`, payload);
+  // Validation for new fields
+  if (payload.phone_number !== undefined && (typeof payload.phone_number !== 'string' || payload.phone_number.trim() === '')) {
+    return NextResponse.json({ error: 'phone_number must be a non-empty string if provided'}, {status: 400});
+  }
+  if (payload.package_id !== undefined && payload.package_id !== null && typeof payload.package_id !== 'string') {
+    return NextResponse.json({ error: 'package_id must be a string or null if provided'}, {status: 400});
+  }
+  if (payload.booking_type !== undefined && (typeof payload.booking_type !== 'string' || payload.booking_type.trim() === '')) {
+    return NextResponse.json({ error: 'booking_type must be a non-empty string if provided'}, {status: 400});
+  }
+  if (payload.referral_source !== undefined && payload.referral_source !== null && typeof payload.referral_source !== 'string') {
+    return NextResponse.json({ error: 'referral_source must be a string or null if provided'}, {status: 400});
+  }
+  
+  // Process the booking update
 
   try {
     // Authentication & Authorization is handled by middleware for staff access
@@ -243,8 +274,6 @@ export async function PUT(
     const availabilityOverridden = payload.availability_overridden === true; // Fix: check payload instead of request
 
     if (slotChanged && !availabilityOverridden) {
-      console.log('Slot changed. Checking availability using native database function...');
-      
       if (!proposedBay) {
         return NextResponse.json({ error: 'Invalid bay for availability check.' }, { status: 400 });
       }
@@ -270,14 +299,12 @@ export async function PUT(
           return NextResponse.json({ error: 'The proposed time slot is not available.' }, { status: 409 }); // 409 Conflict
         }
         
-        console.log('Proposed slot is available.');
         isProposedSlotActuallyAvailable = true;
       } catch (availabilityError: any) {
         console.error('Error checking slot availability:', availabilityError);
         return NextResponse.json({ error: 'Failed to check slot availability', details: availabilityError.message }, { status: 500 });
       }
     } else if (slotChanged && availabilityOverridden) {
-        console.log('Availability check skipped due to override.');
         isProposedSlotActuallyAvailable = true; // Proceed as if available
     }
     
@@ -293,12 +320,21 @@ export async function PUT(
     if (payload.date) updateDataForSupabase.date = payload.date;
     if (payload.start_time) updateDataForSupabase.start_time = payload.start_time;
     
-    // Handle duration: Convert minutes from payload/calculation to hours for DB
-    if (payload.duration || payload.end_time) { // If duration was explicitly set by payload.duration or calculated from payload.end_time
+    // Handle duration: Only update if duration actually changed from current booking
+    if (payload.duration !== undefined) {
+        // Convert payload duration (minutes) to hours for comparison with database value
+        const payloadDurationInHours = payload.duration / 60;
+        // Use precise comparison to avoid floating point issues
+        if (Math.abs(payloadDurationInHours - currentBooking.duration) > 0.001) {
+            updateDataForSupabase.duration = payloadDurationInHours;
+        }
+    } else if (payload.end_time && payload.start_time) {
+        // Only update duration if end_time was explicitly provided (not just duration maintenance)
         if (proposedDurationInMinutes && proposedDurationInMinutes > 0) {
-            updateDataForSupabase.duration = proposedDurationInMinutes / 60; // Convert to hours
-        } else if (payload.duration && payload.duration > 0) { // Fallback if proposedDurationInMinutes somehow not set but payload.duration exists
-             updateDataForSupabase.duration = payload.duration / 60;
+            const newDurationInHours = proposedDurationInMinutes / 60;
+            if (Math.abs(newDurationInHours - currentBooking.duration) > 0.001) {
+                updateDataForSupabase.duration = newDurationInHours;
+            }
         }
     }
 
@@ -306,10 +342,15 @@ export async function PUT(
     if (payload.customer_notes !== undefined) updateDataForSupabase.customer_notes = payload.customer_notes;
     if (payload.number_of_people) updateDataForSupabase.number_of_people = payload.number_of_people;
     
+    // Update new fields
+    if (payload.phone_number !== undefined) updateDataForSupabase.phone_number = payload.phone_number;
+    if (payload.package_id !== undefined) updateDataForSupabase.package_id = payload.package_id;
+    if (payload.booking_type !== undefined) updateDataForSupabase.booking_type = payload.booking_type;
+    if (payload.referral_source !== undefined) updateDataForSupabase.referral_source = payload.referral_source;
+    
     // Audit: Add previous values if they changed significantly (optional)
     // For example, if (payload.date && payload.date !== currentBooking.date) updateDataForSupabase.previous_date = currentBooking.date;
     
-    console.log('Data for Supabase update:', updateDataForSupabase);
 
     // Update booking in Supabase
     const { data: updatedBookingUntyped, error: updateError } = await refacSupabaseAdmin
@@ -348,7 +389,6 @@ export async function PUT(
     }
     
     // --- Google Calendar Update Logic ---
-    console.log('Starting Google Calendar update process...');
     let finalCalendarEventsForDB: CalendarEventResult[] | null | undefined = updatedBookingUntyped.calendar_events;
 
     try {
@@ -375,17 +415,14 @@ export async function PUT(
       const newGCalEventObjectProperties = formatCalendarEvent(calendarInput);
 
       if (slotChanged) {
-        console.log('Slot changed, replacing Google Calendar events...');
         const newLinkedEvents: CalendarEventResult[] = [];
 
         // 1. Delete all old events
         if (originalBookingSnapshot.calendar_events && originalBookingSnapshot.calendar_events.length > 0) {
-          console.log('Deleting old calendar events:', originalBookingSnapshot.calendar_events);
           let deletionErrors = [];
           for (const oldEvent of originalBookingSnapshot.calendar_events) {
             try {
               await deleteCalendarEvent(auth, oldEvent.calendarId, oldEvent.eventId);
-              console.log(`Successfully deleted old GCal event ${oldEvent.eventId} from calendar ${oldEvent.calendarId}`);
             } catch (delError: any) {
               deletionErrors.push({
                 eventId: oldEvent.eventId,
@@ -434,7 +471,7 @@ export async function PUT(
         }
 
       } else {
-        console.log('Slot not changed, updating existing Google Calendar events in place...');
+        // Slot not changed, update existing Google Calendar events in place
         if (updatedBookingUntyped.calendar_events && updatedBookingUntyped.calendar_events.length > 0) {
           for (const eventToUpdate of updatedBookingUntyped.calendar_events) {
             try {

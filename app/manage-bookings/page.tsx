@@ -13,7 +13,7 @@ import { EditBookingModal } from '@/components/manage-bookings/EditBookingModal'
 import { BookingHistoryModal } from '@/components/manage-bookings/BookingHistoryModal'; // Import the History modal
 import { useToast } from "@/components/ui/use-toast"; // For showing success/error messages
 import { Checkbox } from '@/components/ui/checkbox'; // Add Checkbox import
-import { Info } from 'lucide-react'; // Import Info icon
+import { Info, Package, Users } from 'lucide-react'; // Import Info, Package, and Users icons
 
 // Helper function to calculate end_time
 const calculateEndTime = (date: string, startTime: string, duration: number): string => {
@@ -55,6 +55,25 @@ const getBayBadgeClasses = (simpleBayName: string | null): string => {
     case 'Bay 3': return 'bg-[#ec7c74]/10 text-[#ec7c74]';
     default: return 'bg-gray-100 text-gray-500';
   }
+};
+
+// Helper function to render new customer badge - very subtle styling
+const renderNewCustomerBadge = (isNewCustomer: boolean | undefined) => {
+  if (!isNewCustomer) return null;
+  return (
+    <span className="inline-block w-2 h-2 rounded-full bg-green-400 ml-2" title="New Customer"></span>
+  );
+};
+
+// Helper function to render package badge
+const renderPackageBadge = (packageName: string | null) => {
+  if (!packageName) return null;
+  return (
+    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">
+      <Package className="w-3 h-3 mr-1" />
+      {packageName}
+    </span>
+  );
 };
 
 export default function ManageBookingsPage() {
@@ -138,7 +157,6 @@ export default function ManageBookingsPage() {
     setIsLoading(true);
     setError(null);
     const formattedDate = format(date, 'yyyy-MM-dd');
-    console.log(`Fetching bookings for ${formattedDate}`);
     try {
       const response = await fetch(`/api/bookings/list-by-date?date=${formattedDate}`);
       if (!response.ok) {
@@ -281,6 +299,16 @@ export default function ManageBookingsPage() {
         </CardContent>
       </Card>
 
+      {/* Legend */}
+      {!isLoading && !error && bookingsForDisplay.length > 0 && bookingsForDisplay.some(b => b.is_new_customer) && (
+        <div className="mb-4 text-center">
+          <div className="inline-flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1 rounded-md">
+            <span className="inline-block w-2 h-2 rounded-full bg-green-400"></span>
+            <span>New customer</span>
+          </div>
+        </div>
+      )}
+
       {isLoading && <p className="text-center py-4">Loading bookings...</p>}
       {error && <p className="text-red-500 text-center py-4">Error fetching bookings: {error}</p>}
 
@@ -299,7 +327,10 @@ export default function ManageBookingsPage() {
               {bookingsForDisplay.map((booking) => (
                 <div key={booking.id} className={`rounded-lg border p-4 shadow-sm ${booking.status === 'cancelled' ? 'bg-red-50 opacity-70' : 'bg-white'}`}> 
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-gray-900">{booking.name}</span>
+                    <div className="flex items-center">
+                      <span className="font-semibold text-gray-900">{booking.name}</span>
+                      {renderNewCustomerBadge(booking.is_new_customer)}
+                    </div>
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : booking.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{booking.status}</span>
                   </div>
                   {booking.customer_notes && (
@@ -316,7 +347,7 @@ export default function ManageBookingsPage() {
                     </div>
                   </div>
                   <div className="flex gap-2 mt-2">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenEditModal(booking)} disabled={booking.status === 'cancelled' || isBookingInPast(booking)}>Edit</Button>
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenEditModal(booking)} disabled={booking.status === 'cancelled'}>Edit</Button>
                     <Button variant="destructive" size="sm" className="flex-1" onClick={() => handleOpenCancelModal(booking)} disabled={booking.status === 'cancelled' || isBookingInPast(booking)}>Cancel</Button>
                     <Button variant="ghost" size="sm" className="flex-1" onClick={() => handleOpenHistoryModal(booking.id)}>History</Button>
                   </div>
@@ -339,7 +370,10 @@ export default function ManageBookingsPage() {
                   {bookingsForDisplay.map((booking) => (
                     <tr key={booking.id} className={booking.status === 'cancelled' ? 'bg-red-50 opacity-70' : ''}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {booking.name}
+                        <div className="flex items-center">
+                          {booking.name}
+                          {renderNewCustomerBadge(booking.is_new_customer)}
+                        </div>
                         {booking.customer_notes && (
                           <span title={booking.customer_notes} className="ml-2">
                             <Info size={16} className="inline text-blue-500 cursor-pointer" />
@@ -352,7 +386,7 @@ export default function ManageBookingsPage() {
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : booking.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{booking.status}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleOpenEditModal(booking)} disabled={booking.status === 'cancelled' || isBookingInPast(booking)}>Edit</Button>
+                        <Button variant="outline" size="sm" onClick={() => handleOpenEditModal(booking)} disabled={booking.status === 'cancelled'}>Edit</Button>
                         <Button variant="destructive" size="sm" onClick={() => handleOpenCancelModal(booking)} disabled={booking.status === 'cancelled' || isBookingInPast(booking)}>Cancel</Button>
                         <Button variant="ghost" size="sm" onClick={() => handleOpenHistoryModal(booking.id)}>History</Button>
                       </td>

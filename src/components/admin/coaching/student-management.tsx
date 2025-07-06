@@ -91,7 +91,6 @@ export function StudentManagement({
                           student.student_name.toLowerCase().includes(searchTerm.toLowerCase())
                         )
                         .sort((a, b) => new Date(a.last_lesson_date).getTime() - new Date(b.last_lesson_date).getTime()) // Oldest lesson first
-                        .slice(0, 5)
                         .map(student => (
                         <div key={student.student_name} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                           <div>
@@ -110,11 +109,6 @@ export function StudentManagement({
                           </div>
                         </div>
                       ))}
-                      {studentsData.students.length > 5 && (
-                        <div className="text-center text-sm text-gray-500 pt-2">
-                          +{studentsData.students.length - 5} more students
-                        </div>
-                      )}
                     </div>
                   </CardContent>
                 )}

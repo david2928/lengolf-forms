@@ -21,14 +21,17 @@ Lengolf Forms is a full-featured booking and management system built specificall
 
 ## Key Features
 
-- **Booking Management**: Create, view, and manage customer bookings for golf bays and coaching sessions
+- **Enhanced Booking Management**: Create, view, edit, and manage customer bookings with tabbed interface and real-time validation
+- **Customer Experience Tracking**: New customer detection, referral source tracking, and visual indicators
 - **Multi-Calendar Integration**: Synchronized with Google Calendar for seamless scheduling
-- **Real-time Notifications**: LINE Messaging API integration for instant booking notifications
+- **Real-time Notifications**: LINE Messaging API integration for instant booking notifications and updates
+- **Advanced Package Integration**: Direct package selection within booking flow with usage tracking
 - **Package Monitoring**: Track active customer packages with expiration alerts
 - **Sales Analytics Dashboard**: Comprehensive business intelligence with KPIs, charts, and performance tracking
 - **Administrative Dashboard**: Dedicated admin section with enhanced management tools and reporting
 - **User Authentication**: Secure staff login system with admin role support
 - **Advanced Calendar System**: Enhanced booking calendar with consolidation and mobile optimization
+- **Employee Accountability**: Track which staff member creates or modifies bookings
 - **Responsive Design**: Works on desktop and mobile devices
 
 ## Core Features & Modules
@@ -36,11 +39,13 @@ Lengolf Forms is a full-featured booking and management system built specificall
 This application is composed of several key modules that provide its core functionality:
 
 *   **User Authentication**: Secure sign-in using Google accounts with role-based access control, managed via NextAuth.js. Supports binary admin roles (user/admin). (See `app/auth/`, `src/lib/auth-config.ts`)
-*   **Booking Management**:
-    *   **Booking Creation**: A dedicated form (`app/create-booking/`, `src/components/booking-form/`) allows users to create new bookings.
-    *   **Booking Management**: Advanced booking management interface (`app/manage-bookings/`) for editing, canceling, and bulk operations.
+*   **Enhanced Booking Management**:
+    *   **Booking Creation**: A comprehensive form (`app/create-booking/`, `src/components/booking-form/`) with package integration, referral tracking, and new customer detection.
+    *   **Booking Management**: Advanced interface (`app/manage-bookings/`) with tabbed edit modal, visual indicators for new customers, and enhanced filtering.
+    *   **Booking Editing**: Sophisticated edit capabilities with main information and additional details tabs, supporting partial edits for past bookings.
     *   **Bookings Calendar**: A visual calendar (`app/bookings-calendar/`) displays bookings across different bays, with daily navigation and real-time updates.
-    *   **API**: Backend logic for creating and retrieving bookings (`app/api/bookings/`).
+    *   **Customer Experience**: Automatic new customer detection, referral source tracking, and visual badges for improved customer service.
+    *   **API**: Enhanced backend logic for creating, updating, and retrieving bookings with new fields (`app/api/bookings/`).
 *   **Package Management**:
     *   **Package Creation**: A form (`app/create-package/`, `src/components/package-form/`, `src/hooks/usePackageForm.ts`) for creating new customer packages.
     *   **Package Usage**: Functionality to record and update the usage of customer packages (`app/update-package/`, `src/components/package-usage/`).
@@ -172,6 +177,25 @@ The documentation covers all aspects of the system, from high-level architecture
 The documentation is maintained alongside the codebase and updated with each major feature release to ensure accuracy and completeness.
 
 ## Recent Changes
+
+### Booking System Bug Fixes and Enhancements (January 2025)
+
+Fixed critical issues in the booking management system to improve data accuracy and user experience:
+
+**Bugs Fixed:**
+- **LINE Notification Duration Bug**: Fixed incorrect duration change notifications when only editing other fields (e.g., referral source). The system was incorrectly showing "Duration: 60h → 1h" due to unit conversion mismatches between frontend (minutes) and database (hours).
+- **Bay Selection Availability**: Fixed issue where users couldn't switch bays when editing bookings because the system wasn't checking real availability for other bays.
+
+**Technical Improvements:**
+- **Proper Unit Conversion**: Implemented consistent duration handling throughout the system, ensuring proper conversion between minutes (frontend) and hours (database)
+- **Smart Change Detection**: Enhanced the booking update API to only update fields that actually changed, preventing false change notifications
+- **Real-time Bay Availability**: Edit modal now fetches actual availability for all bays on open, allowing users to see which bays are available for switching
+- **Performance Optimization**: Reduced redundant availability checks and improved state management in the edit booking modal
+
+**Code Quality:**
+- Removed all debug console.log statements from production code
+- Improved error handling and validation
+- Enhanced documentation for booking editing system
 
 ### Sales Dashboard Implementation (June 2025)
 

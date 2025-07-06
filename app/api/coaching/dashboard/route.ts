@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const { data: currentUser, error: userError } = await supabase
       .schema('backoffice')
       .from('allowed_users')
-      .select('id, email, is_admin, is_coach, coach_name, coach_display_name, coach_email, coach_experience_years, coach_specialties, coach_code')
+      .select('id, email, is_admin, is_coach, coach_name, coach_display_name, coach_phone, coach_code')
       .eq('email', session.user.email)
       .single();
 
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       const { data: selectedCoach, error: selectedCoachError } = await supabase
         .schema('backoffice')
         .from('allowed_users')
-        .select('id, email, is_admin, is_coach, coach_name, coach_display_name, coach_email, coach_experience_years, coach_specialties, coach_code')
+        .select('id, email, is_admin, is_coach, coach_name, coach_display_name, coach_phone, coach_code')
         .eq('id', adminSelectedCoachId)
         .eq('is_coach', true)
         .single();
@@ -66,13 +66,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Not authorized to view coaching data' }, { status: 403 });
     } else if (!currentUser.is_coach && currentUser.is_admin && !adminSelectedCoachId) {
       // Admin user but no coach selected - return list of coaches for selection
-      const { data: allCoaches, error: coachesError } = await supabase
+      const { data: allCoachesRaw, error: coachesError } = await supabase
         .schema('backoffice')
         .from('allowed_users')
-        .select('id, coach_name, coach_display_name, coach_email, is_active_coach')
+        .select('id, coach_name, coach_display_name, coach_phone')
         .eq('is_coach', true)
-        .eq('is_active_coach', true)
         .order('coach_display_name');
+
+      // Remove duplicates by coach_display_name (keep first occurrence)
+      const seenDisplayNames = new Set();
+      const allCoaches = (allCoachesRaw || []).filter(coach => {
+        if (seenDisplayNames.has(coach.coach_display_name)) {
+          return false;
+        }
+        seenDisplayNames.add(coach.coach_display_name);
+        return true;
+      });
 
       return NextResponse.json({
         isAdminView: true,
@@ -303,13 +312,22 @@ export async function GET(request: NextRequest) {
     // If admin is viewing, also get list of all coaches for the selector
     let availableCoaches: Coach[] = [];
     if (isAdminView || currentUser.is_admin) {
-      const { data: allCoaches, error: coachesError } = await supabase
+      const { data: allCoachesRaw, error: coachesError } = await supabase
         .schema('backoffice')
         .from('allowed_users')
-        .select('id, coach_name, coach_display_name, coach_email, is_active_coach')
+        .select('id, coach_name, coach_display_name, coach_phone')
         .eq('is_coach', true)
-        .eq('is_active_coach', true)
         .order('coach_display_name');
+
+      // Remove duplicates by coach_display_name (keep first occurrence)
+      const seenDisplayNames = new Set();
+      const allCoaches = (allCoachesRaw || []).filter(coach => {
+        if (seenDisplayNames.has(coach.coach_display_name)) {
+          return false;
+        }
+        seenDisplayNames.add(coach.coach_display_name);
+        return true;
+      });
 
       availableCoaches = allCoaches as Coach[] || [];
     }
@@ -321,9 +339,8 @@ export async function GET(request: NextRequest) {
         id: targetCoach.id,
         name: targetCoach.coach_name,
         display_name: targetCoach.coach_display_name,
-        email: targetCoach.coach_email,
-        experience_years: targetCoach.coach_experience_years || 0,
-        specialties: targetCoach.coach_specialties || [],
+        phone: targetCoach.coach_phone,
+        code: targetCoach.coach_code,
       },
       earnings: {
         current_month_earnings: String(currentMonthEarnings),
