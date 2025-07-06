@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { CoachRedirect } from '@/components/coach-redirect'
 import { Button } from '@/components/ui/button'
 import { FileText, Clock, RefreshCw, CalendarRange, Package2, Diamond, Calendar, Bird } from 'lucide-react'
 import { useState } from 'react'
@@ -189,7 +190,9 @@ export default function Home() {
   )
 
   return (
-    <div className="container max-w-6xl py-6">
+    <>
+      <CoachRedirect />
+      <div className="container max-w-6xl py-6">
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold">LENGOLF Backoffice</h1>
       </div>
@@ -328,8 +331,9 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Screen Size Indicator - Only show in development */}
-      <ScreenSizeIndicator />
-    </div>
+        {/* Screen Size Indicator - Only show in development */}
+        <ScreenSizeIndicator />
+      </div>
+    </>
   )
 }

@@ -19,6 +19,7 @@ export function Nav() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
   const isAdmin = session?.user?.isAdmin || false;
+  const isCoach = session?.user?.isCoach || false;
 
   if (status !== 'authenticated') return null;
 
@@ -107,6 +108,20 @@ export function Nav() {
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {/* Coaching Portal - Only for Coaches */}
+        {isCoach && (
+          <Link href="/coaching">
+            <Button
+              variant={pathname.startsWith('/coaching') ? 'secondary' : 'ghost'}
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Coaching Portal
+            </Button>
+          </Link>
+        )}
+
         {/* Admin Dropdown - Only for Admin Users */}
         {isAdmin && (
           <DropdownMenu>
@@ -168,6 +183,12 @@ export function Nav() {
                 <Link href="/admin/performance" className="flex items-center gap-2 w-full">
                   <Activity className="h-4 w-4" />
                   Availability Performance
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/coaching" className="flex items-center gap-2 w-full">
+                  <Settings className="h-4 w-4" />
+                  Coaching Portal
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
