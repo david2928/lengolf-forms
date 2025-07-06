@@ -174,11 +174,11 @@ export function useAvailability(options: UseAvailabilityOptions): UseAvailabilit
 }
 
 /**
- * Simpler hook for just checking all bays availability
+ * Simpler hook for checking all bays availability - no subscriptions, just on-demand checks
  */
 export function useAllBaysAvailability(date: string, startTime: string, duration: number = 1.0) {
   const [availability, setAvailability] = useState<Record<string, boolean>>({});
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false); // Start as false, only load when needed
   const [error, setError] = useState<string | null>(null);
 
   const checkAvailability = useCallback(async () => {
@@ -194,17 +194,24 @@ export function useAllBaysAvailability(date: string, startTime: string, duration
         duration
       );
       setAvailability(result);
+      console.log('Successfully checked bay availability:', result);
     } catch (err) {
       console.error('Error checking all bays availability:', err);
-      setError('Failed to check availability');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to check availability';
+      setError(errorMessage);
+      // Don't set availability to avoid showing incorrect data
+      setAvailability({});
     } finally {
       setLoading(false);
     }
   }, [date, startTime, duration]);
 
+  // Only check on initial mount if we have valid params
   useEffect(() => {
-    checkAvailability();
-  }, [checkAvailability]);
+    if (date && startTime) {
+      checkAvailability();
+    }
+  }, [date, startTime, duration]); // Check whenever params change
 
   return {
     availability,

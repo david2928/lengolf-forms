@@ -187,29 +187,28 @@ export function BaySelector({
   const isBayAvailable = (bayId: string) => {
     if (isManualMode) return true;
     
-    // If we're still loading availability data, show as available to avoid blocking UX
-    if (availabilityLoading) return true;
-    
-    // If there's an error with the availability service, show as available to not block user
-    if (availabilityError) {
-      console.warn('Availability service error, showing bays as available:', availabilityError);
+    // If we don't have a start time selected, all bays are available
+    if (!selectedStartTime) {
       return true;
     }
     
-    // Use real-time availability data if available and start time is selected
-    if (selectedStartTime && availability && Object.keys(availability).length > 0) {
-      // Check if this bay's availability is specifically defined
+    // If we're loading, show as available but indicate loading state
+    if (availabilityLoading) return true;
+    
+    // If there's an error, fall back to time-based availability checking
+    if (availabilityError) {
+      console.warn('Availability service error, using fallback logic:', availabilityError);
+      return availableBaysForTime.includes(bayId);
+    }
+    
+    // Use availability data if we have it
+    if (availability && Object.keys(availability).length > 0) {
       if (availability[bayId] !== undefined) {
         return availability[bayId];
       }
     }
     
-    // Fallback to old logic only if no start time is selected
-    if (!selectedStartTime) {
-      return true; // Show all bays as available when no time is selected
-    }
-    
-    // If we have a start time but no availability data, fall back to old logic
+    // Final fallback to time-based logic
     return availableBaysForTime.includes(bayId);
   };
 
@@ -268,10 +267,13 @@ export function BaySelector({
         )}
         
         {availabilityError && (
-          <div className="flex items-center justify-between p-2 bg-yellow-50 border border-yellow-200 rounded">
-            <p className="text-sm text-yellow-800">
-              Real-time updates unavailable. Using cached data.
-            </p>
+          <div className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+              <p className="text-sm text-yellow-800">
+                Using backup availability check. Click retry for latest data.
+              </p>
+            </div>
             <Button
               variant="ghost"
               size="sm"

@@ -1,5 +1,3 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
 export interface AvailabilityChange {
   event: 'INSERT' | 'UPDATE' | 'DELETE';
   booking: {
@@ -21,152 +19,54 @@ export interface TimeSlot {
 }
 
 export class AvailabilitySubscription {
-  private supabase: SupabaseClient | null = null;
-  private pollIntervals: Map<string, NodeJS.Timeout> = new Map();
+  private cache: Map<string, { data: any; timestamp: number }> = new Map();
+  private readonly CACHE_TTL = 60000; // 60 seconds cache
 
   constructor() {
-    // Temporarily disable Supabase client to avoid RealtimeClient error
-    try {
-      this.supabase = createClient(
-        process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY!
-      );
-    } catch (error) {
-      console.warn('Supabase client creation failed, using stub implementation:', error);
-      this.supabase = null;
-    }
+    console.log('Simple availability service initialized (using API calls only)');
   }
 
   /**
-   * Subscribe to availability changes for a specific date and bay combination
-   * Uses polling instead of realtime for now
+   * Simple cache management
+   */
+  private getCached(key: string): any | null {
+    const cached = this.cache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.data;
+    }
+    this.cache.delete(key);
+    return null;
+  }
+
+  private setCache(key: string, data: any): void {
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  /**
+   * No more polling - simple manual refresh when needed
    */
   subscribeToAvailabilityChanges(
     date: string,
     bay: string | null,
     callback: (change: AvailabilityChange) => void
   ): () => void {
-    // Return no-op function if supabase client is not available
-    if (!this.supabase) {
-      console.warn('Supabase client not available, skipping availability subscription');
-      return () => {};
-    }
-
-    const subscriptionKey = `availability-${date}-${bay || 'all'}`;
-    
-    // Clear existing interval if it exists
-    if (this.pollIntervals.has(subscriptionKey)) {
-      clearInterval(this.pollIntervals.get(subscriptionKey)!);
-      this.pollIntervals.delete(subscriptionKey);
-    }
-
-    // Poll for changes every 5 seconds
-    const interval = setInterval(async () => {
-      try {
-        if (!this.supabase) return;
-        
-        let query = this.supabase
-          .from('bookings')
-          .select('*')
-          .eq('date', date);
-
-        if (bay) {
-          query = query.eq('bay', bay);
-        }
-
-        const { data, error } = await query;
-        
-        if (error) {
-          console.error('Error polling for availability changes:', error);
-          return;
-        }
-
-        // For polling, we can't detect the exact change type, so we'll use 'UPDATE'
-        // This is a simplified implementation - in practice you'd need to compare with previous state
-        if (data && data.length > 0) {
-          data.forEach(booking => {
-            callback({
-              event: 'UPDATE',
-              booking: booking as any,
-              timestamp: new Date()
-            });
-          });
-        }
-      } catch (err) {
-        console.error('Error in availability polling:', err);
-      }
-    }, 5000);
-
-    this.pollIntervals.set(subscriptionKey, interval);
-
-    // Return unsubscribe function
-    return () => {
-      if (this.pollIntervals.has(subscriptionKey)) {
-        clearInterval(this.pollIntervals.get(subscriptionKey)!);
-        this.pollIntervals.delete(subscriptionKey);
-      }
-    };
+    console.log('Simple availability service: no real subscriptions, use manual refresh');
+    // Return no-op unsubscribe function
+    return () => {};
   }
 
   /**
-   * Subscribe to all booking changes (for dashboard views)
-   * Uses polling instead of realtime for now
+   * No more polling for all bookings either
    */
   subscribeToAllBookingChanges(
     callback: (change: AvailabilityChange) => void
   ): () => void {
-    if (!this.supabase) {
-      console.warn('Supabase client not available, skipping all booking changes subscription');
-      return () => {};
-    }
-
-    const subscriptionKey = 'all-bookings';
-    
-    if (this.pollIntervals.has(subscriptionKey)) {
-      clearInterval(this.pollIntervals.get(subscriptionKey)!);
-      this.pollIntervals.delete(subscriptionKey);
-    }
-
-    const interval = setInterval(async () => {
-      try {
-        if (!this.supabase) return;
-        
-        const { data, error } = await this.supabase
-          .from('bookings')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(50);
-
-        if (error) {
-          console.error('Error polling for all booking changes:', error);
-          return;
-        }
-
-        if (data && data.length > 0) {
-          data.forEach(booking => {
-            callback({
-              event: 'UPDATE',
-              booking: booking as any,
-              timestamp: new Date()
-            });
-          });
-        }
-      } catch (err) {
-        console.error('Error in all bookings polling:', err);
-      }
-    }, 10000); // Poll every 10 seconds for all bookings
-
-    this.pollIntervals.set(subscriptionKey, interval);
-    return () => {
-      if (this.pollIntervals.has(subscriptionKey)) {
-        clearInterval(this.pollIntervals.get(subscriptionKey)!);
-        this.pollIntervals.delete(subscriptionKey);
-      }
-    };
+    console.log('Simple availability service: no polling for all bookings');
+    return () => {};
   }
 
   /**
-   * Check availability for a specific slot
+   * Check availability for a specific slot using API endpoint
    */
   async checkAvailability(
     date: string,
@@ -175,29 +75,33 @@ export class AvailabilitySubscription {
     duration: number,
     excludeBookingId?: string
   ): Promise<boolean> {
-    if (!this.supabase) {
-      console.warn('Supabase client not available, returning true for availability check');
-      return true;
-    }
+    try {
+      const response = await fetch('/api/availability/check-slot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          bay,
+          startTime,
+          duration,
+          excludeBookingId
+        })
+      });
 
-    const { data, error } = await this.supabase.rpc('check_availability', {
-      p_date: date,
-      p_bay: bay,
-      p_start_time: startTime,
-      p_duration: duration,
-      p_exclude_booking_id: excludeBookingId || null
-    });
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
 
-    if (error) {
+      const result = await response.json();
+      return result.available;
+    } catch (error) {
       console.error('Error checking availability:', error);
-      return false;
+      throw new Error(`Failed to check availability: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    return data;
   }
 
   /**
-   * Check availability for all bays
+   * Check availability for all bays with simple caching using API endpoint
    */
   async checkAllBaysAvailability(
     date: string,
@@ -205,43 +109,60 @@ export class AvailabilitySubscription {
     duration: number,
     excludeBookingId?: string
   ): Promise<Record<string, boolean>> {
-    if (!this.supabase) {
-      console.warn('Supabase client not available, returning optimistic availability');
-      return { 'Bay 1': true, 'Bay 2': true, 'Bay 3': true };
+    const cacheKey = `all-bays-${date}-${startTime}-${duration}-${excludeBookingId || 'none'}`;
+    
+    // Check cache first
+    const cached = this.getCached(cacheKey);
+    if (cached) {
+      console.log('Using cached availability data');
+      return cached;
     }
 
     try {
-      const params = {
-        p_date: date,
-        p_start_time: startTime,
-        p_duration: duration,
-        p_exclude_booking_id: excludeBookingId || null
-      };
+      console.log('Checking bay availability with params:', { date, startTime, duration, excludeBookingId });
 
-      const { data, error } = await this.supabase.rpc('check_all_bays_availability', params);
+      const response = await fetch('/api/availability/check-all-bays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          startTime,
+          duration,
+          excludeBookingId
+        })
+      });
 
-      if (error) {
-        console.error('Supabase error checking all bays availability:', error);
-        // Return optimistic availability to not block user
-        return { 'Bay 1': true, 'Bay 2': true, 'Bay 3': true };
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
       }
+
+      const result = await response.json();
 
       // Ensure we have a valid result
-      if (!data || typeof data !== 'object') {
-        console.warn('Invalid availability data received:', data);
-        return { 'Bay 1': true, 'Bay 2': true, 'Bay 3': true };
+      if (!result.availability || typeof result.availability !== 'object') {
+        console.warn('Invalid availability data received:', result);
+        throw new Error('Invalid availability data received from API');
       }
 
-      return data;
+      // Cache the result
+      this.setCache(cacheKey, result.availability);
+
+      console.log('Bay availability check result:', {
+        date,
+        startTime,
+        duration,
+        result: result.availability
+      });
+
+      return result.availability;
     } catch (err) {
       console.error('Error in checkAllBaysAvailability:', err);
-      // Return optimistic availability to not block user
-      return { 'Bay 1': true, 'Bay 2': true, 'Bay 3': true };
+      throw err instanceof Error ? err : new Error('Unknown error checking bay availability');
     }
   }
 
   /**
-   * Get available time slots for a specific bay and date
+   * Get available time slots with caching using API endpoint
    */
   async getAvailableSlots(
     date: string,
@@ -250,36 +171,56 @@ export class AvailabilitySubscription {
     startHour: number = 10,
     endHour: number = 22
   ): Promise<TimeSlot[]> {
-    if (!this.supabase) {
-      console.warn('Supabase client not available, returning empty slots');
-      return [];
+    const cacheKey = `slots-${date}-${bay}-${duration}-${startHour}-${endHour}`;
+    
+    // Check cache first
+    const cached = this.getCached(cacheKey);
+    if (cached) {
+      console.log('Using cached slots data');
+      return cached;
     }
 
-    const { data, error } = await this.supabase.rpc('get_available_slots', {
-      p_date: date,
-      p_bay: bay,
-      p_duration: duration,
-      p_start_hour: startHour,
-      p_end_hour: endHour
-    });
+    try {
+      const response = await fetch('/api/availability/get-slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          bay,
+          duration,
+          startHour,
+          endHour
+        })
+      });
 
-    if (error) {
-      console.error('Error getting available slots:', error);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const slots = result.slots || [];
+      this.setCache(cacheKey, slots);
+      return slots;
+    } catch (err) {
+      console.error('Error in getAvailableSlots:', err);
       return [];
     }
-
-    return data || [];
   }
 
   /**
-   * Cleanup all subscriptions
+   * Clear cache manually when needed
+   */
+  clearCache(): void {
+    this.cache.clear();
+    console.log('Availability cache cleared');
+  }
+
+  /**
+   * Simple cleanup - just clear cache
    */
   cleanup(): void {
-    this.pollIntervals.forEach((interval, key) => {
-      clearInterval(interval);
-      console.log(`Cleaned up polling for ${key}`);
-    });
-    this.pollIntervals.clear();
+    this.clearCache();
+    console.log('Simple availability service cleaned up');
   }
 }
 
