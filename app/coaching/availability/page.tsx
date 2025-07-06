@@ -57,7 +57,7 @@ function CoachSelectorDropdown({ userInfo, selectedCoachId, onCoachSelection }: 
             <SelectItem key={coach.id} value={coach.id}>
               <div className="flex items-center justify-between w-full">
                 <span className="font-medium">{coach.coach_display_name || coach.coach_name}</span>
-                <span className="text-sm text-gray-500 ml-2">{coach.coach_email}</span>
+                <span className="text-sm text-gray-500 ml-2">{coach.email}</span>
               </div>
             </SelectItem>
           ))}
@@ -71,7 +71,7 @@ interface Coach {
   id: string;
   coach_name: string;
   coach_display_name: string;
-  coach_email: string;
+  email: string;
 }
 
 interface UserInfo {
@@ -113,7 +113,17 @@ export default function AvailabilityPage() {
         const response = await fetch(apiUrl);
         if (response.ok) {
           const data = await response.json();
-          setUserInfo(data);
+          
+          // Map currentUser properties to top level for easier access
+          const enrichedData = {
+            ...data,
+            is_coach: data.currentUser?.isCoach || false,
+            is_admin: data.currentUser?.isAdmin || false,
+            id: data.currentUser?.id,
+            email: data.currentUser?.email
+          };
+          
+          setUserInfo(enrichedData);
           
           // Set selected coach ID from URL or from data
           if (urlCoachId) {
@@ -159,8 +169,13 @@ export default function AvailabilityPage() {
     );
   }
 
-  // Check if user has access (either is a coach or has admin view)
-  const hasAccess = userInfo && (userInfo.is_coach || userInfo.is_admin || userInfo.isAdminView);
+  // Check if user has access (either is a coach, admin, or has coach data)
+  const hasAccess = userInfo && (
+    userInfo.is_coach || 
+    userInfo.is_admin || 
+    userInfo.isAdminView ||
+    userInfo.coach // Has coach data from API
+  );
   
   if (!hasAccess) {
     return (
