@@ -35,11 +35,11 @@ export async function GET() {
     }
 
     // Group products by category
-    const categoriesWithProducts = categoriesData.map(category => ({
+    const categoriesWithProducts = categoriesData.map((category: any) => ({
       id: category.id,
       name: category.name,
       display_order: category.display_order,
-      products: productsData.filter(product => product.category_id === category.id)
+      products: productsData.filter((product: any) => product.category_id === category.id)
     }))
 
     const response: ProductsApiResponse = {

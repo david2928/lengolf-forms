@@ -50,22 +50,55 @@ CREATE INDEX idx_bookings_is_new_customer ON public.bookings(is_new_customer);
 
 #### 1.2 New Customer Detection Trigger
 ```sql
+-- Function to normalize phone numbers for comparison
+CREATE OR REPLACE FUNCTION normalize_phone_number(phone_number text)
+RETURNS text AS $$
+BEGIN
+    -- Remove spaces, hyphens, parentheses, and plus signs
+    -- Keep only digits
+    RETURN regexp_replace(phone_number, '[^0-9]', '', 'g');
+END;
+$$ LANGUAGE plpgsql;
+
 -- Function to identify new customers by phone number
 CREATE OR REPLACE FUNCTION check_new_customer()
 RETURNS TRIGGER AS $$
+DECLARE
+    normalized_phone text;
 BEGIN
     -- Only process if phone number is valid (basic validation)
     IF NEW.phone_number IS NOT NULL 
        AND LENGTH(TRIM(NEW.phone_number)) >= 8 
-       AND NEW.phone_number ~ '^[0-9+\-\s\(\)]+$' THEN
+       AND NEW.phone_number ~ '^[0-9+\-\s\(\)]+$' 
+       AND NEW.phone_number != '-'
+       AND NEW.phone_number NOT LIKE '0000%' THEN
         
-        -- Check if this is the first booking for this phone number
+        -- Normalize the phone number
+        normalized_phone := normalize_phone_number(NEW.phone_number);
+        
+        -- Skip if normalized phone is too short or invalid
+        IF LENGTH(normalized_phone) < 8 THEN
+            RETURN NEW;
+        END IF;
+        
+        -- Check if this customer exists in either bookings or POS sales
         IF NOT EXISTS (
+            -- Check previous bookings with normalized phone comparison
             SELECT 1 FROM public.bookings 
-            WHERE phone_number = NEW.phone_number 
+            WHERE normalize_phone_number(phone_number) = normalized_phone
             AND id != NEW.id
             AND phone_number IS NOT NULL
             AND LENGTH(TRIM(phone_number)) >= 8
+            AND phone_number != '-'
+            AND phone_number NOT LIKE '0000%'
+        ) AND NOT EXISTS (
+            -- Check POS sales history with normalized phone comparison
+            SELECT 1 FROM pos.lengolf_sales
+            WHERE normalize_phone_number(customer_phone_number) = normalized_phone
+            AND customer_phone_number IS NOT NULL
+            AND LENGTH(TRIM(customer_phone_number)) >= 8
+            AND customer_phone_number != '-'
+            AND customer_phone_number NOT LIKE '0000%'
         ) THEN
             NEW.is_new_customer := true;
         ELSE
@@ -163,11 +196,20 @@ interface EditBookingFormData {
   placeholder="Phone number"
 />
 
-// Package selector
+// Package selector (reuse existing component)
 <PackageSelector
-  value={formData.package_id}
-  onChange={(packageId) => setFormData({...formData, package_id: packageId})}
-  customerId={booking.customer_id}
+  value={formData.package_id || ''}
+  customerName={booking.name}
+  customerPhone={booking.phone_number}
+  bookingType={formData.booking_type}
+  onChange={(packageId, packageName) => {
+    setFormData({
+      ...formData, 
+      package_id: packageId,
+      package_name: packageName
+    });
+  }}
+  error={validationErrors.package_id}
 />
 
 // Booking type selector
@@ -376,13 +418,33 @@ function CalendarEvent({ booking }: { booking: BookingRecord }) {
 ```sql
 -- Backfill is_new_customer for existing bookings
 WITH first_bookings AS (
-  SELECT DISTINCT ON (phone_number) 
-    id, phone_number
-  FROM public.bookings 
-  WHERE phone_number IS NOT NULL
-    AND LENGTH(TRIM(phone_number)) >= 8
-    AND phone_number ~ '^[0-9+\-\s\(\)]+$'
-  ORDER BY phone_number, created_at ASC
+  SELECT b.id, b.phone_number
+  FROM public.bookings b
+  WHERE b.phone_number IS NOT NULL
+    AND LENGTH(TRIM(b.phone_number)) >= 8
+    AND b.phone_number ~ '^[0-9+\-\s\(\)]+$'
+    AND b.phone_number != '-'
+    AND b.phone_number NOT LIKE '0000%'
+    -- This is their first booking (earliest created_at for this normalized phone)
+    AND b.created_at = (
+      SELECT MIN(b2.created_at)
+      FROM public.bookings b2
+      WHERE normalize_phone_number(b2.phone_number) = normalize_phone_number(b.phone_number)
+      AND b2.phone_number IS NOT NULL
+      AND LENGTH(TRIM(b2.phone_number)) >= 8
+      AND b2.phone_number != '-'
+      AND b2.phone_number NOT LIKE '0000%'
+    )
+    -- AND they don't exist in POS sales before this booking
+    AND NOT EXISTS (
+      SELECT 1 FROM pos.lengolf_sales s
+      WHERE normalize_phone_number(s.customer_phone_number) = normalize_phone_number(b.phone_number)
+      AND s.customer_phone_number IS NOT NULL
+      AND LENGTH(TRIM(s.customer_phone_number)) >= 8
+      AND s.customer_phone_number != '-'
+      AND s.customer_phone_number NOT LIKE '0000%'
+      AND s.sales_timestamp < b.created_at
+    )
 )
 UPDATE public.bookings 
 SET is_new_customer = true 
@@ -449,6 +511,13 @@ WHERE id IN (SELECT id FROM first_bookings);
 - Add proper loading states for edit operations
 - Implement client-side validation
 - Handle error states gracefully
+
+### Package Selector Implementation
+- **Reuse existing component**: The current `PackageSelector` component from the booking form is perfect for the edit modal
+- **Visual consistency**: Same card-based UI with radio buttons, package details, and expiration info
+- **Smart filtering**: Automatically filters packages based on booking type (coaching vs package bookings)
+- **Activation handling**: Shows "Not Activated" badges for unused packages that will be activated on first use
+- **No changes needed**: The existing component already handles all the required functionality
 
 ### API Considerations
 - Use proper authentication for all update endpoints
