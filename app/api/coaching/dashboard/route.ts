@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       const { data: allCoachesRaw, error: coachesError } = await supabase
         .schema('backoffice')
         .from('allowed_users')
-        .select('id, coach_name, coach_display_name, coach_phone')
+        .select('id, coach_name, coach_display_name, coach_phone, coach_email, is_active_coach')
         .eq('is_coach', true)
         .order('coach_display_name');
 
@@ -315,7 +315,7 @@ export async function GET(request: NextRequest) {
       const { data: allCoachesRaw, error: coachesError } = await supabase
         .schema('backoffice')
         .from('allowed_users')
-        .select('id, coach_name, coach_display_name, coach_phone')
+        .select('id, coach_name, coach_display_name, coach_phone, coach_email, is_active_coach')
         .eq('is_coach', true)
         .order('coach_display_name');
 
