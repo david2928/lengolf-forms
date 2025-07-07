@@ -759,6 +759,387 @@ const debouncedFilterUpdate = useCallback(
 - **Error Boundaries**: Graceful error handling
 - **Retry Logic**: Automatic retry for failed requests
 
+## Monthly/Weekly Reports Tab
+
+### Overview
+The Monthly/Weekly Reports tab provides historical analysis of key business metrics with tabular data for easy comparison across time periods. This tab complements the main dashboard's real-time analytics with structured historical reporting.
+
+### Features
+- **Time Period Selection**: Weekly or Monthly view toggle
+- **Metrics Table**: Comprehensive table showing all main dashboard metrics across time periods
+- **Period Comparison**: Compare current period with previous periods
+- **Data Export**: Export table data to CSV/Excel
+- **Trend Analysis**: Visual indicators showing period-over-period changes
+
+### Metrics Included
+
+#### Core Revenue Metrics
+- **Total Revenue**: Sum of all POS sales revenue per period
+- **Gross Profit**: Revenue minus product costs per period
+- **Average Transaction Value**: Mean transaction amount per period
+- **Gross Margin %**: Profit margin percentage per period
+
+#### Transaction Metrics
+- **Transaction Count**: Number of POS transactions per period
+- **Unique Customers**: Distinct customers served per period
+- **New Customers**: First-time customers acquired per period
+- **Average Transactions per Day**: Daily transaction volume per period
+
+#### Utilization Metrics
+- **SIM Utilization %**: Golf simulator utilization rate per period
+- **SIM Usage Count**: Number of simulator usage transactions per period
+- **Peak Hours Usage**: Most active time periods per period
+- **Bay Efficiency**: Utilization rate per golf bay per period
+
+#### Customer Metrics
+- **Customer Retention Rate**: Percentage of returning customers per period
+- **Customer Acquisition Cost**: Cost to acquire new customers per period
+- **Customer Lifetime Value**: Average value per customer per period
+- **Repeat Customer Rate**: Percentage of customers making multiple visits per period
+
+### Table Structure
+
+#### Weekly Reports Table
+```typescript
+interface WeeklyReportRow {
+  week: string;                    // "2025-W01", "2025-W02", etc.
+  weekRange: string;               // "Jan 1-7, 2025"
+  totalRevenue: number;            // Total revenue for the week
+  grossProfit: number;             // Gross profit for the week
+  transactionCount: number;        // Number of transactions
+  uniqueCustomers: number;         // Unique customers served
+  newCustomers: number;            // New customers acquired
+  avgTransactionValue: number;     // Average transaction amount
+  grossMarginPct: number;          // Gross margin percentage
+  simUtilizationPct: number;       // SIM utilization percentage
+  simUsageCount: number;           // SIM usage transactions
+  customerRetentionRate: number;   // Customer retention rate
+  avgTransactionsPerDay: number;   // Daily transaction average
+  revenueGrowth: number;           // Week-over-week growth %
+  profitGrowth: number;            // Profit growth %
+  customerGrowth: number;          // Customer growth %
+}
+```
+
+#### Monthly Reports Table
+```typescript
+interface MonthlyReportRow {
+  month: string;                   // "2025-01", "2025-02", etc.
+  monthName: string;               // "January 2025", "February 2025"
+  totalRevenue: number;            // Total revenue for the month
+  grossProfit: number;             // Gross profit for the month
+  transactionCount: number;        // Number of transactions
+  uniqueCustomers: number;         // Unique customers served
+  newCustomers: number;            // New customers acquired
+  avgTransactionValue: number;     // Average transaction amount
+  grossMarginPct: number;          // Gross margin percentage
+  simUtilizationPct: number;       // SIM utilization percentage
+  simUsageCount: number;           // SIM usage transactions
+  customerRetentionRate: number;   // Customer retention rate
+  avgTransactionsPerDay: number;   // Daily transaction average
+  workingDays: number;             // Number of operating days
+  peakWeek: string;                // Highest revenue week
+  lowWeek: string;                 // Lowest revenue week
+  revenueGrowth: number;           // Month-over-month growth %
+  profitGrowth: number;            // Profit growth %
+  customerGrowth: number;          // Customer growth %
+}
+```
+
+### Implementation Details
+
+#### Data Source Integration
+Uses the same data source as the main dashboard (`pos.lengolf_sales`) with additional aggregation functions:
+
+```sql
+-- Weekly aggregation function
+CREATE OR REPLACE FUNCTION pos.get_weekly_reports(
+  start_date DATE,
+  end_date DATE
+) RETURNS TABLE (
+  week_number TEXT,
+  week_range TEXT,
+  total_revenue NUMERIC,
+  gross_profit NUMERIC,
+  transaction_count INTEGER,
+  unique_customers INTEGER,
+  new_customers INTEGER,
+  avg_transaction_value NUMERIC,
+  gross_margin_pct NUMERIC,
+  sim_utilization_pct NUMERIC,
+  sim_usage_count INTEGER,
+  customer_retention_rate NUMERIC,
+  avg_transactions_per_day NUMERIC,
+  revenue_growth NUMERIC,
+  profit_growth NUMERIC,
+  customer_growth NUMERIC
+) AS $$
+BEGIN
+  RETURN QUERY
+  WITH weekly_data AS (
+    SELECT 
+      TO_CHAR(date, 'YYYY-"W"IW') as week_num,
+      MIN(date) as week_start,
+      MAX(date) as week_end,
+      SUM(sales_total) as revenue,
+      SUM(gross_profit) as profit,
+      COUNT(*) as transactions,
+      COUNT(DISTINCT customer_name) as customers,
+      SUM(is_sim_usage) as sim_usage,
+      COUNT(DISTINCT CASE WHEN is_new_customer THEN customer_name END) as new_cust
+    FROM pos.lengolf_sales
+    WHERE date BETWEEN start_date AND end_date
+      AND is_voided = FALSE
+    GROUP BY TO_CHAR(date, 'YYYY-"W"IW')
+  )
+  SELECT 
+    wd.week_num,
+    wd.week_start::TEXT || ' - ' || wd.week_end::TEXT as week_range,
+    wd.revenue,
+    wd.profit,
+    wd.transactions,
+    wd.customers,
+    wd.new_cust,
+    ROUND(wd.revenue / wd.transactions, 2) as avg_transaction,
+    ROUND((wd.profit / wd.revenue) * 100, 2) as margin_pct,
+    ROUND((wd.sim_usage::DECIMAL / (7 * 3 * 12)) * 100, 2) as sim_util_pct,
+    wd.sim_usage,
+    ROUND(((wd.customers - wd.new_cust)::DECIMAL / wd.customers) * 100, 2) as retention_rate,
+    ROUND(wd.transactions::DECIMAL / 7, 2) as avg_daily_transactions,
+    COALESCE(ROUND(((wd.revenue - LAG(wd.revenue) OVER (ORDER BY wd.week_num)) / LAG(wd.revenue) OVER (ORDER BY wd.week_num)) * 100, 2), 0) as revenue_growth,
+    COALESCE(ROUND(((wd.profit - LAG(wd.profit) OVER (ORDER BY wd.week_num)) / LAG(wd.profit) OVER (ORDER BY wd.week_num)) * 100, 2), 0) as profit_growth,
+    COALESCE(ROUND(((wd.customers - LAG(wd.customers) OVER (ORDER BY wd.week_num)) / LAG(wd.customers) OVER (ORDER BY wd.week_num)) * 100, 2), 0) as customer_growth
+  FROM weekly_data wd
+  ORDER BY wd.week_num;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+#### API Endpoints
+
+##### Weekly Reports API
+```
+POST /api/sales/weekly-reports
+```
+
+**Request Body**:
+```json
+{
+  "startDate": "2025-01-01",
+  "endDate": "2025-12-31"
+}
+```
+
+**Response**:
+```json
+{
+  "data": [
+    {
+      "week": "2025-W01",
+      "weekRange": "Jan 1-7, 2025",
+      "totalRevenue": 25000.50,
+      "grossProfit": 19500.25,
+      "transactionCount": 45,
+      "uniqueCustomers": 32,
+      "newCustomers": 8,
+      "avgTransactionValue": 555.56,
+      "grossMarginPct": 78.0,
+      "simUtilizationPct": 45.2,
+      "simUsageCount": 28,
+      "customerRetentionRate": 75.0,
+      "avgTransactionsPerDay": 6.43,
+      "revenueGrowth": 12.5,
+      "profitGrowth": 15.2,
+      "customerGrowth": 8.3
+    }
+  ]
+}
+```
+
+##### Monthly Reports API
+```
+POST /api/sales/monthly-reports
+```
+
+**Request Body**:
+```json
+{
+  "startDate": "2025-01-01", 
+  "endDate": "2025-12-31"
+}
+```
+
+### User Interface Components
+
+#### Tab Navigation
+```typescript
+type ReportTab = 'weekly' | 'monthly';
+
+interface ReportsTabProps {
+  activeTab: ReportTab;
+  onTabChange: (tab: ReportTab) => void;
+}
+
+const ReportsTab: React.FC<ReportsTabProps> = ({ activeTab, onTabChange }) => {
+  return (
+    <div className="border-b border-gray-200">
+      <nav className="-mb-px flex space-x-8">
+        <button
+          onClick={() => onTabChange('weekly')}
+          className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            activeTab === 'weekly'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Weekly Reports
+        </button>
+        <button
+          onClick={() => onTabChange('monthly')}
+          className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            activeTab === 'monthly'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Monthly Reports
+        </button>
+      </nav>
+    </div>
+  );
+};
+```
+
+#### Data Table Component
+```typescript
+interface ReportsTableProps {
+  data: WeeklyReportRow[] | MonthlyReportRow[];
+  type: 'weekly' | 'monthly';
+  loading: boolean;
+  onExport: () => void;
+}
+
+const ReportsTable: React.FC<ReportsTableProps> = ({ data, type, loading, onExport }) => {
+  const columns = getColumnsForType(type);
+  
+  return (
+    <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+        <h3 className="text-lg font-medium text-gray-900">
+          {type === 'weekly' ? 'Weekly' : 'Monthly'} Performance Report
+        </h3>
+        <button
+          onClick={onExport}
+          className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+        >
+          <DownloadIcon className="h-4 w-4 mr-2" />
+          Export CSV
+        </button>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              {columns.map((column) => (
+                <th
+                  key={column.key}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  {column.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {loading ? (
+              <ReportsTableSkeleton columns={columns.length} />
+            ) : (
+              data.map((row, index) => (
+                <ReportsTableRow key={index} row={row} columns={columns} />
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+```
+
+### Performance Considerations
+
+#### Data Aggregation
+- **Database Level**: Aggregation performed in PostgreSQL for efficiency
+- **Caching**: Weekly/Monthly data cached for 1 hour (less frequent updates needed)
+- **Pagination**: Large datasets paginated for better performance
+- **Lazy Loading**: Load data only when tab is activated
+
+#### Export Functionality
+- **CSV Export**: Client-side CSV generation using popular libraries
+- **Excel Export**: Optional Excel export for advanced formatting
+- **Batch Processing**: Large datasets processed in batches
+- **Progress Indicators**: Loading states for export operations
+
+### Integration with Main Dashboard
+
+#### Navigation
+The Monthly/Weekly Reports tab is integrated into the main Sales Dashboard as a secondary tab:
+
+```typescript
+type DashboardTab = 'overview' | 'reports';
+
+interface DashboardTabsProps {
+  activeTab: DashboardTab;
+  onTabChange: (tab: DashboardTab) => void;
+}
+
+const DashboardTabs: React.FC<DashboardTabsProps> = ({ activeTab, onTabChange }) => {
+  return (
+    <div className="border-b border-gray-200 mb-6">
+      <nav className="-mb-px flex space-x-8">
+        <button
+          onClick={() => onTabChange('overview')}
+          className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            activeTab === 'overview'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Dashboard Overview
+        </button>
+        <button
+          onClick={() => onTabChange('reports')}
+          className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            activeTab === 'reports'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Monthly/Weekly Reports
+        </button>
+      </nav>
+    </div>
+  );
+};
+```
+
+### Usage Guidelines
+
+#### Best Practices
+1. **Regular Review**: Check weekly reports every Monday for previous week analysis
+2. **Monthly Planning**: Use monthly reports for strategic planning and goal setting
+3. **Trend Analysis**: Focus on growth percentages to identify trends
+4. **Benchmark Comparison**: Compare current periods with historical data
+5. **Export for Presentations**: Use export functionality for board meetings and reports
+
+#### Key Insights to Monitor
+- **Revenue Growth**: Consistent week-over-week or month-over-month growth
+- **Customer Acquisition**: New customer trends and retention rates
+- **Utilization Optimization**: SIM usage patterns and peak periods
+- **Profit Margins**: Gross margin trends and profitability analysis
+- **Seasonal Patterns**: Monthly data reveals seasonal business patterns
+
 ## Future Enhancements
 
 ### Planned Features

@@ -51,10 +51,16 @@ import { useSalesDashboard } from '@/hooks/useSalesDashboard';
 import { DatePreset } from '@/types/sales-dashboard';
 import { formatDisplayDate, getDateRangeForPreset } from '@/lib/dashboard-utils';
 
+// Import new reports components
+import WeeklyReportsTable from '@/components/sales-dashboard/WeeklyReportsTable';
+import MonthlyReportsTable from '@/components/sales-dashboard/MonthlyReportsTable';
+
 interface DashboardFilters {
   datePreset: DatePreset;
   comparisonPeriod: 'previousPeriod' | 'previousMonth' | 'previousYear';
 }
+
+type DashboardTab = 'overview' | 'reports';
 
 // Client-side timestamp component to avoid hydration errors
 const ClientTimestamp: React.FC = () => {
@@ -121,6 +127,7 @@ export default function SalesDashboardPage() {
   });
 
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
 
   // Map datePreset to valid preset values
   const getValidPreset = (preset: DatePreset): 'last7days' | 'last30days' | 'last3months' | 'monthToDate' | 'yearToDate' | 'custom' => {
@@ -261,6 +268,32 @@ export default function SalesDashboardPage() {
         </div>
       </div>
 
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'overview'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Dashboard Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'reports'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Monthly/Weekly Reports
+          </button>
+        </nav>
+      </div>
+
       {/* Error Boundary for the entire dashboard */}
       <DashboardErrorBoundary>
         {/* Main Dashboard Content */}
@@ -269,7 +302,7 @@ export default function SalesDashboardPage() {
             onRetry={handleRefresh}
             message={error?.error || "Failed to load dashboard data. Please try again."}
           />
-        ) : (
+        ) : activeTab === 'overview' ? (
           <div className="space-y-8">
             {/* KPI Cards Section */}
             <section>
@@ -392,6 +425,12 @@ export default function SalesDashboardPage() {
                 </CardContent>
               </Card>
             </section>
+          </div>
+        ) : (
+          // Reports Tab Content
+          <div className="space-y-8">
+            <WeeklyReportsTable />
+            <MonthlyReportsTable />
           </div>
         )}
       </DashboardErrorBoundary>
