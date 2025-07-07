@@ -271,7 +271,7 @@ export async function PUT(
     let isProposedSlotActuallyAvailable = true; // Assume available if not checking or overridden
 
     // Skip availability check if availability_overridden is true in payload (coming from EditBookingModal)
-    const availabilityOverridden = payload.availability_overridden === true || payload.availability_overridden === 'true';
+    const availabilityOverridden = Boolean(payload.availability_overridden);
     
     console.log('Availability check debug:', {
       slotChanged,

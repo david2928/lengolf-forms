@@ -76,7 +76,9 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
       }
       
       const now = new Date();
-      return bookingEndDateTime < now;
+      // Allow editing within 2 hours after booking end time
+      const twoHoursAfterEnd = new Date(bookingEndDateTime.getTime() + (2 * 60 * 60 * 1000));
+      return now > twoHoursAfterEnd;
     } catch {
       return false;
     }
