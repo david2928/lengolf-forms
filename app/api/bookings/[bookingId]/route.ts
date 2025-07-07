@@ -153,6 +153,7 @@ export async function PUT(
 
   try {
     payload = await request.json();
+    console.log('Received payload:', JSON.stringify(payload, null, 2));
   } catch (error) {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
@@ -270,8 +271,24 @@ export async function PUT(
     let isProposedSlotActuallyAvailable = true; // Assume available if not checking or overridden
 
     // Skip availability check if availability_overridden is true in payload (coming from EditBookingModal)
-    // The payload from the logs has: availability_overridden: false
-    const availabilityOverridden = payload.availability_overridden === true; // Fix: check payload instead of request
+    const availabilityOverridden = payload.availability_overridden === true || payload.availability_overridden === 'true';
+    
+    console.log('Availability check debug:', {
+      slotChanged,
+      availabilityOverridden,
+      payloadFlag: payload.availability_overridden,
+      payloadFlagType: typeof payload.availability_overridden,
+      proposedSlot: { date: proposedDate, start_time: proposedStartTime, bay: proposedBay, duration: proposedDurationInMinutes }
+    });
+
+    // Extra debugging for overwrite logic
+    if (slotChanged) {
+      console.log('Slot changed detected - checking availability override:', {
+        availabilityOverridden,
+        willSkipAvailabilityCheck: availabilityOverridden,
+        willRunAvailabilityCheck: !availabilityOverridden
+      });
+    }
 
     if (slotChanged && !availabilityOverridden) {
       if (!proposedBay) {
@@ -305,6 +322,7 @@ export async function PUT(
         return NextResponse.json({ error: 'Failed to check slot availability', details: availabilityError.message }, { status: 500 });
       }
     } else if (slotChanged && availabilityOverridden) {
+        console.log('Availability check bypassed due to override flag');
         isProposedSlotActuallyAvailable = true; // Proceed as if available
     }
     

@@ -464,7 +464,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
 
     const payload: any = {
       employee_name: formData.employee_name.trim(),
-      availability_overridden: allowOverwrite && availabilityStatus === 'overridden',
+      availability_overridden: allowOverwrite, // Simplified: if overwrite is enabled, set the flag
     };
 
     // Only include main info fields if they are editable
