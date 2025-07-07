@@ -188,7 +188,9 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           }
           
           const now = new Date();
-          isPastBooking = bookingEndDateTime < now;
+          // Allow editing within 2 hours after booking end time
+          const twoHoursAfterEnd = new Date(bookingEndDateTime.getTime() + (2 * 60 * 60 * 1000));
+          isPastBooking = now > twoHoursAfterEnd;
         } catch (e) {
           console.error("Error parsing booking date/time for past check:", e);
         }
@@ -620,9 +622,11 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       }
       
       const now = new Date();
-      isPastBooking = bookingEndDateTime < now;
+      // Allow editing within 2 hours after booking end time
+      const twoHoursAfterEnd = new Date(bookingEndDateTime.getTime() + (2 * 60 * 60 * 1000));
+      isPastBooking = now > twoHoursAfterEnd;
       isBookingEditable = !isPastBooking;
-      isMainInfoEditable = !isPastBooking; // Main info (time/date/bay) can only be edited if booking is not past
+      isMainInfoEditable = !isPastBooking; // Main info (time/date/bay) can only be edited if booking is not past the 2-hour window
       isSecondaryInfoEditable = true; // Secondary info (phone, booking type, package, referral) can ALWAYS be edited
     } catch (e) {
       console.error("Error parsing booking date/time for editability check:", e);
