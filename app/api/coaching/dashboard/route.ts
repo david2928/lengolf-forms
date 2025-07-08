@@ -120,6 +120,14 @@ export async function GET(request: NextRequest) {
 
     // FIXED: Use coach_display_name for matching instead of coach_name
     const coachDisplayName = targetCoach.coach_display_name || targetCoach.coach_name?.replace('Coach ', '') || '';
+    
+    console.log(`[DEBUG] Target coach info:`, {
+      id: targetCoach.id,
+      coach_name: targetCoach.coach_name,
+      coach_display_name: targetCoach.coach_display_name,
+      coach_code: targetCoach.coach_code,
+      derived_coachDisplayName: coachDisplayName
+    });
 
     // Get real coaching lessons from POS reconciliation data using display name
     const { data: allCoachingLessons, error: lessonsError } = await supabase
@@ -142,16 +150,51 @@ export async function GET(request: NextRequest) {
     const today = currentDate.toISOString().split('T')[0];
     const nextWeek = new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
+    // Create precise booking type filter to prevent data mixing between coaches
+    const getBookingTypeFilter = (coachDisplayName: string) => {
+      console.log(`[DEBUG] getBookingTypeFilter called with coachDisplayName: "${coachDisplayName}"`);
+      
+      switch (coachDisplayName) {
+        case 'Boss':
+          console.log(`[DEBUG] Boss selected, returning: "Coaching (Boss)"`);
+          return 'Coaching (Boss)'; // Exact match to exclude "Coaching (Boss - Ratchavin)"
+        case 'Ratchavin':
+          console.log(`[DEBUG] Ratchavin selected, returning: "Coaching (Boss - Ratchavin)"`);
+          return 'Coaching (Boss - Ratchavin)'; // Exact match for Ratchavin's bookings
+        case 'Noon':
+          console.log(`[DEBUG] Noon selected, returning: "Coaching (Noon)"`);
+          return 'Coaching (Noon)'; // Exact match for Noon's bookings
+        default:
+          const fallback = `Coaching (${coachDisplayName})`;
+          console.log(`[DEBUG] Default case, returning: "${fallback}"`);
+          return fallback; // Fallback for other coaches
+      }
+    };
+    
+    const bookingTypeFilter = getBookingTypeFilter(coachDisplayName);
+    console.log(`[DEBUG] Upcoming bookings query:`, {
+      today,
+      nextWeek,
+      bookingTypeFilter,
+      coachDisplayName
+    });
+    
     const { data: upcomingBookingsRaw, error: bookingsError } = await supabase
       .schema('public')
       .from('bookings')
       .select('*')
       .gte('date', today)
       .lte('date', nextWeek)
-      .ilike('booking_type', `%${coachDisplayName}%`)
+      .eq('booking_type', bookingTypeFilter)
       .eq('status', 'confirmed')
       .order('date', { ascending: true })
       .order('start_time', { ascending: true });
+    
+    console.log(`[DEBUG] Upcoming bookings result:`, {
+      count: upcomingBookingsRaw?.length || 0,
+      error: bookingsError,
+      first_few: upcomingBookingsRaw?.slice(0, 3)
+    });
 
     if (bookingsError) {
       console.error('Error fetching upcoming bookings:', bookingsError);
@@ -165,16 +208,28 @@ export async function GET(request: NextRequest) {
     });
 
     // Recent activity: last 20 past bookings (completed or cancelled)
+    const recentBookingTypeFilter = getBookingTypeFilter(coachDisplayName);
+    console.log(`[DEBUG] Recent bookings query:`, {
+      today,
+      bookingTypeFilter: recentBookingTypeFilter,
+      coachDisplayName
+    });
+    
     const { data: recentBookingsRaw } = await supabase
       .schema('public')
       .from('bookings')
       .select('*')
       .lte('date', today)
-      .ilike('booking_type', `%${coachDisplayName}%`)
+      .eq('booking_type', recentBookingTypeFilter)
       .in('status', ['confirmed', 'cancelled'])
       .order('date', { ascending: false })
       .order('start_time', { ascending: false })
       .limit(20);
+    
+    console.log(`[DEBUG] Recent bookings result:`, {
+      count: recentBookingsRaw?.length || 0,
+      first_few: recentBookingsRaw?.slice(0, 3)
+    });
 
     const recentBookings = (recentBookingsRaw || []).map(b => ({
       id: b.id,
@@ -237,7 +292,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .gte('date', selectedMonthStart.toISOString().split('T')[0])
       .lte('date', selectedMonthEnd.toISOString().split('T')[0])
-      .ilike('booking_type', `%${coachDisplayName}%`);
+      .eq('booking_type', getBookingTypeFilter(coachDisplayName));
 
     if (selectedBookingsError) {
       console.error('Error fetching selected month bookings:', selectedBookingsError);

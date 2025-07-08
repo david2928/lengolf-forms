@@ -108,40 +108,61 @@ The current POS system lacks stable customer IDs, causing duplicate customer rec
 ### Core Components
 
 #### 1. **Customer Database Layer**
-- **Primary Table**: `public.customers` (redesigned)
-- **Supporting Tables**: VIP tiers, customer notes, contact history
-- **Search Optimization**: Full-text search capabilities
-- **Audit Trail**: Complete change tracking
+- **Primary Table**: `public.customers` (simplified with proven mapping)
+- **Customer Mapping**: Multi-tier identification system
+- **Phone Normalization**: Thai number matching (last 9 digits)
+- **Profile Integration**: Website user linking
 
-#### 2. **Staff Management UI**
+#### 2. **Customer Mapping Service** ⭐ **CRITICAL COMPONENT**
+Based on data analysis of 2,104+ customers and booking patterns:
+
+```typescript
+// Multi-tier customer identification (in priority order)
+class CustomerMappingService {
+  async findCustomerMatch(data: {
+    stable_hash_id?: string,    // 1st priority: existing system
+    phone?: string,             // 2nd priority: normalized phone
+    email?: string,             // 3rd priority: email match
+    profileId?: string          // 4th priority: profile linking
+  }): Promise<Customer | null>
+}
+```
+
+**Proven Results from Data Analysis:**
+- **stable_hash_id**: Links 63+ bookings per customer successfully
+- **Normalized Phone**: 97% match rate for Thai numbers
+- **Profile Integration**: Seamlessly connects website users
+
+#### 3. **Staff Management UI**
 - **Location**: `/admin/customers/`
 - **Pattern**: Follow transaction management design
 - **Features**: Create, Read, Update, Deactivate customers
 - **Analytics**: Customer KPIs and insights
 
-#### 3. **Integration Layer**
-- **Booking System**: Customer lookup and selection
-- **Package Management**: Customer-package associations
-- **Transaction History**: Link to POS transaction data
-- **Profile Linking**: Connect website users to customers
+#### 4. **Integration Layer**
+- **Booking System**: Smart customer lookup with mapping service
+- **Profile Linking**: Automatic website user to customer connection
+- **Legacy POS**: Optional sync for compatibility
+- **Transaction History**: Link to existing POS data
 
-#### 4. **Analytics & Reporting**
+#### 5. **Analytics & Reporting**
 - **Customer KPIs**: Total, new, VIP, active customers
-- **Trend Analysis**: Customer growth, retention, lifetime value
-- **Segmentation**: Customer categories and behaviors
+- **Mapping Success**: Track customer identification accuracy
+- **Phone Analysis**: Monitor normalization effectiveness
 
 ## Database Schema Design
 
 ### Primary Customer Table: `public.customers`
 
 ```sql
--- New customer table with minimal fields (matching existing backoffice.customers + analytics)
+-- Simplified customer table with proven phone normalization and profile linking
+-- Updated based on data analysis: Thai phone numbers, stable_hash_id mapping, profile integration
 CREATE TABLE public.customers (
   -- Primary Identification
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_code VARCHAR(20) UNIQUE NOT NULL, -- CUS-001, CUS-002, etc.
   
-  -- Core Information (from backoffice.customers)
+  -- Core Information (minimal from backoffice.customers)
   customer_name VARCHAR(255) NOT NULL,
   contact_number VARCHAR(20),
   email VARCHAR(255),
@@ -149,26 +170,20 @@ CREATE TABLE public.customers (
   date_of_birth DATE,
   date_joined DATE,
   
-  -- Financial Information (from backoffice.customers)
-  available_credit DECIMAL(10,2) DEFAULT 0.00,
-  available_point INTEGER DEFAULT 0,
-  customer_source customer_source_enum DEFAULT 'Walk In',
-  
-  -- Consent (from backoffice.customers)
-  sms_pdpa BOOLEAN DEFAULT false,
-  email_pdpa BOOLEAN DEFAULT false,
-  
-  -- Analytics Information (new calculated fields)
+  -- Analytics Information (calculated fields)
   total_lifetime_value DECIMAL(12,2) DEFAULT 0.00,
   total_visits INTEGER DEFAULT 0,
   last_visit_date DATE,
   first_transaction_date DATE,
   
-  -- Legacy Compatibility
-  legacy_pos_customer_id BIGINT, -- Maps to backoffice.customers.id
-  stable_hash_id VARCHAR(255), -- For existing system compatibility
+  -- Customer Mapping & Identification (CRITICAL for linking systems)
+  stable_hash_id VARCHAR(255),     -- Primary mapping key (existing system)
+  normalized_phone VARCHAR(9),      -- Last 9 digits for Thai phone matching
+  linked_profile_id UUID,           -- Reference to profiles table for website users
+  legacy_pos_customer_id BIGINT,    -- For POS sync when needed
   
   -- System Information
+  customer_source customer_source_enum DEFAULT 'Walk In',
   created_by UUID REFERENCES backoffice.allowed_users(id),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_by UUID REFERENCES backoffice.allowed_users(id),
@@ -193,15 +208,19 @@ CREATE TABLE public.customers (
   )
 );
 
--- Indexes for Performance
+-- Indexes for Performance & Customer Mapping
 CREATE INDEX idx_customers_search ON public.customers USING GIN(search_vector);
 CREATE INDEX idx_customers_contact_number ON public.customers(contact_number);
-CREATE INDEX idx_customers_email ON public.customers(email);
+CREATE INDEX idx_customers_email ON public.customers(lower(email)) WHERE email IS NOT NULL;
 CREATE INDEX idx_customers_customer_code ON public.customers(customer_code);
-CREATE INDEX idx_customers_legacy_pos_id ON public.customers(legacy_pos_customer_id);
+CREATE INDEX idx_customers_legacy_pos_id ON public.customers(legacy_pos_customer_id) WHERE legacy_pos_customer_id IS NOT NULL;
 CREATE INDEX idx_customers_active ON public.customers(is_active);
 CREATE INDEX idx_customers_created_at ON public.customers(created_at);
+
+-- CRITICAL: Customer mapping indexes for fast lookup (based on data analysis)
 CREATE UNIQUE INDEX idx_customers_stable_hash ON public.customers(stable_hash_id) WHERE stable_hash_id IS NOT NULL;
+CREATE INDEX idx_customers_normalized_phone ON public.customers(normalized_phone) WHERE normalized_phone IS NOT NULL;
+CREATE INDEX idx_customers_profile_link ON public.customers(linked_profile_id) WHERE linked_profile_id IS NOT NULL;
 
 -- Customer Code Generation Function
 CREATE OR REPLACE FUNCTION generate_customer_code()
@@ -239,6 +258,24 @@ CREATE TRIGGER trigger_set_customer_code
   FOR EACH ROW
   EXECUTE FUNCTION set_customer_code();
 
+-- Auto-generate normalized phone for Thai number matching (based on data analysis)
+CREATE OR REPLACE FUNCTION set_normalized_phone()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.contact_number IS NOT NULL THEN
+    -- Extract last 9 digits (proven to work for Thai numbers)
+    -- Examples: 0807877878 → 807877878, +66623949696 → 623949696
+    NEW.normalized_phone := RIGHT(REGEXP_REPLACE(NEW.contact_number, '[^0-9]', '', 'g'), 9);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_set_normalized_phone
+  BEFORE INSERT OR UPDATE ON public.customers
+  FOR EACH ROW
+  EXECUTE FUNCTION set_normalized_phone();
+
 -- Update timestamp trigger
 CREATE OR REPLACE FUNCTION update_customers_updated_at()
 RETURNS TRIGGER AS $$
@@ -254,56 +291,57 @@ CREATE TRIGGER trigger_update_customers_updated_at
   EXECUTE FUNCTION update_customers_updated_at();
 ```
 
-### Supporting Tables
+### Supporting Tables (Simplified MVP Approach)
 
-#### Customer Notes Table
+**Note: Based on our analysis, we're focusing on the core customer table first. Supporting tables are moved to later phases.**
+
+#### Customer Mapping History (Phase 2 - Essential for Migration)
 ```sql
+-- Track customer identification decisions and mapping success
+CREATE TABLE public.customer_mapping_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id UUID NOT NULL REFERENCES public.customers(id),
+  mapping_type VARCHAR(50) NOT NULL, -- 'stable_hash', 'phone_match', 'email_match', 'profile_link', 'manual'
+  mapping_source VARCHAR(100), -- Source identifier used for matching
+  mapping_confidence DECIMAL(3,2), -- 0.00 to 1.00 confidence score
+  source_table VARCHAR(50), -- 'backoffice.customers', 'profiles', 'bookings', 'manual'
+  source_id VARCHAR(255), -- ID in source table
+  mapped_by UUID REFERENCES backoffice.allowed_users(id),
+  mapped_at TIMESTAMPTZ DEFAULT now(),
+  notes TEXT
+);
+
+CREATE INDEX idx_mapping_history_customer_id ON public.customer_mapping_history(customer_id);
+CREATE INDEX idx_mapping_history_type ON public.customer_mapping_history(mapping_type);
+CREATE INDEX idx_mapping_history_confidence ON public.customer_mapping_history(mapping_confidence);
+```
+
+#### Customer Notes (Phase 3+ - Future Enhancement)
+```sql
+-- FUTURE: Staff notes and customer interaction tracking
 CREATE TABLE public.customer_notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_id UUID NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
-  note_type VARCHAR(50) DEFAULT 'general', -- general, complaint, preference, etc.
+  note_type VARCHAR(50) DEFAULT 'general',
   note_text TEXT NOT NULL,
-  is_internal BOOLEAN DEFAULT true, -- Internal staff notes vs customer-visible
+  is_internal BOOLEAN DEFAULT true,
   created_by UUID REFERENCES backoffice.allowed_users(id),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT now()
 );
-
-CREATE INDEX idx_customer_notes_customer_id ON public.customer_notes(customer_id);
-CREATE INDEX idx_customer_notes_created_at ON public.customer_notes(created_at);
 ```
 
-#### Customer Contact History
+#### Customer Contact History (Phase 3+ - Future Enhancement)
 ```sql
+-- FUTURE: Customer interaction timeline
 CREATE TABLE public.customer_contact_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_id UUID NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
-  contact_type VARCHAR(50) NOT NULL, -- phone, email, sms, visit
-  contact_method VARCHAR(100), -- The actual phone/email used
+  contact_type VARCHAR(50) NOT NULL, -- 'booking', 'call', 'email', 'visit'
+  contact_method VARCHAR(100),
   contacted_by UUID REFERENCES backoffice.allowed_users(id),
   contact_date TIMESTAMPTZ DEFAULT now(),
-  purpose VARCHAR(100), -- booking, follow-up, marketing, etc.
-  notes TEXT,
-  successful BOOLEAN DEFAULT true
+  notes TEXT
 );
-
-CREATE INDEX idx_contact_history_customer_id ON public.customer_contact_history(customer_id);
-CREATE INDEX idx_contact_history_contact_date ON public.customer_contact_history(contact_date);
-```
-
-#### Customer Merge History
-```sql
-CREATE TABLE public.customer_merge_history (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  primary_customer_id UUID NOT NULL REFERENCES public.customers(id),
-  merged_customer_data JSONB NOT NULL, -- Full data of merged customer
-  merged_customer_code VARCHAR(20) NOT NULL,
-  merge_reason TEXT,
-  merged_by UUID REFERENCES backoffice.allowed_users(id),
-  merged_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE INDEX idx_merge_history_primary_customer ON public.customer_merge_history(primary_customer_id);
 ```
 
 ### Enhanced Customer Source Enum
@@ -937,16 +975,83 @@ class CustomerSyncService {
     const legacyCustomers = await this.getPOSCustomers();
     
     for (const legacyCustomer of legacyCustomers) {
-      const existingCustomer = await this.findByLegacyId(legacyCustomer.id);
+      // Find existing customer by stable_hash_id or contact info (NOT by POS ID)
+      const existingCustomer = await this.findExistingCustomer(legacyCustomer);
       
       if (existingCustomer) {
-        // Update existing customer with latest POS data
+        // Update existing customer and track POS ID changes
         await this.updateFromLegacy(existingCustomer.id, legacyCustomer);
       } else {
         // Create new customer from POS data with stable customer code
         await this.createFromLegacy(legacyCustomer);
       }
     }
+  }
+
+  async findExistingCustomer(legacyCustomer: any) {
+    // Method 1: Find by stable_hash_id (most reliable)
+    if (legacyCustomer.stable_hash_id) {
+      const customer = await this.findByStableHashId(legacyCustomer.stable_hash_id);
+      if (customer) return customer;
+    }
+
+    // Method 2: Find by current POS ID
+    const customer = await this.findByCurrentPOSId(legacyCustomer.id);
+    if (customer) return customer;
+
+    // Method 3: Find by contact info (phone + name match)
+    if (legacyCustomer.contact_number && legacyCustomer.customer_name) {
+      return await this.findByContactInfo(
+        legacyCustomer.contact_number, 
+        legacyCustomer.customer_name
+      );
+    }
+
+    return null;
+  }
+
+  async updateFromLegacy(customerId: string, legacyCustomer: any) {
+    const customer = await this.getCustomer(customerId);
+    
+    // Track POS ID changes
+    const newPOSId = legacyCustomer.id;
+    const hasNewPOSId = customer.current_pos_customer_id !== newPOSId;
+    
+    const updates: any = {
+      // Update basic fields
+      customer_name: legacyCustomer.customer_name,
+      contact_number: legacyCustomer.contact_number,
+      email: legacyCustomer.email,
+      address: legacyCustomer.address,
+      date_of_birth: legacyCustomer.date_of_birth,
+      date_joined: legacyCustomer.date_joined,
+      stable_hash_id: legacyCustomer.stable_hash_id,
+      updated_at: new Date()
+    };
+
+    // Handle POS ID changes
+    if (hasNewPOSId) {
+      // Add old POS ID to history
+      const legacyIds = customer.legacy_pos_customer_ids || [];
+      if (customer.current_pos_customer_id && !legacyIds.includes(customer.current_pos_customer_id)) {
+        legacyIds.push(customer.current_pos_customer_id);
+      }
+
+      // Track the change in sync history
+      const syncHistory = customer.pos_sync_history || [];
+      syncHistory.push({
+        timestamp: new Date().toISOString(),
+        old_pos_id: customer.current_pos_customer_id,
+        new_pos_id: newPOSId,
+        reason: 'pos_sync_update'
+      });
+
+      updates.legacy_pos_customer_ids = legacyIds;
+      updates.current_pos_customer_id = newPOSId;
+      updates.pos_sync_history = syncHistory;
+    }
+
+    await this.updateCustomer(customerId, updates);
   }
 }
 ```
@@ -1000,10 +1105,34 @@ class CustomerSyncService {
     const newCustomers = await this.getUnsyncedCustomers();
     
     for (const customer of newCustomers) {
-      if (!customer.legacy_pos_customer_id) {
+      if (!customer.current_pos_customer_id) {
         // Create in backoffice.customers for POS compatibility
-        const legacyId = await this.createInPOS(customer);
-        await this.linkToLegacy(customer.id, legacyId);
+        const posCustomerData = {
+          customer_name: customer.customer_name,
+          contact_number: customer.contact_number,
+          email: customer.email,
+          address: customer.address,
+          date_of_birth: customer.date_of_birth,
+          date_joined: customer.date_joined || new Date().toISOString().split('T')[0],
+          stable_hash_id: customer.stable_hash_id,
+          // Note: POS will generate its own ID
+        };
+
+        const legacyId = await this.createInPOS(posCustomerData);
+        
+        // Track the new POS ID
+        await this.updateCustomer(customer.id, {
+          current_pos_customer_id: legacyId,
+          pos_sync_history: [
+            ...(customer.pos_sync_history || []),
+            {
+              timestamp: new Date().toISOString(),
+              old_pos_id: null,
+              new_pos_id: legacyId,
+              reason: 'reverse_sync_creation'
+            }
+          ]
+        });
       }
     }
   }
@@ -1081,462 +1210,23 @@ interface MigrationMetrics {
   customerDataAccuracy: number;     // Data quality improvement
   operationalEfficiency: number;    // Time savings for staff
 }
-
-## Future Improvements
-
-After the MVP migration is complete, the following enhancements can be considered for future development phases:
-
-### Phase 3: Enhanced Customer Management Features
-
-#### Advanced Customer Analytics
-
-**Migration Priorities:**
-1. **Week 13-14**: Staff Customer Creation
-   - All new customers created through new system
-   - Auto-sync to legacy POS for transactions
-   - Staff training on new customer management UI
-
-2. **Week 15-16**: Booking System Migration
-   - Booking system uses new customer lookup
-   - Customer selection from new system
-   - Maintain booking-to-POS customer linking
-
-3. **Week 17-18**: Package System Migration
-   - Package creation uses new customer management
-   - Package-customer associations through new system
-   - Sync package data to legacy POS
-
-4. **Week 19-20**: Transaction Integration
-   - Begin linking transactions to new customer IDs
-   - Maintain dual linking during transition
-   - Prepare for POS replacement
-
-**Feature Flag Implementation:**
-```typescript
-// Feature flags for gradual rollout
-const FeatureFlags = {
-  USE_NEW_CUSTOMER_SEARCH: 'new-customer-search',
-  USE_NEW_CUSTOMER_CREATION: 'new-customer-creation',
-  USE_NEW_BOOKING_INTEGRATION: 'new-booking-integration',
-  USE_NEW_PACKAGE_INTEGRATION: 'new-package-integration',
-  ENABLE_POS_TRANSITION: 'pos-transition'
-};
-
-// Component that adapts based on feature flags
-const CustomerSearch = () => {
-  const useNewSystem = useFeatureFlag(FeatureFlags.USE_NEW_CUSTOMER_SEARCH);
-  
-  if (useNewSystem) {
-    return <NewCustomerSearchComponent />;
-  }
-  
-  return <LegacyCustomerSearchComponent />;
-};
 ```
-
-#### Phase 3: POS System Transition (Weeks 21-28)
-**Goal**: Replace legacy POS with new POS system integrated with customer management
-
-**New POS Integration Architecture:**
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    New Integrated System                         │
-├─────────────────────────────────────────────────────────────────┤
-│  New POS System           │  Customer Management  │  Website     │
-│  ┌─────────────────────┐  │  ┌─────────────────┐  │  System      │
-│  │ POS UI              │──┤  │ public.         │  │              │
-│  │ - Customer Lookup   │  │  │ customers       │◀─┤              │
-│  │ - Transaction Entry │  │  │ (single source) │  │              │
-│  │ - Payment Process   │  │  └─────────────────┘  │              │
-│  └─────────────────────┘  │          │            │              │
-│           │               │          ▼            │              │
-│           ▼               │  ┌─────────────────┐  │              │
-│  ┌─────────────────────┐  │  │ Analytics &     │  │              │
-│  │ pos.transactions    │  │  │ Reporting       │  │              │
-│  │ (linked to          │  │  └─────────────────┘  │              │
-│  │ customer.id)        │  │                       │              │
-│  └─────────────────────┘  │                       │              │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**New POS Requirements:**
-```typescript
-// Customer lookup interface for new POS
-interface POSCustomerLookup {
-  searchCustomers(query: string): Promise<POSCustomerResult[]>;
-  getCustomerById(customerId: string): Promise<POSCustomerDetail>;
-  createQuickCustomer(basicInfo: QuickCustomerInfo): Promise<string>;
-  updateCustomerSpending(customerId: string, amount: number): Promise<void>;
-}
-
-interface POSCustomerResult {
-  customerId: string;
-  customerCode: string;
-  displayName: string;
-  primaryPhone?: string;
-  availableCredit: number;
-  loyaltyPoints: number;
-  vipTier?: string;
-  lastVisit?: string;
-}
-
-interface POSCustomerDetail extends POSCustomerResult {
-  email?: string;
-  address?: string;
-  preferences: {
-    smsReceipts: boolean;
-    emailReceipts: boolean;
-  };
-  recentTransactions: TransactionSummary[];
-}
-```
-
-### Data Synchronization Strategy
-
-#### Real-Time Sync During Parallel Operation
-
-1. **Database Triggers for Legacy System**
-```sql
--- Trigger on legacy customer changes
-CREATE OR REPLACE FUNCTION sync_legacy_customer_changes()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Insert sync job for processing
-  INSERT INTO customer_sync_queue (
-    legacy_customer_id,
-    operation_type,
-    data_payload,
-    created_at
-  ) VALUES (
-    NEW.id,
-    TG_OP,
-    row_to_json(NEW),
-    now()
-  );
-  
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_sync_legacy_changes
-  AFTER INSERT OR UPDATE OR DELETE ON backoffice.customers
-  FOR EACH ROW
-  EXECUTE FUNCTION sync_legacy_customer_changes();
-```
-
-2. **Sync Queue Processing**
-```typescript
-class CustomerSyncProcessor {
-  async processSync() {
-    const syncJobs = await this.getSyncQueue();
-    
-    for (const job of syncJobs) {
-      try {
-        await this.processSyncJob(job);
-        await this.markJobCompleted(job.id);
-      } catch (error) {
-        await this.markJobFailed(job.id, error);
-        // Retry logic or manual intervention
-      }
-    }
-  }
-
-  async processSyncJob(job: SyncJob) {
-    switch (job.operationType) {
-      case 'INSERT':
-        await this.syncNewLegacyCustomer(job.dataPayload);
-        break;
-      case 'UPDATE':
-        await this.syncUpdatedLegacyCustomer(job.dataPayload);
-        break;
-      case 'DELETE':
-        await this.handleLegacyCustomerDeletion(job.legacyCustomerId);
-        break;
-    }
-  }
-}
-```
-
-#### Batch Reconciliation
-
-```typescript
-// Daily reconciliation process
-class CustomerReconciliationService {
-  async performDailyReconciliation() {
-    const discrepancies = await this.findDiscrepancies();
-    
-    const report = {
-      timestamp: new Date(),
-      totalCustomers: {
-        legacy: await this.countLegacyCustomers(),
-        new: await this.countNewCustomers()
-      },
-      discrepancies: discrepancies.map(d => ({
-        customerId: d.customerId,
-        field: d.field,
-        legacyValue: d.legacyValue,
-        newValue: d.newValue,
-        lastSync: d.lastSync
-      })),
-      autoResolved: 0,
-      manualReviewRequired: 0
-    };
-
-    // Auto-resolve simple discrepancies
-    for (const discrepancy of discrepancies) {
-      if (this.canAutoResolve(discrepancy)) {
-        await this.resolveDiscrepancy(discrepancy);
-        report.autoResolved++;
-      } else {
-        report.manualReviewRequired++;
-      }
-    }
-
-    await this.generateReconciliationReport(report);
-    return report;
-  }
-}
-```
-
-### Legacy POS Integration Points
-
-#### Customer Creation Flow
-```typescript
-// When POS creates a customer
-app.post('/api/pos/customers', async (req, res) => {
-  const posCustomerData = req.body;
-  
-  // 1. Check if customer exists in new system
-  const existingCustomer = await findCustomerByContactInfo(posCustomerData);
-  
-  if (existingCustomer) {
-    // 2. Link existing customer to POS record
-    await linkPOSCustomer(existingCustomer.id, posCustomerData.id);
-    res.json({ customerId: existingCustomer.id, linked: true });
-  } else {
-    // 3. Create customer in new system
-    const newCustomer = await createCustomerFromPOS(posCustomerData);
-    res.json({ customerId: newCustomer.id, created: true });
-  }
-});
-```
-
-#### Transaction Recording Flow
-```typescript
-// When POS records a transaction
-app.post('/api/pos/transactions', async (req, res) => {
-  const transaction = req.body;
-  
-  // 1. Resolve customer ID from POS customer ID
-  const customerId = await resolveCustomerFromPOS(transaction.posCustomerId);
-  
-  // 2. Record transaction with stable customer ID
-  const transactionRecord = await createTransaction({
-    ...transaction,
-    customerId: customerId,
-    legacyPosCustomerId: transaction.posCustomerId
-  });
-  
-  // 3. Update customer statistics
-  await updateCustomerStats(customerId, {
-    lastVisit: transaction.date,
-    lifetimeValue: transaction.amount,
-    visitCount: 1
-  });
-  
-  res.json({ transactionId: transactionRecord.id });
-});
-```
-
-### Staff Training & Change Management
-
-#### Training Phases
-
-1. **Phase 1: Core Staff Training (Week 8)**
-   - Customer management system overview
-   - Basic customer creation and editing
-   - Understanding customer codes and linking
-   - Duplicate detection and handling
-
-2. **Phase 2: Advanced Features (Week 12)**
-   - Customer analytics and reporting
-   - Merge customer functionality
-   - Profile linking and management
-   - Customer communication tools
-
-3. **Phase 3: POS Integration (Week 20)**
-   - New POS customer lookup procedures
-   - Transaction processing with stable IDs
-   - Troubleshooting integration issues
-
-#### Change Management Strategy
-
-```typescript
-// Staff notification system for changes
-interface SystemChangeNotification {
-  title: string;
-  description: string;
-  impact: 'low' | 'medium' | 'high';
-  actionRequired: boolean;
-  trainingMaterials?: string[];
-  effectiveDate: Date;
-}
-
-// Example notifications
-const changeNotifications: SystemChangeNotification[] = [
-  {
-    title: "New Customer Management System Available",
-    description: "Staff can now create and edit customers using the new system",
-    impact: "medium",
-    actionRequired: true,
-    trainingMaterials: ["/docs/customer-management-basics"],
-    effectiveDate: new Date("2025-02-01")
-  },
-  {
-    title: "Booking System Customer Lookup Updated",
-    description: "Booking system now uses new customer search",
-    impact: "low",
-    actionRequired: false,
-    effectiveDate: new Date("2025-02-15")
-  }
-];
-```
-
-### Monitoring & Rollback Strategy
-
-#### System Health Monitoring
-
-```typescript
-// Health check system for parallel operation
-class SystemHealthMonitor {
-  async checkSystemHealth() {
-    const health = {
-      timestamp: new Date(),
-      systems: {
-        legacyPOS: await this.checkLegacyPOSHealth(),
-        newCustomerManagement: await this.checkNewSystemHealth(),
-        syncService: await this.checkSyncServiceHealth()
-      },
-      syncMetrics: {
-        queueLength: await this.getSyncQueueLength(),
-        averageProcessingTime: await this.getAverageProcessingTime(),
-        failureRate: await this.getSyncFailureRate(),
-        lastSuccessfulSync: await this.getLastSuccessfulSync()
-      },
-      dataIntegrity: {
-        totalDiscrepancies: await this.getTotalDiscrepancies(),
-        criticalDiscrepancies: await this.getCriticalDiscrepancies(),
-        lastReconciliation: await this.getLastReconciliation()
-      }
-    };
-
-    // Alert if critical thresholds exceeded
-    if (health.syncMetrics.failureRate > 0.05) {
-      await this.alertSystemAdministrators('High sync failure rate detected');
-    }
-
-    if (health.dataIntegrity.criticalDiscrepancies > 10) {
-      await this.alertSystemAdministrators('Critical data discrepancies detected');
-    }
-
-    return health;
-  }
-}
-```
-
-#### Rollback Procedures
-
-```typescript
-// Emergency rollback procedures
-class EmergencyRollback {
-  async rollbackToLegacyOnly() {
-    console.log('🚨 EMERGENCY ROLLBACK: Reverting to legacy POS only');
-    
-    // 1. Disable new system features
-    await this.disableFeatureFlags([
-      'new-customer-search',
-      'new-customer-creation',
-      'new-booking-integration'
-    ]);
-    
-    // 2. Restore legacy customer lookup in booking system
-    await this.restoreLegacyCustomerLookup();
-    
-    // 3. Stop sync services
-    await this.stopSyncServices();
-    
-    // 4. Generate rollback report
-    await this.generateRollbackReport();
-    
-    console.log('✅ Rollback completed - system running on legacy POS only');
-  }
-
-  async partialRollback(feature: string) {
-    console.log(`🔄 PARTIAL ROLLBACK: Disabling ${feature}`);
-    
-    switch (feature) {
-      case 'customer-creation':
-        await this.disableFeatureFlag('new-customer-creation');
-        await this.restoreLegacyCustomerCreation();
-        break;
-      case 'booking-integration':
-        await this.disableFeatureFlag('new-booking-integration');
-        await this.restoreLegacyBookingCustomerLookup();
-        break;
-    }
-  }
-}
-```
-
-### Success Metrics & KPIs
-
-#### Transition Success Metrics
-
-```typescript
-interface TransitionMetrics {
-  // Data Quality
-  duplicateCustomerReduction: number; // Percentage reduction in duplicates
-  dataIntegrityScore: number; // 0-100 score
-  syncAccuracy: number; // Percentage of successful syncs
-  
-  // Operational Efficiency
-  customerLookupSpeed: number; // Average lookup time in ms
-  customerCreationTime: number; // Average creation time in seconds
-  staffAdoptionRate: number; // Percentage of staff using new system
-  
-  // Business Impact
-  customerSatisfaction: number; // Survey score
-  staffProductivity: number; // Relative to baseline
-  systemDowntime: number; // Minutes of downtime during transition
-}
-```
-
-This comprehensive parallel operation strategy ensures:
-- ✅ **Zero Disruption**: Old POS continues working throughout transition
-- ✅ **Data Integrity**: Robust sync and reconciliation processes
-- ✅ **Gradual Migration**: Feature-by-feature rollout with rollback capability
-- ✅ **Staff Support**: Training and change management procedures
-- ✅ **Future Ready**: Architecture prepared for new POS integration
 
 ### Data Migration Script
 
 ```sql
--- Migration script for existing customer data
+-- Migration script for existing customer data (simplified schema)
 INSERT INTO public.customers (
-  full_name,
-  primary_phone,
+  customer_name,
+  contact_number,
   email,
+  address,
   date_of_birth,
-  address_line_1,
-  customer_source,
-  registration_date,
-  available_credit,
-  loyalty_points,
-  legacy_pos_ids,
+  date_joined,
+  current_pos_customer_id,
+  legacy_pos_customer_ids,
   stable_hash_id,
-  migration_batch_id,
-  sms_consent,
-  email_consent,
+  pos_sync_history,
   created_at,
   updated_at
 )
@@ -1544,226 +1234,139 @@ SELECT
   bc.customer_name,
   bc.contact_number,
   bc.email,
-  bc.date_of_birth,
   bc.address,
-  bc.source::customer_source_enum,
+  bc.date_of_birth,
   bc.date_joined,
-  bc.available_credit,
-  bc.available_point,
-  jsonb_build_array(bc.id),
+  bc.id, -- Current POS customer ID
+  jsonb_build_array(), -- Empty array initially
   bc.stable_hash_id,
-  'MIGRATION_2025_01',
-  bc.sms_pdpa,
-  bc.email_pdpa,
-  bc.created_at,
-  bc.update_time
+  jsonb_build_array(
+    jsonb_build_object(
+      'timestamp', now(),
+      'old_pos_id', null,
+      'new_pos_id', bc.id,
+      'reason', 'initial_migration'
+    )
+  ),
+  COALESCE(bc.created_at, now()),
+  COALESCE(bc.update_time, now())
 FROM backoffice.customers bc
 WHERE bc.customer_name IS NOT NULL
   AND bc.customer_name != ''
+  AND (bc.contact_number IS NOT NULL OR bc.email IS NOT NULL)
 ORDER BY bc.created_at;
 
--- Update VIP information from existing VIP data
+-- Update analytics fields (calculated from transaction data)
 UPDATE public.customers 
 SET 
-  vip_tier_id = vcd.vip_tier_id,
-  vip_status_date = vcd.created_at::date
-FROM public.vip_customer_data vcd
-WHERE public.customers.stable_hash_id = vcd.stable_hash_id
-  AND vcd.vip_tier_id IS NOT NULL;
-
--- Link to existing profiles
-UPDATE public.customers 
-SET 
-  linked_profile_id = cpl.profile_id,
-  profile_link_confidence = cpl.match_confidence,
-  profile_link_method = cpl.match_method,
-  profile_linked_at = cpl.linked_at
-FROM public.crm_profile_links cpl
-WHERE public.customers.stable_hash_id = cpl.stable_hash_id;
+  total_lifetime_value = COALESCE(transaction_summary.total_spent, 0),
+  total_visits = COALESCE(transaction_summary.visit_count, 0),
+  last_visit_date = transaction_summary.last_transaction_date,
+  first_transaction_date = transaction_summary.first_transaction_date
+FROM (
+  SELECT 
+    c.id,
+    SUM(CASE WHEN pt.total_amount IS NOT NULL THEN pt.total_amount ELSE 0 END) as total_spent,
+    COUNT(DISTINCT pt.sales_date) as visit_count,
+    MAX(pt.sales_date) as last_transaction_date,
+    MIN(pt.sales_date) as first_transaction_date
+  FROM public.customers c
+  LEFT JOIN pos.transactions pt ON pt.customer_name = c.customer_name
+    AND (pt.customer_phone = c.contact_number OR c.contact_number IS NULL)
+  GROUP BY c.id
+) transaction_summary
+WHERE public.customers.id = transaction_summary.id;
 ```
 
-### Backward Compatibility
+## Future Improvements
 
-#### Legacy API Support
-```typescript
-// Maintain existing customer API for transition period
-// /api/customers (legacy) -> /api/customers/legacy
-app.get('/api/customers/legacy', async (req, res) => {
-  // Map new customer data to old format
-  const customers = await getCustomersFromNew();
-  const legacyFormat = customers.map(customer => ({
-    id: customer.legacyPosIds[0] || customer.id,
-    customer_name: customer.fullName,
-    contact_number: customer.primaryPhone,
-    stable_hash_id: customer.stableHashId
-  }));
-  res.json(legacyFormat);
-});
-```
+After the MVP migration is complete, the following enhancements can be considered for future development phases:
 
-#### Component Migration
-```typescript
-// Gradual component replacement
-const CustomerSearch = () => {
-  const useNewCustomerSystem = useFeatureFlag('new-customer-system');
-  
-  if (useNewCustomerSystem) {
-    return <NewCustomerSearch />;
-  }
-  
-  return <LegacyCustomerSearch />;
-};
-```
+### Phase 3: Enhanced Features (Post-MVP)
 
-## Technical Specifications
+#### Advanced Customer Analytics
+- **Customer Segmentation**: Automatic categorization based on behavior patterns
+- **Lifetime Value Prediction**: ML-based customer value forecasting
+- **Churn Risk Analysis**: Identify customers at risk of leaving
+- **Personalized Recommendations**: Suggest packages/services based on history
 
-### Technology Stack
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
-- **Components**: Radix UI, TanStack Table
-- **Forms**: react-hook-form, yup validation
-- **Data Fetching**: SWR for caching and state management
-- **Database**: Supabase PostgreSQL
-- **Authentication**: Existing NextAuth.js system
+#### Enhanced Customer Experience
+- **Customer Self-Service Portal**: Allow customers to update their own information
+- **Communication History**: Track all SMS/email communications with customers
+- **Preference Management**: Detailed customer preference tracking
+- **Loyalty Program Integration**: Enhanced points and rewards management
 
-### Performance Requirements
-- **Page Load Time**: < 2 seconds for customer list
-- **Search Response**: < 500ms for customer search
-- **Form Submission**: < 1 second for customer create/update
-- **Data Refresh**: < 3 seconds for full data reload
-- **Concurrent Users**: Support 20+ staff members simultaneously
+#### Advanced Data Management
+- **Smart Duplicate Detection**: AI-powered duplicate identification
+- **Customer Merge Wizard**: Sophisticated customer record merging
+- **Data Quality Monitoring**: Automated data quality checks and alerts
+- **Customer Data Import/Export**: Bulk operations for customer data
 
-### Code Organization
+#### System Integration Enhancements
+- **Real-time Sync**: Move from batch to real-time synchronization
+- **Advanced Conflict Resolution**: Sophisticated conflict detection and resolution
+- **Multi-location Support**: Support for multiple store locations
+- **Third-party Integrations**: Connect with marketing tools, CRM systems
 
-#### Hooks Structure
-```typescript
-// src/hooks/use-customers.ts
-export const useCustomers = (options: CustomerListOptions) => {
-  // Customer list with filtering, pagination, sorting
-};
+### Phase 4: New POS Integration
 
-// src/hooks/use-customer.ts
-export const useCustomer = (customerId: string) => {
-  // Individual customer details
-};
+#### POS System Replacement
+- **New POS Customer Lookup**: Direct integration with `public.customers`
+- **Real-time Customer Updates**: Live customer data synchronization
+- **Integrated Transaction Processing**: Customer analytics updated in real-time
+- **Staff Training Materials**: Updated procedures for new POS system
 
-// src/hooks/use-customer-form.ts
-export const useCustomerForm = (customerId?: string) => {
-  // Form management for create/edit
-};
+#### Advanced POS Features
+- **Customer Recognition**: Quick customer identification methods
+- **Purchase History Display**: Show customer's purchase history in POS
+- **Personalized Promotions**: Display customer-specific offers
+- **Integrated Loyalty**: Real-time points calculation and redemption
 
-// src/hooks/use-customer-analytics.ts
-export const useCustomerAnalytics = () => {
-  // Customer KPIs and analytics
-};
-```
+### Technology Enhancements
 
-#### Component Structure
-```typescript
-// src/components/admin/customers/
-├── customer-list.tsx           # Main list component
-├── customer-table.tsx          # Data table
-├── customer-columns.tsx        # Table column definitions
-├── customer-kpis.tsx          # KPI dashboard
-├── customer-filters.tsx       # Filtering interface
-├── customer-search.tsx        # Search component
-├── customer-detail-modal.tsx  # Quick view modal
-├── customer-form-modal.tsx    # Create/edit form
-├── customer-merge-modal.tsx   # Merge functionality
-└── customer-analytics.tsx     # Analytics widgets
-```
+#### Performance Optimizations
+- **Database Optimization**: Advanced indexing and query optimization
+- **Caching Strategy**: Redis implementation for frequently accessed data
+- **Search Enhancement**: Elasticsearch for advanced customer search
+- **API Performance**: GraphQL implementation for flexible data fetching
 
-### Error Handling
+#### Mobile & Accessibility
+- **Mobile App Integration**: Customer management on mobile devices
+- **Offline Capability**: Work when internet connection is limited
+- **Accessibility Compliance**: WCAG 2.1 AA compliance
+- **Multi-language Support**: Support for multiple languages
 
-#### API Error Responses
-```typescript
-interface APIError {
-  error: string;
-  message: string;
-  code: string;
-  details?: any;
-  timestamp: string;
-}
+#### Security & Compliance
+- **Advanced Audit Logging**: Comprehensive activity tracking
+- **Role-based Permissions**: Granular access control
+- **Data Retention Policies**: Automated data lifecycle management
+- **GDPR Compliance**: Enhanced privacy controls and data portability
 
-// Standard error codes
-enum CustomerErrorCodes {
-  CUSTOMER_NOT_FOUND = 'CUSTOMER_NOT_FOUND',
-  DUPLICATE_CUSTOMER = 'DUPLICATE_CUSTOMER',
-  INVALID_PHONE_FORMAT = 'INVALID_PHONE_FORMAT',
-  INVALID_EMAIL_FORMAT = 'INVALID_EMAIL_FORMAT',
-  PROFILE_LINK_FAILED = 'PROFILE_LINK_FAILED',
-  MERGE_CONFLICT = 'MERGE_CONFLICT'
-}
-```
+### Implementation Priority
 
-#### Frontend Error Handling
-```typescript
-// Global error handling for customer operations
-const handleCustomerError = (error: APIError) => {
-  switch (error.code) {
-    case CustomerErrorCodes.DUPLICATE_CUSTOMER:
-      showDuplicateWarning(error.details.duplicates);
-      break;
-    case CustomerErrorCodes.CUSTOMER_NOT_FOUND:
-      showNotFoundError();
-      break;
-    default:
-      showGenericError(error.message);
-  }
-};
-```
+#### High Priority (Consider for Phase 3)
+1. **Smart Duplicate Detection** - Immediate business value
+2. **Customer Self-Service Portal** - Reduces staff workload
+3. **Advanced Analytics** - Business insights and reporting
+4. **Real-time Sync** - Improves data consistency
 
-### Security Considerations
+#### Medium Priority (Phase 4)
+1. **New POS Integration** - Depends on POS system selection
+2. **Advanced Conflict Resolution** - Nice to have but complex
+3. **Multi-location Support** - If business expands
+4. **Third-party Integrations** - Based on business needs
 
-#### Data Protection
-- **PII Encryption**: Sensitive data encrypted at rest
-- **Access Control**: Role-based access to customer data
-- **Audit Trail**: Complete logging of all customer data changes
-- **Data Retention**: Configurable retention policies
-
-#### API Security
-- **Authentication**: All endpoints require valid session
-- **Authorization**: Staff-level access required for customer management
-- **Rate Limiting**: Prevent API abuse
-- **Input Validation**: Comprehensive validation on all inputs
-
-## Future Considerations
-
-### POS Integration Preparation
-- **Customer Lookup API**: Standardized customer search for POS
-- **Real-time Sync**: Live customer data updates
-- **Transaction Linking**: Automatic customer association
-- **Loyalty Integration**: Points and rewards management
-
-### Advanced Features Roadmap
-1. **Customer Communication Hub**
-   - SMS/Email campaign management
-   - Automated marketing sequences
-   - Communication history tracking
-
-2. **Advanced Analytics**
-   - Customer lifetime value prediction
-   - Churn risk analysis
-   - Personalized recommendations
-
-3. **Mobile App Integration**
-   - Customer profile management
-   - Self-service updates
-   - Loyalty program integration
-
-4. **AI-Powered Features**
-   - Intelligent duplicate detection
-   - Customer segmentation automation
-   - Predictive analytics
-
-### Scalability Considerations
-- **Database Optimization**: Query optimization for large datasets
-- **Caching Strategy**: Redis caching for frequently accessed data
-- **Search Enhancement**: Elasticsearch for advanced search capabilities
-- **API Performance**: GraphQL for flexible data fetching
+#### Low Priority (Future Consideration)
+1. **AI/ML Features** - Advanced but not immediately necessary
+2. **Mobile App** - Depends on staff workflow needs
+3. **Multi-language Support** - Based on customer demographics
+4. **Advanced Security Features** - Incremental improvements
 
 ---
 
 **Last Updated**: January 2025  
-**Version**: 1.0  
+**Version**: 1.0 MVP Design  
 **Document Owner**: Development Team  
 **Review Date**: March 2025
+
+**Implementation Focus**: This design prioritizes a working MVP that solves the core customer ID stability problem while providing a foundation for future POS system integration. All future improvements are designed to build upon this stable foundation.
