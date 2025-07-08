@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
 
     // Get upcoming bookings from public.bookings table for this specific coach
     const today = currentDate.toISOString().split('T')[0];
-    const nextWeek = new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const nextMonth = new Date(currentDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
     // Create precise booking type filter to prevent data mixing between coaches
     const getBookingTypeFilter = (coachDisplayName: string) => {
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
     const bookingTypeFilter = getBookingTypeFilter(coachDisplayName);
     console.log(`[DEBUG] Upcoming bookings query:`, {
       today,
-      nextWeek,
+      nextMonth,
       bookingTypeFilter,
       coachDisplayName
     });
@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
       .from('bookings')
       .select('*')
       .gte('date', today)
-      .lte('date', nextWeek)
+      .lte('date', nextMonth)
       .eq('booking_type', bookingTypeFilter)
       .eq('status', 'confirmed')
       .order('date', { ascending: true })

@@ -82,11 +82,26 @@ export async function GET(request: NextRequest) {
       .select('id, customer_name:name, contact_number:phone_number, booking_date:date, start_time, duration, number_of_pax:number_of_people, bay_number:bay, package_name, notes:customer_notes, status, booking_type')
       .ilike('booking_type', 'Coaching%');
 
+    // Create precise booking type filter to prevent data mixing between coaches
+    const getBookingTypeFilter = (coachDisplayName: string) => {
+      switch (coachDisplayName) {
+        case 'Boss':
+          return 'Coaching (Boss)'; // Exact match to exclude "Coaching (Boss - Ratchavin)"
+        case 'Ratchavin':
+          return 'Coaching (Boss - Ratchavin)'; // Exact match for Ratchavin's bookings
+        case 'Noon':
+          return 'Coaching (Noon)'; // Exact match for Noon's bookings
+        default:
+          return `Coaching (${coachDisplayName})`; // Fallback for other coaches
+      }
+    };
+
     // If user is a coach (not admin), only show their bookings
     if (currentUser.is_coach && !currentUser.is_admin) {
       const coachName = currentUser.coach_display_name || currentUser.coach_name;
       if (coachName) {
-        query = query.ilike('booking_type', `%${coachName}%`);
+        const exactBookingType = getBookingTypeFilter(coachName);
+        query = query.eq('booking_type', exactBookingType);
       }
     } else if (currentUser.is_admin && coachId) {
       // Admin viewing specific coach's bookings
@@ -99,7 +114,8 @@ export async function GET(request: NextRequest) {
       
       if (selectedCoach) {
         const coachName = selectedCoach.coach_display_name || selectedCoach.coach_name;
-        query = query.ilike('booking_type', `%${coachName}%`);
+        const exactBookingType = getBookingTypeFilter(coachName);
+        query = query.eq('booking_type', exactBookingType);
       }
     }
 
@@ -155,7 +171,8 @@ export async function GET(request: NextRequest) {
     if (currentUser.is_coach && !currentUser.is_admin) {
       const coachName = currentUser.coach_display_name || currentUser.coach_name;
       if(coachName) {
-        countQuery = countQuery.ilike('booking_type', `%${coachName}%`);
+        const exactBookingType = getBookingTypeFilter(coachName);
+        countQuery = countQuery.eq('booking_type', exactBookingType);
       }
     } else if (currentUser.is_admin && coachId) {
       const { data: selectedCoach } = await supabase
@@ -167,7 +184,8 @@ export async function GET(request: NextRequest) {
       
       if (selectedCoach) {
         const coachName = selectedCoach.coach_display_name || selectedCoach.coach_name;
-        countQuery = countQuery.ilike('booking_type', `%${coachName}%`);
+        const exactBookingType = getBookingTypeFilter(coachName);
+        countQuery = countQuery.eq('booking_type', exactBookingType);
       }
     }
 
