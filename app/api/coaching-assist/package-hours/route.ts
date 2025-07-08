@@ -17,19 +17,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin (skip in development with SKIP_AUTH)
-    if (process.env.NODE_ENV === 'production' || process.env.SKIP_AUTH !== 'true') {
-      const { data: currentUser, error: userError } = await supabase
-        .schema('backoffice')
-        .from('allowed_users')
-        .select('id, email, is_admin')
-        .eq('email', session.user.email)
-        .single();
-
-      if (userError || !currentUser?.is_admin) {
-        return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-      }
-    }
+    // Staff access - all authenticated users can access coaching assistance data
+    // No admin check required
 
     // Get all active coaching packages with remaining hours
     const { data: packages, error: packagesError } = await supabase
@@ -99,7 +88,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error in coaching package hours API:', error);
+    console.error('Error in coaching-assist package hours API:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

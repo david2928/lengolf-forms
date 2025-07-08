@@ -54,7 +54,7 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
       const studentsData: { [coachId: string]: StudentsData } = {};
       
       for (const coach of coaches) {
-        const response = await fetch(`/api/coaching/students?coach_id=${coach.coach_id}`);
+        const response = await fetch(`/api/coaching-assist/students?coach_id=${coach.coach_id}`);
         if (response.ok) {
           const data = await response.json();
           studentsData[coach.coach_id] = data;
@@ -76,8 +76,8 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
       
       // Fetch coaches and package data that doesn't change with week selection
       const [coachesRes, packageHoursRes] = await Promise.all([
-        fetch('/api/admin/coaching/coaches'),
-        fetch('/api/admin/coaching/package-hours')
+        fetch('/api/coaching-assist/coaches'),
+        fetch('/api/coaching-assist/package-hours')
       ]);
       
       if (coachesRes.ok) {
@@ -111,8 +111,8 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
       const weekStr = selectedWeek.toLocaleDateString('en-CA');
       
       const availabilityUrl = (startDateStr !== weekStr || endDateStr !== weekStr) ?
-        `/api/admin/coaching/availability?fromDate=${startDateStr}&toDate=${endDateStr}` :
-        `/api/admin/coaching/availability?date=${weekStr}`;
+        `/api/coaching-assist/availability?fromDate=${startDateStr}&toDate=${endDateStr}` :
+        `/api/coaching-assist/availability?date=${weekStr}`;
       
       console.log('Fetching availability with URL:', availabilityUrl);
       

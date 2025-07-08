@@ -16,25 +16,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Admin check with development bypass
-    let isAdmin = false;
-    if (process.env.NODE_ENV === 'development') {
-      // In development, trust the JWT token's isAdmin field or bypass entirely
-      isAdmin = session.user.isAdmin || true; // Allow all authenticated users in dev
-    } else {
-      // Production: Check database for admin status
-      const { data: user, error: userError } = await supabase
-        .schema('backoffice')
-        .from('allowed_users')
-        .select('is_admin')
-        .eq('email', session.user.email)
-        .single();
-
-      if (userError || !user?.is_admin) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
-      isAdmin = user.is_admin;
-    }
+    // Staff access - all authenticated users can access this endpoint
+    // No admin check required for coaching assistance
 
     // Get all coaches from allowed_users table
     const { data: allCoaches, error: coachesError } = await supabase
@@ -128,91 +111,12 @@ export async function GET(request: NextRequest) {
       coaches,
       debug: process.env.NODE_ENV === 'development' ? {
         user: session.user.email,
-        isAdmin,
         nodeEnv: process.env.NODE_ENV
       } : undefined
     });
 
   } catch (error) {
-    console.error('Error in coaches API:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    // Get session using our dev-session wrapper
-    const session = await getDevSession(authOptions, request);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Admin check with development bypass
-    if (process.env.NODE_ENV === 'development') {
-      // Development mode: Admin check bypassed
-    } else {
-      // Production: Check database for admin status
-      const { data: user, error: userError } = await supabase
-        .schema('backoffice')
-        .from('allowed_users')
-        .select('is_admin')
-        .eq('email', session.user.email)
-        .single();
-
-      if (userError || !user?.is_admin) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
-    }
-
-    const body = await request.json();
-
-    // Create or update coach
-    const {
-      email,
-      coach_name,
-      coach_display_name,
-      coach_bio,
-      coach_experience_years,
-      coach_specialties,
-      coach_phone,
-      coach_started_date
-    } = body;
-
-    const { data: coach, error } = await supabase
-      .schema('backoffice')
-      .from('allowed_users')
-      .upsert({
-        email,
-        is_coach: true,
-        is_active_coach: true,
-        coach_name,
-        coach_display_name,
-        coach_bio,
-        coach_experience_years,
-        coach_specialties,
-        coach_phone,
-        coach_started_date
-      }, {
-        onConflict: 'email'
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error creating/updating coach:', error);
-      return NextResponse.json({ error: 'Failed to create/update coach' }, { status: 500 });
-    }
-
-    return NextResponse.json({ 
-      coach,
-      message: 'Coach created/updated successfully'
-    });
-
-  } catch (error) {
-    console.error('Error in coaches POST API:', error);
+    console.error('Error in coaching-assist coaches API:', error);
     return NextResponse.json({ 
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'

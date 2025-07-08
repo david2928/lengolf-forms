@@ -10,7 +10,7 @@ export function useCoachStudents(coachId?: string, enabled: boolean = true) {
   }
 
   const { data, error, isLoading } = useSWR<StudentsData>(
-    enabled ? `/api/coaching/students?${params.toString()}` : null,
+    enabled ? `/api/coaching-assist/students?${params.toString()}` : null,
     fetcher
   );
 

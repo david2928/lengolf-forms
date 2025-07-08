@@ -34,15 +34,15 @@ app/coaching/                    # Coach portal
 └── availability/               # Coach availability management
     └── page.tsx               
 
-app/admin/coaching/             # Admin portal
-└── page.tsx                   # Admin booking assistant
+app/coaching-assist/            # Staff coaching assistant
+└── page.tsx                   # Staff booking assistant
 
 src/components/coaching/        # Coach components
 ├── dashboard/                 # Dashboard components
 ├── availability/              # Availability management
 └── modals/                   # Modal dialogs
 
-src/components/admin/coaching/  # Admin components
+src/components/admin/coaching/  # Coaching assistant components
 ├── coaching-dashboard-header.tsx
 ├── coaching-kpi-cards.tsx
 ├── weekly-schedule.tsx
@@ -51,13 +51,19 @@ src/components/admin/coaching/  # Admin components
 
 ### Backend Structure
 ```
-app/api/coaching/              # Coaching API endpoints
+app/api/coaching/              # Coach-specific API endpoints
 ├── availability/             # Availability management APIs
 ├── bookings/                # Booking retrieval
 ├── coaches/                 # Coach-specific endpoints
 ├── dashboard/               # Dashboard data
 ├── earnings/                # Earnings tracking
 └── students/                # Student management
+
+app/api/coaching-assist/       # Staff coaching assistant API endpoints
+├── availability/             # Availability data for staff
+├── coaches/                 # Coach information for staff
+├── package-hours/           # Package data for staff
+└── students/                # Student data for staff
 ```
 
 ## Features
@@ -77,7 +83,7 @@ app/api/coaching/              # Coaching API endpoints
 - Coaches (view own data)
 - Admins (can view any coach's dashboard)
 
-### 2. Admin Booking Assistant (`/admin/coaching`)
+### 2. Staff Coaching Assistant (`/coaching-assist`)
 
 **Purpose**: Centralized interface for staff to help students find available coaching slots
 
@@ -88,7 +94,7 @@ app/api/coaching/              # Coaching API endpoints
 - **Inactive Students**: Identification of students with unused packages
 - **KPI Monitoring**: Package hours, available slots, and schedule coverage metrics
 
-**User Roles**: Admin only
+**User Roles**: All authenticated staff (no admin privileges required)
 
 ### 3. Availability Management (`/coaching/availability`)
 
@@ -126,11 +132,11 @@ interface CoachDashboard {
 - `EarningsSummary`: Detailed earnings breakdown
 - `CombinedCalendarView`: Interactive schedule and booking view
 
-### Admin Booking Assistant Interface
+### Staff Coaching Assistant Interface
 
 ```typescript
-// Admin dashboard state
-interface AdminDashboard {
+// Staff dashboard state
+interface StaffDashboard {
   coaches: Coach[];
   weeklySchedule: WeeklySchedule;
   nextAvailableSlots: AvailableSlot[];
@@ -171,7 +177,11 @@ if (!session?.user?.email) {
 
 ### Core API Routes
 
-#### 1. Dashboard Data (`/api/coaching/dashboard`)
+#### Coach-Specific Routes (`/api/coaching/*`)
+
+These endpoints require coach or admin privileges:
+
+##### 1. Dashboard Data (`/api/coaching/dashboard`)
 
 **Methods**: GET
 **Purpose**: Retrieve comprehensive dashboard data for coaches or admins
@@ -265,7 +275,7 @@ interface StudentsResponse {
 }
 ```
 
-#### 5. Booking Integration (`/api/coaching/bookings`)
+##### 5. Booking Integration (`/api/coaching/bookings`)
 
 **Methods**: GET
 **Purpose**: Retrieve coaching-related bookings
@@ -280,6 +290,87 @@ interface BookingsQuery {
   period?: string;        // Predefined period
   limit?: number;         // Pagination
   offset?: number;        // Pagination
+}
+```
+
+#### Staff Coaching Assistant Routes (`/api/coaching-assist/*`)
+
+These endpoints require only basic authentication (no admin/coach privileges required):
+
+##### 1. Coach Information (`/api/coaching-assist/coaches`)
+
+**Methods**: GET
+**Purpose**: Retrieve coach information for staff assistance
+
+```typescript
+// Response structure
+interface CoachesResponse {
+  coaches: Coach[];
+  debug?: {
+    user: string;
+    nodeEnv: string;
+  };
+}
+```
+
+##### 2. Package Hours (`/api/coaching-assist/package-hours`)
+
+**Methods**: GET
+**Purpose**: Retrieve coaching package hours remaining
+
+```typescript
+// Response structure
+interface PackageHoursResponse {
+  total_hours_remaining: number;
+  total_packages: number;
+  packages: PackageDetail[];
+}
+```
+
+##### 3. Availability Data (`/api/coaching-assist/availability`)
+
+**Methods**: GET
+**Purpose**: Retrieve coach availability for staff assistance
+
+```typescript
+// Query parameters
+interface AvailabilityQuery {
+  date?: string;          // Specific date
+  fromDate?: string;      // Date range start
+  toDate?: string;        // Date range end
+}
+
+// Response structure
+interface AvailabilityResponse {
+  availability_slots: AvailabilitySlot[];
+  weekly_availability: WeeklyAvailability;
+  selected_date: string;
+  week_start: string;
+  date_range?: { from: string; to: string };
+}
+```
+
+##### 4. Student Information (`/api/coaching-assist/students`)
+
+**Methods**: GET
+**Purpose**: Retrieve student information for staff assistance
+
+```typescript
+// Query parameters
+interface StudentsQuery {
+  coach_id: string;       // Required coach ID
+}
+
+// Response structure
+interface StudentsResponse {
+  students: Student[];
+  summary: {
+    total_students: number;
+    active_students_l30d: number;
+    inactive_students: number;
+    total_lessons: number;
+    coach_name: string;
+  };
 }
 ```
 
@@ -628,7 +719,7 @@ interface StudentPackage {
 }
 ```
 
-## Admin Functions
+## Staff Coaching Assistant Functions
 
 ### System-wide Monitoring
 
@@ -647,7 +738,7 @@ interface StudentPackage {
 ### KPI Dashboard
 
 ```typescript
-interface AdminKPIs {
+interface StaffKPIs {
   packageHoursRemaining: number;    // Total unused package hours
   totalAvailableSlots: number;      // Available slots (next 21 days)
   coachesWithoutSchedule: number;   // Coaches missing availability setup

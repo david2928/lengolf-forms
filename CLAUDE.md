@@ -241,9 +241,9 @@ Before committing:
 - **Files:** `app/package-monitor/`, `src/hooks/use-package-monitor.ts`
 - **Lifecycle:** Create → First use (auto-activate) → Track usage → Monitor expiration
 
-### Admin Dashboard
-- **Files:** `app/admin/`, `src/lib/auth.ts`
-- **Access:** Admin role required (automatically granted with `SKIP_AUTH=true`)
+### Coaching Assistant
+- **Files:** `app/coaching-assist/`, `src/components/admin/coaching/`
+- **Access:** All authenticated staff (no admin role required)
 
 ## Conventions
 
