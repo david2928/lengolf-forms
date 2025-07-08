@@ -186,9 +186,9 @@ export function Nav() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/admin/coaching" className="flex items-center gap-2 w-full">
+                <Link href="/coaching" className="flex items-center gap-2 w-full">
                   <Settings className="h-4 w-4" />
-                  Coaching Portal
+                  Coaching
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>

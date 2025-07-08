@@ -33,7 +33,7 @@ const operationsItems = appMenuItems.filter(item =>
 );
 
 const coachingItems = appMenuItems.filter(item => 
-  item.title === "Coaching Dashboard"
+  item.title === "Coaching Assistant"
 );
 
 export default function Home() {

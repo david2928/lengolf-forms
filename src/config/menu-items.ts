@@ -53,8 +53,8 @@ export const menuItems: MenuItem[] = [
   },
   {
     icon: Users,
-    title: "Coaching Dashboard",
-    path: '/admin/coaching',
-    description: "Manage coaches, sessions, and earnings"
+    title: "Coaching Assistant",
+    path: '/coaching-assist',
+    description: "Help students find available coaching slots"
   }
 ] 
