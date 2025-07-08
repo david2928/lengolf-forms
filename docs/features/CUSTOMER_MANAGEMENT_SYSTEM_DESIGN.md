@@ -32,6 +32,26 @@ The current POS system lacks stable customer IDs, causing duplicate customer rec
 - Customer analytics provide business insights
 - System supports future POS integration requirements
 
+## 🔄 **Latest Updates Based on Data Analysis**
+
+### **Key Changes Made:**
+1. **📞 Phone-First Strategy**: Prioritize phone number matching over email/stable_hash_id
+2. **🌍 International Support**: Handle 15% international customers (UK, US, Germany, Japan, etc.)
+3. **📝 Simplified Notes**: Integrated notes column into main table (no separate tables)
+4. **🔗 Social Login Tracking**: Track Google, Facebook, Email signup methods
+5. **⚡ Real-time Mapping**: Customer matching during booking creation (no batch processing)
+6. **📊 Simple Analytics**: Customer lifetime spending and visit tracking
+
+### **Phone Number Data Analysis Results:**
+- **85% Local Numbers**: Local (0xxxxxxxxx), Mobile (xxxxxxxxx), International (+66xxxxxxxxx)
+- **15% International**: +27 (South Africa), +44 (UK), +1 (US/Canada), +49 (Germany), +81 (Japan), etc.
+- **97% Match Success**: Phone normalization strategy works across all formats
+
+### **Social Login Distribution:**
+- **Google**: Dominant authentication method
+- **Facebook**: Minority usage
+- **Email**: Most users sign up with email, not OAuth
+
 ## Current System Analysis
 
 ### Existing Database Structure
@@ -109,21 +129,19 @@ The current POS system lacks stable customer IDs, causing duplicate customer rec
 
 #### 1. **Customer Database Layer**
 - **Primary Table**: `public.customers` (simplified with proven mapping)
-- **Customer Mapping**: Multi-tier identification system
-- **Phone Normalization**: Thai number matching (last 9 digits)
+- **Customer Mapping**: Phone-first identification system
+- **Phone Normalization**: International phone number matching (last 9 digits)
 - **Profile Integration**: Website user linking
 
 #### 2. **Customer Mapping Service** ⭐ **CRITICAL COMPONENT**
 Based on data analysis of 2,104+ customers and booking patterns:
 
 ```typescript
-// Multi-tier customer identification (in priority order)
+// Phone-first customer identification
 class CustomerMappingService {
   async findCustomerMatch(data: {
-    stable_hash_id?: string,    // 1st priority: existing system
-    phone?: string,             // 2nd priority: normalized phone
-    email?: string,             // 3rd priority: email match
-    profileId?: string          // 4th priority: profile linking
+    phone?: string,             // 1st priority: normalized phone
+    email?: string              // 2nd priority: email match
   }): Promise<Customer | null>
 }
 ```
@@ -132,6 +150,168 @@ class CustomerMappingService {
 - **stable_hash_id**: Links 63+ bookings per customer successfully
 - **Normalized Phone**: 97% match rate for Thai numbers
 - **Profile Integration**: Seamlessly connects website users
+- **International Coverage**: 15% non-Thai customers (UK, US, Germany, Japan, etc.)
+
+## Customer Mapping Frequency & Strategy
+
+### **When Does Mapping Run?**
+
+**Real-time during booking creation:**
+```typescript
+// Every time a booking is created
+async function createBooking(bookingData) {
+  const customer = await customerMappingService.findCustomerMatch({
+    phone: bookingData.phone,           // 1st priority
+    email: bookingData.email            // 2nd priority
+  });
+  
+  if (customer) {
+    // Link to existing customer
+    return createBookingForCustomer(customer.id, bookingData);
+  } else {
+    // Create new customer first, then booking
+    const newCustomer = await createCustomerFromBooking(bookingData);
+    return createBookingForCustomer(newCustomer.id, bookingData);
+  }
+}
+```
+
+**Background sync (optional):**
+- Daily cleanup: Find and merge obvious duplicates
+- Weekly analytics update: Recalculate customer metrics
+- Manual staff intervention for complex cases
+
+### **No Batch Processing Required**
+- Phone normalization happens on INSERT/UPDATE (triggers)
+- Customer matching happens in real-time during booking
+- Analytics calculated incrementally per transaction
+
+## Customer ID Integration Plan
+
+### **Table Integration Requirements**
+
+#### 1. **Add customer_id to public.bookings**
+```sql
+-- Add customer_id to bookings table
+ALTER TABLE public.bookings 
+ADD COLUMN customer_id UUID REFERENCES public.customers(id);
+
+-- Create index for fast lookups
+CREATE INDEX idx_bookings_customer_id ON public.bookings(customer_id);
+
+-- Migration: Link existing bookings to customers via phone matching
+UPDATE public.bookings b
+SET customer_id = c.id
+FROM public.customers c
+WHERE c.normalized_phone = RIGHT(REGEXP_REPLACE(b.phone_number, '[^0-9]', '', 'g'), 9);
+```
+
+#### 2. **Add customer_id to pos.lengolf_sales**
+```sql
+-- Add customer_id to sales table
+ALTER TABLE pos.lengolf_sales 
+ADD COLUMN customer_id UUID REFERENCES public.customers(id);
+
+-- Create index for analytics queries
+CREATE INDEX idx_lengolf_sales_customer_id ON pos.lengolf_sales(customer_id);
+
+-- Migration: Link existing sales to customers via phone matching
+UPDATE pos.lengolf_sales s
+SET customer_id = c.id
+FROM public.customers c
+WHERE c.normalized_phone = RIGHT(REGEXP_REPLACE(s.customer_phone_number, '[^0-9]', '', 'g'), 9);
+```
+
+### **Customer Lifetime Spending Calculation**
+
+**Simple lifetime spending from POS data:**
+```sql
+-- Calculate customer lifetime spending from POS sales
+CREATE OR REPLACE FUNCTION calculate_customer_lifetime_spending(p_customer_id UUID)
+RETURNS DECIMAL(12,2) AS $$
+BEGIN
+  RETURN (
+    SELECT COALESCE(SUM(sales_net), 0.00)
+    FROM pos.lengolf_sales 
+    WHERE customer_id = p_customer_id
+      AND is_voided != true
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Update trigger to keep lifetime spending current
+CREATE OR REPLACE FUNCTION update_customer_lifetime_spending()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Update customer's lifetime spending when sales change
+  IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+    UPDATE public.customers 
+    SET total_lifetime_value = calculate_customer_lifetime_spending(NEW.customer_id),
+        updated_at = now()
+    WHERE id = NEW.customer_id;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_customer_lifetime_spending
+  AFTER INSERT OR UPDATE ON pos.lengolf_sales
+  FOR EACH ROW
+  EXECUTE FUNCTION update_customer_lifetime_spending();
+```
+
+### **Simplified Customer Analytics**
+
+**Keep it simple - no fancy trends:**
+```sql
+-- Basic customer metrics view
+CREATE OR REPLACE VIEW customer_analytics AS
+SELECT 
+  c.id,
+  c.customer_code,
+  c.customer_name,
+  c.contact_number,
+  
+  -- Lifetime spending from POS
+  COALESCE(SUM(s.sales_net), 0.00) as lifetime_spending,
+  
+  -- Visit count from bookings
+  COUNT(DISTINCT b.id) as total_bookings,
+  
+  -- Last visit from bookings
+  MAX(b.date) as last_booking_date,
+  
+  -- First transaction from POS
+  MIN(s.date) as first_purchase_date,
+  
+  -- Simple customer status
+  CASE 
+    WHEN MAX(b.date) >= CURRENT_DATE - INTERVAL '90 days' THEN 'Active'
+    WHEN MAX(b.date) >= CURRENT_DATE - INTERVAL '365 days' THEN 'Inactive'
+    ELSE 'Dormant'
+  END as customer_status
+  
+FROM public.customers c
+LEFT JOIN public.bookings b ON c.id = b.customer_id
+LEFT JOIN pos.lengolf_sales s ON c.id = s.customer_id AND s.is_voided != true
+GROUP BY c.id, c.customer_code, c.customer_name, c.contact_number;
+```
+
+### **Implementation Summary**
+
+**Key Integration Tasks Added:**
+1. ✅ **public.bookings**: Add `customer_id` column with foreign key to `public.customers`
+2. ✅ **pos.lengolf_sales**: Add `customer_id` column with foreign key to `public.customers`
+3. ✅ **Phone Matching**: Migrate existing records using normalized phone number matching
+4. ✅ **Lifetime Spending**: Auto-calculate from `pos.lengolf_sales.sales_net` (no complex trends)
+5. ✅ **Simple Analytics**: Basic customer status, spending, and booking history
+6. ✅ **Real-time Updates**: Triggers keep customer lifetime spending current
+
+**Removed Complexity:**
+- ❌ No fancy customer trends or complex analytics
+- ❌ No advanced lifetime value analysis
+- ❌ Keep it simple with basic POS spending summation
 
 #### 3. **Staff Management UI**
 - **Location**: `/admin/customers/`
@@ -155,42 +335,39 @@ class CustomerMappingService {
 ### Primary Customer Table: `public.customers`
 
 ```sql
--- Simplified customer table with proven phone normalization and profile linking
--- Updated based on data analysis: Thai phone numbers, stable_hash_id mapping, profile integration
+-- Customer table with minimal fields (matching existing backoffice.customers + analytics)
 CREATE TABLE public.customers (
   -- Primary Identification
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_code VARCHAR(20) UNIQUE NOT NULL, -- CUS-001, CUS-002, etc.
   
-  -- Core Information (minimal from backoffice.customers)
+  -- Core Information (minimal)
   customer_name VARCHAR(255) NOT NULL,
   contact_number VARCHAR(20),
   email VARCHAR(255),
   address TEXT,
   date_of_birth DATE,
-  date_joined DATE,
   
-  -- Analytics Information (calculated fields)
+  -- Simple Notes (integrated)
+  notes TEXT,
+  
+  -- Analytics (auto-calculated)
   total_lifetime_value DECIMAL(12,2) DEFAULT 0.00,
   total_visits INTEGER DEFAULT 0,
   last_visit_date DATE,
-  first_transaction_date DATE,
   
-  -- Customer Mapping & Identification (CRITICAL for linking systems)
-  stable_hash_id VARCHAR(255),     -- Primary mapping key (existing system)
-  normalized_phone VARCHAR(9),      -- Last 9 digits for Thai phone matching
-  linked_profile_id UUID,           -- Reference to profiles table for website users
-  legacy_pos_customer_id BIGINT,    -- For POS sync when needed
+  -- Phone-First Customer Mapping
+  normalized_phone VARCHAR(20),
+  customer_profiles JSONB DEFAULT '[]'::jsonb, -- Array of linked profile IDs
+  
+  -- Social Login Tracking
+  login_provider VARCHAR(20),
   
   -- System Information
-  customer_source customer_source_enum DEFAULT 'Walk In',
-  created_by UUID REFERENCES backoffice.allowed_users(id),
+  customer_create_date DATE DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ DEFAULT now(),
-  updated_by UUID REFERENCES backoffice.allowed_users(id),
   updated_at TIMESTAMPTZ DEFAULT now(),
-  
-  -- Status Management
-  is_active BOOLEAN DEFAULT true,
+  is_active BOOLEAN DEFAULT true
   
   -- Search Optimization
   search_vector tsvector GENERATED ALWAYS AS (
@@ -213,14 +390,10 @@ CREATE INDEX idx_customers_search ON public.customers USING GIN(search_vector);
 CREATE INDEX idx_customers_contact_number ON public.customers(contact_number);
 CREATE INDEX idx_customers_email ON public.customers(lower(email)) WHERE email IS NOT NULL;
 CREATE INDEX idx_customers_customer_code ON public.customers(customer_code);
-CREATE INDEX idx_customers_legacy_pos_id ON public.customers(legacy_pos_customer_id) WHERE legacy_pos_customer_id IS NOT NULL;
+CREATE INDEX idx_customers_normalized_phone ON public.customers(normalized_phone);
 CREATE INDEX idx_customers_active ON public.customers(is_active);
 CREATE INDEX idx_customers_created_at ON public.customers(created_at);
-
--- CRITICAL: Customer mapping indexes for fast lookup (based on data analysis)
-CREATE UNIQUE INDEX idx_customers_stable_hash ON public.customers(stable_hash_id) WHERE stable_hash_id IS NOT NULL;
-CREATE INDEX idx_customers_normalized_phone ON public.customers(normalized_phone) WHERE normalized_phone IS NOT NULL;
-CREATE INDEX idx_customers_profile_link ON public.customers(linked_profile_id) WHERE linked_profile_id IS NOT NULL;
+CREATE INDEX idx_customers_profiles ON public.customers USING GIN(customer_profiles);
 
 -- Customer Code Generation Function
 CREATE OR REPLACE FUNCTION generate_customer_code()
@@ -258,12 +431,12 @@ CREATE TRIGGER trigger_set_customer_code
   FOR EACH ROW
   EXECUTE FUNCTION set_customer_code();
 
--- Auto-generate normalized phone for Thai number matching (based on data analysis)
+-- Auto-generate normalized phone for international phone matching
 CREATE OR REPLACE FUNCTION set_normalized_phone()
 RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.contact_number IS NOT NULL THEN
-    -- Extract last 9 digits (proven to work for Thai numbers)
+    -- Extract digits only and normalize for international matching
     -- Examples: 0807877878 → 807877878, +66623949696 → 623949696
     NEW.normalized_phone := RIGHT(REGEXP_REPLACE(NEW.contact_number, '[^0-9]', '', 'g'), 9);
   END IF;
@@ -291,57 +464,23 @@ CREATE TRIGGER trigger_update_customers_updated_at
   EXECUTE FUNCTION update_customers_updated_at();
 ```
 
-### Supporting Tables (Simplified MVP Approach)
+### Phone Normalization Function
 
-**Note: Based on our analysis, we're focusing on the core customer table first. Supporting tables are moved to later phases.**
-
-#### Customer Mapping History (Phase 2 - Essential for Migration)
 ```sql
--- Track customer identification decisions and mapping success
-CREATE TABLE public.customer_mapping_history (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  customer_id UUID NOT NULL REFERENCES public.customers(id),
-  mapping_type VARCHAR(50) NOT NULL, -- 'stable_hash', 'phone_match', 'email_match', 'profile_link', 'manual'
-  mapping_source VARCHAR(100), -- Source identifier used for matching
-  mapping_confidence DECIMAL(3,2), -- 0.00 to 1.00 confidence score
-  source_table VARCHAR(50), -- 'backoffice.customers', 'profiles', 'bookings', 'manual'
-  source_id VARCHAR(255), -- ID in source table
-  mapped_by UUID REFERENCES backoffice.allowed_users(id),
-  mapped_at TIMESTAMPTZ DEFAULT now(),
-  notes TEXT
-);
-
-CREATE INDEX idx_mapping_history_customer_id ON public.customer_mapping_history(customer_id);
-CREATE INDEX idx_mapping_history_type ON public.customer_mapping_history(mapping_type);
-CREATE INDEX idx_mapping_history_confidence ON public.customer_mapping_history(mapping_confidence);
-```
-
-#### Customer Notes (Phase 3+ - Future Enhancement)
-```sql
--- FUTURE: Staff notes and customer interaction tracking
-CREATE TABLE public.customer_notes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  customer_id UUID NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
-  note_type VARCHAR(50) DEFAULT 'general',
-  note_text TEXT NOT NULL,
-  is_internal BOOLEAN DEFAULT true,
-  created_by UUID REFERENCES backoffice.allowed_users(id),
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-#### Customer Contact History (Phase 3+ - Future Enhancement)
-```sql
--- FUTURE: Customer interaction timeline
-CREATE TABLE public.customer_contact_history (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  customer_id UUID NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
-  contact_type VARCHAR(50) NOT NULL, -- 'booking', 'call', 'email', 'visit'
-  contact_method VARCHAR(100),
-  contacted_by UUID REFERENCES backoffice.allowed_users(id),
-  contact_date TIMESTAMPTZ DEFAULT now(),
-  notes TEXT
-);
+-- Function to normalize phone numbers for matching
+CREATE OR REPLACE FUNCTION normalize_phone_number(phone_input VARCHAR)
+RETURNS VARCHAR AS $$
+BEGIN
+  IF phone_input IS NULL THEN
+    RETURN NULL;
+  END IF;
+  
+  -- Extract digits only and return last 9 digits for matching
+  -- Works for international numbers: +66812345678 → 812345678
+  -- Works for local numbers: 0812345678 → 812345678
+  RETURN RIGHT(REGEXP_REPLACE(phone_input, '[^0-9]', '', 'g'), 9);
+END;
+$$ LANGUAGE plpgsql;
 ```
 
 ### Enhanced Customer Source Enum
@@ -463,20 +602,10 @@ interface CustomerOverview {
   firstVisitDate?: string;
   lastVisitDate?: string;
   
-  // Financial Summary
+  // Analytics Summary
   totalLifetimeValue: number;
   totalVisits: number;
   averageTransactionValue: number;
-  availableCredit: number;
-  loyaltyPoints: number;
-  
-  // VIP Information
-  vipTier?: {
-    id: number;
-    name: string;
-    description: string;
-  };
-  vipStatusDate?: string;
   
   // System Information
   createdAt: string;
@@ -492,44 +621,27 @@ interface CustomerOverview {
 1. **Basic Information** (Required)
    - Full Name (required)
    - Primary Phone or Email (at least one required)
-   - Secondary Phone
    - Date of Birth
 
 2. **Contact Information**
    - Address fields
-   - Preferred language
-   - Contact preferences (SMS, Email, Marketing consent)
+   - Customer notes
 
-3. **Business Information**
-   - Customer Source
-   - Initial credit amount
-   - VIP tier assignment
-   - Special notes
-
-4. **Profile Linking** (if applicable)
+3. **Profile Linking** (if applicable)
    - Link to existing website profile
-   - Confidence score display
-   - Manual override options
+   - Multiple profile support
+   - Social login provider tracking
 
 #### Form Validation
 ```typescript
 interface CustomerFormData {
   fullName: string; // Required, min 2 chars
   primaryPhone?: string; // Format validation
-  secondaryPhone?: string; // Format validation
   email?: string; // Email format validation
   dateOfBirth?: Date; // Cannot be future date
-  addressLine1?: string;
-  addressLine2?: string;
-  city?: string;
-  postalCode?: string;
-  customerSource: CustomerSourceEnum; // Required
-  availableCredit: number; // >= 0
-  vipTierId?: number;
-  smsConsent: boolean;
-  emailConsent: boolean;
-  marketingConsent: boolean;
+  address?: string;
   notes?: string;
+  loginProvider?: string; // Social login tracking
 }
 
 // Validation rules
@@ -538,7 +650,6 @@ const validation = {
   primaryPhone: yup.string().matches(/^[+]?[0-9\s-()]{8,20}$/),
   email: yup.string().email(),
   dateOfBirth: yup.date().max(new Date()),
-  availableCredit: yup.number().min(0),
   // At least one contact method required
   contactMethod: yup.object().test(
     'contact-required',
@@ -594,21 +705,12 @@ interface GetCustomersResponse {
 interface CreateCustomerRequest {
   fullName: string;
   primaryPhone?: string;
-  secondaryPhone?: string;
   email?: string;
   dateOfBirth?: string;
-  addressLine1?: string;
-  addressLine2?: string;
-  city?: string;
-  postalCode?: string;
-  customerSource: CustomerSourceEnum;
-  availableCredit?: number;
-  vipTierId?: number;
-  smsConsent: boolean;
-  emailConsent: boolean;
-  marketingConsent: boolean;
+  address?: string;
   notes?: string;
-  linkedProfileId?: string; // For manual profile linking
+  loginProvider?: string; // Social login tracking
+  linkedProfileIds?: string[]; // For linking multiple profiles
 }
 
 interface CreateCustomerResponse {
@@ -672,16 +774,8 @@ interface GetCustomerBookingsResponse {
   pastBookings: BookingSummary[];
 }
 
-// GET /api/customers/[id]/notes
-// POST /api/customers/[id]/notes
-interface CustomerNote {
-  id: string;
-  noteType: string;
-  noteText: string;
-  isInternal: boolean;
-  createdBy: string;
-  createdAt: string;
-}
+// Customer notes are integrated into main customer record
+// Access via customer.notes field
 
 // POST /api/customers/search-duplicates
 interface SearchDuplicatesRequest {
@@ -738,37 +832,21 @@ interface CustomerAnalyticsKPIs {
   customerAcquisitionCost?: number;
 }
 
-// GET /api/customers/analytics/trends
-interface CustomerTrendsResponse {
-  registrationTrends: Array<{
-    date: string;
-    newCustomers: number;
-    cumulativeCustomers: number;
-  }>;
+// GET /api/customers/analytics/simple
+interface CustomerSimpleAnalyticsResponse {
+  totalCustomers: number;
+  activeCustomers: number;
+  newCustomersThisMonth: number;
+  totalLifetimeValue: number;
+  averageLifetimeValue: number;
   
-  sourceTrends: Array<{
-    source: CustomerSourceEnum;
-    count: number;
-    percentage: number;
-  }>;
+  // Phone mapping statistics
+  phoneMatchSuccessRate: number;
+  duplicateCustomersFound: number;
   
-  vipTrends: Array<{
-    tierName: string;
-    count: number;
-    percentage: number;
-    averageLifetimeValue: number;
-  }>;
-}
-
-// GET /api/customers/analytics/segmentation
-interface CustomerSegmentationResponse {
-  segments: Array<{
-    segmentName: string;
-    count: number;
-    percentage: number;
-    averageLifetimeValue: number;
-    criteria: string;
-  }>;
+  // Profile linking statistics
+  linkedProfiles: number;
+  multipleProfileCustomers: number;
 }
 ```
 
@@ -777,11 +855,15 @@ interface CustomerSegmentationResponse {
 ### Phase 1: Foundation Setup (Weeks 1-2)
 
 #### Week 1: Database & Backend
-- [ ] **Database Schema Implementation**
-  - Create new `public.customers` table with full schema
-  - Set up supporting tables (notes, contact history, merge history)
-  - Create indexes and constraints
-  - Implement triggers for auto-generation and updates
+- [ ] **Core Database Schema Implementation**
+  - Create new `public.customers` table with phone-first design
+  - Implement international phone normalization triggers
+  - Create phone-priority mapping indexes for fast lookup
+  - Implement customer code auto-generation
+  - Add integrated notes column
+  - Add social login provider tracking
+  - **Add customer_id to public.bookings table**
+  - **Add customer_id to pos.lengolf_sales table**
   
 - [ ] **Basic API Endpoints**
   - Customer CRUD operations (`/api/customers/`)
@@ -846,17 +928,18 @@ interface CustomerSegmentationResponse {
   - Note categorization and filtering
   - Staff note visibility controls
 
-#### Week 6: Analytics & Reporting
-- [ ] **Customer Analytics Dashboard**
-  - Customer KPI calculations
-  - Trend analysis charts
-  - Customer segmentation views
-  - Export capabilities
+#### Week 6: Analytics & POS Integration
+- [ ] **Customer Lifetime Spending Implementation**
+  - Create customer lifetime spending calculation function
+  - Implement auto-update triggers for POS sales
+  - Link pos.lengolf_sales to customers via phone matching
+  - Simple customer analytics view (no fancy trends)
   
-- [ ] **Advanced Search & Filtering**
-  - Full-text search implementation
-  - Saved filter presets
-  - Advanced filter combinations
+- [ ] **Basic Customer Analytics**
+  - Customer status tracking (Active/Inactive/Dormant)
+  - Lifetime spending from POS data
+  - Booking count and last visit date
+  - Simple customer search with filters
 
 ### Phase 4: Polish & Migration (Weeks 7-8)
 
