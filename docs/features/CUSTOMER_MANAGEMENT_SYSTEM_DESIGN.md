@@ -65,8 +65,6 @@ The current POS system lacks stable customer IDs, causing duplicate customer rec
 - email: varchar
 - address: text
 - date_of_birth: date
-- available_credit: numeric
-- available_point: numeric
 - stable_hash_id: varchar (inconsistent)
 ```
 
@@ -77,17 +75,16 @@ The current POS system lacks stable customer IDs, causing duplicate customer rec
 - email: text
 - display_name: text
 - phone_number: text
-- vip_customer_data_id: uuid (links to VIP data)
+- linked_profiles: jsonb (links to customer profiles)
 ```
 
 #### `public.vip_customer_data` (Enhanced Profiles)
-**Additional customer preferences and VIP information:**
+**Additional customer preferences and information:**
 ```sql
 - id: uuid
-- vip_display_name: text
-- vip_email: text
-- vip_phone_number: text
-- vip_tier_id: integer
+- display_name: text
+- email: text
+- phone_number: text
 - stable_hash_id: text (links to CRM)
 ```
 
@@ -326,7 +323,7 @@ GROUP BY c.id, c.customer_code, c.customer_name, c.contact_number;
 - **Transaction History**: Link to existing POS data
 
 #### 5. **Analytics & Reporting**
-- **Customer KPIs**: Total, new, VIP, active customers
+- **Customer KPIs**: Total, new, active customers
 - **Mapping Success**: Track customer identification accuracy
 - **Phone Analysis**: Monitor normalization effectiveness
 
@@ -572,12 +569,11 @@ interface CustomerTableRow {
 ### Customer Detail Modal/Page
 
 #### Tabs Structure
-1. **Overview**: Basic info, contact details, VIP status
+1. **Overview**: Basic info, contact details
 2. **Transaction History**: Integration with transaction management
 3. **Package History**: Current and past packages
 4. **Booking History**: All bookings made
-5. **Notes**: Staff notes and customer interactions
-6. **Analytics**: Personal customer insights
+5. **Analytics**: Personal customer insights
 
 #### Overview Tab
 ```typescript
@@ -586,18 +582,13 @@ interface CustomerOverview {
   customerCode: string;
   fullName: string;
   primaryPhone?: string;
-  secondaryPhone?: string;
   email?: string;
   dateOfBirth?: string;
   
   // Address
-  addressLine1?: string;
-  addressLine2?: string;
-  city?: string;
-  postalCode?: string;
+  address?: string;
   
   // Business Information
-  customerSource: string;
   registrationDate: string;
   firstVisitDate?: string;
   lastVisitDate?: string;
@@ -796,7 +787,7 @@ interface SearchDuplicatesResponse {
 // POST /api/customers/merge
 interface MergeCustomersRequest {
   primaryCustomerId: string;
-  secondaryCustomerIds: string[];
+  mergedCustomerIds: string[];
   mergeStrategy: {
     keepPrimaryContact: boolean;
     combineTransactionHistory: boolean;
