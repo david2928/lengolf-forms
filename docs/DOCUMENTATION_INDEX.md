@@ -17,6 +17,7 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 - **[Project Structure](./PROJECT_STRUCTURE.md)** - Complete codebase structure and organization
 - **[Backend Documentation](./BACKEND_DOCUMENTATION.md)** - API endpoints, database, and server-side architecture
 - **[Frontend Documentation](./frontend/FRONTEND_OVERVIEW.md)** - Component architecture, hooks, and UI patterns
+- **[Component Styling Guides](./frontend/STYLING_GUIDES.md)** - Comprehensive styling patterns, component guides, and design system documentation with inconsistency analysis
 - **[Database Schema](./technical/DATABASE_SCHEMA.md)** - Complete database structure and relationships
 
 ### Core Features Documentation (Implemented)
@@ -108,7 +109,7 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 
 ## 🚀 Quick Start Navigation
 
-- **New Developers**: [Project Structure](./PROJECT_STRUCTURE.md) → [Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md) → [Backend Documentation](./BACKEND_DOCUMENTATION.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
+- **New Developers**: [Project Structure](./PROJECT_STRUCTURE.md) → [Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md) → [Backend Documentation](./BACKEND_DOCUMENTATION.md) → [Component Styling Guides](./frontend/STYLING_GUIDES.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
 - **System Administrators**: [Admin Panel](./features/ADMIN_PANEL.md) → [Database Schema](./technical/DATABASE_SCHEMA.md) → [Customer Management](./features/CUSTOMER_MANAGEMENT.md)
 - **Business Users**: [Booking System](./features/BOOKING_SYSTEM.md) → [Package Management](./features/PACKAGE_MANAGEMENT.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
 - **Coaches**: [Coaching System](./features/COACHING_SYSTEM.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
@@ -135,6 +136,7 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 ### ✅ What's Fully Documented
 - **Core Features**: Booking, packages, admin panel, sales dashboard, customer management, invoice management, transaction management, coaching system
 - **Technical Systems**: Authentication, database schema, API endpoints, POS data pipeline, coaching system technical architecture
+- **Frontend Systems**: Component architecture, styling guides, design system patterns, UI consistency analysis
 - **Integrations**: LINE messaging, Google Calendar, CRM synchronization  
 - **Special Features**: Inventory management, US Open scoring system, professional invoicing, TanStack Table implementation, coaching availability management
 - **Architecture**: Project structure, backend/frontend organization, coaching system component architecture
