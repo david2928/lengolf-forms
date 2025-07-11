@@ -77,6 +77,27 @@ The Staff Time Clock System is a comprehensive time tracking solution built with
 - **Analytics Dashboard**: Performance metrics and compliance tracking
 - **CSV Export**: Customizable data export functionality
 
+### Admin Access & Navigation
+
+The Time Clock admin interface is accessible through the Lengolf Forms admin dashboard:
+
+**Navigation Path:**
+1. **Authentication**: Must be logged in with admin privileges
+2. **Admin Dashboard**: Navigate to `/admin` or use the Admin dropdown menu
+3. **Location**: Time Clock is located in the **"Inventory & Operations"** section
+4. **Direct Access**: Available at `/admin/time-clock`
+
+**Admin Dashboard Organization:**
+- **Analytics & Reporting**: Sales Dashboard, Transaction History, Reconciliation, Meta Leads
+- **Inventory & Operations**: Inventory Dashboard, Invoice Management, **Time Clock**
+- **System Management**: Availability Performance
+
+**Time Clock Admin Features:**
+- **Time Reports Dashboard**: Comprehensive time tracking analytics and reporting
+- **Staff Management**: Complete staff CRUD operations with PIN management
+- **Photo Management**: View, manage, and cleanup time clock photos
+- **Performance Analytics**: Staff productivity and compliance monitoring
+
 ## Technology Stack
 
 ### Core Technologies

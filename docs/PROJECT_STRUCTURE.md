@@ -10,7 +10,7 @@ The project is organized into several key areas:
 - **Configuration Files**: Build, deployment, and development configuration
 - **Documentation**: Project documentation and structure guides
 
-**Current Admin System:** The application includes a basic admin section with binary user/admin roles. A comprehensive hierarchical admin framework (staff/admin/super_admin) is documented in [ADMIN_FRAMEWORK.md](ADMIN_FRAMEWORK.md) for future implementation.
+**Current Admin System:** The application includes a well-organized admin section with binary user/admin roles. The admin dashboard is organized into three main sections: Analytics & Reporting, Inventory & Operations, and System Management. A comprehensive hierarchical admin framework (staff/admin/super_admin) is documented in [ADMIN_FRAMEWORK.md](ADMIN_FRAMEWORK.md) for future implementation.
 
 For detailed backend architecture and API documentation, see [BACKEND_DOCUMENTATION.md](BACKEND_DOCUMENTATION.md).
 
@@ -129,7 +129,7 @@ These directories contain the main page component and potentially supporting fil
 
 #### Administrative Pages
 -   `app/admin/`: Administrative section with enhanced access controls
-    -   `app/admin/page.tsx`: Admin dashboard (route: `/admin`) with overview cards for inventory management, system settings, analytics, user management, and database tools. Currently contains placeholder cards marked "Coming soon" for future feature implementation.
+    -   `app/admin/page.tsx`: Admin dashboard (route: `/admin`) with organized sections for Analytics & Reporting (Sales Dashboard, Transaction History, Reconciliation, Meta Leads), Inventory & Operations (Inventory Dashboard, Invoice Management, Time Clock), and System Management (Availability Performance). The Time Clock was moved from System Management to Inventory & Operations to better reflect its operational nature. Features responsive mobile and desktop layouts with role-based access control.
     -   `app/admin/layout.tsx`: Admin-specific layout that enforces admin authentication and provides admin-specific styling and navigation context.
 -   `app/inventory/page.tsx`: Inventory management page (route: `/inventory`) for product and stock management.
 -   `app/special-events/`: Special event management, currently containing US Open event handling.
