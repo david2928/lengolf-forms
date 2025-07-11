@@ -4,7 +4,7 @@ import { formatBangkokTime } from './bangkok-timezone';
 // Business configuration - these could be moved to environment variables or database
 const BUSINESS_RULES = {
   MAX_SHIFT_HOURS: 12,
-  OVERTIME_WEEKLY_THRESHOLD: 48, // OT after 48 hours per week (Monday-Sunday)
+  OVERTIME_WEEKLY_THRESHOLD: 48, // OT after 48 hours per week (Sunday-Saturday)
   BREAK_DEDUCTION_MINUTES: 30, // Automatic break deduction for shifts > 6 hours
   BREAK_THRESHOLD_HOURS: 6,
   MIN_SHIFT_MINUTES: 15,
@@ -136,11 +136,14 @@ function calculateStaffShifts(entries: TimeEntry[]): WorkShift[] {
  * Groups shifts by staff and week, then calculates overtime for hours > 48 per week
  */
 function calculateWeeklyOvertime(shifts: WorkShift[]): WorkShift[] {
-  // Helper function to get Monday of the week (start of week)
+  // Helper function to get Sunday of the week (start of week for OT calculation)
   const getWeekStart = (date: string): string => {
     const d = DateTime.fromISO(date + 'T00:00:00', { zone: 'Asia/Bangkok' });
-    const monday = d.startOf('week'); // luxon starts week on Monday
-    return monday.toFormat('yyyy-MM-dd');
+    // Get Sunday of the current week (Sunday = start of week for OT)
+    const dayOfWeek = d.weekday; // 1 = Monday, 7 = Sunday in Luxon
+    const daysToSubtract = dayOfWeek === 7 ? 0 : dayOfWeek; // If Sunday, subtract 0, otherwise subtract dayOfWeek
+    const sunday = d.minus({ days: daysToSubtract });
+    return sunday.toFormat('yyyy-MM-dd');
   };
   
   // Group complete shifts by staff and week

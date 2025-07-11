@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { 
   Clock, 
@@ -440,7 +441,7 @@ export function TimeClockInterface() {
               variant={isSpecial ? "outline" : "default"}
               size="lg"
               className={`
-                h-14 text-lg font-semibold
+                text-lg font-semibold
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
                 hover:scale-105 active:scale-95 transition-transform
               `}
@@ -486,8 +487,8 @@ export function TimeClockInterface() {
                 className="hidden"
               />
               {!state.cameraStream && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
-                  <LoadingSpinner size="lg" text="Initializing camera..." />
+                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                  <Skeleton className="w-full h-full" />
                 </div>
               )}
             </div>
@@ -506,7 +507,7 @@ export function TimeClockInterface() {
           )}
 
           {state.success && (
-            <Alert className="border-green-200 bg-green-50 text-green-800">
+            <Alert className="border-green-500/20 bg-green-50/50 text-green-800">
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>{state.success}</AlertDescription>
             </Alert>

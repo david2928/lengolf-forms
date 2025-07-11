@@ -12,7 +12,6 @@ import {
   Users, 
   Plus, 
   Edit, 
-  Trash2, 
   UserCheck, 
   UserX, 
   Unlock, 
@@ -40,7 +39,7 @@ export function StaffManagementDashboard() {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null)
   const [confirmAction, setConfirmAction] = useState<{
-    action: 'delete' | 'activate' | 'deactivate' | 'unlock'
+    action: 'activate' | 'deactivate' | 'unlock'
     staffId: number
     staffName: string
   } | null>(null)
@@ -48,7 +47,6 @@ export function StaffManagementDashboard() {
   // Helper functions
   const getConfirmationTitle = (action: string): string => {
     switch (action) {
-      case 'delete': return 'Delete Staff Member'
       case 'activate': return 'Activate Staff Member'
       case 'deactivate': return 'Deactivate Staff Member'
       case 'unlock': return 'Unlock Staff Member'
@@ -58,8 +56,6 @@ export function StaffManagementDashboard() {
 
   const getConfirmationDescription = (action: string, staffName: string): string => {
     switch (action) {
-      case 'delete':
-        return `Are you sure you want to delete ${staffName}? This action cannot be undone and will remove all associated time clock records.`
       case 'activate':
         return `Are you sure you want to activate ${staffName}? They will be able to use the time clock system.`
       case 'deactivate':
@@ -73,7 +69,6 @@ export function StaffManagementDashboard() {
 
   const getConfirmationText = (action: string): string => {
     switch (action) {
-      case 'delete': return 'Delete'
       case 'activate': return 'Activate'
       case 'deactivate': return 'Deactivate'
       case 'unlock': return 'Unlock'
@@ -135,11 +130,6 @@ export function StaffManagementDashboard() {
       let response
       
       switch (action) {
-        case 'delete':
-          response = await fetch(`/api/staff/${staffId}`, {
-            method: 'DELETE'
-          })
-          break
         case 'activate':
         case 'deactivate':
           const isActive = action === 'activate';
@@ -183,7 +173,7 @@ export function StaffManagementDashboard() {
     }
   }
 
-  const handleConfirmAction = (action: 'delete' | 'activate' | 'deactivate' | 'unlock', staff: StaffMember) => {
+  const handleConfirmAction = (action: 'activate' | 'deactivate' | 'unlock', staff: StaffMember) => {
     setConfirmAction({
       action,
       staffId: staff.id,
@@ -367,16 +357,6 @@ export function StaffManagementDashboard() {
                                   <UserCheck className="h-4 w-4" />
                                 )}
                               </Button>
-                              
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleConfirmAction('delete', member)}
-                                className="text-destructive hover:text-destructive"
-                                title="Delete staff member"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -426,7 +406,7 @@ export function StaffManagementDashboard() {
           title={getConfirmationTitle(confirmAction.action)}
           description={getConfirmationDescription(confirmAction.action, confirmAction.staffName)}
           confirmText={getConfirmationText(confirmAction.action)}
-          variant={confirmAction.action === 'delete' || confirmAction.action === 'deactivate' ? 'destructive' : 'default'}
+          variant={confirmAction.action === 'deactivate' ? 'destructive' : 'default'}
           onConfirm={() => handleAction(confirmAction.action, confirmAction.staffId)}
         />
       )}

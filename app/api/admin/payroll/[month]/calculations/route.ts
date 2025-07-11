@@ -60,7 +60,9 @@ export async function GET(request: NextRequest, { params }: { params: RouteParam
       staff_payroll: payrollResults.map(result => ({
         staff_id: result.staff_id,
         staff_name: result.staff_name,
+        compensation_type: result.compensation_type,
         base_salary: result.base_salary,
+        hourly_rate: result.hourly_rate,
         regular_hours: result.total_hours,
         ot_hours: result.overtime_hours,
         ot_pay: result.overtime_pay,

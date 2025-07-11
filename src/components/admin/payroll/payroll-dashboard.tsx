@@ -11,7 +11,7 @@ import { ReviewEntriesTable } from './review-entries-table'
 import { PayrollCalculationsTable } from './payroll-calculations-table'
 import { ServiceChargeInput } from './service-charge-input'
 import { PayrollOverviewTable } from './payroll-overview-table'
-import { PublicHolidaysManagement } from './public-holidays-management'
+import { HolidayHoursTable } from './holiday-hours-table'
 import { useToast } from '@/components/ui/use-toast'
 
 // Types
@@ -283,7 +283,7 @@ export function PayrollDashboard() {
         </TabsContent>
 
         <TabsContent value="holidays" className="space-y-4">
-          <PublicHolidaysManagement />
+          <HolidayHoursTable selectedMonth={selectedMonth} />
         </TabsContent>
       </Tabs>
     </div>

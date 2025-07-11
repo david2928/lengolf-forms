@@ -244,11 +244,11 @@ export function TimeReportsDashboard() {
     }));
 
     // Calculate work shifts with cross-day support
-    const shifts = calculateWorkShifts(calculationEntries);
+    const shifts = calculateWorkShifts(calculationEntries) || [];
     setWorkShifts(shifts); // Update state with calculated shifts
     
     // Calculate enhanced analytics
-    const analytics = calculateStaffAnalytics(shifts, calculationEntries);
+    const analytics = calculateStaffAnalytics(shifts, calculationEntries) || [];
     setStaffAnalytics(analytics); // Update state with analytics
 
     // Convert analytics back to legacy StaffSummary format for backward compatibility
@@ -467,7 +467,7 @@ export function TimeReportsDashboard() {
       
       // Create CSV content
       const headers = ['Date', 'Time', 'Staff Name', 'Action', 'Photo Captured']
-      const rows = timeEntries.map(entry => [
+      const rows = (timeEntries || []).map(entry => [
         entry.date_only,
         entry.time_only,
         entry.staff_name,
@@ -499,20 +499,20 @@ export function TimeReportsDashboard() {
   }
 
   const getTotalHours = () => {
-    return staffSummaries.reduce((total, staff) => total + staff.total_hours, 0)
+    return (staffSummaries || []).reduce((total, staff) => total + staff.total_hours, 0)
   }
 
   const getOvertimeHours = () => {
-    return staffSummaries.reduce((total, staff) => total + staff.overtime_hours, 0)
+    return (staffSummaries || []).reduce((total, staff) => total + staff.overtime_hours, 0)
   }
 
   const getIssuesCount = () => {
-    return staffSummaries.filter(staff => staff.has_issues).length
+    return (staffSummaries || []).filter(staff => staff.has_issues).length
   }
 
   const getPhotoComplianceRate = () => {
-    const totalEntries = timeEntries.length
-    const entriesWithPhotos = timeEntries.filter(e => e.photo_captured).length
+    const totalEntries = (timeEntries || []).length
+    const entriesWithPhotos = (timeEntries || []).filter(e => e.photo_captured).length
     return totalEntries > 0 ? (entriesWithPhotos / totalEntries) * 100 : 0
   }
 
@@ -706,11 +706,11 @@ export function TimeReportsDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Staff</SelectItem>
-                  {staffList.map(staff => (
-                    <SelectItem key={staff.id} value={staff.id.toString()}>
-                      {staff.name}
-                    </SelectItem>
-                  ))}
+                                  {(staffList || []).map(staff => (
+                  <SelectItem key={staff.id} value={staff.id.toString()}>
+                    {staff.name}
+                  </SelectItem>
+                ))}
                 </SelectContent>
               </Select>
             </div>
@@ -798,7 +798,7 @@ export function TimeReportsDashboard() {
         <TabsContent value="entries" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Time Entries ({timeEntries.length})</CardTitle>
+              <CardTitle>Time Entries ({(timeEntries || []).length})</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveTable enableKeyboardNavigation>
@@ -813,14 +813,14 @@ export function TimeReportsDashboard() {
                   </ResponsiveTableRow>
                 </ResponsiveTableHeader>
                 <ResponsiveTableBody>
-                    {timeEntries.length === 0 ? (
+                    {(timeEntries || []).length === 0 ? (
                       <ResponsiveTableRow>
                         <ResponsiveTableCell colSpan={6} className="h-24 text-center">
                           No time entries found for the selected criteria.
                         </ResponsiveTableCell>
                       </ResponsiveTableRow>
                     ) : (
-                      timeEntries.map((entry, rowIndex) => (
+                      (timeEntries || []).map((entry, rowIndex) => (
                         <ResponsiveTableRow key={entry.entry_id} index={rowIndex}>
                           <ResponsiveTableCell index={0} rowIndex={rowIndex}>{format(new Date(entry.date_only + 'T00:00:00+07:00'), 'MMM dd, yyyy')}</ResponsiveTableCell>
                           <ResponsiveTableCell index={1} rowIndex={rowIndex} className="font-mono text-center">{entry.time_only}</ResponsiveTableCell>
@@ -876,7 +876,7 @@ export function TimeReportsDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                Work Shifts Analysis ({workShifts.length} shifts)
+                Work Shifts Analysis ({(workShifts || []).length} shifts)
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Enhanced shift tracking with cross-day support, break deductions, and overtime calculations
@@ -899,14 +899,14 @@ export function TimeReportsDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {workShifts.length === 0 ? (
+                    {(workShifts || []).length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={9} className="h-24 text-center">
                           No work shifts calculated for the selected criteria.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      workShifts
+                      (workShifts || [])
                         .sort((a, b) => new Date(b.clock_in_time).getTime() - new Date(a.clock_in_time).getTime())
                         .map((shift) => (
                         <TableRow key={`${shift.staff_id}-${shift.clock_in_entry_id}`}>
@@ -954,7 +954,7 @@ export function TimeReportsDashboard() {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            {(shift.shift_notes.length > 0 || shift.validation_issues.length > 0) && (
+                            {((shift.shift_notes || []).length > 0 || (shift.validation_issues || []).length > 0) && (
                               <Dialog>
                                 <DialogTrigger asChild>
                                   <Button variant="ghost" size="sm">
@@ -993,22 +993,22 @@ export function TimeReportsDashboard() {
                                       </div>
                                     )}
                                     
-                                    {shift.shift_notes.length > 0 && (
+                                    {(shift.shift_notes || []).length > 0 && (
                                       <div>
                                         <div className="text-sm font-medium mb-2">Notes:</div>
                                         <ul className="text-sm text-muted-foreground space-y-1">
-                                          {shift.shift_notes.map((note, index) => (
+                                          {(shift.shift_notes || []).map((note, index) => (
                                             <li key={index}>• {note}</li>
                                           ))}
                                         </ul>
                                       </div>
                                     )}
                                     
-                                    {shift.validation_issues.length > 0 && (
+                                    {(shift.validation_issues || []).length > 0 && (
                                       <div>
                                         <div className="text-sm font-medium mb-2 text-red-600">Issues:</div>
                                         <ul className="text-sm text-red-600 space-y-1">
-                                          {shift.validation_issues.map((issue, index) => (
+                                          {(shift.validation_issues || []).map((issue, index) => (
                                             <li key={index}>• {issue}</li>
                                           ))}
                                         </ul>
@@ -1034,7 +1034,7 @@ export function TimeReportsDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                Enhanced Staff Analytics ({staffAnalytics.length})
+                Enhanced Staff Analytics ({(staffAnalytics || []).length})
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Comprehensive analytics with accurate time calculations, break deductions, and overtime tracking
@@ -1058,14 +1058,14 @@ export function TimeReportsDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {staffAnalytics.length === 0 ? (
+                    {(staffAnalytics || []).length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={10} className="h-24 text-center">
                           No staff analytics available.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      staffAnalytics.map((analytic) => (
+                      (staffAnalytics || []).map((analytic) => (
                         <TableRow key={analytic.staff_id}>
                           <TableCell className="font-medium">{analytic.staff_name}</TableCell>
                           <TableCell className="text-center">{analytic.days_worked}</TableCell>

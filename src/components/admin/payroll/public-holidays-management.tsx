@@ -35,7 +35,16 @@ export function PublicHolidaysManagement() {
 
   // Pre-defined holidays for 2025 and 2026
   const predefinedHolidays: PublicHoliday[] = [
-    { holiday_date: '2025-06-03', holiday_name: 'Visakha Bucha Day' },
+    // 2025 holidays
+    { holiday_date: '2025-01-01', holiday_name: "New Year's Day" },
+    { holiday_date: '2025-02-12', holiday_name: 'Makha Bucha Day' },
+    { holiday_date: '2025-04-06', holiday_name: 'Chakri Day' },
+    { holiday_date: '2025-04-13', holiday_name: 'Songkran Festival' },
+    { holiday_date: '2025-04-14', holiday_name: 'Songkran Festival' },
+    { holiday_date: '2025-04-15', holiday_name: 'Songkran Festival' },
+    { holiday_date: '2025-05-01', holiday_name: 'Labour Day' },
+    { holiday_date: '2025-05-04', holiday_name: 'Coronation Day' },
+    { holiday_date: '2025-05-12', holiday_name: 'Visakha Bucha Day' },
     { holiday_date: '2025-07-10', holiday_name: 'Asanha Bucha Day' },
     { holiday_date: '2025-07-11', holiday_name: 'Buddhist Lent Day' },
     { holiday_date: '2025-07-28', holiday_name: 'King Vajiralongkorn\'s Birthday' },

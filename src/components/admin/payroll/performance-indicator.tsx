@@ -48,17 +48,17 @@ export function PerformanceIndicator({
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+      <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
         {loadingState.isLoading ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-            <span className="text-sm text-gray-600">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-sm text-muted-foreground">
               {loadingState.operation || 'Processing...'}
             </span>
             {loadingState.progress !== undefined && (
               <div className="flex items-center gap-1 ml-2">
                 <Progress value={loadingState.progress} className="w-20 h-2" />
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   {Math.round(loadingState.progress)}%
                 </span>
               </div>
@@ -96,13 +96,13 @@ export function PerformanceIndicator({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 <span className="font-medium">
                   {loadingState.operation || 'Processing...'}
                 </span>
               </div>
               {loadingState.estimatedTimeRemaining && (
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-muted-foreground">
                   ~{Math.round(loadingState.estimatedTimeRemaining / 1000)}s remaining
                 </span>
               )}
@@ -111,7 +111,7 @@ export function PerformanceIndicator({
             {loadingState.progress !== undefined && (
               <div className="space-y-2">
                 <Progress value={loadingState.progress} className="w-full" />
-                <div className="flex justify-between text-sm text-gray-600">
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>{Math.round(loadingState.progress)}% complete</span>
                   {loadingState.estimatedTimeRemaining && (
                     <span>
@@ -129,17 +129,17 @@ export function PerformanceIndicator({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-gray-500" />
+                <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Average Duration</span>
               </div>
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-2xl font-bold text-primary">
                 {(metrics.averageDuration / 1000).toFixed(1)}s
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-gray-500" />
+                <Zap className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Cache Hit Rate</span>
               </div>
               <div className="text-2xl font-bold text-green-600">
@@ -149,17 +149,17 @@ export function PerformanceIndicator({
 
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Database className="h-4 w-4 text-gray-500" />
+                <Database className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Total Operations</span>
               </div>
-              <div className="text-2xl font-bold text-purple-600">
+              <div className="text-2xl font-bold text-primary">
                 {metrics.totalOperations}
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-gray-500" />
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Slow Operations</span>
               </div>
               <div className="text-2xl font-bold text-orange-600">

@@ -1,6 +1,18 @@
 import { refacSupabaseAdmin } from './refac-supabase';
 import { isDevAuthBypassEnabled } from './dev-auth';
 
+// Cache for admin status to reduce database calls
+const adminCache: Record<string, { isAdmin: boolean; timestamp: number; ttl: number }> = {};
+
+// Cache TTL in milliseconds (5 minutes)
+const ADMIN_CACHE_TTL = 5 * 60 * 1000;
+
+// Fallback admin emails for emergency access
+const FALLBACK_ADMIN_EMAILS = [
+  'admin@lengolf.com',
+  'chris@lengolf.com'
+];
+
 export async function isUserAllowed(email: string | null | undefined): Promise<boolean> {
   // Development auth bypass
   if (isDevAuthBypassEnabled()) {

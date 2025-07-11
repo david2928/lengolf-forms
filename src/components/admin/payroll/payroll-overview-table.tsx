@@ -11,7 +11,9 @@ import { useToast } from '@/components/ui/use-toast'
 interface StaffPayrollData {
   staff_id: number
   staff_name: string
+  compensation_type: 'salary' | 'hourly'
   base_salary: number
+  hourly_rate: number
   regular_hours: number
   ot_hours: number
   ot_pay: number
@@ -96,10 +98,12 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
   const exportToCSV = () => {
     if (!payrollData || !payrollData.staff_payroll) return
     
-    const headers = ['Staff Name', 'Base Salary', 'Allowance', 'OT Pay', 'Holiday Pay', 'Service Charge', 'Total Payout']
+    const headers = ['Staff Name', 'Base Salary', 'Hourly Rate', 'Hourly Hours', 'Allowance', 'OT Pay', 'Holiday Pay', 'Service Charge', 'Total Payout']
     const rows = payrollData.staff_payroll.map(staff => [
       staff.staff_name,
       staff.base_salary.toFixed(2),
+      staff.compensation_type === 'hourly' ? staff.hourly_rate.toFixed(2) : '-',
+      staff.compensation_type === 'hourly' ? staff.regular_hours.toFixed(1) : '-',
       staff.total_allowance.toFixed(2),
       staff.ot_pay.toFixed(2),
       staff.holiday_pay.toFixed(2),
@@ -240,51 +244,107 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Staff Name</TableHead>
-                  <TableHead className="text-right">Base Salary</TableHead>
-                  <TableHead className="text-right">Allowance</TableHead>
-                  <TableHead className="text-right">OT Pay</TableHead>
-                  <TableHead className="text-right">Holiday Pay</TableHead>
-                  <TableHead className="text-right">Service Charge</TableHead>
-                  <TableHead className="text-right">Total Payout</TableHead>
+                  <TableHead className="w-[180px]">Staff Name</TableHead>
+                  <TableHead className="text-center min-w-[120px]">Base Salary</TableHead>
+                  <TableHead className="text-center min-w-[120px]">Hourly Pay</TableHead>
+                  <TableHead className="text-center min-w-[100px]">Allowance</TableHead>
+                  <TableHead className="text-center min-w-[120px]">OT Pay</TableHead>
+                  <TableHead className="text-center min-w-[120px]">Holiday Pay</TableHead>
+                  <TableHead className="text-center min-w-[120px]">Service Charge</TableHead>
+                  <TableHead className="text-center min-w-[140px]">Total Payout</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {payrollData.staff_payroll.map((staff) => (
                   <TableRow key={staff.staff_id}>
-                    <TableCell className="font-medium">{staff.staff_name}</TableCell>
-                    <TableCell className="text-right">฿{staff.base_salary.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">฿{staff.total_allowance.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="text-right">
-                        <div>฿{staff.ot_pay.toLocaleString()}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {staff.ot_hours.toFixed(1)}h
+                    <TableCell className="font-medium py-4">
+                      <div>
+                        <div className="font-medium">{staff.staff_name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          <Badge variant="outline" className="text-xs">
+                            {staff.compensation_type === 'salary' ? 'Salary' : 'Hourly'}
+                          </Badge>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="text-right">
-                        <div>฿{staff.holiday_pay.toLocaleString()}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {staff.holiday_hours.toFixed(1)}h
+                    <TableCell className="text-center py-4">
+                      {staff.base_salary > 0 ? (
+                        <div className="text-center">
+                          <div className="font-medium">฿{staff.base_salary.toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground">Monthly</div>
                         </div>
-                      </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="text-right">
-                        <div>฿{staff.service_charge.toLocaleString()}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {staff.service_charge > 0 ? (
+                    <TableCell className="text-center py-4">
+                      {staff.compensation_type === 'hourly' ? (
+                        <div className="text-center">
+                          <div className="font-medium">฿{staff.hourly_rate.toLocaleString()}/hr</div>
+                          <div className="text-xs text-muted-foreground">
+                            {staff.regular_hours.toFixed(1)}h worked
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center py-4">
+                      {staff.total_allowance > 0 ? (
+                        <div className="text-center">
+                          <div className="font-medium">฿{staff.total_allowance.toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground">Daily allowance</div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center py-4">
+                      {staff.ot_pay > 0 ? (
+                        <div className="text-center">
+                          <div className="font-medium">฿{staff.ot_pay.toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {staff.ot_hours.toFixed(1)}h overtime
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center py-4">
+                      {staff.holiday_pay > 0 ? (
+                        <div className="text-center">
+                          <div className="font-medium">฿{staff.holiday_pay.toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {staff.holiday_hours.toFixed(1)}h holidays
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center py-4">
+                      {staff.service_charge > 0 ? (
+                        <div className="text-center">
+                          <div className="font-medium">฿{staff.service_charge.toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground">
                             <Badge variant="secondary" className="text-xs">Eligible</Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs">Not Eligible</Badge>
-                          )}
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="text-center">
+                          <span className="text-muted-foreground">-</span>
+                          <div className="text-xs text-muted-foreground">
+                            <Badge variant="outline" className="text-xs">Not Eligible</Badge>
+                          </div>
+                        </div>
+                      )}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
-                      ฿{staff.total_payout.toLocaleString()}
+                    <TableCell className="text-center py-4">
+                      <div className="text-center">
+                        <div className="text-lg font-bold">฿{staff.total_payout.toLocaleString()}</div>
+                        <div className="text-xs text-muted-foreground">Total payout</div>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

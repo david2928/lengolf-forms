@@ -266,11 +266,13 @@ export interface TimeEntryQueryOptions {
 export function buildOptimizedTimeEntryQuery(options: TimeEntryQueryOptions) {
   const { monthYear, staffIds, includeStaffInfo = false, includePhotoUrls = false } = options
   
-  const startDate = `${monthYear}-01`
+  // Use Bangkok timezone to ensure correct month filtering
+  const startDate = `${monthYear}-01T00:00:00+07:00`
   const endDate = new Date(monthYear + '-01')
   endDate.setMonth(endDate.getMonth() + 1)
   endDate.setDate(0)
   const endDateStr = endDate.toISOString().split('T')[0]
+  const endDateTime = `${endDateStr}T23:59:59+07:00`
 
   // Build select fields
   const selectFields = ['id', 'staff_id', 'timestamp', 'action']
@@ -285,7 +287,7 @@ export function buildOptimizedTimeEntryQuery(options: TimeEntryQueryOptions) {
     select: selectFields.join(', '),
     filters: {
       timestamp_gte: startDate,
-      timestamp_lte: endDateStr + ' 23:59:59',
+      timestamp_lte: endDateTime,
       staff_ids: staffIds
     },
     orderBy: { field: 'timestamp', ascending: true }
@@ -340,6 +342,11 @@ export const invalidatePayrollCache = {
     payrollCache.invalidate()
   }
 }
+
+// Clear cache for May 2025 to ensure the timezone and OT calculation fixes take effect
+invalidatePayrollCache.forMonth('2025-05')
+// Also clear all cache to ensure OT calculation changes are applied  
+invalidatePayrollCache.all()
 
 /**
  * Query optimization hints for database indexes

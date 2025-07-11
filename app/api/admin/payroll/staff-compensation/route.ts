@@ -37,7 +37,9 @@ export async function GET() {
       .select(`
         id,
         staff_id,
+        compensation_type,
         base_salary,
+        hourly_rate,
         ot_rate_per_hour,
         holiday_rate_per_hour,
         is_service_charge_eligible,
@@ -126,33 +128,69 @@ export async function POST(request: NextRequest) {
     // Validate input
     const {
       staff_id,
+      compensation_type,
       base_salary,
+      hourly_rate,
       ot_rate_per_hour,
       holiday_rate_per_hour,
       is_service_charge_eligible,
       effective_from
     } = body;
 
-    if (!staff_id || base_salary === undefined || ot_rate_per_hour === undefined || holiday_rate_per_hour === undefined) {
+    if (!staff_id || ot_rate_per_hour === undefined || holiday_rate_per_hour === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields: staff_id, base_salary, ot_rate_per_hour, holiday_rate_per_hour' },
+        { error: 'Missing required fields: staff_id, ot_rate_per_hour, holiday_rate_per_hour' },
         { status: 400 }
       );
     }
 
-    // Validate positive values
-    if (base_salary < 0 || ot_rate_per_hour < 0 || holiday_rate_per_hour < 0) {
+    // Validate compensation type
+    if (compensation_type && !['salary', 'hourly'].includes(compensation_type)) {
       return NextResponse.json(
-        { error: 'Salary and rates must be positive values' },
+        { error: 'compensation_type must be either "salary" or "hourly"' },
+        { status: 400 }
+      );
+    }
+
+    const compType = compensation_type || 'salary';
+
+    // Validate compensation-specific fields
+    if (compType === 'salary') {
+      if (base_salary === undefined || base_salary <= 0) {
+        return NextResponse.json(
+          { error: 'Base salary is required and must be positive for salary-based staff' },
+          { status: 400 }
+        );
+      }
+    } else if (compType === 'hourly') {
+      if (hourly_rate === undefined || hourly_rate <= 0) {
+        return NextResponse.json(
+          { error: 'Hourly rate is required and must be positive for hourly-based staff' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate positive values
+    if (ot_rate_per_hour < 0 || holiday_rate_per_hour < 0) {
+      return NextResponse.json(
+        { error: 'Overtime and holiday rates must be positive values' },
         { status: 400 }
       );
     }
 
     // Validate effective_from date
     const effectiveFromDate = effective_from || new Date().toISOString().split('T')[0];
-    if (new Date(effectiveFromDate) > new Date()) {
+    
+    // Allow future dates for compensation changes (e.g., salary increases, new hires)
+    const effectiveDate = new Date(effectiveFromDate);
+    const currentDate = new Date();
+    const maxFutureDate = new Date();
+    maxFutureDate.setFullYear(currentDate.getFullYear() + 1); // Allow up to 1 year in future
+    
+    if (effectiveDate > maxFutureDate) {
       return NextResponse.json(
-        { error: 'Effective date cannot be in the future' },
+        { error: 'Effective date cannot be more than 1 year in the future' },
         { status: 400 }
       );
     }
@@ -198,11 +236,28 @@ export async function POST(request: NextRequest) {
 
     // If there's an existing active compensation record, end it
     if (currentComp) {
+      // Calculate the day before the new effective date
+      const newEffectiveDate = new Date(effectiveFromDate);
+      const endDate = new Date(newEffectiveDate);
+      endDate.setDate(endDate.getDate() - 1);
+      const effectiveToDate = endDate.toISOString().split('T')[0];
+      
+      // Validate that the end date is not before the current record's start date
+      const currentStartDate = new Date(currentComp.effective_from);
+      if (endDate < currentStartDate) {
+        return NextResponse.json(
+          { error: `New effective date (${effectiveFromDate}) must be after current compensation start date (${currentComp.effective_from})` },
+          { status: 400 }
+        );
+      }
+
+      console.log(`Ending current compensation record with effective_to: ${effectiveToDate}`);
+      
       const { error: updateError } = await refacSupabaseAdmin
         .schema('backoffice')
         .from('staff_compensation')
         .update({
-          effective_to: new Date(new Date(effectiveFromDate).getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0], // day before new effective date
+          effective_to: effectiveToDate,
           updated_at: new Date().toISOString()
         })
         .eq('id', currentComp.id);
@@ -222,7 +277,9 @@ export async function POST(request: NextRequest) {
       .from('staff_compensation')
       .insert({
         staff_id,
-        base_salary,
+        compensation_type: compType,
+        base_salary: compType === 'salary' ? base_salary : 0,
+        hourly_rate: compType === 'hourly' ? hourly_rate : 0,
         ot_rate_per_hour,
         holiday_rate_per_hour,
         is_service_charge_eligible: is_service_charge_eligible !== undefined ? is_service_charge_eligible : true,

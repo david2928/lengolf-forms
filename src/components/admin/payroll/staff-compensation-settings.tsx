@@ -16,7 +16,9 @@ import { useToast } from '@/components/ui/use-toast'
 interface StaffCompensation {
   id?: number
   staff_id: number
+  compensation_type: 'salary' | 'hourly'
   base_salary: number
+  hourly_rate: number
   ot_rate_per_hour: number
   holiday_rate_per_hour: number
   is_service_charge_eligible: boolean
@@ -35,7 +37,9 @@ interface StaffCompensationData {
 
 interface CompensationForm {
   staff_id: number
+  compensation_type: 'salary' | 'hourly'
   base_salary: string
+  hourly_rate: string
   ot_rate_per_hour: string
   holiday_rate_per_hour: string
   is_service_charge_eligible: boolean
@@ -48,7 +52,9 @@ export function StaffCompensationSettings() {
   const [editingStaff, setEditingStaff] = useState<StaffCompensationData | null>(null)
   const [formData, setFormData] = useState<CompensationForm>({
     staff_id: 0,
+    compensation_type: 'salary',
     base_salary: '',
+    hourly_rate: '',
     ot_rate_per_hour: '',
     holiday_rate_per_hour: '',
     is_service_charge_eligible: true,
@@ -94,7 +100,9 @@ export function StaffCompensationSettings() {
     const current = staff.current_compensation
     setFormData({
       staff_id: staff.staff_id,
+      compensation_type: (current?.compensation_type as 'salary' | 'hourly') || 'salary',
       base_salary: current?.base_salary?.toString() || '',
+      hourly_rate: current?.hourly_rate?.toString() || '',
       ot_rate_per_hour: current?.ot_rate_per_hour?.toString() || '',
       holiday_rate_per_hour: current?.holiday_rate_per_hour?.toString() || '',
       is_service_charge_eligible: current?.is_service_charge_eligible ?? true,
@@ -107,24 +115,61 @@ export function StaffCompensationSettings() {
     try {
       setSaving(true)
       
-      // Validate form data
-      if (!formData.base_salary || !formData.ot_rate_per_hour || !formData.holiday_rate_per_hour) {
+      // Validate form data based on compensation type
+      if (!formData.ot_rate_per_hour || !formData.holiday_rate_per_hour) {
         toast({
           title: 'Validation Error',
-          description: 'Please fill in all required fields',
+          description: 'Please fill in overtime and holiday rates',
           variant: 'destructive'
         })
         return
       }
 
-      const baseSalary = parseFloat(formData.base_salary)
+      if (formData.compensation_type === 'salary' && !formData.base_salary) {
+        toast({
+          title: 'Validation Error',
+          description: 'Base salary is required for salary-based staff',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      if (formData.compensation_type === 'hourly' && !formData.hourly_rate) {
+        toast({
+          title: 'Validation Error',
+          description: 'Hourly rate is required for hourly-based staff',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      const baseSalary = formData.compensation_type === 'salary' ? parseFloat(formData.base_salary) : 0
+      const hourlyRate = formData.compensation_type === 'hourly' ? parseFloat(formData.hourly_rate) : 0
       const otRate = parseFloat(formData.ot_rate_per_hour)
       const holidayRate = parseFloat(formData.holiday_rate_per_hour)
 
-      if (baseSalary < 0 || otRate < 0 || holidayRate < 0) {
+      if (formData.compensation_type === 'salary' && baseSalary <= 0) {
         toast({
           title: 'Validation Error',
-          description: 'All values must be positive numbers',
+          description: 'Base salary must be a positive number',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      if (formData.compensation_type === 'hourly' && hourlyRate <= 0) {
+        toast({
+          title: 'Validation Error',
+          description: 'Hourly rate must be a positive number',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      if (otRate < 0 || holidayRate < 0) {
+        toast({
+          title: 'Validation Error',
+          description: 'Overtime and holiday rates must be positive numbers',
           variant: 'destructive'
         })
         return
@@ -132,7 +177,9 @@ export function StaffCompensationSettings() {
 
       const payload = {
         staff_id: formData.staff_id,
+        compensation_type: formData.compensation_type,
         base_salary: baseSalary,
+        hourly_rate: hourlyRate,
         ot_rate_per_hour: otRate,
         holiday_rate_per_hour: holidayRate,
         is_service_charge_eligible: formData.is_service_charge_eligible,
@@ -230,7 +277,8 @@ export function StaffCompensationSettings() {
             <TableHeader>
               <TableRow>
                 <TableHead className="text-left">Staff Name</TableHead>
-                <TableHead className="text-left">Base Salary</TableHead>
+                <TableHead className="text-left">Type</TableHead>
+                <TableHead className="text-left">Base Pay</TableHead>
                 <TableHead className="text-left">OT Rate</TableHead>
                 <TableHead className="text-left">Holiday Rate</TableHead>
                 <TableHead className="text-left">Service Charge</TableHead>
@@ -243,10 +291,32 @@ export function StaffCompensationSettings() {
                 <TableRow key={staff.staff_id}>
                   <TableCell className="font-medium text-left">{staff.staff_name}</TableCell>
                   <TableCell className="text-left">
-                    {staff.current_compensation 
-                      ? formatCurrency(staff.current_compensation.base_salary)
-                      : <Badge variant="outline">Not Set</Badge>
-                    }
+                    {staff.current_compensation ? (
+                      <Badge variant={staff.current_compensation.compensation_type === 'salary' ? 'default' : 'outline'}>
+                        {staff.current_compensation.compensation_type === 'salary' ? 'Salary' : 'Hourly'}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Not Set</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-left">
+                    {staff.current_compensation ? (
+                      <div>
+                        {staff.current_compensation.compensation_type === 'salary' ? (
+                          <div>
+                            <div className="font-medium">{formatCurrency(staff.current_compensation.base_salary)}</div>
+                            <div className="text-xs text-muted-foreground">Monthly + allowance</div>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="font-medium">₿{staff.current_compensation.hourly_rate}/hr</div>
+                            <div className="text-xs text-muted-foreground">Hourly only</div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <Badge variant="outline">Not Set</Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-left">
                     {staff.current_compensation 
@@ -304,20 +374,69 @@ export function StaffCompensationSettings() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="base_salary">Base Salary (THB)</Label>
-                <Input
-                  id="base_salary"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={formData.base_salary}
-                  onChange={(e) => handleFormChange('base_salary', e.target.value)}
-                  placeholder="15000"
-                />
+                      <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium">Compensation Type</Label>
+              <div className="flex gap-6 mt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="compensation_type"
+                    value="salary"
+                    checked={formData.compensation_type === 'salary'}
+                    onChange={(e) => handleFormChange('compensation_type', e.target.value)}
+                    className="w-4 h-4 text-primary"
+                  />
+                  <span className="text-sm">Monthly Salary</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="compensation_type"
+                    value="hourly"
+                    checked={formData.compensation_type === 'hourly'}
+                    onChange={(e) => handleFormChange('compensation_type', e.target.value)}
+                    className="w-4 h-4 text-primary"
+                  />
+                  <span className="text-sm">Hourly Rate</span>
+                </label>
               </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {formData.compensation_type === 'salary' ? (
+                <div>
+                  <Label htmlFor="base_salary">Base Salary (THB)</Label>
+                  <Input
+                    id="base_salary"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={formData.base_salary}
+                    onChange={(e) => handleFormChange('base_salary', e.target.value)}
+                    placeholder="15000"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Fixed monthly salary + daily allowance
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <Label htmlFor="hourly_rate">Hourly Rate (THB/hour)</Label>
+                  <Input
+                    id="hourly_rate"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.hourly_rate}
+                    onChange={(e) => handleFormChange('hourly_rate', e.target.value)}
+                    placeholder="150.00"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Paid per hour worked (no allowance)
+                  </p>
+                </div>
+              )}
               <div>
                 <Label htmlFor="ot_rate">OT Rate (THB/hour)</Label>
                 <Input

@@ -44,7 +44,9 @@ export interface WeeklyHours {
 
 export interface StaffCompensation {
   staff_id: number;
+  compensation_type: 'salary' | 'hourly';
   base_salary: number;
+  hourly_rate: number;
   ot_rate_per_hour: number;
   holiday_rate_per_hour: number;
   is_service_charge_eligible: boolean;
@@ -53,11 +55,14 @@ export interface StaffCompensation {
 export interface PayrollCalculationResult {
   staff_id: number;
   staff_name: string;
+  compensation_type: 'salary' | 'hourly';
   working_days: number;
   total_hours: number;
   overtime_hours: number;
   holiday_hours: number;
   base_salary: number;
+  hourly_rate: number;
+  base_pay: number;
   daily_allowance: number;
   overtime_pay: number;
   holiday_pay: number;
@@ -122,7 +127,9 @@ export async function calculateDailyHours(monthYear: string): Promise<DailyHours
       const dailyHours: DailyHours[] = [];
 
       for (const [key, entries] of Array.from(dailyGroups.entries())) {
-        const [staffId, date] = key.split('-');
+        const dashIndex = key.indexOf('-');
+        const staffId = key.substring(0, dashIndex);
+        const date = key.substring(dashIndex + 1);
         const staff_id = parseInt(staffId);
         
         // Sort entries by timestamp
@@ -190,11 +197,34 @@ export async function calculateWeeklyHours(monthYear: string): Promise<WeeklyHou
     async () => {
       const dailyHours = await calculateDailyHours(monthYear);
       
+      // Get holidays for the month to exclude from overtime calculation
+      const startDate = `${monthYear}-01`;
+      const endDate = new Date(monthYear + '-01');
+      endDate.setMonth(endDate.getMonth() + 1);
+      endDate.setDate(0);
+      const endDateStr = endDate.toISOString().split('T')[0];
+
+      const { data: holidays, error: holidaysError } = await refacSupabaseAdmin
+        .schema('backoffice')
+        .from('public_holidays')
+        .select('holiday_date')
+        .gte('holiday_date', startDate)
+        .lte('holiday_date', endDateStr)
+        .eq('is_active', true);
+
+      if (holidaysError) {
+        console.error('Error fetching holidays for weekly calculation:', holidaysError);
+        // Continue without holiday exclusion if there's an error
+      }
+
+      const holidayDates = new Set((holidays || []).map(h => h.holiday_date));
+      
       // Group by staff and week
       const weeklyGroups = new Map<string, DailyHours[]>();
       
       for (const daily of dailyHours) {
-        const date = new Date(daily.date);
+        // Parse date properly - daily.date should be in 'YYYY-MM-DD' format
+        const date = new Date(daily.date + 'T12:00:00'); // Add time to avoid timezone issues
         const weekStart = getWeekStart(date);
         const key = `${daily.staff_id}-${weekStart}`;
         
@@ -207,24 +237,36 @@ export async function calculateWeeklyHours(monthYear: string): Promise<WeeklyHou
       const weeklyHours: WeeklyHours[] = [];
 
       for (const [key, days] of Array.from(weeklyGroups.entries())) {
-        const [staffId, weekStart] = key.split('-');
+        const dashIndex = key.indexOf('-');
+        const staffId = key.substring(0, dashIndex);
+        const weekStart = key.substring(dashIndex + 1);
         const staff_id = parseInt(staffId);
         
+        // Calculate total hours and non-holiday hours
         const totalHours = days.reduce((sum, day) => sum + day.total_hours, 0);
-        const overtimeHours = Math.max(0, totalHours - 48); // OT after 48 hours per week
+        const nonHolidayHours = days.reduce((sum, day) => {
+          // Exclude hours worked on holidays from overtime calculation
+          if (holidayDates.has(day.date)) {
+            return sum; // Don't add holiday hours to regular/OT calculation
+          }
+          return sum + day.total_hours;
+        }, 0);
+        
+        // Calculate overtime only on non-holiday hours
+        const overtimeHours = Math.max(0, nonHolidayHours - 48);
         
         weeklyHours.push({
           week_start: weekStart,
           staff_id,
-          total_hours: totalHours,
-          overtime_hours: overtimeHours
+          total_hours: totalHours, // Keep total for reporting
+          overtime_hours: overtimeHours // But calculate OT only on non-holiday hours
         });
       }
 
       return weeklyHours;
     },
     10 * 60 * 1000, // Cache for 10 minutes
-    1 // Single derived calculation
+    2 // Now includes holiday query + daily hours calculation
   );
 }
 
@@ -323,7 +365,9 @@ export async function getStaffCompensation(monthYear: string): Promise<Map<numbe
         .from('staff_compensation')
         .select(`
           staff_id,
+          compensation_type,
           base_salary,
+          hourly_rate,
           ot_rate_per_hour,
           holiday_rate_per_hour,
           is_service_charge_eligible,
@@ -343,7 +387,9 @@ export async function getStaffCompensation(monthYear: string): Promise<Map<numbe
       for (const comp of compensation || []) {
         compensationMap.set(comp.staff_id, {
           staff_id: comp.staff_id,
+          compensation_type: comp.compensation_type || 'salary',
           base_salary: comp.base_salary,
+          hourly_rate: comp.hourly_rate || 0,
           ot_rate_per_hour: comp.ot_rate_per_hour,
           holiday_rate_per_hour: comp.holiday_rate_per_hour,
           is_service_charge_eligible: comp.is_service_charge_eligible
@@ -515,21 +561,36 @@ export async function calculatePayrollForMonth(monthYear: string): Promise<Payro
           const staffHolidayHours = holidayHours.get(staffId) || 0;
           const staffWorkingDays = workingDays.get(staffId) || 0;
 
-          // Calculate payments
-          const allowance = staffWorkingDays * dailyAllowance;
+          // Calculate payments based on compensation type
+          let basePay = 0;
+          let allowance = 0;
+          
+          if (compensation.compensation_type === 'salary') {
+            // Salary staff: fixed base salary + daily allowance
+            basePay = compensation.base_salary;
+            allowance = staffWorkingDays * dailyAllowance;
+          } else if (compensation.compensation_type === 'hourly') {
+            // Hourly staff: total hours × hourly rate, no allowance
+            basePay = totalHours * compensation.hourly_rate;
+            allowance = 0; // Hourly staff don't get daily allowance
+          }
+          
           const overtimePay = overtimeHours * compensation.ot_rate_per_hour;
           const holidayPay = staffHolidayHours * compensation.holiday_rate_per_hour;
           const staffServiceCharge = compensation.is_service_charge_eligible ? serviceChargePerStaff : 0;
-          const totalPayout = compensation.base_salary + allowance + overtimePay + holidayPay + staffServiceCharge;
+          const totalPayout = basePay + allowance + overtimePay + holidayPay + staffServiceCharge;
 
           results.push({
             staff_id: staffId,
             staff_name: staff.staff_name,
+            compensation_type: compensation.compensation_type,
             working_days: staffWorkingDays,
             total_hours: totalHours,
             overtime_hours: overtimeHours,
             holiday_hours: staffHolidayHours,
-            base_salary: compensation.base_salary,
+            base_salary: compensation.compensation_type === 'salary' ? compensation.base_salary : 0,
+            hourly_rate: compensation.compensation_type === 'hourly' ? compensation.hourly_rate : 0,
+            base_pay: basePay,
             daily_allowance: allowance,
             overtime_pay: overtimePay,
             holiday_pay: holidayPay,
@@ -569,12 +630,11 @@ export async function calculatePayrollForMonth(monthYear: string): Promise<Payro
 }
 
 /**
- * Helper function to get Monday of the week for a given date
+ * Helper function to get Sunday of the week for a given date (Sunday-Saturday week)
  */
 function getWeekStart(date: Date): string {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-  d.setDate(diff);
+  const d = new Date(date.getTime()); // Create a proper copy to avoid mutation
+  const day = d.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  d.setDate(d.getDate() - day); // Subtract the day number to get to Sunday
   return d.toISOString().split('T')[0];
 } 
