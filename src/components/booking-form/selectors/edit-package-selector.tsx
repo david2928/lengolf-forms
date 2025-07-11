@@ -146,7 +146,7 @@ export function EditPackageSelector({
                         )}
                         {pkg.status === 'active' && (
                           <Badge variant="outline" className="text-xs">
-                            {pkg.sessions_used}/{pkg.sessions_total} used
+                            {pkg.sessions_total === null ? 'Unlimited' : `${pkg.sessions_used}/${pkg.sessions_total} used`}
                           </Badge>
                         )}
                       </div>

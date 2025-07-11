@@ -6,9 +6,10 @@ import { Search, X, Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
 interface SimpleCustomer {
-  id: number;
+  id: string; // Changed from number to string for UUID support
   customer_name: string;
   contact_number: string | null;
+  customer_code?: string; // Add customer code for enhanced search
 }
 
 interface CustomerSearchProps {
@@ -19,7 +20,7 @@ interface CustomerSearchProps {
   onSearchQueryChange: (query: string) => void;
   onCustomerSelect: (customer: SimpleCustomer) => void;
   onDialogOpenChange: (open: boolean) => void;
-  getSelectedCustomerDisplay: () => string;
+  getSelectedCustomerDisplay: () => string | { text: string; badge?: string };
 }
 
 export function CustomerSearch({
@@ -54,17 +55,25 @@ export function CustomerSearch({
 
   const filteredCustomers = customers.filter(customer => 
     customer.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (customer.contact_number?.includes(searchQuery) ?? false)
+    (customer.contact_number?.includes(searchQuery) ?? false) ||
+    (customer.customer_code?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
 
   const formatCustomerDisplay = (customer: SimpleCustomer, isList: boolean = false) => {
     if (isList) {
       return (
-        <div className="flex flex-col">
-          <span className="font-medium">{customer.customer_name}</span>
-          <span className="text-sm text-muted-foreground">
-            {customer.contact_number || 'No contact number'}
-          </span>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="font-medium truncate">{customer.customer_name}</span>
+            <span className="text-sm text-muted-foreground truncate">
+              {customer.contact_number || 'No contact number'}
+            </span>
+          </div>
+          {customer.customer_code && (
+            <span className="ml-2 px-2 py-1 text-xs font-mono bg-muted text-muted-foreground rounded border shrink-0">
+              {customer.customer_code}
+            </span>
+          )}
         </div>
       )
     }
@@ -82,7 +91,25 @@ export function CustomerSearch({
         className="w-full justify-between text-left h-auto min-h-[2.5rem] py-2 whitespace-normal bg-white"
         onClick={() => onDialogOpenChange(true)}
       >
-        <span className="truncate">{getSelectedCustomerDisplay()}</span>
+        <div className="flex items-center justify-between w-full min-w-0">
+          {(() => {
+            const display = getSelectedCustomerDisplay();
+            if (typeof display === 'string') {
+              return <span className="truncate">{display}</span>;
+            } else {
+              return (
+                <div className="flex items-center justify-between w-full min-w-0">
+                  <span className="truncate flex-1">{display.text}</span>
+                  {display.badge && (
+                    <span className="ml-2 px-2 py-1 text-xs font-mono bg-muted text-muted-foreground rounded border shrink-0">
+                      {display.badge}
+                    </span>
+                  )}
+                </div>
+              );
+            }
+          })()}
+        </div>
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>
 
@@ -133,11 +160,11 @@ export function CustomerSearch({
                     }}
                     className={cn(
                       "flex w-full items-center justify-between px-4 py-3 border-b hover:bg-accent cursor-pointer text-left",
-                      selectedCustomerId === customer.id.toString() && "bg-accent"
+                      selectedCustomerId === customer.id && "bg-accent"
                     )}
                   >
                     {formatCustomerDisplay(customer, true)}
-                    {selectedCustomerId === customer.id.toString() && (
+                    {selectedCustomerId === customer.id && (
                       <Check className="h-5 w-5 shrink-0 text-primary ml-2" />
                     )}
                   </button>
@@ -193,11 +220,11 @@ export function CustomerSearch({
                     }}
                     className={cn(
                       "flex w-full items-center justify-between px-4 py-3 border-b hover:bg-accent cursor-pointer text-left",
-                      selectedCustomerId === customer.id.toString() && "bg-accent"
+                      selectedCustomerId === customer.id && "bg-accent"
                     )}
                   >
                     {formatCustomerDisplay(customer, true)}
-                    {selectedCustomerId === customer.id.toString() && (
+                    {selectedCustomerId === customer.id && (
                       <Check className="h-5 w-5 shrink-0 text-primary ml-2" />
                     )}
                   </button>

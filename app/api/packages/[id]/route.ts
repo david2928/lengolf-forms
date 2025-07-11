@@ -8,11 +8,14 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // First fetch the package details
+    // First fetch the package details with customer information
     const { data: packageData, error: packageError } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('packages')
-      .select('*, package_types!inner(*)')
+      .select(`
+        *, 
+        package_types!inner(*)
+      `)
       .eq('id', params.id)
       .single()
 
@@ -22,6 +25,21 @@ export async function GET(
         { error: 'Package not found' },
         { status: 404 }
       )
+    }
+
+    // Fetch customer information separately
+    let customerData = null
+    if (packageData.customer_id) {
+      const { data: customer, error: customerError } = await refacSupabaseAdmin
+        .schema('public')
+        .from('customers')
+        .select('id, customer_name, customer_code, contact_number, email')
+        .eq('id', packageData.customer_id)
+        .single()
+      
+      if (!customerError && customer) {
+        customerData = customer
+      }
     }
 
     // Then fetch usage history
@@ -59,6 +77,7 @@ export async function GET(
 
     const packageDetails = {
       ...packageData,
+      customer: customerData,
       remainingHours,
       daysRemaining,
       usageHistory: usageData,

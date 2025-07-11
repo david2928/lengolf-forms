@@ -15,7 +15,7 @@ import { ConfirmationDialog } from './confirmation-dialog'
 import { PackageTypeSection } from './form-sections/package-type-section'
 
 interface SimpleCustomer {
-  id: number;
+  id: string;
   customer_name: string;
   contact_number: string | null;
 }
@@ -73,15 +73,19 @@ export default function PackageForm() {
         const packageResult = await packageResponse.json();
 
         // Fetch customers via API
-        const customersResponse = await fetch('/api/customers');
+        const customersResponse = await fetch('/api/customers?limit=1000&sortBy=customerName&sortOrder=asc');
         if (!customersResponse.ok) throw new Error('Failed to fetch customers');
-        const customersData = await customersResponse.json();
+        const customersDataResponse = await customersResponse.json();
+        
+        // Extract customers array from the structured response
+        const customersData = customersDataResponse.customers || [];
         
         // Transform and enrich customer data for UI
         const transformedCustomers = customersData.map((customer: any) => ({
-          id: parseInt(customer.id), // Convert string id back to number
+          id: customer.id, // Keep as string UUID (don't convert to number)
           customer_name: customer.customer_name,
           contact_number: customer.contact_number,
+          customer_code: customer.customer_code, // Include customer code
           displayName: customer.contact_number 
             ? `${customer.customer_name} (${customer.contact_number})`
             : customer.customer_name
@@ -182,7 +186,7 @@ export default function PackageForm() {
       return
     }
 
-    const selectedCustomer = formState.customers.find(c => c.id.toString() === formState.selectedCustomerId)
+    const selectedCustomer = formState.customers.find(c => c.id === formState.selectedCustomerId)
     console.log('Selected customer:', selectedCustomer)
     
     if (!selectedCustomer) {
@@ -221,6 +225,7 @@ export default function PackageForm() {
         body: JSON.stringify({
           employee_name: formState.formData.employeeName,
           customer_name: formState.formData.customerName,
+          customer_id: formState.selectedCustomerId,
           package_type_id: formState.formData.packageTypeId,
           purchase_date: format(formState.selectedDates.purchase!, 'yyyy-MM-dd'),
           first_use_date: null
@@ -252,21 +257,22 @@ export default function PackageForm() {
   }
 
   const getSelectedCustomerDisplay = () => {
-    const customer = formState.customers.find(c => c.id.toString() === formState.selectedCustomerId)
+    const customer = formState.customers.find(c => c.id === formState.selectedCustomerId)
     return customer?.displayName || 'Select customer'
   }
 
   const mappedCustomers = useMemo(() => formState.customers.map(customer => ({
     id: customer.id,
     customer_name: customer.customer_name,
-    contact_number: customer.contact_number
+    contact_number: customer.contact_number,
+    customer_code: customer.customer_code
   })), [formState.customers])
 
   const handleCustomerSelect = (customer: SimpleCustomer) => {
     console.log('Customer selected:', customer)
     setFormState(prev => ({
       ...prev,
-      selectedCustomerId: customer.id.toString(),
+      selectedCustomerId: customer.id, // Already a string UUID
       showCustomerDialog: false,
       searchQuery: ''
     }))

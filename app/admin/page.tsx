@@ -10,7 +10,10 @@ import {
   Shield,
   Activity,
   Mail,
-  Receipt
+  Receipt,
+  Users,
+  UserCheck,
+  Link2
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -48,6 +51,21 @@ const analyticsItems = [
     title: "Meta Leads",
     description: "Analyze Facebook/Instagram leads and spam detection",
     path: "/admin/meta-leads"
+  }
+];
+
+const customerItems = [
+  {
+    icon: UserCheck,
+    title: "Customer Management",
+    description: "Manage customer information and view analytics",
+    path: "/admin/customers"
+  },
+  {
+    icon: Link2,
+    title: "Customer Mapping",
+    description: "Link unmapped bookings and sales to customers",
+    path: "/admin/customers/mapping"
   }
 ];
 
@@ -139,6 +157,21 @@ export default function AdminDashboard() {
         </div>
 
         <div>
+          <h2 className="text-lg font-semibold mb-3">Customer Management</h2>
+          <div className="space-y-3">
+            {customerItems.map((item) => (
+              <MobileMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
           <h2 className="text-lg font-semibold mb-3">Inventory & Operations</h2>
           <div className="space-y-3">
             {inventoryItems.map((item) => (
@@ -175,6 +208,21 @@ export default function AdminDashboard() {
           <h2 className="text-2xl font-semibold mb-4 text-center md:text-left">Analytics & Reporting</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
             {analyticsItems.map((item) => (
+              <DesktopMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={isMobile ? undefined : item.description}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Customer Management</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
+            {customerItems.map((item) => (
               <DesktopMenuItem
                 key={item.title}
                 icon={item.icon}

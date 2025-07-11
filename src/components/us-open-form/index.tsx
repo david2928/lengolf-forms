@@ -39,7 +39,7 @@ interface USOpenSubmission {
 }
 
 interface SimpleCustomer {
-  id: number
+  id: string
   customer_name: string
   contact_number: string | null
 }
@@ -131,14 +131,14 @@ export function USOpenForm() {
 
   // Map customers to the format expected by CustomerSearch component
   const mappedCustomers: SimpleCustomer[] = customers.map((customer) => ({
-    id: parseInt(customer.id),
+    id: customer.id,
     customer_name: customer.customer_name,
     contact_number: customer.contact_number
   }))
 
   const getSelectedCustomerDisplay = () => {
     if (!selectedCustomerId) return 'Select customer'
-    const customer = mappedCustomers.find((c: SimpleCustomer) => c.id.toString() === selectedCustomerId)
+    const customer = mappedCustomers.find((c: SimpleCustomer) => c.id === selectedCustomerId)
     if (!customer) return 'Select customer'
     return customer.contact_number 
       ? `${customer.customer_name} (${customer.contact_number})`

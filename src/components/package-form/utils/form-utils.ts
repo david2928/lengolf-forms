@@ -30,21 +30,17 @@ export function formatErrorMessage(error: any): string {
 export function transformCustomer(rawCustomer: any): Customer {
   return {
     id: rawCustomer.id,
-    store: rawCustomer.store,
+    customer_code: rawCustomer.customer_code,
     customer_name: rawCustomer.customer_name,
     contact_number: rawCustomer.contact_number,
-    address: rawCustomer.address,
     email: rawCustomer.email,
-    date_of_birth: rawCustomer.date_of_birth,
-    date_joined: rawCustomer.date_joined,
-    available_credit: rawCustomer.available_credit,
-    available_point: rawCustomer.available_point,
-    source: rawCustomer.source,
-    sms_pdpa: rawCustomer.sms_pdpa,
-    email_pdpa: rawCustomer.email_pdpa,
-    batch_id: rawCustomer.batch_id,
-    update_time: rawCustomer.update_time,
+    preferred_contact_method: rawCustomer.preferred_contact_method,
+    customer_status: rawCustomer.customer_status,
+    lifetime_spending: rawCustomer.lifetime_spending,
+    total_bookings: rawCustomer.total_bookings,
+    last_visit_date: rawCustomer.last_visit_date,
     created_at: rawCustomer.created_at,
+    is_active: rawCustomer.is_active,
     stable_hash_id: rawCustomer.stable_hash_id,
     displayName: rawCustomer.contact_number 
       ? `${rawCustomer.customer_name} (${rawCustomer.contact_number})`

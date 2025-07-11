@@ -42,7 +42,7 @@ export function DateOverridesManager({ coachId }: DateOverridesManagerProps) {
   // Fetch existing date overrides
   const fetchOverrides = async () => {
     try {
-      const response = await fetch(`/api/coaching/availability/date-overrides?coachId=${coachId}`);
+      const response = await fetch(`/api/coaching/availability/date-overrides?coach_id=${coachId}`);
       if (response.ok) {
         const data = await response.json();
         setOverrides(data.dateOverrides || []);
@@ -58,8 +58,10 @@ export function DateOverridesManager({ coachId }: DateOverridesManagerProps) {
   };
 
   useEffect(() => {
-    fetchOverrides();
-  }, []);
+    if (coachId) {
+      fetchOverrides();
+    }
+  }, [coachId]);
 
   // Save new override
   const saveNewOverride = async () => {
@@ -151,7 +153,7 @@ export function DateOverridesManager({ coachId }: DateOverridesManagerProps) {
 
     setSaving(true);
     try {
-      const response = await fetch(`/api/coaching/availability/date-overrides?id=${id}&coachId=${coachId}`, {
+      const response = await fetch(`/api/coaching/availability/date-overrides?id=${id}&coach_id=${coachId}`, {
         method: 'DELETE',
       });
 

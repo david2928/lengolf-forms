@@ -269,16 +269,18 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-2 pt-4">
-          {!isPastBooking && !isCancelled && (
+          {!isCancelled && (
             <>
               <Button onClick={handleOpenEditModal} variant="default" size="sm">
                 <Edit className="h-4 w-4 mr-1" />
                 Edit
               </Button>
-              <Button onClick={handleOpenCancelModal} variant="destructive" size="sm">
-                <X className="h-4 w-4 mr-1" />
-                Cancel
-              </Button>
+              {!isPastBooking && (
+                <Button onClick={handleOpenCancelModal} variant="destructive" size="sm">
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel
+                </Button>
+              )}
             </>
           )}
           <Button onClick={onClose} variant="outline">

@@ -90,6 +90,10 @@ export default function ReconciliationResults({
 
   // Auto-start reconciliation when data is available
   useEffect(() => {
+    console.log('🔄 ReconciliationResults useEffect triggered');
+    console.log('📅 Date range received:', dateRange);
+    console.log('📊 Uploaded data:', uploadedData?.autoDetectedDateRange);
+    
     if (uploadedData?.data?.items && !isProcessing && !reconciliationResult && !error) {
       startReconciliation();
     }

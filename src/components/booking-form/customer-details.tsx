@@ -4,17 +4,34 @@ import { useState } from 'react'
 import { CustomerSearch } from '@/components/package-form/customer-search'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { Customer } from '@/types/package-form'
+// Customer type for the new customer management system
+interface NewCustomer {
+  id: string;
+  customer_code: string;
+  customer_name: string;
+  contact_number?: string;
+  email?: string;
+  preferred_contact_method?: 'Phone' | 'LINE' | 'Email';
+  customer_status: string;
+  lifetime_spending: string;
+  total_bookings: number;
+  last_visit_date?: string;
+  // Legacy compatibility
+  stable_hash_id?: string;
+}
 
 interface CustomerDetailsProps {
   isNewCustomer: boolean
-  customers: Customer[]
+  customers: NewCustomer[]
   selectedCustomerId: string
-  onCustomerSelect: (customer: Customer) => void
+  onCustomerSelect: (customer: NewCustomer) => void
   customerName: string
   onCustomerNameChange: (value: string) => void
   phoneNumber: string
   onPhoneNumberChange: (value: string) => void
+  // New search props
+  searchQuery: string
+  onSearchQueryChange: (query: string) => void
   error?: {
     customer?: string
     customerName?: string
@@ -31,14 +48,15 @@ export function CustomerDetails({
   onCustomerNameChange,
   phoneNumber,
   onPhoneNumberChange,
+  searchQuery,
+  onSearchQueryChange,
   error
 }: CustomerDetailsProps) {
   const [showCustomerDialog, setShowCustomerDialog] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
 
   const getSelectedCustomerDisplay = () => {
     if (!selectedCustomerId) return 'Select customer'
-    const customer = customers.find(c => c.id.toString() === selectedCustomerId)
+    const customer = customers.find(c => c.id === selectedCustomerId)
     if (!customer) return 'Select customer'
     return customer.contact_number 
       ? `${customer.customer_name} (${customer.contact_number})`
@@ -46,12 +64,13 @@ export function CustomerDetails({
   }
 
   const mappedCustomers = customers.map(customer => ({
-    id: customer.id,
-    customer_name: customer.customer_name,
-    contact_number: customer.contact_number
+    id: customer.id, // Keep as string UUID
+    customer_name: customer.customer_name, // Just the name, no code prefix
+    contact_number: customer.contact_number || null,
+    customer_code: customer.customer_code // Keep code separate for badge display
   }));
 
-  const handleCustomerSelection = (simpleCustomer: { id: number; customer_name: string; contact_number: string | null }) => {
+  const handleCustomerSelection = (simpleCustomer: { id: string; customer_name: string; contact_number: string | null }) => {
     const originalCustomer = customers.find(c => c.id === simpleCustomer.id)
     if (originalCustomer) {
       onCustomerSelect(originalCustomer)
@@ -97,10 +116,22 @@ export function CustomerDetails({
             selectedCustomerId={selectedCustomerId}
             showCustomerDialog={showCustomerDialog}
             searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
+            onSearchQueryChange={onSearchQueryChange}
             onCustomerSelect={handleCustomerSelection}
             onDialogOpenChange={setShowCustomerDialog}
-            getSelectedCustomerDisplay={getSelectedCustomerDisplay}
+            getSelectedCustomerDisplay={() => {
+              if (!selectedCustomerId) return 'Select customer'
+              const customer = customers.find(c => c.id === selectedCustomerId)
+              if (!customer) return 'Select customer'
+              
+              // Return an object for complex display with badge
+              return {
+                text: customer.contact_number 
+                  ? `${customer.customer_name} (${customer.contact_number})`
+                  : customer.customer_name,
+                badge: customer.customer_code
+              }
+            }}
           />
           {error?.customer && (
             <p className="text-sm text-red-500">{error.customer}</p>

@@ -1,24 +1,22 @@
 import { UseFormReturn } from 'react-hook-form'
 
 export interface Customer {
-  id: number
-  store: string
+  id: string // Changed to string UUID for new customer management system
+  customer_code: string // New customer code field (CUS-001, etc.)
   customer_name: string
   contact_number: string | null
-  address: string | null
   email: string | null
-  date_of_birth: string | null
-  date_joined: string | null
-  available_credit: number | null
-  available_point: number | null
-  source: string | null
-  sms_pdpa: boolean | null
-  email_pdpa: boolean | null
-  batch_id: string
-  update_time: string
-  created_at: string | null
-  stable_hash_id: string | null
+  preferred_contact_method?: 'Phone' | 'LINE' | 'Email'
+  customer_status?: string
+  lifetime_spending?: string
+  total_bookings?: number
+  last_visit_date?: string
+  created_at?: string
+  is_active?: boolean
   displayName?: string // Added for UI purposes
+  
+  // Legacy fields (can be deprecated later)
+  stable_hash_id?: string | null
 }
 
 export interface PackageType {

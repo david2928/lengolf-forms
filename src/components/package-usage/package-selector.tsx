@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 
 interface PackageSelectorProps {
   value: string | null
-  onChange: (value: string, name: string) => void
+  onChange: (value: string, name: string, packageData?: Package) => void
   isLoading?: boolean
 }
 
@@ -40,7 +40,12 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
   const formatPackageDetails = (pkg: Package) => {
     return (
       <div className="flex flex-col w-full text-left">
-        <div className="text-base font-medium text-foreground text-left">{pkg.details.customerName}</div>
+        <div className="text-base font-medium text-foreground text-left">
+          {pkg.details.customerName}
+          {pkg.details.customerCode && (
+            <span className="text-sm text-muted-foreground ml-2">({pkg.details.customerCode})</span>
+          )}
+        </div>
         <div className="text-sm text-muted-foreground text-left">
           {pkg.details.packageTypeName} - {
             pkg.details.firstUseDate 
@@ -61,12 +66,14 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
     const searchTerm = searchQuery.toLowerCase()
     return (
       pkg.details.customerName.toLowerCase().includes(searchTerm) ||
-      pkg.details.packageTypeName.toLowerCase().includes(searchTerm)
+      pkg.details.packageTypeName.toLowerCase().includes(searchTerm) ||
+      (pkg.details.customerCode && pkg.details.customerCode.toLowerCase().includes(searchTerm)) ||
+      (pkg.details.contactNumber && pkg.details.contactNumber.includes(searchTerm))
     )
   })
 
   const handleSelectPackage = (pkg: Package) => {
-    onChange(pkg.id, pkg.label)
+    onChange(pkg.id, pkg.label, pkg)
     setOpen(false)
     setSearchQuery("")
   }
@@ -129,7 +136,7 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <input
                   className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="Search by name or package type..."
+                  placeholder="Search by name, code, phone, or package type..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoComplete="off"
@@ -203,7 +210,7 @@ export function PackageSelector({ value, onChange, isLoading: isLoadingProp }: P
                       <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                       <input
                         className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        placeholder="Search by name or package type..."
+                        placeholder="Search by name, code, phone, or package type..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         autoComplete="off"

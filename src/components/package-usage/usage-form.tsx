@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/use-toast'
 import { FullscreenSignature } from './fullscreen-signature'
 import { AcknowledgmentDialog } from './acknowledgment-dialog'
 import { PackageUsageFormData, UsageFormState } from '@/types/package-usage'
+import { Package } from '@/hooks/usePackages'
 import { Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -32,6 +33,7 @@ export function UsageForm() {
   })
 
   const [selectedPackageName, setSelectedPackageName] = useState<string | null>(null)
+  const [selectedPackageData, setSelectedPackageData] = useState<any>(null)
   const [currentPackageRemainingHours, setCurrentPackageRemainingHours] = useState<number | null>(null);
   const [currentPackageExpirationDate, setCurrentPackageExpirationDate] = useState<string | null>(null);
   const [isPackageActivated, setIsPackageActivated] = useState<boolean>(true);
@@ -49,8 +51,9 @@ export function UsageForm() {
       customerSignature: null,
     });
 
-    // Reset selected package name
+    // Reset selected package name and data
     setSelectedPackageName(null);
+    setSelectedPackageData(null);
     setCurrentPackageRemainingHours(null); // Reset remaining hours
     setCurrentPackageExpirationDate(null); // Reset expiration date
     setIsPackageActivated(true); // Reset activation status
@@ -181,10 +184,9 @@ export function UsageForm() {
     setShowAcknowledgmentDialog(false);
   };
 
-  // Parse package name for fullscreen signature
-  const packageParts = selectedPackageName?.split(' - ') || [];
-  const customerInfo = packageParts[0] || 'Unknown Customer';
-  const packageType = packageParts[1] || 'Unknown Package';
+  // Get customer info from package data for fullscreen signature
+  const customerInfo = selectedPackageData?.details?.customerName || 'Unknown Customer';
+  const packageType = selectedPackageData?.details?.packageTypeName || 'Unknown Package';
 
   return (
     <>
@@ -205,9 +207,10 @@ export function UsageForm() {
           <PackageSelector
             key={formState.success ? 'reset' : 'package'} // Force re-render on success
             value={formData.packageId}
-            onChange={(id, name) => {
+            onChange={(id, name, packageData) => {
               setFormData((prev) => ({ ...prev, packageId: id }));
               setSelectedPackageName(name);
+              setSelectedPackageData(packageData || null);
               setCurrentPackageRemainingHours(null); // Reset here
               setCurrentPackageExpirationDate(null); // Reset here too
             }}

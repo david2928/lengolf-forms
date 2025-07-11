@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
       paymentMethod,
       staffName,
       customerName,
+      customerId,
       minAmount,
       maxAmount,
       hasSimUsage,
@@ -23,15 +24,18 @@ export async function POST(request: NextRequest) {
 
     const startTime = Date.now();
 
-    // Execute the database function
+    // Execute the database function - use v2 if customer_id is provided or if explicitly requested
+    const useV2 = customerId || body.useNewSystem !== false;
+    
     const { data: transactions, error: transactionsError } = await refacSupabaseAdmin
-      .rpc('get_transactions_list', {
+      .rpc(useV2 ? 'get_transactions_list_v2' : 'get_transactions_list', {
         p_start_date: startDate,
         p_end_date: endDate,
         p_status: status,
         p_payment_method: paymentMethod,
         p_staff_name: staffName,
         p_customer_name: customerName,
+        ...(useV2 ? { p_customer_id: customerId } : {}),
         p_min_amount: minAmount,
         p_max_amount: maxAmount,
         p_has_sim_usage: hasSimUsage,
@@ -50,6 +54,7 @@ export async function POST(request: NextRequest) {
       date: t.date,
       sales_timestamp: t.sales_timestamp,
       customer_name: t.customer_name,
+      customer_id: t.customer_id,
       staff_name: t.staff_name,
       payment_method: t.payment_method,
       total_amount: parseFloat(t.total_amount || 0),

@@ -165,7 +165,7 @@ async function fetchPOSData(reconciliationType: string, dateRange: { start: stri
         .gte('date', dateRange.start)
         .lte('date', dateRange.end)
         .in('product_name', ['1 Golf Lesson Used', '1 Golf Lesson Used (Ratchavin)'])
-        .eq('is_voided', false)
+        .or('is_voided.is.null,is_voided.eq.false')
         .order('date', { ascending: true });
       break;
 
@@ -178,7 +178,7 @@ async function fetchPOSData(reconciliationType: string, dateRange: { start: stri
         .gte('date', dateRange.start)
         .lte('date', dateRange.end)
         .in('product_name', ['1 Golf Lesson Used', '1 Golf Lesson Used (Boss)'])
-        .eq('is_voided', false)
+        .or('is_voided.is.null,is_voided.eq.false')
         .order('date', { ascending: true });
       break;
 

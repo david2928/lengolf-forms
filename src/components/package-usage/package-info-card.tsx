@@ -7,7 +7,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 interface PackageDetails {
   id: string
-  customer_name: string
+  customer: {
+    id: string
+    customer_name: string
+    customer_code: string
+    contact_number: string | null
+    email: string | null
+  } | null
   package_types: {
     name: string
   }
@@ -119,7 +125,12 @@ export function PackageInfoCard({ packageId, isLoading = false, onDataLoaded }: 
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           <div>
             <p className="text-sm font-medium text-gray-500">Customer</p>
-            <p className="text-sm font-semibold">{packageDetails.customer_name}</p>
+            <p className="text-sm font-semibold">
+              {packageDetails.customer?.customer_name || 'Unknown Customer'}
+            </p>
+            {packageDetails.customer?.customer_code && (
+              <p className="text-xs text-gray-400">{packageDetails.customer.customer_code}</p>
+            )}
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Package Type</p>

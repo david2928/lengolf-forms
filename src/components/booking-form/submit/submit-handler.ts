@@ -126,7 +126,10 @@ function formatBookingData(formData: FormData): Booking {
   // 5. Assemble the Booking object for DB insertion
   const formattedDate = format(bookingDateObj, 'yyyy-MM-dd'); // Use bookingDateObj
 
-  const bookingForDb: Booking = {
+  const bookingForDb: Booking & { 
+    isNewCustomer?: boolean;
+    customer_id?: string;
+  } = {
     id: bookingId,
     user_id: '059090f8-2d76-4f10-81de-5efe4d2d0fd8',
     name: formData.customerName || 'Unknown Customer',
@@ -141,8 +144,11 @@ function formatBookingData(formData: FormData): Booking {
     customer_notes: formData.notes || null,
     booking_type: formData.bookingType || null,
     package_name: formData.packageName || null,
-    stable_hash_id: formData.customerStableHashId || null,
+    stable_hash_id: formData.customerStableHashId || undefined,
     package_id: formData.packageId || null,
+    // New fields for customer management integration
+    isNewCustomer: formData.isNewCustomer,
+    customer_id: formData.customerId || undefined,
   };
 
   return bookingForDb;
@@ -211,7 +217,9 @@ function formatLineMessage(formData: FormData, bookingId?: string): string {
 
   const bookingTypeDisplay = formData.packageName ? `${formData.bookingType} (${formData.packageName})` : formData.bookingType;
 
-  const customerNameDisplay = formData.isNewCustomer ? `${formData.customerName} (New Customer)` : formData.customerName;
+  const customerNameDisplay = formData.isNewCustomer 
+    ? `${formData.customerName} (New Customer)` 
+    : formData.customerName;
 
   // Use the original bay display name from the form
   const bayDisplay = formData.bayNumber;

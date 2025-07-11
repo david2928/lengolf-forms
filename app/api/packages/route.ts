@@ -16,16 +16,38 @@ export async function POST(request: NextRequest) {
     const { 
       employee_name, 
       customer_name, 
+      customer_id, 
       package_type_id, 
       purchase_date, 
       first_use_date 
     } = body;
 
-    // Validate required fields
-    if (!employee_name || !customer_name || !package_type_id || !purchase_date) {
+    // Validate required fields - prioritize customer_id over customer_name
+    if (!employee_name || (!customer_id && !customer_name) || !package_type_id || !purchase_date) {
       return NextResponse.json({ 
-        error: "Missing required fields: employee_name, customer_name, package_type_id, purchase_date" 
+        error: "Missing required fields: employee_name, customer_id (or customer_name), package_type_id, purchase_date" 
       }, { status: 400 });
+    }
+
+    // If customer_id is provided, fetch customer details
+    let finalCustomerName = customer_name;
+    let finalCustomerId = customer_id;
+
+    if (customer_id) {
+      const { data: customer, error: customerError } = await refacSupabaseAdmin
+        .from('customers')
+        .select('customer_name')
+        .eq('id', customer_id)
+        .single();
+
+      if (customerError) {
+        console.error('Error fetching customer:', customerError);
+        return NextResponse.json({ 
+          error: "Invalid customer ID provided" 
+        }, { status: 400 });
+      }
+
+      finalCustomerName = customer.customer_name;
     }
 
     // Insert package into database
@@ -34,7 +56,8 @@ export async function POST(request: NextRequest) {
       .from('packages')
       .insert([{
         employee_name,
-        customer_name,
+        customer_name: finalCustomerName,
+        customer_id: finalCustomerId,
         package_type_id,
         purchase_date,
         first_use_date: first_use_date || null

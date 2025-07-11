@@ -17,7 +17,8 @@ interface Package {
 export function useCustomerPackages(
   customerName: string | null, 
   contactNumber?: string | null,
-  includeInactive: boolean = false
+  includeInactive: boolean = false,
+  customerId?: string | null
 ) {
   const [packages, setPackages] = useState<Package[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -25,7 +26,7 @@ export function useCustomerPackages(
 
   useEffect(() => {
     async function fetchPackages() {
-      if (!customerName) {
+      if (!customerName && !customerId) {
         setPackages([])
         return
       }
@@ -34,12 +35,19 @@ export function useCustomerPackages(
       setError(null)
 
       try {
-        const searchName = contactNumber 
-          ? `${customerName} (${contactNumber})`
-          : customerName
-
-        // Use the API endpoint with include_inactive parameter
-        const url = `/api/packages/by-customer/${encodeURIComponent(searchName)}${includeInactive ? '?include_inactive=true' : ''}`
+        let url: string;
+        
+        if (customerId) {
+          // Use customer ID for new system
+          url = `/api/packages/by-customer/${customerId}${includeInactive ? '?include_inactive=true' : ''}`
+        } else {
+          // Fallback to customer name for legacy support
+          const searchName = contactNumber 
+            ? `${customerName} (${contactNumber})`
+            : customerName || ''
+          url = `/api/packages/by-customer/${encodeURIComponent(searchName)}${includeInactive ? '?include_inactive=true' : ''}`
+        }
+        
         const response = await fetch(url)
         
         if (!response.ok) {
@@ -71,7 +79,7 @@ export function useCustomerPackages(
     }
 
     fetchPackages()
-  }, [customerName, contactNumber, includeInactive])
+  }, [customerName, contactNumber, includeInactive, customerId])
 
   return { packages, isLoading, error }
 }

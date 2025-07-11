@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
 
 interface SimpleCustomer {
-  id: number;
+  id: string;
   customer_name: string;
   contact_number: string | null;
 }
@@ -22,7 +22,7 @@ export function CustomerSection({
   onCustomerSelect,
   onDialogOpenChange
 }: CustomerSectionProps) {
-  const displayCustomer = customers.find(c => c.id === parseInt(selectedCustomerId))
+  const displayCustomer = customers.find(c => c.id === selectedCustomerId)
   
   const getSelectedCustomerDisplay = () => {
     if (!displayCustomer) return 'Select customer'

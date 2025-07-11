@@ -9,7 +9,21 @@ import { StepHeader } from './step-header';
 import { StepNavigation } from './navigation/step-navigation';
 import { handleFormSubmit } from './submit/submit-handler';
 import type { FormData, FormErrors } from './types';
-import type { Customer } from '@/types/package-form';
+// Customer type for the new customer management system
+interface NewCustomer {
+  id: string;
+  customer_code: string;
+  customer_name: string;
+  contact_number?: string;
+  email?: string;
+  preferred_contact_method?: 'Phone' | 'LINE' | 'Email';
+  customer_status: string;
+  lifetime_spending: string;
+  total_bookings: number;
+  last_visit_date?: string;
+  // Legacy compatibility
+  stable_hash_id?: string;
+}
 
 const TOTAL_STEPS = 3;
 
@@ -41,14 +55,22 @@ export function BookingForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [canProgress, setCanProgress] = useState(false);
 
-  const { data: customers = [], mutate: mutateCustomers } = useSWR<Customer[]>(
-    '/api/customers?forceRefresh=true',
+  // Dynamic customer search - will fetch based on search query or show recent customers
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchUrl = searchQuery.length >= 2 
+    ? `/api/customers?search=${encodeURIComponent(searchQuery)}&limit=100` 
+    : '/api/customers?limit=100&sortBy=lastVisit&sortOrder=desc'; // Show recent customers when no search
+
+  const { data: customersResponse, mutate: mutateCustomers } = useSWR<{customers: NewCustomer[], pagination: any, kpis: any}>(
+    searchUrl,
     async (url: string) => {
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch customers');
       return response.json();
     }
   );
+
+  const customers = customersResponse?.customers || [];
 
   useEffect(() => {
     mutateCustomers();
@@ -88,10 +110,10 @@ export function BookingForm() {
     }
   };
 
-  const handleCustomerSelect = (customer: Customer) => {
+  const handleCustomerSelect = (customer: NewCustomer) => {
     setFormData(prev => ({
       ...prev,
-      customerId: customer.id.toString(),
+      customerId: customer.id, // Already a string UUID
       customerName: customer.customer_name,
       customerPhone: customer.contact_number || undefined,
       customerStableHashId: customer.stable_hash_id
@@ -152,12 +174,27 @@ export function BookingForm() {
   const contextValue = {
     formData,
     errors,
-    setFormValue: (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value })),
+    setFormValue: (field: string, value: any) => {
+      setFormData(prev => {
+        const updated = { ...prev, [field]: value };
+        
+        // Clear package selection when booking type changes
+        if (field === 'bookingType' && prev.bookingType !== value) {
+          updated.packageId = '';
+          updated.packageName = '';
+        }
+        
+        return updated;
+      });
+    },
     handleCustomerSelect,
     handlePackageSelection,
     isSubmitting,
     customers,
-    mutateCustomers
+    mutateCustomers,
+    // Search functionality
+    searchQuery,
+    onSearchQueryChange: setSearchQuery
   };
 
   return (

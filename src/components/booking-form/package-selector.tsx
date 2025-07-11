@@ -11,6 +11,7 @@ interface PackageSelectorProps {
   value: string
   customerName: string
   customerPhone?: string
+  customerId?: string
   bookingType?: string | null
   onChange: (value: string | null, packageName: string) => void
   error?: string
@@ -21,6 +22,7 @@ export function PackageSelector({
   value,
   customerName,
   customerPhone,
+  customerId,
   bookingType,
   onChange,
   error,
@@ -38,7 +40,8 @@ export function PackageSelector({
   const { packages, isLoading, error: packagesError } = useCustomerPackages(
     customerName, 
     customerPhone,
-    shouldIncludeInactive
+    shouldIncludeInactive,
+    customerId
   )
   const [newPackageName, setNewPackageName] = useState("")
 

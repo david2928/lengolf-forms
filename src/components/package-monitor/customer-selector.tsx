@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Search, X, Check, ChevronsUpDown, ChevronDown, ChevronUp, History } from 'lucide-react'
+import { Search, X, Check, ChevronsUpDown, ChevronDown, ChevronUp, History, Loader2 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -14,19 +14,21 @@ import { UsageHistoryDialog } from "@/components/package-monitor/usage-history-d
 
 interface Package {
   id: string;
-  customer_name: string;
-  package_type_name: string;
+  package_name: string;
   package_type: string;
   purchase_date?: string;
   first_use_date: string | null;
   expiration_date: string;
   employee_name?: string | null;
-  remaining_hours?: number | string;
-  used_hours?: number | string;
+  uses_remaining?: number;
+  used_hours?: number;
+  original_uses?: number;
+  status: 'active' | 'expired' | 'unused' | 'fully_used' | 'unlimited';
 }
 
 interface Customer {
   customer_name: string;
+  customer_id: string;
   has_active_packages: boolean;
 }
 
@@ -38,11 +40,13 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
   const [showDialog, setShowDialog] = useState(false)
   const [showActive, setShowActive] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<string>()
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>()
   const [searchQuery, setSearchQuery] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [packages, setPackages] = useState<Package[]>([])
   const [expandedPackages, setExpandedPackages] = useState<Set<string>>(new Set())
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null)
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false)
   const isMobile = useMediaQuery('(max-width: 768px)')
 
   useEffect(() => {
@@ -57,40 +61,48 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
   useEffect(() => {
     async function fetchCustomers() {
       try {
-        const response = await fetch('/api/customers/with-packages')
+        setIsLoadingCustomers(true);
+        const searchParam = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
+        const response = await fetch(`/api/customers/with-packages${searchParam}`)
         const data = await response.json()
         setCustomers(data)
       } catch (error) {
         console.error('Error fetching customers:', error)
+      } finally {
+        setIsLoadingCustomers(false);
       }
     }
-    fetchCustomers()
-  }, [])
+
+    // Debounce search to avoid too many API calls
+    const timeoutId = setTimeout(fetchCustomers, searchQuery ? 300 : 0);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery])
 
   useEffect(() => {
     async function fetchPackages() {
-      if (selectedCustomer) {
+      if (selectedCustomerId) {
         try {
           // Use server-side filtering instead of client-side
           const includeExpired = !showActive;
           const includeUsed = !showActive;
           
           const response = await fetch(
-            `/api/packages/customer/${selectedCustomer}?include_expired=${includeExpired}&include_used=${includeUsed}`
+            `/api/packages/customer/${selectedCustomerId}?include_expired=${includeExpired}&include_used=${includeUsed}`
           )
           const data = await response.json()
-          setPackages(data)
+          // The API returns { packages: [...], summary: {...}, customer: {...} }
+          setPackages(data.packages || [])
         } catch (error) {
           console.error('Error fetching packages:', error)
+          setPackages([])
         }
       }
     }
     fetchPackages()
-  }, [selectedCustomer, showActive]) // Add showActive as dependency
+  }, [selectedCustomerId, showActive]) // Add showActive as dependency
 
-  const filteredCustomers = customers?.filter(customer => 
-    customer.customer_name.toLowerCase().includes(searchQuery.toLowerCase())
-  ) ?? [];
+  // No need for client-side filtering since we're doing server-side search
+  const filteredCustomers = customers ?? [];
 
   // Remove client-side filtering since we're now doing it server-side
   const filteredPackages = packages;
@@ -150,24 +162,22 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
       <div className="space-y-3">
         {filteredPackages.map((pkg) => {
           const isExpanded = expandedPackages.has(pkg.id);
-          const isInactive = pkg.first_use_date === null;
-                     const today = new Date();
-           today.setHours(0, 0, 0, 0);
-           const expirationDate = new Date(pkg.expiration_date);
-           expirationDate.setHours(0, 0, 0, 0);
-           const daysRemaining = differenceInDays(expirationDate, today);
-          const isExpired = !isInactive && daysRemaining < 0;
+          const isInactive = pkg.status === 'unused';
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const expirationDate = new Date(pkg.expiration_date);
+          expirationDate.setHours(0, 0, 0, 0);
+          const daysRemaining = differenceInDays(expirationDate, today);
+          const isExpired = pkg.status === 'expired';
           
-          const isUnlimited = pkg.package_type === 'Unlimited' || pkg.remaining_hours === 'Unlimited';
+          const isUnlimited = pkg.status === 'unlimited';
           
-          // Handle remaining hours parsing
-          const remainingHoursNum = typeof pkg.remaining_hours === 'string' ? 
-            parseFloat(pkg.remaining_hours) : pkg.remaining_hours;
-          const usedHoursNum = typeof pkg.used_hours === 'string' ? 
-            parseFloat(pkg.used_hours) : pkg.used_hours;
+          // Use the calculated values from API
+          const remainingHoursNum = pkg.uses_remaining || 0;
+          const usedHoursNum = pkg.used_hours || 0;
+          const originalHours = pkg.original_uses || 0;
           
-          const totalHours = (usedHoursNum ?? 0) + (remainingHoursNum ?? 0);
-          const isFullyUsed = !isUnlimited && !isInactive && usedHoursNum === totalHours && totalHours > 0 && !isExpired;
+          const isFullyUsed = pkg.status === 'fully_used';
 
                      // Format the days remaining text
            const formatDaysRemaining = () => {
@@ -181,11 +191,8 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
 
           const daysText = formatDaysRemaining();
 
-          // Extract base name for display
-          const phoneMatch = pkg.customer_name.match(/\((\d+)\)$/);
-          const baseName = phoneMatch 
-            ? pkg.customer_name.slice(0, pkg.customer_name.lastIndexOf('(')).trim() 
-            : pkg.customer_name;
+          // Use selected customer name for display
+          const baseName = selectedCustomer ? formatCustomerDisplay(selectedCustomer).split(' (')[0] : 'Customer';
           
           return (
             <Card key={pkg.id} className={cn(
@@ -226,11 +233,11 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-sm text-muted-foreground">Customer</div>
-                      <div className="font-medium">{pkg.customer_name}</div>
+                      <div className="font-medium">{selectedCustomer}</div>
                     </div>
                     <div>
                       <div className="text-sm text-muted-foreground">Package Type</div>
-                      <div className="font-medium">{pkg.package_type_name}</div>
+                      <div className="font-medium">{pkg.package_name}</div>
                     </div>
                     <div>
                       <div className="text-sm text-muted-foreground">Purchase Date</div>
@@ -245,11 +252,11 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                       </div>
                     </div>
                     {/* Remove Hours Used and Remaining Hours for Unlimited packages */}
-                    {typeof remainingHoursNum === 'number' && !isUnlimited && (
+                    {!isUnlimited && (
                       <>
                         <div>
                           <div className="text-sm text-muted-foreground">Hours Used</div>
-                          <div>{(usedHoursNum || 0).toFixed(1)}</div>
+                          <div>{usedHoursNum.toFixed(1)}</div>
                         </div>
                         <div>
                           <div className="text-sm text-muted-foreground">Remaining Hours</div>
@@ -318,20 +325,29 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
       </div>
 
       <div className={isMobile ? "flex-1 overflow-y-auto" : "overflow-y-auto max-h-[calc(80vh-8.5rem)]"}>
-        {filteredCustomers.length === 0 && (
+        {isLoadingCustomers && (
           <div className="py-6 text-center text-sm text-muted-foreground">
-            No customers found.
+            <div className="flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Searching customers...
+            </div>
+          </div>
+        )}
+        {!isLoadingCustomers && filteredCustomers.length === 0 && (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            {searchQuery ? "No customers found matching your search." : "No customers found."}
           </div>
         )}
         <div className="space-y-0">
-          {filteredCustomers.map((customer) => (
+          {!isLoadingCustomers && filteredCustomers.map((customer) => (
             <button
-              key={customer.customer_name}
+              key={customer.customer_id}
               onClick={() => {
                 setSelectedCustomer(customer.customer_name)
+                setSelectedCustomerId(customer.customer_id)
                 setShowDialog(false)
                 setSearchQuery("")
-                onCustomerSelect(customer.customer_name)
+                onCustomerSelect(customer.customer_id)
               }}
               className={cn(
                 "flex w-full items-center justify-between px-4 py-3 border-b hover:bg-accent cursor-pointer text-left",

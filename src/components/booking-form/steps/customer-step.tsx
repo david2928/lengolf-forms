@@ -17,7 +17,9 @@ export function CustomerStep() {
     handlePackageSelection,
     isSubmitting,
     customers,
-    mutateCustomers 
+    mutateCustomers,
+    searchQuery,
+    onSearchQueryChange
   } = useFormContext();
 
   useEffect(() => {
@@ -42,6 +44,8 @@ export function CustomerStep() {
         onCustomerNameChange={(value) => setFormValue('customerName', value)}
         phoneNumber={formData.customerPhone || ''}
         onPhoneNumberChange={(value) => setFormValue('customerPhone', value)}
+        searchQuery={searchQuery}
+        onSearchQueryChange={onSearchQueryChange}
         error={{
           customer: errors.customerId,
           customerName: errors.customerName,
@@ -54,6 +58,7 @@ export function CustomerStep() {
           <PackageSelector
             customerName={formData.customerName}
             customerPhone={formData.customerPhone}
+            customerId={formData.customerId}
             bookingType={formData.bookingType}
             value={formData.packageId || ''}
             onChange={handlePackageSelection}

@@ -36,7 +36,11 @@ export async function GET() {
           firstUseDate: pkg.first_use_date,
           expirationDate: pkg.expiration_date,
           remainingHours: pkg.remaining_hours,
-          isActivated: pkg.is_activated
+          isActivated: pkg.is_activated,
+          customerId: pkg.customer_id,
+          customerCode: pkg.customer_code,
+          contactNumber: pkg.contact_number,
+          email: pkg.email
         }
       }
     })

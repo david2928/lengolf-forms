@@ -23,6 +23,8 @@ export default function ReconciliationPage() {
   };
 
   const handleFileProcessed = (data: any) => {
+    console.log('📁 File processed with data:', data);
+    console.log('📅 Auto-detected date range:', data.autoDetectedDateRange);
     setUploadedData(data);
   };
 

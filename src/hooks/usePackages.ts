@@ -9,6 +9,10 @@ export interface Package {
     firstUseDate: string
     expirationDate: string
     remainingHours: number
+    customerId: string
+    customerCode: string
+    contactNumber: string | null
+    email: string | null
   }
 }
 

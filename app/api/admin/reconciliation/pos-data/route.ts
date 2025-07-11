@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
         .lte('date', endDate)
         .neq('sku_number', '-')
         .not('sku_number', 'is', null)
-        .eq('is_voided', false)
+        .or('is_voided.is.null,is_voided.eq.false')
         .order('date', { ascending: true })
         .order('customer_name', { ascending: true });
 
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
         .gte('date', startDate)
         .lte('date', endDate)
         .in('product_name', productNames)
-        .eq('is_voided', false)
+        .or('is_voided.is.null,is_voided.eq.false')
         .order('date', { ascending: true })
         .order('customer_name', { ascending: true });
 

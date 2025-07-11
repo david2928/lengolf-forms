@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -56,5 +56,17 @@ export const menuItems: MenuItem[] = [
     title: "Coaching Assistant",
     path: '/coaching-assist',
     description: "Help students find available coaching slots"
+  },
+  {
+    icon: UserCheck,
+    title: "Customer Management",
+    path: '/admin/customers',
+    description: "Manage customer information and analytics"
+  },
+  {
+    icon: Link2,
+    title: "Customer Mapping",
+    path: '/admin/customers/mapping',
+    description: "Link unmapped bookings and sales to customers"
   }
 ] 

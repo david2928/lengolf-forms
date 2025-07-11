@@ -144,6 +144,10 @@ export async function POST(request: NextRequest) {
         start: dates[0],
         end: dates[dates.length - 1]
       };
+      console.log(`📅 Auto-detected date range: ${autoDetectedDateRange.start} to ${autoDetectedDateRange.end}`);
+      console.log(`📊 Sample dates from items:`, dates.slice(0, 5));
+    } else {
+      console.log(`❌ No items found for auto-detection`);
     }
 
     if (startDate && endDate) {
@@ -450,39 +454,78 @@ function findColumnValue(record: any, possibleColumns: string[]): any {
 function parseDate(dateStr: string, formats: string[]): { year: number; month: number; day: number } | null {
   const str = dateStr.toString().trim();
   
-  const ddmmyyyyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (ddmmyyyyMatch) {
-    const [, day, month, year] = ddmmyyyyMatch;
-    const dayInt = parseInt(day);
-    const monthInt = parseInt(month);
+  console.log(`🔍 Parsing date: "${str}"`);
+  
+  // Check for Excel serial number first (common issue)
+  const serialMatch = str.match(/^\d{4,6}$/);
+  if (serialMatch) {
+    const serialNumber = parseInt(str);
+    console.log(`📊 Excel serial number detected: ${serialNumber}`);
     
-    if (dayInt > 12) {
-      return { year: parseInt(year), month: monthInt, day: dayInt };
-    }
-    if (monthInt > 12) {
-      return { year: parseInt(year), month: dayInt, day: monthInt };
-    }
+    // Excel epoch starts at January 1, 1900 (but Excel treats 1900 as a leap year)
+    const excelEpoch = new Date(1900, 0, 1);
+    const date = new Date(excelEpoch.getTime() + (serialNumber - 2) * 24 * 60 * 60 * 1000);
     
-    return { year: parseInt(year), month: monthInt, day: dayInt };
+    const result = {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate()
+    };
+    console.log(`📅 Excel serial converted to: ${result.year}-${result.month}-${result.day}`);
+    return result;
   }
   
+  // MM/DD/YYYY or DD/MM/YYYY format
+  const ddmmyyyyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (ddmmyyyyMatch) {
+    const [, first, second, year] = ddmmyyyyMatch;
+    const firstInt = parseInt(first);
+    const secondInt = parseInt(second);
+    
+    console.log(`📅 Date parts: ${firstInt}/${secondInt}/${year}`);
+    
+    // If first number > 12, it must be day (DD/MM/YYYY)
+    if (firstInt > 12) {
+      const result = { year: parseInt(year), month: secondInt, day: firstInt };
+      console.log(`📅 Parsed as DD/MM/YYYY: ${result.year}-${result.month}-${result.day}`);
+      return result;
+    }
+    // If second number > 12, it must be day (MM/DD/YYYY)
+    if (secondInt > 12) {
+      const result = { year: parseInt(year), month: firstInt, day: secondInt };
+      console.log(`📅 Parsed as MM/DD/YYYY: ${result.year}-${result.month}-${result.day}`);
+      return result;
+    }
+    
+    // Ambiguous case - assume MM/DD/YYYY based on US format preference
+    const result = { year: parseInt(year), month: firstInt, day: secondInt };
+    console.log(`📅 Parsed as MM/DD/YYYY (assumed): ${result.year}-${result.month}-${result.day}`);
+    return result;
+  }
+  
+  // YYYY-MM-DD format
   const yyyymmddMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (yyyymmddMatch) {
     const [, year, month, day] = yyyymmddMatch;
-    return {
+    const result = {
       year: parseInt(year),
       month: parseInt(month),
       day: parseInt(day)
     };
+    console.log(`📅 Parsed as YYYY-MM-DD: ${result.year}-${result.month}-${result.day}`);
+    return result;
   }
   
+  // Single MM/DD/YYYY match (redundant but kept for clarity)
   const mmddyyyyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (mmddyyyyMatch) {
-      const [, month, day, year] = mmddyyyyMatch;
-      return { year: parseInt(year), month: parseInt(month), day: parseInt(day) };
+    const [, month, day, year] = mmddyyyyMatch;
+    const result = { year: parseInt(year), month: parseInt(month), day: parseInt(day) };
+    console.log(`📅 Parsed as MM/DD/YYYY (explicit): ${result.year}-${result.month}-${result.day}`);
+    return result;
   }
 
-  console.warn(`Unmatched date format for: ${dateStr}`);
+  console.warn(`❌ Unmatched date format for: "${dateStr}"`);
   return null;
 }
 
