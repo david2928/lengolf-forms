@@ -28,17 +28,20 @@ export async function GET() {
     }
 
     // Transform the data to match the stored procedure format
-    const unlimited_packages = unlimitedData.map(pkg => ({
-      id: pkg.id,
-      customer_name: pkg.customer_name,
-      package_type_name: pkg.package_types.name,
-      package_type: pkg.package_types.type,
-      purchase_date: pkg.purchase_date,
-      first_use_date: pkg.first_use_date,
-      expiration_date: pkg.expiration_date,
-      employee_name: pkg.employee_name,
-      remaining_hours: 'Unlimited'
-    }));
+    const unlimited_packages = unlimitedData.map(pkg => {
+      const packageType = Array.isArray(pkg.package_types) ? pkg.package_types[0] : pkg.package_types;
+      return {
+        id: pkg.id,
+        customer_name: pkg.customer_name,
+        package_type_name: packageType?.name,
+        package_type: packageType?.type,
+        purchase_date: pkg.purchase_date,
+        first_use_date: pkg.first_use_date,
+        expiration_date: pkg.expiration_date,
+        employee_name: pkg.employee_name,
+        remaining_hours: 'Unlimited'
+      };
+    });
 
     // Get expiring packages (within 7 days) using JavaScript date calculation
     const today = new Date();
@@ -88,20 +91,21 @@ export async function GET() {
     }, {} as Record<string, number>);
 
     const expiring_packages = expiringData?.map(pkg => {
-      const totalHours = pkg.package_types.hours || 0;
+      const packageType = Array.isArray(pkg.package_types) ? pkg.package_types[0] : pkg.package_types;
+      const totalHours = packageType?.hours || 0;
       const usedHours = expiringUsageByPackage[pkg.id] || 0;
       const remainingHours = Math.max(0, totalHours - usedHours);
 
       return {
         id: pkg.id,
         customer_name: pkg.customer_name,
-        package_type_name: pkg.package_types.name,
-        package_type: pkg.package_types.type,
+        package_type_name: packageType?.name,
+        package_type: packageType?.type,
         purchase_date: pkg.purchase_date,
         first_use_date: pkg.first_use_date,
         expiration_date: pkg.expiration_date,
         employee_name: pkg.employee_name,
-        remaining_hours: pkg.package_types.type === 'Unlimited' ? 'Unlimited' : remainingHours.toString(),
+        remaining_hours: packageType?.type === 'Unlimited' ? 'Unlimited' : remainingHours.toString(),
         used_hours: usedHours,
         total_hours: totalHours,
         usage_percentage: totalHours > 0 ? Math.round((usedHours / totalHours) * 100) : 0
