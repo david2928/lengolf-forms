@@ -9,6 +9,7 @@ import { NextAvailableSlots } from './next-available-slots';
 import { WeeklySchedule } from './weekly-schedule';
 import { StudentManagement } from './student-management';
 import { InactiveStudents } from './inactive-students';
+import { BookingsView } from '@/components/coaching/BookingsView';
 import { useCoachingDashboard } from '@/hooks/useCoachingDashboard';
 import { navigateWeek, goToCurrentWeek, generateWeekDates } from '@/lib/coachingUtils';
 
@@ -103,9 +104,10 @@ export default function CoachingDashboard() {
         />
 
         <Tabs defaultValue="next-available" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="next-available">Next Available</TabsTrigger>
             <TabsTrigger value="weekly-schedule">Weekly Schedule</TabsTrigger>
+            <TabsTrigger value="all-bookings">All Bookings</TabsTrigger>
             <TabsTrigger value="student-management">Student Management</TabsTrigger>
             <TabsTrigger value="inactive-students">Inactive Students</TabsTrigger>
           </TabsList>
@@ -133,6 +135,13 @@ export default function CoachingDashboard() {
               onWeekNavigate={handleWeekNavigate}
               onCurrentWeek={handleCurrentWeek}
               onSlotHover={setHoveredSlot}
+            />
+          </TabsContent>
+
+          <TabsContent value="all-bookings" className="space-y-4">
+            <BookingsView 
+              coachId={selectedCoach === 'all' ? undefined : selectedCoach} 
+              searchTerm={searchTerm}
             />
           </TabsContent>
 

@@ -125,9 +125,8 @@ function formatAvailabilityForClipboard(
         // Group consecutive slots
         const groupedRanges = groupConsecutiveSlots(timeRanges);
         
-        groupedRanges.forEach(range => {
-          output += `• ${dayAbbrev} ${day}: ${range}\n`;
-        });
+        // Combine multiple ranges for the same day with "/" separator
+        output += `• ${dayAbbrev} ${day}: ${groupedRanges.join(' / ')}\n`;
       });
     });
     

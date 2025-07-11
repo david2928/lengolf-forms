@@ -104,6 +104,7 @@ export interface Booking {
   package_name?: string;
   notes?: string;
   status?: string;
+  booking_type?: string;
 }
 
 export interface BookingsData {
