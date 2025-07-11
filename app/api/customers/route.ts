@@ -218,10 +218,41 @@ export async function POST(request: NextRequest) {
       email: body.email
     });
 
-    if (duplicates.length > 0) {
+    // Only block creation for high-confidence matches:
+    // 1. Exact phone number match, OR
+    // 2. Exact email match, OR 
+    // 3. Name similarity > 95% AND same normalized phone
+    const blockingDuplicates = duplicates.filter(duplicate => {
+      // Exact phone match
+      if (body.primaryPhone && duplicate.normalized_phone) {
+        const normalizedInput = customerMappingService.normalizePhoneNumber(body.primaryPhone);
+        if (normalizedInput === duplicate.normalized_phone) {
+          return true;
+        }
+      }
+      
+      // Exact email match
+      if (body.email && duplicate.email && 
+          body.email.toLowerCase() === duplicate.email.toLowerCase()) {
+        return true;
+      }
+      
+      // Very high name similarity (>95%) only if no phone provided or phones match
+      if (duplicate.similarity && duplicate.similarity > 0.95) {
+        if (!body.primaryPhone || !duplicate.normalized_phone) {
+          return true; // No phone to compare, rely on name similarity
+        }
+        const normalizedInput = customerMappingService.normalizePhoneNumber(body.primaryPhone);
+        return normalizedInput === duplicate.normalized_phone;
+      }
+      
+      return false;
+    });
+
+    if (blockingDuplicates.length > 0) {
       return NextResponse.json({
         error: "Potential duplicates found",
-        duplicates: duplicates,
+        duplicates: blockingDuplicates,
         suggestion: "Please review potential duplicates before creating"
       }, { status: 409 });
     }
