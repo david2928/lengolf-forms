@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2 } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -68,6 +68,8 @@ export const menuItems: MenuItem[] = [
     title: "Customer Mapping",
     path: '/admin/customers/mapping',
     description: "Link unmapped bookings and sales to customers"
+  },
+  {
     icon: Trophy,
     title: "US Open",
     path: '/special-events/us-open',
