@@ -316,7 +316,7 @@ function WeeklyScheduleRow({ day, schedule, onSave, onDelete, isSaving }: Weekly
               Available from <span className="font-medium">{localSchedule.start_time}</span> to <span className="font-medium">{localSchedule.end_time}</span>
               {localSchedule.start_time && localSchedule.end_time && (
                 <span className="ml-2">
-                  ({Math.round((new Date(`2000-01-01T${localSchedule.end_time}`) - new Date(`2000-01-01T${localSchedule.start_time}`)) / (1000 * 60 * 60))} hours)
+                  ({Math.round((new Date(`2000-01-01T${localSchedule.end_time}`).getTime() - new Date(`2000-01-01T${localSchedule.start_time}`).getTime()) / (1000 * 60 * 60))} hours)
                 </span>
               )}
             </div>
