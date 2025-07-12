@@ -128,6 +128,11 @@ export function CombinedCalendarView({ coachId }: CombinedCalendarViewProps) {
       const dayBlocks = availabilityData.blocks.filter((b: any) => b.day_of_week === dayOfWeek);
       const dayOverrides = availabilityData.overrides.filter((o: any) => o.override_date === dateString);
 
+      // Get bookings for this day first (to apply to availability calculation)
+      const dayBookingsForAvailability = bookingsData.filter((b: any) => 
+        b.booking_date === dateString && b.status !== 'cancelled'
+      );
+
       const availability: AvailabilitySlot[] = TIME_SLOTS.map(time => {
         let status: AvailabilitySlot['status'] = 'unavailable';
 
@@ -150,7 +155,7 @@ export function CombinedCalendarView({ coachId }: CombinedCalendarViewProps) {
           }
         }
 
-        // Apply date overrides
+        // Apply date overrides first (set base availability for the day)
         for (const override of dayOverrides) {
           if (override.start_time && override.end_time) {
             const overrideStartTime = override.start_time.substring(0, 5); // Convert HH:MM:SS to HH:MM
@@ -159,6 +164,16 @@ export function CombinedCalendarView({ coachId }: CombinedCalendarViewProps) {
               status = override.override_type === 'unavailable' ? 'override-unavailable' : 'override-available';
               break;
             }
+          }
+        }
+
+        // Apply existing bookings LAST - bookings always make slots unavailable regardless of overrides
+        for (const booking of dayBookingsForAvailability) {
+          const bookingStartTime = booking.start_time.substring(0, 5); // Convert HH:MM:SS to HH:MM
+          const bookingEndTime = booking.end_time.substring(0, 5); // Convert HH:MM:SS to HH:MM
+          if (time >= bookingStartTime && time < bookingEndTime) {
+            status = 'unavailable'; // Booked slots are NEVER available
+            break;
           }
         }
 
@@ -283,138 +298,243 @@ export function CombinedCalendarView({ coachId }: CombinedCalendarViewProps) {
   return (
     <div className="space-y-4">
       {/* Header with Navigation and Summary */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <h3 className="text-lg font-medium">
+      <div className="space-y-4">
+        {/* Navigation */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigateWeek('next')}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <h3 className="text-sm sm:text-lg font-medium text-center">
             {weekDates[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {weekDates[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </h3>
-          <Button variant="outline" size="sm" onClick={() => navigateWeek('next')}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
           <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
-            <CalendarIcon className="h-4 w-4 mr-1" />
-            Today
+            <CalendarIcon className="h-4 w-4" />
+            <span className="hidden sm:inline ml-1">Today</span>
           </Button>
         </div>
 
         {/* Week Summary */}
-        <div className="flex items-center space-x-4 text-sm">
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 bg-blue-100 border border-blue-300 rounded-full"></div>
-            <span>{weekSummary.upcomingBookings} upcoming</span>
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:justify-center sm:space-x-6 text-xs sm:text-sm">
+          <div className="flex items-center justify-center space-x-1 bg-blue-50 p-2 rounded">
+            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-400 rounded-full"></div>
+            <span className="font-medium">{weekSummary.upcomingBookings}</span>
+            <span className="hidden sm:inline">upcoming</span>
           </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 bg-green-100 border border-green-300 rounded-full"></div>
-            <span>{weekSummary.availableSlots} available slots</span>
+          <div className="flex items-center justify-center space-x-1 bg-green-50 p-2 rounded">
+            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full"></div>
+            <span className="font-medium">{weekSummary.availableSlots}</span>
+            <span className="hidden sm:inline">available</span>
           </div>
-          <div className="text-gray-600">
-            {weekSummary.totalBookings} total bookings
+          <div className="flex items-center justify-center space-x-1 bg-gray-50 p-2 rounded">
+            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-gray-400 rounded-full"></div>
+            <span className="font-medium">{weekSummary.totalBookings}</span>
+            <span className="hidden sm:inline">total</span>
           </div>
         </div>
       </div>
 
-      {/* Combined Calendar Grid */}
-      <div className="border rounded-lg overflow-hidden bg-white">
-        {/* Day Headers */}
-        <div className="grid grid-cols-8 bg-gray-50 border-b">
-          <div className="p-3 text-sm font-medium text-gray-700 border-r">Time</div>
+      {/* Mobile-First Calendar Layout */}
+      <div className="space-y-4">
+        {/* Desktop Grid View - Hidden on mobile */}
+        <div className="hidden lg:block">
+          <div className="border rounded-lg overflow-hidden bg-white">
+            {/* Day Headers */}
+            <div className="grid grid-cols-8 bg-gray-50 border-b">
+              <div className="p-3 text-sm font-medium text-gray-700 border-r">Time</div>
+              {weekData.map((day, index) => {
+                const date = weekDates[index];
+                return (
+                  <div key={day.date} className={`p-3 text-center border-r last:border-r-0 ${day.isToday ? 'bg-blue-50' : ''}`}>
+                    <div className="text-sm font-medium text-gray-900">
+                      {DAYS_OF_WEEK[day.dayOfWeek]}
+                    </div>
+                    <div className={`text-xs ${day.isToday ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
+                      {date.getDate()}
+                    </div>
+                    {day.bookings.length > 0 && (
+                      <div className="text-xs text-blue-600 mt-1">
+                        {day.bookings.length} booking{day.bookings.length > 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Time Slots */}
+            {TIME_SLOTS.map((time) => (
+              <div key={time} className="grid grid-cols-8 border-b last:border-b-0">
+                <div className="p-3 text-sm text-gray-700 border-r bg-gray-50 flex items-center">
+                  <Clock className="h-3 w-3 mr-1" />
+                  {time}
+                </div>
+                {weekData.map((day) => {
+                  const availabilitySlot = day.availability.find(a => a.time === time);
+                  const bookingsInSlot = day.bookings.filter(b => 
+                    time >= b.start_time && time < b.end_time
+                  );
+
+                  return (
+                    <div
+                      key={`${day.date}-${time}`}
+                      className={`relative p-2 border-r last:border-r-0 min-h-[60px] ${getAvailabilityStyle(availabilitySlot?.status || 'unavailable')}`}
+                    >
+                      {/* Bookings Overlay */}
+                      {bookingsInSlot.map((booking) => (
+                        <div
+                          key={booking.id}
+                          className={`absolute inset-1 rounded text-xs p-1 border ${getBookingStyle(booking)}`}
+                          title={`${booking.customer_name} - ${booking.start_time}-${booking.end_time}${booking.package_name ? ` (${booking.package_name})` : ''}`}
+                        >
+                          <div className="font-medium truncate">{booking.customer_name}</div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs opacity-75">{booking.start_time}</span>
+                            {booking.bay_number && (
+                              <div className="flex items-center">
+                                <MapPin className="h-3 w-3 mr-1" />
+                                <span className="text-xs">{booking.bay_number}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Available Slot Indicator */}
+                      {(availabilitySlot?.status === 'available' || availabilitySlot?.status === 'override-available') && bookingsInSlot.length === 0 && (
+                        <div className="text-center text-green-600 text-xs font-medium mt-4">
+                          Available
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mobile Card View - Shown on mobile/tablet */}
+        <div className="lg:hidden space-y-3">
           {weekData.map((day, index) => {
             const date = weekDates[index];
+            const hasBookings = day.bookings.length > 0;
+            const availableSlots = day.availability.filter(a => 
+              a.status === 'available' || a.status === 'override-available'
+            );
+
             return (
-              <div key={day.date} className={`p-3 text-center border-r last:border-r-0 ${day.isToday ? 'bg-blue-50' : ''}`}>
-                <div className="text-sm font-medium text-gray-900">
-                  {DAYS_OF_WEEK[day.dayOfWeek]}
-                </div>
-                <div className={`text-xs ${day.isToday ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
-                  {date.getDate()}
-                </div>
-                {day.bookings.length > 0 && (
-                  <div className="text-xs text-blue-600 mt-1">
-                    {day.bookings.length} booking{day.bookings.length > 1 ? 's' : ''}
+              <div
+                key={day.date}
+                className={`border rounded-lg bg-white overflow-hidden ${day.isToday ? 'ring-2 ring-amber-200 bg-amber-50' : ''}`}
+              >
+                {/* Day Header */}
+                <div className={`p-4 border-b ${day.isToday ? 'bg-amber-100' : 'bg-gray-50'}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className={`font-medium ${day.isToday ? 'text-amber-900' : 'text-gray-900'}`}>
+                        {DAYS_OF_WEEK[day.dayOfWeek]}, {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {day.isToday && <span className="ml-2 text-xs text-amber-700">(Today)</span>}
+                      </h4>
+                      <div className="flex items-center space-x-4 mt-1 text-xs">
+                        <span className={day.isToday ? 'text-amber-700' : 'text-gray-600'}>
+                          {availableSlots.length} available slots
+                        </span>
+                        {hasBookings && (
+                          <span className={day.isToday ? 'text-amber-700' : 'text-gray-600'}>
+                            {day.bookings.length} booking{day.bookings.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
+                </div>
+
+                {/* Day Content */}
+                <div className="p-4 space-y-3">
+                  {/* Bookings */}
+                  {hasBookings && (
+                    <div className="space-y-2">
+                      <h5 className="text-sm font-medium text-gray-900">Bookings</h5>
+                      {day.bookings.map((booking) => (
+                        <div
+                          key={booking.id}
+                          className={`p-3 rounded-lg border ${getBookingStyle(booking)}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate">{booking.customer_name}</div>
+                              <div className="text-xs opacity-75 mt-1">
+                                {booking.start_time} - {booking.end_time}
+                                {booking.package_name && ` • ${booking.package_name}`}
+                              </div>
+                            </div>
+                            {booking.bay_number && (
+                              <div className="flex items-center ml-2">
+                                <MapPin className="h-3 w-3 mr-1" />
+                                <span className="text-xs">Bay {booking.bay_number}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Available Slots Summary */}
+                  {availableSlots.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-900 mb-2">Available Times</h5>
+                      <div className="flex flex-wrap gap-1">
+                        {availableSlots.slice(0, 8).map((slot) => (
+                          <Badge key={slot.time} variant="outline" className="text-xs bg-green-50 border-green-200 text-green-700">
+                            {slot.time}
+                          </Badge>
+                        ))}
+                        {availableSlots.length > 8 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{availableSlots.length - 8} more
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No content message */}
+                  {!hasBookings && availableSlots.length === 0 && (
+                    <div className="text-center py-4 text-gray-500">
+                      <CalendarIcon className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm">No availability or bookings</p>
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
-
-        {/* Time Slots */}
-        {TIME_SLOTS.map((time) => (
-          <div key={time} className="grid grid-cols-8 border-b last:border-b-0">
-            <div className="p-3 text-sm text-gray-700 border-r bg-gray-50 flex items-center">
-              <Clock className="h-3 w-3 mr-1" />
-              {time}
-            </div>
-            {weekData.map((day) => {
-              const availabilitySlot = day.availability.find(a => a.time === time);
-              const bookingsInSlot = day.bookings.filter(b => 
-                time >= b.start_time && time < b.end_time
-              );
-
-              return (
-                <div
-                  key={`${day.date}-${time}`}
-                  className={`relative p-2 border-r last:border-r-0 min-h-[60px] ${getAvailabilityStyle(availabilitySlot?.status || 'unavailable')}`}
-                >
-
-                  {/* Bookings Overlay */}
-                  {bookingsInSlot.map((booking) => (
-                    <div
-                      key={booking.id}
-                      className={`absolute inset-1 rounded text-xs p-1 border ${getBookingStyle(booking)}`}
-                      title={`${booking.customer_name} - ${booking.start_time}-${booking.end_time}${booking.package_name ? ` (${booking.package_name})` : ''}`}
-                    >
-                      <div className="font-medium truncate">{booking.customer_name}</div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs opacity-75">{booking.start_time}</span>
-                        {booking.bay_number && (
-                          <div className="flex items-center">
-                            <MapPin className="h-3 w-3 mr-1" />
-                            <span className="text-xs">{booking.bay_number}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Available Slot Indicator */}
-                  {(availabilitySlot?.status === 'available' || availabilitySlot?.status === 'override-available') && bookingsInSlot.length === 0 && (
-                    <div className="text-center text-green-600 text-xs font-medium mt-4">
-                      Available
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 p-3 bg-gray-50 rounded-lg text-xs">
-        <span className="font-medium text-gray-700">Legend:</span>
+      {/* Compact Legend */}
+      <div className="flex flex-wrap items-center justify-center gap-3 p-3 bg-gray-50 rounded-lg text-xs">
         <div className="flex items-center space-x-1">
-          <div className="w-3 h-3 bg-green-50 border border-green-200 rounded"></div>
+          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
           <span>Available</span>
         </div>
         <div className="flex items-center space-x-1">
-          <div className="w-3 h-3 bg-gray-50 border border-gray-200 rounded"></div>
-          <span>Unavailable</span>
+          <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+          <span>Upcoming</span>
         </div>
         <div className="flex items-center space-x-1">
-          <div className="w-3 h-3 bg-orange-50 border border-orange-200 rounded"></div>
-          <span>Blocked</span>
-        </div>
-        <div className="flex items-center space-x-1">
-          <div className="w-3 h-3 bg-blue-100 border border-blue-300 rounded"></div>
-          <span>Upcoming Booking</span>
-        </div>
-        <div className="flex items-center space-x-1">
-          <div className="w-3 h-3 bg-green-100 border border-green-300 rounded"></div>
+          <div className="w-2 h-2 bg-green-600 rounded-full"></div>
           <span>Completed</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+          <span>Blocked</span>
         </div>
       </div>
     </div>

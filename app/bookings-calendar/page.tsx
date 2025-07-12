@@ -23,6 +23,7 @@ type BookingEvent = CalendarEvent;
 interface ProcessedBooking {
   id: string;
   customer_name: string;
+  customer_code?: string | null;
   start: string;
   end: string;
   start_hour: number;

@@ -14,6 +14,7 @@ const localizer = momentLocalizer(moment);
 interface ProcessedBooking {
   id: string;
   customer_name: string;
+  customer_code?: string | null;
   start: string;
   end: string;
   start_hour: number;
@@ -234,7 +235,12 @@ export function BigCalendarView({
     return (
       <div className="truncate">
         <div className="font-medium text-xs">
-          <span className="truncate">{booking.customer_name}</span>
+          <span className="truncate">
+            {booking.customer_name}
+            {booking.customer_code && (
+              <span className="ml-1 text-[10px] opacity-70">({booking.customer_code})</span>
+            )}
+          </span>
           {isNewCustomer && <span className="ml-1 text-xs">⭐</span>}
           {isCoaching && <span className="ml-1 text-xs">🏌️</span>}
           {isPackage && !isCoaching && <span className="ml-1 text-xs">📦</span>}

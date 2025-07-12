@@ -11,25 +11,26 @@ export function CoachingNav() {
 
   return (
     <div className="border-b bg-white">
-      <div className="container h-14 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-gray-900">
-            Lengolf Coaching Portal
+      <div className="container h-12 sm:h-14 flex items-center justify-between px-4">
+        {/* Minimal mobile-friendly header */}
+        <div className="flex items-center gap-2 sm:gap-4">
+          <h1 className="text-sm sm:text-lg font-medium text-gray-900">
+            <span className="hidden sm:inline">Lengolf </span>Coaching
           </h1>
         </div>
         
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-600">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <span className="hidden sm:inline text-sm text-gray-600">
             Welcome, {session.user.name || session.user.email}
           </span>
           <Button 
             variant="outline" 
             size="sm" 
             onClick={() => signOut()} 
-            className="flex items-center gap-2 border border-gray-200"
+            className="flex items-center gap-1 sm:gap-2 border border-gray-200 h-8 sm:h-9"
           >
-            <LogOut className="h-4 w-4" />
-            Sign Out
+            <LogOut className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Sign Out</span>
           </Button>
         </div>
       </div>

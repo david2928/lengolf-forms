@@ -21,6 +21,11 @@ interface FetchedBookingData {
   package_id?: string | null; // Package ID for foreign key
   referral_source?: string | null; // Where customer heard about us
   is_new_customer?: boolean; // Auto-detected via trigger
+  customer_id?: string | null; // Customer ID
+  customers?: {
+    customer_code: string;
+    customer_name: string;
+  } | null; // Customer information from join
   // Add other fields that are selected if they are directly used before mapping to Booking
 }
 
@@ -40,7 +45,13 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await refacSupabaseAdmin
       .from('bookings')
-      .select('id, name, email, phone_number, date, start_time, duration, bay, status, number_of_people, customer_notes, booking_type, package_name, google_calendar_sync_status, package_id, referral_source, is_new_customer') // Added new fields for Phase 4
+      .select(`
+        id, name, email, phone_number, date, start_time, duration, bay, status, 
+        number_of_people, customer_notes, booking_type, package_name, 
+        google_calendar_sync_status, package_id, referral_source, is_new_customer,
+        customer_id,
+        customers(customer_code, customer_name)
+      `)
       .eq('date', date)
       .order('start_time', { ascending: true });
 
@@ -50,7 +61,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Convert database results to Booking objects
-    const bookings: Booking[] = (data as FetchedBookingData[] || []).map((b: FetchedBookingData) => ({
+    const bookings: Booking[] = (data as any[] || []).map((b: any) => ({
       id: b.id,
       name: b.name, // customer name
       user_id: '', // Placeholder - not needed for calendar view
@@ -69,6 +80,20 @@ export async function GET(request: NextRequest) {
       package_id: b.package_id,
       referral_source: b.referral_source,
       is_new_customer: b.is_new_customer,
+      customer_id: b.customer_id,
+      customer_code: b.customers?.customer_code || null,
+      customer: b.customers ? {
+        customer_code: b.customers.customer_code,
+        customer_name: b.customers.customer_name,
+        contact_number: null,
+        email: null,
+        address: null,
+        date_of_birth: null,
+        preferred_contact_method: null,
+        total_lifetime_value: 0,
+        total_visits: 0,
+        last_visit_date: null,
+      } : null,
       // Optional fields not needed for calendar display
       created_at: undefined,
       updated_at: undefined,

@@ -106,10 +106,24 @@ export async function GET(
   }
 
   try {
-    // Fetch booking from Supabase
+    // Fetch booking from Supabase with complete customer information
     const { data: booking, error: fetchError } = await refacSupabaseAdmin
       .from('bookings')
-      .select('*')
+      .select(`
+        *,
+        customers(
+          customer_code,
+          customer_name,
+          contact_number,
+          email,
+          address,
+          date_of_birth,
+          preferred_contact_method,
+          total_lifetime_value,
+          total_visits,
+          last_visit_date
+        )
+      `)
       .eq('id', bookingId)
       .single();
 
@@ -125,7 +139,15 @@ export async function GET(
       return NextResponse.json({ error: `Booking with ID ${bookingId} not found.` }, { status: 404 });
     }
 
-    return NextResponse.json({ booking }, { status: 200 });
+    // Structure response with booking data and customer information
+    const bookingWithCustomerInfo = {
+      ...booking,
+      // Keep customer information as nested object for proper data structure
+      customer: booking.customers || null,
+      customers: undefined // Remove the nested customers object
+    };
+
+    return NextResponse.json({ booking: bookingWithCustomerInfo }, { status: 200 });
 
   } catch (error: any) {
     console.error('Error fetching booking:', error);

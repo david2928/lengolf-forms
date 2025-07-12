@@ -26,6 +26,23 @@ export interface Booking {
   package_id?: string | null; // uuid, nullable, Foreign key to backoffice.packages(id)
   referral_source?: string | null; // text, nullable, Where customer heard about us
   is_new_customer?: boolean; // boolean, nullable, Auto-detected via trigger
+  customer_id?: string | null; // uuid, nullable, Foreign key to public.customers(id)
+  customer_code?: string | null; // varchar, nullable, Customer reference code (CUS-001, CUS-002, etc.)
+  customer?: CustomerInfo | null; // Customer information from customers table
+}
+
+// Customer information interface for bookings
+export interface CustomerInfo {
+  customer_code: string;
+  customer_name: string;
+  contact_number: string | null;
+  email: string | null;
+  address: string | null;
+  date_of_birth: string | null;
+  preferred_contact_method: 'Phone' | 'LINE' | 'Email' | null;
+  total_lifetime_value: number;
+  total_visits: number;
+  last_visit_date: string | null;
 }
 
 export interface CalendarEvent {

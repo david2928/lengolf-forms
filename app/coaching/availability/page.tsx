@@ -47,17 +47,17 @@ function CoachSelectorDropdown({ userInfo, selectedCoachId, onCoachSelection }: 
   };
 
   return (
-    <div className="min-w-[200px]">
+    <div className="w-full sm:min-w-[200px]">
       <Select value={selectedCoachId} onValueChange={onCoachSelection}>
-        <SelectTrigger>
+        <SelectTrigger className="h-10">
           <SelectValue placeholder={loadingCoaches ? "Loading..." : "Choose a coach..."} />
         </SelectTrigger>
         <SelectContent>
           {allCoaches.map((coach) => (
             <SelectItem key={coach.id} value={coach.id}>
-              <div className="flex items-center justify-between w-full">
-                <span className="font-medium">{coach.coach_display_name || coach.coach_name}</span>
-                <span className="text-sm text-gray-500 ml-2">{coach.email}</span>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full">
+                <span className="font-medium truncate">{coach.coach_display_name || coach.coach_name}</span>
+                <span className="text-xs sm:text-sm text-gray-500 sm:ml-2 truncate">{coach.email}</span>
               </div>
             </SelectItem>
           ))}
@@ -207,129 +207,150 @@ export default function AvailabilityPage() {
   const canManageAvailability = selectedCoachId || (!userInfo?.requiresCoachSelection && (userInfo?.is_coach || userInfo?.coach));
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Link href="/coaching">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Portal
-            </Button>
-          </Link>
-          <h1 className="text-2xl font-bold">Manage Availability</h1>
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile-first responsive container */}
+      <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Header - Mobile Optimized */}
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Link href="/coaching">
+                  <Button variant="outline" size="sm" className="h-10">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    <span className="hidden sm:inline">Back to Portal</span>
+                    <span className="sm:hidden">Back</span>
+                  </Button>
+                </Link>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Manage Availability</h1>
+              </div>
+              
+              {/* Coach Selector for Admins */}
+              {showCoachSelector && (
+                <div className="w-full sm:w-auto">
+                  <CoachSelectorDropdown
+                    userInfo={userInfo}
+                    selectedCoachId={selectedCoachId}
+                    onCoachSelection={handleCoachSelection}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Show message if admin hasn't selected a coach */}
+          {isAdmin && !selectedCoachId && (
+            <div className="text-center py-12">
+              <UserCog className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">Select a Coach</h3>
+              <p className="text-gray-600">Please select a coach from the dropdown above to manage their availability.</p>
+            </div>
+          )}
+
+          {/* Main content - only show if coach is selected or user is a coach */}
+          {canManageAvailability && (
+            <>
+              {/* Navigation Tabs - Compact Mobile Layout */}
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                {/* Mobile: 2x2 grid, Desktop: horizontal */}
+                <div className="grid grid-cols-2 sm:flex overflow-x-auto p-1 bg-gray-50 gap-1">
+                  <button
+                    onClick={() => setActiveTab('calendar')}
+                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
+                      activeTab === 'calendar'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Calendar
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('schedule')}
+                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
+                      activeTab === 'schedule'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Schedule
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('blocks')}
+                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
+                      activeTab === 'blocks'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Blocks
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('overrides')}
+                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
+                      activeTab === 'overrides'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Overrides
+                  </button>
+                </div>
+
+                {/* Tab Content */}
+                <div className="p-4 sm:p-6">
+                  {activeTab === 'calendar' && (
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Availability Calendar</h2>
+                        <p className="text-sm sm:text-base text-gray-600 mt-2">
+                          Visual overview of {(userInfo?.is_admin || userInfo?.isAdminView) ? 'coach' : 'your'} complete availability.
+                        </p>
+                      </div>
+                      <AvailabilityCalendar coachId={selectedCoachId} />
+                    </div>
+                  )}
+
+                  {activeTab === 'schedule' && (
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Weekly Schedule</h2>
+                        <p className="text-sm sm:text-base text-gray-600 mt-2">
+                          Set {(userInfo?.is_admin || userInfo?.isAdminView) ? 'the coach\'s' : 'your'} regular availability for each day.
+                        </p>
+                      </div>
+                      <WeeklyScheduleManager coachId={selectedCoachId} />
+                    </div>
+                  )}
+
+                  {activeTab === 'blocks' && (
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Recurring Blocks</h2>
+                        <p className="text-sm sm:text-base text-gray-600 mt-2">
+                          Add recurring unavailable periods like meetings or breaks.
+                        </p>
+                      </div>
+                      <RecurringBlocksManager coachId={selectedCoachId} />
+                    </div>
+                  )}
+
+                  {activeTab === 'overrides' && (
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Date Overrides</h2>
+                        <p className="text-sm sm:text-base text-gray-600 mt-2">
+                          Override {(userInfo?.is_admin || userInfo?.isAdminView) ? 'the coach\'s' : 'your'} schedule for specific dates.
+                        </p>
+                      </div>
+                      <DateOverridesManager coachId={selectedCoachId} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
-        
-        {/* Coach Selector for Admins (top right) */}
-        {showCoachSelector && (
-          <CoachSelectorDropdown
-            userInfo={userInfo}
-            selectedCoachId={selectedCoachId}
-            onCoachSelection={handleCoachSelection}
-          />
-        )}
       </div>
-
-      {/* Show message if admin hasn't selected a coach */}
-      {isAdmin && !selectedCoachId && (
-        <div className="text-center py-12">
-          <UserCog className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">Select a Coach</h3>
-          <p className="text-gray-600">Please select a coach from the dropdown above to manage their availability.</p>
-        </div>
-      )}
-
-      {/* Main content - only show if coach is selected or user is a coach */}
-      {canManageAvailability && (
-        <>
-          {/* Navigation Tabs */}
-      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6">
-        <button
-          onClick={() => setActiveTab('calendar')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-            activeTab === 'calendar'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Calendar View
-        </button>
-        <button
-          onClick={() => setActiveTab('schedule')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-            activeTab === 'schedule'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Weekly Schedule
-        </button>
-        <button
-          onClick={() => setActiveTab('blocks')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-            activeTab === 'blocks'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Recurring Blocks
-        </button>
-        <button
-          onClick={() => setActiveTab('overrides')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-            activeTab === 'overrides'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Date Overrides
-        </button>
-      </div>
-
-        {/* Tab Content */}
-        <div className="min-h-[600px]">
-          {activeTab === 'calendar' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Availability Calendar</h2>
-              <p className="text-gray-600 mb-6">
-                Visual overview of {(userInfo?.is_admin || userInfo?.isAdminView) ? 'coach' : 'your'} complete availability including weekly schedule, recurring blocks, and date overrides.
-              </p>
-              <AvailabilityCalendar coachId={selectedCoachId} />
-            </div>
-          )}
-
-          {activeTab === 'schedule' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Weekly Schedule Configuration</h2>
-              <p className="text-gray-600 mb-6">
-                Set {(userInfo?.is_admin || userInfo?.isAdminView) ? 'the coach\'s' : 'your'} regular availability for each day of the week. This forms the base schedule for coaching availability.
-              </p>
-              <WeeklyScheduleManager coachId={selectedCoachId} />
-            </div>
-          )}
-
-          {activeTab === 'blocks' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Recurring Blocks</h2>
-              <p className="text-gray-600 mb-6">
-                Add recurring unavailable periods like staff meetings, lunch breaks, or other regular commitments that repeat weekly.
-              </p>
-              <RecurringBlocksManager coachId={selectedCoachId} />
-            </div>
-          )}
-
-          {activeTab === 'overrides' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Date-Specific Overrides</h2>
-              <p className="text-gray-600 mb-6">
-                Override {(userInfo?.is_admin || userInfo?.isAdminView) ? 'the coach\'s' : 'your'} regular schedule for specific dates. Add appointments, vacation days, or special availability periods.
-              </p>
-              <DateOverridesManager coachId={selectedCoachId} />
-            </div>
-          )}
-        </div>
-        </>
-      )}
     </div>
   );
 }

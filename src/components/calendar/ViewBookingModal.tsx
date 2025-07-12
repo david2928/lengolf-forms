@@ -173,14 +173,23 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
         <div className="space-y-6">
           {/* Customer Information */}
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-primary">{booking.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-primary">
+                {booking.customer?.customer_name || booking.name}
+              </h3>
+              {(booking.customer?.customer_code || booking.customer_code) && (
+                <span className="text-sm text-muted-foreground">
+                  ({booking.customer?.customer_code || booking.customer_code})
+                </span>
+              )}
+            </div>
             
             <div className="grid grid-cols-1 gap-3">
               {/* Booking ID for past bookings */}
               {isPastBooking && booking.id && (
                 <div className="flex items-center gap-2 text-sm">
                   <Hash className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-mono text-muted-foreground">ID: {booking.id}</span>
+                  <span className="font-mono text-muted-foreground">{booking.id}</span>
                 </div>
               )}
               

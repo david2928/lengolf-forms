@@ -1,6 +1,6 @@
 export type BookingSource = 'LINE' | 'Facebook' | 'Instagram' | 'Walk-in' | 'Phone';
 
-export type BookingType = 'Normal Bay Rate' | 'Package' | 'Event' | 'Class';
+export type BookingType = 'Package' | 'Event' | 'Class';
 
 // Phase 1 booking enhancement: Referral source constants
 export const REFERRAL_SOURCES = [

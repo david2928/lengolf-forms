@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { PenSquare, Phone, Mail, Users, Package, FileText } from "lucide-react";
-import { Booking } from '@/types/booking';
+import { Booking, CustomerInfo } from '@/types/booking';
 import { format, parseISO, isValid, parse, addMinutes, isWithinInterval, isEqual, startOfDay, endOfDay, subHours, isBefore } from 'date-fns';
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from '@/components/ui/badge';
@@ -651,35 +651,46 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
 
         {/* Customer Information Section */}
         <div className="border-b pb-4 space-y-3">
-          <h3 className="text-lg font-semibold text-primary">{booking.name}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-primary">
+              {booking.customer?.customer_name || booking.name}
+            </h3>
+            {booking.customer?.customer_code && (
+              <Badge variant="secondary" className="text-xs">
+                {booking.customer.customer_code}
+              </Badge>
+            )}
+          </div>
           
           <div className="grid grid-cols-2 gap-3 text-sm">
-            {booking.phone_number && (
+            {(booking.customer?.contact_number || booking.phone_number) && (
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <a 
                   href={`tel:${(() => {
-                    const digitsOnly = booking.phone_number.replace(/\D/g, '');
+                    const phoneNumber = booking.customer?.contact_number || booking.phone_number;
+                    const digitsOnly = phoneNumber.replace(/\D/g, '');
                     if (digitsOnly.startsWith('0') && digitsOnly.length === 10) {
                       return '+66' + digitsOnly.substring(1);
                     }
-                    return digitsOnly.startsWith('66') ? '+' + digitsOnly : booking.phone_number;
+                    return digitsOnly.startsWith('66') ? '+' + digitsOnly : phoneNumber;
                   })()}`}
                   className="text-blue-600 hover:text-blue-800 hover:underline truncate"
                 >
-                  {booking.phone_number}
+                  {booking.customer?.contact_number || booking.phone_number}
                 </a>
               </div>
             )}
             
-            {booking.email && booking.email.toLowerCase() !== 'info@len.golf' && (
+            {(booking.customer?.email || booking.email) && 
+             (booking.customer?.email || booking.email)?.toLowerCase() !== 'info@len.golf' && (
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <a 
-                  href={`mailto:${booking.email}`}
+                  href={`mailto:${booking.customer?.email || booking.email}`}
                   className="text-blue-600 hover:text-blue-800 hover:underline truncate"
                 >
-                  {booking.email}
+                  {booking.customer?.email || booking.email}
                 </a>
               </div>
             )}
@@ -718,11 +729,15 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
 
         <Tabs defaultValue={isPastBooking ? "secondary" : "main"} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="main" disabled={isPastBooking}>
-              Main Information
+            <TabsTrigger value="main" disabled={isPastBooking} className="text-xs sm:text-sm">
+              <span className="hidden sm:inline">Main Information</span>
+              <span className="sm:hidden">Main</span>
               {isPastBooking && <span className="ml-1 text-xs">(Past Booking)</span>}
             </TabsTrigger>
-            <TabsTrigger value="secondary">Additional Details</TabsTrigger>
+            <TabsTrigger value="secondary" className="text-xs sm:text-sm">
+              <span className="hidden sm:inline">Additional Details</span>
+              <span className="sm:hidden">Other</span>
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="main" className="max-h-[50vh] overflow-y-auto pr-2">

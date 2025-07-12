@@ -215,83 +215,113 @@ function WeeklyScheduleRow({ day, schedule, onSave, onDelete, isSaving }: Weekly
 
   return (
     <div className="bg-white border rounded-lg p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="w-24">
-            <span className="font-medium text-gray-900">{day.label}</span>
+      {/* Mobile-first responsive layout */}
+      <div className="space-y-4">
+        {/* Day Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 className="font-medium text-gray-900 text-lg">{day.label}</h3>
           </div>
           
-          <div className="flex items-center space-x-2">
-            <Switch
-              checked={localSchedule.is_available}
-              onCheckedChange={(checked) => 
-                setLocalSchedule(prev => ({ ...prev, is_available: checked }))
-              }
-              disabled={isSaving}
-            />
-            <span className="text-sm text-gray-600">
-              {localSchedule.is_available ? 'Available' : 'Unavailable'}
-            </span>
+          {/* Action Buttons - Mobile: full width, Desktop: right aligned */}
+          <div className="flex items-center gap-2 sm:order-last">
+            {hasChanges && (
+              <Button
+                onClick={handleSave}
+                size="sm"
+                disabled={isSaving}
+                className="flex-1 sm:flex-none"
+              >
+                {isSaving ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Save
+              </Button>
+            )}
+            
+            {schedule.id && (
+              <Button
+                onClick={onDelete}
+                variant="outline"
+                size="sm"
+                disabled={isSaving}
+                className="flex-1 sm:flex-none"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Clear
+              </Button>
+            )}
           </div>
-          
-          {localSchedule.is_available && (
-            <div className="flex items-center space-x-2">
-              <Clock className="h-4 w-4 text-gray-400" />
-              <Input
-                type="time"
-                value={localSchedule.start_time}
-                onChange={(e) => 
-                  setLocalSchedule(prev => ({ ...prev, start_time: e.target.value }))
-                }
-                className="w-24"
-                disabled={isSaving}
-                min="10:00"
-                max="21:00"
-              />
-              <span className="text-gray-500">to</span>
-              <Input
-                type="time"
-                value={localSchedule.end_time}
-                onChange={(e) => 
-                  setLocalSchedule(prev => ({ ...prev, end_time: e.target.value }))
-                }
-                className="w-24"
-                disabled={isSaving}
-                min="10:00"
-                max="21:00"
-              />
-            </div>
-          )}
+        </div>
+
+        {/* Availability Toggle */}
+        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+          <Switch
+            checked={localSchedule.is_available}
+            onCheckedChange={(checked) => 
+              setLocalSchedule(prev => ({ ...prev, is_available: checked }))
+            }
+            disabled={isSaving}
+          />
+          <span className="text-sm font-medium text-gray-700">
+            {localSchedule.is_available ? 'Available for coaching' : 'Not available'}
+          </span>
         </div>
         
-        <div className="flex items-center space-x-2">
-          {hasChanges && (
-            <Button
-              onClick={handleSave}
-              size="sm"
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
-              ) : (
-                <Save className="h-4 w-4 mr-1" />
+        {/* Time Settings - Only show when available */}
+        {localSchedule.is_available && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Clock className="h-4 w-4" />
+              <span className="font-medium">Available Hours</span>
+            </div>
+            
+            {/* Mobile: Stacked time inputs, Desktop: Side by side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Start Time</label>
+                <Input
+                  type="time"
+                  value={localSchedule.start_time}
+                  onChange={(e) => 
+                    setLocalSchedule(prev => ({ ...prev, start_time: e.target.value }))
+                  }
+                  disabled={isSaving}
+                  min="10:00"
+                  max="21:00"
+                  className="w-full h-12 text-base"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">End Time</label>
+                <Input
+                  type="time"
+                  value={localSchedule.end_time}
+                  onChange={(e) => 
+                    setLocalSchedule(prev => ({ ...prev, end_time: e.target.value }))
+                  }
+                  disabled={isSaving}
+                  min="10:00"
+                  max="21:00"
+                  className="w-full h-12 text-base"
+                />
+              </div>
+            </div>
+            
+            {/* Time Summary */}
+            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+              Available from <span className="font-medium">{localSchedule.start_time}</span> to <span className="font-medium">{localSchedule.end_time}</span>
+              {localSchedule.start_time && localSchedule.end_time && (
+                <span className="ml-2">
+                  ({Math.round((new Date(`2000-01-01T${localSchedule.end_time}`) - new Date(`2000-01-01T${localSchedule.start_time}`)) / (1000 * 60 * 60))} hours)
+                </span>
               )}
-              Save
-            </Button>
-          )}
-          
-          {schedule.id && (
-            <Button
-              onClick={onDelete}
-              variant="outline"
-              size="sm"
-              disabled={isSaving}
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear
-            </Button>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

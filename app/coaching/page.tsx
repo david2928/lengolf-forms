@@ -134,43 +134,52 @@ export default function CoachDashboard() {
   }
   
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <DashboardHeader
-          isAdminView={isAdminView}
-          coachName={coach.display_name}
-          availableCoaches={availableCoaches}
-          selectedCoachId={selectedCoachId}
-          onCoachChange={handleCoachSelection}
-          selectedYear={selectedYear}
-          onYearChange={setSelectedYear}
-          selectedMonth={selectedMonth}
-          onMonthChange={setSelectedMonth}
-        />
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile-first responsive container */}
+      <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <DashboardHeader
+            isAdminView={isAdminView}
+            coachName={coach.display_name}
+            availableCoaches={availableCoaches}
+            selectedCoachId={selectedCoachId}
+            onCoachChange={handleCoachSelection}
+            selectedYear={selectedYear}
+            onYearChange={setSelectedYear}
+            selectedMonth={selectedMonth}
+            onMonthChange={setSelectedMonth}
+          />
 
-        <DashboardStats
-          monthly_earnings={monthly_earnings}
-          upcoming_sessions_count={upcoming_sessions.length}
-        />
+          <DashboardStats
+            monthly_earnings={monthly_earnings}
+            upcoming_sessions_count={upcoming_sessions.length}
+          />
 
-        <DashboardActions
-          onShowStudents={handleShowStudents}
-          onShowBookings={handleShowBookings}
-          onShowEarnings={handleShowEarnings}
-          selectedCoachId={selectedCoachId}
-        />
+          <DashboardActions
+            onShowStudents={handleShowStudents}
+            onShowBookings={handleShowBookings}
+            onShowEarnings={handleShowEarnings}
+            selectedCoachId={selectedCoachId}
+          />
 
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold mb-4">Weekly Schedule & Bookings</h2>
-          <CombinedCalendarView coachId={selectedCoachId || dashboardData?.coach?.id} />
+          {/* Calendar section with improved mobile layout */}
+          <div className="space-y-4">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 px-1">
+              Weekly Schedule & Bookings
+            </h2>
+            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+              <CombinedCalendarView coachId={selectedCoachId || dashboardData?.coach?.id} />
+            </div>
+          </div>
+
+          {/* Responsive grid for upcoming lessons and recent activity */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <UpcomingLessons upcoming_sessions={upcoming_sessions} />
+            <RecentActivity recent_bookings={recent_bookings} />
+          </div>
+
+          <EarningsSummary earnings={earnings} />
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <UpcomingLessons upcoming_sessions={upcoming_sessions} />
-          <RecentActivity recent_bookings={recent_bookings} />
-        </div>
-
-        <EarningsSummary earnings={earnings} />
       </div>
 
       <StudentsModal

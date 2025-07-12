@@ -11,32 +11,53 @@ interface RecentActivityProps {
 
 export function RecentActivity({ recent_bookings }: RecentActivityProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-gray-400" />
+    <Card className="h-full">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+          <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
           Recent Activity
         </CardTitle>
-        <CardDescription>Last completed or cancelled lessons</CardDescription>
+        <CardDescription className="text-xs sm:text-sm">
+          Last completed or cancelled lessons
+        </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 sm:px-6">
         {recent_bookings.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No recent activity</p>
+          <div className="text-center py-6 sm:py-8 text-gray-500">
+            <BookOpen className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2 text-gray-300" />
+            <p className="text-sm sm:text-base">No recent activity</p>
+          </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {recent_bookings.slice(0, 8).map((b: any) => (
-              <div key={b.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                <div>
-                  <span className="font-medium">{b.customer_name}</span>
-                  <div className="text-sm text-gray-500">
-                    {new Date(b.booking_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} • {b.start_time} - {b.end_time}
+              <div key={b.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-green-50 transition-colors border border-gray-100">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-sm sm:text-base text-gray-900 truncate">
+                    {b.customer_name}
+                  </div>
+                  <div className="text-xs sm:text-sm text-gray-500">
+                    {new Date(b.booking_date).toLocaleDateString('en-GB', { 
+                      day: '2-digit', 
+                      month: 'short',
+                      weekday: 'short'
+                    })} • {b.start_time} - {b.end_time}
                   </div>
                 </div>
-                <Badge variant="outline" className={getStatusColor(b.status)}>
+                <Badge 
+                  variant="outline" 
+                  className={`${getStatusColor(b.status)} text-xs flex-shrink-0 self-start sm:self-center`}
+                >
                   {b.status}
                 </Badge>
               </div>
             ))}
+            {recent_bookings.length > 8 && (
+              <div className="text-center pt-2">
+                <p className="text-xs text-gray-500">
+                  +{recent_bookings.length - 8} more activities
+                </p>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

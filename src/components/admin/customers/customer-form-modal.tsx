@@ -43,6 +43,11 @@ interface CustomerFormModalProps {
   onOpenChange: (open: boolean) => void;
   onCustomerCreated: () => void;
   customerId?: string | null;
+  prePopulateData?: {
+    fullName: string;
+    primaryPhone: string;
+    email?: string;
+  } | null;
 }
 
 interface CustomerFormData {
@@ -109,7 +114,8 @@ export function CustomerFormModal({
   open, 
   onOpenChange, 
   onCustomerCreated,
-  customerId 
+  customerId,
+  prePopulateData 
 }: CustomerFormModalProps) {
   const { customer, loading: customerLoading, refetch } = useCustomer(customerId || null);
   const [loading, setLoading] = useState(false);
@@ -163,9 +169,9 @@ export function CustomerFormModal({
       });
     } else if (open && !isEditing) {
       reset({
-        fullName: '',
-        primaryPhone: '',
-        email: '',
+        fullName: prePopulateData?.fullName || '',
+        primaryPhone: prePopulateData?.primaryPhone || '',
+        email: prePopulateData?.email || '',
         dateOfBirth: '',
         address: '',
         notes: '',
@@ -173,7 +179,7 @@ export function CustomerFormModal({
         updateReason: ''
       });
     }
-  }, [open, customer, isEditing, reset]);
+  }, [open, customer, isEditing, prePopulateData, reset]);
 
   // Check for duplicates when phone/name/email changes
   useEffect(() => {
@@ -361,7 +367,7 @@ export function CustomerFormModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            {isEditing ? 'Edit Customer' : 'Create New Customer'}
+{isEditing ? 'Edit Customer' : (prePopulateData ? 'Create Customer from Unmapped Record' : 'Create New Customer')}
           </DialogTitle>
         </DialogHeader>
 
