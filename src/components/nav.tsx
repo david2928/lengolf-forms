@@ -109,34 +109,36 @@ export function Nav() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Customers Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant={pathname.startsWith('/admin/customers') ? 'secondary' : 'ghost'}
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <Users className="h-4 w-4" />
-              Customers
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
-            <DropdownMenuItem asChild>
-              <Link href="/admin/customers" className="flex items-center gap-2 w-full">
-                <UserCheck className="h-4 w-4" />
-                Customer Management
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/admin/customers/mapping" className="flex items-center gap-2 w-full">
-                <Link2 className="h-4 w-4" />
-                Customer Mapping
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Customers Dropdown - Only for Admin Users */}
+        {isAdmin && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant={pathname.startsWith('/admin/customers') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Users className="h-4 w-4" />
+                Customers
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/admin/customers" className="flex items-center gap-2 w-full">
+                  <UserCheck className="h-4 w-4" />
+                  Customer Management
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/customers/mapping" className="flex items-center gap-2 w-full">
+                  <Link2 className="h-4 w-4" />
+                  Customer Mapping
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Coaching Portal - Only for Coaches */}
         {isCoach && (
@@ -274,15 +276,17 @@ export function Nav() {
         </Button>
       </Link>
       <PackageMonitorNavButton />
-      <Link href="/admin/customers" className="flex-1">
-        <Button 
-          variant={pathname.startsWith('/admin/customers') ? 'secondary' : 'ghost'} 
-          size="sm" 
-          className="w-full flex justify-center"
-        >
-          <Users className="h-3.5 w-3.5" />
-        </Button>
-      </Link>
+      {isAdmin && (
+        <Link href="/admin/customers" className="flex-1">
+          <Button 
+            variant={pathname.startsWith('/admin/customers') ? 'secondary' : 'ghost'} 
+            size="sm" 
+            className="w-full flex justify-center"
+          >
+            <Users className="h-3.5 w-3.5" />
+          </Button>
+        </Link>
+      )}
       {isAdmin && (
         <Link href="/admin" className="flex-1">
           <Button 

@@ -3,12 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { CoachRedirect } from '@/components/coach-redirect'
 import { Button } from '@/components/ui/button'
-import { FileText, Clock, RefreshCw, CalendarRange, Package2, Diamond, Calendar, Bird } from 'lucide-react'
-import { useState } from 'react'
-import { toast } from '@/components/ui/use-toast'
+import { Clock, Diamond, Bird } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { usePackageMonitor } from '@/hooks/use-package-monitor'
-import { useMediaQuery } from '@/hooks/use-media-query'
 import { menuItems as appMenuItems, type MenuItem as AppMenuItemType } from '@/config/menu-items'
 import { ScreenSizeIndicator } from '@/components/ui/screen-size-indicator'
 
@@ -38,53 +35,8 @@ const coachingItems = appMenuItems.filter(item =>
 
 export default function Home() {
   const router = useRouter()
-  const [isUpdating, setIsUpdating] = useState(false)
   const { data: packageData } = usePackageMonitor()
-  const isMobile = useMediaQuery('(max-width: 768px)')
 
-  const handleCustomerUpdate = async () => {
-    try {
-      setIsUpdating(true)
-      console.log('Starting customer update process...')
-
-      const response = await fetch('/api/crm/update-customers', {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
-      })
-
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update customers')
-      }
-
-      toast({
-        title: "Update Started",
-        description: `Customer data update has been initiated (Batch ID: ${data.batch_id}). ${data.records_processed} records will be processed. This takes about 30 seconds to complete.`,
-      })
-
-      setTimeout(() => {
-        setIsUpdating(false)
-        toast({
-          title: "Update Complete",
-          description: "Customer data has been refreshed. You may now proceed to create packages.",
-        })
-      }, 30000)
-
-    } catch (error) {
-      console.error('Error updating customers:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error 
-          ? `Failed to update customers: ${error.message}`
-          : "Failed to start customer update. Please try again.",
-        variant: "destructive"
-      })
-      setIsUpdating(false)
-    }
-  }
 
   // Calculate separate counts for diamond and early bird packages
   const diamondPackages = packageData?.unlimited.packages?.filter(pkg => 
@@ -136,7 +88,7 @@ export default function Home() {
     </div>
   )
 
-  const MobileMenuItem = ({ icon: Icon, title, description, onClick, extraInfo }: MenuItemProps) => (
+  const MobileMenuItem = ({ icon: Icon, title, onClick, extraInfo }: MenuItemProps) => (
     <div 
       className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
       onClick={onClick}
@@ -170,7 +122,7 @@ export default function Home() {
     </div>
   )
 
-  const DesktopMenuItem = ({ icon: Icon, title, description, onClick, extraInfo }: MenuItemProps) => (
+  const DesktopMenuItem = ({ icon: Icon, title, onClick, extraInfo }: MenuItemProps) => (
     <div 
       className="flex flex-col p-6 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer h-full"
       onClick={onClick}
@@ -178,7 +130,6 @@ export default function Home() {
       <div className="flex flex-col items-center text-center flex-1">
         <Icon className="h-12 w-12 mb-4 text-primary" />
         <h2 className="text-xl font-semibold">{title}</h2>
-        {description && <p className="text-sm text-muted-foreground mt-2 flex-grow">{description}</p>}
         {extraInfo}
       </div>
       <Button className="w-full mt-6" variant="secondary">
@@ -197,19 +148,6 @@ export default function Home() {
         <h1 className="text-2xl font-bold">LENGOLF Backoffice</h1>
       </div>
 
-      <div className="mb-6">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full flex items-center gap-2 md:w-auto"
-          onClick={handleCustomerUpdate}
-          disabled={isUpdating}
-        >
-          <RefreshCw className={`h-4 w-4 ${isUpdating ? 'animate-spin' : ''}`} />
-          <span>{isUpdating ? 'Updating Customer Data...' : 'Update Customer Data'}</span>
-        </Button>
-        <p className="text-xs text-muted-foreground mt-1">Click to refresh customer list</p>
-      </div>
 
       <div className="space-y-6 md:hidden">
         <div>
@@ -220,7 +158,6 @@ export default function Home() {
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={item.description}
                 onClick={() => router.push(item.path)}
               />
             ))}
@@ -234,7 +171,6 @@ export default function Home() {
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={item.description}
                 onClick={() => router.push(item.path)}
                 extraInfo={item.title === "Package Monitor" ? packageInfo : undefined}
               />
@@ -249,7 +185,6 @@ export default function Home() {
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={item.description}
                 onClick={() => router.push(item.path)}
               />
             ))}
@@ -263,7 +198,6 @@ export default function Home() {
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={item.description}
                 onClick={() => router.push(item.path)}
               />
             ))}
@@ -280,7 +214,6 @@ export default function Home() {
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={isMobile ? undefined : item.description}
                 onClick={() => router.push(item.path)}
               />
             ))}
@@ -294,7 +227,6 @@ export default function Home() {
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={isMobile ? undefined : item.description}
                 onClick={() => router.push(item.path)}
                 extraInfo={item.title === "Package Monitor" ? packageInfo : undefined}
               />
@@ -309,7 +241,6 @@ export default function Home() {
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={isMobile ? undefined : item.description}
                 onClick={() => router.push(item.path)}
               />
             ))}
@@ -323,7 +254,6 @@ export default function Home() {
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={isMobile ? undefined : item.description}
                 onClick={() => router.push(item.path)}
               />
             ))}
