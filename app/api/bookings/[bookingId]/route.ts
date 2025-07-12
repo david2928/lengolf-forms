@@ -1,18 +1,7 @@
 import { NextResponse } from 'next/server';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import type { Booking } from '@/types/booking'; 
-import { 
-    formatCalendarEvent, 
-    getRelevantCalendarIds, 
-    createCalendarEvents, 
-    updateCalendarEvent, 
-    deleteCalendarEvent, 
-    initializeCalendar,
-    type CalendarFormatInput, // Import this type
-    type CalendarEventResult,
-    getCalendarEventDetails // Added import
-} from '@/lib/google-calendar';
-import { getServiceAccountAuth } from '@/lib/google-auth';
+// Google Calendar imports removed - calendar events are now handled by automated sync system
 import { parse as parseDateFns, addMinutes, format as formatDateFns, parseISO, startOfDay, endOfDay, isBefore, isEqual } from 'date-fns';
 import { formatLineModificationMessage } from '@/lib/line-formatting';
 // We will need types for the payload and booking
@@ -406,7 +395,7 @@ export async function PUT(
         console.error('Unexpected error creating booking history entry:', historyCatchError);
     }
     
-    // --- Google Calendar Update Logic ---
+    /* --- Google Calendar Update Logic --- (Commented out - handled by automated sync system)
     let finalCalendarEventsForDB: CalendarEventResult[] | null | undefined = updatedBookingUntyped.calendar_events;
 
     try {
@@ -517,7 +506,7 @@ export async function PUT(
       await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'error_syncing' }).eq('id', bookingId);
       updatedBookingUntyped.google_calendar_sync_status = 'error_syncing';
     }
-    // --- End Google Calendar Update Logic ---
+    --- End Google Calendar Update Logic --- */
 
     // // Send LINE Notification for Modification - MOVED TO CLIENT-SIDE
     // try {

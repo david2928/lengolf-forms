@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import type { Booking } from '@/types/booking';
-import { getServiceAccountAuth } from '@/lib/google-auth';
-import { deleteCalendarEvent, initializeCalendar } from '@/lib/google-calendar';
+// Calendar integration removed - calendar events are now handled by automated sync system
 import { formatLineCancellationMessage } from '@/lib/line-formatting';
 
 // Define the expected payload structure for cancellation
@@ -130,7 +129,8 @@ export async function POST(
         console.error(`Cancel booking: Unexpected error creating booking history entry for ${bookingId}:`, historyCatchError);
     }
 
-    // 5. Google Calendar delete linked events
+    // 5. Calendar Integration Removed - calendar events managed by automated sync system
+    /* Calendar deletion code temporarily commented out
     if (currentBooking.calendar_events && currentBooking.calendar_events.length > 0) {
       console.log(`Cancel booking: Deleting ${currentBooking.calendar_events.length} Google Calendar event(s) for booking ${bookingId}.`);
       try {
@@ -182,6 +182,7 @@ export async function POST(
       // Update sync status to indicate successful cancellation with no events to delete
       await refacSupabaseAdmin.from('bookings').update({ google_calendar_sync_status: 'cancelled_no_events' }).eq('id', bookingId);
     }
+    */ // End commented out calendar deletion code
 
     // // 6. LINE notification for cancellation - MOVED TO CLIENT-SIDE
     // try {

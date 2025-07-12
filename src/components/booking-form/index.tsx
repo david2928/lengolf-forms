@@ -149,7 +149,7 @@ export function BookingForm() {
             isSubmitted: true,
             submissionStatus: {
               booking: true,
-              calendar: !!result.calendarEvents?.length,
+              calendar: true, // Calendar events now handled by automated sync system
               notification: true
             }
           }));

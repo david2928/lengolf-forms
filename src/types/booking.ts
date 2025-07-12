@@ -18,9 +18,7 @@ export interface Booking {
   cancelled_by_type?: string | null;    // TEXT, nullable
   cancelled_by_identifier?: string | null; // TEXT, nullable
   cancellation_reason?: string | null;  // TEXT, nullable
-  google_calendar_sync_status?: string | null; // TEXT, nullable
-  calendar_event_id?: string | null; // Google Calendar event ID (to be deprecated)
-  calendar_events?: { eventId: string; calendarId: string; status: string }[] | null; // JSONB from P0
+  // Calendar integration fields removed - calendar events now managed by automated sync system
   booking_type?: string | null; // TEXT, nullable, Added for storing booking type
   package_name?: string | null; // TEXT, nullable, Added for storing package name
   stable_hash_id?: string | null; // TEXT, nullable, Stores the stable_hash_id of the CRM customer
