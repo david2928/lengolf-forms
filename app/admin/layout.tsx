@@ -11,11 +11,9 @@ export default async function AdminLayout({
   // Check for development bypass first
   if (process.env.NODE_ENV === 'development' && process.env.SKIP_AUTH === 'true') {
     return (
-      <div className="admin-section">
-        <div className="container py-6">
-          {children}
-        </div>
-      </div>
+      <main className="flex-1">
+        {children}
+      </main>
     );
   }
   
@@ -31,10 +29,8 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="admin-section">
-      <div className="container py-6">
-        {children}
-      </div>
-    </div>
+    <main className="flex-1">
+      {children}
+    </main>
   );
 } 

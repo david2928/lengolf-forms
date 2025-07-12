@@ -25,6 +25,14 @@ function KPICard({ title, value, icon, format = 'number', isLoading }: KPICardPr
     
     switch (format) {
       case 'currency':
+        // Mobile: Shorter format for currency 
+        if (typeof window !== 'undefined' && window.innerWidth < 640) {
+          if (numValue >= 1000000) {
+            return `฿${(numValue / 1000000).toFixed(1)}M`;
+          } else if (numValue >= 1000) {
+            return `฿${(numValue / 1000).toFixed(0)}K`;
+          }
+        }
         return new Intl.NumberFormat('th-TH', {
           style: 'currency',
           currency: 'THB',
@@ -35,14 +43,18 @@ function KPICard({ title, value, icon, format = 'number', isLoading }: KPICardPr
         return `${numValue.toFixed(1)}%`;
       case 'number':
       default:
+        // Mobile: Shorter format for large numbers
+        if (typeof window !== 'undefined' && window.innerWidth < 640 && numValue >= 1000) {
+          return `${(numValue / 1000).toFixed(1)}K`;
+        }
         return new Intl.NumberFormat('th-TH').format(numValue);
     }
   };
 
   return (
-    <div className="bg-white border border-gray-200 p-3 space-y-1">
-      <div className="flex items-center justify-between">
-        <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+    <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 hover:shadow transition-shadow">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs sm:text-sm font-medium text-gray-600">
           {title}
         </div>
         <div className="text-gray-400">
@@ -50,7 +62,7 @@ function KPICard({ title, value, icon, format = 'number', isLoading }: KPICardPr
         </div>
       </div>
       
-      <div className="text-lg font-semibold text-gray-900">
+      <div className="text-lg sm:text-2xl font-bold text-gray-900">
         {formatValue(value)}
       </div>
     </div>
@@ -67,7 +79,7 @@ export function TransactionKPIs({ kpis, isLoading, error }: TransactionKPIsProps
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
       <KPICard
         title="Total Sales"
         value={kpis?.totalSales || 0}

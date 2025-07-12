@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, RefreshCw, Calendar, X, User, CreditCard } from 'lucide-react';
+import { Search, RefreshCw, Calendar, X, User, CreditCard, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,7 +43,7 @@ const formatTransactionDateTime = (dateTimeString: string) => {
   }
 };
 
-// Transaction Detail Modal Component
+// Transaction Detail Modal Component - Streamlined for mobile
 function TransactionDetailModal({ 
   receiptNumber, 
   isOpen, 
@@ -59,117 +59,100 @@ function TransactionDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Transaction Details</span>
-          </DialogTitle>
+          <DialogTitle className="text-lg font-semibold">Transaction Details</DialogTitle>
         </DialogHeader>
         
         {isLoading && (
-          <div className="p-8 text-center text-gray-500">
-            Loading transaction details...
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-3 text-gray-500">Loading...</span>
           </div>
         )}
         
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-sm">
-            Failed to load transaction details: {error.error}
+          <div className="p-4 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
+            Failed to load: {error.error}
           </div>
         )}
         
         {transactionDetails && (
-          <div className="space-y-6">
-            {/* Transaction Summary */}
-            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 border">
-              <div>
-                <div className="text-xs text-gray-600 uppercase tracking-wide mb-1">Receipt Number</div>
-                <div className="font-mono text-sm">{transactionDetails.transaction.receipt_number}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-600 uppercase tracking-wide mb-1">Date & Time</div>
-                <div className="text-sm">{formatTransactionDateTime(transactionDetails.transaction.sales_timestamp)}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-600 uppercase tracking-wide mb-1">Customer</div>
-                <div className="text-sm">{transactionDetails.transaction.customer_name || 'Walk-in Customer'}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-600 uppercase tracking-wide mb-1">Staff</div>
-                <div className="flex items-center text-sm">
-                  {transactionDetails.transaction.staff_name ? (
-                    <>
-                      {(() => {
-                        const staffName = transactionDetails.transaction.staff_name;
-                        const staffColors: { [key: string]: string } = {
-                          'dolly': 'bg-pink-400',
-                          'net': 'bg-blue-400', 
-                          'may': 'bg-green-400',
-                          'winnie': 'bg-purple-400',
-                          'bank': 'bg-yellow-400',
-                          'chris': 'bg-red-400',
-                          'david': 'bg-indigo-400'
-                        };
-                        const key = staffName.toLowerCase();
-                        const colorClass = staffColors[key] || 'bg-gray-400';
-                        return <div className={`w-2 h-2 rounded-full ${colorClass} mr-2`} />;
-                      })()}
-                      <span>{transactionDetails.transaction.staff_name}</span>
-                    </>
-                  ) : (
-                    <span className="text-gray-400">N/A</span>
-                  )}
+          <div className="space-y-4">
+            {/* Transaction Header */}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <div className="font-mono text-lg font-bold">
+                    {transactionDetails.transaction.receipt_number}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {formatTransactionDateTime(transactionDetails.transaction.sales_timestamp)}
+                  </div>
                 </div>
+                <div className="text-right">
+                  <div className="text-xl font-bold">
+                    ฿{transactionDetails.summary.total.toFixed(2)}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {transactionDetails.summary.payment_method}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-medium">
+                  {transactionDetails.transaction.customer_name || 'Walk-in Customer'}
+                </span>
+                {transactionDetails.transaction.staff_name && (
+                  <div className="flex items-center">
+                    {(() => {
+                      const staffColors = {
+                        'dolly': 'bg-pink-400', 'net': 'bg-blue-400', 'may': 'bg-green-400',
+                        'winnie': 'bg-purple-400', 'bank': 'bg-yellow-400', 'chris': 'bg-red-400', 'david': 'bg-indigo-400'
+                      };
+                      const colorClass = staffColors[transactionDetails.transaction.staff_name.toLowerCase() as keyof typeof staffColors] || 'bg-gray-400';
+                      return <div className={`w-2 h-2 rounded-full ${colorClass} mr-2`} />;
+                    })()}
+                    <span>{transactionDetails.transaction.staff_name}</span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Items */}
             <div>
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Items</h3>
+              <h3 className="font-medium mb-3">Items ({transactionDetails.items.length})</h3>
               <div className="space-y-2">
                 {transactionDetails.items.map((item, index) => (
-                  <div key={index} className="py-2 border-b border-gray-100">
+                  <div key={index} className="border rounded p-3">
                     <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">
+                      <div className="flex-1 pr-3">
+                        <div className="font-medium text-sm">
                           {item.item_cnt} x {item.product_name}
                           {item.is_sim_usage === 1 && (
-                            <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">SIM</span>
+                            <span className="ml-1 px-1 bg-blue-100 text-blue-700 text-xs rounded">SIM</span>
                           )}
                         </div>
-                        <div className="text-xs text-gray-600 mt-1">
+                        <div className="text-xs text-gray-500">
                           {item.product_category}
+                          {item.item_notes && item.item_notes.trim() && item.item_notes !== '-' && (
+                            <span className="ml-2">• {item.item_notes}</span>
+                          )}
                         </div>
-                        {item.item_notes && item.item_notes.trim() !== '' && item.item_notes.trim() !== '-' && (
-                          <div className="text-xs text-gray-500 mt-1 italic">
-                            {item.item_notes}
-                          </div>
-                        )}
-                        {item.item_price_incl_vat > 0 && (
-                          <div className="text-xs text-gray-600 mt-1">
-                            ฿{item.item_price_incl_vat.toFixed(2)}
-                          </div>
-                        )}
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-medium">
-                          ฿{item.sales_total.toFixed(2)}
-                        </div>
-                        {(item.item_discount && item.item_discount > 0) || (item.sales_discount && item.sales_discount > 0) ? (
-                          <div className="text-xs text-gray-500 mt-1">
-                            {(() => {
-                              // Calculate discount percentage using only sales_discount as requested
-                              // Formula: sales_discount / (sales_total + sales_discount) * 100
-                              const salesDiscount = item.sales_discount || 0;
-                              if (salesDiscount > 0) {
-                                const originalPrice = item.sales_total + salesDiscount;
-                                const discountPercentage = (salesDiscount / originalPrice * 100);
-                                return `-${Math.round(discountPercentage)}% discount`;
-                              }
-                              return '';
-                            })()}
+                        <div className="font-medium">฿{item.sales_total.toFixed(2)}</div>
+                        {item.item_price_incl_vat > 0 && (
+                          <div className="text-xs text-gray-500">
+                            ฿{item.item_price_incl_vat.toFixed(2)}/ea
                           </div>
-                        ) : null}
+                        )}
+                        {(item.sales_discount && item.sales_discount > 0) && (
+                          <div className="text-xs text-green-600">
+                            -{Math.round((item.sales_discount / (item.sales_total + item.sales_discount)) * 100)}%
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -179,42 +162,18 @@ function TransactionDetailModal({
 
             {/* Summary */}
             <div className="border-t pt-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
                   <span>Subtotal:</span>
                   <span>฿{transactionDetails.summary.subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between">
                   <span>VAT:</span>
                   <span>฿{transactionDetails.summary.vat.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-base font-semibold border-t pt-2">
+                <div className="flex justify-between font-medium pt-1 border-t">
                   <span>Total:</span>
                   <span>฿{transactionDetails.summary.total.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Payment Method:</span>
-                  <div className="flex items-center">
-                    {transactionDetails.summary.payment_method ? (
-                      <>
-                        {(() => {
-                          const method = transactionDetails.summary.payment_method;
-                          if (method.toLowerCase().includes('cash')) {
-                            return <div className="w-2 h-2 rounded-full bg-green-400 mr-2" />;
-                          } else if (method.toLowerCase().includes('card') || method.toLowerCase().includes('visa') || method.toLowerCase().includes('mastercard')) {
-                            return <CreditCard className="h-3 w-3 text-blue-400 mr-1.5" />;
-                          } else if (method.toLowerCase().includes('promptpay')) {
-                            return <div className="w-2 h-2 rounded-full bg-purple-400 mr-2" />;
-                          } else {
-                            return <div className="w-2 h-2 rounded-full bg-gray-400 mr-2" />;
-                          }
-                        })()}
-                        <span>{transactionDetails.summary.payment_method}</span>
-                      </>
-                    ) : (
-                      <span className="text-gray-400">N/A</span>
-                    )}
-                  </div>
                 </div>
               </div>
             </div>
@@ -285,68 +244,63 @@ export default function TransactionsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-full mx-auto p-4 space-y-4">
+      <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Transactions</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              POS transaction management and analytics
-            </p>
-          </div>
-          <Button 
-            onClick={handleRefresh}
-            disabled={isLoading || kpisLoading}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${(isLoading || kpisLoading) ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-
-        {/* KPIs */}
-        <TransactionKPIs 
-          kpis={kpis || null} 
-          isLoading={kpisLoading} 
-          error={kpisError} 
-        />
-
-        {/* Filters */}
-        <div className="bg-white border border-gray-200 p-4 space-y-4">
+          {/* Header - Directly on gray background */}
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-gray-900">Filters</h3>
+            <div>
+              <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Transactions</h1>
+              <p className="text-sm sm:text-base text-gray-600">POS transaction management</p>
+            </div>
             <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={filters.resetFilters}
-              className="text-xs text-gray-500 hover:text-gray-700"
+              onClick={handleRefresh}
+              disabled={isLoading || kpisLoading}
+              variant="outline"
+              className="flex items-center gap-2 h-9 sm:h-10 px-3 sm:px-4 bg-white"
             >
-              <X className="h-3 w-3 mr-1" />
-              Clear All
+              <RefreshCw className={`h-4 w-4 ${(isLoading || kpisLoading) ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Date Range Section */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-medium text-gray-700 uppercase tracking-wide">Date Range</h4>
-              
-              <DateRangePicker
-                startDate={filters.filters.dateRange.start}
-                endDate={filters.filters.dateRange.end}
-                onStartDateChange={(date) => date && filters.updateDateRange({ start: date })}
-                onEndDateChange={(date) => date && filters.updateDateRange({ end: date })}
-              />
+          {/* KPIs - Directly on gray background */}
+          <TransactionKPIs 
+            kpis={kpis || null} 
+            isLoading={kpisLoading} 
+            error={kpisError} 
+          />
 
-              {/* Quick Date Buttons */}
-              <div className="flex flex-wrap gap-1">
+          {/* Filters Section - No wrapper */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm sm:text-lg font-medium text-gray-900">Filters</h2>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={filters.resetFilters}
+                className="text-gray-500 hover:text-gray-700 -mr-2"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear All
+              </Button>
+            </div>
+
+            {/* Date Range - Individual cards */}
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Date Range</label>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <DateRangePicker
+                  startDate={filters.filters.dateRange.start}
+                  endDate={filters.filters.dateRange.end}
+                  onStartDateChange={(date) => date && filters.updateDateRange({ start: date })}
+                  onEndDateChange={(date) => date && filters.updateDateRange({ end: date })}
+                />
                 <Button 
                   variant={filters.selectedPreset === 'today' ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => filters.setDatePreset('today')}
-                  className={`text-xs h-7 px-2 ${filters.selectedPreset === 'today' ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}`}
+                  className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                 >
                   Today
                 </Button>
@@ -354,7 +308,7 @@ export default function TransactionsPage() {
                   variant={filters.selectedPreset === 'yesterday' ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => filters.setDatePreset('yesterday')}
-                  className={`text-xs h-7 px-2 ${filters.selectedPreset === 'yesterday' ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}`}
+                  className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                 >
                   Yesterday
                 </Button>
@@ -362,105 +316,95 @@ export default function TransactionsPage() {
                   variant={filters.selectedPreset === 'last7days' ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => filters.setDatePreset('last7days')}
-                  className={`text-xs h-7 px-2 ${filters.selectedPreset === 'last7days' ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}`}
+                  className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                 >
-                  Last 7 Days
+                  7 Days
                 </Button>
                 <Button 
                   variant={filters.selectedPreset === 'last30days' ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => filters.setDatePreset('last30days')}
-                  className={`text-xs h-7 px-2 ${filters.selectedPreset === 'last30days' ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}`}
+                  className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                 >
-                  Last 30 Days
+                  30 Days
                 </Button>
               </div>
             </div>
 
-            {/* Payment & Staff Filters */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-medium text-gray-700 uppercase tracking-wide">Payment & Staff</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-600">Payment Method</label>
-                  <Select 
-                    value={filters.filters.paymentMethod || 'all'} 
-                    onValueChange={(value) => filters.updateFilters({ 
-                      paymentMethod: value === 'all' ? undefined : value 
-                    })}
-                  >
-                    <SelectTrigger className="text-sm h-8">
-                      <SelectValue placeholder="All methods" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All methods</SelectItem>
-                      {PAYMENT_METHODS.map(method => (
-                        <SelectItem key={method} value={method}>{method}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-600">Staff</label>
-                  <Input
-                    placeholder="Staff name"
-                    value={filters.filters.staffName || ''}
-                    onChange={(e) => filters.updateFilters({ staffName: e.target.value || undefined })}
-                    className="text-sm h-8"
-                  />
-                </div>
+            {/* Filter inputs - Mobile optimized layout */}
+            <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-4 sm:gap-4">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                <Select 
+                  value={filters.filters.paymentMethod || 'all'} 
+                  onValueChange={(value) => filters.updateFilters({ 
+                    paymentMethod: value === 'all' ? undefined : value 
+                  })}
+                >
+                  <SelectTrigger className="h-9 text-sm bg-white">
+                    <SelectValue placeholder="All methods" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All methods</SelectItem>
+                    {PAYMENT_METHODS.map(method => (
+                      <SelectItem key={method} value={method}>{method}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-
-            {/* Customer & Amount Filters */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-medium text-gray-700 uppercase tracking-wide">Customer & Amount</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-600">Customer</label>
-                  <Input
-                    placeholder="Customer name"
-                    value={filters.filters.customerName || ''}
-                    onChange={(e) => filters.updateFilters({ customerName: e.target.value || undefined })}
-                    className="text-sm h-8"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-600">Min Amount (฿)</label>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    value={filters.filters.minAmount || ''}
-                    onChange={(e) => filters.updateFilters({ 
-                      minAmount: e.target.value ? parseFloat(e.target.value) : undefined 
-                    })}
-                    className="text-sm h-8"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Staff</label>
+                <Input
+                  placeholder="Staff name"
+                  value={filters.filters.staffName || ''}
+                  onChange={(e) => filters.updateFilters({ staffName: e.target.value || undefined })}
+                  className="h-9 text-sm bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Customer</label>
+                <Input
+                  placeholder="Customer name"
+                  value={filters.filters.customerName || ''}
+                  onChange={(e) => filters.updateFilters({ customerName: e.target.value || undefined })}
+                  className="h-9 text-sm bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Min Amount (฿)</label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={filters.filters.minAmount || ''}
+                  onChange={(e) => filters.updateFilters({ 
+                    minAmount: e.target.value ? parseFloat(e.target.value) : undefined 
+                  })}
+                  className="h-9 text-sm bg-white"
+                />
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Data Table */}
-        <div className="bg-white border border-gray-200">
-          <TransactionsDataTable 
-            data={transactions}
-            columns={columns}
-            isLoading={isLoading}
-            onRefresh={handleRefresh}
+          {/* Transactions Section */}
+          <div>
+            <h2 className="text-sm sm:text-lg font-medium text-gray-900 mb-4">Transaction History</h2>
+            <TransactionsDataTable 
+              data={transactions}
+              columns={columns}
+              isLoading={isLoading}
+              onRefresh={handleRefresh}
+              onTransactionClick={handleTransactionClick}
+            />
+          </div>
+
+          {/* Transaction Detail Modal */}
+          <TransactionDetailModal
+            receiptNumber={selectedReceipt}
+            isOpen={isModalOpen}
+            onClose={handleCloseModal}
           />
         </div>
-
-        {/* Transaction Detail Modal */}
-        <TransactionDetailModal
-          receiptNumber={selectedReceipt}
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-        />
       </div>
     </div>
   );
-} 
+}
