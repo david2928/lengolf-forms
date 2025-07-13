@@ -37,6 +37,9 @@ export default function PackageForm() {
     }
   })
 
+  // Cache the selected customer so it persists even when SWR data changes
+  const [selectedCustomerCache, setSelectedCustomerCache] = useState<any>(null)
+
   const [isLoadingInitial, setIsLoadingInitial] = useState({
     types: true,
     customers: false // Changed to false since we'll use SWR
@@ -85,26 +88,7 @@ export default function PackageForm() {
     mutateCustomers();
   }, [mutateCustomers]);
 
-  useEffect(() => {
-    // Update formState with transformed customers whenever SWR data changes
-    if (customers.length > 0) {
-      const transformedCustomers = customers.map((customer: any) => ({
-        id: customer.id,
-        customer_name: customer.customer_name,
-        contact_number: customer.contact_number,
-        customer_code: customer.customer_code,
-        email: customer.email || null,
-        displayName: customer.contact_number 
-          ? `${customer.customer_name} (${customer.contact_number})`
-          : customer.customer_name
-      }));
-      
-      setFormState(prev => ({
-        ...prev,
-        customers: transformedCustomers
-      }));
-    }
-  }, [customers]);
+  // No longer need to sync customers to formState since we use SWR directly
 
   useEffect(() => {
     async function fetchPackageTypes() {
@@ -180,6 +164,7 @@ export default function PackageForm() {
 
   const resetForm = () => {
     reset(defaultValues)
+    setSelectedCustomerCache(null) // Clear the cache
     setFormState(prev => ({
       ...prev,
       selectedCustomerId: '',
@@ -208,7 +193,11 @@ export default function PackageForm() {
       return
     }
 
-    const selectedCustomer = formState.customers.find(c => c.id === formState.selectedCustomerId)
+    // Try cache first, then SWR customers
+    let selectedCustomer = selectedCustomerCache && selectedCustomerCache.id === formState.selectedCustomerId 
+      ? selectedCustomerCache 
+      : customers.find(c => c.id === formState.selectedCustomerId)
+    
     console.log('Selected customer:', selectedCustomer)
     
     if (!selectedCustomer) {
@@ -279,19 +268,42 @@ export default function PackageForm() {
   }
 
   const getSelectedCustomerDisplay = () => {
-    const customer = formState.customers.find(c => c.id === formState.selectedCustomerId)
-    return customer?.displayName || 'Select customer'
+    if (!formState.selectedCustomerId) {
+      return 'Select customer'
+    }
+    
+    // First check the cached selected customer
+    if (selectedCustomerCache && selectedCustomerCache.id === formState.selectedCustomerId) {
+      return selectedCustomerCache.contact_number 
+        ? `${selectedCustomerCache.customer_name} (${selectedCustomerCache.contact_number})`
+        : selectedCustomerCache.customer_name
+    }
+    
+    // Then check SWR customers
+    const swrCustomer = customers.find(c => c.id === formState.selectedCustomerId)
+    if (swrCustomer) {
+      return swrCustomer.contact_number 
+        ? `${swrCustomer.customer_name} (${swrCustomer.contact_number})`
+        : swrCustomer.customer_name
+    }
+    
+    // Fallback
+    return 'Customer selected'
   }
 
-  const mappedCustomers = useMemo(() => formState.customers.map(customer => ({
+  const mappedCustomers = useMemo(() => customers.map(customer => ({
     id: customer.id,
     customer_name: customer.customer_name,
     contact_number: customer.contact_number,
     customer_code: customer.customer_code
-  })), [formState.customers])
+  })), [customers])
 
   const handleCustomerSelect = (customer: SimpleCustomer) => {
     console.log('Customer selected:', customer)
+    
+    // Cache the selected customer
+    setSelectedCustomerCache(customer)
+    
     setFormState(prev => ({
       ...prev,
       selectedCustomerId: customer.id, // Already a string UUID
