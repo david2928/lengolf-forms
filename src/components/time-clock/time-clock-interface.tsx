@@ -420,7 +420,7 @@ export function TimeClockInterface() {
     ]
 
     return (
-      <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto mb-4">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 max-w-xs mx-auto mb-4">
         {digits.flat().map((value, index) => {
           const isSpecial = value === 'Clear' || value === '⌫'
           const disabled = state.loading || !!state.lockoutInfo?.isLocked
@@ -460,9 +460,9 @@ export function TimeClockInterface() {
 
   return (
     <ErrorBoundary showTechnicalDetails={process.env.NODE_ENV === 'development'}>
-      <div className="w-full max-w-md mx-auto">
-        <Card className="border-0 shadow-lg">
-        <CardHeader className="text-center bg-primary text-primary-foreground rounded-t-lg">
+      <div className="w-full min-h-full flex flex-col">
+        <Card className="border-0 shadow-none rounded-none flex-1 flex flex-col">
+        <CardHeader className="text-center bg-primary text-primary-foreground">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Clock className="h-6 w-6" />
             <CardTitle className="text-xl">Staff Time Clock</CardTitle>
@@ -471,10 +471,10 @@ export function TimeClockInterface() {
           <p className="text-sm opacity-90">{isClient ? currentTime : 'Loading...'}</p>
         </CardHeader>
 
-        <CardContent className="space-y-6 p-6">
+        <CardContent className="flex-1 flex flex-col space-y-4 sm:space-y-6 p-4 sm:p-6">
           {/* Camera Section */}
-          <div className="space-y-4">
-            <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden">
+          <div className="space-y-4 flex-1 flex flex-col">
+            <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden max-h-48 sm:max-h-60">
               <video
                 ref={videoRef}
                 autoPlay
@@ -524,12 +524,12 @@ export function TimeClockInterface() {
           )}
 
           {/* PIN Entry Section */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div className="text-center">
               <label className="text-sm font-medium mb-3 block">Enter Your 6-Digit PIN</label>
               
               {/* Custom PIN Display with 6 separate boxes */}
-              <div className="flex items-center justify-center gap-2 mb-6 ml-4">
+              <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6 ml-4">
                 {Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={index}

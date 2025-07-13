@@ -10,7 +10,7 @@
  * - Analytics: Customer spending patterns and metrics
  */
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { 
   Dialog, 
@@ -98,6 +98,18 @@ export function CustomerDetailModal({
   const { customer, loading, error, refetch } = useCustomer(customerId);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if screen is mobile size
+  React.useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
   
   // Tab-specific data
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
@@ -208,26 +220,125 @@ export function CustomerDetailModal({
     onCustomerUpdated();
   };
 
+  // Mobile Transaction Card Component
+  const TransactionCard = ({ transaction }: { transaction: TransactionRecord }) => (
+    <Card className="mb-3">
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <p className="font-semibold text-gray-900">
+              ฿{transaction.sales_net.toLocaleString()}
+            </p>
+            <p className="text-sm text-gray-600">
+              {format(new Date(transaction.date), 'dd MMM yyyy')}
+            </p>
+          </div>
+          <Badge variant="outline" className="text-xs">
+            {transaction.item_count || 0} items
+          </Badge>
+        </div>
+        <p className="text-xs font-mono text-gray-500">
+          Receipt: {transaction.receipt_number}
+        </p>
+      </CardContent>
+    </Card>
+  );
+
+  // Mobile Package Card Component
+  const PackageCard = ({ pkg }: { pkg: PackageRecord }) => (
+    <Card className="mb-3">
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 truncate">
+              {pkg.package_name}
+            </p>
+            <p className="text-sm text-gray-600">
+              Purchased: {format(new Date(pkg.purchase_date), 'dd MMM yyyy')}
+            </p>
+            {pkg.expiration_date && (
+              <p className="text-sm text-gray-600">
+                Expires: {format(new Date(pkg.expiration_date), 'dd MMM yyyy')}
+              </p>
+            )}
+          </div>
+          <div className="text-right">
+            <Badge 
+              variant={pkg.status === 'active' ? 'default' : 'secondary'}
+              className="mb-1"
+            >
+              {pkg.status}
+            </Badge>
+            {pkg.uses_remaining && (
+              <p className="text-xs text-gray-500">
+                {pkg.uses_remaining} uses left
+              </p>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Mobile Booking Card Component  
+  const BookingCard = ({ booking }: { booking: BookingRecord }) => (
+    <Card className="mb-3">
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <p className="font-semibold text-gray-900">
+              {format(new Date(booking.date), 'dd MMM yyyy')} at {booking.time}
+            </p>
+            <p className="text-sm text-gray-600">
+              {booking.type}
+            </p>
+            {booking.package_used && (
+              <p className="text-xs text-gray-500 mt-1">
+                Package: {booking.package_used}
+              </p>
+            )}
+          </div>
+          <Badge 
+            variant={
+              booking.status === 'confirmed' ? 'default' : 
+              booking.status === 'cancelled' ? 'destructive' : 
+              'secondary'
+            }
+          >
+            {booking.status}
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (!open || !customerId) return null;
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col [&>button]:hidden">
-          <DialogHeader className="flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold">
+        <DialogContent className={`
+          ${isMobile 
+            ? 'max-w-[95vw] max-h-[95vh] w-[95vw] h-[95vh] m-2' 
+            : 'max-w-4xl max-h-[90vh] w-full'
+          } 
+          overflow-hidden flex flex-col [&>button]:hidden
+        `}>
+          <DialogHeader className="flex-shrink-0 px-4 md:px-6 py-4 border-b">
+            <div className={`flex items-center justify-between ${isMobile ? 'gap-2' : 'gap-4'}`}>
+              <DialogTitle className={`${isMobile ? 'text-lg' : 'text-xl'} font-semibold truncate`}>
                 Customer Details
               </DialogTitle>
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
                 <Button
                   variant="outline"
-                  size="sm"
+                  size={isMobile ? "sm" : "sm"}
                   onClick={() => setEditModalOpen(true)}
                   disabled={loading}
+                  className={isMobile ? "px-2" : ""}
                 >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
+                  <Edit className="h-4 w-4 mr-1" />
+                  {!isMobile && "Edit"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -261,35 +372,39 @@ export function CustomerDetailModal({
           ) : customer ? (
             <div className="flex-1 overflow-hidden">
               {/* Customer Header */}
-              <div className="px-6 py-4 border-b bg-muted/50">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                      {customer.customer.customer_name}
-                      <Badge variant="outline" className="font-normal">
+              <div className={`${isMobile ? 'px-4 py-3' : 'px-6 py-4'} border-b bg-muted/50`}>
+                <div className={`${isMobile ? 'flex flex-col space-y-3' : 'flex items-start justify-between'}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className={`${isMobile ? 'flex flex-col gap-2' : 'flex items-center gap-2'}`}>
+                      <h2 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold truncate`}>
+                        {customer.customer.customer_name}
+                      </h2>
+                      <Badge variant="outline" className="font-normal w-fit">
                         {customer.customer.customer_code}
                       </Badge>
-                    </h2>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                    </div>
+                    <div className={`${isMobile ? 'flex flex-col gap-1 mt-2' : 'flex items-center gap-4 mt-2'} text-sm text-muted-foreground`}>
                       {customer.customer.contact_number && (
                         <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {customer.customer.contact_number}
+                          <Phone className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{customer.customer.contact_number}</span>
                         </span>
                       )}
                       {customer.customer.email && (
                         <span className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {customer.customer.email}
+                          <Mail className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{customer.customer.email}</span>
                         </span>
                       )}
                     </div>
                   </div>
-                  <Badge 
-                    variant={customer.customer.is_active ? "default" : "secondary"}
-                  >
-                    {customer.customer.is_active ? "Active" : "Inactive"}
-                  </Badge>
+                  <div className={isMobile ? 'flex justify-start' : ''}>
+                    <Badge 
+                      variant={customer.customer.is_active ? "default" : "secondary"}
+                    >
+                      {customer.customer.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
                 </div>
               </div>
 
@@ -299,16 +414,43 @@ export function CustomerDetailModal({
                 onValueChange={setActiveTab}
                 className="flex-1 flex flex-col h-full"
               >
-                <TabsList className="grid w-full grid-cols-6 px-6">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                  <TabsTrigger value="packages">Packages</TabsTrigger>
-                  <TabsTrigger value="bookings">Bookings</TabsTrigger>
-                  <TabsTrigger value="profiles">Profiles</TabsTrigger>
-                  <TabsTrigger value="analytics">Analytics</TabsTrigger>
-                </TabsList>
+                {isMobile ? (
+                  /* Mobile Tabs - Scrollable */
+                  <div className="border-b overflow-x-auto">
+                    <TabsList className="inline-flex h-10 items-center justify-start rounded-none bg-transparent p-0 w-max">
+                      <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent px-4 pb-2 pt-2 text-sm">
+                        Info
+                      </TabsTrigger>
+                      <TabsTrigger value="transactions" className="rounded-none border-b-2 border-transparent px-4 pb-2 pt-2 text-sm">
+                        Sales
+                      </TabsTrigger>
+                      <TabsTrigger value="packages" className="rounded-none border-b-2 border-transparent px-4 pb-2 pt-2 text-sm">
+                        Packages
+                      </TabsTrigger>
+                      <TabsTrigger value="bookings" className="rounded-none border-b-2 border-transparent px-4 pb-2 pt-2 text-sm">
+                        Bookings
+                      </TabsTrigger>
+                      <TabsTrigger value="profiles" className="rounded-none border-b-2 border-transparent px-4 pb-2 pt-2 text-sm">
+                        Login
+                      </TabsTrigger>
+                      <TabsTrigger value="analytics" className="rounded-none border-b-2 border-transparent px-4 pb-2 pt-2 text-sm">
+                        Stats
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+                ) : (
+                  /* Desktop Tabs - Grid */
+                  <TabsList className="grid w-full grid-cols-6 px-6">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                    <TabsTrigger value="packages">Packages</TabsTrigger>
+                    <TabsTrigger value="bookings">Bookings</TabsTrigger>
+                    <TabsTrigger value="profiles">Profiles</TabsTrigger>
+                    <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                  </TabsList>
+                )}
 
-                <div className="flex-1 overflow-y-auto px-6 py-4">
+                <div className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 py-3' : 'px-6 py-4'}`}>
                   {/* Overview Tab */}
                   <TabsContent value="overview" className="space-y-4 mt-0">
                     <div className="grid gap-4 md:grid-cols-2">
@@ -489,8 +631,8 @@ export function CustomerDetailModal({
 
                   {/* Transaction History Tab */}
                   <TabsContent value="transactions" className="mt-0 h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-4 px-1">
-                      <h3 className="text-lg font-semibold text-gray-900">
+                    <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center justify-between'} mb-4 px-1`}>
+                      <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold text-gray-900`}>
                         Transaction History
                       </h3>
                       <div className="text-sm text-muted-foreground">
@@ -506,44 +648,54 @@ export function CustomerDetailModal({
                             </div>
                           </div>
                         ) : transactions.length > 0 ? (
-                          <div className="flex-1 flex flex-col space-y-2">
-                            <div className="flex-1 border border-gray-200 rounded-lg bg-white min-h-0 max-h-96 overflow-y-auto">
-                              <Table className="w-full">
-                                <TableHeader>
-                                <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
-                                  <TableHead className="font-semibold text-gray-700 py-6 px-8 w-[160px]">Date</TableHead>
-                                  <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[150px]">Receipt #</TableHead>
-                                  <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[80px] text-center"># Items</TableHead>
-                                  <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[140px] text-right">Amount</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {transactions.map((transaction, index) => (
-                                  <TableRow 
-                                    key={transaction.id}
-                                    className={`
-                                      hover:bg-gray-50/50 transition-colors
-                                      ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/25'}
-                                    `}
-                                  >
-                                    <TableCell className="py-6 px-8 font-medium text-gray-900 text-base">
-                                      {format(new Date(transaction.date), 'dd MMM yyyy')}
-                                    </TableCell>
-                                    <TableCell className="py-6 px-6 font-mono text-sm text-gray-700">
-                                      {transaction.receipt_number}
-                                    </TableCell>
-                                    <TableCell className="py-6 px-6 text-gray-600 text-center">
-                                      {transaction.item_count || 0}
-                                    </TableCell>
-                                    <TableCell className="py-6 px-6 text-right font-semibold text-gray-900 text-base">
-                                      ฿{transaction.sales_net.toLocaleString()}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                                </TableBody>
-                              </Table>
+                          isMobile ? (
+                            /* Mobile Card View */
+                            <div className="flex-1 overflow-y-auto space-y-3">
+                              {transactions.map((transaction) => (
+                                <TransactionCard key={transaction.id} transaction={transaction} />
+                              ))}
                             </div>
-                          </div>
+                          ) : (
+                            /* Desktop Table View */
+                            <div className="flex-1 flex flex-col space-y-2">
+                              <div className="flex-1 border border-gray-200 rounded-lg bg-white min-h-0 max-h-96 overflow-y-auto">
+                                <Table className="w-full">
+                                  <TableHeader>
+                                  <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+                                    <TableHead className="font-semibold text-gray-700 py-6 px-8 w-[160px]">Date</TableHead>
+                                    <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[150px]">Receipt #</TableHead>
+                                    <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[80px] text-center"># Items</TableHead>
+                                    <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[140px] text-right">Amount</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {transactions.map((transaction, index) => (
+                                    <TableRow 
+                                      key={transaction.id}
+                                      className={`
+                                        hover:bg-gray-50/50 transition-colors
+                                        ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/25'}
+                                      `}
+                                    >
+                                      <TableCell className="py-6 px-8 font-medium text-gray-900 text-base">
+                                        {format(new Date(transaction.date), 'dd MMM yyyy')}
+                                      </TableCell>
+                                      <TableCell className="py-6 px-6 font-mono text-sm text-gray-700">
+                                        {transaction.receipt_number}
+                                      </TableCell>
+                                      <TableCell className="py-6 px-6 text-gray-600 text-center">
+                                        {transaction.item_count || 0}
+                                      </TableCell>
+                                      <TableCell className="py-6 px-6 text-right font-semibold text-gray-900 text-base">
+                                        ฿{transaction.sales_net.toLocaleString()}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          )
                         ) : (
                           <div className="text-center py-8 text-muted-foreground">
                             <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-20" />
@@ -561,8 +713,8 @@ export function CustomerDetailModal({
 
                   {/* Package History Tab */}
                   <TabsContent value="packages" className="mt-0 h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-4 px-1">
-                      <h3 className="text-lg font-semibold text-gray-900">
+                    <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center justify-between'} mb-4 px-1`}>
+                      <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold text-gray-900`}>
                         Package History
                       </h3>
                       <div className="text-sm text-muted-foreground">
@@ -578,55 +730,65 @@ export function CustomerDetailModal({
                             </div>
                           </div>
                         ) : packages.length > 0 ? (
-                          <div className="flex-1 border border-gray-200 rounded-lg bg-white min-h-0 max-h-96 overflow-y-auto">
-                            <Table className="w-full">
-                              <TableHeader>
-                                <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
-                                  <TableHead className="font-semibold text-gray-700 py-6 px-8">Package Name</TableHead>
-                                  <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[150px]">Purchase Date</TableHead>
-                                  <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[150px]">Expiry Date</TableHead>
-                                  <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[140px]">Uses Remaining</TableHead>
-                                  <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[120px]">Status</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {packages.map((pkg, index) => (
-                                  <TableRow 
-                                    key={pkg.id}
-                                    className={`
-                                      hover:bg-gray-50/50 transition-colors
-                                      ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/25'}
-                                    `}
-                                  >
-                                    <TableCell className="py-6 px-8 font-medium text-gray-900 text-base">
-                                      {pkg.package_name}
-                                    </TableCell>
-                                    <TableCell className="py-6 px-6 text-gray-700">
-                                      {format(new Date(pkg.purchase_date), 'dd MMM yyyy')}
-                                    </TableCell>
-                                    <TableCell className="py-6 px-6 text-gray-700">
-                                      {pkg.expiration_date 
-                                        ? format(new Date(pkg.expiration_date), 'dd MMM yyyy')
-                                        : <span className="text-gray-400 italic">No expiry</span>}
-                                    </TableCell>
-                                    <TableCell className="py-6 px-6 text-gray-700 text-center">
-                                      {pkg.uses_remaining || (
-                                        <span className="text-gray-400">-</span>
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="py-6 px-6">
-                                      <Badge 
-                                        variant={pkg.status === 'active' ? 'default' : 'secondary'}
-                                        className="font-medium"
-                                      >
-                                        {pkg.status}
-                                      </Badge>
-                                    </TableCell>
+                          isMobile ? (
+                            /* Mobile Card View */
+                            <div className="flex-1 overflow-y-auto space-y-3">
+                              {packages.map((pkg) => (
+                                <PackageCard key={pkg.id} pkg={pkg} />
+                              ))}
+                            </div>
+                          ) : (
+                            /* Desktop Table View */
+                            <div className="flex-1 border border-gray-200 rounded-lg bg-white min-h-0 max-h-96 overflow-y-auto">
+                              <Table className="w-full">
+                                <TableHeader>
+                                  <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+                                    <TableHead className="font-semibold text-gray-700 py-6 px-8">Package Name</TableHead>
+                                    <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[150px]">Purchase Date</TableHead>
+                                    <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[150px]">Expiry Date</TableHead>
+                                    <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[140px]">Uses Remaining</TableHead>
+                                    <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[120px]">Status</TableHead>
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
+                                </TableHeader>
+                                <TableBody>
+                                  {packages.map((pkg, index) => (
+                                    <TableRow 
+                                      key={pkg.id}
+                                      className={`
+                                        hover:bg-gray-50/50 transition-colors
+                                        ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/25'}
+                                      `}
+                                    >
+                                      <TableCell className="py-6 px-8 font-medium text-gray-900 text-base">
+                                        {pkg.package_name}
+                                      </TableCell>
+                                      <TableCell className="py-6 px-6 text-gray-700">
+                                        {format(new Date(pkg.purchase_date), 'dd MMM yyyy')}
+                                      </TableCell>
+                                      <TableCell className="py-6 px-6 text-gray-700">
+                                        {pkg.expiration_date 
+                                          ? format(new Date(pkg.expiration_date), 'dd MMM yyyy')
+                                          : <span className="text-gray-400 italic">No expiry</span>}
+                                      </TableCell>
+                                      <TableCell className="py-6 px-6 text-gray-700 text-center">
+                                        {pkg.uses_remaining || (
+                                          <span className="text-gray-400">-</span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="py-6 px-6">
+                                        <Badge 
+                                          variant={pkg.status === 'active' ? 'default' : 'secondary'}
+                                          className="font-medium"
+                                        >
+                                          {pkg.status}
+                                        </Badge>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )
                         ) : (
                           <div className="text-center py-8 text-muted-foreground">
                             <Package className="h-12 w-12 mx-auto mb-2 opacity-20" />
@@ -638,8 +800,8 @@ export function CustomerDetailModal({
 
                   {/* Booking History Tab */}
                   <TabsContent value="bookings" className="mt-0 h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-4 px-1">
-                      <h3 className="text-lg font-semibold text-gray-900">
+                    <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center justify-between'} mb-4 px-1`}>
+                      <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold text-gray-900`}>
                         Booking History
                       </h3>
                       <div className="text-sm text-muted-foreground">
@@ -656,67 +818,77 @@ export function CustomerDetailModal({
                           </div>
                         ) : bookings.length > 0 ? (
                           <div className="flex-1 flex flex-col space-y-2">
-                            <div className="flex-1 border border-gray-200 rounded-lg bg-white min-h-0 max-h-96 overflow-y-auto">
-                              <Table className="w-full">
-                                <TableHeader>
-                                  <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
-                                    <TableHead className="font-semibold text-gray-700 py-6 px-8 w-[140px]">Date</TableHead>
-                                    <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[100px]">Time</TableHead>
-                                    <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[120px]">Type</TableHead>
-                                    <TableHead className="font-semibold text-gray-700 py-6 px-6">Package Used</TableHead>
-                                    <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[120px]">Status</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {bookings.map((booking, index) => (
-                                    <TableRow 
-                                      key={booking.id}
-                                      className={`
-                                        hover:bg-gray-50/50 transition-colors
-                                        ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/25'}
-                                      `}
-                                    >
-                                      <TableCell className="py-6 px-8 font-medium text-gray-900 text-base">
-                                        {format(new Date(booking.date), 'dd MMM yyyy')}
-                                      </TableCell>
-                                      <TableCell className="py-6 px-6 text-gray-700 font-mono text-sm">
-                                        {booking.time}
-                                      </TableCell>
-                                      <TableCell className="py-6 px-6 text-gray-700">
-                                        {booking.type}
-                                      </TableCell>
-                                      <TableCell className="py-6 px-6 text-gray-600">
-                                        {booking.package_used || (
-                                          <span className="text-gray-400 italic">No package</span>
-                                        )}
-                                      </TableCell>
-                                      <TableCell className="py-6 px-6">
-                                        <Badge 
-                                          variant={
-                                            booking.status === 'confirmed' ? 'default' : 
-                                            booking.status === 'cancelled' ? 'destructive' : 
-                                            'secondary'
-                                          }
-                                          className="font-medium"
-                                        >
-                                          {booking.status}
-                                        </Badge>
-                                      </TableCell>
+                            {isMobile ? (
+                              /* Mobile Card View */
+                              <div className="flex-1 overflow-y-auto space-y-3">
+                                {bookings.map((booking) => (
+                                  <BookingCard key={booking.id} booking={booking} />
+                                ))}
+                              </div>
+                            ) : (
+                              /* Desktop Table View */
+                              <div className="flex-1 border border-gray-200 rounded-lg bg-white min-h-0 max-h-96 overflow-y-auto">
+                                <Table className="w-full">
+                                  <TableHeader>
+                                    <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+                                      <TableHead className="font-semibold text-gray-700 py-6 px-8 w-[140px]">Date</TableHead>
+                                      <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[100px]">Time</TableHead>
+                                      <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[120px]">Type</TableHead>
+                                      <TableHead className="font-semibold text-gray-700 py-6 px-6">Package Used</TableHead>
+                                      <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[120px]">Status</TableHead>
                                     </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {bookings.map((booking, index) => (
+                                      <TableRow 
+                                        key={booking.id}
+                                        className={`
+                                          hover:bg-gray-50/50 transition-colors
+                                          ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/25'}
+                                        `}
+                                      >
+                                        <TableCell className="py-6 px-8 font-medium text-gray-900 text-base">
+                                          {format(new Date(booking.date), 'dd MMM yyyy')}
+                                        </TableCell>
+                                        <TableCell className="py-6 px-6 text-gray-700 font-mono text-sm">
+                                          {booking.time}
+                                        </TableCell>
+                                        <TableCell className="py-6 px-6 text-gray-700">
+                                          {booking.type}
+                                        </TableCell>
+                                        <TableCell className="py-6 px-6 text-gray-600">
+                                          {booking.package_used || (
+                                            <span className="text-gray-400 italic">No package</span>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="py-6 px-6">
+                                          <Badge 
+                                            variant={
+                                              booking.status === 'confirmed' ? 'default' : 
+                                              booking.status === 'cancelled' ? 'destructive' : 
+                                              'secondary'
+                                            }
+                                            className="font-medium"
+                                          >
+                                            {booking.status}
+                                          </Badge>
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            )}
 
                             {/* Pagination Controls */}
                             {bookingsPagination.total > BOOKINGS_PER_PAGE && (
-                              <div className="flex items-center justify-between px-2">
-                                <div className="text-sm text-gray-500">
+                              <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'items-center justify-between'} px-2`}>
+                                <div className={`text-sm text-gray-500 ${isMobile ? 'text-center' : ''}`}>
                                   Showing {((bookingsPage - 1) * BOOKINGS_PER_PAGE) + 1} to{' '}
                                   {Math.min(bookingsPage * BOOKINGS_PER_PAGE, bookingsPagination.total)} of{' '}
                                   {bookingsPagination.total} bookings
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-center gap-2">
                                   <Button
                                     variant="outline"
                                     size="sm"
