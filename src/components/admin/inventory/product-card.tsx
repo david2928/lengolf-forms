@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   BarChart3,
   Banknote,
+  DollarSign,
   Link,
   Clock,
   ChevronUp
@@ -37,9 +38,22 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false)
   const [isTrendModalOpen, setIsTrendModalOpen] = useState(false)
 
+  const isCashProduct = product.name.toLowerCase().includes('cash')
+  
   const getStatusInfo = () => {
     switch (product.reorder_status) {
       case 'REORDER_NEEDED':
+        if (isCashProduct) {
+          // For cash, "REORDER_NEEDED" means cash is BELOW threshold (needs more cash, not collection)
+          return {
+            icon: Package,
+            color: '#6B7280',
+            bgColor: 'bg-gray-50',
+            borderColor: 'border-gray-200',
+            badgeVariant: 'secondary' as const,
+            label: 'Below Collection Threshold'
+          }
+        }
         return {
           icon: AlertTriangle,
           color: '#B00020',
@@ -49,6 +63,16 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
           label: 'Needs Reorder'
         }
       case 'LOW_STOCK':
+        if (isCashProduct) {
+          return {
+            icon: Package,
+            color: '#6B7280',
+            bgColor: 'bg-gray-50',
+            borderColor: 'border-gray-200',
+            badgeVariant: 'secondary' as const,
+            label: 'Cash Level OK'
+          }
+        }
         return {
           icon: Package,
           color: '#C77700',
@@ -58,6 +82,16 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
           label: 'Low Stock'
         }
       case 'ADEQUATE':
+        if (isCashProduct) {
+          return {
+            icon: DollarSign,
+            color: '#2563EB',
+            bgColor: 'bg-blue-50',
+            borderColor: 'border-blue-200',
+            badgeVariant: 'secondary' as const,
+            label: 'Collection Available'
+          }
+        }
         return {
           icon: CheckCircle,
           color: 'text-green-600',
@@ -83,6 +117,10 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
 
   const formatCurrency = (amount: number) => {
     return `฿${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+
+  const formatCashAmount = (amount: number) => {
+    return `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
   const getStockPercentage = () => {
@@ -143,7 +181,9 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
               <span className="font-medium" style={{ color: statusInfo.color }}>
                 {product.input_type === 'stock_slider' && product.current_stock_text 
                   ? product.current_stock_text 
-                  : `${product.current_stock || 0} ${product.unit || ''}`}
+                  : isCashProduct 
+                    ? formatCashAmount(product.current_stock || 0)
+                    : `${product.current_stock || 0} ${product.unit || ''}`}
               </span>
             </div>
             
@@ -163,7 +203,11 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
                 <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
                   <div className="flex items-center gap-0.5">
                     <Package className="h-2.5 w-2.5" />
-                    <span>Reorder at: {product.reorder_threshold || 'Not set'}</span>
+                    <span>
+                      {isCashProduct 
+                        ? `Collect at: ${product.reorder_threshold ? formatCashAmount(product.reorder_threshold) : 'Not set'}` 
+                        : `Reorder at: ${product.reorder_threshold || 'Not set'}`}
+                    </span>
                   </div>
                   <span>{Math.round(getStockPercentage())}%</span>
                 </div>
@@ -181,30 +225,6 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
             )}
           </div>
 
-          {/* Financial Info - Only for numeric products */}
-          {product.input_type !== 'stock_slider' && (
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <div className="flex items-center gap-0.5 text-muted-foreground mb-0.5">
-                  <Banknote className="h-2.5 w-2.5" />
-                  <span>Unit Cost</span>
-                </div>
-                <p className="font-medium text-sm">
-                  {product.unit_cost ? formatCurrency(product.unit_cost) : 'Not set'}
-                </p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Stock Value</span>
-                <p className="font-medium text-sm">
-                  {product.unit_cost && product.current_stock ? 
-                    formatCurrency(product.current_stock * product.unit_cost) : 
-                    'N/A'
-                  }
-                </p>
-              </div>
-            </div>
-          )}
-          
           {/* Supplier Info for stock slider products */}
           {product.input_type === 'stock_slider' && product.supplier && (
             <div className="text-xs">

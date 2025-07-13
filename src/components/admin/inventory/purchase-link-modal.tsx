@@ -22,20 +22,22 @@ export function PurchaseLinkModal({ product, isOpen, onClose }: PurchaseLinkModa
   }
 
   const getStatusInfo = () => {
+    const isCashProduct = product.name.toLowerCase().includes('cash')
+    
     switch (product.reorder_status) {
       case 'REORDER_NEEDED':
         return {
           icon: AlertTriangle,
           color: 'text-red-600',
           badgeVariant: 'destructive' as const,
-          label: 'Needs Reorder'
+          label: isCashProduct ? 'Collection Needed' : 'Needs Reorder'
         }
       case 'LOW_STOCK':
         return {
           icon: Package,
           color: 'text-amber-600',
           badgeVariant: 'secondary' as const,
-          label: 'Low Stock'
+          label: isCashProduct ? 'Near Collection Threshold' : 'Low Stock'
         }
       default:
         return {

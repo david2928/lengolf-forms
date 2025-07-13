@@ -127,10 +127,10 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
         } else console.warn('Booking date is undefined or null');
       } catch (e) { console.error("Error parsing booking date:", booking.date, e); }
 
-      // Convert duration to minutes if needed (assume booking.duration is in hours if <= 12, else already in minutes)
+      // Duration is stored in hours in the database, convert to minutes for form
       let durationInMinutes = 60;
       if (typeof booking.duration === 'number') {
-        durationInMinutes = booking.duration <= 12 ? booking.duration * 60 : booking.duration;
+        durationInMinutes = booking.duration * 60;
       }
       const initialFormData: Partial<EditBookingFormData> = {
         bay: booking.bay || '',

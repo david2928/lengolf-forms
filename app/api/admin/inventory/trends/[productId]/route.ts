@@ -30,21 +30,29 @@ export async function GET(
   { params }: { params: { productId: string } }
 ) {
   try {
-    // Check admin authentication
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
+    // Development bypass check
+    const shouldBypass = (
+      process.env.NODE_ENV === 'development' &&
+      process.env.SKIP_AUTH === 'true'
+    );
 
-    // Verify admin permissions
-    if (!session.user.isAdmin) {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      )
+    if (!shouldBypass) {
+      // Check admin authentication
+      const session = await getServerSession(authOptions)
+      if (!session?.user?.email) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        )
+      }
+
+      // Verify admin permissions
+      if (!session.user.isAdmin) {
+        return NextResponse.json(
+          { error: 'Admin access required' },
+          { status: 403 }
+        )
+      }
     }
 
     const productId = params.productId

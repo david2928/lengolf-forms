@@ -109,28 +109,8 @@ export default function BookingsCalendarPage() {
         return new Date(a.start).getTime() - new Date(b.start).getTime();
       });
       
-      // Merge adjacent bookings of the same type only
-      const mergedBookings: ProcessedBooking[] = [];
-      let currentBooking = { ...customerEvents[0] };
-      
-      for (let i = 1; i < customerEvents.length; i++) {
-        const nextBooking = customerEvents[i];
-        const currentEndTime = DateTime.fromISO(currentBooking.end);
-        const nextStartTime = DateTime.fromISO(nextBooking.start);
-        
-        // If bookings are adjacent or overlapping, merge them
-        if (Math.abs(currentEndTime.diff(nextStartTime, 'minutes').minutes) <= 10) {
-          currentBooking.end = nextBooking.end;
-          currentBooking.end_hour = nextBooking.end_hour;
-          currentBooking.duration_hours += nextBooking.duration_hours;
-        } else {
-          mergedBookings.push(currentBooking);
-          currentBooking = { ...nextBooking };
-        }
-      }
-      
-      mergedBookings.push(currentBooking);
-      processedBookings.push(...mergedBookings);
+      // Don't merge bookings - show each booking separately
+      processedBookings.push(...customerEvents);
     });
     
     return processedBookings;

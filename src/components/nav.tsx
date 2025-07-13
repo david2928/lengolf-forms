@@ -19,18 +19,25 @@ import React from 'react'
 export function Nav() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
+  const [isClient, setIsClient] = React.useState(false)
+  
+  React.useEffect(() => {
+    setIsClient(true)
+  }, [])
   
   // Development bypass - show nav even without authentication
   const shouldBypass = (
     process.env.NODE_ENV === 'development' &&
-    process.env.SKIP_AUTH === 'true'
+    process.env.NEXT_PUBLIC_SKIP_AUTH === 'true'
   );
   
   // In development bypass mode, grant admin access by default
-  const isAdmin = shouldBypass ? true : (session?.user?.isAdmin || false);
-  const isCoach = shouldBypass ? false : (session?.user?.isCoach || false);
+  // Only apply role-based rendering after client hydration to avoid hydration mismatch
+  const isAdmin = isClient && (shouldBypass ? true : (session?.user?.isAdmin || false));
+  const isCoach = isClient && (shouldBypass ? false : (session?.user?.isCoach || false));
   
-  if (!shouldBypass && status !== 'authenticated') return null;
+  // Only apply authentication check after client hydration
+  if (isClient && !shouldBypass && status !== 'authenticated') return null;
 
   const DesktopMenu = () => (
     <div className="flex items-center w-full">

@@ -116,14 +116,31 @@ export function InventoryDashboard() {
       })
     }
 
+    // Separate cash products from regular inventory
+    const separateProducts = (products: AdminInventoryProductWithStatus[]) => {
+      const cashProducts = products.filter(p => p.name.toLowerCase().includes('cash'))
+      const regularProducts = products.filter(p => !p.name.toLowerCase().includes('cash'))
+      return { cashProducts: filterProducts(cashProducts), regularProducts: filterProducts(regularProducts) }
+    }
+
+    const needsReorderSeparated = separateProducts(data.products.needs_reorder || [])
+    const lowStockSeparated = separateProducts(data.products.low_stock || [])
+    const sufficientStockSeparated = separateProducts(data.products.sufficient_stock || [])
+
     const filteredProducts = {
-      needs_reorder: filterProducts(data.products.needs_reorder || []),
-      low_stock: filterProducts(data.products.low_stock || []),
-      sufficient_stock: filterProducts(data.products.sufficient_stock || [])
+      cash_management: [
+        ...needsReorderSeparated.cashProducts,
+        ...lowStockSeparated.cashProducts,
+        ...sufficientStockSeparated.cashProducts
+      ],
+      needs_reorder: needsReorderSeparated.regularProducts,
+      low_stock: lowStockSeparated.regularProducts,
+      sufficient_stock: sufficientStockSeparated.regularProducts
     }
 
     const totalCount = allProducts.length
-    const filteredCount = filteredProducts.needs_reorder.length + 
+    const filteredCount = filteredProducts.cash_management.length +
+                         filteredProducts.needs_reorder.length + 
                          filteredProducts.low_stock.length + 
                          filteredProducts.sufficient_stock.length
 
@@ -303,6 +320,31 @@ export function InventoryDashboard() {
 
       {/* Product Sections */}
       <div className="space-y-8">
+        {/* Cash Management Section */}
+        {filteredData?.products?.cash_management && filteredData.products.cash_management.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Badge variant="secondary" className="flex items-center gap-1 bg-blue-50 text-blue-700 border-blue-200">
+                <DollarSign className="h-3 w-3" />
+                Cash Management ({filteredData.products.cash_management.length})
+              </Badge>
+            </div>
+            
+            {/* Always show cash expanded and in detailed view */}
+            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+              {filteredData.products.cash_management.map((product: any) => (
+                <ProductCard 
+                  key={product.id} 
+                  product={{
+                    ...product,
+                    unit: product.unit === 'dollars' ? 'THB' : product.unit
+                  }} 
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Needs Reorder Section */}
         <div ref={needsReorderRef}>
           <div className="flex items-center gap-2 mb-4">

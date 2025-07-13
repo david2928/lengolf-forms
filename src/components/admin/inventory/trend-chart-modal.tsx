@@ -21,6 +21,19 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const isCashProduct = product.name.toLowerCase().includes('cash')
+  
+  const formatCashAmount = (amount: number) => {
+    return `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+
+  const formatDisplayAmount = (amount: number) => {
+    if (isCashProduct) {
+      return formatCashAmount(amount)
+    }
+    return `${amount} ${product.unit || ''}`
+  }
+
   useEffect(() => {
     if (isOpen && product.id) {
       fetchTrendData()
@@ -32,7 +45,13 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
     setError(null)
 
     try {
-      const response = await fetch(`/api/admin/inventory/trends/${product.id}`)
+      const response = await fetch(`/api/admin/inventory/trends/${product.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      })
       
       if (!response.ok) {
         const errorText = await response.text()
@@ -102,7 +121,7 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
             Submitted by: {data.staff}
           </p>
           <p className="text-sm">
-            <span className="font-medium">{payload[0].value}</span> {product.unit || ''}
+            <span className="font-medium">{formatDisplayAmount(payload[0].value)}</span>
           </p>
         </div>
       )
@@ -127,9 +146,11 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
           {/* Current Stock & Trend Info */}
           <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
             <div>
-              <p className="text-sm text-muted-foreground">Current Stock Level</p>
+              <p className="text-sm text-muted-foreground">
+                {isCashProduct ? 'Current Cash Amount' : 'Current Stock Level'}
+              </p>
               <p className="text-2xl font-bold">
-                {product.current_stock || 0} {product.unit || ''}
+                {formatDisplayAmount(product.current_stock || 0)}
               </p>
             </div>
             <div className="text-right">
@@ -179,7 +200,7 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
                       <YAxis 
                         fontSize={12}
                         label={{ 
-                          value: product.unit || 'Quantity', 
+                          value: isCashProduct ? 'Amount (THB)' : (product.unit || 'Quantity'), 
                           angle: -90, 
                           position: 'insideLeft' 
                         }}

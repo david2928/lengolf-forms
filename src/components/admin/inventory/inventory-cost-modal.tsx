@@ -201,8 +201,11 @@ export function InventoryCostModal({
                         }
                         className="text-xs"
                       >
-                        {product.reorder_status === 'REORDER_NEEDED' ? 'Needs Reorder' :
-                         product.reorder_status === 'LOW_STOCK' ? 'Low Stock' : 'Sufficient'}
+                        {product.reorder_status === 'REORDER_NEEDED' 
+                          ? (product.name.toLowerCase().includes('cash') ? 'Collection Needed' : 'Needs Reorder')
+                          : product.reorder_status === 'LOW_STOCK' 
+                          ? (product.name.toLowerCase().includes('cash') ? 'Near Collection Threshold' : 'Low Stock') 
+                          : 'Sufficient'}
                       </Badge>
                     </div>
                   </div>
