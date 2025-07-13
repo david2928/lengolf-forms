@@ -338,7 +338,8 @@ export function InventoryDashboard() {
                   product={{
                     ...product,
                     unit: product.unit === 'dollars' ? 'THB' : product.unit
-                  }} 
+                  }}
+                  onUpdate={handleRefresh}
                 />
               ))}
             </div>
