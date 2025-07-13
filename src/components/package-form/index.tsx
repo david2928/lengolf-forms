@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
+import useSWR from 'swr'
 // Removed direct Supabase import - using API endpoints instead
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -38,7 +39,7 @@ export default function PackageForm() {
 
   const [isLoadingInitial, setIsLoadingInitial] = useState({
     types: true,
-    customers: true
+    customers: false // Changed to false since we'll use SWR
   })
 
   const defaultValues: PackageFormData = {
@@ -64,54 +65,75 @@ export default function PackageForm() {
     clearErrors
   } = form
 
+  // Dynamic customer search - will fetch based on search query or show recent customers
+  const searchUrl = formState.searchQuery.length >= 2 
+    ? `/api/customers?search=${encodeURIComponent(formState.searchQuery)}&limit=100` 
+    : '/api/customers?limit=100&sortBy=lastVisit&sortOrder=desc'; // Show recent customers when no search
+
+  const { data: customersResponse, mutate: mutateCustomers } = useSWR<{customers: any[], pagination: any, kpis: any}>(
+    searchUrl,
+    async (url: string) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch customers');
+      return response.json();
+    }
+  );
+
+  const customers = customersResponse?.customers || [];
+
   useEffect(() => {
-    async function fetchData() {
+    mutateCustomers();
+  }, [mutateCustomers]);
+
+  useEffect(() => {
+    // Update formState with transformed customers whenever SWR data changes
+    if (customers.length > 0) {
+      const transformedCustomers = customers.map((customer: any) => ({
+        id: customer.id,
+        customer_name: customer.customer_name,
+        contact_number: customer.contact_number,
+        customer_code: customer.customer_code,
+        email: customer.email || null,
+        displayName: customer.contact_number 
+          ? `${customer.customer_name} (${customer.contact_number})`
+          : customer.customer_name
+      }));
+      
+      setFormState(prev => ({
+        ...prev,
+        customers: transformedCustomers
+      }));
+    }
+  }, [customers]);
+
+  useEffect(() => {
+    async function fetchPackageTypes() {
       try {
         // Fetch package types via API
         const packageResponse = await fetch('/api/package-types');
         if (!packageResponse.ok) throw new Error('Failed to fetch package types');
         const packageResult = await packageResponse.json();
-
-        // Fetch customers via API
-        const customersResponse = await fetch('/api/customers?limit=1000&sortBy=customerName&sortOrder=asc');
-        if (!customersResponse.ok) throw new Error('Failed to fetch customers');
-        const customersDataResponse = await customersResponse.json();
-        
-        // Extract customers array from the structured response
-        const customersData = customersDataResponse.customers || [];
-        
-        // Transform and enrich customer data for UI
-        const transformedCustomers = customersData.map((customer: any) => ({
-          id: customer.id, // Keep as string UUID (don't convert to number)
-          customer_name: customer.customer_name,
-          contact_number: customer.contact_number,
-          customer_code: customer.customer_code, // Include customer code
-          displayName: customer.contact_number 
-            ? `${customer.customer_name} (${customer.contact_number})`
-            : customer.customer_name
-        }))
         
         setFormState(prev => ({
           ...prev,
-          packageTypes: packageResult.data || [],
-          customers: transformedCustomers
+          packageTypes: packageResult.data || []
         }))
 
       } catch (error) {
         setFormState(prev => ({
           ...prev,
-          error: 'Failed to load data. Please refresh the page.'
+          error: 'Failed to load package types. Please refresh the page.'
         }))
-        console.error('Failed to fetch data:', error)
+        console.error('Failed to fetch package types:', error)
       } finally {
-        setIsLoadingInitial({
-          types: false,
-          customers: false
-        })
+        setIsLoadingInitial(prev => ({
+          ...prev,
+          types: false
+        }))
       }
     }
 
-    fetchData()
+    fetchPackageTypes()
   }, [])
 
   useEffect(() => {
@@ -282,7 +304,7 @@ export default function PackageForm() {
     setFormState(prev => ({ ...prev, error: null }))
   }
 
-  if (isLoadingInitial.types || isLoadingInitial.customers) {
+  if (isLoadingInitial.types) {
     return (
       <div className="flex items-center justify-center p-6">
         <Loader2 className="h-6 w-4 animate-spin text-[#005a32]" />
