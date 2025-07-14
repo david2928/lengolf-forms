@@ -40,7 +40,10 @@
       "mcp__supabase__get_logs",
       "Bash(timeout 60 npm run build)",
       "Bash(cp:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   },
