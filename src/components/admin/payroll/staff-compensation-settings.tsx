@@ -9,8 +9,14 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Loader2, Edit, Save, X, Plus, DollarSign, Clock, AlertCircle } from 'lucide-react'
+import { Loader2, Edit, Save, X, Plus, DollarSign, Clock, AlertCircle, MoreVertical, TrendingUp } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 // Remove the formatCurrency import since it doesn't exist
 
 interface StaffCompensation {
@@ -261,6 +267,85 @@ export function StaffCompensationSettings() {
   const staffWithCompensation = compensationData.filter(s => s.current_compensation)
   const staffWithoutCompensation = compensationData.filter(s => !s.current_compensation)
 
+  // Mobile Card Component
+  const CompensationCard = ({ staff }: { staff: StaffCompensationData }) => (
+    <Card className="hover:shadow-md transition-shadow duration-200">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="flex-shrink-0">
+              <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                <span className="text-sm font-semibold text-green-700">
+                  {staff.staff_name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold text-gray-900 text-base">{staff.staff_name}</h3>
+              <p className="text-sm text-gray-500">ID: {staff.staff_id}</p>
+              
+              {staff.current_compensation ? (
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={staff.current_compensation.compensation_type === 'salary' ? 'default' : 'outline'}>
+                      {staff.current_compensation.compensation_type === 'salary' ? 'Salary' : 'Hourly'}
+                    </Badge>
+                    <Badge variant={staff.current_compensation.is_service_charge_eligible ? 'default' : 'secondary'}>
+                      {staff.current_compensation.is_service_charge_eligible ? 'SC Eligible' : 'No SC'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-600">Base Pay:</span>
+                      <span className="text-sm font-medium">
+                        {staff.current_compensation.compensation_type === 'salary' 
+                          ? formatCurrency(staff.current_compensation.base_salary)
+                          : `₿${staff.current_compensation.hourly_rate}/hr`
+                        }
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-600">OT Rate:</span>
+                      <span className="text-sm font-medium">₿{staff.current_compensation.ot_rate_per_hour}/hr</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-600">Holiday Rate:</span>
+                      <span className="text-sm font-medium">₿{staff.current_compensation.holiday_rate_per_hour}/hr</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-600">Effective:</span>
+                      <span className="text-xs text-gray-500">
+                        {formatDate(staff.current_compensation.effective_from)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <Badge variant="outline">Not Set Up</Badge>
+                  <p className="text-xs text-gray-500 mt-1">No compensation configured</p>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex-shrink-0 ml-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleEditClick(staff)}
+              className="h-8 px-3"
+            >
+              <Edit className="h-3 w-3 mr-1" />
+              {staff.current_compensation ? 'Edit' : 'Set Up'}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
   return (
     <div className="space-y-6">
 
@@ -272,93 +357,146 @@ export function StaffCompensationSettings() {
             Manage salary, overtime rates, and service charge eligibility for all staff members
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-left">Staff Name</TableHead>
-                <TableHead className="text-left">Type</TableHead>
-                <TableHead className="text-left">Base Pay</TableHead>
-                <TableHead className="text-left">OT Rate</TableHead>
-                <TableHead className="text-left">Holiday Rate</TableHead>
-                <TableHead className="text-left">Service Charge</TableHead>
-                <TableHead className="text-left">Effective From</TableHead>
-                <TableHead className="text-left">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {compensationData.map((staff) => (
-                <TableRow key={staff.staff_id}>
-                  <TableCell className="font-medium text-left">{staff.staff_name}</TableCell>
-                  <TableCell className="text-left">
-                    {staff.current_compensation ? (
-                      <Badge variant={staff.current_compensation.compensation_type === 'salary' ? 'default' : 'outline'}>
-                        {staff.current_compensation.compensation_type === 'salary' ? 'Salary' : 'Hourly'}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Not Set</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-left">
-                    {staff.current_compensation ? (
-                      <div>
-                        {staff.current_compensation.compensation_type === 'salary' ? (
+        <CardContent className="p-0">
+          {/* Mobile Card View (md and below) */}
+          <div className="block md:hidden">
+            {compensationData.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <div className="flex flex-col items-center gap-3">
+                  <DollarSign className="h-12 w-12 text-gray-300" />
+                  <div>
+                    <p className="font-medium text-lg">No staff compensation data available</p>
+                    <p className="text-sm text-gray-400 mt-1">Set up compensation for your staff members.</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 space-y-3">
+                {compensationData.map((staff) => (
+                  <CompensationCard key={staff.staff_id} staff={staff} />
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Desktop Table View (md and above) */}
+          <div className="hidden md:block overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b bg-gray-50/50">
+                  <TableHead className="font-semibold text-gray-900 px-6 py-4 w-[25%]">Staff Member</TableHead>
+                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%]">Type</TableHead>
+                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[20%] hidden lg:table-cell">Base Pay</TableHead>
+                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] hidden xl:table-cell">Rates</TableHead>
+                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[10%] hidden lg:table-cell">Service Charge</TableHead>
+                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {compensationData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-32 text-center text-gray-500">
+                      <div className="flex flex-col items-center gap-2">
+                        <DollarSign className="h-8 w-8 text-gray-300" />
+                        <p className="font-medium">No staff compensation data available</p>
+                        <p className="text-sm text-gray-400">Set up compensation for your staff members.</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  compensationData.map((staff) => (
+                    <TableRow key={staff.staff_id} className="hover:bg-gray-50/50 transition-colors">
+                      <TableCell className="px-6 py-4">
+                        <div className="flex items-center gap-4">
+                          <div className="flex-shrink-0">
+                            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                              <span className="text-sm font-semibold text-green-700">
+                                {staff.staff_name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-gray-900 text-base">{staff.staff_name}</p>
+                            <div className="mt-1">
+                              <p className="text-sm text-gray-500">Staff ID: {staff.staff_id}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-4">
+                        <div className="flex items-center justify-center">
+                          {staff.current_compensation ? (
+                            <Badge variant={staff.current_compensation.compensation_type === 'salary' ? 'default' : 'outline'}>
+                              {staff.current_compensation.compensation_type === 'salary' ? 'Salary' : 'Hourly'}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">Not Set</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-4 hidden lg:table-cell">
+                        {staff.current_compensation ? (
                           <div>
-                            <div className="font-medium">{formatCurrency(staff.current_compensation.base_salary)}</div>
-                            <div className="text-xs text-muted-foreground">Monthly + allowance</div>
+                            {staff.current_compensation.compensation_type === 'salary' ? (
+                              <div>
+                                <div className="font-semibold text-gray-900">{formatCurrency(staff.current_compensation.base_salary)}</div>
+                                <div className="text-xs text-gray-500">Monthly + allowance</div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="font-semibold text-gray-900">₿{staff.current_compensation.hourly_rate}/hr</div>
+                                <div className="text-xs text-gray-500">Hourly only</div>
+                              </div>
+                            )}
                           </div>
                         ) : (
-                          <div>
-                            <div className="font-medium">₿{staff.current_compensation.hourly_rate}/hr</div>
-                            <div className="text-xs text-muted-foreground">Hourly only</div>
-                          </div>
+                          <Badge variant="outline">Not Set</Badge>
                         )}
-                      </div>
-                    ) : (
-                      <Badge variant="outline">Not Set</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-left">
-                    {staff.current_compensation 
-                      ? `₿${staff.current_compensation.ot_rate_per_hour}/hr`
-                      : <Badge variant="outline">Not Set</Badge>
-                    }
-                  </TableCell>
-                  <TableCell className="text-left">
-                    {staff.current_compensation 
-                      ? `₿${staff.current_compensation.holiday_rate_per_hour}/hr`
-                      : <Badge variant="outline">Not Set</Badge>
-                    }
-                  </TableCell>
-                  <TableCell className="text-left">
-                    {staff.current_compensation ? (
-                      <Badge variant={staff.current_compensation.is_service_charge_eligible ? 'default' : 'secondary'}>
-                        {staff.current_compensation.is_service_charge_eligible ? 'Eligible' : 'Not Eligible'}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Not Set</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-left">
-                    {staff.current_compensation 
-                      ? formatDate(staff.current_compensation.effective_from)
-                      : '-'
-                    }
-                  </TableCell>
-                  <TableCell className="text-left">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditClick(staff)}
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      {staff.current_compensation ? 'Edit' : 'Set Up'}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                      </TableCell>
+                      <TableCell className="px-4 py-4 hidden xl:table-cell">
+                        {staff.current_compensation ? (
+                          <div className="space-y-1">
+                            <div className="text-sm">
+                              <span className="text-gray-600">OT:</span> <span className="font-medium">₿{staff.current_compensation.ot_rate_per_hour}/hr</span>
+                            </div>
+                            <div className="text-sm">
+                              <span className="text-gray-600">Holiday:</span> <span className="font-medium">₿{staff.current_compensation.holiday_rate_per_hour}/hr</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <Badge variant="outline">Not Set</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-4 hidden lg:table-cell">
+                        <div className="flex items-center justify-center">
+                          {staff.current_compensation ? (
+                            <Badge variant={staff.current_compensation.is_service_charge_eligible ? 'default' : 'secondary'}>
+                              {staff.current_compensation.is_service_charge_eligible ? 'Eligible' : 'Not Eligible'}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">Not Set</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-4 text-right">
+                        <div className="flex items-center justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditClick(staff)}
+                            className="h-8 px-3 hover:bg-gray-100 border-gray-200"
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            {staff.current_compensation ? 'Edit' : 'Set Up'}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

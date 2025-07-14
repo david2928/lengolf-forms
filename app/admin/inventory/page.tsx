@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function AdminInventoryPage() {
   return (
-    <div className="container space-y-6">
+    <div className="container mx-auto px-4 py-8 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Inventory Dashboard</h1>

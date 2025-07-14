@@ -21,18 +21,18 @@ export function CoachingSearchFilters({
   onCoachChange 
 }: CoachingSearchFiltersProps) {
   return (
-    <div className="flex flex-col sm:flex-row gap-4 mb-6">
+    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 sm:mb-6">
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
         <Input
           placeholder="Search by customer name or coach..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-10"
+          className="pl-10 text-sm sm:text-base"
         />
       </div>
       <Select value={selectedCoach} onValueChange={onCoachChange}>
-        <SelectTrigger className="w-48">
+        <SelectTrigger className="w-full sm:w-48">
           <SelectValue placeholder="Filter by coach" />
         </SelectTrigger>
         <SelectContent>

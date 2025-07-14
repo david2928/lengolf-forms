@@ -634,6 +634,34 @@ export function validateStaffId(staffId?: string): { valid: boolean; error?: str
 }
 
 /**
+ * Update a time entry with photo URL after async upload
+ */
+export async function updateTimeEntryPhotoUrl(entryId: number, photoUrl: string): Promise<void> {
+  try {
+    console.log(`[PHOTO_DEBUG] Attempting to update entry ${entryId} with photo URL: ${photoUrl}`);
+    
+    const { data, error } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('time_entries')
+      .update({ 
+        photo_url: photoUrl
+      })
+      .eq('id', entryId)
+      .select();
+    
+    if (error) {
+      console.error(`[PHOTO_DEBUG] Database update error for entry ${entryId}:`, error);
+      throw new Error(`Failed to update time entry with photo URL: ${error.message}`);
+    }
+    
+    console.log(`[PHOTO_DEBUG] Successfully updated entry ${entryId}:`, data);
+  } catch (error) {
+    console.error(`[PHOTO_DEBUG] Exception in updateTimeEntryPhotoUrl for entry ${entryId}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Get staff status with last activity information
  */
 export async function getStaffWithLastActivity(): Promise<any[]> {

@@ -24,17 +24,17 @@ export function CoachingKPICards({
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-sm font-medium text-gray-600">Package Hours</CardTitle>
-              <div className="text-2xl font-bold text-blue-600">{packageHoursRemaining.toFixed(1)}h</div>
+              <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Package Hours</CardTitle>
+              <div className="text-xl sm:text-2xl font-bold text-blue-600">{packageHoursRemaining.toFixed(1)}h</div>
             </div>
-            <BookOpen className="h-8 w-8 text-blue-600" />
+            <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
           </div>
-          <CardDescription>Total hours in active packages</CardDescription>
+          <CardDescription className="text-xs sm:text-sm">Total hours in active packages</CardDescription>
         </CardHeader>
       </Card>
 
@@ -42,16 +42,16 @@ export function CoachingKPICards({
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-sm font-medium text-gray-600">Available Slots</CardTitle>
-              <div className="text-2xl font-bold text-green-600">{totalAvailableSlots}</div>
+              <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Available Slots</CardTitle>
+              <div className="text-xl sm:text-2xl font-bold text-green-600">{totalAvailableSlots}</div>
             </div>
-            <Clock className="h-8 w-8 text-green-600" />
+            <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
           </div>
-          <CardDescription>Available slots in the next 21 days across all coaches</CardDescription>
+          <CardDescription className="text-xs sm:text-sm">Available slots in the next 21 days across all coaches</CardDescription>
         </CardHeader>
       </Card>
 
-      <div className="relative">
+      <div className="relative sm:col-span-2 lg:col-span-1">
         <Card 
           className="cursor-help hover:bg-gray-50 transition-colors"
           onMouseEnter={() => setHoveredCard('missing-schedule')}
@@ -60,12 +60,12 @@ export function CoachingKPICards({
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-sm font-medium text-gray-600">Missing Schedule</CardTitle>
-                <div className="text-2xl font-bold text-red-600">{coachesWithoutSchedule}</div>
+                <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Missing Schedule</CardTitle>
+                <div className="text-xl sm:text-2xl font-bold text-red-600">{coachesWithoutSchedule}</div>
               </div>
-              <UserX className="h-8 w-8 text-red-600" />
+              <UserX className="h-6 w-6 sm:h-8 sm:w-8 text-red-600" />
             </div>
-            <CardDescription>Coaches need availability setup</CardDescription>
+            <CardDescription className="text-xs sm:text-sm">Coaches need availability setup</CardDescription>
           </CardHeader>
         </Card>
         

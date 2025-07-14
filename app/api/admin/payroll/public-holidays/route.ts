@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
-import { getServerSession } from 'next-auth';
+import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 
 // GET /api/admin/payroll/public-holidays
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -47,7 +47,7 @@ export async function GET() {
 // POST /api/admin/payroll/public-holidays
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
 // PUT /api/admin/payroll/public-holidays - Initialize holidays
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

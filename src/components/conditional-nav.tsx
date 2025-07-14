@@ -12,8 +12,8 @@ export function ConditionalNav() {
     setIsClient(true)
   }, [])
   
-  // Hide nav for coaching routes - standalone portal
-  const isCoachingRoute = isClient && pathname.startsWith('/coaching')
+  // Hide nav for coaching routes - standalone portal, but keep for coaching-assist
+  const isCoachingRoute = isClient && pathname.startsWith('/coaching') && !pathname.startsWith('/coaching-assist')
   
   if (isCoachingRoute) {
     return null

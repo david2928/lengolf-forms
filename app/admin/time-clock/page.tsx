@@ -11,14 +11,14 @@ export const metadata: Metadata = {
 
 export default function AdminTimeClockPage() {
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto px-3 md:px-4 py-4 md:py-8 space-y-4 md:space-y-6">
       <TimeClockErrorBoundary>
         <Suspense
           fallback={
-            <div className="flex items-center justify-center min-h-[400px]">
-              <div className="text-center space-y-4">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-                <p className="text-muted-foreground">Loading time clock administration...</p>
+            <div className="flex items-center justify-center min-h-[300px] md:min-h-[400px]">
+              <div className="text-center space-y-3 md:space-y-4">
+                <Loader2 className="h-6 w-6 md:h-8 md:w-8 animate-spin mx-auto" />
+                <p className="text-muted-foreground text-sm md:text-base">Loading time clock administration...</p>
               </div>
             </div>
           }

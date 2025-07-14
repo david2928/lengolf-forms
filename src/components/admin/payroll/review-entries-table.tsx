@@ -280,50 +280,98 @@ export function ReviewEntriesTable({ selectedMonth, onEntryUpdated }: ReviewEntr
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="rounded-md border">
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead className="w-[140px]">Staff</TableHead>
-                <TableHead className="w-[100px]">Date</TableHead>
-                <TableHead className="w-[140px]">Times</TableHead>
-                <TableHead className="w-[80px] text-center">Hours</TableHead>
-                <TableHead className="w-[120px]">Issues</TableHead>
-                <TableHead className="w-[60px] text-right">Edit</TableHead>
+              <TableRow className="border-b bg-gray-50/50">
+                <TableHead className="font-semibold text-gray-900 px-6 py-4 w-[30%]">Staff & Date</TableHead>
+                <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[25%] text-center hidden md:table-cell">Times</TableHead>
+                <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] text-center hidden lg:table-cell">Hours</TableHead>
+                <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[20%] hidden lg:table-cell">Issues</TableHead>
+                <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[10%] text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {entries.map((entry) => (
-                <TableRow key={entry.entry_id} className="hover:bg-muted/50">
-                  <TableCell className="font-medium py-3">{entry.staff_name}</TableCell>
-                  <TableCell className="py-3">
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(entry.date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric'
-                      })}
+                <TableRow key={entry.entry_id} className="hover:bg-gray-50/50 transition-colors">
+                  <TableCell className="px-6 py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-shrink-0">
+                        <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-red-700">
+                            {entry.staff_name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-gray-900 text-base">{entry.staff_name}</p>
+                        <div className="mt-1">
+                          <p className="text-sm text-gray-500">
+                            {new Date(entry.date).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                        {/* Mobile info */}
+                        <div className="md:hidden mt-2 space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">In:</span>
+                            <span className="font-mono">{formatTimeOnly(entry.clock_in_time)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Out:</span>
+                            <span className="font-mono">
+                              {entry.clock_out_time ? formatTimeOnly(entry.clock_out_time) : 'Missing'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm lg:hidden">
+                            <span className="text-gray-500">Hours:</span>
+                            <span className="font-medium">{(entry.total_daily_hours || 0).toFixed(1)}h</span>
+                          </div>
+                          <div className="lg:hidden mt-2">
+                            <div className="flex flex-wrap gap-1">
+                              {(entry.flagged_reasons || []).slice(0, 2).map((issue, index) => (
+                                <Badge
+                                  key={index}
+                                  variant={getIssueColor(issue)}
+                                  className="text-xs px-1.5 py-0.5"
+                                >
+                                  {getIssueText(issue)}
+                                </Badge>
+                              ))}
+                              {(entry.flagged_reasons || []).length > 2 && (
+                                <Badge variant="outline" className="text-xs px-1.5 py-0.5">
+                                  +{(entry.flagged_reasons || []).length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </TableCell>
-                  <TableCell className="py-3">
+                  <TableCell className="px-4 py-4 text-center hidden md:table-cell">
                     <div className="space-y-1">
-                      <div className="text-xs text-muted-foreground">
-                        In: <span className="font-mono">{formatTimeOnly(entry.clock_in_time)}</span>
+                      <div className="text-sm text-gray-600">
+                        In: <span className="font-mono font-medium">{formatTimeOnly(entry.clock_in_time)}</span>
                       </div>
                       {entry.clock_out_time ? (
-                        <div className="text-xs text-muted-foreground">
-                          Out: <span className="font-mono">{formatTimeOnly(entry.clock_out_time)}</span>
+                        <div className="text-sm text-gray-600">
+                          Out: <span className="font-mono font-medium">{formatTimeOnly(entry.clock_out_time)}</span>
                         </div>
                       ) : (
-                        <div className="text-xs text-red-500">No clock-out</div>
+                        <div className="text-sm text-red-600 font-medium">No clock-out</div>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="py-3 text-center">
-                    <div className="text-sm font-medium">
+                  <TableCell className="px-4 py-4 text-center hidden lg:table-cell">
+                    <div className="text-base font-semibold">
                       {(entry.total_daily_hours || 0).toFixed(1)}h
                     </div>
                   </TableCell>
-                  <TableCell className="py-3">
+                  <TableCell className="px-4 py-4 hidden lg:table-cell">
                     <div className="flex flex-wrap gap-1">
                       {(entry.flagged_reasons || []).slice(0, 2).map((issue, index) => (
                         <Badge
@@ -341,7 +389,7 @@ export function ReviewEntriesTable({ selectedMonth, onEntryUpdated }: ReviewEntr
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="py-3 text-right">
+                  <TableCell className="px-4 py-4 text-center">
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button

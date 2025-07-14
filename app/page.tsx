@@ -26,7 +26,7 @@ const packageItems = appMenuItems.filter(item =>
 );
 
 const operationsItems = appMenuItems.filter(item => 
-  item.title === "Inventory Management"
+  item.title === "Inventory Management" || item.title === "Staff Time Clock"
 );
 
 const coachingItems = appMenuItems.filter(item => 

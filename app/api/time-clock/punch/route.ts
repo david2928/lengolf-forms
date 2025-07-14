@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyStaffPin, recordTimeEntry, extractDeviceInfo } from '@/lib/staff-utils';
+import { verifyStaffPin, recordTimeEntry, extractDeviceInfo, updateTimeEntryPhotoUrl } from '@/lib/staff-utils';
 import { uploadTimeClockPhoto, validatePhotoData } from '@/lib/photo-storage';
 import { TimeClockPunchRequest, TimeClockPunchResponse } from '@/types/staff';
 import { DateTime } from 'luxon';
@@ -21,6 +21,8 @@ async function processPhotoAsync(
   timestamp: string,
   entryId: number
 ): Promise<void> {
+  console.log(`[PHOTO_DEBUG] Starting async photo processing for entry ${entryId}, staff ${staffId}, action ${action}`);
+  
   try {
     const uploadResult = await uploadTimeClockPhoto({
       photoData,
@@ -29,15 +31,27 @@ async function processPhotoAsync(
       timestamp
     });
 
+    console.log(`[PHOTO_DEBUG] Upload result for entry ${entryId}:`, {
+      success: uploadResult.success,
+      hasPhotoUrl: !!uploadResult.photoUrl,
+      photoUrlLength: uploadResult.photoUrl?.length || 0,
+      error: uploadResult.error
+    });
+
     if (uploadResult.success && uploadResult.photoUrl) {
-      // TODO: Update the time entry record with the photo URL
-      // For now, just log success - this can be implemented later if needed
-      console.log(`Background photo upload successful for entry ${entryId}:`, uploadResult.photoUrl);
+      // Update the time entry record with the photo URL
+      try {
+        console.log(`[PHOTO_DEBUG] Updating database for entry ${entryId} with URL: ${uploadResult.photoUrl.substring(0, 100)}...`);
+        await updateTimeEntryPhotoUrl(entryId, uploadResult.photoUrl);
+        console.log(`[PHOTO_DEBUG] Database update successful for entry ${entryId}`);
+      } catch (dbError) {
+        console.error(`[PHOTO_DEBUG] Database update failed for entry ${entryId}:`, dbError);
+      }
     } else {
-      console.error(`Background photo upload failed for entry ${entryId}:`, uploadResult.error);
+      console.error(`[PHOTO_DEBUG] Photo upload failed for entry ${entryId}:`, uploadResult.error);
     }
   } catch (error) {
-    console.error(`Background photo processing error for entry ${entryId}:`, error);
+    console.error(`[PHOTO_DEBUG] Critical error in photo processing for entry ${entryId}:`, error);
   }
 }
 
@@ -204,6 +218,7 @@ export async function POST(request: NextRequest) {
 
       // Start async photo processing (don't await - let it run in background)
       if (photo_data && photoCaptured) {
+        console.log(`[PHOTO_DEBUG] Starting background photo processing for entry ${timeEntry.entry_id}, photoCaptured: ${photoCaptured}, photo_data length: ${photo_data.length}`);
         processPhotoAsync(
           photo_data,
           pinVerification.staff_id!,
@@ -211,9 +226,11 @@ export async function POST(request: NextRequest) {
           currentTime.toISO() || new Date().toISOString(),
           timeEntry.entry_id
         ).catch((error: unknown) => {
-          console.error('Background photo processing failed:', error);
+          console.error('[PHOTO_DEBUG] Background photo processing promise rejected:', error);
           // Photo failure doesn't affect time entry success
         });
+      } else {
+        console.log(`[PHOTO_DEBUG] Skipping photo processing - photo_data: ${!!photo_data}, photoCaptured: ${photoCaptured}`);
       }
 
       return NextResponse.json({

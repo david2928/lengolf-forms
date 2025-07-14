@@ -293,15 +293,63 @@ export function ServiceChargeInput({ selectedMonth, onServiceChargeUpdated }: Se
             </div>
 
             {/* Staff List */}
-            <div className="space-y-2">
-              <h4 className="font-medium">Staff Eligibility</h4>
-              <div className="space-y-1">
+            <div className="space-y-3">
+              <h4 className="font-medium">Staff Eligibility ({serviceChargeInfo.eligible_staff.length} total)</h4>
+              
+              {/* Mobile Card View */}
+              <div className="block md:hidden space-y-2">
                 {serviceChargeInfo.eligible_staff.map((staff) => (
-                  <div key={staff.staff_id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span className="text-sm">{staff.staff_name}</span>
-                    <Badge variant={staff.is_eligible ? "default" : "secondary"}>
-                      {staff.is_eligible ? 'Eligible' : 'Not Eligible'}
-                    </Badge>
+                  <div key={staff.staff_id} className="border rounded-lg p-3 hover:shadow-sm transition-shadow">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                          staff.is_eligible ? 'bg-green-100' : 'bg-gray-100'
+                        }`}>
+                          <span className={`text-sm font-semibold ${
+                            staff.is_eligible ? 'text-green-700' : 'text-gray-600'
+                          }`}>
+                            {staff.staff_name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{staff.staff_name}</p>
+                        <div className="mt-1">
+                          <Badge variant={staff.is_eligible ? "default" : "secondary"} className="text-xs">
+                            {staff.is_eligible ? 'Eligible' : 'Not Eligible'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Desktop Grid View */}
+              <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {serviceChargeInfo.eligible_staff.map((staff) => (
+                  <div key={staff.staff_id} className="border rounded-lg p-3 hover:shadow-sm transition-shadow">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                          staff.is_eligible ? 'bg-green-100' : 'bg-gray-100'
+                        }`}>
+                          <span className={`text-sm font-semibold ${
+                            staff.is_eligible ? 'text-green-700' : 'text-gray-600'
+                          }`}>
+                            {staff.staff_name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{staff.staff_name}</p>
+                        <div className="mt-1">
+                          <Badge variant={staff.is_eligible ? "default" : "secondary"} className="text-xs">
+                            {staff.is_eligible ? 'Eligible' : 'Not Eligible'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getDevSession } from '@/lib/dev-session'
 import { authOptions } from '@/lib/auth-config'
 import { isUserAdmin } from '@/lib/auth'
 import { getTimeClockPhotoUrl } from '@/lib/photo-storage'
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify admin access
-    const session = await getServerSession(authOptions)
+    // Verify admin access with development bypass support
+    const session = await getDevSession(authOptions, request)
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const userIsAdmin = await isUserAdmin(session.user.email)
-    if (!userIsAdmin) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    // Skip admin check in development with auth bypass
+    if (process.env.NODE_ENV === 'development' && process.env.SKIP_AUTH === 'true') {
+      // Development bypass - skip admin check
+    } else {
+      const userIsAdmin = await isUserAdmin(session.user.email)
+      if (!userIsAdmin) {
+        return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+      }
     }
 
     const { photo_path } = await request.json()

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { getReviewEntries } from '@/lib/payroll-review';
 
@@ -10,7 +10,7 @@ interface RouteParams {
 // GET /api/admin/payroll/[month]/review-entries - Returns flagged time entries for review
 export async function GET(request: NextRequest, { params }: { params: RouteParams }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

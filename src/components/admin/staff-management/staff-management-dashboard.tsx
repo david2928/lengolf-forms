@@ -18,8 +18,17 @@ import {
   Search,
   Clock,
   AlertTriangle,
-  Loader2
+  Loader2,
+  MoreVertical,
+  Phone,
+  Mail
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { StaffMember } from '@/types/staff'
 import { AddStaffModal } from './add-staff-modal'
 import { EditStaffModal } from './edit-staff-modal'
@@ -123,6 +132,101 @@ export function StaffManagementDashboard() {
 
   const filteredStaff = staff.filter(member =>
     member.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  // Mobile Card Component
+  const StaffMemberCard = ({ member }: { member: StaffMember }) => (
+    <Card className="hover:shadow-md transition-shadow duration-200">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="flex-shrink-0">
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <span className="text-sm font-semibold text-blue-700">
+                  {member.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold text-gray-900 text-base">{member.name}</h3>
+              <p className="text-sm text-gray-500">ID: {member.id}</p>
+              
+              <div className="mt-2 flex items-center gap-2">
+                {getStatusBadge(member)}
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono">
+                  PIN: {member.pin}
+                </span>
+              </div>
+              
+              <div className="mt-2">
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <Clock className="h-3 w-3" />
+                  <span>Last activity: {formatLastActivity(member.last_clock_activity)}</span>
+                </div>
+                {member.failed_attempts > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-red-500 mt-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    <span>{member.failed_attempts} failed attempts</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex-shrink-0 ml-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">Open menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedStaff(member)
+                    setShowEditModal(true)
+                  }}
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Details
+                </DropdownMenuItem>
+                
+                {member.is_locked_out && (
+                  <DropdownMenuItem
+                    onClick={() => handleConfirmAction('unlock', member)}
+                    className="text-green-600"
+                  >
+                    <Unlock className="mr-2 h-4 w-4" />
+                    Unlock Account
+                  </DropdownMenuItem>
+                )}
+                
+                <DropdownMenuItem
+                  onClick={() => handleConfirmAction(
+                    member.is_active ? 'deactivate' : 'activate', 
+                    member
+                  )}
+                  className={member.is_active ? 'text-red-600' : 'text-green-600'}
+                >
+                  {member.is_active ? (
+                    <>
+                      <UserX className="mr-2 h-4 w-4" />
+                      Deactivate
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="mr-2 h-4 w-4" />
+                      Activate
+                    </>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 
   const handleAction = async (action: string, staffId: number) => {
@@ -290,71 +394,156 @@ export function StaffManagementDashboard() {
               </div>
             </CardHeader>
             
-            <CardContent>
-              <div className="rounded-md border">
+            <CardContent className="p-0">
+              {/* Mobile Card View (md and below) */}
+              <div className="block md:hidden">
+                {filteredStaff.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">
+                    <div className="flex flex-col items-center gap-3">
+                      <Users className="h-12 w-12 text-gray-300" />
+                      <div>
+                        <p className="font-medium text-lg">
+                          {searchTerm ? 'No staff found matching your search.' : 'No staff members yet.'}
+                        </p>
+                        {!searchTerm && (
+                          <p className="text-sm text-gray-400 mt-1">Add your first staff member to get started.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 space-y-3">
+                    {filteredStaff.map((member) => (
+                      <StaffMemberCard key={member.id} member={member} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Desktop Table View (md and above) */}
+              <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[200px]">Name</TableHead>
-                      <TableHead className="w-[100px]">PIN</TableHead>
-                      <TableHead className="w-[100px]">Status</TableHead>
-                      <TableHead className="w-[150px]">Last Activity</TableHead>
-                      <TableHead className="w-[150px] text-right">Actions</TableHead>
+                    <TableRow className="border-b bg-gray-50/50">
+                      <TableHead className="font-semibold text-gray-900 px-6 py-4 w-[40%]">Staff Member</TableHead>
+                      <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%]">PIN</TableHead>
+                      <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%]">Status</TableHead>
+                      <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[20%] hidden lg:table-cell">Last Activity</TableHead>
+                      <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[30%] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredStaff.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
-                          {searchTerm ? 'No staff found matching your search.' : 'No staff members yet.'}
+                        <TableCell colSpan={5} className="h-32 text-center text-gray-500">
+                          <div className="flex flex-col items-center gap-2">
+                            <Users className="h-8 w-8 text-gray-300" />
+                            <p className="font-medium">
+                              {searchTerm ? 'No staff found matching your search.' : 'No staff members yet.'}
+                            </p>
+                            {!searchTerm && (
+                              <p className="text-sm text-gray-400">Add your first staff member to get started.</p>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredStaff.map((member) => (
-                        <TableRow key={member.id}>
-                          <TableCell className="font-medium">{member.name}</TableCell>
-                          <TableCell className="font-mono">{member.pin}</TableCell>
-                          <TableCell>{getStatusBadge(member)}</TableCell>
-                          <TableCell className="text-sm">
-                            {formatLastActivity(member.last_clock_activity)}
+                        <TableRow key={member.id} className="hover:bg-gray-50/50 transition-colors">
+                          <TableCell className="px-6 py-4">
+                            <div className="flex items-center gap-4">
+                              <div className="flex-shrink-0">
+                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                  <span className="text-sm font-semibold text-blue-700">
+                                    {member.name.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-gray-900 text-base">{member.name}</p>
+                                <div className="mt-1">
+                                  <p className="text-sm text-gray-500">Staff Member ID: {member.id}</p>
+                                </div>
+                              </div>
+                            </div>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
+                          <TableCell className="px-4 py-4">
+                            <div className="flex items-center justify-center">
+                              <code className="bg-gray-100 px-3 py-2 rounded-md text-sm font-mono text-gray-700 font-semibold">
+                                {member.pin}
+                              </code>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-4 py-4">
+                            <div className="flex items-center">
+                              {getStatusBadge(member)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-4 py-4 hidden lg:table-cell">
+                            <div className="text-sm text-gray-600">
+                              <div className="font-medium">
+                                {formatLastActivity(member.last_clock_activity)}
+                              </div>
+                              {member.failed_attempts > 0 && (
+                                <div className="text-xs text-red-500 mt-1">
+                                  {member.failed_attempts} failed attempts
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-4 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 onClick={() => {
                                   setSelectedStaff(member)
                                   setShowEditModal(true)
                                 }}
+                                className="h-8 px-3 hover:bg-gray-100 border-gray-200"
+                                title="Edit staff member"
                               >
-                                <Edit className="h-4 w-4" />
+                                <Edit className="h-3 w-3 mr-1" />
+                                Edit
                               </Button>
                               
                               {member.is_locked_out && (
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="sm"
                                   onClick={() => handleConfirmAction('unlock', member)}
+                                  className="h-8 px-3 hover:bg-green-50 text-green-600 border-green-200"
                                   title="Unlock staff member"
                                 >
-                                  <Unlock className="h-4 w-4" />
+                                  <Unlock className="h-3 w-3 mr-1" />
+                                  Unlock
                                 </Button>
                               )}
                               
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 onClick={() => handleConfirmAction(
                                   member.is_active ? 'deactivate' : 'activate', 
                                   member
                                 )}
+                                className={`h-8 px-3 ${
+                                  member.is_active 
+                                    ? 'hover:bg-red-50 text-red-600 border-red-200' 
+                                    : 'hover:bg-green-50 text-green-600 border-green-200'
+                                }`}
                                 title={member.is_active ? 'Deactivate' : 'Activate'}
                               >
                                 {member.is_active ? (
-                                  <UserX className="h-4 w-4" />
+                                  <>
+                                    <UserX className="h-3 w-3 mr-1" />
+                                    Deactivate
+                                  </>
                                 ) : (
-                                  <UserCheck className="h-4 w-4" />
+                                  <>
+                                    <UserCheck className="h-3 w-3 mr-1" />
+                                    Activate
+                                  </>
                                 )}
                               </Button>
                             </div>

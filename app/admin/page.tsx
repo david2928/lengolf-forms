@@ -14,7 +14,8 @@ import {
   Users,
   UserCheck,
   Link2,
-  Clock
+  Clock,
+  ShoppingCart
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -87,6 +88,12 @@ const inventoryItems = [
     path: "/admin/inventory"
   },
   {
+    icon: ShoppingCart,
+    title: "Product Management",
+    description: "Manage product catalog, categories, and pricing for POS system",
+    path: "/admin/products"
+  },
+  {
     icon: FileText,
     title: "Invoice Management",
     description: "Generate and manage supplier invoices",
@@ -95,8 +102,14 @@ const inventoryItems = [
   {
     icon: Clock,
     title: "Time Clock",
-    description: "Comprehensive time tracking reports, staff management, and photo administration",
+    description: "Comprehensive time tracking reports and photo administration",
     path: "/admin/time-clock"
+  },
+  {
+    icon: Users,
+    title: "Staff Management",
+    description: "Manage staff accounts, permissions, and time tracking settings",
+    path: "/admin/staff-management"
   }
 ];
 

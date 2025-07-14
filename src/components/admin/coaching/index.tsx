@@ -17,6 +17,7 @@ export default function CoachingDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCoach, setSelectedCoach] = useState<string>('all');
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('next-available');
   const [selectedWeek, setSelectedWeek] = useState<Date>(() => {
     return goToCurrentWeek();
   });
@@ -78,7 +79,7 @@ export default function CoachingDashboard() {
 
   return (
     <div className="min-h-full bg-gray-50">
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
         <CoachingDashboardHeader onNewBooking={handleNewBooking} />
 
         {error && (
@@ -103,14 +104,44 @@ export default function CoachingDashboard() {
           onCoachChange={setSelectedCoach}
         />
 
-        <Tabs defaultValue="next-available" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="next-available">Next Available</TabsTrigger>
-            <TabsTrigger value="weekly-schedule">Weekly Schedule</TabsTrigger>
-            <TabsTrigger value="all-bookings">All Bookings</TabsTrigger>
-            <TabsTrigger value="student-management">Student Management</TabsTrigger>
-            <TabsTrigger value="inactive-students">Inactive Students</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto">
+            <TabsTrigger value="next-available" className="text-xs sm:text-sm px-2 py-2">
+              <span className="hidden sm:inline">Next Available</span>
+              <span className="sm:hidden">Available</span>
+            </TabsTrigger>
+            <TabsTrigger value="weekly-schedule" className="text-xs sm:text-sm px-2 py-2">
+              <span className="hidden sm:inline">Weekly Schedule</span>
+              <span className="sm:hidden">Schedule</span>
+            </TabsTrigger>
+            <TabsTrigger value="all-bookings" className="text-xs sm:text-sm px-2 py-2">
+              <span className="hidden sm:inline">All Bookings</span>
+              <span className="sm:hidden">Bookings</span>
+            </TabsTrigger>
+            <TabsTrigger value="student-management" className="text-xs sm:text-sm px-2 py-2 hidden sm:block">
+              Student Management
+            </TabsTrigger>
+            <TabsTrigger value="inactive-students" className="text-xs sm:text-sm px-2 py-2 hidden sm:block">
+              Inactive Students
+            </TabsTrigger>
           </TabsList>
+          
+          {/* Mobile-only dropdown for student management tabs */}
+          <div className="sm:hidden">
+            <select 
+              className="w-full p-2 border rounded-lg bg-white text-sm"
+              value={['student-management', 'inactive-students'].includes(activeTab) ? activeTab : ''}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setActiveTab(e.target.value);
+                }
+              }}
+            >
+              <option value="">More Options...</option>
+              <option value="student-management">Student Management</option>
+              <option value="inactive-students">Inactive Students</option>
+            </select>
+          </div>
 
           <TabsContent value="next-available" className="space-y-4">
             <NextAvailableSlots

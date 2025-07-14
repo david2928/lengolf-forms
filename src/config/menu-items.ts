@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -50,6 +50,12 @@ export const menuItems: MenuItem[] = [
     title: "Inventory Management",
     path: '/inventory',
     description: "Submit daily inventory reports"
+  },
+  {
+    icon: ShoppingCart,
+    title: "Product Management",
+    path: '/admin/products',
+    description: "Manage products, categories, and pricing"
   },
   {
     icon: Users,

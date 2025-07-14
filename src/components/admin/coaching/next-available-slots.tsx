@@ -202,10 +202,10 @@ export function NextAvailableSlots({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle>Next Available Coaching Slots</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg sm:text-xl">Next Available Coaching Slots</CardTitle>
+            <CardDescription className="text-xs sm:text-sm mt-1">
               Upcoming available time slots for all coaches within the selected date range (default: next 21 days)
             </CardDescription>
           </div>
@@ -213,7 +213,7 @@ export function NextAvailableSlots({
             variant="outline"
             size="sm"
             onClick={() => handleCopyToClipboard()}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full sm:w-auto"
           >
             {copiedStates['all'] ? (
               <>
@@ -223,28 +223,29 @@ export function NextAvailableSlots({
             ) : (
               <>
                 <Copy className="h-4 w-4" />
-                Copy Availability
+                <span className="hidden sm:inline">Copy Availability</span>
+                <span className="sm:hidden">Copy All</span>
               </>
             )}
           </Button>
         </div>
-        <div className="flex gap-4 mt-4">
-          <div>
-            <label className="text-sm font-medium">From Date</label>
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-4">
+          <div className="flex-1 sm:flex-initial">
+            <label className="text-xs sm:text-sm font-medium">From Date</label>
             <Input
               type="date"
               value={selectedStartDate.toLocaleDateString('en-CA')}
               onChange={(e) => onStartDateChange(new Date(e.target.value))}
-              className="w-40"
+              className="w-full sm:w-40 text-sm"
             />
           </div>
-          <div>
-            <label className="text-sm font-medium">To Date</label>
+          <div className="flex-1 sm:flex-initial">
+            <label className="text-xs sm:text-sm font-medium">To Date</label>
             <Input
               type="date"
               value={selectedEndDate.toLocaleDateString('en-CA')}
               onChange={(e) => onEndDateChange(new Date(e.target.value))}
-              className="w-40"
+              className="w-full sm:w-40 text-sm"
             />
           </div>
         </div>
@@ -256,31 +257,31 @@ export function NextAvailableSlots({
               <Card key={coachId} className="border-l-4 border-l-blue-500">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="h-5 w-5 text-blue-600" />
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                       {coachData.coach_name}
                     </CardTitle>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleCopyToClipboard(coachId)}
-                      className="flex items-center gap-1 text-gray-500 hover:text-blue-600"
+                      className="flex items-center gap-1 text-gray-500 hover:text-blue-600 p-1 sm:p-2"
                     >
                       {copiedStates[coachId] ? (
                         <>
-                          <Check className="h-4 w-4 text-green-600" />
-                          Copied!
+                          <Check className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                          <span className="text-xs sm:text-sm">Copied!</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="h-4 w-4" />
-                          Copy
+                          <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="text-xs sm:text-sm">Copy</span>
                         </>
                       )}
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6">
                   {Object.keys(coachData.dates)
                     .sort()
                     .filter(date => {
@@ -289,8 +290,8 @@ export function NextAvailableSlots({
                     })
                     .map(date => (
                       <div key={date} className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Calendar className="h-4 w-4" />
+                        <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+                          <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                           <span className="font-medium">
                             {new Date(date).toLocaleDateString('en-US', { 
                               weekday: 'short', 
@@ -299,11 +300,11 @@ export function NextAvailableSlots({
                             })}
                           </span>
                           {date === new Date().toLocaleDateString('en-CA') && (
-                            <Badge variant="secondary" className="text-xs">Today</Badge>
+                            <Badge variant="secondary" className="text-[10px] sm:text-xs px-1 py-0">Today</Badge>
                           )}
                         </div>
                         
-                        <div className="flex flex-wrap gap-2 ml-6">
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2 ml-0 sm:ml-6">
                           {Object.keys(coachData.dates[date])
                             .sort()
                             .map(time => (
@@ -311,7 +312,7 @@ export function NextAvailableSlots({
                                 key={`${coachId}-${date}-${time}`}
                                 variant="outline"
                                 size="sm"
-                                className="h-8 px-3 hover:bg-blue-50 hover:border-blue-300"
+                                className="h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm hover:bg-blue-50 hover:border-blue-300"
                                 onClick={onBookingClick}
                               >
                                 <Clock className="h-3 w-3 mr-1" />

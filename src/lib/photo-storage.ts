@@ -26,6 +26,7 @@ export interface PhotoUploadRequest {
 export async function uploadTimeClockPhoto(request: PhotoUploadRequest): Promise<PhotoUploadResult> {
   try {
     const { photoData, staffId, action, timestamp } = request;
+    console.log(`[PHOTO_DEBUG] uploadTimeClockPhoto called - staffId: ${staffId}, action: ${action}, dataLength: ${photoData?.length || 0}`);
     
     // Validate photo data
     if (!photoData || !photoData.startsWith('data:image/')) {
@@ -85,6 +86,7 @@ export async function uploadTimeClockPhoto(request: PhotoUploadRequest): Promise
       };
     }
 
+    // Return the file path like it used to work before
     return {
       success: true,
       photoUrl: uploadData.path

@@ -35,7 +35,10 @@ import {
   Users,
   BarChart3,
   Zap,
-  Shield
+  Shield,
+  Search,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import { format, subDays, formatDistanceToNow } from 'date-fns'
 
@@ -89,6 +92,31 @@ export function PhotoManagementDashboard() {
     action: 'all'
   })
 
+  // Search and pagination
+  const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  // Filtered and paginated photos
+  const filteredPhotos = photos.filter(photo => 
+    photo.staff_name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+    photo.action.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+  )
+
+  const totalPages = Math.ceil(filteredPhotos.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedPhotos = filteredPhotos.slice(startIndex, startIndex + itemsPerPage)
+
   // Staff list for filtering
   const [staffList, setStaffList] = useState<{ id: number; name: string }[]>([])
 
@@ -128,7 +156,8 @@ export function PhotoManagementDashboard() {
 
       const params = new URLSearchParams({
         start_date: filters.startDate,
-        end_date: filters.endDate
+        end_date: filters.endDate,
+        t: Date.now().toString() // Cache busting timestamp
       })
 
       if (filters.staffId !== 'all') {
@@ -146,6 +175,9 @@ export function PhotoManagementDashboard() {
         credentials: 'include', // Include session cookies
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
       })
       
@@ -204,7 +236,18 @@ export function PhotoManagementDashboard() {
 
   const handleFilterChange = (key: keyof typeof filters, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }))
+    setCurrentPage(1) // Reset to first page when filters change
   }
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value)
+    setCurrentPage(1) // Reset to first page when search changes
+  }
+
+  // Reset to first page when debounced search changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearchTerm])
 
   const handleDeletePhoto = async (photoId: string) => {
     if (!confirm('Are you sure you want to delete this photo? This action cannot be undone.')) {
@@ -404,6 +447,21 @@ export function PhotoManagementDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Search Bar */}
+          <div className="space-y-2">
+            <Label htmlFor="search">Search Photos</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="search"
+                placeholder="Search by staff name or action..."
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <Label htmlFor="startDate">Start Date</Label>
@@ -459,33 +517,227 @@ export function PhotoManagementDashboard() {
         </CardContent>
       </Card>
 
-      {/* Photos Table */}
+      {/* Photos Display */}
       <Card>
         <CardHeader>
-          <CardTitle>Photos ({photos.length})</CardTitle>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <CardTitle>
+              Photos ({filteredPhotos.length}
+              {debouncedSearchTerm && ` filtered from ${photos.length}`})
+            </CardTitle>
+            {totalPages > 1 && (
+              <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[100px] text-center">Preview</TableHead>
-                  <TableHead className="min-w-[150px]">Staff</TableHead>
-                  <TableHead className="min-w-[100px] text-center">Action</TableHead>
-                  <TableHead className="min-w-[140px] text-center">Date & Time</TableHead>
-                  <TableHead className="min-w-[100px] text-center">File Size</TableHead>
-                  <TableHead className="min-w-[120px] text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {photos.length === 0 ? (
+          {/* Mobile Cards View */}
+          <div className="block md:hidden space-y-4">
+            {paginatedPhotos.length === 0 ? (
+              <div className="text-center py-8">
+                <Camera className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium text-muted-foreground mb-2">
+                  No photos found
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {debouncedSearchTerm ? 'Try adjusting your search terms' : 'No photos match the selected criteria'}
+                </p>
+                {debouncedSearchTerm && (
+                  <Button variant="outline" size="sm" className="mt-4" onClick={() => handleSearchChange('')}>
+                    Clear Search
+                  </Button>
+                )}
+              </div>
+            ) : (
+              paginatedPhotos.map((photo) => (
+                <Card key={photo.id} className="border hover:bg-gray-50/50 transition-colors">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <div className="font-medium">{photo.staff_name}</div>
+                        <Badge variant={photo.action === 'clock_in' ? 'default' : 'secondary'} className="text-xs">
+                          {photo.action === 'clock_in' ? 'Clock In' : 'Clock Out'}
+                        </Badge>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <div className="text-sm font-medium">
+                          {format(new Date(photo.timestamp), 'MMM dd, yyyy')}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {format(new Date(photo.timestamp), 'h:mm a')}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        Size: {formatFileSize(photo.file_size)}
+                      </div>
+                      <div className="flex gap-2">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setSelectedPhoto(photo)
+                                setImageLoading(true)
+                                setImageError(false)
+                              }}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle>Time Clock Photo</DialogTitle>
+                              <DialogDescription>
+                                {photo.staff_name} - {photo.action === 'clock_in' ? 'Clock In' : 'Clock Out'} 
+                                on {format(new Date(photo.timestamp), 'MMM dd, yyyy at h:mm a')}
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div className="flex justify-center">
+                                {photo.photo_url ? (
+                                  <div className="relative">
+                                    {imageLoading && !imageError && (
+                                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg" style={{ minHeight: '200px' }}>
+                                        <LoadingSpinner size="lg" text="Loading photo..." />
+                                      </div>
+                                    )}
+                                    
+                                    <img 
+                                      src={photo.photo_url} 
+                                      alt={`Time clock photo for ${photo.staff_name}`}
+                                      className={`max-w-full h-auto rounded-lg border shadow-sm transition-opacity duration-300 ${
+                                        imageLoading ? 'opacity-0' : 'opacity-100'
+                                      }`}
+                                      style={{ maxHeight: '400px' }}
+                                      onError={() => {
+                                        setImageLoading(false)
+                                        setImageError(true)
+                                      }}
+                                      onLoad={() => {
+                                        setImageLoading(false)
+                                        setImageError(false)
+                                      }}
+                                    />
+                                    
+                                    {!imageLoading && !imageError && (
+                                      <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                        {format(new Date(photo.timestamp), 'MMM dd, h:mm a')}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                                    <Camera className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                                    <h3 className="text-lg font-medium text-gray-900 mb-2">Photo URL Missing</h3>
+                                    <p className="text-sm text-gray-600 mb-4">
+                                      The photo URL could not be generated for this entry.
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {imageError && photo.photo_url && (
+                                  <div className="text-center p-8 border-2 border-red-200 rounded-lg bg-red-50">
+                                    <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+                                    <h3 className="text-lg font-medium text-red-900 mb-2">Photo Load Failed</h3>
+                                    <p className="text-sm text-red-700 mb-4">
+                                      The photo could not be displayed.
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <strong>File Size:</strong> {formatFileSize(photo.file_size)}
+                                </div>
+                                <div>
+                                  <strong>File Path:</strong> {photo.file_path}
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button 
+                                  variant="destructive" 
+                                  onClick={() => handleDeletePhoto(photo.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Photo
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  disabled={!photo.photo_url}
+                                  asChild={!!photo.photo_url}
+                                >
+                                  {photo.photo_url ? (
+                                    <a href={photo.photo_url} download target="_blank" rel="noopener noreferrer">
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Download
+                                    </a>
+                                  ) : (
+                                    <>
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Download
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDeletePhoto(photo.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block">
+            <div className="rounded-md border overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                      No photos found for the selected criteria.
-                    </TableCell>
+                    <TableHead className="w-[120px] text-center">Preview</TableHead>
+                    <TableHead className="w-[180px]">Staff</TableHead>
+                    <TableHead className="w-[120px] text-center">Action</TableHead>
+                    <TableHead className="w-[160px] text-center">Date & Time</TableHead>
+                    <TableHead className="w-[100px] text-center">File Size</TableHead>
+                    <TableHead className="w-[120px] text-center">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  photos.map((photo) => (
+                </TableHeader>
+                <TableBody>
+                  {paginatedPhotos.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-32 text-center">
+                        <Camera className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <h3 className="text-lg font-medium text-muted-foreground mb-2">
+                          No photos found
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          {debouncedSearchTerm ? 'Try adjusting your search terms' : 'No photos match the selected criteria'}
+                        </p>
+                        {debouncedSearchTerm && (
+                          <Button variant="outline" size="sm" className="mt-4" onClick={() => handleSearchChange('')}>
+                            Clear Search
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedPhotos.map((photo) => (
                     <TableRow key={photo.id}>
                       <TableCell className="text-center">
                         <Dialog>
@@ -700,6 +952,60 @@ export function PhotoManagementDashboard() {
               </TableBody>
             </Table>
           </div>
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredPhotos.length)} of {filteredPhotos.length} photos
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      const diff = Math.abs(page - currentPage);
+                      return diff === 0 || diff === 1 || page === 1 || page === totalPages;
+                    })
+                    .map((page, index, array) => (
+                      <span key={page} className="flex items-center">
+                        {index > 0 && array[index - 1] !== page - 1 && (
+                          <span className="px-2 text-muted-foreground">...</span>
+                        )}
+                        <Button
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className="w-8 h-8 p-0"
+                        >
+                          {page}
+                        </Button>
+                      </span>
+                    ))}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

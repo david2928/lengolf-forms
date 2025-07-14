@@ -238,112 +238,140 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
               <div className="text-sm text-muted-foreground">Total Payroll</div>
             </Card>
           </div>
-
-          {/* Staff Payroll Table */}
-          <div className="rounded-md border">
+        </div>
+      </CardContent>
+      
+      {/* Staff Payroll Table */}
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[180px]">Staff Name</TableHead>
-                  <TableHead className="text-center min-w-[120px]">Base Salary</TableHead>
-                  <TableHead className="text-center min-w-[120px]">Hourly Pay</TableHead>
-                  <TableHead className="text-center min-w-[100px]">Allowance</TableHead>
-                  <TableHead className="text-center min-w-[120px]">OT Pay</TableHead>
-                  <TableHead className="text-center min-w-[120px]">Holiday Pay</TableHead>
-                  <TableHead className="text-center min-w-[120px]">Service Charge</TableHead>
-                  <TableHead className="text-center min-w-[140px]">Total Payout</TableHead>
+                <TableRow className="border-b bg-gray-50/50">
+                  <TableHead className="font-semibold text-gray-900 px-6 py-4 w-[30%]">Staff & Type</TableHead>
+                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] text-center hidden md:table-cell">Base/Rate</TableHead>
+                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] text-center hidden lg:table-cell">Overtime</TableHead>
+                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] text-center hidden lg:table-cell">Allowance</TableHead>
+                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] text-center hidden xl:table-cell">Service</TableHead>
+                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[10%] text-center">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {payrollData.staff_payroll.map((staff) => (
-                  <TableRow key={staff.staff_id}>
-                    <TableCell className="font-medium py-4">
-                      <div>
-                        <div className="font-medium">{staff.staff_name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          <Badge variant="outline" className="text-xs">
-                            {staff.compensation_type === 'salary' ? 'Salary' : 'Hourly'}
-                          </Badge>
+                  <TableRow key={staff.staff_id} className="hover:bg-gray-50/50 transition-colors border-l-4 border-l-transparent hover:border-l-blue-300">
+                    <TableCell className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-shrink-0">
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                            staff.staff_id % 5 === 0 ? 'bg-purple-100' :
+                            staff.staff_id % 4 === 0 ? 'bg-green-100' :
+                            staff.staff_id % 3 === 0 ? 'bg-orange-100' :
+                            staff.staff_id % 2 === 0 ? 'bg-pink-100' : 'bg-blue-100'
+                          }`}>
+                            <span className={`text-sm font-semibold ${
+                              staff.staff_id % 5 === 0 ? 'text-purple-700' :
+                              staff.staff_id % 4 === 0 ? 'text-green-700' :
+                              staff.staff_id % 3 === 0 ? 'text-orange-700' :
+                              staff.staff_id % 2 === 0 ? 'text-pink-700' : 'text-blue-700'
+                            }`}>
+                              {staff.staff_name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-gray-900 text-base">{staff.staff_name}</p>
+                          <div className="mt-1">
+                            <Badge 
+                              variant={staff.compensation_type === 'salary' ? 'default' : 'secondary'} 
+                              className={`text-xs ${
+                                staff.compensation_type === 'salary' 
+                                  ? 'bg-green-100 text-green-800 border-green-200' 
+                                  : 'bg-blue-100 text-blue-800 border-blue-200'
+                              }`}
+                            >
+                              {staff.compensation_type === 'salary' ? 'Salary' : 'Hourly'}
+                            </Badge>
+                          </div>
+                          {/* Mobile info */}
+                          <div className="md:hidden mt-2 space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500">Base:</span>
+                              <span className="font-medium">
+                                {staff.base_salary > 0 ? `฿${staff.base_salary.toLocaleString()}` : 
+                                 staff.compensation_type === 'hourly' ? `฿${staff.hourly_rate.toLocaleString()}/hr` : '-'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-sm lg:hidden">
+                              <span className="text-gray-500">OT:</span>
+                              <span className="font-medium">
+                                {staff.ot_pay > 0 ? `฿${staff.ot_pay.toLocaleString()}` : '-'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-sm xl:hidden">
+                              <span className="text-gray-500">Service:</span>
+                              <span className="font-medium">
+                                {staff.service_charge > 0 ? `฿${staff.service_charge.toLocaleString()}` : '-'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-sm font-semibold">
+                              <span className="text-gray-700">Total:</span>
+                              <span className="text-green-600">฿{staff.total_payout.toLocaleString()}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-center py-4">
-                      {staff.base_salary > 0 ? (
-                        <div className="text-center">
-                          <div className="font-medium">฿{staff.base_salary.toLocaleString()}</div>
-                          <div className="text-xs text-muted-foreground">Monthly</div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                    <TableCell className="px-4 py-4 text-center hidden md:table-cell">
+                      <div className="flex flex-col items-center">
+                        <span className="font-medium text-base">
+                          {staff.base_salary > 0 ? `฿${staff.base_salary.toLocaleString()}` : 
+                           staff.compensation_type === 'hourly' ? `฿${staff.hourly_rate.toLocaleString()}/hr` : '-'}
+                        </span>
+                        {staff.compensation_type === 'hourly' && (
+                          <span className="text-xs text-gray-500">{staff.regular_hours.toFixed(1)}h worked</span>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell className="text-center py-4">
-                      {staff.compensation_type === 'hourly' ? (
-                        <div className="text-center">
-                          <div className="font-medium">฿{staff.hourly_rate.toLocaleString()}/hr</div>
-                          <div className="text-xs text-muted-foreground">
-                            {staff.regular_hours.toFixed(1)}h worked
+                    <TableCell className="px-4 py-4 text-center hidden lg:table-cell">
+                      <div className="flex flex-col items-center">
+                        <span className="font-medium text-base">
+                          {staff.ot_pay > 0 ? `฿${staff.ot_pay.toLocaleString()}` : '-'}
+                        </span>
+                        {staff.ot_hours > 0 && (
+                          <span className="text-xs text-gray-500">{staff.ot_hours.toFixed(1)}h OT</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-center hidden lg:table-cell">
+                      <div className="flex flex-col items-center">
+                        <span className="font-medium text-base">
+                          {staff.total_allowance > 0 ? `฿${staff.total_allowance.toLocaleString()}` : '-'}
+                        </span>
+                        {staff.total_allowance > 0 && (
+                          <span className="text-xs text-gray-500">Daily allowance</span>
+                        )}
+                        {staff.holiday_pay > 0 && (
+                          <div className="mt-1">
+                            <span className="text-xs text-orange-600">+฿{staff.holiday_pay.toLocaleString()} holiday</span>
                           </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell className="text-center py-4">
-                      {staff.total_allowance > 0 ? (
-                        <div className="text-center">
-                          <div className="font-medium">฿{staff.total_allowance.toLocaleString()}</div>
-                          <div className="text-xs text-muted-foreground">Daily allowance</div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                    <TableCell className="px-4 py-4 text-center hidden xl:table-cell">
+                      <div className="flex flex-col items-center">
+                        <span className="font-medium text-base">
+                          {staff.service_charge > 0 ? `฿${staff.service_charge.toLocaleString()}` : '-'}
+                        </span>
+                        <Badge variant={staff.service_charge > 0 ? 'secondary' : 'outline'} className="text-xs mt-1">
+                          {staff.service_charge > 0 ? 'Eligible' : 'Not Eligible'}
+                        </Badge>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-center py-4">
-                      {staff.ot_pay > 0 ? (
-                        <div className="text-center">
-                          <div className="font-medium">฿{staff.ot_pay.toLocaleString()}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {staff.ot_hours.toFixed(1)}h overtime
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center py-4">
-                      {staff.holiday_pay > 0 ? (
-                        <div className="text-center">
-                          <div className="font-medium">฿{staff.holiday_pay.toLocaleString()}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {staff.holiday_hours.toFixed(1)}h holidays
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center py-4">
-                      {staff.service_charge > 0 ? (
-                        <div className="text-center">
-                          <div className="font-medium">฿{staff.service_charge.toLocaleString()}</div>
-                          <div className="text-xs text-muted-foreground">
-                            <Badge variant="secondary" className="text-xs">Eligible</Badge>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center">
-                          <span className="text-muted-foreground">-</span>
-                          <div className="text-xs text-muted-foreground">
-                            <Badge variant="outline" className="text-xs">Not Eligible</Badge>
-                          </div>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center py-4">
-                      <div className="text-center">
-                        <div className="text-lg font-bold">฿{staff.total_payout.toLocaleString()}</div>
-                        <div className="text-xs text-muted-foreground">Total payout</div>
+                    <TableCell className="px-4 py-4 text-center">
+                      <div className="flex flex-col items-center">
+                        <span className="font-bold text-lg text-green-600">
+                          ฿{staff.total_payout.toLocaleString()}
+                        </span>
+                        <span className="text-xs text-gray-500">Total payout</span>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -351,9 +379,11 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
               </TableBody>
             </Table>
           </div>
-
-          {/* Service Charge Summary */}
-          {payrollData.service_charge_summary && payrollData.service_charge_summary.total_amount > 0 && (
+        </CardContent>
+        
+        {/* Service Charge Summary */}
+        {payrollData.service_charge_summary && payrollData.service_charge_summary.total_amount > 0 && (
+          <CardContent>
             <Card className="p-4">
               <h3 className="font-medium mb-2">Service Charge Distribution</h3>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4 text-sm">
@@ -375,9 +405,8 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
                 </div>
               </div>
             </Card>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        )}
+      </Card>
   )
 } 

@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Calendar, Settings, Plus, Edit, Trash2, Upload } from 'lucide-react'
+import { Loader2, Calendar, Settings, Plus, Edit, Trash2, Upload, Calculator } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -414,24 +414,26 @@ export function HolidayHoursTable({ selectedMonth }: HolidayHoursTableProps) {
         </Alert>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xl font-semibold">Holiday Hours - {getSelectedMonthName()}</h3>
-          <p className="text-muted-foreground">
-            Hours worked by each staff member on public holidays
-          </p>
-          <div className="text-xs text-blue-600 mt-1">
-            Debug: {staffMembers.length} staff, {monthHolidays.length} holidays, {holidayHours.length} hour records
-          </div>
-        </div>
-        <Dialog open={showManageModal} onOpenChange={setShowManageModal}>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <Settings className="h-4 w-4 mr-2" />
-              Manage Holidays
-            </Button>
-          </DialogTrigger>
+      {/* Holiday Hours Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Holiday Hours - {getSelectedMonthName()}
+              </CardTitle>
+              <CardDescription>
+                Hours worked by each staff member on public holidays ({monthHolidays.length} holiday{monthHolidays.length !== 1 ? 's' : ''} in {getSelectedMonthName()})
+              </CardDescription>
+            </div>
+            <Dialog open={showManageModal} onOpenChange={setShowManageModal}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Manage Holidays
+                </Button>
+              </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Manage Public Holidays</DialogTitle>
@@ -463,50 +465,68 @@ export function HolidayHoursTable({ selectedMonth }: HolidayHoursTableProps) {
                 </div>
               </div>
 
-              {/* Holidays Table */}
-              <div className="rounded-md border">
+              {/* Holidays Table - Mobile & Desktop Responsive */}
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Holiday Name</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                    <TableRow className="border-b bg-gray-50/50">
+                      <TableHead className="font-semibold text-gray-900 px-6 py-4 w-[40%]">Holiday Details</TableHead>
+                      <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[20%] text-center hidden md:table-cell">Status</TableHead>
+                      <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[40%] text-center">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {holidays.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
-                          No holidays configured
+                        <TableCell colSpan={3} className="h-24 text-center">
+                          <div className="flex flex-col items-center gap-2">
+                            <Calendar className="h-8 w-8 text-gray-300" />
+                            <p className="text-gray-500">No holidays configured</p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ) : (
                       holidays.slice(0, 50).map((holiday) => (
-                        <TableRow key={holiday.holiday_date}>
-                          <TableCell className="font-medium">
-                            {formatDate(holiday.holiday_date)}
+                        <TableRow key={holiday.holiday_date} className="hover:bg-gray-50/50 transition-colors">
+                          <TableCell className="px-6 py-4">
+                            <div className="flex items-center gap-4">
+                              <div className="flex-shrink-0">
+                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                  <Calendar className="h-5 w-5 text-blue-600" />
+                                </div>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-gray-900 text-base">{holiday.holiday_name}</p>
+                                <p className="text-sm text-gray-500">{formatDate(holiday.holiday_date)}</p>
+                                {/* Mobile status */}
+                                <div className="md:hidden mt-1">
+                                  <Badge variant="default" className="text-xs">Active</Badge>
+                                </div>
+                              </div>
+                            </div>
                           </TableCell>
-                          <TableCell>{holiday.holiday_name}</TableCell>
-                          <TableCell>
+                          <TableCell className="px-4 py-4 text-center hidden md:table-cell">
                             <Badge variant="default">Active</Badge>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
+                          <TableCell className="px-4 py-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 onClick={() => handleEdit(holiday)}
+                                className="h-8 px-3 hover:bg-blue-50 text-blue-600 border-blue-200"
                               >
-                                <Edit className="h-4 w-4" />
+                                <Edit className="h-3 w-3 mr-1" />
+                                Edit
                               </Button>
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 onClick={() => handleDelete(holiday.holiday_date)}
-                                className="text-destructive hover:text-destructive"
+                                className="h-8 px-3 hover:bg-red-50 text-red-600 border-red-200"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Delete
                               </Button>
                             </div>
                           </TableCell>
@@ -521,16 +541,6 @@ export function HolidayHoursTable({ selectedMonth }: HolidayHoursTableProps) {
         </Dialog>
       </div>
 
-      {/* Holiday Hours Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Holiday Hours Summary
-          </CardTitle>
-          <CardDescription>
-            {monthHolidays.length} holiday{monthHolidays.length !== 1 ? 's' : ''} in {getSelectedMonthName()}
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {monthHolidays.length === 0 ? (
@@ -550,74 +560,218 @@ export function HolidayHoursTable({ selectedMonth }: HolidayHoursTableProps) {
               </p>
             </div>
           ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[200px]">Holiday</TableHead>
-                    {staffMembers.map((staff) => (
-                      <TableHead key={staff.id} className="text-center min-w-[100px]">
-                        <div className="text-center">
-                          <div className="font-medium">{staff.staff_name}</div>
-                        </div>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {monthHolidays.map((holiday) => (
-                    <TableRow key={holiday.holiday_date}>
-                      <TableCell className="font-medium">
-                        <div>
-                          <div className="font-medium">{holiday.holiday_name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatDate(holiday.holiday_date)}
+            <div className="space-y-6">
+              {/* Mobile Card View */}
+              <div className="block lg:hidden space-y-4">
+                {monthHolidays.map((holiday) => (
+                  <Card key={holiday.holiday_date} className="border-l-4 border-l-orange-500">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                            <Calendar className="h-5 w-5 text-orange-600" />
                           </div>
                         </div>
-                      </TableCell>
-                      {staffMembers.map((staff) => {
-                        const hours = getHoursForStaffAndDate(staff.id, holiday.holiday_date)
-                        return (
-                          <TableCell key={staff.id} className="text-center">
-                            {hours > 0 ? (
-                              <Badge variant="secondary" className="font-mono">
-                                {hours.toFixed(1)}h
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">-</span>
-                            )}
-                          </TableCell>
-                        )
-                      })}
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">{holiday.holiday_name}</CardTitle>
+                          <CardDescription className="text-sm">
+                            {formatDate(holiday.holiday_date)}
+                          </CardDescription>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500">Total:</div>
+                          <Badge variant="outline" className="font-mono font-bold">
+                            {getTotalHoursForHoliday(holiday.holiday_date).toFixed(1)}h
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {staffMembers.map((staff) => {
+                          const hours = getHoursForStaffAndDate(staff.id, holiday.holiday_date)
+                          return (
+                            <div key={staff.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0">
+                                  <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                                    hours > 0 ? 'bg-green-100' : 'bg-gray-100'
+                                  }`}>
+                                    <span className={`text-sm font-semibold ${
+                                      hours > 0 ? 'text-green-700' : 'text-gray-600'
+                                    }`}>
+                                      {staff.staff_name.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900 text-sm">{staff.staff_name}</p>
+                                </div>
+                              </div>
+                              <div>
+                                {hours > 0 ? (
+                                  <Badge variant="secondary" className="font-mono text-xs">
+                                    {hours.toFixed(1)}h
+                                  </Badge>
+                                ) : (
+                                  <span className="text-gray-400 text-sm">-</span>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                
+                {/* Mobile Monthly Summary */}
+                {monthHolidays.length > 0 && (
+                  <Card className="bg-blue-50 border-blue-200">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Calculator className="h-5 w-5 text-blue-600" />
+                        Monthly Holiday Hours Summary
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {staffMembers.map((staff) => {
+                          const totalHours = getTotalHoursForStaff(staff.id)
+                          return (
+                            <div key={staff.id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0">
+                                  <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                                    totalHours > 0 ? 'bg-blue-100' : 'bg-gray-100'
+                                  }`}>
+                                    <span className={`text-sm font-semibold ${
+                                      totalHours > 0 ? 'text-blue-700' : 'text-gray-600'
+                                    }`}>
+                                      {staff.staff_name.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900 text-sm">{staff.staff_name}</p>
+                                  <p className="text-xs text-gray-500">Total this month</p>
+                                </div>
+                              </div>
+                              <div>
+                                {totalHours > 0 ? (
+                                  <Badge variant="default" className="font-mono font-bold text-xs">
+                                    {totalHours.toFixed(1)}h
+                                  </Badge>
+                                ) : (
+                                  <span className="text-gray-400 font-mono text-sm">0.0h</span>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden lg:block rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b bg-gray-50/50">
+                      <TableHead className="font-semibold text-gray-900 px-6 py-4 w-[200px]">Holiday Details</TableHead>
+                      {staffMembers.map((staff) => (
+                        <TableHead key={staff.id} className="font-semibold text-gray-900 px-4 py-4 text-center min-w-[120px]">
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mb-1">
+                              <span className="text-xs font-semibold text-blue-700">
+                                {staff.staff_name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="font-medium text-sm">{staff.staff_name}</div>
+                          </div>
+                        </TableHead>
+                      ))}
                     </TableRow>
-                  ))}
-                  {/* Totals Row */}
-                  {monthHolidays.length > 0 && (
-                    <TableRow className="border-t-2 bg-muted/50">
-                      <TableCell className="font-bold">
-                        <div className="text-sm font-bold">Monthly Total</div>
-                        <div className="text-xs text-muted-foreground">Holiday Hours</div>
-                      </TableCell>
-                      {staffMembers.map((staff) => {
-                        const totalHours = getTotalHoursForStaff(staff.id)
-                        return (
-                          <TableCell key={staff.id} className="text-center">
-                            {totalHours > 0 ? (
-                              <div className="flex flex-col items-center">
-                                <Badge variant="outline" className="font-mono font-bold">
-                                  {totalHours.toFixed(1)}h
+                  </TableHeader>
+                  <TableBody>
+                    {monthHolidays.map((holiday) => (
+                      <TableRow key={holiday.holiday_date} className="hover:bg-gray-50/50 transition-colors">
+                        <TableCell className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="flex-shrink-0">
+                              <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                                <Calendar className="h-5 w-5 text-orange-600" />
+                              </div>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-gray-900 text-base">{holiday.holiday_name}</p>
+                              <p className="text-sm text-gray-500">{formatDate(holiday.holiday_date)}</p>
+                              <div className="mt-1">
+                                <span className="text-xs text-gray-500">Total: </span>
+                                <Badge variant="outline" className="text-xs font-mono">
+                                  {getTotalHoursForHoliday(holiday.holiday_date).toFixed(1)}h
                                 </Badge>
                               </div>
-                            ) : (
-                              <span className="text-muted-foreground font-mono">0.0h</span>
-                            )}
-                          </TableCell>
-                        )
-                      })}
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                            </div>
+                          </div>
+                        </TableCell>
+                        {staffMembers.map((staff) => {
+                          const hours = getHoursForStaffAndDate(staff.id, holiday.holiday_date)
+                          return (
+                            <TableCell key={staff.id} className="px-4 py-4 text-center">
+                              {hours > 0 ? (
+                                <div className="flex flex-col items-center">
+                                  <Badge variant="secondary" className="font-mono text-sm">
+                                    {hours.toFixed(1)}h
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-sm">-</span>
+                              )}
+                            </TableCell>
+                          )
+                        })}
+                      </TableRow>
+                    ))}
+                    {/* Desktop Totals Row */}
+                    {monthHolidays.length > 0 && (
+                      <TableRow className="border-t-2 bg-blue-50/50">
+                        <TableCell className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="flex-shrink-0">
+                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <Calculator className="h-5 w-5 text-blue-600" />
+                              </div>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-gray-900 text-base">Monthly Total</p>
+                              <p className="text-sm text-gray-600">Holiday hours for {getSelectedMonthName()}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        {staffMembers.map((staff) => {
+                          const totalHours = getTotalHoursForStaff(staff.id)
+                          return (
+                            <TableCell key={staff.id} className="px-4 py-4 text-center">
+                              {totalHours > 0 ? (
+                                <div className="flex flex-col items-center">
+                                  <Badge variant="default" className="font-mono font-bold">
+                                    {totalHours.toFixed(1)}h
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 font-mono">0.0h</span>
+                              )}
+                            </TableCell>
+                          )
+                        })}
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </CardContent>

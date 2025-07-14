@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { calculatePayrollForMonth, getServiceCharge } from '@/lib/payroll-calculations';
 import { 
@@ -16,7 +16,7 @@ interface RouteParams {
 // GET /api/admin/payroll/[month]/calculations - Returns all payroll calculations for a month
 export async function GET(request: NextRequest, { params }: { params: RouteParams }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

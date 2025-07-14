@@ -155,134 +155,140 @@ export function PayrollDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with month selector */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Payroll Processing</h2>
-          <p className="text-muted-foreground">
-            Review time entries, calculate compensation, and process payroll
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <MonthSelector
-            months={availableMonths}
-            selectedMonth={selectedMonth}
-            onMonthChange={handleMonthChange}
-          />
+    <div className="space-y-4 md:space-y-6">
+      {/* Mobile-optimized month selector and controls */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-2 w-full sm:w-auto">
+          <div className="w-full sm:w-auto">
+            <MonthSelector
+              months={availableMonths}
+              selectedMonth={selectedMonth}
+              onMonthChange={handleMonthChange}
+            />
+          </div>
           <Button
             variant="outline"
             size="sm"
             onClick={handleRefreshData}
-            className="flex items-center gap-2"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Calculator className="h-4 w-4" />
-            Refresh
+            <span className="sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Mobile-optimized Summary Cards */}
       {payrollSummary && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Staff Members</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+          <Card className="p-3 md:p-4">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+              <CardTitle className="text-xs md:text-sm font-medium">Staff</CardTitle>
+              <Calendar className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{payrollSummary.total_staff}</div>
-              <p className="text-xs text-muted-foreground">Active this month</p>
+            <CardContent className="p-0 pt-2">
+              <div className="text-lg md:text-2xl font-bold">{payrollSummary.total_staff}</div>
+              <p className="text-xs text-muted-foreground">Active</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Card className="p-3 md:p-4">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+              <CardTitle className="text-xs md:text-sm font-medium">Hours</CardTitle>
+              <Calendar className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{payrollSummary.total_hours.toFixed(1)}</div>
+            <CardContent className="p-0 pt-2">
+              <div className="text-lg md:text-2xl font-bold">{payrollSummary.total_hours.toFixed(1)}</div>
               <p className="text-xs text-muted-foreground">
-                + {payrollSummary.total_overtime.toFixed(1)} OT hours
+                +{payrollSummary.total_overtime.toFixed(1)} OT
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Service Charge</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <Card className="p-3 md:p-4">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+              <CardTitle className="text-xs md:text-sm font-medium">Service</CardTitle>
+              <DollarSign className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                ฿{payrollSummary.total_service_charge.toLocaleString()}
+            <CardContent className="p-0 pt-2">
+              <div className="text-lg md:text-2xl font-bold">
+                <span className="hidden sm:inline">฿</span>{payrollSummary.total_service_charge.toLocaleString()}
               </div>
-              <p className="text-xs text-muted-foreground">Distributed amount</p>
+              <p className="text-xs text-muted-foreground">Distributed</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Review Needed</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          <Card className="p-3 md:p-4">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+              <CardTitle className="text-xs md:text-sm font-medium">Review</CardTitle>
+              <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <div className="text-2xl font-bold">{payrollSummary.flagged_entries}</div>
+            <CardContent className="p-0 pt-2">
+              <div className="flex items-center gap-1 md:gap-2">
+                <div className="text-lg md:text-2xl font-bold">{payrollSummary.flagged_entries}</div>
                 {payrollSummary.flagged_entries > 0 && (
-                  <Badge variant="destructive" className="text-xs">
-                    Action Required
+                  <Badge variant="destructive" className="text-xs px-1 py-0 md:px-2 md:py-1">
+                    <span className="hidden sm:inline">Action Required</span>
+                    <span className="sm:hidden">!</span>
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">Flagged entries</p>
+              <p className="text-xs text-muted-foreground">Flagged</p>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Main Content Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="review">
-            <span className="flex items-center gap-2">
-              Review
+      {/* Mobile-optimized Main Content Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3 md:space-y-4">
+        <TabsList className="grid w-full grid-cols-4 h-auto">
+          <TabsTrigger value="overview" className="text-xs md:text-sm px-2 py-2 md:px-3 md:py-2">
+            <span className="hidden sm:inline">Overview</span>
+            <span className="sm:hidden">Overview</span>
+          </TabsTrigger>
+          <TabsTrigger value="review" className="text-xs md:text-sm px-2 py-2 md:px-3 md:py-2">
+            <span className="flex items-center gap-1 md:gap-2">
+              <span className="hidden sm:inline">Review</span>
+              <span className="sm:hidden">Review</span>
               {payrollSummary && payrollSummary.flagged_entries > 0 && (
-                <Badge variant="destructive" className="text-xs">
+                <Badge variant="destructive" className="text-xs px-1 py-0 md:px-2 md:py-1">
                   {payrollSummary.flagged_entries}
                 </Badge>
               )}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="service-charge">Service Charge</TabsTrigger>
-          <TabsTrigger value="holidays">Holidays</TabsTrigger>
+          <TabsTrigger value="service-charge" className="text-xs md:text-sm px-2 py-2 md:px-3 md:py-2">
+            <span className="hidden sm:inline">Service Charge</span>
+            <span className="sm:hidden">Service</span>
+          </TabsTrigger>
+          <TabsTrigger value="holidays" className="text-xs md:text-sm px-2 py-2 md:px-3 md:py-2">
+            <span className="hidden sm:inline">Holidays</span>
+            <span className="sm:hidden">Holidays</span>
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
+        <TabsContent value="overview" className="space-y-3 md:space-y-4 mt-3 md:mt-4">
           <PayrollOverviewTable
             selectedMonth={selectedMonth}
             refreshTrigger={refreshTrigger}
           />
         </TabsContent>
 
-        <TabsContent value="review" className="space-y-4">
+        <TabsContent value="review" className="space-y-3 md:space-y-4 mt-3 md:mt-4">
           <ReviewEntriesTable
             selectedMonth={selectedMonth}
             onEntryUpdated={handleRefreshData}
           />
         </TabsContent>
 
-        <TabsContent value="service-charge" className="space-y-4">
+        <TabsContent value="service-charge" className="space-y-3 md:space-y-4 mt-3 md:mt-4">
           <ServiceChargeInput
             selectedMonth={selectedMonth}
             onServiceChargeUpdated={handleRefreshData}
           />
         </TabsContent>
 
-        <TabsContent value="holidays" className="space-y-4">
+        <TabsContent value="holidays" className="space-y-3 md:space-y-4 mt-3 md:mt-4">
           <HolidayHoursTable selectedMonth={selectedMonth} />
         </TabsContent>
       </Tabs>

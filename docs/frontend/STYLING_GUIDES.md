@@ -502,6 +502,176 @@ if (isLoading) {
 - **Actions**: Right-align with `text-right`
 - **Status**: Use `Badge` components for status indicators
 
+#### 🔧 **Modern Admin Table Pattern**
+For admin interfaces, use this enhanced pattern:
+
+```tsx
+<CardContent className="p-0">
+  <div className="overflow-x-auto">
+    <Table>
+      <TableHeader>
+        <TableRow className="border-b bg-gray-50/50">
+          <TableHead className="font-semibold text-gray-900 px-6 py-4">Primary Info</TableHead>
+          <TableHead className="font-semibold text-gray-900 px-4 py-4 hidden md:table-cell">Detail</TableHead>
+          <TableHead className="font-semibold text-gray-900 px-4 py-4">Status</TableHead>
+          <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[120px] text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {data.map((item) => (
+          <TableRow key={item.id} className="hover:bg-gray-50/50 transition-colors">
+            <TableCell className="px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                    <span className="text-sm font-medium text-blue-700">
+                      {item.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-gray-900">{item.name}</p>
+                  <div className="md:hidden mt-1">
+                    {/* Mobile-only info */}
+                  </div>
+                </div>
+              </div>
+            </TableCell>
+            <TableCell className="px-4 py-4 hidden md:table-cell">
+              {/* Desktop-only detail */}
+            </TableCell>
+            <TableCell className="px-4 py-4">
+              <Badge variant={getStatusVariant(item.status)}>
+                {item.status}
+              </Badge>
+            </TableCell>
+            <TableCell className="px-4 py-4 text-right">
+              <div className="flex items-center justify-end gap-1">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-100">
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+</CardContent>
+```
+
+#### 🚀 **Optimized Space-Utilization Pattern**
+For tables with extensive action requirements and better space usage:
+
+```tsx
+<CardContent className="p-0">
+  <div className="overflow-x-auto">
+    <Table>
+      <TableHeader>
+        <TableRow className="border-b bg-gray-50/50">
+          <TableHead className="font-semibold text-gray-900 px-6 py-4 w-[40%]">Primary Info</TableHead>
+          <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] hidden md:table-cell">Detail</TableHead>
+          <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%]">Status</TableHead>
+          <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[20%] hidden lg:table-cell">Activity</TableHead>
+          <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[30%] text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {data.map((item) => (
+          <TableRow key={item.id} className="hover:bg-gray-50/50 transition-colors">
+            <TableCell className="px-6 py-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0">
+                  <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <span className="text-sm font-semibold text-blue-700">
+                      {item.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-gray-900 text-base">{item.name}</p>
+                  <div className="mt-1">
+                    <p className="text-sm text-gray-500">ID: {item.id}</p>
+                  </div>
+                  <div className="md:hidden mt-2">
+                    <div className="flex items-center gap-3">
+                      <Badge variant={getStatusVariant(item.status)}>{item.status}</Badge>
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono">
+                        Detail: {item.detail}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TableCell>
+            <TableCell className="px-4 py-4 hidden md:table-cell">
+              <div className="flex items-center justify-center">
+                <code className="bg-gray-100 px-3 py-2 rounded-md text-sm font-mono text-gray-700 font-semibold">
+                  {item.detail}
+                </code>
+              </div>
+            </TableCell>
+            <TableCell className="px-4 py-4 hidden md:table-cell">
+              <div className="flex items-center">
+                <Badge variant={getStatusVariant(item.status)}>{item.status}</Badge>
+              </div>
+            </TableCell>
+            <TableCell className="px-4 py-4 hidden lg:table-cell">
+              <div className="text-sm text-gray-600">
+                <div className="font-medium">{item.lastActivity}</div>
+                {item.additionalInfo && (
+                  <div className="text-xs text-orange-500 mt-1">{item.additionalInfo}</div>
+                )}
+              </div>
+            </TableCell>
+            <TableCell className="px-4 py-4 text-right">
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 hover:bg-gray-100 border-gray-200"
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 hover:bg-green-50 text-green-600 border-green-200"
+                >
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Activate
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+</CardContent>
+```
+
+**Enhanced Features:**
+- **Explicit Width Distribution**: Defined percentages for optimal space usage
+- **Larger Avatars**: `h-10 w-10` for better visual prominence
+- **Enhanced Typography**: Larger, bolder text for primary information
+- **Labeled Action Buttons**: Text + icon buttons for clearer actions
+- **Color-coded Actions**: Context-aware button styling
+- **Extended Mobile Info**: Comprehensive mobile information stacking
+- **Centered Content**: Strategic alignment for visual balance
+- **Multi-line Activity**: Support for additional status information
+
+**Key Features:**
+- **Responsive Design**: Hide non-essential columns on mobile (`hidden md:table-cell`)
+- **Avatar Pattern**: Circular initials for user identification
+- **Enhanced Headers**: Gray background with semibold text
+- **Hover States**: Subtle row highlighting on hover
+- **Mobile Optimization**: Stack info vertically in primary cell on mobile
+- **Action Buttons**: Labeled buttons with hover states and color coding
+- **Overflow Handling**: Horizontal scroll for narrow screens
+- **Space Optimization**: Defined column widths for maximum content display
+
 ### 7. Modal/Dialog Components
 
 #### 📝 **Standard Structure**
