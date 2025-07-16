@@ -356,7 +356,7 @@ export function CompetitorMetricsModal({ competitorId, onClose }: CompetitorMetr
                                     
                                     // For all platforms view, show actual raw values
                                     if (!selectedPlatform) {
-                                      const dataPoint = chartData.find(d => d.date === label);
+                                      const dataPoint = chartData.find((d: any) => d.date === label);
                                       const rawKey = `${entry.dataKey}Raw`;
                                       const rawValue = dataPoint ? dataPoint[rawKey] : null;
                                       
