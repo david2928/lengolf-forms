@@ -32,6 +32,8 @@ interface CustomerDetailsProps {
   // New search props
   searchQuery: string
   onSearchQueryChange: (query: string) => void
+  // Customer cache
+  selectedCustomerCache: NewCustomer | null
   error?: {
     customer?: string
     customerName?: string
@@ -50,17 +52,31 @@ export function CustomerDetails({
   onPhoneNumberChange,
   searchQuery,
   onSearchQueryChange,
+  selectedCustomerCache,
   error
 }: CustomerDetailsProps) {
   const [showCustomerDialog, setShowCustomerDialog] = useState(false)
 
   const getSelectedCustomerDisplay = () => {
     if (!selectedCustomerId) return 'Select customer'
+    
+    // First check the cached selected customer
+    if (selectedCustomerCache && selectedCustomerCache.id === selectedCustomerId) {
+      return selectedCustomerCache.contact_number 
+        ? `${selectedCustomerCache.customer_name} (${selectedCustomerCache.contact_number})`
+        : selectedCustomerCache.customer_name
+    }
+    
+    // Then check SWR customers
     const customer = customers.find(c => c.id === selectedCustomerId)
-    if (!customer) return 'Select customer'
-    return customer.contact_number 
-      ? `${customer.customer_name} (${customer.contact_number})`
-      : customer.customer_name
+    if (customer) {
+      return customer.contact_number 
+        ? `${customer.customer_name} (${customer.contact_number})`
+        : customer.customer_name
+    }
+    
+    // Fallback
+    return 'Customer selected'
   }
 
   const mappedCustomers = customers.map(customer => ({
@@ -121,16 +137,30 @@ export function CustomerDetails({
             onDialogOpenChange={setShowCustomerDialog}
             getSelectedCustomerDisplay={() => {
               if (!selectedCustomerId) return 'Select customer'
-              const customer = customers.find(c => c.id === selectedCustomerId)
-              if (!customer) return 'Select customer'
               
-              // Return an object for complex display with badge
-              return {
-                text: customer.contact_number 
-                  ? `${customer.customer_name} (${customer.contact_number})`
-                  : customer.customer_name,
-                badge: customer.customer_code
+              // First check the cached selected customer
+              if (selectedCustomerCache && selectedCustomerCache.id === selectedCustomerId) {
+                return {
+                  text: selectedCustomerCache.contact_number 
+                    ? `${selectedCustomerCache.customer_name} (${selectedCustomerCache.contact_number})`
+                    : selectedCustomerCache.customer_name,
+                  badge: selectedCustomerCache.customer_code
+                }
               }
+              
+              // Then check SWR customers
+              const customer = customers.find(c => c.id === selectedCustomerId)
+              if (customer) {
+                return {
+                  text: customer.contact_number 
+                    ? `${customer.customer_name} (${customer.contact_number})`
+                    : customer.customer_name,
+                  badge: customer.customer_code
+                }
+              }
+              
+              // Fallback
+              return 'Customer selected'
             }}
           />
           {error?.customer && (

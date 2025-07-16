@@ -230,6 +230,18 @@ export function Nav() {
               
               {/* Operations */}
               <DropdownMenuItem asChild>
+                <Link href="/time-clock" className="flex items-center gap-2 w-full">
+                  <Clock className="h-4 w-4" />
+                  Time Clock
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/customers" className="flex items-center gap-2 w-full">
+                  <Users className="h-4 w-4" />
+                  Customer Management
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link href="/admin/reconciliation" className="flex items-center gap-2 w-full">
                   <Calculator className="h-4 w-4" />
                   Reconciliation

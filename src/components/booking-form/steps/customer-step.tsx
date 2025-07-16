@@ -19,7 +19,8 @@ export function CustomerStep() {
     customers,
     mutateCustomers,
     searchQuery,
-    onSearchQueryChange
+    onSearchQueryChange,
+    selectedCustomerCache
   } = useFormContext();
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export function CustomerStep() {
         onPhoneNumberChange={(value) => setFormValue('customerPhone', value)}
         searchQuery={searchQuery}
         onSearchQueryChange={onSearchQueryChange}
+        selectedCustomerCache={selectedCustomerCache}
         error={{
           customer: errors.customerId,
           customerName: errors.customerName,
