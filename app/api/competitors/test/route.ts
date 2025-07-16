@@ -34,8 +34,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.SCRAPER_API_KEY || ''}`
       },
-      body: JSON.stringify({ url }),
-      timeout: 60000 // 1 minute for tests
+      body: JSON.stringify({ url })
     });
 
     if (!response.ok) {

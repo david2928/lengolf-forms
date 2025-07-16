@@ -110,7 +110,7 @@ function generateMetricsSummary(metrics: any[]) {
   }, {} as Record<string, any>);
 
   const summary = {
-    total_followers: Object.values(latestByPlatform).reduce((sum, m: any) => {
+    total_followers: Object.values(latestByPlatform).reduce((sum: number, m: any) => {
       // Get the primary metric for each platform
       let primaryMetric = 0;
       switch (m.platform) {
