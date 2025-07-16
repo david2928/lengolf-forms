@@ -148,9 +148,22 @@ function TransactionDetailModal({
                             ฿{item.item_price_incl_vat.toFixed(2)}/ea
                           </div>
                         )}
-                        {(item.sales_discount && item.sales_discount > 0) && (
-                          <div className="text-xs text-green-600">
-                            -{Math.round((item.sales_discount / (item.sales_total + item.sales_discount)) * 100)}%
+                        {(() => {
+                          const discountAmount = parseFloat(item.sales_discount?.toString() || '0');
+                          if (discountAmount <= 0) return null;
+                          
+                          const totalBeforeDiscount = item.sales_total + discountAmount;
+                          const discountPercentage = Math.round((discountAmount / totalBeforeDiscount) * 100);
+                          
+                          return discountPercentage > 0 ? (
+                            <div className="text-xs text-green-600">
+                              -{discountPercentage}%
+                            </div>
+                          ) : null;
+                        })()}
+                        {item.gross_profit !== undefined && item.sales_net !== undefined && (item.sales_net - item.gross_profit) > 0 && (
+                          <div className="text-xs text-blue-600 font-medium">
+                            Cost: ฿{(item.sales_net - item.gross_profit).toFixed(2)}
                           </div>
                         )}
                       </div>
@@ -175,6 +188,22 @@ function TransactionDetailModal({
                   <span>Total:</span>
                   <span>฿{transactionDetails.summary.total.toFixed(2)}</span>
                 </div>
+                {transactionDetails.summary.total_profit !== undefined && (
+                  <>
+                    <div className="flex justify-between text-blue-600 font-medium">
+                      <span>Total Cost:</span>
+                      <span>฿{(transactionDetails.summary.subtotal - transactionDetails.summary.total_profit).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-green-600 font-medium">
+                      <span>Gross Profit:</span>
+                      <span>฿{transactionDetails.summary.total_profit.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600 font-medium">
+                      <span>Margin:</span>
+                      <span>{((transactionDetails.summary.total_profit / transactionDetails.summary.total) * 100).toFixed(1)}%</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

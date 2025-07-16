@@ -276,6 +276,60 @@ export function createTransactionColumns(
       enableSorting: true,
     },
     {
+      accessorKey: "total_profit",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+        >
+          Cost
+          <ArrowUpDown className="ml-2 h-3 w-3" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const totalAmount = parseFloat(row.getValue("total_amount"));
+        const totalProfit = parseFloat(row.getValue("total_profit"));
+        const cost = totalAmount - totalProfit;
+        return (
+          <div 
+            className="text-right text-sm font-medium text-blue-600 cursor-pointer"
+            onClick={() => onTransactionClick(row.original.receipt_number)}
+          >
+            ฿{cost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+          </div>
+        );
+      },
+      enableSorting: true,
+    },
+    {
+      id: "margin",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+        >
+          Margin %
+          <ArrowUpDown className="ml-2 h-3 w-3" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const totalAmount = parseFloat(row.getValue("total_amount"));
+        const totalProfit = parseFloat(row.getValue("total_profit"));
+        const margin = totalAmount > 0 ? (totalProfit / totalAmount) * 100 : 0;
+        return (
+          <div 
+            className="text-right text-sm font-medium text-green-600 cursor-pointer"
+            onClick={() => onTransactionClick(row.original.receipt_number)}
+          >
+            {margin.toFixed(1)}%
+          </div>
+        );
+      },
+      enableSorting: true,
+    },
+    {
       id: "actions",
       header: "",
       cell: ({ row }) => {
