@@ -50,9 +50,6 @@
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "supabase",
-    "github",
-    "git",
-    "puppeteer"
+    "supabase"
   ]
 }

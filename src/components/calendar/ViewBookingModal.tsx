@@ -6,11 +6,12 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, Users, MapPin, Phone, Mail, FileText, Package, Hash, X, Edit } from 'lucide-react';
+import { Calendar, Clock, Users, MapPin, Phone, Mail, FileText, Package, Hash, X, Edit, MessageCircle } from 'lucide-react';
 import type { Booking } from '@/types/booking';
 import { format, parseISO, parse, isValid, subHours, isBefore } from 'date-fns';
 import { CancelBookingModal } from '@/components/manage-bookings/CancelBookingModal';
 import { EditBookingModal } from '@/components/manage-bookings/EditBookingModal';
+import { BookingConfirmationDialog } from '@/components/booking/BookingConfirmationDialog';
 import { useToast } from '@/components/ui/use-toast';
 
 interface ViewBookingModalProps {
@@ -23,6 +24,7 @@ interface ViewBookingModalProps {
 export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }: ViewBookingModalProps) {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isConfirmationDialogOpen, setIsConfirmationDialogOpen] = useState(false);
   const { toast } = useToast();
 
   if (!booking) return null;
@@ -124,6 +126,14 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
 
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false);
+  };
+
+  const handleOpenConfirmationDialog = () => {
+    setIsConfirmationDialogOpen(true);
+  };
+
+  const handleCloseConfirmationDialog = () => {
+    setIsConfirmationDialogOpen(false);
   };
 
   const handleCancelSuccess = (bookingId: string) => {
@@ -278,6 +288,10 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-2 pt-4">
+          <Button onClick={handleOpenConfirmationDialog} variant="secondary" size="sm">
+            <MessageCircle className="h-4 w-4 mr-1" />
+            Show Confirmation
+          </Button>
           {!isCancelled && (
             <>
               <Button onClick={handleOpenEditModal} variant="default" size="sm">
@@ -310,6 +324,12 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
         onClose={handleCloseEditModal}
         booking={booking}
         onSuccess={handleEditSuccess}
+      />
+
+      <BookingConfirmationDialog
+        isOpen={isConfirmationDialogOpen}
+        onClose={handleCloseConfirmationDialog}
+        booking={booking}
       />
     </Dialog>
   );
