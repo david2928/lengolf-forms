@@ -54,6 +54,9 @@ export function BookingForm() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [canProgress, setCanProgress] = useState(false);
+  
+  // Cache the selected customer so it persists even when SWR data changes
+  const [selectedCustomerCache, setSelectedCustomerCache] = useState<NewCustomer | null>(null);
 
   // Dynamic customer search - will fetch based on search query or show recent customers
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,6 +114,9 @@ export function BookingForm() {
   };
 
   const handleCustomerSelect = (customer: NewCustomer) => {
+    // Cache the selected customer
+    setSelectedCustomerCache(customer);
+    
     setFormData(prev => ({
       ...prev,
       customerId: customer.id, // Already a string UUID
@@ -194,7 +200,9 @@ export function BookingForm() {
     mutateCustomers,
     // Search functionality
     searchQuery,
-    onSearchQueryChange: setSearchQuery
+    onSearchQueryChange: setSearchQuery,
+    // Customer cache
+    selectedCustomerCache
   };
 
   return (

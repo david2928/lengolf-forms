@@ -79,6 +79,17 @@ if (supabaseUrl && supabaseServiceRoleKey) {
 
 export { refacSupabaseAdmin };
 
+// Helper function to get the appropriate client (used in API routes)
+export function getRefacSupabaseClient() {
+  if (typeof window === 'undefined') {
+    // Server-side: use admin client with service role
+    return refacSupabaseAdmin;
+  } else {
+    // Client-side: use regular client
+    return refacSupabase;
+  }
+}
+
 // Connection test function using backoffice schema
 export async function checkRefacConnection() {
   try {

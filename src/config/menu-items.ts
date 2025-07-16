@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -88,9 +88,16 @@ export const menuItems: MenuItem[] = [
     description: "Staff clock in/out system"
   },
   {
+<<<<<<< HEAD
     icon: Calendar,
     title: "Staff Schedule",
     path: '/staff-schedule',
     description: "View personal work schedule"
+=======
+    icon: Target,
+    title: "Competitor Tracking",
+    path: '/admin/competitors',
+    description: "Monitor competitor social media metrics"
+>>>>>>> defb267 (small fixes, add competitor analysis)
   }
 ] 

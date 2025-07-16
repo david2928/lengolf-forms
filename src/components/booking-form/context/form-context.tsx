@@ -29,6 +29,8 @@ export interface FormContextType {
   // Search functionality
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
+  // Customer cache
+  selectedCustomerCache: NewCustomer | null;
 }
 
 export const FormContext = createContext<FormContextType | null>(null);
