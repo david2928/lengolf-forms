@@ -82,6 +82,7 @@ interface Product {
   sku?: string;
   description?: string;
   is_sim_usage: boolean;
+  is_active: boolean;
   legacy_pos_name?: string;
 }
 
@@ -314,7 +315,7 @@ export default function ProductMappingPage() {
     return availableProducts
       .map(product => ({
         ...product,
-        similarity: calculateSimilarity(mappingModal.product.pos_product_name, product.name)
+        similarity: calculateSimilarity(mappingModal.product!.pos_product_name, product.name)
       }))
       .filter(product => product.similarity > 0.3)
       .sort((a, b) => b.similarity - a.similarity)
