@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, Archive, Filter, RefreshCw, CheckCircle, DollarSign, TrendingUp, Percent } from 'lucide-react';
 
@@ -39,6 +40,7 @@ export default function ProductManagementPage() {
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [showInactiveCategories, setShowInactiveCategories] = useState(false);
 
   // Hooks
   const {
@@ -67,7 +69,9 @@ export default function ProductManagementPage() {
     isLoading: categoriesLoading,
     error: categoriesError,
     revalidate: refreshCategories
-  } = useCategories();
+  } = useCategories({ 
+    is_active: showInactiveCategories ? undefined : true 
+  });
 
   const {
     analytics,
@@ -84,28 +88,77 @@ export default function ProductManagementPage() {
 
   const handleUpdateProduct = async (data: ProductFormData) => {
     if (editingProduct) {
-      // For now, just refresh - we'll implement update later
-      console.log('Update product:', editingProduct.id, data);
-      setEditingProduct(undefined);
-      setShowProductForm(false);
-      refreshProducts();
+      try {
+        const response = await fetch(`/api/admin/products/${editingProduct.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to update product');
+        }
+
+        // Success - ProductForm will handle closing and refresh
+        // Don't refresh here to avoid state conflicts
+      } catch (error) {
+        // Re-throw error so ProductForm can handle it and show error toast
+        throw error;
+      }
     }
   };
 
   const handleCreateCategory = async (data: CategoryFormData) => {
-    // For now, just refresh - we'll implement category creation later
-    console.log('Create category:', data);
-    setShowCategoryForm(false);
-    refreshCategories();
+    try {
+      const response = await fetch('/api/admin/products/categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create category');
+      }
+
+      // Success - CategoryForm will handle closing and refresh
+      // Don't refresh here to avoid state conflicts
+    } catch (error) {
+      // Re-throw error so CategoryForm can handle it and show error toast
+      throw error;
+    }
   };
 
   const handleUpdateCategory = async (data: CategoryFormData) => {
     if (editingCategory) {
-      // For now, just refresh - we'll implement update later
-      console.log('Update category:', editingCategory.id, data);
-      setEditingCategory(undefined);
-      setShowCategoryForm(false);
-      refreshCategories();
+      try {
+        const response = await fetch(`/api/admin/products/categories/${editingCategory.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to update category');
+        }
+
+        // Success - CategoryForm will handle closing and refresh
+        // Don't refresh here to avoid state conflicts
+      } catch (error) {
+        // Re-throw error so CategoryForm can handle it and show error toast
+        throw error;
+      }
     }
   };
 
@@ -433,7 +486,26 @@ export default function ProductManagementPage() {
         <TabsContent value="categories" className="space-y-4 sm:space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">Category Management</CardTitle>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <CardTitle className="text-lg sm:text-xl">Category Management</CardTitle>
+                  {!categoriesLoading && (
+                    <p className="text-sm text-gray-500">
+                      {categories.length} {showInactiveCategories ? 'total' : 'active'} categories
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={showInactiveCategories ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowInactiveCategories(!showInactiveCategories)}
+                    className="text-xs sm:text-sm"
+                  >
+                    {showInactiveCategories ? "Hide Inactive" : "Show Inactive"}
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-3 sm:space-y-4">
@@ -444,7 +516,11 @@ export default function ProductManagementPage() {
                   </div>
                 ) : categories.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
-                    <p className="text-sm">No categories found. Create your first category to get started.</p>
+                    <p className="text-sm">
+                      {showInactiveCategories 
+                        ? "No inactive categories found." 
+                        : "No active categories found. Create your first category to get started."}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4 sm:space-y-6">
@@ -462,7 +538,7 @@ export default function ProductManagementPage() {
                       return parentCategories.map((parent) => (
                         <div key={parent.id} className="space-y-2">
                           {/* Parent Category */}
-                          <Card className="p-3 sm:p-4 bg-gray-50">
+                          <Card className={`p-3 sm:p-4 ${parent.is_active ? 'bg-gray-50' : 'bg-red-50 border-red-200'}`}>
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                               <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                                 {parent.color_code && (
@@ -472,9 +548,16 @@ export default function ProductManagementPage() {
                                   />
                                 )}
                                 <div className="min-w-0 flex-1">
-                                  <h3 className="font-semibold text-base sm:text-lg truncate">{parent.name}</h3>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h3 className={`font-semibold text-base sm:text-lg truncate ${!parent.is_active ? 'text-gray-500 line-through' : ''}`}>{parent.name}</h3>
+                                    {!parent.is_active && (
+                                      <Badge variant="destructive" className="text-xs">
+                                        Inactive
+                                      </Badge>
+                                    )}
+                                  </div>
                                   {parent.description && (
-                                    <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">{parent.description}</p>
+                                    <p className={`text-xs sm:text-sm line-clamp-2 ${!parent.is_active ? 'text-gray-400' : 'text-gray-600'}`}>{parent.description}</p>
                                   )}
                                   <p className="text-xs text-gray-500 mt-1">
                                     {childCategoriesByParent[parent.id]?.length || 0} subcategories
@@ -517,7 +600,7 @@ export default function ProductManagementPage() {
                           {childCategoriesByParent[parent.id] && (
                             <div className="ml-4 sm:ml-8 space-y-2">
                               {childCategoriesByParent[parent.id].map((child) => (
-                                <Card key={child.id} className="p-3 sm:p-4">
+                                <Card key={child.id} className={`p-3 sm:p-4 ${child.is_active ? '' : 'bg-red-50 border-red-200'}`}>
                                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                     <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                                       <div className="w-1 h-6 sm:h-8 bg-gray-300 -ml-2 sm:-ml-4 mt-1 sm:mt-0 flex-shrink-0" />
@@ -528,9 +611,16 @@ export default function ProductManagementPage() {
                                         />
                                       )}
                                       <div className="min-w-0 flex-1">
-                                        <h3 className="font-medium text-sm sm:text-base truncate">{child.name}</h3>
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h3 className={`font-medium text-sm sm:text-base truncate ${!child.is_active ? 'text-gray-500 line-through' : ''}`}>{child.name}</h3>
+                                          {!child.is_active && (
+                                            <Badge variant="destructive" className="text-xs">
+                                              Inactive
+                                            </Badge>
+                                          )}
+                                        </div>
                                         {child.description && (
-                                          <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">{child.description}</p>
+                                          <p className={`text-xs sm:text-sm line-clamp-2 ${!child.is_active ? 'text-gray-400' : 'text-gray-600'}`}>{child.description}</p>
                                         )}
                                       </div>
                                     </div>
@@ -589,6 +679,8 @@ export default function ProductManagementPage() {
         onCancel={() => {
           setShowProductForm(false);
           setEditingProduct(undefined);
+          // Refresh products when form closes (handles both success and cancel)
+          refreshProducts();
         }}
         isLoading={productsLoading}
       />

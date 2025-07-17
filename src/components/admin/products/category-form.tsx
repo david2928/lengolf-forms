@@ -234,7 +234,9 @@ export function CategoryForm({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">No parent (top level)</SelectItem>
-                        {parentCategories.map((parentCategory) => (
+                        {parentCategories
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map((parentCategory) => (
                           <SelectItem key={parentCategory.id} value={parentCategory.id}>
                             {parentCategory.name}
                           </SelectItem>

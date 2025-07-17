@@ -90,8 +90,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Calculate summary values
     const subtotal = items.reduce((sum: number, item: any) => sum + parseFloat(item.sales_net || 0), 0);
-    const vat = parseFloat(transaction.total_amount) - parseFloat(transaction.net_amount);
-    const total = parseFloat(transaction.total_amount);
+    const total = parseFloat(transaction.total_amount || 0);
+    const netAmount = parseFloat(transaction.net_amount || 0);
+    const vat = netAmount ? total - netAmount : 0;
 
     const transactionDetails = {
       transaction: {
@@ -105,8 +106,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         staff_name: transaction.staff_name,
         payment_method: transaction.payment_method,
         total_amount: parseFloat(transaction.total_amount),
-        net_amount: parseFloat(transaction.net_amount),
-        total_profit: parseFloat(transaction.total_profit),
+        net_amount: netAmount,
+        total_profit: parseFloat(transaction.total_profit || 0),
         item_count: parseInt(transaction.item_count),
         sim_usage_count: parseInt(transaction.sim_usage_count),
         status: transaction.status as 'COMPLETED' | 'VOIDED'
@@ -133,7 +134,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         subtotal,
         vat,
         total,
-        total_profit: parseFloat(transaction.total_profit),
+        total_profit: parseFloat(transaction.total_profit || 0),
         payment_method: transaction.payment_method,
         staff_name: transaction.staff_name
       }

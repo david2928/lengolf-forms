@@ -57,6 +57,7 @@ The central hub for administrative tools and system overview, designed as a comp
 - Analytics & Reporting
   - Sales Dashboard (Active)
   - Reconciliation (Active)
+  - Competitor Tracking (Active)
 - Inventory & Operations
   - Inventory Dashboard (Active)
   - Product Management (Active)
@@ -84,6 +85,7 @@ The admin panel integrates seamlessly with the main navigation, providing differ
       <DropdownMenuItem href="/admin/reconciliation">Reconciliation</DropdownMenuItem>
       <DropdownMenuItem href="/admin/inventory">Inventory</DropdownMenuItem>
       <DropdownMenuItem href="/admin/products">Product Management</DropdownMenuItem>
+      <DropdownMenuItem href="/admin/competitors">Competitor Tracking</DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
 )}
@@ -168,7 +170,21 @@ The Sales Dashboard is the first fully implemented admin feature, providing comp
   - Integration with existing inventory system
   - Qashier POS data migration support
 
-### 6. Navigation Integration
+### 6. Competitor Tracking (`/admin/competitors`)
+- **Status**: Fully implemented and active
+- **Purpose**: Monitor competitor social media metrics and growth trends
+- **Features**: 
+  - Automated daily scraping via Google Cloud Run service
+  - Multi-platform support (Instagram, Facebook, LINE, Google Reviews)
+  - Manual metrics submission for failed scrapes
+  - Historical metrics tracking and trend analysis
+  - Real-time sync capabilities with manual trigger
+  - Comprehensive logging and audit trail
+  - Mobile-optimized interface for quick competitor monitoring
+  - PgCron automated scheduling (3 AM Bangkok time daily)
+  - API integration with scraper service authentication
+
+### 7. Navigation Integration
 - **Status**: Implemented
 - **Purpose**: Seamless access to admin features
 - **Features**: 
@@ -176,7 +192,7 @@ The Sales Dashboard is the first fully implemented admin feature, providing comp
   - Mobile button linking to admin landing page
   - Conditional display based on admin privileges
 
-### 7. Access Control
+### 8. Access Control
 - **Status**: Implemented
 - **Purpose**: Secure admin-only access
 - **Features**: Route protection, session verification, middleware enforcement
@@ -256,6 +272,8 @@ admin/
 │   └── page.tsx
 ├── products/              # Product management system
 │   └── page.tsx
+├── competitors/           # Competitor tracking system
+│   └── page.tsx
 └── [future-features]/      # Planned admin features
 ```
 
@@ -268,6 +286,7 @@ admin/
 /admin/reconciliation       # Transaction reconciliation
 /admin/inventory           # Inventory management
 /admin/products            # Product management system
+/admin/competitors         # Competitor tracking system
 /admin/settings            # System settings (planned)
 ```
 
@@ -305,6 +324,9 @@ export function middleware(request: NextRequest) {
 /api/admin/products/bulk/update     # Bulk operations
 /api/admin/products/export          # Data export
 /api/admin/products/import          # Data import
+/api/admin/competitors              # Competitor management
+/api/admin/competitors/[id]/manual-metrics  # Manual metrics submission
+/api/competitors/sync               # Trigger scraper sync
 ```
 
 ## Security

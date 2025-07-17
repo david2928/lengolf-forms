@@ -13,7 +13,7 @@ import { TransactionSummary } from "@/types/transactions";
 
 // Helper function to format date and time (treat DB timestamp as already BKK time)
 const formatThaiDateTime = (dateTimeString: string) => {
-  if (!dateTimeString) return 'Invalid Date';
+  if (!dateTimeString) return { date: 'Invalid Date', time: '' };
   
   try {
     // The database timestamp is already in BKK timezone but marked as UTC
@@ -21,17 +21,22 @@ const formatThaiDateTime = (dateTimeString: string) => {
     const cleanDateTime = dateTimeString.replace(/(\+00:00|Z)$/, '');
     const date = new Date(cleanDateTime);
     
-    // Format as DD/MM/YYYY HH:MM:SS
+    // Format date as DD/MM/YYYY
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
+    
+    // Format time as HH:MM:SS
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     const seconds = date.getSeconds().toString().padStart(2, '0');
     
-    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    return {
+      date: `${day}/${month}/${year}`,
+      time: `${hours}:${minutes}:${seconds}`
+    };
   } catch (error) {
-    return 'Invalid Date';
+    return { date: 'Invalid Date', time: '' };
   }
 };
 
@@ -45,17 +50,18 @@ export function createTransactionColumns(
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs justify-start"
         >
           Date & Time
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
       ),
       cell: ({ row }) => {
-        const formattedDateTime = formatThaiDateTime(row.getValue("sales_timestamp"));
+        const { date, time } = formatThaiDateTime(row.getValue("sales_timestamp"));
         return (
           <div className="min-w-[100px] cursor-pointer" onClick={() => onTransactionClick(row.original.receipt_number)}>
-            <div className="text-sm text-gray-900">{formattedDateTime}</div>
+            <div className="text-sm font-medium text-gray-900">{date}</div>
+            <div className="text-xs text-gray-500">{time}</div>
           </div>
         );
       },
@@ -67,7 +73,7 @@ export function createTransactionColumns(
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs justify-start"
         >
           Receipt No.
           <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -89,7 +95,7 @@ export function createTransactionColumns(
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs justify-start"
         >
           Customer
           <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -111,7 +117,7 @@ export function createTransactionColumns(
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs justify-start"
         >
           Staff
           <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -165,7 +171,7 @@ export function createTransactionColumns(
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs justify-start"
         >
           Payment Method
           <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -212,7 +218,7 @@ export function createTransactionColumns(
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs justify-end w-full"
         >
           Items
           <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -220,7 +226,7 @@ export function createTransactionColumns(
       ),
       cell: ({ row }) => (
         <div 
-          className="text-center text-sm text-gray-900 cursor-pointer"
+          className="text-right text-sm text-gray-900 cursor-pointer"
           onClick={() => onTransactionClick(row.original.receipt_number)}
         >
           {row.getValue("item_count")}
@@ -234,7 +240,7 @@ export function createTransactionColumns(
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs justify-end w-full"
         >
           SIM Usage
           <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -242,7 +248,7 @@ export function createTransactionColumns(
       ),
       cell: ({ row }) => (
         <div 
-          className="text-center text-sm text-gray-900 cursor-pointer"
+          className="text-right text-sm text-gray-900 cursor-pointer"
           onClick={() => onTransactionClick(row.original.receipt_number)}
         >
           {row.getValue("sim_usage_count")}
@@ -256,7 +262,7 @@ export function createTransactionColumns(
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs justify-end w-full"
         >
           Total Amount
           <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -276,27 +282,57 @@ export function createTransactionColumns(
       enableSorting: true,
     },
     {
-      accessorKey: "total_profit",
+      accessorKey: "net_amount",
       header: ({ column }) => (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs justify-end w-full"
+        >
+          Net Amount
+          <ArrowUpDown className="ml-2 h-3 w-3" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const amount = parseFloat(row.getValue("net_amount"));
+        return (
+          <div 
+            className="text-right text-sm font-medium text-gray-600 cursor-pointer"
+            onClick={() => onTransactionClick(row.original.receipt_number)}
+          >
+            ฿{amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+          </div>
+        );
+      },
+      enableSorting: true,
+    },
+    {
+      id: "cost",
+      accessorFn: (row) => {
+        const netAmount = typeof row.net_amount === 'number' ? row.net_amount : parseFloat(row.net_amount?.toString() || "0");
+        const totalProfit = typeof row.total_profit === 'number' ? row.total_profit : parseFloat(row.total_profit?.toString() || "0");
+        const cost = netAmount - totalProfit;
+        return isNaN(cost) ? 0 : cost;
+      },
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs justify-end w-full"
         >
           Cost
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
       ),
       cell: ({ row }) => {
-        const totalAmount = parseFloat(row.getValue("total_amount"));
-        const totalProfit = parseFloat(row.getValue("total_profit"));
-        const cost = totalAmount - totalProfit;
+        const cost = row.getValue("cost") as number;
+        const displayCost = isNaN(cost) ? 0 : cost;
         return (
           <div 
             className="text-right text-sm font-medium text-blue-600 cursor-pointer"
             onClick={() => onTransactionClick(row.original.receipt_number)}
           >
-            ฿{cost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+            ฿{displayCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
           </div>
         );
       },
@@ -304,26 +340,31 @@ export function createTransactionColumns(
     },
     {
       id: "margin",
+      accessorFn: (row) => {
+        const netAmount = typeof row.net_amount === 'number' ? row.net_amount : parseFloat(row.net_amount?.toString() || "0");
+        const totalProfit = typeof row.total_profit === 'number' ? row.total_profit : parseFloat(row.total_profit?.toString() || "0");
+        const margin = netAmount > 0 ? (totalProfit / netAmount) * 100 : 0;
+        return isNaN(margin) ? 0 : margin;
+      },
       header: ({ column }) => (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs"
+          className="h-auto p-0 font-medium text-gray-700 hover:text-gray-900 text-xs justify-end w-full"
         >
           Margin %
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
       ),
       cell: ({ row }) => {
-        const totalAmount = parseFloat(row.getValue("total_amount"));
-        const totalProfit = parseFloat(row.getValue("total_profit"));
-        const margin = totalAmount > 0 ? (totalProfit / totalAmount) * 100 : 0;
+        const margin = row.getValue("margin") as number;
+        const displayMargin = isNaN(margin) ? 0 : margin;
         return (
           <div 
             className="text-right text-sm font-medium text-green-600 cursor-pointer"
             onClick={() => onTransactionClick(row.original.receipt_number)}
           >
-            {margin.toFixed(1)}%
+            {displayMargin.toFixed(1)}%
           </div>
         );
       },

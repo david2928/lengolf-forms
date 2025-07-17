@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart } from 'lucide-react'
+import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
 import {
   DropdownMenu,
@@ -223,6 +223,12 @@ export function Nav() {
                 <Link href="/admin/performance" className="flex items-center gap-2 w-full">
                   <Activity className="h-4 w-4" />
                   Performance Analytics
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/competitors" className="flex items-center gap-2 w-full">
+                  <Target className="h-4 w-4" />
+                  Competitor Tracking
                 </Link>
               </DropdownMenuItem>
               

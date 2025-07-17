@@ -90,7 +90,7 @@ export function ProductForm({
       cost: 0,
       sku: '',
       external_code: '',
-      unit: 'pieces',
+      unit: undefined,
       is_sim_usage: false,
       is_active: true,
       display_order: 0,
@@ -128,7 +128,7 @@ export function ProductForm({
           cost: product.cost || 0,
           sku: product.sku || '',
           external_code: product.external_code || '',
-          unit: (product.unit as ProductUnit) || 'pieces',
+          unit: product.unit as ProductUnit,
           is_sim_usage: product.is_sim_usage,
           is_active: product.is_active,
           display_order: product.display_order,
@@ -143,7 +143,7 @@ export function ProductForm({
           cost: 0,
           sku: '',
           external_code: '',
-          unit: 'pieces',
+          unit: undefined,
           is_sim_usage: false,
           is_active: true,
           display_order: 0,
@@ -242,7 +242,9 @@ export function ProductForm({
                           <SelectValue placeholder="Select a category" />
                         </SelectTrigger>
                         <SelectContent>
-                          {subCategories.map((category) => (
+                          {subCategories
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((category) => (
                             <SelectItem key={category.id} value={category.id}>
                               {category.name}
                             </SelectItem>
@@ -257,13 +259,14 @@ export function ProductForm({
                     <div>
                       <Label htmlFor="unit">Unit</Label>
                       <Select
-                        value={watch('unit')}
-                        onValueChange={(value) => setValue('unit', value as ProductUnit)}
+                        value={watch('unit') || 'none'}
+                        onValueChange={(value) => setValue('unit', value === 'none' ? undefined : value as ProductUnit)}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="none">No Unit</SelectItem>
                           {PRODUCT_UNITS.map((unit) => (
                             <SelectItem key={unit} value={unit}>
                               {unit}

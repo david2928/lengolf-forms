@@ -44,7 +44,11 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(git checkout:*)",
-      "Bash(copy:*)"
+      "Bash(copy:*)",
+      "Bash(true)",
+      "Bash(taskkill:*)",
+      "Bash(cat:*)",
+      "Bash(tail:*)"
     ],
     "deny": []
   },
