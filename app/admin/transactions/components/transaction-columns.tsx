@@ -309,8 +309,8 @@ export function createTransactionColumns(
     {
       id: "cost",
       accessorFn: (row) => {
-        const netAmount = typeof row.net_amount === 'number' ? row.net_amount : parseFloat(row.net_amount?.toString() || "0");
-        const totalProfit = typeof row.total_profit === 'number' ? row.total_profit : parseFloat(row.total_profit?.toString() || "0");
+        const netAmount = typeof row.net_amount === 'number' ? row.net_amount : parseFloat(String(row.net_amount) || "0");
+        const totalProfit = typeof row.total_profit === 'number' ? row.total_profit : parseFloat(String(row.total_profit) || "0");
         const cost = netAmount - totalProfit;
         return isNaN(cost) ? 0 : cost;
       },
@@ -341,8 +341,8 @@ export function createTransactionColumns(
     {
       id: "margin",
       accessorFn: (row) => {
-        const netAmount = typeof row.net_amount === 'number' ? row.net_amount : parseFloat(row.net_amount?.toString() || "0");
-        const totalProfit = typeof row.total_profit === 'number' ? row.total_profit : parseFloat(row.total_profit?.toString() || "0");
+        const netAmount = typeof row.net_amount === 'number' ? row.net_amount : parseFloat(String(row.net_amount) || "0");
+        const totalProfit = typeof row.total_profit === 'number' ? row.total_profit : parseFloat(String(row.total_profit) || "0");
         const margin = netAmount > 0 ? (totalProfit / netAmount) * 100 : 0;
         return isNaN(margin) ? 0 : margin;
       },

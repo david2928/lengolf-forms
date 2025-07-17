@@ -48,7 +48,8 @@
       "Bash(true)",
       "Bash(taskkill:*)",
       "Bash(cat:*)",
-      "Bash(tail:*)"
+      "Bash(tail:*)",
+      "Bash(powershell:*)"
     ],
     "deny": []
   },
