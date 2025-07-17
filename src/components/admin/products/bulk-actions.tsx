@@ -254,7 +254,9 @@ function CategoryUpdateDialog({
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
-                {subCategories.map((category) => (
+                {subCategories
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
                   </SelectItem>

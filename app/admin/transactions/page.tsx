@@ -200,7 +200,7 @@ function TransactionDetailModal({
                     </div>
                     <div className="flex justify-between text-gray-600 font-medium">
                       <span>Margin:</span>
-                      <span>{((transactionDetails.summary.total_profit / transactionDetails.summary.total) * 100).toFixed(1)}%</span>
+                      <span>{transactionDetails.summary.subtotal > 0 ? ((transactionDetails.summary.total_profit / transactionDetails.summary.subtotal) * 100).toFixed(1) : '0.0'}%</span>
                     </div>
                   </>
                 )}

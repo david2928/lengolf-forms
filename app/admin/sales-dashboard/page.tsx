@@ -54,13 +54,14 @@ import { formatDisplayDate, getDateRangeForPreset } from '@/lib/dashboard-utils'
 // Import new reports components
 import WeeklyReportsTable from '@/components/sales-dashboard/WeeklyReportsTable';
 import MonthlyReportsTable from '@/components/sales-dashboard/MonthlyReportsTable';
+import ReferralAnalyticsReport from '@/components/admin/sales/referral-analytics-report';
 
 interface DashboardFilters {
   datePreset: DatePreset;
   comparisonPeriod: 'previousPeriod' | 'previousMonth' | 'previousYear';
 }
 
-type DashboardTab = 'overview' | 'reports';
+type DashboardTab = 'overview' | 'reports' | 'referrals';
 
 // Client-side timestamp component to avoid hydration errors
 const ClientTimestamp: React.FC = () => {
@@ -291,6 +292,16 @@ export default function SalesDashboardPage() {
           >
             Monthly/Weekly Reports
           </button>
+          <button
+            onClick={() => setActiveTab('referrals')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'referrals'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Referral Analytics
+          </button>
         </nav>
       </div>
 
@@ -426,12 +437,15 @@ export default function SalesDashboardPage() {
               </Card>
             </section>
           </div>
-        ) : (
+        ) : activeTab === 'reports' ? (
           // Reports Tab Content
           <div className="space-y-8">
             <WeeklyReportsTable />
             <MonthlyReportsTable />
           </div>
+        ) : (
+          // Referral Analytics Tab Content
+          <ReferralAnalyticsReport />
         )}
       </DashboardErrorBoundary>
     </div>

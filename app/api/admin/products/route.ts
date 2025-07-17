@@ -61,7 +61,21 @@ export async function GET(request: NextRequest) {
     }
 
     if (filters.category_id) {
-      query = query.eq('category_id', filters.category_id);
+      // Check if the selected category is a parent category
+      const { data: subcategories } = await refacSupabase
+        .schema('products')
+        .from('categories')
+        .select('id')
+        .eq('parent_id', filters.category_id);
+      
+      if (subcategories && subcategories.length > 0) {
+        // If it's a parent category, include products from both the parent and its subcategories
+        const categoryIds = [filters.category_id, ...subcategories.map(sub => sub.id)];
+        query = query.in('category_id', categoryIds);
+      } else {
+        // If it's not a parent category, just filter by the specific category
+        query = query.eq('category_id', filters.category_id);
+      }
     }
 
     if (filters.is_active !== undefined) {
@@ -200,12 +214,12 @@ export async function POST(request: NextRequest) {
         name,
         slug,
         category_id,
-        description,
+        description: description && description.trim() ? description.trim() : null,
         price,
         cost: cost || null,
-        sku: sku || null,
-        external_code: external_code || null,
-        unit: unit || null,
+        sku: sku && sku.trim() ? sku.trim() : null,
+        external_code: external_code && external_code.trim() ? external_code.trim() : null,
+        unit: unit && unit.trim() ? unit.trim() : null,
         is_sim_usage,
         is_active,
         display_order: display_order || 0,

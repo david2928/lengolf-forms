@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -58,6 +58,12 @@ export const menuItems: MenuItem[] = [
     description: "Manage products, categories, and pricing"
   },
   {
+    icon: Link2,
+    title: "Product Mapping",
+    path: '/admin/products/mapping',
+    description: "Map unmapped POS products to catalog products"
+  },
+  {
     icon: Users,
     title: "Coaching Assistant",
     path: '/coaching-assist',
@@ -88,16 +94,27 @@ export const menuItems: MenuItem[] = [
     description: "Staff clock in/out system"
   },
   {
-<<<<<<< HEAD
     icon: Calendar,
     title: "Staff Schedule",
     path: '/staff-schedule',
     description: "View personal work schedule"
-=======
+  },
+  {
     icon: Target,
     title: "Competitor Tracking",
     path: '/admin/competitors',
     description: "Monitor competitor social media metrics"
->>>>>>> defb267 (small fixes, add competitor analysis)
+  },
+  {
+    icon: PencilLine,
+    title: "Quick Manual Entry",
+    path: '/admin/competitors/manual',
+    description: "Quickly enter competitor metrics manually"
+  },
+  {
+    icon: TrendingUp,
+    title: "Referral Analytics",
+    path: '/admin/referral-analytics',
+    description: "Analyze customer acquisition sources and trends"
   }
 ] 

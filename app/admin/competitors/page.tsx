@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Eye, Edit, Trash2, RotateCcw, AlertCircle } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, RotateCcw, AlertCircle, PencilLine, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,16 +15,20 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { useCompetitors, triggerManualSync, deleteCompetitor } from '@/hooks/use-competitors';
+import Link from 'next/link';
 import { CreateCompetitorModal } from '@/components/admin/competitors/create-competitor-modal';
 import { EditCompetitorModal } from '@/components/admin/competitors/edit-competitor-modal';
 import { CompetitorMetricsModal } from '@/components/admin/competitors/competitor-metrics-modal';
-import { Platform } from '@/types/competitor-tracking';
+import { ManualMetricsModal } from '@/components/admin/competitors/manual-metrics-modal';
+import { WeeklyComparison } from '@/components/admin/competitors/weekly-comparison';
+import { Platform, CompetitorWithAccounts } from '@/types/competitor-tracking';
 
 export default function CompetitorsPage() {
   const { competitors, isLoading, mutate } = useCompetitors();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedCompetitorId, setSelectedCompetitorId] = useState<number | null>(null);
   const [editingCompetitorId, setEditingCompetitorId] = useState<number | null>(null);
+  const [manualMetricsCompetitor, setManualMetricsCompetitor] = useState<CompetitorWithAccounts | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleManualSync = async () => {
@@ -172,6 +176,9 @@ export default function CompetitorsPage() {
         </Card>
       </div>
 
+      {/* Weekly Comparison */}
+      <WeeklyComparison competitors={competitors} />
+
       {/* Competitors Table */}
       <Card>
         <CardHeader>
@@ -289,6 +296,16 @@ export default function CompetitorsPage() {
                           <Button
                             variant="outline"
                             size="sm"
+                            className="h-8 px-3 hover:bg-green-50 text-green-600 border-green-200"
+                            onClick={() => setManualMetricsCompetitor(competitor)}
+                            title="Manually enter metrics"
+                          >
+                            <PencilLine className="h-3 w-3 mr-1" />
+                            Manual
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             className="h-8 px-3 hover:bg-blue-50 text-blue-600 border-blue-200"
                             onClick={() => setEditingCompetitorId(competitor.id)}
                           >
@@ -331,6 +348,18 @@ export default function CompetitorsPage() {
         <CompetitorMetricsModal
           competitorId={selectedCompetitorId}
           onClose={() => setSelectedCompetitorId(null)}
+        />
+      )}
+
+      {manualMetricsCompetitor && (
+        <ManualMetricsModal
+          competitor={manualMetricsCompetitor}
+          open={true}
+          onOpenChange={(open) => !open && setManualMetricsCompetitor(null)}
+          onSuccess={() => {
+            mutate();
+            setManualMetricsCompetitor(null);
+          }}
         />
       )}
     </div>

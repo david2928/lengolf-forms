@@ -97,8 +97,10 @@ export function ProductFiltersComponent({
 }: ProductFiltersComponentProps) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
-  // Get top-level categories for the dropdown
+  // Get hierarchical categories for the dropdown
   const topLevelCategories = categories.filter(c => !c.parent_id);
+  const getCategoryWithChildren = (parentId: string) => 
+    categories.filter(c => c.parent_id === parentId);
   
   // Get sub-categories for selected category
   const selectedTopCategory = categories.find(c => c.id === filters.category_id);
@@ -214,11 +216,23 @@ export function ProductFiltersComponent({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {topLevelCategories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
+              {topLevelCategories
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((parentCategory) => {
+                const children = getCategoryWithChildren(parentCategory.id);
+                return [
+                  <SelectItem key={parentCategory.id} value={parentCategory.id}>
+                    {parentCategory.name}
+                  </SelectItem>,
+                  ...children
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((childCategory) => (
+                    <SelectItem key={childCategory.id} value={childCategory.id}>
+                      ├─ {childCategory.name}
+                    </SelectItem>
+                  ))
+                ];
+              }).flat()}
             </SelectContent>
           </Select>
 

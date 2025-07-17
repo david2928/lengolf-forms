@@ -30,6 +30,8 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 - **[Inventory Dashboard](./features/INVENTORY_DASHBOARD.md)** - Stock level monitoring, reorder alerts, and product management with real-time tracking
 - **[Transaction Management](./features/TRANSACTION_MANAGEMENT.md)** - Professional POS transaction management with TanStack Table, advanced filtering, sorting, Thailand timezone handling, and modern UI design
 - **[POS Data Pipeline](./features/POS_DATA_PIPELINE.md)** - Complete data flow from external POS systems through staging to production tables, ETL functions, and BigQuery compatibility
+- **[Product Mapping System](./features/PRODUCT_MAPPING_SYSTEM.md)** - Administrative tool for mapping unmapped POS products to catalog products with bulk operations, statistics dashboard, and ETL integration
+- **[Referral Analytics System](./features/REFERRAL_ANALYTICS_SYSTEM.md)** - Comprehensive referral tracking system with weekly/monthly analytics, multi-source data integration, booking source tracking, and real-time dashboard visualization
 - **[Native Availability System](./features/NATIVE_AVAILABILITY_SYSTEM.md)** - Supabase-native availability checking with real-time updates, 10-40x performance improvement, and zero external dependencies
 - **[Coaching System](./features/COACHING_SYSTEM.md)** - Comprehensive golf coaching management with coach dashboards, admin booking assistant, availability management, student tracking, and earnings analytics
 - **[Time Clock System](./features/TIME_CLOCK_SYSTEM.md)** - Complete staff time tracking system with PIN authentication, camera verification, admin management, payroll integration, and performance optimization
@@ -113,9 +115,9 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 
 - **New Developers**: [Project Structure](./PROJECT_STRUCTURE.md) → [Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md) → [Backend Documentation](./BACKEND_DOCUMENTATION.md) → [Component Styling Guides](./frontend/STYLING_GUIDES.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
 - **System Administrators**: [Admin Panel](./features/ADMIN_PANEL.md) → [Database Schema](./technical/DATABASE_SCHEMA.md) → [Customer Management System](./features/CUSTOMER_MANAGEMENT_SYSTEM.md)
-- **Business Users**: [Booking System](./features/BOOKING_SYSTEM.md) → [Package Management](./features/PACKAGE_MANAGEMENT.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
+- **Business Users**: [Booking System](./features/BOOKING_SYSTEM.md) → [Package Management](./features/PACKAGE_MANAGEMENT.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md) → [Referral Analytics System](./features/REFERRAL_ANALYTICS_SYSTEM.md)
 - **Coaches**: [Coaching System](./features/COACHING_SYSTEM.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
-- **Operations Managers**: [Inventory Dashboard](./features/INVENTORY_DASHBOARD.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Time Clock System](./features/TIME_CLOCK_SYSTEM.md) → [Staff Management System](./features/STAFF_MANAGEMENT_SYSTEM.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
+- **Operations Managers**: [Inventory Dashboard](./features/INVENTORY_DASHBOARD.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Time Clock System](./features/TIME_CLOCK_SYSTEM.md) → [Staff Management System](./features/STAFF_MANAGEMENT_SYSTEM.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md) → [Referral Analytics System](./features/REFERRAL_ANALYTICS_SYSTEM.md)
 - **Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [Calendar Integration](./features/CALENDAR_INTEGRATION.md)
 
 ## 📝 Documentation Standards
@@ -136,12 +138,12 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 **Focus**: Current system state documentation  
 
 ### ✅ What's Fully Documented
-- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management system, invoice management, transaction management, coaching system, time clock system, staff management system
-- **Technical Systems**: Authentication, database schema, API endpoints, POS data pipeline, coaching system technical architecture
-- **Frontend Systems**: Component architecture, styling guides, design system patterns, UI consistency analysis
+- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management system, invoice management, transaction management, coaching system, time clock system, staff management system, product mapping system, referral analytics system
+- **Technical Systems**: Authentication, database schema, API endpoints, POS data pipeline, coaching system technical architecture, referral data processing
+- **Frontend Systems**: Component architecture, styling guides, design system patterns, UI consistency analysis, referral analytics dashboard components
 - **Integrations**: LINE messaging, Google Calendar, CRM synchronization  
-- **Special Features**: Inventory management, US Open scoring system, professional invoicing, TanStack Table implementation, coaching availability management
-- **Architecture**: Project structure, backend/frontend organization, coaching system component architecture
+- **Special Features**: Inventory management, US Open scoring system, professional invoicing, TanStack Table implementation, coaching availability management, product mapping and cataloging, multi-source referral tracking
+- **Architecture**: Project structure, backend/frontend organization, coaching system component architecture, referral analytics data flow
 
 ### 📝 Practical Documentation Needed
 1. **Development Setup** - Environment configuration and dependencies
