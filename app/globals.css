@@ -354,7 +354,6 @@ button:focus-visible,
     @apply grid-cols-2 lg:grid-cols-7;
   }
 }
-
 /* Mobile-specific optimizations */
 @media (max-width: 640px) {
   /* Reduce padding on small screens */

@@ -195,6 +195,18 @@ export function Nav() {
           </Link>
         )}
 
+        {/* Staff Schedule - Available to All Users */}
+        <Link href="/staff-schedule">
+          <Button
+            variant={pathname === '/staff-schedule' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Clock className="h-4 w-4" />
+            My Schedule
+          </Button>
+        </Link>
+
         {/* Admin Dropdown - Only for Admin Users */}
         {isAdmin && (
           <DropdownMenu>
