@@ -122,5 +122,11 @@ export const menuItems: MenuItem[] = [
     title: "POS System",
     path: '/pos',
     description: "Point of Sale system with table management"
+  },
+  {
+    icon: Calendar,
+    title: "Staff Schedule",
+    path: '/staff-schedule',
+    description: "View personal work schedule"
   }
 ] 

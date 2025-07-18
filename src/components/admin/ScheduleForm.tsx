@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { X, Clock, FileText, User, Calendar, RotateCcw } from 'lucide-react'
+<<<<<<< HEAD
 import { RecurringEditModal } from './RecurringEditModal'
+=======
+>>>>>>> 668850c (updates to schedule)
 
 interface Staff {
   id: number
@@ -48,8 +51,11 @@ export function ScheduleForm({
 }: ScheduleFormProps) {
   const [isBulkMode, setIsBulkMode] = useState(false)
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false)
+<<<<<<< HEAD
   const [isRecurringEditModalOpen, setIsRecurringEditModalOpen] = useState(false)
   const [editType, setEditType] = useState<'single' | 'series' | null>(null)
+=======
+>>>>>>> 668850c (updates to schedule)
   const [formData, setFormData] = useState<Schedule>({
     staff_id: 0,
     schedule_date: '',
@@ -184,6 +190,7 @@ export function ScheduleForm({
   }
 
   const handleMakeRecurring = () => {
+<<<<<<< HEAD
     // Clear any existing errors
     setError(null)
     
@@ -194,6 +201,15 @@ export function ScheduleForm({
       start_date: formData.schedule_date || new Date().toISOString().split('T')[0],
       start_time: formData.start_time || '10:00',
       end_time: formData.end_time || '18:00',
+=======
+    // Copy data from main form to bulk form
+    setBulkData(prev => ({
+      ...prev,
+      staff_id: formData.staff_id,
+      start_date: formData.schedule_date,
+      start_time: formData.start_time,
+      end_time: formData.end_time,
+>>>>>>> 668850c (updates to schedule)
       notes: formData.notes
     }))
     setIsRecurringModalOpen(true)
@@ -219,6 +235,7 @@ export function ScheduleForm({
       .join(', ')
   }
 
+<<<<<<< HEAD
   const handleRecurringEditSingle = async () => {
     setIsRecurringEditModalOpen(false)
     setEditType('single')
@@ -247,6 +264,8 @@ export function ScheduleForm({
     }
   }
 
+=======
+>>>>>>> 668850c (updates to schedule)
   if (!isOpen) return null
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -329,7 +348,11 @@ export function ScheduleForm({
                   variant="outline"
                   size="sm"
                   onClick={handleMakeRecurring}
+<<<<<<< HEAD
                   disabled={loading || !formData.staff_id}
+=======
+                  disabled={loading || !formData.schedule_date}
+>>>>>>> 668850c (updates to schedule)
                   className="flex items-center space-x-1 whitespace-nowrap"
                 >
                   <RotateCcw className="h-4 w-4" />
@@ -438,6 +461,7 @@ export function ScheduleForm({
 
             {/* Recurring Form */}
             <div className="p-6 space-y-4">
+<<<<<<< HEAD
               {/* Error Display */}
               {error && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -469,6 +493,8 @@ export function ScheduleForm({
                 </select>
               </div>
 
+=======
+>>>>>>> 668850c (updates to schedule)
               {/* Start Date */}
               <div>
                 <label className="flex items-center space-x-2 text-sm font-medium text-slate-700 mb-2">
@@ -484,6 +510,7 @@ export function ScheduleForm({
                 />
               </div>
 
+<<<<<<< HEAD
               {/* Time Range */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -514,6 +541,8 @@ export function ScheduleForm({
                 </div>
               </div>
 
+=======
+>>>>>>> 668850c (updates to schedule)
               {/* Repeat Every */}
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-2 block">
@@ -538,6 +567,7 @@ export function ScheduleForm({
               </div>
 
               {/* Selected Days Summary */}
+<<<<<<< HEAD
               <div className="min-h-[3rem]">
                 {bulkData.days_of_week.length > 0 ? (
                   <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">
@@ -550,6 +580,14 @@ export function ScheduleForm({
                   </div>
                 )}
               </div>
+=======
+              {bulkData.days_of_week.length > 0 && (
+                <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">
+                  Occurs every {getSelectedDaysText()} until{' '}
+                  {bulkData.end_date ? new Date(bulkData.end_date).toLocaleDateString() : 'end date'}
+                </div>
+              )}
+>>>>>>> 668850c (updates to schedule)
 
               {/* End Date */}
               <div>
@@ -566,6 +604,7 @@ export function ScheduleForm({
                 />
               </div>
 
+<<<<<<< HEAD
               {/* Notes */}
               <div>
                 <label className="flex items-center space-x-2 text-sm font-medium text-slate-700 mb-2">
@@ -581,6 +620,8 @@ export function ScheduleForm({
                 />
               </div>
 
+=======
+>>>>>>> 668850c (updates to schedule)
               {/* Actions */}
               <div className="flex space-x-3 pt-4">
                 <Button
@@ -595,6 +636,7 @@ export function ScheduleForm({
                   type="button"
                   onClick={async () => {
                     try {
+<<<<<<< HEAD
                       // Validate required fields before sending
                       if (!bulkData.staff_id || bulkData.staff_id <= 0) {
                         throw new Error('Please select a staff member')
@@ -663,10 +705,16 @@ export function ScheduleForm({
                       onClose()
                       // Trigger a refresh of the parent component
                       window.location.reload()
+=======
+                      await onSubmit(bulkData)
+                      setIsRecurringModalOpen(false)
+                      onClose()
+>>>>>>> 668850c (updates to schedule)
                     } catch (err: any) {
                       setError(err.message || 'Failed to create recurring schedule')
                     }
                   }}
+<<<<<<< HEAD
                   disabled={
                     !bulkData.staff_id || 
                     !bulkData.start_date || 
@@ -675,6 +723,9 @@ export function ScheduleForm({
                     !bulkData.end_time || 
                     bulkData.days_of_week.length === 0
                   }
+=======
+                  disabled={bulkData.days_of_week.length === 0}
+>>>>>>> 668850c (updates to schedule)
                   className="flex-1"
                 >
                   Create Recurring
@@ -684,6 +735,7 @@ export function ScheduleForm({
           </div>
         </div>
       )}
+<<<<<<< HEAD
 
       {/* Recurring Edit Modal */}
       <RecurringEditModal
@@ -694,6 +746,8 @@ export function ScheduleForm({
         scheduleDate={formData.schedule_date}
         staffName={staff.find(s => s.id === formData.staff_id)?.staff_name || 'Unknown Staff'}
       />
+=======
+>>>>>>> 668850c (updates to schedule)
     </div>
   )
 }

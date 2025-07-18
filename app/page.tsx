@@ -27,6 +27,10 @@ const packageItems = appMenuItems.filter(item =>
   item.title === "Create Package" || item.title === "Update Package Usage" || item.title === "Package Monitor"
 );
 
+const operationsItems = appMenuItems.filter(item => 
+  item.title === "Inventory Management" || item.title === "Staff Time Clock" || item.title === "Staff Schedule"
+);
+
 const coachingItems = appMenuItems.filter(item => 
   item.title === "Coaching Assistant"
 );

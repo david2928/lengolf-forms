@@ -628,8 +628,6 @@ export default function AdminStaffSchedulingDashboard() {
                       <span className="hidden sm:inline">Add Schedule</span>
                       <span className="sm:hidden">Add</span>
                     </Button>
-                    
-
                   </div>
                 </div>
               </div>
