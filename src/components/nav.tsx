@@ -181,6 +181,18 @@ export function Nav() {
           </Button>
         </Link>
 
+        {/* Staff Schedule - Available to All Users */}
+        <Link href="/staff-schedule">
+          <Button
+            variant={pathname === '/staff-schedule' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Clock className="h-4 w-4" />
+            My Schedule
+          </Button>
+        </Link>
+
         {/* Admin Dropdown - Only for Admin Users */}
         {isAdmin && (
           <DropdownMenu>
@@ -251,6 +263,12 @@ export function Nav() {
                 <Link href="/admin/staff-management" className="flex items-center gap-2 w-full">
                   <Users className="h-4 w-4" />
                   Staff Management
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/staff-scheduling" className="flex items-center gap-2 w-full">
+                  <Clock className="h-4 w-4" />
+                  Staff Scheduling
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

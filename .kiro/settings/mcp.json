@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "env": {},
+      "disabled": true,
+      "autoApprove": []
+    },
+    "supabase": {
+      "command": "node",
+      "args": [
+        "node_modules/@supabase/mcp-server-supabase/dist/transports/stdio.js",
+        "--project-ref",
+        "bisimqmtxjsptehhqpeg"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "sbp_70a04b00f93cca33c96c92f78c179c107957d3a5"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "get_project_url",
+        "list_tables",
+        "list_migrations",
+        "get_anon_key",
+        "apply_migration",
+        "execute_sql"
+      ]
+    }
+  }
+}

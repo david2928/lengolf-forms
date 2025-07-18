@@ -15,7 +15,8 @@ import {
   UserCheck,
   Link2,
   Clock,
-  ShoppingCart
+  ShoppingCart,
+  CalendarDays
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -110,6 +111,12 @@ const inventoryItems = [
     title: "Staff Management",
     description: "Manage staff accounts, permissions, and time tracking settings",
     path: "/admin/staff-management"
+  },
+  {
+    icon: CalendarDays,
+    title: "Staff Scheduling",
+    description: "Manage staff schedules, view coverage, and resolve conflicts",
+    path: "/admin/staff-scheduling"
   }
 ];
 

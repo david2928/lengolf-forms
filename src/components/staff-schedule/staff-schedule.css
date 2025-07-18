@@ -1,0 +1,80 @@
+/* Staff Schedule Component Animations */
+
+@keyframes fade-in {
+  from { 
+    opacity: 0; 
+  }
+  to { 
+    opacity: 1; 
+  }
+}
+
+@keyframes fade-out {
+  from { 
+    opacity: 1; 
+  }
+  to { 
+    opacity: 0; 
+  }
+}
+
+@keyframes slide-up {
+  from { 
+    transform: translateY(100%); 
+  }
+  to { 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes slide-down {
+  from { 
+    transform: translateY(0); 
+  }
+  to { 
+    transform: translateY(100%); 
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-fade-out {
+  animation: fade-out 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out;
+}
+
+/* Modal backdrop blur effect */
+.modal-backdrop {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Touch feedback for interactive elements */
+.touch-feedback:active {
+  transform: scale(0.95);
+  transition: transform 0.1s ease-out;
+}
+
+/* Smooth transitions for all interactive elements */
+.staff-schedule-transition {
+  transition: all 0.2s ease-out;
+}
+
+/* Custom scrollbar for mobile */
+.staff-schedule-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.staff-schedule-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

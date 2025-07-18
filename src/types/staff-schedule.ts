@@ -1,0 +1,164 @@
+// Staff scheduling system type definitions
+
+export interface Staff {
+  id: number
+  name: string
+  staff_id: string
+  department: string
+  position: string
+  initials: string
+  profile_photo?: string
+}
+
+export interface StaffSchedule {
+  schedule_id: string
+  staff_id: number
+  staff_name: string
+  schedule_date: string
+  start_time: string
+  end_time: string
+  location: string | null
+  notes: string | null
+  shift_color: string
+  duration_hours: number
+}
+
+export interface ScheduleIndicator {
+  schedule_date: string
+  shift_count: number
+  indicator_type: 'single' | 'multiple'
+}
+
+export interface TeamScheduleData {
+  staff_id: number
+  staff_name: string
+  shifts: any[]
+  total_shifts: number
+}
+
+export interface ScheduleApiResponse {
+  success: boolean
+  data: {
+    schedules: StaffSchedule[]
+    indicators: ScheduleIndicator[]
+    filters: {
+      staff_id: number | null
+      start_date: string
+      end_date: string
+      view_mode: string
+    }
+    meta: {
+      total_schedules: number
+      date_range_days: number
+    }
+  }
+  error?: string
+}
+
+export interface StaffApiResponse {
+  success: boolean
+  data: {
+    staff: Staff[]
+    total_staff: number
+  }
+  error?: string
+}
+
+export interface TeamScheduleApiResponse {
+  success: boolean
+  data: {
+    schedule_date: string
+    team_schedule: TeamScheduleData[]
+    team_stats: {
+      total_staff: number
+      staff_scheduled: number
+      total_shifts: number
+      staff_with_multiple_shifts: number
+      coverage_percentage: number
+    }
+  }
+  error?: string
+}
+
+export type ViewMode = 'personal' | 'team'
+export type NavigationTab = 'personal' | 'team' | 'availability' | 'replacements'
+
+// Utility type for date strings in YYYY-MM-DD format
+export type DateString = string
+
+// Color constants for shift types
+export const SHIFT_COLORS = {
+  MORNING: '#06B6D4',    // cyan - 6AM-11AM
+  AFTERNOON: '#F59E0B',  // amber - 12PM-5PM  
+  EVENING: '#EC4899'     // pink - 6PM+
+} as const
+
+// Helper function to get shift color based on start time
+export function getShiftColor(startTime: string): string {
+  const hour = parseInt(startTime.split(':')[0])
+  
+  if (hour >= 6 && hour <= 11) {
+    return SHIFT_COLORS.MORNING
+  } else if (hour >= 12 && hour <= 17) {
+    return SHIFT_COLORS.AFTERNOON
+  } else {
+    return SHIFT_COLORS.EVENING
+  }
+}
+
+// Helper function to format time for display
+export function formatTime(time: string): string {
+  const [hours, minutes] = time.split(':')
+  const hour = parseInt(hours)
+  const ampm = hour >= 12 ? 'PM' : 'AM'
+  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+  return `${displayHour}:${minutes} ${ampm}`
+}
+
+// Helper function to format date for display
+export function formatDate(dateString: string): string {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+// Helper function to get day abbreviation
+export function getDayAbbreviation(dateString: string): string {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()
+}
+
+// Helper function to calculate duration between two times
+export function calculateDuration(startTime: string, endTime: string): number {
+  const [startHour, startMin] = startTime.split(':').map(Number)
+  const [endHour, endMin] = endTime.split(':').map(Number)
+  
+  const startMinutes = startHour * 60 + startMin
+  const endMinutes = endHour * 60 + endMin
+  
+  return Math.round(((endMinutes - startMinutes) / 60) * 100) / 100
+}
+
+// Helper function to get week start date (Monday)
+export function getWeekStart(date: Date): Date {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+  return new Date(d.setDate(diff))
+}
+
+// Helper function to get date range for a week
+export function getWeekDateRange(startDate: Date): DateString[] {
+  const dates: DateString[] = []
+  const current = new Date(startDate)
+  
+  for (let i = 0; i < 7; i++) {
+    dates.push(current.toISOString().split('T')[0])
+    current.setDate(current.getDate() + 1)
+  }
+  
+  return dates
+}
