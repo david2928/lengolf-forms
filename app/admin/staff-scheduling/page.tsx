@@ -452,10 +452,6 @@ export default function AdminStaffSchedulingDashboard() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={handleAddSchedule}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Recurring Schedule
-                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setWeekStart(getCurrentWeek())}>
                         <Calendar className="h-4 w-4 mr-2" />
                         Go to Current Week

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { refacSupabaseAdmin } from '@/src/lib/refac-supabase'
+import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 
 export async function GET() {
   console.log('GET /api/staff-schedule/staff/test - Testing database connection')

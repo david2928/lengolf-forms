@@ -86,5 +86,11 @@ export const menuItems: MenuItem[] = [
     title: "Staff Time Clock",
     path: '/time-clock',
     description: "Staff clock in/out system"
+  },
+  {
+    icon: Calendar,
+    title: "Staff Schedule",
+    path: '/staff-schedule',
+    description: "View personal work schedule"
   }
 ] 

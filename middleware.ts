@@ -12,6 +12,11 @@ async function customMiddleware(request: NextRequest, event: NextFetchEvent) {
   );
   
   if (shouldBypass) {
+    // If trying to access auth pages in dev mode, redirect to home
+    if (request.nextUrl.pathname.startsWith('/auth/')) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    
     const response = NextResponse.next();
     response.headers.set('x-pathname', request.nextUrl.pathname);
     return response;
@@ -100,8 +105,8 @@ export const config = {
      * - api (all API routes)
      * - _next
      * - public (static files)
-     * - auth (auth pages)
+     * Note: auth pages are now included to allow dev bypass
      */
-    "/((?!api|_next|public|auth).*)",
+    "/((?!api|_next|public).*)",
   ],
 };
