@@ -44,6 +44,7 @@
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-toast": "^1.2.3",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/mcp-server-supabase": "^0.4.5",
     "@supabase/supabase-js": "^2.51.0",
     "@tanstack/react-table": "^8.21.3",
     "@types/bcryptjs": "^2.4.6",
@@ -90,15 +91,11 @@
     "yup": "^1.6.1"
   },
   "devDependencies": {
-<<<<<<< HEAD
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^14.3.1",
     "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^29.5.14",
-    "@types/node": "^20.19.0",
-=======
     "@types/node": "^20.19.7",
->>>>>>> defb267 (small fixes, add competitor analysis)
     "@types/react-big-calendar": "^1.16.2",
     "autoprefixer": "^10.4.17",
     "babel-jest": "^29.7.0",
