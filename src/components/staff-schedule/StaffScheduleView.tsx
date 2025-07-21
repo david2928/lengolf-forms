@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { ArrowLeft, Search, Settings } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import { Staff, NavigationTab, StaffSchedule, ScheduleIndicator } from '@/types/staff-schedule'
 import { useStaffSchedule } from '@/hooks/useStaffSchedule'
 import { HorizontalDatePicker } from './HorizontalDatePicker'
@@ -40,12 +40,12 @@ export function StaffScheduleView({ selectedStaff, onBackToSelection }: StaffSch
     retryTeamSchedule
   } = useStaffSchedule()
 
-  // Fetch schedules when component mounts or dependencies change
-  useEffect(() => {
+  // Manual data fetching - no automatic useEffect
+  const fetchData = () => {
     const startDate = new Date(selectedDate)
-    startDate.setDate(selectedDate.getDate() - 3) // Get a few days before
+    startDate.setDate(selectedDate.getDate() - 3)
     const endDate = new Date(selectedDate)
-    endDate.setDate(selectedDate.getDate() + 10) // Get a few days after
+    endDate.setDate(selectedDate.getDate() + 10)
 
     if (activeTab === 'personal') {
       fetchSchedules({
@@ -56,7 +56,6 @@ export function StaffScheduleView({ selectedStaff, onBackToSelection }: StaffSch
       })
     } else if (activeTab === 'team') {
       fetchTeamSchedule(selectedDate.toISOString().split('T')[0])
-      // Also fetch team-wide schedules for indicators
       fetchSchedules({
         staffId: null,
         startDate: startDate.toISOString().split('T')[0],
@@ -64,16 +63,111 @@ export function StaffScheduleView({ selectedStaff, onBackToSelection }: StaffSch
         viewMode: 'team'
       })
     }
-  }, [selectedStaff.id, selectedDate, activeTab, fetchSchedules, fetchTeamSchedule])
+  }
+
+  // Initial data load - run once only
+  const [hasInitialized, setHasInitialized] = useState(false)
+  useEffect(() => {
+    if (!hasInitialized) {
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - 3)
+      const endDate = new Date()
+      endDate.setDate(endDate.getDate() + 10)
+
+      fetchSchedules({
+        staffId: selectedStaff.id,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        viewMode: 'personal'
+      })
+      
+      setHasInitialized(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Handle date selection
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date)
+    // Need to wait a tick for state update, then fetch
+    requestAnimationFrame(() => {
+      const startDate = new Date(date)
+      startDate.setDate(date.getDate() - 3)
+      const endDate = new Date(date)
+      endDate.setDate(date.getDate() + 10)
+
+      if (activeTab === 'personal') {
+        fetchSchedules({
+          staffId: selectedStaff.id,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          viewMode: 'personal'
+        })
+      } else if (activeTab === 'team') {
+        // Format date in local timezone for API call
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        const dateString = `${year}-${month}-${day}`
+        
+        fetchTeamSchedule(dateString)
+        fetchSchedules({
+          staffId: null,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          viewMode: 'team'
+        })
+      } else if (activeTab === 'all') {
+        fetchSchedules({
+          staffId: null,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          viewMode: 'team'
+        })
+      }
+    })
   }
 
-  // Handle tab change
+  // Handle tab change  
   const handleTabChange = (tab: NavigationTab) => {
     setActiveTab(tab)
+    // Need to wait a tick for state update, then fetch
+    requestAnimationFrame(() => {
+      const startDate = new Date(selectedDate)
+      startDate.setDate(selectedDate.getDate() - 3)
+      const endDate = new Date(selectedDate)
+      endDate.setDate(selectedDate.getDate() + 10)
+
+      if (tab === 'personal') {
+        fetchSchedules({
+          staffId: selectedStaff.id,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          viewMode: 'personal'
+        })
+      } else if (tab === 'team') {
+        // Format selected date in local timezone for API call
+        const year = selectedDate.getFullYear()
+        const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
+        const day = String(selectedDate.getDate()).padStart(2, '0')
+        const dateString = `${year}-${month}-${day}`
+        
+        fetchTeamSchedule(dateString)
+        fetchSchedules({
+          staffId: null,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          viewMode: 'team'
+        })
+      } else if (tab === 'all') {
+        fetchSchedules({
+          staffId: null,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          viewMode: 'team'
+        })
+      }
+    })
   }
 
   // Handle schedule card tap
@@ -99,8 +193,11 @@ export function StaffScheduleView({ selectedStaff, onBackToSelection }: StaffSch
     handleModalClose()
   }
 
-  // Filter schedules for selected date
-  const selectedDateString = selectedDate.toISOString().split('T')[0]
+  // Filter schedules for selected date (using local timezone)
+  const year = selectedDate.getFullYear()
+  const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
+  const day = String(selectedDate.getDate()).padStart(2, '0')
+  const selectedDateString = `${year}-${month}-${day}`
   const schedulesForSelectedDate = schedules.filter(
     schedule => schedule.schedule_date === selectedDateString
   )
@@ -156,6 +253,9 @@ export function StaffScheduleView({ selectedStaff, onBackToSelection }: StaffSch
       return schedulesForSelectedDate
     } else if (activeTab === 'team') {
       return groupedTeamSchedules
+    } else if (activeTab === 'all') {
+      // Show all individual schedules without grouping
+      return schedulesForSelectedDate
     }
     return []
   }
@@ -200,43 +300,37 @@ export function StaffScheduleView({ selectedStaff, onBackToSelection }: StaffSch
           viewMode: 'team'
         })
       ])
+    } else if (activeTab === 'all') {
+      await fetchSchedules({
+        staffId: null,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        viewMode: 'team'
+      })
     }
   }
 
   return (
     <ScheduleErrorBoundary>
-      <div className="min-h-screen bg-slate-50 flex flex-col safe-area-top safe-area-bottom">
+      <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-4 py-3 safe-area-left safe-area-right">
+      <div className="bg-white border-b border-slate-200 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <button
-              onClick={onBackToSelection}
-              className="touch-target p-2 hover:bg-slate-100 rounded-lg transition-colors tap-highlight no-select"
+              onClick={() => onBackToSelection()}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               aria-label="Back to staff selection"
+              type="button"
             >
               <ArrowLeft className="h-5 w-5 text-slate-600" />
             </button>
-            <h1 className="text-responsive-lg font-semibold text-slate-900 truncate">
+            <h1 className="text-lg font-semibold text-slate-900 truncate">
               {activeTab === 'personal' 
                 ? `${selectedStaff.name}'s Schedule`
-                : 'Team Schedule'
+                : 'All Staff Schedules'
               }
             </h1>
-          </div>
-          <div className="flex items-center space-x-1 sm:space-x-3">
-            <button 
-              className="touch-target p-2 hover:bg-slate-100 rounded-lg transition-colors tap-highlight no-select"
-              aria-label="Search schedules"
-            >
-              <Search className="h-5 w-5 text-slate-400" />
-            </button>
-            <button 
-              className="touch-target p-2 hover:bg-slate-100 rounded-lg transition-colors tap-highlight no-select"
-              aria-label="Settings"
-            >
-              <Settings className="h-5 w-5 text-slate-400" />
-            </button>
           </div>
         </div>
       </div>
@@ -252,20 +346,12 @@ export function StaffScheduleView({ selectedStaff, onBackToSelection }: StaffSch
       <PullToRefresh 
         onRefresh={handleRefresh}
         disabled={isLoading}
-        className="flex-1 overflow-y-auto smooth-scroll safe-area-left safe-area-right"
+        className="flex-1 overflow-y-auto"
       >
-        {/* Team Schedule Header (only shown in team view) */}
-        {activeTab === 'team' && !isLoading && !error && (
-          <TeamScheduleHeader 
-            teamStats={teamStats}
-            selectedDate={selectedDate}
-          />
-        )}
-        
         {isLoading ? (
           <ScheduleLoadingState />
         ) : error ? (
-          <div className="p-4 mobile-padding">
+          <div className="p-4">
             <ErrorDisplay
               error={error}
               variant="card"
@@ -288,7 +374,7 @@ export function StaffScheduleView({ selectedStaff, onBackToSelection }: StaffSch
             isLoading={isLoading}
           />
         ) : (
-          <div className="p-4 mobile-padding mobile-card-spacing">
+          <div className="p-4 space-y-4">
             {schedulesToShow.map((schedule) => (
               <ScheduleCard
                 key={schedule.schedule_id}

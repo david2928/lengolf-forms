@@ -81,7 +81,7 @@ export interface TeamScheduleApiResponse {
 }
 
 export type ViewMode = 'personal' | 'team'
-export type NavigationTab = 'personal' | 'team' | 'availability' | 'replacements'
+export type NavigationTab = 'personal' | 'team' | 'all' | 'availability' | 'replacements'
 
 // Utility type for date strings in YYYY-MM-DD format
 export type DateString = string
@@ -117,7 +117,9 @@ export function formatTime(time: string): string {
 
 // Helper function to format date for display
 export function formatDate(dateString: string): string {
-  const date = new Date(dateString)
+  // Parse date string safely to avoid timezone issues
+  const [year, month, day] = dateString.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
   return date.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
@@ -127,7 +129,9 @@ export function formatDate(dateString: string): string {
 
 // Helper function to get day abbreviation
 export function getDayAbbreviation(dateString: string): string {
-  const date = new Date(dateString)
+  // Parse date string safely to avoid timezone issues
+  const [year, month, day] = dateString.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
   return date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()
 }
 
@@ -153,11 +157,17 @@ export function getWeekStart(date: Date): Date {
 // Helper function to get date range for a week
 export function getWeekDateRange(startDate: Date): DateString[] {
   const dates: DateString[] = []
-  const current = new Date(startDate)
   
   for (let i = 0; i < 7; i++) {
-    dates.push(current.toISOString().split('T')[0])
-    current.setDate(current.getDate() + 1)
+    // Create a new date for each day to avoid mutation issues
+    const currentDate = new Date(startDate)
+    currentDate.setDate(startDate.getDate() + i)
+    
+    // Format date as YYYY-MM-DD in local timezone
+    const year = currentDate.getFullYear()
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0')
+    const day = String(currentDate.getDate()).padStart(2, '0')
+    dates.push(`${year}-${month}-${day}`)
   }
   
   return dates

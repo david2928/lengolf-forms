@@ -130,7 +130,7 @@ export async function getStaffForUI(): Promise<Array<{
     const { data: staff, error } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('staff')
-      .select('id, staff_name, staff_id, is_active, created_at, updated_at, profile_photo')
+      .select('id, staff_name, staff_id, is_active, created_at, updated_at')
       .eq('is_active', true)
       .order('staff_name')
 
@@ -160,8 +160,7 @@ export async function getStaffForUI(): Promise<Array<{
         .join('')
         .substring(0, 2),
       department: 'Staff', // Default since column doesn't exist
-      position: 'Team Member', // Default since column doesn't exist
-      profile_photo: member.profile_photo || undefined
+      position: 'Team Member' // Default since column doesn't exist
     }))
 
     console.log('Staff formatting completed. Returning', formattedStaff.length, 'staff members')

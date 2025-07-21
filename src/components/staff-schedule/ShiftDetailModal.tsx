@@ -131,13 +131,6 @@ export function ShiftDetailModal({
             </div>
           </div>
 
-          {/* Location */}
-          {location && (
-            <div className="flex items-center space-x-2 text-slate-600">
-              <MapPin className="h-4 w-4" />
-              <span>{location}</span>
-            </div>
-          )}
 
           {/* Team Members */}
           {teamMembers.length > 0 && (

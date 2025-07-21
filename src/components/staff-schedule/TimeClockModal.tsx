@@ -160,7 +160,6 @@ export function TimeClockModal({
             </p>
             <p className="text-sm text-slate-600">
               {schedule.start_time} - {schedule.end_time}
-              {schedule.location && ` • ${schedule.location}`}
             </p>
           </div>
 

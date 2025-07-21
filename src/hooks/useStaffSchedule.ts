@@ -119,11 +119,19 @@ export function useStaffSchedule(initialOptions: UseStaffScheduleOptions = {}): 
       setStaffError(null)
       
       // Try cache first
-      const cachedStaff = getCachedData(CACHE_KEYS.staff)
-      if (cachedStaff) {
-        setStaff(cachedStaff)
-        setStaffLoading(false)
-        return
+      try {
+        const cached = localStorage.getItem(CACHE_KEYS.staff)
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached)
+          if (Date.now() - timestamp < CACHE_TTL) {
+            setStaff(data)
+            setStaffLoading(false)
+            return
+          }
+          localStorage.removeItem(CACHE_KEYS.staff)
+        }
+      } catch (error) {
+        console.warn('Error reading staff cache:', error)
       }
       
       const result = await scheduleApi.getStaff()
@@ -131,7 +139,15 @@ export function useStaffSchedule(initialOptions: UseStaffScheduleOptions = {}): 
       if (result.success) {
         const data = result.data as { staff: Staff[] }
         setStaff(data.staff)
-        setCachedData(CACHE_KEYS.staff, data.staff)
+        // Cache the data
+        try {
+          localStorage.setItem(CACHE_KEYS.staff, JSON.stringify({
+            data: data.staff,
+            timestamp: Date.now()
+          }))
+        } catch (error) {
+          console.warn('Error writing staff cache:', error)
+        }
       } else {
         throw result.error
       }
@@ -140,15 +156,20 @@ export function useStaffSchedule(initialOptions: UseStaffScheduleOptions = {}): 
       setStaffError(handleApiError(error))
       
       // Try to use cached data as fallback
-      const cachedStaff = getCachedData(CACHE_KEYS.staff)
-      if (cachedStaff) {
-        setStaff(cachedStaff)
-        console.log('Using cached staff data as fallback')
+      try {
+        const cached = localStorage.getItem(CACHE_KEYS.staff)
+        if (cached) {
+          const { data } = JSON.parse(cached)
+          setStaff(data)
+          console.log('Using cached staff data as fallback')
+        }
+      } catch (error) {
+        console.warn('Error reading staff cache fallback:', error)
       }
     } finally {
       setStaffLoading(false)
     }
-  }, [getCachedData, setCachedData])
+  }, []) // No dependencies!
 
   // Fetch schedules
   const fetchSchedules = useCallback(async (options: UseStaffScheduleOptions = {}) => {
@@ -206,30 +227,35 @@ export function useStaffSchedule(initialOptions: UseStaffScheduleOptions = {}): 
   // Retry functions
   const retryStaff = useCallback(async () => {
     await fetchStaff()
-  }, [fetchStaff])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const retrySchedules = useCallback(async () => {
     await fetchSchedules(lastScheduleOptions)
-  }, [fetchSchedules, lastScheduleOptions])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const retryTeamSchedule = useCallback(async () => {
     if (lastTeamDate) {
       await fetchTeamSchedule(lastTeamDate)
     }
-  }, [fetchTeamSchedule, lastTeamDate])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Refresh all data
+  // Refresh all data - no dependencies to avoid loops
   const refreshData = useCallback(async () => {
     await Promise.all([
       fetchStaff(),
-      fetchSchedules(initialOptions)
+      fetchSchedules({})
     ])
-  }, [fetchStaff, fetchSchedules, initialOptions])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Initial data fetch
   useEffect(() => {
     fetchStaff()
-  }, [fetchStaff])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // No dependencies to avoid infinite loops
 
   return {
     // Staff data

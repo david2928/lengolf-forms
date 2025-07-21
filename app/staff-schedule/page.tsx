@@ -10,37 +10,41 @@ import { SessionManager } from '@/components/auth/SessionManager'
 
 export default function StaffSchedulePage() {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false)
 
-  // Load selected staff from session storage on mount and register service worker
+  // Initialize from sessionStorage after mount to avoid hydration issues
   useEffect(() => {
-    const savedStaff = sessionStorage.getItem('selectedStaff')
-    if (savedStaff) {
-      try {
-        setSelectedStaff(JSON.parse(savedStaff))
-      } catch (error) {
-        console.error('Error parsing saved staff:', error)
-        sessionStorage.removeItem('selectedStaff')
+    if (!isInitialized) {
+      const savedStaff = sessionStorage.getItem('selectedStaff')
+      if (savedStaff) {
+        try {
+          const parsed = JSON.parse(savedStaff)
+          setSelectedStaff(parsed)
+        } catch (error) {
+          console.error('Error parsing saved staff:', error)
+          sessionStorage.removeItem('selectedStaff')
+        }
       }
+      setIsInitialized(true)
     }
-    setIsLoading(false)
     
-    // Register service worker for offline functionality
+    // Register service worker
     registerServiceWorker()
-  }, [])
+  }, [isInitialized])
 
   const handleStaffSelect = (staff: Staff) => {
     setSelectedStaff(staff)
-    // Save to session storage for persistence
     sessionStorage.setItem('selectedStaff', JSON.stringify(staff))
   }
 
   const handleBackToSelection = () => {
-    setSelectedStaff(null)
     sessionStorage.removeItem('selectedStaff')
+    setSelectedStaff(null)
   }
 
-  if (isLoading) {
+
+  // Show loading state while initializing
+  if (!isInitialized) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
@@ -55,14 +59,16 @@ export default function StaffSchedulePage() {
     <RouteProtection requireAdmin={false}>
       <SessionManager>
         <div className="min-h-screen bg-slate-50">
-          {!selectedStaff ? (
-            <StaffNameSelector onStaffSelect={handleStaffSelect} />
-          ) : (
-            <StaffScheduleView 
-              selectedStaff={selectedStaff} 
-              onBackToSelection={handleBackToSelection}
-            />
-          )}
+          <div className="container mx-auto px-4 py-8">
+            {!selectedStaff ? (
+              <StaffNameSelector onStaffSelect={handleStaffSelect} />
+            ) : (
+              <StaffScheduleView 
+                selectedStaff={selectedStaff} 
+                onBackToSelection={handleBackToSelection}
+              />
+            )}
+          </div>
         </div>
       </SessionManager>
     </RouteProtection>

@@ -1,6 +1,6 @@
 'use client'
 
-import { User, Users, Clock, RefreshCw } from 'lucide-react'
+import { User, Users } from 'lucide-react'
 import { NavigationTab } from '@/types/staff-schedule'
 
 interface BottomNavigationProps {
@@ -12,27 +12,15 @@ interface BottomNavigationProps {
 const navigationItems = [
   {
     id: 'personal' as NavigationTab,
-    label: 'Only me',
+    label: 'Me',
     icon: User,
-    description: 'Personal schedule'
+    description: 'My schedule'
   },
   {
-    id: 'team' as NavigationTab,
-    label: 'Everyone',
+    id: 'all' as NavigationTab,
+    label: 'All Staff',
     icon: Users,
-    description: 'Team schedule'
-  },
-  {
-    id: 'availability' as NavigationTab,
-    label: 'Availability',
-    icon: Clock,
-    description: 'Manage availability'
-  },
-  {
-    id: 'replacements' as NavigationTab,
-    label: 'Replacements',
-    icon: RefreshCw,
-    description: 'Shift coverage'
+    description: 'All staff schedules'
   }
 ]
 
@@ -43,37 +31,33 @@ export function BottomNavigation({
 }: BottomNavigationProps) {
   return (
     <div className={`bg-white border-t border-slate-200 ${className}`}>
-      <div className="flex items-center justify-around px-2 py-2">
-        {navigationItems.map((item) => {
-          const Icon = item.icon
-          const isActive = activeTab === item.id
-          
-          return (
-            <button
-              key={item.id}
-              onClick={() => onTabChange(item.id)}
-              className={`
-                flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-all duration-200
-                ${isActive 
-                  ? 'bg-blue-50 text-blue-600' 
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                }
-              `}
-              aria-label={item.description}
-            >
-              <Icon className={`
-                h-5 w-5 mb-1
-                ${isActive ? 'text-blue-600' : 'text-slate-400'}
-              `} />
-              <span className={`
-                text-xs font-medium
-                ${isActive ? 'text-blue-600' : 'text-slate-500'}
-              `}>
-                {item.label}
-              </span>
-            </button>
-          )
-        })}
+      <div className="flex items-center justify-center px-4 py-3">
+        <div className="flex items-center bg-slate-100 rounded-lg p-1">
+          {navigationItems.map((item) => {
+            const Icon = item.icon
+            const isActive = activeTab === item.id
+            
+            return (
+              <button
+                key={item.id}
+                onClick={() => onTabChange(item.id)}
+                className={`
+                  flex items-center justify-center px-4 py-2 rounded-md transition-all duration-200 min-w-[100px]
+                  ${isActive 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-slate-600 hover:text-slate-900'
+                  }
+                `}
+                aria-label={item.description}
+              >
+                <Icon className={`h-4 w-4 mr-2 ${isActive ? 'text-blue-600' : 'text-slate-500'}`} />
+                <span className={`text-sm font-medium ${isActive ? 'text-blue-600' : 'text-slate-600'}`}>
+                  {item.label}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

@@ -39,7 +39,7 @@ export function HorizontalDatePicker({
     if (selectedWeekStart.getTime() !== currentWeekStart.getTime()) {
       setCurrentWeekStart(selectedWeekStart)
     }
-  }, [selectedDate, currentWeekStart])
+  }, [selectedDate]) // Remove currentWeekStart from dependencies to avoid infinite loop
 
   // Navigate to previous week
   const goToPreviousWeek = () => {
@@ -63,7 +63,9 @@ export function HorizontalDatePicker({
 
   // Handle date selection
   const handleDateSelect = (dateString: string) => {
-    const date = new Date(dateString + 'T00:00:00')
+    // Parse date string as YYYY-MM-DD and create date in local timezone
+    const [year, month, day] = dateString.split('-').map(Number)
+    const date = new Date(year, month - 1, day) // month is 0-based
     onDateSelect(date)
   }
 
@@ -100,25 +102,37 @@ export function HorizontalDatePicker({
 
   // Check if date is today
   const isToday = (dateString: string) => {
-    const today = new Date().toISOString().split('T')[0]
-    return dateString === today
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    const todayString = `${year}-${month}-${day}`
+    return dateString === todayString
   }
 
   // Check if date is selected
   const isSelected = (dateString: string) => {
-    const selectedDateString = selectedDate.toISOString().split('T')[0]
+    const year = selectedDate.getFullYear()
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
+    const day = String(selectedDate.getDate()).padStart(2, '0')
+    const selectedDateString = `${year}-${month}-${day}`
     return dateString === selectedDateString
   }
 
   return (
-    <div className={`bg-white border-b border-slate-200 safe-area-left safe-area-right ${className}`}>
+    <div className={`bg-white border-b border-slate-200 ${className}`}>
       {/* Week Navigation Header */}
       <div className="flex items-center justify-between px-4 py-2">
         <button
-          onClick={goToPreviousWeek}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            goToPreviousWeek()
+          }}
           disabled={isAnimating}
-          className="touch-target p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 tap-highlight no-select"
+          className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
           aria-label="Previous week"
+          type="button"
         >
           <ChevronLeft className="h-5 w-5 text-slate-600" />
         </button>
@@ -134,10 +148,15 @@ export function HorizontalDatePicker({
         </div>
 
         <button
-          onClick={goToNextWeek}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            goToNextWeek()
+          }}
           disabled={isAnimating}
-          className="touch-target p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 tap-highlight no-select"
+          className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
           aria-label="Next week"
+          type="button"
         >
           <ChevronRight className="h-5 w-5 text-slate-600" />
         </button>
@@ -152,7 +171,9 @@ export function HorizontalDatePicker({
         onTouchEnd={handleTouchEnd}
       >
         {weekDates.map((dateString, index) => {
-          const date = new Date(dateString + 'T00:00:00')
+          // Parse date string safely to avoid timezone issues
+          const [year, month, day] = dateString.split('-').map(Number)
+          const date = new Date(year, month - 1, day)
           const dayAbbr = getDayAbbreviation(dateString)
           const dayNumber = date.getDate()
           const indicator = getIndicatorForDate(dateString)

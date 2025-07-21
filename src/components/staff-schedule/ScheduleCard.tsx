@@ -150,15 +150,6 @@ export function ScheduleCard({
               </div>
             </div>
             
-            {/* Location */}
-            {location && (
-              <div className="flex items-center space-x-2 mb-2">
-                <MapPin className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                <p className="text-sm text-slate-600 truncate">
-                  {location}
-                </p>
-              </div>
-            )}
 
             {/* Staff names for team view */}
             {viewMode === 'team' && staffDisplay && staffDisplay.length > 0 && (
