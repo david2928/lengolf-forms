@@ -10,15 +10,21 @@ import { SessionManager } from '@/components/auth/SessionManager'
 
 export default function StaffSchedulePage() {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
+<<<<<<< HEAD
   const [viewAllStaff, setViewAllStaff] = useState(false)
+=======
+>>>>>>> a6e5a33 (fix problems)
   const [isInitialized, setIsInitialized] = useState(false)
 
   // Initialize from sessionStorage after mount to avoid hydration issues
   useEffect(() => {
     if (!isInitialized) {
       const savedStaff = sessionStorage.getItem('selectedStaff')
+<<<<<<< HEAD
       const savedViewAllStaff = sessionStorage.getItem('viewAllStaff')
       
+=======
+>>>>>>> a6e5a33 (fix problems)
       if (savedStaff) {
         try {
           const parsed = JSON.parse(savedStaff)
@@ -28,11 +34,14 @@ export default function StaffSchedulePage() {
           sessionStorage.removeItem('selectedStaff')
         }
       }
+<<<<<<< HEAD
       
       if (savedViewAllStaff === 'true') {
         setViewAllStaff(true)
       }
       
+=======
+>>>>>>> a6e5a33 (fix problems)
       setIsInitialized(true)
     }
     
@@ -42,18 +51,27 @@ export default function StaffSchedulePage() {
 
   const handleStaffSelect = (staff: Staff) => {
     setSelectedStaff(staff)
+<<<<<<< HEAD
     setViewAllStaff(false)
+=======
+>>>>>>> a6e5a33 (fix problems)
     sessionStorage.setItem('selectedStaff', JSON.stringify(staff))
     sessionStorage.removeItem('viewAllStaff')
   }
 
+<<<<<<< HEAD
   const handleViewAllStaff = () => {
     setViewAllStaff(true)
     setSelectedStaff(null)
     sessionStorage.setItem('viewAllStaff', 'true')
+=======
+  const handleBackToSelection = () => {
+>>>>>>> a6e5a33 (fix problems)
     sessionStorage.removeItem('selectedStaff')
+    setSelectedStaff(null)
   }
 
+<<<<<<< HEAD
   const handleBackToSelection = () => {
     sessionStorage.removeItem('selectedStaff')
     sessionStorage.removeItem('viewAllStaff')
@@ -61,6 +79,8 @@ export default function StaffSchedulePage() {
     setViewAllStaff(false)
   }
 
+=======
+>>>>>>> a6e5a33 (fix problems)
 
   // Show loading state while initializing
   if (!isInitialized) {
@@ -79,6 +99,7 @@ export default function StaffSchedulePage() {
       <SessionManager>
         <div className="min-h-screen bg-slate-50">
           <div className="container mx-auto px-4 py-8">
+<<<<<<< HEAD
             {!selectedStaff && !viewAllStaff ? (
               <StaffNameSelector 
                 onStaffSelect={handleStaffSelect}
@@ -88,6 +109,13 @@ export default function StaffSchedulePage() {
               <StaffScheduleView 
                 selectedStaff={selectedStaff} 
                 viewAllStaff={viewAllStaff}
+=======
+            {!selectedStaff ? (
+              <StaffNameSelector onStaffSelect={handleStaffSelect} />
+            ) : (
+              <StaffScheduleView 
+                selectedStaff={selectedStaff} 
+>>>>>>> a6e5a33 (fix problems)
                 onBackToSelection={handleBackToSelection}
               />
             )}

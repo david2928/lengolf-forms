@@ -39,7 +39,11 @@ export function BottomNavigation({
     <div className={`bg-white border-t border-slate-200 ${className}`}>
       <div className="flex items-center justify-center px-4 py-3">
         <div className="flex items-center bg-slate-100 rounded-lg p-1">
+<<<<<<< HEAD
           {availableItems.map((item) => {
+=======
+          {navigationItems.map((item) => {
+>>>>>>> a6e5a33 (fix problems)
             const Icon = item.icon
             const isActive = activeTab === item.id
             

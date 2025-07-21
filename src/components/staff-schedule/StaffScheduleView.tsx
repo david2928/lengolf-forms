@@ -75,6 +75,7 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
       const endDate = new Date()
       endDate.setDate(endDate.getDate() + 10)
 
+<<<<<<< HEAD
       if (viewAllStaff) {
         // Load team data for "View All Staff" mode
         fetchTeamSchedule(new Date().toISOString().split('T')[0])
@@ -93,6 +94,14 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           viewMode: 'personal'
         })
       }
+=======
+      fetchSchedules({
+        staffId: selectedStaff.id,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        viewMode: 'personal'
+      })
+>>>>>>> a6e5a33 (fix problems)
       
       setHasInitialized(true)
     }
@@ -109,14 +118,22 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
       const endDate = new Date(date)
       endDate.setDate(date.getDate() + 10)
 
+<<<<<<< HEAD
       if (activeTab === 'personal' && selectedStaff) {
+=======
+      if (activeTab === 'personal') {
+>>>>>>> a6e5a33 (fix problems)
         fetchSchedules({
           staffId: selectedStaff.id,
           startDate: startDate.toISOString().split('T')[0],
           endDate: endDate.toISOString().split('T')[0],
           viewMode: 'personal'
         })
+<<<<<<< HEAD
       } else if (activeTab === 'team' || activeTab === 'all' || viewAllStaff) {
+=======
+      } else if (activeTab === 'team') {
+>>>>>>> a6e5a33 (fix problems)
         // Format date in local timezone for API call
         const year = date.getFullYear()
         const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -130,6 +147,16 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           endDate: endDate.toISOString().split('T')[0],
           viewMode: 'team'
         })
+<<<<<<< HEAD
+=======
+      } else if (activeTab === 'all') {
+        fetchSchedules({
+          staffId: null,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          viewMode: 'team'
+        })
+>>>>>>> a6e5a33 (fix problems)
       }
     })
   }
@@ -144,14 +171,22 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
       const endDate = new Date(selectedDate)
       endDate.setDate(selectedDate.getDate() + 10)
 
+<<<<<<< HEAD
       if (tab === 'personal' && selectedStaff) {
+=======
+      if (tab === 'personal') {
+>>>>>>> a6e5a33 (fix problems)
         fetchSchedules({
           staffId: selectedStaff.id,
           startDate: startDate.toISOString().split('T')[0],
           endDate: endDate.toISOString().split('T')[0],
           viewMode: 'personal'
         })
+<<<<<<< HEAD
       } else if (tab === 'team' || tab === 'all' || viewAllStaff) {
+=======
+      } else if (tab === 'team') {
+>>>>>>> a6e5a33 (fix problems)
         // Format selected date in local timezone for API call
         const year = selectedDate.getFullYear()
         const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
@@ -165,6 +200,16 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           endDate: endDate.toISOString().split('T')[0],
           viewMode: 'team'
         })
+<<<<<<< HEAD
+=======
+      } else if (tab === 'all') {
+        fetchSchedules({
+          staffId: null,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          viewMode: 'team'
+        })
+>>>>>>> a6e5a33 (fix problems)
       }
     })
   }
@@ -185,7 +230,10 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
   }
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> a6e5a33 (fix problems)
   // Filter schedules for selected date (using local timezone)
   const year = selectedDate.getFullYear()
   const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
@@ -293,6 +341,13 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           viewMode: 'team'
         })
       ])
+    } else if (activeTab === 'all') {
+      await fetchSchedules({
+        staffId: null,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        viewMode: 'team'
+      })
     }
   }
 
@@ -312,7 +367,11 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
               <ArrowLeft className="h-5 w-5 text-slate-600" />
             </button>
             <h1 className="text-lg font-semibold text-slate-900 truncate">
+<<<<<<< HEAD
               {activeTab === 'personal' && selectedStaff
+=======
+              {activeTab === 'personal' 
+>>>>>>> a6e5a33 (fix problems)
                 ? `${selectedStaff.name}'s Schedule`
                 : 'All Staff Schedules'
               }
