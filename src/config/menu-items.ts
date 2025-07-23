@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -110,5 +110,11 @@ export const menuItems: MenuItem[] = [
     title: "Referral Analytics",
     path: '/admin/referral-analytics',
     description: "Analyze customer acquisition sources and trends"
+  },
+  {
+    icon: CreditCard,
+    title: "POS System",
+    path: '/pos',
+    description: "Point of Sale system with table management"
   }
 ] 
