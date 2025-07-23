@@ -80,7 +80,7 @@ export function EarningsModal({ isOpen, onClose, coachId }: EarningsModalProps) 
     if (!data?.earnings) return [];
     
     let filtered = data.earnings.filter(earning => {
-      const customerNameMatch = earning.customer_name.toLowerCase().includes(searchQuery.toLowerCase());
+      const customerNameMatch = earning.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
       return customerNameMatch;
     });
 
@@ -94,8 +94,8 @@ export function EarningsModal({ isOpen, onClose, coachId }: EarningsModalProps) 
           bVal = new Date(b.date);
           break;
         case 'customer_name':
-          aVal = a.customer_name.toLowerCase();
-          bVal = b.customer_name.toLowerCase();
+          aVal = (a.customer_name || '').toLowerCase();
+          bVal = (b.customer_name || '').toLowerCase();
           break;
         case 'rate_type':
           aVal = a.rate_type.toLowerCase();

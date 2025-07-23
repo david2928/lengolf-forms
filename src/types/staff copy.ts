@@ -229,6 +229,31 @@ export interface WeeklyStaffReport {
 }
 
 // ==========================================
+// POS Staff Session Types
+// ==========================================
+
+export interface POSStaffSession {
+  staff: Staff;
+  loginTime: Date;
+  sessionId: string;
+}
+
+export interface POSStaffAuthResponse {
+  success: boolean;
+  staff?: Staff;
+  error?: string;
+  sessionId?: string;
+}
+
+export interface POSStaffContext {
+  currentStaff: Staff | null;
+  session: POSStaffSession | null;
+  isAuthenticated: boolean;
+  login: (pin: string) => Promise<POSStaffAuthResponse>;
+  logout: () => void;
+}
+
+// ==========================================
 // Error Types
 // ==========================================
 
@@ -280,29 +305,4 @@ export const PHOTO_CONFIG = {
   JPEG_QUALITY: 0.3, // Phase 4: 30% quality (reduced from 50%) - still adequate for staff identification
   // Phase 4: Performance targets
   TARGET_FILE_SIZE_KB: 50, // Target <50KB per photo for optimal performance
-} as const;
-
-// ==========================================
-// POS Staff Authentication Types
-// ==========================================
-
-export interface POSStaffSession {
-  staff: Staff;
-  loginTime: Date;
-  sessionId: string;
-}
-
-export interface POSStaffAuthResponse {
-  success: boolean;
-  staff?: Staff;
-  sessionId?: string;
-  error?: string;
-}
-
-export interface POSStaffContext {
-  currentStaff: Staff | null;
-  session: POSStaffSession | null;
-  isAuthenticated: boolean;
-  login: (pin: string) => Promise<POSStaffAuthResponse>;
-  logout: () => void;
-} 
+} as const; 
