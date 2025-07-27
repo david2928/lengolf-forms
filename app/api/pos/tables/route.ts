@@ -11,6 +11,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Extract timestamp parameter for cache busting
+    const url = new URL(request.url);
+    const timestamp = url.searchParams.get('_t');
+
     // Fetch zones
     const { data: zones, error: zonesError } = await supabase
       .schema('pos')
@@ -41,14 +45,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch current sessions separately to avoid join issues
-    const { data: sessionsData, error: sessionsError } = await supabase
+    // Add timestamp to force fresh query and avoid caching
+    const { data: allSessionsData, error: sessionsError } = await supabase
       .schema('pos')
       .from('table_sessions')
-      .select(`
-        *,
-        orders:table_orders(*)
-      `)
-      .is('session_end', null);
+      .select('*')
+      .gte('created_at', '2020-01-01') // Force index usage to avoid cache
+      .order('updated_at', { ascending: false }); // Get most recently updated first
+    
+    // Filter for active sessions (exclude paid and closed sessions)
+    const sessionsData = allSessionsData?.filter(session => 
+      session.session_end === null && session.status !== 'paid'
+    ) || [];
 
     if (sessionsError) {
       console.error('Error fetching sessions:', sessionsError);
@@ -122,15 +130,7 @@ export async function GET(request: NextRequest) {
           notes: currentSession.notes,
           createdAt: new Date(currentSession.created_at),
           updatedAt: new Date(currentSession.updated_at),
-          orders: currentSession.orders?.map((order: any) => ({
-            id: order.id,
-            tableSessionId: order.table_session_id,
-            orderId: order.order_id,
-            orderNumber: order.order_number,
-            orderTotal: parseFloat(order.order_total),
-            orderStatus: order.order_status,
-            createdAt: new Date(order.created_at)
-          })) || [],
+          orders: [],
           booking: booking ? {
             id: booking.id,
             name: booking.name,
@@ -195,7 +195,15 @@ export async function GET(request: NextRequest) {
       summary
     };
 
-    return NextResponse.json(response);
+    // Add cache-busting headers to prevent stale data
+    const nextResponse = NextResponse.json(response);
+    nextResponse.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+    nextResponse.headers.set('Pragma', 'no-cache');
+    nextResponse.headers.set('Expires', '0');
+    nextResponse.headers.set('Last-Modified', new Date().toUTCString());
+    nextResponse.headers.set('ETag', `"${Date.now()}"`);
+    
+    return nextResponse;
 
   } catch (error) {
     console.error('Error in GET /api/pos/tables:', error);

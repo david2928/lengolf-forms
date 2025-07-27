@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
+import { getStaffIdFromPin, getCustomerIdFromBooking } from '@/lib/staff-helpers';
 import type { OpenTableRequest, OpenTableResponse, TableSession } from '@/types/pos';
 
 export async function POST(
@@ -16,11 +17,11 @@ export async function POST(
 
     const { tableId } = params;
     const body: OpenTableRequest = await request.json();
-    const { bookingId, staffPin, paxCount, notes } = body;
+    const { bookingId, staffPin, staffId, paxCount, notes } = body;
 
-    // Validate required fields
-    if (!staffPin) {
-      return NextResponse.json({ error: "Staff PIN is required" }, { status: 400 });
+    // Validate required fields - either staffId (preferred) or staffPin (legacy)
+    if (!staffId && !staffPin) {
+      return NextResponse.json({ error: "Staff ID or PIN is required" }, { status: 400 });
     }
 
     // Validate table exists and is available
@@ -37,21 +38,69 @@ export async function POST(
     }
 
     // Check if table is already occupied
-    const { data: existingSession, error: sessionCheckError } = await supabase
+    console.log(`🔍 Checking if table ${tableId} is occupied...`);
+    const { data: existingSessions, error: sessionCheckError } = await supabase
       .schema('pos')
       .from('table_sessions')
       .select('*')
       .eq('table_id', tableId)
-      .is('session_end', null)
-      .maybeSingle();
+      .eq('status', 'occupied')
+      .is('session_end', null);
 
     if (sessionCheckError) {
       console.error('Error checking existing session:', sessionCheckError);
       return NextResponse.json({ error: "Failed to check table status" }, { status: 500 });
     }
 
-    if (existingSession && existingSession.status === 'occupied') {
-      return NextResponse.json({ error: "Table is already occupied" }, { status: 409 });
+    console.log(`🔍 Found ${existingSessions?.length || 0} existing sessions for table ${tableId}`);
+
+    // If there are any open sessions, table is occupied
+    if (existingSessions && existingSessions.length > 0) {
+      // In development, allow more aggressive cleanup of orphaned sessions
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`Found ${existingSessions.length} existing sessions for table ${tableId}, checking for cleanup...`);
+        
+        // Check if sessions are truly orphaned (older than 1 hour with no recent activity)
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const orphanedSessions = existingSessions.filter(session => 
+          session.updated_at < oneHourAgo && session.total_amount === 0
+        );
+        
+        if (orphanedSessions.length > 0) {
+          console.log(`Cleaning up ${orphanedSessions.length} orphaned sessions...`);
+          for (const session of orphanedSessions) {
+            await supabase
+              .schema('pos')
+              .from('table_sessions')
+              .update({ 
+                status: 'closed', 
+                session_end: new Date().toISOString(),
+                notes: 'Auto-closed orphaned session (no activity, no orders)'
+              })
+              .eq('id', session.id);
+          }
+          
+          // Refresh the sessions check
+          const { data: refreshedSessions } = await supabase
+            .schema('pos')
+            .from('table_sessions')
+            .select('*')
+            .eq('table_id', tableId)
+            .eq('status', 'occupied')
+            .is('session_end', null);
+            
+          if (!refreshedSessions || refreshedSessions.length === 0) {
+            // Table is now available after cleanup
+            console.log('Table is now available after cleanup');
+          } else {
+            return NextResponse.json({ error: "Table is already occupied" }, { status: 409 });
+          }
+        } else {
+          return NextResponse.json({ error: "Table is already occupied" }, { status: 409 });
+        }
+      } else {
+        return NextResponse.json({ error: "Table is already occupied" }, { status: 409 });
+      }
     }
 
     // Validate booking if provided
@@ -74,8 +123,37 @@ export async function POST(
       defaultPaxCount = booking.number_of_people || 1;
     }
 
-    // Validate staff PIN (optional - could integrate with staff system)
-    // For now, we'll just validate that it's provided
+    // Resolve staff_id - use provided staffId or resolve from PIN
+    console.log(`🔍 Resolving staff ID for staffId: ${staffId}, staffPin: ${staffPin}`);
+    let resolvedStaffId: number | undefined = staffId;
+    if (!resolvedStaffId && staffPin) {
+      const staffIdFromPin = await getStaffIdFromPin(staffPin);
+      console.log(`🔍 Staff ID from PIN ${staffPin}: ${staffIdFromPin}`);
+      if (!staffIdFromPin) {
+        console.log(`❌ Invalid staff PIN: ${staffPin}`);
+        return NextResponse.json({ error: "Invalid staff PIN or inactive staff" }, { status: 400 });
+      }
+      resolvedStaffId = staffIdFromPin;
+    }
+    
+    // Validate staff exists and is active
+    const { data: staff, error: staffError } = await supabase
+      .schema('backoffice')
+      .from('staff')
+      .select('id, staff_name, is_active')
+      .eq('id', resolvedStaffId)
+      .eq('is_active', true)
+      .single();
+    
+    if (staffError || !staff) {
+      return NextResponse.json({ error: "Invalid or inactive staff" }, { status: 400 });
+    }
+
+    // Resolve customer_id from booking if provided
+    let customerId: string | null = null;
+    if (bookingId) {
+      customerId = await getCustomerIdFromBooking(bookingId);
+    }
 
     // Determine final pax count
     const finalPaxCount = paxCount || defaultPaxCount;
@@ -88,13 +166,14 @@ export async function POST(
       );
     }
 
-    // Create new table session
+    // Create new table session with normalized foreign keys
     const sessionData = {
       table_id: tableId,
       status: 'occupied',
       pax_count: finalPaxCount,
       booking_id: bookingId || null,
-      staff_pin: staffPin,
+      staff_id: resolvedStaffId,
+      customer_id: customerId,
       session_start: new Date().toISOString(),
       session_end: null,
       total_amount: 0,
@@ -105,10 +184,7 @@ export async function POST(
       .schema('pos')
       .from('table_sessions')
       .insert(sessionData)
-      .select(`
-        *,
-        orders:table_orders(*)
-      `)
+      .select('*')
       .single();
 
     if (createError) {
@@ -137,7 +213,7 @@ export async function POST(
       status: newSession.status,
       paxCount: newSession.pax_count,
       bookingId: newSession.booking_id,
-      staffPin: newSession.staff_pin,
+      staffPin: staffPin || undefined,
       sessionStart: newSession.session_start ? new Date(newSession.session_start) : undefined,
       sessionEnd: newSession.session_end ? new Date(newSession.session_end) : undefined,
       totalAmount: parseFloat(newSession.total_amount || '0'),

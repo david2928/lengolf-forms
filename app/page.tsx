@@ -8,6 +8,8 @@ import { LucideIcon } from 'lucide-react'
 import { usePackageMonitor } from '@/hooks/use-package-monitor'
 import { menuItems as appMenuItems, type MenuItem as AppMenuItemType } from '@/config/menu-items'
 import { ScreenSizeIndicator } from '@/components/ui/screen-size-indicator'
+import { useSession } from 'next-auth/react'
+import React from 'react'
 
 interface MenuItemProps {
   icon: LucideIcon;
@@ -25,10 +27,6 @@ const packageItems = appMenuItems.filter(item =>
   item.title === "Create Package" || item.title === "Update Package Usage" || item.title === "Package Monitor"
 );
 
-const operationsItems = appMenuItems.filter(item => 
-  item.title === "Inventory Management" || item.title === "Staff Time Clock" || item.title === "Staff Schedule"
-);
-
 const coachingItems = appMenuItems.filter(item => 
   item.title === "Coaching Assistant"
 );
@@ -36,6 +34,32 @@ const coachingItems = appMenuItems.filter(item =>
 export default function Home() {
   const router = useRouter()
   const { data: packageData } = usePackageMonitor()
+  const { data: session } = useSession()
+  const [isClient, setIsClient] = React.useState(false)
+  
+  React.useEffect(() => {
+    setIsClient(true)
+  }, [])
+  
+  // Development bypass - show admin features even without authentication
+  const shouldBypass = (
+    process.env.NODE_ENV === 'development' &&
+    process.env.NEXT_PUBLIC_SKIP_AUTH === 'true'
+  );
+  
+  // Only apply role-based filtering after client hydration to avoid hydration mismatch
+  const isAdmin = isClient && (shouldBypass ? true : (session?.user?.isAdmin || false));
+  
+  // Filter operations items based on admin status
+  const operationsItems = appMenuItems.filter(item => {
+    if (item.title === "Inventory Management" || item.title === "Staff Time Clock") {
+      return true; // Available to all users
+    }
+    if (item.title === "POS System") {
+      return isAdmin; // Only available to admins
+    }
+    return false;
+  });
 
 
   // Calculate separate counts for diamond and early bird packages

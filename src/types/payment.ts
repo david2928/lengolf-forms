@@ -24,6 +24,7 @@ export interface PaymentAllocation {
   method: PaymentMethod;
   amount: number;
   percentage?: number;
+  reference?: string;
 }
 
 export interface TransactionItem {

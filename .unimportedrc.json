@@ -1,0 +1,26 @@
+{
+  "entry": [
+    "app/**/*.tsx",
+    "app/**/*.ts",
+    "src/middleware.ts"
+  ],
+  "extensions": [".ts", ".tsx", ".js", ".jsx"],
+  "ignorePatterns": [
+    "*.test.*",
+    "*.spec.*",
+    "*.d.ts",
+    ".next/**",
+    "scripts/**"
+  ],
+  "ignoreUnimported": [
+    "next.config.js",
+    "tailwind.config.ts",
+    "postcss.config.js"
+  ],
+  "ignoreUnused": [
+    "@types/*",
+    "eslint*",
+    "prettier",
+    "typescript"
+  ]
+}

@@ -253,13 +253,18 @@ export class PaymentCompleter {
         console.log(`🔍 PaymentCompleter: Force closing session ${tableSessionId} with unpaid: ฿${paymentStatus.totalUnpaid}`);
       }
 
-      // Update table session status - set pax_count to 0 for 'free' status to satisfy check constraint
+      // PaymentCompleter should only handle 'paid' status (successful payment completion)
+      // Cancellations should use TableSessionService instead
+      if (forceClose) {
+        throw new Error('PaymentCompleter should not handle cancellations. Use TableSessionService.cancelSession() instead.');
+      }
+      
       const { error } = await supabase
         .schema('pos')
         .from('table_sessions')
         .update({
-          status: 'free',
-          pax_count: 0, // Required for 'free' status to satisfy valid_pax_for_status constraint
+          status: 'paid',
+          pax_count: 0,
           session_end: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -268,6 +273,9 @@ export class PaymentCompleter {
       if (error) {
         throw new Error(`Failed to close table session: ${error.message}`);
       }
+
+      // PaymentCompleter only handles paid completions, not cancellations
+      // Orders are marked as 'completed' when payment is successful
 
       console.log(`Table session ${tableSessionId} closed by ${staffPin}: ${reason}`);
       return true;
@@ -292,8 +300,8 @@ export class PaymentCompleter {
       .schema('pos')
       .from('table_sessions')
       .update({
-        status: 'free',
-        pax_count: 0, // Required for 'free' status to satisfy valid_pax_for_status constraint
+        status: 'paid',
+        pax_count: 0, // Reset pax count for paid status
         session_end: new Date().toISOString(),
         total_amount: paymentAmount, // Set final payment amount
         current_order_items: null, // Clear current order items

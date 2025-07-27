@@ -30,7 +30,7 @@ export interface Table {
   currentSession?: TableSession;
 }
 
-export type TableStatus = 'free' | 'occupied';
+export type TableStatus = 'occupied' | 'paid' | 'closed';
 
 export interface TableSession {
   id: string;
@@ -125,7 +125,8 @@ export interface ZoneSummary {
 
 export interface OpenTableRequest {
   bookingId?: string; // Optional for walk-ins initially
-  staffPin: string; // From current PIN session
+  staffPin?: string; // Legacy: From current PIN session
+  staffId?: number; // Preferred: Staff ID from authenticated session
   paxCount?: number; // Optional override of booking.numberOfPeople
   notes?: string;
 }
@@ -163,6 +164,7 @@ export interface CloseTableResponse {
 export interface TransferTableRequest {
   fromTableId: string;
   toTableId: string;
+  staffPin: string; // Required for staff validation
   orderIds?: string[]; // Optional: specific orders to transfer
   transferAll?: boolean;
 }
@@ -203,6 +205,7 @@ export interface TableCardProps {
   onStatusChange: (tableId: string, status: TableStatus) => void;
   onPayment?: (table: Table) => void;
   closeTable: (tableId: string, request?: CloseTableRequest) => Promise<CloseTableResponse>;
+  isSelected?: boolean;
 }
 
 export interface TableDetailModalProps {

@@ -152,4 +152,7 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 4. **Deployment Guide** - Production deployment procedures
 5. **Troubleshooting Guide** - Common issues and solutions
 
+### Maintenance Documentation
+- **[Unused Code Analysis](./maintenance/UNUSED_CODE_ANALYSIS.md)** - Comprehensive analysis of unused components, hooks, services, and NPM packages with safe removal procedures and manual verification requirements
+
 **Purpose**: This documentation supports current operations, system maintenance, developer onboarding, and knowledge transfer for the Lengolf Forms golf academy management system. 

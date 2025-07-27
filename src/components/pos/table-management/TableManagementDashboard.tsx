@@ -4,12 +4,15 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Wifi, WifiOff, Plus, Table2, Home } from 'lucide-react';
+import { RefreshCw, Wifi, WifiOff, Plus, Table2, Home, User } from 'lucide-react';
 import { useTableManagement } from '@/hooks/use-table-management';
+import { usePOSStaffAuth } from '@/hooks/use-pos-staff-auth';
 import { TableCard } from './TableCard';
 import { TableDetailModal } from './TableDetailModal';
 import { PaymentInterface } from '../payment/PaymentInterface';
-import type { Table, TableSession } from '@/types/pos';
+import { OccupiedTableDetailsPanel } from './OccupiedTableDetailsPanel';
+import { CancelTableModal } from './CancelTableModal';
+import type { Table, TableSession, TableStatus } from '@/types/pos';
 import type { PaymentProcessingResponse } from '@/types/payment';
 
 export interface TableManagementDashboardProps {
@@ -18,6 +21,7 @@ export interface TableManagementDashboardProps {
 
 export function TableManagementDashboard({ onTableSelect }: TableManagementDashboardProps = {}) {
   const router = useRouter();
+  const { currentStaff, logout } = usePOSStaffAuth();
   const {
     tables,
     zones,
@@ -35,15 +39,21 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedPaymentTable, setSelectedPaymentTable] = useState<Table | null>(null);
   const [showPaymentInterface, setShowPaymentInterface] = useState(false);
+  
+  // New states for occupied table selection
+  const [selectedOccupiedTable, setSelectedOccupiedTable] = useState<Table | null>(null);
+  const [showOccupiedDetailsPanel, setShowOccupiedDetailsPanel] = useState(false);
+  const [showOccupiedCancelModal, setShowOccupiedCancelModal] = useState(false);
 
   const handleTableClick = (table: Table) => {
-    // If table is already occupied and we have onTableSelect, go directly to POS interface
-    if (table.currentSession?.status === 'occupied' && onTableSelect) {
-      onTableSelect(table.currentSession);
+    // If table is already occupied, show the occupied table details panel
+    if (table.currentSession?.status === 'occupied') {
+      setSelectedOccupiedTable(table);
+      setShowOccupiedDetailsPanel(true);
       return;
     }
     
-    // Otherwise, show the table detail modal
+    // Otherwise, show the table detail modal for opening tables
     setSelectedTable(table);
     setIsDetailModalOpen(true);
   };
@@ -80,14 +90,12 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
     setSelectedPaymentTable(null);
   };
 
-  const handleTableStatusChange = async (tableId: string, status: 'free' | 'occupied') => {
+  const handleTableStatusChange = async (tableId: string, status: TableStatus) => {
     try {
-      if (status === 'free') {
-        const table = tables.find(t => t.id === tableId);
-        if (table?.currentSession?.status === 'occupied') {
-          await closeTable(tableId);
-        }
-      }
+      // With the new status design, this function may not be needed
+      // Tables either have no session or have an active session
+      // Status changes happen through specific actions (payment, cancellation)
+      console.log('Status change requested:', { tableId, status });
     } catch (error) {
       console.error('Error changing table status:', error);
     }
@@ -125,6 +133,53 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
     }
   };
 
+  // Handlers for occupied table details panel
+  const handleOccupiedTableAddOrder = () => {
+    if (selectedOccupiedTable?.currentSession && onTableSelect) {
+      onTableSelect(selectedOccupiedTable.currentSession);
+      setShowOccupiedDetailsPanel(false);
+      setSelectedOccupiedTable(null);
+    }
+  };
+
+  const handleOccupiedTablePayment = () => {
+    if (selectedOccupiedTable) {
+      setShowOccupiedDetailsPanel(false);
+      handlePayment(selectedOccupiedTable);
+      setSelectedOccupiedTable(null);
+    }
+  };
+
+  const handleOccupiedTableCancel = () => {
+    if (selectedOccupiedTable) {
+      setShowOccupiedDetailsPanel(false);
+      setShowOccupiedCancelModal(true);
+    }
+  };
+
+  const handleOccupiedCancelConfirm = async (staffPin: string, reason: string) => {
+    if (!selectedOccupiedTable) return;
+    
+    try {
+      await closeTable(selectedOccupiedTable.id, {
+        reason,
+        staffPin,
+        forceClose: true
+      });
+      
+      setShowOccupiedCancelModal(false);
+      setSelectedOccupiedTable(null);
+    } catch (error) {
+      console.error('Error cancelling occupied table:', error);
+      throw error; // Re-throw to let the modal handle error display
+    }
+  };
+
+  const handleOccupiedTableClose = () => {
+    setShowOccupiedDetailsPanel(false);
+    setSelectedOccupiedTable(null);
+  };
+
   if (error) {
     return (
       <div className="h-full flex items-center justify-center bg-red-50">
@@ -142,72 +197,93 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
     );
   }
 
-  // Show payment interface if selected
-  if (showPaymentInterface && selectedPaymentTable?.currentSession) {
-    return (
-      <PaymentInterface
-        tableSessionId={selectedPaymentTable.currentSession.id}
-        tableNumber={selectedPaymentTable.displayName}
-        customerName={selectedPaymentTable.currentSession.customer?.name || selectedPaymentTable.currentSession.booking?.name}
-        totalAmount={selectedPaymentTable.currentSession.totalAmount}
-        onBack={handlePaymentBack}
-        onPaymentComplete={handlePaymentComplete}
-      />
-    );
-  }
+  // Create order object for PaymentModal
+  const createOrderFromSession = (table: Table) => {
+    const session = table.currentSession;
+    if (!session) return null;
+
+    return {
+      id: session.id,
+      tableSessionId: session.id,
+      orderNumber: `TABLE-${table.displayName}`,
+      customerId: session.customer?.id || session.booking?.customerId,
+      customerName: session.customer?.name || session.booking?.name,
+      staffPin: '', // Will be provided during payment
+      subtotal: session.totalAmount * (100/107), // Calculate subtotal from VAT-inclusive total
+      vatAmount: session.totalAmount * (7/107), // 7% VAT
+      totalAmount: session.totalAmount,
+      discountAmount: 0,
+      status: 'completed' as const,
+      items: [],
+      createdAt: new Date(session.sessionStart || new Date()),
+      updatedAt: new Date()
+    };
+  };
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header - Matching POS Header Style */}
+      {/* Compact Header */}
       <div className="bg-white border-b border-slate-200">
-        <div className="px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex items-center justify-between">
-            {/* Left: Title and Status */}
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div>
-                  <h1 className="text-lg font-semibold text-slate-900">Lengolf POS</h1>
-                  <div className="flex items-center space-x-3 text-sm text-slate-500">
-                    <div className="flex items-center gap-1">
-                      {isConnected ? (
-                        <Wifi className="w-4 h-4 text-green-600" />
-                      ) : (
-                        <WifiOff className="w-4 h-4 text-red-600" />
-                      )}
-                      <span>{isConnected ? 'Live' : 'Offline'}</span>
-                    </div>
-                    {summary && (
-                      <>
-                        <span>Free: {summary.availableTables}</span>
-                        <span>Occupied: {summary.occupiedTables}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Actions */}
-            <div className="flex items-center gap-2">
+        <div className="px-4 py-2 flex items-center justify-between">
+          {/* Left: Title */}
+          <h1 className="text-lg font-semibold text-slate-900">Lengolf POS</h1>
+          
+          {/* Right: Staff Info + Home Button */}
+          <div className="flex items-center gap-3">
+            {/* Staff Info - Clickable */}
+            {currentStaff && (
               <button
-                onClick={refreshTables}
-                disabled={isLoading}
-                className="flex items-center justify-center w-10 h-10 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-                title="Refresh Tables"
+                onClick={logout}
+                className="flex items-center space-x-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors"
               >
-                <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                <User className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">{currentStaff.staff_name}</span>
               </button>
-              <button
-                onClick={() => router.push('/')}
-                className="flex items-center justify-center w-10 h-10 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-                title="Back to Backoffice"
-              >
-                <Home className="w-5 h-5" />
-              </button>
-            </div>
+            )}
+            
+            {/* Home Button */}
+            <button
+              onClick={() => router.push('/')}
+              className="flex items-center justify-center w-8 h-8 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              title="Back to Backoffice"
+            >
+              <Home className="w-4 h-4" />
+            </button>
           </div>
         </div>
+      </div>
 
+      {/* Stats and Actions Bar */}
+      <div className="bg-slate-50 border-b border-slate-200 px-4 py-2">
+        <div className="flex items-center justify-between">
+          {/* Left: Status and Stats */}
+          <div className="flex items-center space-x-4 text-sm text-slate-600">
+            <div className="flex items-center gap-1">
+              {isConnected ? (
+                <Wifi className="w-4 h-4 text-green-600" />
+              ) : (
+                <WifiOff className="w-4 h-4 text-red-600" />
+              )}
+              <span>{isConnected ? 'Live' : 'Offline'}</span>
+            </div>
+            {summary && (
+              <>
+                <span>Free: {summary.availableTables}</span>
+                <span>Occupied: {summary.occupiedTables}</span>
+              </>
+            )}
+          </div>
+          
+          {/* Right: Refresh Button */}
+          <button
+            onClick={refreshTables}
+            disabled={isLoading}
+            className="flex items-center justify-center w-8 h-8 text-slate-700 bg-white rounded-lg hover:bg-slate-100 transition-colors border border-slate-200"
+            title="Refresh Tables"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Main Content Area - Scrollable */}
@@ -256,6 +332,7 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
                           onStatusChange={handleTableStatusChange}
                           onPayment={handlePayment}
                           closeTable={closeTable}
+                          isSelected={selectedOccupiedTable?.id === table.id}
                         />
                       ))
                   ) : (
@@ -272,6 +349,7 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
                             onStatusChange={handleTableStatusChange}
                             onPayment={handlePayment}
                             closeTable={closeTable}
+                            isSelected={selectedOccupiedTable?.id === table.id}
                           />
                         ))
                       }
@@ -327,6 +405,41 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
           }}
           onOpenTable={handleOpenTable}
         />
+      )}
+
+      {/* Occupied Table Details Panel */}
+      <OccupiedTableDetailsPanel
+        table={selectedOccupiedTable}
+        isOpen={showOccupiedDetailsPanel}
+        onClose={handleOccupiedTableClose}
+        onAddOrder={handleOccupiedTableAddOrder}
+        onPayment={handleOccupiedTablePayment}
+        onCancel={handleOccupiedTableCancel}
+      />
+
+      {/* Occupied Table Cancel Modal */}
+      {selectedOccupiedTable && (
+        <CancelTableModal
+          isOpen={showOccupiedCancelModal}
+          table={selectedOccupiedTable}
+          onClose={() => setShowOccupiedCancelModal(false)}
+          onConfirm={handleOccupiedCancelConfirm}
+        />
+      )}
+
+      {/* Payment Interface */}
+      {showPaymentInterface && selectedPaymentTable && selectedPaymentTable.currentSession && (
+        <div className="fixed inset-0 z-50 bg-white">
+          <PaymentInterface
+            order={createOrderFromSession(selectedPaymentTable)!}
+            tableSessionId={selectedPaymentTable.currentSession.id}
+            tableNumber={selectedPaymentTable.displayName}
+            customerName={selectedPaymentTable.currentSession.customer?.name || selectedPaymentTable.currentSession.booking?.name}
+            totalAmount={selectedPaymentTable.currentSession.totalAmount}
+            onBack={handlePaymentBack}
+            onPaymentComplete={handlePaymentComplete}
+          />
+        </div>
       )}
 
     </div>

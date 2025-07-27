@@ -4,9 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Check, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Order } from '@/types/pos';
-import { PaymentMethod, PaymentProcessingResponse } from '@/types/payment';
+import { PaymentMethod, PaymentProcessingResponse, PaymentAllocation } from '@/types/payment';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { usePOSStaffAuth } from '@/hooks/use-pos-staff-auth';
 import { generatePromptPayQR } from '@/services/PromptPayQRGenerator';
 import { StaffPinModal } from './StaffPinModal';
+import { bluetoothThermalPrinter, BluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
 
 interface PaymentInterfaceProps {
   order?: Order;
@@ -18,7 +22,7 @@ interface PaymentInterfaceProps {
   onPaymentComplete: (result: PaymentProcessingResponse) => void;
 }
 
-type PaymentStep = 'method-selection' | 'payment-screen' | 'processing' | 'success';
+type PaymentStep = 'method-selection' | 'split-management' | 'payment-screen' | 'processing' | 'success';
 
 export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   order,
@@ -29,6 +33,7 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   onBack,
   onPaymentComplete
 }) => {
+  const { currentStaff } = usePOSStaffAuth();
   const [currentStep, setCurrentStep] = useState<PaymentStep>('method-selection');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -36,6 +41,24 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   const [paymentResult, setPaymentResult] = useState<PaymentProcessingResponse | null>(null);
   const [showStaffPinModal, setShowStaffPinModal] = useState(false);
   const [staffPin, setStaffPin] = useState<string>('');
+  const [splitPayments, setSplitPayments] = useState<PaymentAllocation[]>([]);
+  const [isSplitPayment, setIsSplitPayment] = useState(false);
+  const [showAmountInput, setShowAmountInput] = useState(false);
+  const [selectedSplitMethod, setSelectedSplitMethod] = useState<PaymentMethod | null>(null);
+  const [inputAmount, setInputAmount] = useState<string>('');
+  const [isBluetoothSupported, setIsBluetoothSupported] = useState<boolean>(false);
+  const [bluetoothConnected, setBluetoothConnected] = useState<boolean>(false);
+
+  // Check for Bluetooth support on component mount
+  useEffect(() => {
+    const checkBluetoothSupport = () => {
+      const supported = BluetoothThermalPrinter.isSupported();
+      setIsBluetoothSupported(supported);
+      console.log('📱 Bluetooth support detected:', supported);
+    };
+    
+    checkBluetoothSupport();
+  }, []);
 
   const formatCurrency = (amount: number): string => {
     return `฿${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -113,12 +136,149 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
     setCurrentStep('payment-screen');
   };
 
+  const handleSplitPayment = () => {
+    setIsSplitPayment(true);
+    setCurrentStep('split-management');
+  };
+
+  const addSplitPayment = (method: PaymentMethod, amount: number) => {
+    const newPayment: PaymentAllocation = {
+      method,
+      amount,
+      percentage: (amount / totalAmount) * 100
+    };
+    setSplitPayments(prev => [...prev, newPayment]);
+  };
+
+  const handleSplitMethodSelect = (method: PaymentMethod) => {
+    setSelectedSplitMethod(method);
+    setInputAmount('');
+    setShowAmountInput(true);
+  };
+
+  const handleAmountConfirm = () => {
+    const amount = parseFloat(inputAmount);
+    const editingIndex = (window as any).editingPaymentIndex;
+    
+    if (editingIndex !== undefined) {
+      // Editing existing payment
+      if (amount > 0 && selectedSplitMethod) {
+        const updatedPayments = [...splitPayments];
+        const oldAmount = updatedPayments[editingIndex].amount;
+        const availableAmount = getRemainingAmount() + oldAmount; // Add back the old amount
+        
+        if (amount <= availableAmount) {
+          updatedPayments[editingIndex] = {
+            method: selectedSplitMethod,
+            amount: amount,
+            percentage: (amount / totalAmount) * 100
+          };
+          setSplitPayments(updatedPayments);
+          setShowAmountInput(false);
+          setSelectedSplitMethod(null);
+          setInputAmount('');
+          (window as any).editingPaymentIndex = undefined;
+        }
+      }
+    } else {
+      // Adding new payment
+      if (amount > 0 && amount <= getRemainingAmount() && selectedSplitMethod) {
+        addSplitPayment(selectedSplitMethod, amount);
+        setShowAmountInput(false);
+        setSelectedSplitMethod(null);
+        setInputAmount('');
+      }
+    }
+  };
+
+  const handleAmountCancel = () => {
+    setShowAmountInput(false);
+    setSelectedSplitMethod(null);
+    setInputAmount('');
+    (window as any).editingPaymentIndex = undefined;
+  };
+
+  const removeSplitPayment = (index: number) => {
+    setSplitPayments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const getTotalSplitAmount = () => {
+    return splitPayments.reduce((sum, payment) => sum + payment.amount, 0);
+  };
+
+  const getRemainingAmount = () => {
+    return totalAmount - getTotalSplitAmount();
+  };
+
+  const completeSplitPayment = async (providedPin?: string) => {
+    // Check if we have a PIN - if not, show the PIN modal
+    if (!providedPin && !staffPin) {
+      console.log('🔍 PaymentInterface: No PIN provided for split payment, showing staff PIN modal');
+      setShowStaffPinModal(true);
+      return;
+    }
+    
+    setIsProcessing(true);
+    
+    try {
+      const paymentRequest = {
+        tableSessionId: tableSessionId || order?.tableSessionId,
+        paymentMethods: splitPayments,
+        staffId: currentStaff?.id,
+        staffName: currentStaff?.staff_name,
+        staffPin: providedPin || staffPin,
+        customerName,
+        tableNumber,
+        closeTableSession: true
+      };
+      
+      console.log('🔍 Split Payment Request:', JSON.stringify(paymentRequest, null, 2));
+      
+      const response = await fetch('/api/pos/payments/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paymentRequest)
+      });
+      
+      const result = await response.json();
+      console.log('🔍 Split Payment Response:', JSON.stringify(result, null, 2));
+      
+      if (!response.ok) {
+        // Check if staff authentication is required
+        if (result.requiresStaffAuth) {
+          console.log('🔍 PaymentInterface: Staff authentication required for split payment, showing PIN modal');
+          setShowStaffPinModal(true);
+          setIsProcessing(false);
+          return;
+        }
+        
+        // Handle errors
+        const errorMessage = result.errors?.join(', ') || 'Split payment processing failed';
+        throw new Error(errorMessage);
+      }
+      
+      setPaymentResult(result);
+      setCurrentStep('success');
+      
+    } catch (error) {
+      console.error('Split payment failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Split payment failed: ${errorMessage}`);
+      setIsProcessing(false);
+    }
+  };
+
   const handleStaffPinSuccess = (pin: string) => {
-    console.log('🔍 PaymentInterface: Staff PIN success, retrying payment with closeTableSession: true');
+    console.log('🔍 PaymentInterface: Staff PIN success, retrying payment with PIN');
     setStaffPin(pin);
     setShowStaffPinModal(false);
-    // Retry payment with the PIN
-    handleConfirmPayment(pin);
+    
+    // Retry payment with PIN
+    if (isSplitPayment) {
+      completeSplitPayment(pin);
+    } else {
+      handleConfirmPayment(pin);
+    }
   };
 
   const handleStaffPinCancel = () => {
@@ -129,20 +289,29 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   const handleConfirmPayment = async (providedPinOrEvent?: string | React.MouseEvent) => {
     if (!selectedMethod) return;
     
-    setIsProcessing(true);
-    
     // Extract PIN from parameter - if it's a string, use it; if it's an event, ignore it
     const providedPin = typeof providedPinOrEvent === 'string' ? providedPinOrEvent : undefined;
+    
+    // Check if we have a PIN - if not, show the PIN modal
+    if (!providedPin && !staffPin) {
+      console.log('🔍 PaymentInterface: No PIN provided, showing staff PIN modal');
+      setShowStaffPinModal(true);
+      return;
+    }
+    
+    setIsProcessing(true);
     
     try {
       const paymentRequest = {
         tableSessionId: tableSessionId || order?.tableSessionId,
-        paymentMethods: [{
+        paymentMethods: isSplitPayment ? splitPayments : [{
           method: selectedMethod,
           amount: totalAmount,
           percentage: 100
         }],
-        staffPin: providedPin || staffPin || order?.staffPin || '',
+        staffId: currentStaff?.id,
+        staffName: currentStaff?.staff_name,
+        staffPin: providedPin || staffPin,
         customerName,
         tableNumber,
         closeTableSession: true
@@ -183,10 +352,98 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
     }
   };
 
-  const handlePrintReceipt = () => {
-    if (paymentResult?.receiptNumber) {
-      const receiptUrl = `/api/pos/receipts/${paymentResult.receiptNumber}`;
-      window.open(receiptUrl, '_blank', 'width=300,height=600');
+  const handlePrintReceipt = async () => {
+    if (!paymentResult?.receiptNumber) return;
+    
+    try {
+      setIsProcessing(true);
+      
+      // Check if we should use Bluetooth (Android/mobile) or Windows printing
+      if (isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+        await handleBluetoothPrint();
+      } else {
+        await handleWindowsPrint();
+      }
+      
+    } catch (error) {
+      console.error('Print error:', error);
+      alert(`❌ Print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleBluetoothPrint = async () => {
+    try {
+      // First get receipt data from API
+      const response = await fetch('/api/pos/print-bluetooth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiptNumber: paymentResult!.receiptNumber
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to get receipt data');
+      }
+      
+      // Connect to Bluetooth printer if not already connected
+      if (!bluetoothConnected) {
+        const connected = await bluetoothThermalPrinter.connect();
+        if (!connected) {
+          throw new Error('Failed to connect to Bluetooth printer');
+        }
+        setBluetoothConnected(true);
+      }
+      
+      // Print the receipt
+      await bluetoothThermalPrinter.printReceipt(result.receiptData);
+      
+      alert(`✅ Receipt printed successfully via Bluetooth!`);
+      
+    } catch (error) {
+      console.error('Bluetooth print error:', error);
+      
+      // Reset connection status on error
+      setBluetoothConnected(false);
+      
+      if (error instanceof Error && error.message.includes('User cancelled')) {
+        alert('❌ Bluetooth connection cancelled by user');
+      } else {
+        alert(`❌ Bluetooth print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+      
+      throw error;
+    }
+  };
+
+  const handleWindowsPrint = async () => {
+    try {
+      const response = await fetch('/api/pos/print-win32', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiptNumber: paymentResult!.receiptNumber
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`✅ Receipt printed successfully!`);
+      } else {
+        alert(`❌ Print failed: ${result.message || result.error}`);
+      }
+    } catch (error) {
+      console.error('Windows print error:', error);
+      throw error;
     }
   };
 
@@ -244,6 +501,228 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
             </div>
           </Button>
         ))}
+      </div>
+
+      {/* Split Payment Action Button */}
+      <div className="p-4 bg-white border-t border-slate-200">
+        <Button
+          variant="outline"
+          className="w-full h-12 text-base font-semibold border-2 border-dashed border-slate-300 hover:border-slate-400"
+          onClick={handleSplitPayment}
+        >
+          Split Payment
+        </Button>
+      </div>
+    </>
+  );
+
+  const renderSplitManagement = () => (
+    <>
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 p-4">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" onClick={() => setCurrentStep('method-selection')} className="p-2 -ml-2">
+            <ArrowLeft className="w-6 h-6" />
+          </Button>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-900">Split Payment</h1>
+            <div className="text-sm text-slate-500">
+              {tableNumber && `Table ${tableNumber}`}
+              {customerName && ` • ${customerName}`}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Total and Progress */}
+      <div className="bg-slate-50 border-b border-slate-200 p-6">
+        <div className="text-center mb-4">
+          <div className="text-sm text-slate-600 mb-1">Total Amount</div>
+          <div className="text-3xl font-bold text-slate-900 mb-2">
+            {formatCurrency(totalAmount)}
+          </div>
+          <div className="text-sm text-slate-600">
+            Remaining: {formatCurrency(getRemainingAmount())}
+          </div>
+        </div>
+        
+        {/* Progress Bar */}
+        <div className="w-full bg-slate-200 rounded-full h-3">
+          <div 
+            className="bg-green-600 h-3 rounded-full transition-all duration-300"
+            style={{ width: `${Math.min((getTotalSplitAmount() / totalAmount) * 100, 100)}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Split Payments List */}
+      <div className="flex-1 p-6 space-y-4 overflow-auto">
+        {splitPayments.map((payment, index) => (
+          <div key={index} className="p-4 bg-white border border-slate-200 rounded-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="font-medium text-slate-900">Payment {index + 1}</div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeSplitPayment(index)}
+                className="text-red-600 hover:text-red-700"
+              >
+                Remove
+              </Button>
+            </div>
+            
+            {/* Payment Method Selection */}
+            <div className="grid grid-cols-3 gap-2">
+              {paymentMethods.map((method) => (
+                <Button
+                  key={method.id}
+                  variant={payment.method === method.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    const updatedPayments = [...splitPayments];
+                    updatedPayments[index].method = method.id;
+                    setSplitPayments(updatedPayments);
+                  }}
+                  className="h-10 text-xs"
+                >
+                  {method.name}
+                </Button>
+              ))}
+            </div>
+            
+            {/* Amount Display and Edit */}
+            <div className="flex items-center justify-between">
+              <div className="text-slate-600">
+                Amount: {formatCurrency(payment.amount)}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedSplitMethod(payment.method);
+                  setInputAmount(payment.amount.toString());
+                  setShowAmountInput(true);
+                  // Store the index for editing
+                  (window as any).editingPaymentIndex = index;
+                }}
+                className="text-xs"
+              >
+                Edit Amount
+              </Button>
+            </div>
+          </div>
+        ))}
+        
+        {splitPayments.length === 0 && (
+          <>
+            <div className="text-center py-2">
+              <div className="text-sm text-slate-600 font-medium">Quick Split</div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <Button
+                variant="outline"
+                className="h-12 flex items-center justify-center hover:bg-slate-50"
+                onClick={() => {
+                  const half = totalAmount / 2;
+                  setSplitPayments([
+                    { method: PaymentMethod.CASH, amount: half, percentage: 50 },
+                    { method: PaymentMethod.CASH, amount: half, percentage: 50 }
+                  ]);
+                }}
+              >
+                <div className="font-medium text-slate-700">2-Way Split (50/50)</div>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="h-12 flex items-center justify-center hover:bg-slate-50"
+                onClick={() => {
+                  const third = totalAmount / 3;
+                  setSplitPayments([
+                    { method: PaymentMethod.CASH, amount: third, percentage: 33.33 },
+                    { method: PaymentMethod.CASH, amount: third, percentage: 33.33 },
+                    { method: PaymentMethod.CASH, amount: third, percentage: 33.34 }
+                  ]);
+                }}
+              >
+                <div className="font-medium text-slate-700">3-Way Split</div>
+              </Button>
+            </div>
+            
+            <div className="text-center py-2">
+              <div className="text-sm text-slate-600 font-medium">Custom Split</div>
+            </div>
+          </>
+        )}
+        
+        {(splitPayments.length === 0 || getRemainingAmount() > 0) && (
+          <>
+            {getRemainingAmount() > 0 && (
+              <div className="text-center py-2">
+                <div className="text-sm text-slate-600">Add payment for remaining {formatCurrency(getRemainingAmount())}</div>
+              </div>
+            )}
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  className="h-14 flex flex-col items-center justify-center hover:bg-slate-50"
+                  onClick={() => handleSplitMethodSelect(PaymentMethod.CASH)}
+                >
+                  <div className="font-medium text-slate-700">Cash</div>
+                  <div className="text-xs text-slate-600">Enter Amount</div>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-14 flex flex-col items-center justify-center hover:bg-slate-50"
+                  onClick={() => handleSplitMethodSelect(PaymentMethod.VISA_MANUAL)}
+                >
+                  <div className="font-medium text-slate-700">Visa</div>
+                  <div className="text-xs text-slate-600">Enter Amount</div>
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  className="h-14 flex flex-col items-center justify-center hover:bg-slate-50"
+                  onClick={() => handleSplitMethodSelect(PaymentMethod.MASTERCARD_MANUAL)}
+                >
+                  <div className="font-medium text-slate-700">Mastercard</div>
+                  <div className="text-xs text-slate-600">Enter Amount</div>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-14 flex flex-col items-center justify-center hover:bg-slate-50"
+                  onClick={() => handleSplitMethodSelect(PaymentMethod.PROMPTPAY_MANUAL)}
+                >
+                  <div className="font-medium text-slate-700">PromptPay</div>
+                  <div className="text-xs text-slate-600">Enter Amount</div>
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Button
+                  variant="outline"
+                  className="h-14 flex flex-col items-center justify-center hover:bg-slate-50"
+                  onClick={() => handleSplitMethodSelect(PaymentMethod.ALIPAY)}
+                >
+                  <div className="font-medium text-slate-700">Alipay</div>
+                  <div className="text-xs text-slate-600">Enter Amount</div>
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Complete Button */}
+      <div className="p-4 bg-white border-t border-slate-200">
+        <Button
+          className="w-full h-12 text-base font-semibold"
+          onClick={() => completeSplitPayment()}
+          disabled={isProcessing || getRemainingAmount() !== 0 || splitPayments.length === 0}
+        >
+          {isProcessing ? 'Processing...' : `Complete Payment (${formatCurrency(getTotalSplitAmount())})`}
+        </Button>
       </div>
     </>
   );
@@ -354,9 +833,20 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
           variant="outline"
           className="w-full h-12"
           onClick={handlePrintReceipt}
+          disabled={isProcessing}
         >
-          <Printer className="w-5 h-5 mr-2" />
-          Print Receipt
+          {isProcessing ? (
+            <>
+              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2" />
+              {isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ? 'Connecting...' : 'Printing...'}
+            </>
+          ) : (
+            <>
+              <Printer className="w-5 h-5 mr-2" />
+              {isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ? 'Print via Bluetooth' : 'Print Receipt'}
+              {bluetoothConnected && <span className="ml-2 text-xs text-green-600">• Connected</span>}
+            </>
+          )}
         </Button>
         
         <Button
@@ -372,6 +862,7 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-50">
       {currentStep === 'method-selection' && renderMethodSelection()}
+      {currentStep === 'split-management' && renderSplitManagement()}
       {currentStep === 'payment-screen' && renderPaymentScreen()}
       {currentStep === 'success' && renderSuccessScreen()}
       
@@ -383,6 +874,64 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
         title="Payment Authorization Required"
         description="Please enter your staff PIN to complete the payment"
       />
+      
+      {/* Amount Input Modal */}
+      <Dialog open={showAmountInput} onOpenChange={handleAmountCancel}>
+        <DialogContent className="max-w-md">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold mb-4">
+              {(window as any).editingPaymentIndex !== undefined ? 'Edit' : 'Enter'} {selectedSplitMethod} Amount
+            </h2>
+            <div className="text-sm text-slate-600 mb-4">
+              Maximum: {formatCurrency(
+                (window as any).editingPaymentIndex !== undefined 
+                  ? getRemainingAmount() + (splitPayments[(window as any).editingPaymentIndex]?.amount || 0)
+                  : getRemainingAmount()
+              )}
+            </div>
+            <div className="space-y-4">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-lg font-semibold text-slate-700">฿</span>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={inputAmount}
+                  onChange={(e) => setInputAmount(e.target.value)}
+                  className="pl-8 text-lg h-12"
+                  step="0.01"
+                  min="0"
+                  max={
+                    (window as any).editingPaymentIndex !== undefined 
+                      ? getRemainingAmount() + (splitPayments[(window as any).editingPaymentIndex]?.amount || 0)
+                      : getRemainingAmount()
+                  }
+                  autoFocus
+                />
+              </div>
+              <div className="flex space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={handleAmountCancel}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAmountConfirm}
+                  className="flex-1"
+                  disabled={!inputAmount || parseFloat(inputAmount) <= 0 || parseFloat(inputAmount) > (
+                    (window as any).editingPaymentIndex !== undefined 
+                      ? getRemainingAmount() + (splitPayments[(window as any).editingPaymentIndex]?.amount || 0)
+                      : getRemainingAmount()
+                  )}
+                >
+                  {(window as any).editingPaymentIndex !== undefined ? 'Update Payment' : 'Add Payment'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -31,36 +31,60 @@ export async function GET(
     const { data: ordersData, error: ordersError } = await supabase
       .schema('pos')
       .from('orders')
-      .select(`
-        *,
-        order_items(*)
-      `)
+      .select('*')
       .eq('table_session_id', sessionId)
       .order('created_at', { ascending: true });
+    
+    // Fetch order items separately
+    const { data: orderItemsData, error: itemsError } = await supabase
+      .schema('pos')
+      .from('order_items')
+      .select('*')
+      .in('order_id', ordersData?.map(o => o.id) || [])
+      .order('created_at', { ascending: true });
 
-    if (ordersError) {
-      console.error('Error fetching orders:', ordersError);
+    if (ordersError || itemsError) {
+      console.error('Error fetching orders:', ordersError || itemsError);
       return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
     }
 
+    // Get product information for order items to enrich the data
+    const productIds = orderItemsData?.map(item => item.product_id) || [];
+    let productsData: any[] = [];
+    
+    if (productIds.length > 0) {
+      const { data: products } = await supabase
+        .schema('products')
+        .from('products')
+        .select('id, name, category_id, categories(id, name)')
+        .in('id', productIds);
+      productsData = products || [];
+    }
+    
+    // Create a product lookup map
+    const productMap = new Map(productsData.map(p => [p.id, p]));
+
     // Transform the orders data to match the expected format
-    const orders = ordersData?.flatMap(order => 
-      order.order_items.map((item: any) => ({
+    const orders = orderItemsData?.map((item: any) => {
+      const order = ordersData?.find(o => o.id === item.order_id);
+      const product = productMap.get(item.product_id);
+      
+      return {
         id: item.id,
         productId: item.product_id,
-        productName: item.product_name,
-        categoryId: item.category_id,
-        categoryName: item.category_name,
+        productName: product?.name || 'Unknown Product',
+        categoryId: product?.category_id || null,
+        categoryName: product?.categories?.name || 'Unknown Category',
         quantity: item.quantity,
-        unitPrice: item.unit_price,
-        totalPrice: item.total_price,
+        unitPrice: parseFloat(item.unit_price),
+        totalPrice: parseFloat(item.total_price),
         modifiers: item.modifiers || [],
         notes: item.notes,
-        orderId: order.id,
-        orderNumber: order.order_number,
-        confirmedAt: order.created_at
-      }))
-    ) || [];
+        orderId: order?.id,
+        orderNumber: order?.order_number,
+        confirmedAt: order?.created_at
+      };
+    }) || [];
 
     // If no orders found in normalized tables, fallback to checking notes field for migration
     if (orders.length === 0 && tableSession.notes) {

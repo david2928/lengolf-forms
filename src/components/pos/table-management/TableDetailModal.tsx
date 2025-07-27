@@ -11,15 +11,16 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Users, Plus, Minus, Clock, Calendar, Search, ArrowLeft, Table2 } from 'lucide-react';
-import { useStaffPin } from '@/hooks/use-table-management';
+import { usePOSStaffAuth } from '@/hooks/use-pos-staff-auth';
 import { useBookingIntegration } from '@/hooks/use-booking-integration';
 import { getBayColor } from '@/lib/calendar-utils';
 import { BookingSelector } from './BookingSelector';
+import { StaffPinModal } from '../payment/StaffPinModal';
 import type { TableDetailModalProps, OpenTableRequest, Booking } from '@/types/pos';
 
 export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableDetailModalProps) {
   const router = useRouter();
-  const { currentPin, staffName, isLoggedIn } = useStaffPin();
+  const { currentStaff, session, isAuthenticated, login } = usePOSStaffAuth();
   const { getBayUpcomingBookings } = useBookingIntegration();
   
   // Get bay-specific upcoming bookings
@@ -33,6 +34,8 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Booking[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showAllBookings, setShowAllBookings] = useState(false);
+  const [showStaffPinModal, setShowStaffPinModal] = useState(false);
 
   const isOccupied = table.currentSession?.status === 'occupied';
 
@@ -73,16 +76,29 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
     setPaxCount(newCount);
   };
 
-  const handleOpenTable = async () => {
-    // For development, create a dummy staff PIN if not logged in
-    let staffPin = currentPin;
-    if (!staffPin && process.env.NODE_ENV === 'development') {
-      staffPin = 'DEV123';
-      console.log('Using development staff PIN');
+  const handleStaffPinSuccess = async (pin: string) => {
+    try {
+      const result = await login(pin);
+      if (result.success) {
+        setShowStaffPinModal(false);
+        // After successful login, try opening the table again
+        setTimeout(() => handleOpenTable(), 100);
+      } else {
+        throw new Error(result.error || 'Login failed');
+      }
+    } catch (error) {
+      // The StaffPinModal will handle the error display
+      throw error;
     }
+  };
 
-    if (!staffPin) {
-      alert('Please log in with your staff PIN first');
+  const handleOpenTable = async () => {
+    console.log('handleOpenTable called', { currentStaff, isAuthenticated, paxCount });
+    
+    // Check if we have valid staff authentication
+    if (!isAuthenticated || !currentStaff) {
+      console.log('No staff authentication, showing staff PIN modal');
+      setShowStaffPinModal(true);
       return;
     }
 
@@ -94,16 +110,25 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
     setIsSubmitting(true);
     try {
       const request: OpenTableRequest = {
-        staffPin,
+        staffId: currentStaff.id, // Use staff ID instead of PIN
         paxCount,
         notes: notes.trim() || undefined,
         bookingId: selectedBooking?.id
       };
 
+      console.log('Attempting to open table with request:', request);
       await onOpenTable(request);
     } catch (error) {
       console.error('Error opening table:', error);
-      alert(error instanceof Error ? error.message : 'Failed to open table');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to open table';
+      
+      // If the error is about invalid staff pin, trigger login
+      if (errorMessage.includes('Invalid staff pin') || errorMessage.includes('inactive staff')) {
+        console.log('Invalid staff PIN error, showing staff PIN modal');
+        setShowStaffPinModal(true);
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -145,43 +170,62 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
   if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-full max-h-full h-screen w-screen m-0 p-0 rounded-none sm:max-w-lg sm:max-h-[95vh] sm:h-auto sm:w-auto sm:m-auto sm:p-6 sm:rounded-lg focus:outline-none">
-        {/* Mobile Fullscreen Header - Matching POS Header Style */}
-        <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sm:hidden">
-          <div className="flex items-center space-x-4">
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent 
+        data-testid="table-detail-modal"
+        className="max-w-full max-h-full h-screen w-screen m-0 p-0 rounded-none sm:max-w-lg sm:max-h-[80vh] sm:h-auto sm:w-auto sm:m-auto sm:p-0 sm:rounded-lg focus:outline-none flex flex-col"
+      >
+        {/* Mobile Header */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 px-4 py-3 sm:hidden relative">
+          <div className="flex items-center space-x-3">
             <button
               onClick={onClose}
-              className="flex items-center justify-center w-10 h-10 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              className="flex items-center justify-center w-8 h-8 text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
             </button>
             
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-slate-100 rounded-lg">
-                <Table2 className="h-5 w-5 text-slate-700" />
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-md">
+                <span className="text-white font-bold text-sm">{table.displayName.charAt(table.displayName.length - 1)}</span>
               </div>
-              <div>
-                <h1 className="text-lg font-semibold text-slate-900">{table.displayName}</h1>
-                <div className="text-sm text-slate-500">
-                  {isOccupied ? 'Occupied' : 'Available'} • {table.maxPax} pax max
-                </div>
-              </div>
+              <h1 className="text-lg font-bold text-blue-900">{table.displayName}</h1>
             </div>
           </div>
+          
+          {/* Staff Info - Mobile */}
+          {currentStaff && (
+            <div className="mt-2 flex items-center space-x-2 bg-white/70 px-2 py-1 rounded-lg border border-blue-200 w-fit">
+              <Users className="w-3 h-3 text-blue-600" />
+              <span className="text-xs font-medium text-blue-900">{currentStaff.staff_name}</span>
+            </div>
+          )}
         </div>
         
-        {/* Desktop Header */}
-        <DialogHeader className="pb-2 hidden sm:block">
-          <DialogTitle className="flex items-center justify-between">
-            <span className="text-lg font-bold">{table.displayName}</span>
-            <Badge variant={isOccupied ? "default" : "secondary"} className="text-xs">
-              {isOccupied ? 'Occupied' : 'Available'}
-            </Badge>
-          </DialogTitle>
-        </DialogHeader>
+        {/* Desktop Header - Standard Dialog Structure */}
+        <div className="hidden sm:block">
+          <DialogHeader className="px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-md">
+                <span className="text-white font-bold text-sm">{table.displayName.charAt(table.displayName.length - 1)}</span>
+              </div>
+              <DialogTitle className="text-lg font-bold text-slate-900">{table.displayName}</DialogTitle>
+            </div>
+          </DialogHeader>
+          
+          {/* Staff Info Bar - Separate from header to avoid close button interference */}
+          {currentStaff && (
+            <div className="px-6 pb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+              <div className="flex items-center space-x-2 bg-white/70 px-3 py-1.5 rounded-lg border border-blue-200 w-fit">
+                <Users className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">{currentStaff.staff_name}</span>
+              </div>
+            </div>
+          )}
+        </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 sm:space-y-3 sm:p-0">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3 sm:px-4 sm:space-y-3">
           {/* Current Session Info (if occupied) */}
           {isOccupied && table.currentSession && (
             <Card className="bg-yellow-50 border-yellow-200">
@@ -208,18 +252,6 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
           )}
 
           {/* Staff Info */}
-          {isLoggedIn && (
-            <Card className="bg-blue-50 border-blue-200">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-blue-800">Staff: {staffName}</div>
-                    <div className="text-sm text-blue-600">PIN: {currentPin}</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {!isOccupied && (
             <>
@@ -228,54 +260,70 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                 <h3 className="text-lg font-bold text-gray-900 mb-3">Select Booking</h3>
                 
                 
-                {/* Bay-Specific Upcoming Bookings */}
+                {/* Bay-Specific Upcoming Bookings - Mobile Optimized */}
                 {bayUpcomingBookings.length > 0 && (
-                  <div className="space-y-6 mb-8">
+                  <div className="space-y-3 mb-6 sm:space-y-6 sm:mb-8 px-2">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                       <h3 className="text-base font-semibold text-gray-900">Upcoming Bookings</h3>
                     </div>
                     
-                    <div className="space-y-4">
-                      {bayUpcomingBookings.map((booking: Booking) => {
-                        const isSelected = selectedBooking?.id === booking.id;
+                    <div className="space-y-3 sm:space-y-6">
+                      {bayUpcomingBookings
+                        .filter((_, index) => showAllBookings || index === 0)
+                        .map((booking: Booking, index: number) => {
+                          const isSelected = selectedBooking?.id === booking.id;
+                          const originalIndex = showAllBookings ? index : 0;
+                          const isFirstBooking = originalIndex === 0;
                         
                         return (
                           <div 
                             key={`bay-${booking.id}`}
-                            className={`group relative rounded-2xl border-2 p-5 transition-all duration-300 cursor-pointer ${
+                            data-testid="booking-selector"
+                            data-booking-id={booking.id}
+                            className={`group relative rounded-xl border transition-all duration-300 cursor-pointer overflow-visible ${
                               isSelected 
-                                ? 'bg-blue-100 border-blue-500 shadow-xl ring-4 ring-blue-200 scale-[1.02]' 
+                                ? 'bg-blue-100 border-blue-500 shadow-lg ring-2 ring-blue-200' 
                                 : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md hover:bg-blue-50/30'
+                            } ${
+                              isFirstBooking 
+                                ? 'p-4 sm:p-5 border-2' 
+                                : 'p-3 sm:p-5'
                             }`}
                             onClick={() => handleBookingSelect(booking)}
                           >
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                {/* Customer name and phone - single line */}
-                                <div className="flex items-baseline gap-3 mb-3">
-                                  <div className="text-xl font-bold text-gray-900">
+                                {/* Customer name and phone - mobile optimized */}
+                                <div className={isFirstBooking ? "mb-3" : "mb-2"}>
+                                  <div className={`font-bold text-gray-900 break-words ${isFirstBooking ? "text-lg sm:text-xl" : "text-base"}`}>
                                     {booking.name}
                                   </div>
-                                  <div className="text-sm text-gray-500 font-medium">
+                                  <div className="text-sm text-gray-500 font-medium mt-1 break-all">
                                     {booking.phoneNumber}
                                   </div>
                                 </div>
                                 
-                                {/* Essential info - optimized spacing */}
-                                <div className="flex items-center gap-4 text-gray-700">
-                                  <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-lg">
+                                {/* Essential info - mobile optimized */}
+                                <div className={`flex items-center text-gray-700 ${isFirstBooking ? "gap-3 sm:gap-4" : "gap-2"}`}>
+                                  <div className={`flex items-center gap-2 bg-gray-100 rounded-lg ${isFirstBooking ? "px-3 py-1.5" : "px-2 py-1"}`}>
                                     <Users className="h-4 w-4 text-blue-600" />
-                                    <span className="font-semibold">{booking.numberOfPeople}</span>
+                                    <span className="font-semibold text-sm">{booking.numberOfPeople}</span>
                                   </div>
                                   
-                                  <div className="flex items-center gap-2 bg-gray-100 px-4 py-1.5 rounded-lg">
+                                  <div className={`flex items-center gap-2 bg-gray-100 rounded-lg ${isFirstBooking ? "px-3 py-1.5" : "px-2 py-1"}`}>
                                     <Clock className="h-4 w-4 text-green-600" />
-                                    <span className="font-semibold text-base">
+                                    <span className={`font-semibold ${isFirstBooking ? "text-base" : "text-sm"}`}>
                                       {booking.startTime} - {(() => {
                                         const [hours, minutes] = booking.startTime.split(':').map(Number);
-                                        const endHour = (hours + (booking.duration || 1)) % 24;
-                                        return `${endHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                                        const durationHours = Math.floor(booking.duration || 1);
+                                        const durationMinutes = Math.round(((booking.duration || 1) % 1) * 60);
+                                        
+                                        const totalMinutes = hours * 60 + minutes + durationHours * 60 + durationMinutes;
+                                        const endHour = Math.floor(totalMinutes / 60) % 24;
+                                        const endMinute = totalMinutes % 60;
+                                        
+                                        return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
                                       })()}
                                     </span>
                                   </div>
@@ -313,6 +361,28 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                           </div>
                         );
                       })}
+                      
+                      {/* Show More Button for Mobile */}
+                      {!showAllBookings && bayUpcomingBookings.length > 1 && (
+                        <button
+                          onClick={() => setShowAllBookings(true)}
+                          className="w-full sm:hidden p-3 text-center text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          <span className="text-sm font-medium">
+                            Show {bayUpcomingBookings.length - 1} more booking{bayUpcomingBookings.length > 2 ? 's' : ''}
+                          </span>
+                        </button>
+                      )}
+                      
+                      {/* Show Less Button for Mobile */}
+                      {showAllBookings && bayUpcomingBookings.length > 1 && (
+                        <button
+                          onClick={() => setShowAllBookings(false)}
+                          className="w-full sm:hidden p-2 text-center text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <span className="text-sm font-medium">Show less</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -360,7 +430,7 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                 )}
 
                 {/* Search for Other Bookings */}
-                <div className="space-y-6 mt-8">
+                <div className="space-y-6 mt-8 px-2">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-gray-400"></div>
                     <h3 className="text-base font-semibold text-gray-900">Search Other Bookings</h3>
@@ -385,28 +455,29 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                   {searchQuery.length >= 2 && (
                     <div className="mt-6">
                       {searchResults.length > 0 ? (
-                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                        <div className="space-y-4 max-h-64 overflow-y-auto overflow-x-visible px-2">
                           {searchResults.map((booking: Booking) => {
                             const isSelected = selectedBooking?.id === booking.id;
                             
                             return (
                               <div 
                                 key={`search-${booking.id}`}
-                                className={`group relative rounded-2xl border-2 p-4 transition-all duration-300 cursor-pointer ${
+                                className={`group relative rounded-2xl border-2 p-4 transition-all duration-300 cursor-pointer overflow-visible ${
                                   isSelected 
-                                    ? 'bg-blue-100 border-blue-500 shadow-xl ring-4 ring-blue-200 scale-[1.02]' 
+                                    ? 'bg-blue-100 border-blue-500 shadow-xl ring-4 ring-blue-200 transform scale-[1.01]' 
                                     : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md hover:bg-blue-50/30'
                                 }`}
+                                style={{ margin: isSelected ? '6px 2px' : '0px 2px' }}
                                 onClick={() => handleBookingSelect(booking)}
                               >
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
-                                    {/* Customer name and phone - single line */}
-                                    <div className="flex items-baseline gap-3 mb-2">
-                                      <div className="text-lg font-bold text-gray-900">
+                                    {/* Customer name and phone - responsive layout */}
+                                    <div className="mb-2">
+                                      <div className="text-lg font-bold text-gray-900 break-words">
                                         {booking.name}
                                       </div>
-                                      <div className="text-sm text-gray-500 font-medium">
+                                      <div className="text-sm text-gray-500 font-medium mt-1 break-all">
                                         {booking.phoneNumber}
                                       </div>
                                     </div>
@@ -593,8 +664,9 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
 
         </div>
 
+
         {/* Fixed Bottom Action Bar */}
-        <div className="bg-background border-t p-4 flex gap-3">
+        <div className="bg-background border-t px-4 py-3 sm:px-4 flex gap-3 flex-shrink-0">
           <Button 
             variant="outline" 
             onClick={onClose} 
@@ -606,6 +678,7 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
           
           {!isOccupied && (
             <Button
+              data-testid="open-table-button"
               onClick={handleOpenTable}
               disabled={isSubmitting || (table.zone.zoneType === 'bay' && !selectedBooking)}
               size="lg"
@@ -616,6 +689,18 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
           )}
         </div>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      
+      {/* Staff PIN Modal - Outside main dialog to avoid z-index issues */}
+      {showStaffPinModal && (
+        <StaffPinModal
+          isOpen={showStaffPinModal}
+          onSuccess={handleStaffPinSuccess}
+          onCancel={() => setShowStaffPinModal(false)}
+          title="Staff Authentication Required"
+          description="Please enter your staff PIN to open the table"
+        />
+      )}
+    </>
   );
 }

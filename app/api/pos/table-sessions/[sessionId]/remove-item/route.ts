@@ -38,26 +38,31 @@ export async function POST(
       );
     }
 
-    // Find the order item in the normalized tables
+    // Find the order item in the normalized tables using view
     const { data: orderItem, error: itemError } = await supabase
       .schema('pos')
-      .from('order_items')
-      .select(`
-        *,
-        order:orders(*)
-      `)
+      .from('v_order_items')
+      .select('*')
       .eq('id', itemId)
       .single();
+      
+    // Get the order details separately
+    const { data: orderData, error: orderError } = await supabase
+      .schema('pos')
+      .from('v_orders')
+      .select('*')
+      .eq('id', orderItem?.order_id)
+      .single();
 
-    if (itemError || !orderItem) {
+    if (itemError || !orderItem || orderError || !orderData) {
       return NextResponse.json(
-        { error: "Item not found in orders" },
+        { error: "Item or order not found" },
         { status: 404 }
       );
     }
 
     // Verify the order belongs to this table session
-    if (orderItem.order.table_session_id !== sessionId) {
+    if (orderData.table_session_id !== sessionId) {
       return NextResponse.json(
         { error: "Item does not belong to this table session" },
         { status: 403 }
@@ -129,12 +134,12 @@ export async function POST(
       .schema('pos')
       .from('orders')
       .update({
-        total_amount: orderItem.order.total_amount - amountToRemove,
-        subtotal_amount: (orderItem.order.total_amount - amountToRemove) / 1.07, // Remove tax
-        tax_amount: (orderItem.order.total_amount - amountToRemove) * 0.07,
+        total_amount: orderData.total_amount - amountToRemove,
+        subtotal_amount: (orderData.total_amount - amountToRemove) / 1.07, // Remove tax
+        tax_amount: (orderData.total_amount - amountToRemove) * 0.07,
         updated_at: new Date().toISOString()
       })
-      .eq('id', orderItem.order.id);
+      .eq('id', orderData.id);
 
     if (updateOrderError) {
       console.error('Failed to update order total:', updateOrderError);

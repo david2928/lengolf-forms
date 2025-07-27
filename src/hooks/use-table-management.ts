@@ -13,7 +13,13 @@ import type {
 } from '@/types/pos';
 
 const fetcher = async (url: string) => {
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    cache: 'no-store',
+    headers: {
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache'
+    }
+  });
   if (!res.ok) throw new Error('Failed to fetch tables');
   const data = await res.json();
   return data as GetTablesResponse;
@@ -179,6 +185,7 @@ export function useTableManagement() {
   }, [mutate]);
 
   const refreshTables = useCallback(async () => {
+    // Force refresh by revalidating
     await mutate();
   }, [mutate]);
 

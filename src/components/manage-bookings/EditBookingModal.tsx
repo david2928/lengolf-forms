@@ -886,6 +886,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
                   value={formData.package_id || null}
                   customerName={booking?.name || ''}
                   customerPhone={booking?.phone_number || ''}
+                  customerId={booking?.customer_id || null}
                   currentPackageName={booking?.package_name}
                   onChange={(packageId) => {
                     setFormData(prev => ({ 

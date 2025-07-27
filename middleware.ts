@@ -58,6 +58,31 @@ async function customMiddleware(request: NextRequest, event: NextFetchEvent) {
       } else if (req.nextUrl.pathname.startsWith('/staff-schedule')) {
         // Staff scheduling interface - allow all authenticated users
         return response;
+      } else if (req.nextUrl.pathname.startsWith('/pos') || req.nextUrl.pathname === '/pos') {
+        // POS system access - only allow admins
+        try {
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!,
+            process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!
+          );
+
+          const { data: user } = await supabase
+            .schema('backoffice')
+            .from('allowed_users')
+            .select('is_admin')
+            .eq('email', req.nextauth.token?.email)
+            .single();
+
+          // If user is not admin, redirect to home page
+          if (!user?.is_admin) {
+            return NextResponse.redirect(new URL('/', req.url));
+          }
+        } catch (error) {
+          // If there's an error checking roles, redirect to home
+          console.error('Error checking admin role for POS access:', error);
+          return NextResponse.redirect(new URL('/', req.url));
+        }
+        return response;
       } else {
         // For all other routes (including root '/'), check if user is coach-only
         try {

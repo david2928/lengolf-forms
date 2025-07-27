@@ -23,10 +23,7 @@ export async function GET(
       .select(`
         *,
         zone:zones(*),
-        current_session:table_sessions!left(
-          *,
-          orders:table_orders(*)
-        )
+        current_session:table_sessions!left(*)
       `)
       .eq('id', tableId)
       .eq('is_active', true)
@@ -76,15 +73,7 @@ export async function GET(
         notes: tableData.current_session.notes,
         createdAt: new Date(tableData.current_session.created_at),
         updatedAt: new Date(tableData.current_session.updated_at),
-        orders: tableData.current_session.orders?.map((order: any) => ({
-          id: order.id,
-          tableSessionId: order.table_session_id,
-          orderId: order.order_id,
-          orderNumber: order.order_number,
-          orderTotal: parseFloat(order.order_total),
-          orderStatus: order.order_status,
-          createdAt: new Date(order.created_at)
-        })) || [],
+        orders: [],
         booking: tableData.current_session.booking ? {
           id: tableData.current_session.booking.id,
           name: tableData.current_session.booking.name,

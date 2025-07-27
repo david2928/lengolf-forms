@@ -23,7 +23,7 @@ export async function GET(request: Request) {
       // Add active packages filter if specified
       if (active === 'true') {
         const today = new Date().toISOString().split('T')[0];
-        packageQuery = packageQuery.gt('expiration_date', today);
+        packageQuery = packageQuery.gte('expiration_date', today);
       }
 
       const { data: packagesData, error: packageError } = await packageQuery;

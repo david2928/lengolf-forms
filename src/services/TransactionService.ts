@@ -10,8 +10,53 @@ import {
   PaymentValidationError 
 } from '@/types/payment';
 import { formatPaymentMethodString, validatePaymentAmount, validateSplitPayments } from '@/config/payment-methods';
+import { PaymentMethod } from '@/types/payment';
+import { getStaffIdFromPin, getCustomerIdFromBooking } from '@/lib/staff-helpers';
 
 export class TransactionService {
+  // Cache for staff lookup to avoid redundant PIN verification
+  private staffCache = new Map<string, { id: number; name: string; timestamp: number }>();
+  private readonly STAFF_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  
+  /**
+   * Map frontend/legacy payment method to database format using the enum table
+   */
+  private async mapPaymentMethodToDatabase(method: string): Promise<string> {
+    try {
+      // First try to get from the payment methods enum table
+      const { data: paymentMethod, error } = await supabase
+        .schema('pos')
+        .from('payment_methods_enum')
+        .select('database_value')
+        .or(`code.eq.${method},legacy_names.cs.{${method}}`)
+        .eq('is_active', true)
+        .single();
+
+      if (!error && paymentMethod) {
+        return paymentMethod.database_value;
+      }
+
+      // Fallback to hardcoded mapping for backward compatibility
+      const methodMap: Record<string, string> = {
+        [PaymentMethod.CASH]: 'cash',
+        [PaymentMethod.VISA_MANUAL]: 'credit_card',
+        [PaymentMethod.MASTERCARD_MANUAL]: 'credit_card',
+        [PaymentMethod.PROMPTPAY_MANUAL]: 'qr_code',
+        [PaymentMethod.ALIPAY]: 'other',
+        'Cash_Legacy': 'cash',
+        'Visa_Manual_Legacy': 'credit_card',
+        'Mastercard_Manual_Legacy': 'credit_card',
+        'PromptPay_Manual_Legacy': 'qr_code',
+        'Alipay1_Legacy': 'other',
+        'QR Payment': 'qr_code'
+      };
+      
+      return methodMap[method] || 'other';
+    } catch (error) {
+      console.error('Error mapping payment method:', error);
+      return 'other';
+    }
+  }
   
   /**
    * Create a new transaction with items
@@ -26,80 +71,103 @@ export class TransactionService {
       customerName?: string;
       tableNumber?: string;
       notes?: string;
+      staffId?: number;
+      staffName?: string;
+      preResolvedStaffId?: number;
     } = {}
   ): Promise<Transaction> {
     
-    console.log('🔍 TransactionService: Starting transaction creation...');
+    const txStartTime = Date.now();
     
-    try {
-      // Validate inputs
-      console.log('🔍 TransactionService: Validating inputs...');
-      this.validateTransactionInputs(orderId, tableSessionId, paymentAllocations, staffPin);
-      console.log('✅ TransactionService: Input validation passed');
-    } catch (error) {
-      console.log('❌ TransactionService: Input validation failed:', error);
-      throw error;
+    // Validate inputs
+    this.validateTransactionInputs(orderId, tableSessionId, paymentAllocations, staffPin);
+    
+    // Use pre-resolved staff ID if available, otherwise resolve from PIN
+    const staffLookupStartTime = Date.now();
+    const preResolvedStaffId = options.preResolvedStaffId;
+    console.log('🔍 Debug - preResolvedStaffId:', preResolvedStaffId, 'type:', typeof preResolvedStaffId);
+    
+    let resolvedStaffId: number;
+    if (preResolvedStaffId && typeof preResolvedStaffId === 'number') {
+      resolvedStaffId = preResolvedStaffId;
+      console.log('✅ Using pre-resolved staff ID:', resolvedStaffId);
+    } else {
+      const staffIdFromPin = await this.getStaffIdFromPin(staffPin);
+      if (!staffIdFromPin) {
+        throw new PaymentError('Invalid staff PIN or inactive staff');
+      }
+      resolvedStaffId = staffIdFromPin;
+      console.log('🔍 Resolved staff ID from PIN:', resolvedStaffId);
     }
+    
+    console.log(`⏱️ Staff lookup took: ${Date.now() - staffLookupStartTime}ms (${preResolvedStaffId ? 'cached' : 'database'})`);
     
     // Get order details or table session data
-    console.log('🔍 TransactionService: Fetching order/session data...');
+    const orderStartTime = Date.now();
     let order: any;
-    try {
-      if (orderId) {
-        console.log('🔍 TransactionService: Fetching order by ID:', orderId);
-        order = await this.getOrderWithItems(orderId);
-      } else {
-        console.log('🔍 TransactionService: Fetching table session:', tableSessionId);
-        order = await this.getTableSessionForPayment(tableSessionId);
-      }
-      console.log('✅ TransactionService: Order/session data retrieved:', { total_amount: order?.total_amount });
-    } catch (error) {
-      console.log('❌ TransactionService: Failed to fetch order/session data:', error);
-      throw error;
+    if (orderId) {
+      order = await this.getOrderWithItems(orderId);
+    } else {
+      order = await this.getTableSessionForPayment(tableSessionId);
     }
+    console.log(`⏱️ Order/session fetch took: ${Date.now() - orderStartTime}ms`);
     
     // Validate payment amounts
-    try {
-      console.log('🔍 TransactionService: Validating payment amounts...');
-      this.validatePaymentAmounts(paymentAllocations, order.total_amount);
-      console.log('✅ TransactionService: Payment amount validation passed');
-    } catch (error) {
-      console.log('❌ TransactionService: Payment amount validation failed:', error);
-      throw error;
-    }
+    this.validatePaymentAmounts(paymentAllocations, order.total_amount);
     
     // Generate transaction identifiers
+    const receiptStartTime = Date.now();
     const transactionId = crypto.randomUUID();
     const receiptNumber = await this.generateReceiptNumber();
+    console.log(`⏱️ Receipt generation took: ${Date.now() - receiptStartTime}ms`);
     
     try {
+      // Get customer ID only once to avoid redundant lookups
+      const customerLookupStartTime = Date.now();
+      let customerIdBigint: string | null = null;
+      if (order.booking?.id) {
+        customerIdBigint = await this.getCustomerIdFromBooking(order.booking.id);
+      } else if (options.customerId && typeof options.customerId === 'string') {
+        customerIdBigint = options.customerId;
+      }
+      console.log(`⏱️ Customer lookup took: ${Date.now() - customerLookupStartTime}ms`);
+      
       // Create transaction record
-      const transaction = await this.createTransactionRecord(
+      const txRecordStartTime = Date.now();
+      const transaction = await this.createTransactionRecordOptimized(
         transactionId,
         receiptNumber,
         order,
         paymentAllocations,
         tableSessionId,
-        staffPin,
-        options,
-        orderId // Pass the original order ID parameter
+        resolvedStaffId,
+        customerIdBigint,
+        {
+          ...options,
+          customerId: options.customerId || order.customer_id,
+          customerName: options.customerName || order.customer_name
+        }
       );
+      console.log(`⏱️ Transaction record creation took: ${Date.now() - txRecordStartTime}ms`);
       
-      // Create transaction items
-      await this.createTransactionItems(
-        transactionId,
+      // Create transaction items  
+      const txItemsStartTime = Date.now();
+      await this.createTransactionItemsOptimized(
+        transaction.id, // Use the actual primary key from the created transaction
         order,
-        paymentAllocations,
         tableSessionId,
-        staffPin,
-        options
+        resolvedStaffId, // Use pre-resolved staff ID
+        customerIdBigint,
+        order.booking?.id || null
       );
+      console.log(`⏱️ Transaction items creation took: ${Date.now() - txItemsStartTime}ms`);
       
       // Update order status if orderId exists
       if (orderId) {
         await this.updateOrderStatus(orderId, 'completed');
       }
       
+      console.log(`⏱️ Total transaction creation took: ${Date.now() - txStartTime}ms`);
       return transaction;
       
     } catch (error) {
@@ -119,7 +187,7 @@ export class TransactionService {
     const { data, error } = await supabase
       .schema('pos')
       .from('transactions')
-      .select('*') // Avoid complex relationship joins to prevent schema cache issues
+      .select('*')
       .eq('transaction_id', transactionId)
       .single();
     
@@ -138,10 +206,10 @@ export class TransactionService {
       receipt: data.receipt_number 
     });
     
-    // Return transaction with empty items array to avoid relationship issues
+    // Return transaction with view data
     return {
       ...this.mapDatabaseTransactionToType(data),
-      items: [] // Skip transaction items to avoid relationship errors
+      items: [] // Transaction items loaded separately if needed
     };
   }
   
@@ -149,7 +217,7 @@ export class TransactionService {
    * Get transactions for a table session
    */
   async getTransactionsByTableSession(tableSessionId: string): Promise<Transaction[]> {
-    // Query transactions without the complex relationship join to avoid schema cache issues
+    // Query transactions from base table
     const { data: transactions, error } = await supabase
       .schema('pos')
       .from('transactions')
@@ -165,10 +233,10 @@ export class TransactionService {
       return [];
     }
     
-    // Map transactions and set empty items array to avoid relationship issues
+    // Map transactions with view data
     return transactions.map(transaction => ({
       ...this.mapDatabaseTransactionToType(transaction),
-      items: [] // Skip transaction items for now to avoid relationship errors
+      items: [] // Transaction items loaded separately if needed
     }));
   }
   
@@ -199,6 +267,33 @@ export class TransactionService {
   }
   
   // Private methods
+
+  private async getStaffIdFromPin(staffPin: string): Promise<number | null> {
+    // Check cache first
+    const cached = this.staffCache.get(staffPin);
+    if (cached && (Date.now() - cached.timestamp) < this.STAFF_CACHE_TTL) {
+      return cached.id;
+    }
+    
+    // Use the centralized helper function
+    const staffId = await getStaffIdFromPin(staffPin);
+    
+    // Cache the result if found
+    if (staffId) {
+      this.staffCache.set(staffPin, {
+        id: staffId,
+        name: 'Staff', // We don't need the name for caching
+        timestamp: Date.now()
+      });
+    }
+    
+    return staffId;
+  }
+
+  private async getCustomerIdFromBooking(bookingId: string): Promise<string | null> {
+    // Use the centralized helper function that returns BIGINT
+    return await getCustomerIdFromBooking(bookingId);
+  }
   
   private validateTransactionInputs(
     orderId: string | undefined,
@@ -301,6 +396,24 @@ export class TransactionService {
       console.log('❌ getTableSessionForPayment - table session not found:', error);
       throw new PaymentError(`Table session not found: ${tableSessionId}`);
     }
+
+    // Manually fetch booking data if booking_id exists
+    let bookingData = null;
+    if (tableSession.booking_id) {
+      console.log('🔍 getTableSessionForPayment - fetching booking data:', tableSession.booking_id);
+      const { data: booking, error: bookingError } = await supabase
+        .from('bookings')
+        .select('id, name, phone_number, customer_id')
+        .eq('id', tableSession.booking_id)
+        .single();
+      
+      if (!bookingError && booking) {
+        bookingData = booking;
+        console.log('✅ getTableSessionForPayment - booking data retrieved');
+      } else {
+        console.log('⚠️ getTableSessionForPayment - booking not found or error:', bookingError);
+      }
+    }
     
     console.log('🔍 getTableSessionForPayment - table session data:', {
       id: tableSession.id,
@@ -314,17 +427,43 @@ export class TransactionService {
     
     if (tableSession.current_order_items && Array.isArray(tableSession.current_order_items) && tableSession.current_order_items.length > 0) {
       console.log('🔍 getTableSessionForPayment - using current_order_items');
-      orderItems = tableSession.current_order_items.map((item: any, index: number) => ({
-        id: crypto.randomUUID(),
-        product_id: item.product_id || crypto.randomUUID(),
-        product_name: item.product_name || 'Unknown Item',
-        category_id: item.category_id || crypto.randomUUID(),
-        category_name: item.category_name || 'Unknown Category',
-        quantity: item.quantity || 1,
-        unit_price: item.unit_price || 0,
-        total_price: (item.quantity || 1) * (item.unit_price || 0),
-        modifiers: item.modifiers || [],
-      }));
+      
+      // Get product details for all items
+      const productIds = tableSession.current_order_items.map((item: any) => item.productId || item.product_id).filter(Boolean);
+      let productDetails: any = {};
+      
+      if (productIds.length > 0) {
+        const { data: products, error: productsError } = await supabase
+          .schema('products')
+          .from('products')
+          .select('id, name, category_id')
+          .in('id', productIds);
+        
+        if (!productsError && products) {
+          productDetails = products.reduce((acc: any, product: any) => {
+            acc[product.id] = product;
+            return acc;
+          }, {});
+        }
+      }
+      
+      orderItems = tableSession.current_order_items.map((item: any, index: number) => {
+        const productId = item.productId || item.product_id;
+        const product = productDetails[productId];
+        
+        return {
+          id: item.id || crypto.randomUUID(),
+          product_id: productId,
+          product_name: product?.name || item.product_name || 'Unknown Item',
+          category_id: product?.category_id || item.categoryId || item.category_id,
+          category_name: item.category_name || 'Unknown Category',
+          parent_category_name: item.parent_category_name || null,
+          quantity: item.quantity || 1,
+          unit_price: item.unitPrice || item.unit_price || 0, // Handle both camelCase and snake_case
+          total_price: item.totalPrice || item.total_price || ((item.quantity || 1) * (item.unitPrice || item.unit_price || 0)),
+          modifiers: item.modifiers || [],
+        };
+      });
       
       // Recalculate total from items if needed
       if (totalAmount <= 0) {
@@ -358,18 +497,42 @@ export class TransactionService {
         console.log('🔍 getTableSessionForPayment - using latest order items:', latestOrder.order_items?.length || 0);
         
         if (latestOrder.order_items && latestOrder.order_items.length > 0) {
-          orderItems = latestOrder.order_items.map((item: any) => ({
-            id: item.id,
-            product_id: item.product_id,
-            product_name: item.product_name,
-            category_id: item.category_id,
-            category_name: item.category_name,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            modifiers: item.modifiers || [],
-            notes: item.notes
-          }));
+          // Get product details for all items in the order
+          const productIds = latestOrder.order_items.map((item: any) => item.product_id).filter(Boolean);
+          let productDetails: any = {};
+          
+          if (productIds.length > 0) {
+            const { data: products, error: productsError } = await supabase
+              .schema('products')
+              .from('products')
+              .select('id, name, category_id')
+              .in('id', productIds);
+            
+            if (!productsError && products) {
+              productDetails = products.reduce((acc: any, product: any) => {
+                acc[product.id] = product;
+                return acc;
+              }, {});
+            }
+          }
+          
+          orderItems = latestOrder.order_items.map((item: any) => {
+            const product = productDetails[item.product_id];
+            
+            return {
+              id: item.id,
+              product_id: item.product_id,
+              product_name: product?.name || item.product_name || 'Unknown Item',
+              category_id: product?.category_id || null,
+              category_name: 'Order',
+              parent_category_name: null,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              total_price: item.total_price,
+              modifiers: item.modifiers || [],
+              notes: item.notes
+            };
+          });
           
           // Use the order's total amount
           totalAmount = parseFloat(latestOrder.total_amount) || totalAmount;
@@ -377,25 +540,13 @@ export class TransactionService {
       }
     }
     
-    // If still no items, create a generic session total item
+    // If still no items found, this is an error condition
     if (orderItems.length === 0) {
-      if (totalAmount <= 0) {
-        console.log('❌ getTableSessionForPayment - no items and no amount to pay');
-        throw new PaymentError('Table session has no items or amount to pay');
-      }
-      
-      console.log('🔍 getTableSessionForPayment - creating generic session total item');
-      orderItems = [{
-        id: crypto.randomUUID(),
-        product_id: crypto.randomUUID(),
-        product_name: 'Table Session Total',
-        category_id: crypto.randomUUID(),
-        category_name: 'Table Session',
-        quantity: 1,
-        unit_price: totalAmount,
-        total_price: totalAmount,
-        modifiers: [],
-      }];
+      console.log('❌ getTableSessionForPayment - no order items found');
+      console.log('🔍 Debug info:');
+      console.log('  - current_order_items:', tableSession.current_order_items);
+      console.log('  - total_amount:', totalAmount);
+      throw new PaymentError('No order items found for payment. Table session must have actual product items to process payment.');
     }
     
     console.log('🔍 getTableSessionForPayment - final order items:', orderItems.length, 'total:', totalAmount);
@@ -405,7 +556,10 @@ export class TransactionService {
       table_session_id: tableSessionId,
       total_amount: totalAmount,
       order_items: orderItems,
-      notes: tableSession.notes || 'Table session payment'
+      notes: tableSession.notes || 'Table session payment',
+      booking: bookingData,
+      customer_id: bookingData?.customer_id,
+      customer_name: bookingData?.name
     };
   }
   
@@ -421,40 +575,41 @@ export class TransactionService {
     return data;
   }
   
-  private async createTransactionRecord(
+  private async createTransactionRecordOptimized(
     transactionId: string,
     receiptNumber: string,
     order: any,
     paymentAllocations: PaymentAllocation[],
     tableSessionId: string,
-    staffPin: string,
-    options: any,
-    originalOrderId?: string
+    staffId: number,
+    customerIdBigint: string | null,
+    options: any
   ): Promise<Transaction> {
     
-    console.log('🔍 createTransactionRecord: originalOrderId type:', typeof originalOrderId);
-    console.log('🔍 createTransactionRecord: originalOrderId value:', originalOrderId);
-    
-    const finalOrderId = (originalOrderId && originalOrderId !== 'undefined') ? originalOrderId : null;
-    console.log('🔍 createTransactionRecord: final order_id for DB:', finalOrderId);
+    // Calculate VAT amounts correctly (7% VAT system where total_amount includes VAT)
+    const totalAmountInclVat = order.total_amount;
+    const vatRate = 0.07;
+    const subtotalAmountExclVat = totalAmountInclVat / (1 + vatRate);
+    const vatAmount = totalAmountInclVat - subtotalAmountExclVat;
     
     const { data, error } = await supabase
       .schema('pos')
       .from('transactions')
       .insert({
+        id: crypto.randomUUID(), // Primary key
         transaction_id: transactionId,
         receipt_number: receiptNumber,
-        subtotal: order.subtotal_amount || 0,
-        vat_amount: order.tax_amount || 0,
-        total_amount: order.total_amount,
+        subtotal_amount: subtotalAmountExclVat,
         discount_amount: 0,
-        payment_methods: JSON.stringify(paymentAllocations),
-        payment_status: 'completed',
+        net_amount: subtotalAmountExclVat, // Net amount is subtotal minus discounts
+        vat_amount: vatAmount,
+        total_amount: totalAmountInclVat,
+        status: 'paid',
         table_session_id: tableSessionId,
-        order_id: finalOrderId, // Only use order_id if it's a valid string
-        staff_pin: staffPin,
-        customer_id: options.customerId,
-        table_number: options.tableNumber
+        staff_id: staffId, // Required foreign key to backoffice.staff
+        customer_id: customerIdBigint, // UUID foreign key to public.customers
+        booking_id: order.booking?.id || null, // UUID foreign key to bookings
+        transaction_date: new Date().toISOString()
       })
       .select()
       .single();
@@ -463,74 +618,115 @@ export class TransactionService {
       throw new PaymentError(`Failed to create transaction: ${error.message}`);
     }
     
+    // Create payment records for split payment tracking
+    await this.createTransactionPayments(data.id, paymentAllocations, staffId);
+    
     return this.mapDatabaseTransactionToType(data);
   }
   
-  private async createTransactionItems(
+  private async createTransactionPayments(
     transactionId: string,
-    order: any,
     paymentAllocations: PaymentAllocation[],
-    tableSessionId: string,
-    staffPin: string,
-    options: any
+    staffId: number
   ): Promise<void> {
-    console.log('🔍 createTransactionItems: Starting transaction items creation...');
-    console.log('🔍 createTransactionItems: transactionId:', transactionId);
-    console.log('🔍 createTransactionItems: order.order_items length:', order.order_items?.length);
+    // Batch lookup all unique payment methods in a single query
+    const uniqueMethods = Array.from(new Set(paymentAllocations.map(p => p.method)));
+    const methodMappings: Record<string, string> = {};
     
-    if (!order.order_items || order.order_items.length === 0) {
-      console.log('❌ createTransactionItems: No order items to create transaction items from');
-      throw new PaymentError('No order items found to create transaction items');
+    if (uniqueMethods.length > 0) {
+      try {
+        const { data: paymentMethods } = await supabase
+          .schema('pos')
+          .from('payment_methods_enum')
+          .select('code, database_value, legacy_names')
+          .eq('is_active', true);
+        
+        // Create mapping for each unique method
+        for (const method of uniqueMethods) {
+          const found = paymentMethods?.find(pm => 
+            pm.code === method || 
+            (pm.legacy_names && pm.legacy_names.includes(method))
+          );
+          methodMappings[method] = found?.database_value || 'other';
+        }
+      } catch (error) {
+        console.error('Error batch mapping payment methods:', error);
+        // Fallback to individual mapping
+        for (const method of uniqueMethods) {
+          methodMappings[method] = await this.mapPaymentMethodToDatabase(method);
+        }
+      }
     }
     
-    const paymentMethodString = formatPaymentMethodString(paymentAllocations);
-    console.log('🔍 createTransactionItems: paymentMethodString:', paymentMethodString);
+    const paymentRecords = paymentAllocations.map((payment, index) => ({
+      transaction_id: transactionId,
+      payment_sequence: index + 1,
+      payment_method: methodMappings[payment.method] || 'other',
+      payment_amount: payment.amount,
+      payment_reference: payment.reference || null,
+      payment_status: 'completed',
+      processed_by: staffId,
+      processed_at: new Date().toISOString()
+    }));
     
-    // For table session payments, order.id is a generated UUID that doesn't exist in orders table
-    const isTableSessionPayment = order.table_session_id && !order.id?.startsWith('order_');
-    const orderIdForItems = isTableSessionPayment ? null : order.id;
+    const { data, error } = await supabase
+      .schema('pos')
+      .from('transaction_payments')
+      .insert(paymentRecords)
+      .select();
     
-    console.log('🔍 createTransactionItems: isTableSessionPayment:', isTableSessionPayment);
-    console.log('🔍 createTransactionItems: order.id:', order.id);
-    console.log('🔍 createTransactionItems: orderIdForItems:', orderIdForItems);
+    if (error) {
+      console.log('❌ createTransactionPayments: Database error:', error);
+      throw new PaymentError(`Failed to create payment records: ${error.message}`);
+    }
     
+    console.log('✅ createTransactionPayments: Successfully created', data?.length || 0, 'payment records');
+  }
+  
+  private async createTransactionItemsOptimized(
+    transactionId: string,
+    order: any,
+    tableSessionId: string,
+    staffId: number | null,
+    customerIdBigint: string | null,
+    bookingId: string | null
+  ): Promise<void> {
+    if (!order.order_items || order.order_items.length === 0) {
+      throw new PaymentError('No order items found to create transaction items');
+    }
+
     try {
       const transactionItems = order.order_items.map((item: any, index: number) => {
-        console.log(`🔍 createTransactionItems: Processing item ${index + 1}:`, {
-          product_name: item.product_name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price
-        });
+        const unitPriceInclVat = item.unit_price;
+        const unitPriceExclVat = unitPriceInclVat / 1.07; // Remove 7% VAT
+        const lineDiscount = 0; // No discounts for now
+        const lineTotalInclVat = (item.quantity * unitPriceInclVat) - lineDiscount;
+        const lineTotalExclVat = (item.quantity * unitPriceExclVat) - lineDiscount;
+        const lineVatAmount = lineTotalInclVat - lineTotalExclVat;
         
         return {
           transaction_id: transactionId,
-          item_sequence: index + 1,
-          order_id: orderIdForItems,
+          line_number: index + 1,
           table_session_id: tableSessionId,
           product_id: item.product_id,
-          product_name: item.product_name,
-          product_category: item.category_name,
-          sku_number: null,
+          staff_id: staffId,
+          customer_id: customerIdBigint,
+          booking_id: bookingId,
           item_cnt: item.quantity,
-          item_price_incl_vat: item.unit_price,
-          item_price_excl_vat: item.unit_price / 1.07, // Remove 7% VAT
-          item_discount: 0,
-          sales_total: item.total_price,
-          sales_net: item.total_price,
-          payment_method: paymentMethodString,
-          payment_amount_allocated: item.total_price,
-          staff_pin: staffPin,
-          customer_id: options.customerId,
-          customer_name: options.customerName,
-          table_number: options.tableNumber,
-          is_sim_usage: false,
+          item_price_incl_vat: unitPriceInclVat,
+          item_price_excl_vat: unitPriceExclVat,
+          unit_price_incl_vat: unitPriceInclVat,
+          unit_price_excl_vat: unitPriceExclVat,
+          line_discount: lineDiscount,
+          line_total_incl_vat: lineTotalInclVat,
+          line_total_excl_vat: lineTotalExclVat,
+          line_vat_amount: lineVatAmount,
           item_notes: item.notes,
           is_voided: false
         };
       });
       
-      console.log('🔍 createTransactionItems: Inserting', transactionItems.length, 'transaction items');
+      // Insert all transaction items in a single batch operation
       
       const { data, error } = await supabase
         .schema('pos')
@@ -593,7 +789,7 @@ export class TransactionService {
       id: data.id,
       transactionId: data.transaction_id,
       receiptNumber: data.receipt_number,
-      subtotal: data.subtotal,
+      subtotal: data.subtotal_amount,
       vatAmount: data.vat_amount,
       totalAmount: data.total_amount,
       discountAmount: data.discount_amount,
@@ -602,8 +798,8 @@ export class TransactionService {
         : data.payment_methods,
       paymentStatus: data.payment_status,
       tableSessionId: data.table_session_id,
-      orderId: data.order_id,
-      staffPin: data.staff_pin,
+      orderId: '', // order_id removed from transactions table
+      staffPin: data.staff_pin || '',
       customerId: data.customer_id,
       tableNumber: data.table_number,
       transactionDate: new Date(data.transaction_date),
@@ -618,7 +814,7 @@ export class TransactionService {
       id: data.id,
       transactionId: data.transaction_id,
       itemSequence: data.item_sequence,
-      orderId: data.order_id,
+      orderId: '', // order_id removed from transactions table
       tableSessionId: data.table_session_id,
       productId: data.product_id,
       productName: data.product_name,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
+import { getStaffIdFromPin } from '@/lib/staff-helpers';
 import type { TransferTableRequest, TransferTableResponse, TableSession } from '@/types/pos';
 
 export async function POST(request: NextRequest) {
@@ -12,15 +13,25 @@ export async function POST(request: NextRequest) {
     }
 
     const body: TransferTableRequest = await request.json();
-    const { fromTableId, toTableId, orderIds, transferAll = true } = body;
+    const { fromTableId, toTableId, staffPin, orderIds, transferAll = true } = body;
 
     // Validate required fields
     if (!fromTableId || !toTableId) {
       return NextResponse.json({ error: "Both fromTableId and toTableId are required" }, { status: 400 });
     }
 
+    if (!staffPin) {
+      return NextResponse.json({ error: "Staff PIN is required" }, { status: 400 });
+    }
+
     if (fromTableId === toTableId) {
       return NextResponse.json({ error: "Cannot transfer to the same table" }, { status: 400 });
+    }
+
+    // Validate staff PIN
+    const staffId = await getStaffIdFromPin(staffPin);
+    if (!staffId) {
+      return NextResponse.json({ error: "Invalid staff PIN or inactive staff" }, { status: 400 });
     }
 
     // Validate both tables exist
@@ -42,10 +53,7 @@ export async function POST(request: NextRequest) {
     const { data: fromSession, error: fromSessionError } = await supabase
       .schema('pos')
       .from('table_sessions')
-      .select(`
-        *,
-        orders:table_orders(*)
-      `)
+      .select('*')
       .eq('table_id', fromTableId)
       .is('session_end', null)
       .single();
@@ -107,10 +115,7 @@ export async function POST(request: NextRequest) {
     const { data: newToSession, error: newSessionError } = await supabase
       .schema('pos')
       .from('table_sessions')
-      .select(`
-        *,
-        orders:table_orders(*)
-      `)
+      .select('*')
       .eq('table_id', toTableId)
       .is('session_end', null)
       .single();
@@ -162,10 +167,10 @@ export async function POST(request: NextRequest) {
       } : undefined
     });
 
-    // Source session is now closed (free)
+    // Source session is now closed (paid)
     const fromSessionClosed: TableSession = {
       ...transformSession(fromSession),
-      status: 'free',
+      status: 'paid',
       paxCount: 0,
       sessionEnd: new Date()
     };

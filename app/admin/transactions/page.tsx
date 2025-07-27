@@ -161,11 +161,14 @@ function TransactionDetailModal({
                             </div>
                           ) : null;
                         })()}
-                        {item.gross_profit !== undefined && item.sales_net !== undefined && (item.sales_net - item.gross_profit) > 0 && (
-                          <div className="text-xs text-blue-600 font-medium">
-                            Cost: ฿{(item.sales_net - item.gross_profit).toFixed(2)}
-                          </div>
-                        )}
+                        {(() => {
+                          const itemCost = item.item_cost !== undefined && item.item_cost !== null ? parseFloat(String(item.item_cost)) : 0;
+                          return (
+                            <div className="text-xs text-blue-600 font-medium">
+                              Cost: ฿{(itemCost * item.item_cnt).toFixed(2)}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -188,22 +191,34 @@ function TransactionDetailModal({
                   <span>Total:</span>
                   <span>฿{transactionDetails.summary.total.toFixed(2)}</span>
                 </div>
-                {transactionDetails.summary.total_profit !== undefined && (
-                  <>
-                    <div className="flex justify-between text-blue-600 font-medium">
-                      <span>Total Cost:</span>
-                      <span>฿{(transactionDetails.summary.subtotal - transactionDetails.summary.total_profit).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-green-600 font-medium">
-                      <span>Gross Profit:</span>
-                      <span>฿{transactionDetails.summary.total_profit.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-600 font-medium">
-                      <span>Margin:</span>
-                      <span>{transactionDetails.summary.subtotal > 0 ? ((transactionDetails.summary.total_profit / transactionDetails.summary.subtotal) * 100).toFixed(1) : '0.0'}%</span>
-                    </div>
-                  </>
-                )}
+                {(() => {
+                  // Calculate total cost from item_cost fields
+                  const totalItemCost = transactionDetails.items.reduce((sum, item) => {
+                    const itemCost = item.item_cost !== undefined && item.item_cost !== null ? parseFloat(String(item.item_cost)) : 0;
+                    return sum + (itemCost * item.item_cnt);
+                  }, 0);
+                  
+                  const totalRevenue = transactionDetails.summary.subtotal;
+                  const grossProfit = totalRevenue - totalItemCost;
+                  const margin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+                  
+                  return (
+                    <>
+                      <div className="flex justify-between text-blue-600 font-medium">
+                        <span>Total Cost:</span>
+                        <span>฿{totalItemCost.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-green-600 font-medium">
+                        <span>Gross Profit:</span>
+                        <span>฿{grossProfit.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-600 font-medium">
+                        <span>Margin:</span>
+                        <span>{margin.toFixed(1)}%</span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>

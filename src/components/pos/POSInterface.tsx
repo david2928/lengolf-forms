@@ -216,7 +216,7 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
       // Clear current order
       setCurrentOrder([]);
       
-      // Navigate back to table view
+      // Navigate back to table view after successful order confirmation
       onBack();
     } catch (error) {
       setError('Failed to confirm order. Please try again.');
@@ -226,6 +226,22 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
   
   const handleClearCurrentOrder = () => {
     setCurrentOrder([]);
+  };
+
+  const handleBackWithCheck = () => {
+    // If there are items in the current order, warn the user
+    if (currentOrder.length > 0) {
+      const confirmed = window.confirm(
+        'You have items in your current order that haven\'t been confirmed yet. Going back will lose these items. Are you sure?'
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    
+    // Clear any unsaved order and go back
+    setCurrentOrder([]);
+    onBack();
   };
 
   const handleRemoveRunningTabItem = async (itemId: string, reason: string, staffPin: string, quantityToRemove?: number) => {
@@ -274,7 +290,7 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
   };
 
   return (
-    <div className={`pos-interface fixed inset-0 flex flex-col bg-slate-50 ${className}`}>
+    <div className={`pos-interface fixed inset-0 flex flex-col bg-slate-50 ${className}`} data-testid="pos-interface">
       {/* Product Added Animation - Subtle toast-style */}
       {addProductAnimation && (
         <motion.div
@@ -313,7 +329,7 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
       <POSHeader
         tableSession={tableSession}
         customer={customer}
-        onBack={onBack}
+        onBack={handleBackWithCheck}
         className="flex-shrink-0"
       />
       

@@ -9,11 +9,13 @@ export interface TransactionSummary {
   date: string;
   sales_timestamp: string;
   customer_name: string | null;
+  customer_id: string | null;
   staff_name: string | null;
   payment_method: string | null;
   total_amount: number;
   net_amount: number;
   total_profit: number;
+  total_cost: number;
   item_count: number;
   sim_usage_count: number;
   status: 'COMPLETED' | 'VOIDED';
@@ -36,6 +38,7 @@ export interface TransactionItem {
   is_sim_usage: number;
   item_notes: string | null;
   sku_number: string | null;
+  item_cost?: number | string | null;
 }
 
 export interface TransactionDetails {

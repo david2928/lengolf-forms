@@ -3,6 +3,8 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 import { paymentCompleter } from '@/services/PaymentCompleter';
+import { tableSessionService } from '@/services/TableSessionService';
+import { getStaffIdFromPin } from '@/lib/staff-helpers';
 import type { CloseTableRequest, CloseTableResponse, TableSession } from '@/types/pos';
 
 export async function POST(
@@ -17,7 +19,18 @@ export async function POST(
 
     const { tableId } = params;
     const body: CloseTableRequest = await request.json();
-    const { reason, finalAmount, forceClose } = body;
+    const { reason, finalAmount, forceClose, staffPin } = body;
+
+    // Validate required fields
+    if (!staffPin) {
+      return NextResponse.json({ error: "Staff PIN is required" }, { status: 400 });
+    }
+
+    // Validate staff PIN
+    const staffId = await getStaffIdFromPin(staffPin);
+    if (!staffId) {
+      return NextResponse.json({ error: "Invalid staff PIN or inactive staff" }, { status: 400 });
+    }
 
     // Validate table exists
     const { data: table, error: tableError } = await supabase
@@ -33,18 +46,31 @@ export async function POST(
     }
 
     // Get current active session
+    console.log(`🔍 Looking for active session for table: ${tableId}`);
     const { data: currentSession, error: sessionError } = await supabase
       .schema('pos')
       .from('table_sessions')
-      .select(`
-        *,
-        orders:table_orders(*)
-      `)
+      .select('*')
       .eq('table_id', tableId)
       .is('session_end', null)
       .single();
 
     if (sessionError || !currentSession) {
+      console.log(`❌ No active session found for table ${tableId}:`, sessionError);
+      
+      // In development, let's check what sessions exist for this table
+      if (process.env.NODE_ENV === 'development') {
+        const { data: allSessions, error: allSessionsError } = await supabase
+          .schema('pos')
+          .from('table_sessions')
+          .select('id, status, session_start, session_end, table_id')
+          .eq('table_id', tableId)
+          .order('created_at', { ascending: false })
+          .limit(5);
+          
+        console.log(`🔍 All recent sessions for table ${tableId}:`, allSessions);
+      }
+      
       return NextResponse.json({ error: "No active session found for this table" }, { status: 404 });
     }
 
@@ -71,27 +97,36 @@ export async function POST(
       console.log(`🔍 Force closing table ${tableId} with unpaid orders. Unpaid: ฿${paymentStatus.totalUnpaid}`);
     }
 
-    // Use payment completer to close the session properly
-    const staffPin = body.staffPin || session.user.email?.split('@')[0] || 'unknown';
-    const success = await paymentCompleter.closeTableSession(
-      currentSession.id,
-      staffPin,
-      reason || 'Manual closure',
-      forceClose // Pass the forceClose flag to allow closing with unpaid orders
-    );
+    // Use appropriate service based on whether this is payment completion or cancellation
+    let closeResult;
+    if (forceClose) {
+      // This is a cancellation - use TableSessionService
+      closeResult = await tableSessionService.cancelSession(
+        currentSession.id,
+        staffPin,
+        reason || 'Manual cancellation'
+      );
+    } else {
+      // This is payment completion - use PaymentCompleter
+      closeResult = await tableSessionService.completeSessionWithPayment(
+        currentSession.id,
+        staffPin,
+        reason || 'Payment completed'
+      );
+    }
 
-    if (!success) {
-      return NextResponse.json({ error: "Failed to close table session" }, { status: 500 });
+    if (!closeResult.success) {
+      return NextResponse.json({ 
+        error: closeResult.message,
+        details: closeResult.errors 
+      }, { status: 500 });
     }
 
     // Get the updated session data
     const { data: closedSession, error: fetchError } = await supabase
       .schema('pos')
       .from('table_sessions')
-      .select(`
-        *,
-        orders:table_orders(*)
-      `)
+      .select('*')
       .eq('id', currentSession.id)
       .single();
 
@@ -104,7 +139,7 @@ export async function POST(
     const tableSession: TableSession = {
       id: closedSession.id,
       tableId: closedSession.table_id,
-      status: 'free', // Table is now free
+      status: closedSession.status, // Use actual status (paid or closed)
       paxCount: 0, // Reset pax count
       bookingId: closedSession.booking_id,
       staffPin: closedSession.staff_pin,
@@ -114,15 +149,7 @@ export async function POST(
       notes: closedSession.notes,
       createdAt: new Date(closedSession.created_at),
       updatedAt: new Date(closedSession.updated_at),
-      orders: closedSession.orders?.map((order: any) => ({
-        id: order.id,
-        tableSessionId: order.table_session_id,
-        orderId: order.order_id,
-        orderNumber: order.order_number,
-        orderTotal: parseFloat(order.order_total),
-        orderStatus: order.order_status,
-        createdAt: new Date(order.created_at)
-      })) || [],
+      orders: [],
       booking: closedSession.booking ? {
         id: closedSession.booking.id,
         name: closedSession.booking.name,
