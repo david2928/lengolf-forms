@@ -245,34 +245,46 @@ export class BluetoothThermalPrinter {
       
       const escposData = this.generateESCPOSData(receiptData);
       
-      // Split data into chunks - use larger chunks for faster printing
-      const chunkSize = 512; // Most modern Bluetooth printers support 512-byte chunks
+      // Split data into chunks - use moderate size for compatibility
+      const chunkSize = 100; // Balance between speed and compatibility
       const chunks = this.splitIntoChunks(escposData, chunkSize);
       
       console.log(`📤 Sending ${chunks.length} chunks of ${chunkSize} bytes each...`);
+      console.log(`📊 Total data size: ${escposData.length} bytes`);
       
       for (let i = 0; i < chunks.length; i++) {
         try {
           await this.characteristic.writeValue(chunks[i]);
           
-          // Only add delay every 10 chunks or if we're sending a lot of data
-          if (i > 0 && i % 10 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 20)); // Reduced delay
+          // Add small delay between chunks to ensure printer can process
+          if (i > 0 && i % 5 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 30)); // Small delay every 5 chunks
+          } else if (i > 0) {
+            await new Promise(resolve => setTimeout(resolve, 10)); // Minimal delay between chunks
+          }
+          
+          // Progress logging for debugging
+          if (i % 20 === 0) {
+            console.log(`📤 Progress: ${Math.round((i / chunks.length) * 100)}%`);
           }
         } catch (error) {
-          // If chunk is too large, fall back to smaller chunks
-          if (error instanceof Error && error.message.includes('GATT')) {
-            console.warn('⚠️ Chunk too large, falling back to smaller size...');
-            const smallerChunks = this.splitIntoChunks(chunks[i], 128);
+          console.error(`❌ Error sending chunk ${i}:`, error);
+          // If chunk fails, retry with smaller chunk
+          if (error instanceof Error) {
+            console.warn('⚠️ Retrying with smaller chunk size...');
+            const smallerChunks = this.splitIntoChunks(chunks[i], 20);
             for (const smallChunk of smallerChunks) {
               await this.characteristic.writeValue(smallChunk);
-              await new Promise(resolve => setTimeout(resolve, 10));
+              await new Promise(resolve => setTimeout(resolve, 20));
             }
           } else {
             throw error;
           }
         }
       }
+      
+      // Final delay to ensure all data is processed
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       console.log('✅ Receipt printed successfully via Bluetooth!');
       
