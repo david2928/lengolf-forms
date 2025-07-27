@@ -12,6 +12,7 @@ interface EditPackageSelectorProps {
   customerPhone?: string
   customerId?: string | null
   currentPackageName?: string | null
+  bookingDate?: string // New prop for booking date
   onChange: (packageId: string | null) => void
   disabled?: boolean
 }
@@ -32,6 +33,7 @@ export function EditPackageSelector({
   customerPhone,
   customerId,
   currentPackageName,
+  bookingDate,
   onChange,
   disabled = false
 }: EditPackageSelectorProps) {
@@ -55,6 +57,12 @@ export function EditPackageSelector({
             customerId: customerId,
             includeInactive: 'true' // Include unactivated packages
           })
+          
+          // Add booking date if provided
+          if (bookingDate) {
+            params.append('bookingDate', bookingDate)
+          }
+          
           url = `/api/packages/customer?${params}`
         } else {
           // Fallback to customer name for legacy support
@@ -66,6 +74,12 @@ export function EditPackageSelector({
           if (customerPhone) {
             params.append('customerPhone', customerPhone)
           }
+          
+          // Add booking date if provided
+          if (bookingDate) {
+            params.append('bookingDate', bookingDate)
+          }
+          
           url = `/api/packages/customer?${params}`
         }
         
@@ -86,7 +100,7 @@ export function EditPackageSelector({
     }
     
     fetchPackages()
-  }, [customerName, customerPhone, customerId])
+  }, [customerName, customerPhone, customerId, bookingDate])
 
   if (isLoading) {
     return <div className="text-sm text-gray-500">Loading packages...</div>
