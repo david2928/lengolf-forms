@@ -25,17 +25,17 @@ export default function BluetoothTestPage() {
     checkSupport();
   }, []);
 
-  const handleConnect = async () => {
+  const handleConnect = async (printerName?: string) => {
     try {
       setIsLoading(true);
       
-      const connected = await bluetoothThermalPrinter.connect();
+      const connected = await bluetoothThermalPrinter.connect(printerName);
       
       if (connected) {
         setIsConnected(true);
         const info = bluetoothThermalPrinter.getDeviceInfo();
         setDeviceInfo(info);
-        alert('✅ Connected to Bluetooth printer successfully!');
+        alert(`✅ Connected to Bluetooth printer successfully! ${info?.name || 'Unknown'}`);
       }
       
     } catch (error) {
@@ -202,32 +202,52 @@ export default function BluetoothTestPage() {
                   </div>
                 )}
                 
-                <div className="flex gap-3">
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => handleConnect()}
+                      disabled={!isSupported || isConnected || isLoading}
+                      className="flex-1 h-12 bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isLoading && !isConnected ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Bluetooth className="w-5 h-5 mr-2" />
+                          Scan & Connect
+                        </>
+                      )}
+                    </Button>
+                    
+                    <Button
+                      onClick={handleDisconnect}
+                      disabled={!isConnected}
+                      variant="outline"
+                      className="flex-1 h-12"
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                  
                   <Button
-                    onClick={handleConnect}
+                    onClick={() => handleConnect('printer001')}
                     disabled={!isSupported || isConnected || isLoading}
-                    className="flex-1 h-12 bg-blue-600 hover:bg-blue-700"
+                    className="w-full h-12 bg-green-600 hover:bg-green-700"
                   >
                     {isLoading && !isConnected ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                        Connecting...
+                        Connecting to printer001...
                       </>
                     ) : (
                       <>
                         <Bluetooth className="w-5 h-5 mr-2" />
-                        Connect Printer
+                        Connect to "printer001" directly
                       </>
                     )}
-                  </Button>
-                  
-                  <Button
-                    onClick={handleDisconnect}
-                    disabled={!isConnected}
-                    variant="outline"
-                    className="flex-1 h-12"
-                  >
-                    Disconnect
                   </Button>
                 </div>
               </div>
@@ -338,7 +358,8 @@ export default function BluetoothTestPage() {
                 <div><strong>1. Enable Bluetooth:</strong> Turn on Bluetooth on your Android device</div>
                 <div><strong>2. Pair Printer:</strong> Go to Settings → Bluetooth and pair your thermal printer</div>
                 <div><strong>3. Use Chrome:</strong> Open this page in Chrome browser (not Firefox/Samsung Internet)</div>
-                <div><strong>4. Connect:</strong> Click &quot;Connect Printer&quot; and select your thermal printer</div>
+                <div><strong>4a. Quick Connect:</strong> Click &quot;Connect to printer001 directly&quot; if your printer is named &quot;printer001&quot;</div>
+                <div><strong>4b. Scan Connect:</strong> Click &quot;Scan &amp; Connect&quot; to choose from available printers</div>
                 <div><strong>5. Test:</strong> Send a test print to verify connection</div>
                 <div><strong>6. Print:</strong> Use &quot;Print Receipt&quot; for actual receipts</div>
               </div>
