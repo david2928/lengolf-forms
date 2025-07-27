@@ -10,14 +10,19 @@ export async function GET(request: NextRequest) {
     const customerName = searchParams.get('customerName');
     const customerPhone = searchParams.get('customerPhone');
     const includeInactive = searchParams.get('includeInactive') === 'true';
+    const bookingDate = searchParams.get('bookingDate'); // New parameter for booking date
+
+    // Use booking date if provided, otherwise use current date
+    const dateToUse = bookingDate || new Date().toISOString().split('T')[0];
 
     // Prefer customerId over customerName for new system
     if (customerId) {
-      // Use the new function for customer_id lookups
+      // Use the new date-aware function for customer_id lookups
       const { data, error } = await refacSupabaseAdmin
         .schema('backoffice')
-        .rpc('get_customer_packages_by_id', {
+        .rpc('get_customer_packages_by_id_and_date', {
           p_customer_id: customerId,
+          p_booking_date: dateToUse,
           p_active: includeInactive ? null : true
         });
 
@@ -36,9 +41,11 @@ export async function GET(request: NextRequest) {
         const expirationDate = pkg.expiration_date ? new Date(pkg.expiration_date) : null;
         const hasRemainingHours = pkg.package_type === 'Unlimited' || (pkg.remaining_hours && pkg.remaining_hours > 0);
         
+        // Use booking date for expiration check instead of current date
+        const bookingDateObj = new Date(dateToUse);
         const isActive = !isActivated || 
                         (isActivated && 
-                         (!expirationDate || expirationDate.getTime() >= new Date().setHours(0,0,0,0)) && 
+                         (!expirationDate || expirationDate.getTime() >= bookingDateObj.setHours(0,0,0,0)) && 
                          (pkg.package_type === 'Unlimited' || (pkg.remaining_hours && pkg.remaining_hours > 0)));
 
         return {
@@ -64,11 +71,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Call the legacy database function for backward compatibility
+    // Call the new date-aware function for backward compatibility
     const { data, error } = await refacSupabaseAdmin
       .schema('backoffice')
-      .rpc('get_customer_packages', {
+      .rpc('get_customer_packages_by_date', {
         p_customer_name: decodeURIComponent(customerName),
+        p_booking_date: dateToUse,
         p_active: includeInactive ? null : true
       });
 
@@ -90,10 +98,11 @@ export async function GET(request: NextRequest) {
       
       // A package is active if:
       // 1. It's not activated yet (can be activated), OR
-      // 2. It's activated AND not expired AND (unlimited OR has remaining hours)
+      // 2. It's activated AND not expired on booking date AND (unlimited OR has remaining hours)
+      const bookingDateObj = new Date(dateToUse);
       const isActive = !isActivated || 
                       (isActivated && 
-                       (!expirationDate || expirationDate.getTime() >= new Date().setHours(0,0,0,0)) && 
+                       (!expirationDate || expirationDate.getTime() >= bookingDateObj.setHours(0,0,0,0)) && 
                        (pkg.package_type === 'Unlimited' || (pkg.remaining_hours && pkg.remaining_hours > 0)));
 
       return {

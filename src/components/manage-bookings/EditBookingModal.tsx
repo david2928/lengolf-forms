@@ -888,6 +888,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
                   customerPhone={booking?.phone_number || ''}
                   customerId={booking?.customer_id || null}
                   currentPackageName={booking?.package_name}
+                  bookingDate={formData.date ? format(formData.date, 'yyyy-MM-dd') : booking?.date}
                   onChange={(packageId) => {
                     setFormData(prev => ({ 
                       ...prev, 
