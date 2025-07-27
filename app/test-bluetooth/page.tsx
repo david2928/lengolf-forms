@@ -245,7 +245,7 @@ export default function BluetoothTestPage() {
                     ) : (
                       <>
                         <Bluetooth className="w-5 h-5 mr-2" />
-                        Connect to "printer001" directly
+                        Connect to &quot;printer001&quot; directly
                       </>
                     )}
                   </Button>
