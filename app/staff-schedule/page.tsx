@@ -10,30 +10,15 @@ import { SessionManager } from '@/components/auth/SessionManager'
 
 export default function StaffSchedulePage() {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
-<<<<<<< HEAD
-<<<<<<< HEAD
   const [viewAllStaff, setViewAllStaff] = useState(false)
-=======
->>>>>>> a6e5a33 (fix problems)
-=======
-  const [viewAllStaff, setViewAllStaff] = useState(false)
->>>>>>> e1aca89 (scheduling feature)
   const [isInitialized, setIsInitialized] = useState(false)
 
   // Initialize from sessionStorage after mount to avoid hydration issues
   useEffect(() => {
     if (!isInitialized) {
       const savedStaff = sessionStorage.getItem('selectedStaff')
-<<<<<<< HEAD
-<<<<<<< HEAD
       const savedViewAllStaff = sessionStorage.getItem('viewAllStaff')
       
-=======
->>>>>>> a6e5a33 (fix problems)
-=======
-      const savedViewAllStaff = sessionStorage.getItem('viewAllStaff')
-      
->>>>>>> e1aca89 (scheduling feature)
       if (savedStaff) {
         try {
           const parsed = JSON.parse(savedStaff)
@@ -43,20 +28,11 @@ export default function StaffSchedulePage() {
           sessionStorage.removeItem('selectedStaff')
         }
       }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e1aca89 (scheduling feature)
       
       if (savedViewAllStaff === 'true') {
         setViewAllStaff(true)
       }
       
-<<<<<<< HEAD
-=======
->>>>>>> a6e5a33 (fix problems)
-=======
->>>>>>> e1aca89 (scheduling feature)
       setIsInitialized(true)
     }
     
@@ -66,14 +42,6 @@ export default function StaffSchedulePage() {
 
   const handleStaffSelect = (staff: Staff) => {
     setSelectedStaff(staff)
-<<<<<<< HEAD
-<<<<<<< HEAD
-    setViewAllStaff(false)
-=======
->>>>>>> a6e5a33 (fix problems)
-    sessionStorage.setItem('selectedStaff', JSON.stringify(staff))
-    sessionStorage.removeItem('viewAllStaff')
-=======
     setViewAllStaff(false)
     sessionStorage.setItem('selectedStaff', JSON.stringify(staff))
     sessionStorage.removeItem('viewAllStaff')
@@ -84,33 +52,14 @@ export default function StaffSchedulePage() {
     setSelectedStaff(null)
     sessionStorage.setItem('viewAllStaff', 'true')
     sessionStorage.removeItem('selectedStaff')
->>>>>>> e1aca89 (scheduling feature)
   }
 
-<<<<<<< HEAD
-  const handleViewAllStaff = () => {
-    setViewAllStaff(true)
-    setSelectedStaff(null)
-    sessionStorage.setItem('viewAllStaff', 'true')
-=======
-  const handleBackToSelection = () => {
->>>>>>> a6e5a33 (fix problems)
-    sessionStorage.removeItem('selectedStaff')
-    sessionStorage.removeItem('viewAllStaff')
-    setSelectedStaff(null)
-    setViewAllStaff(false)
-  }
-
-<<<<<<< HEAD
   const handleBackToSelection = () => {
     sessionStorage.removeItem('selectedStaff')
     sessionStorage.removeItem('viewAllStaff')
     setSelectedStaff(null)
     setViewAllStaff(false)
   }
-
-=======
->>>>>>> a6e5a33 (fix problems)
 
   // Show loading state while initializing
   if (!isInitialized) {
@@ -129,33 +78,15 @@ export default function StaffSchedulePage() {
       <SessionManager>
         <div className="min-h-screen bg-slate-50">
           <div className="container mx-auto px-4 py-8">
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e1aca89 (scheduling feature)
             {!selectedStaff && !viewAllStaff ? (
               <StaffNameSelector 
                 onStaffSelect={handleStaffSelect}
                 onViewAllStaff={handleViewAllStaff}
               />
-<<<<<<< HEAD
             ) : (
               <StaffScheduleView 
                 selectedStaff={selectedStaff} 
                 viewAllStaff={viewAllStaff}
-=======
-            {!selectedStaff ? (
-              <StaffNameSelector onStaffSelect={handleStaffSelect} />
-            ) : (
-              <StaffScheduleView 
-                selectedStaff={selectedStaff} 
->>>>>>> a6e5a33 (fix problems)
-=======
-            ) : (
-              <StaffScheduleView 
-                selectedStaff={selectedStaff} 
-                viewAllStaff={viewAllStaff}
->>>>>>> e1aca89 (scheduling feature)
                 onBackToSelection={handleBackToSelection}
               />
             )}
