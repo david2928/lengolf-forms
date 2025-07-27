@@ -59,7 +59,7 @@ export async function GET(request: Request) {
                   : customer.customer_name,
                 has_active_packages: true
               }))
-              .sort((a, b) => a.customer_name.localeCompare(b.customer_name));
+              .sort((a: any, b: any) => a.customer_name.localeCompare(b.customer_name));
           } else {
             error = customerError;
           }

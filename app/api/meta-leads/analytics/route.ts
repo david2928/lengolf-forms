@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     
     // Get date range
     const sortedDates = allLeads?.map((lead: any) => new Date(lead.meta_submitted_at)) || [];
-    sortedDates.sort((a, b) => a.getTime() - b.getTime());
+    sortedDates.sort((a: any, b: any) => a.getTime() - b.getTime());
     const earliestLead = sortedDates[0]?.toISOString();
     const latestLead = sortedDates[sortedDates.length - 1]?.toISOString();
 

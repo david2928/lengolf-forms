@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
 
       // Get usage counts for each customer
       const customersWithCounts = await Promise.all(
-        (customers || []).map(async (customer) => {
+        (customers || []).map(async (customer: any) => {
           // Count bookings
           const { count: bookingsCount } = await refacSupabaseAdmin
             .from('bookings')
