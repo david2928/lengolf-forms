@@ -192,6 +192,15 @@
   - _Requirements: All error handling and validation requirements_
 - [ ] 16. Add performance optimizations and caching
 
+
+
+
+
+
+
+
+
+
   - _Requirements: 5.5, 9.4, 6.4_
 
 - [ ] 16. Add performance optimizations and caching
@@ -203,7 +212,14 @@
   - Add service worker for offline schedule caching on mobile devices
   - _Requirements: 8.5, 6.5_
 
-- [ ] 17. Create comprehensive testing suite
+- [x] 17. Create comprehensive testing suite
+
+
+
+
+
+
+
 
 
   - Write unit tests for all React components with proper mocking
@@ -217,6 +233,9 @@
 
 - [ ] 18. Deploy and integrate with production systems
 
+
+
+
   - Deploy database schema changes with proper migration scripts
   - Update production environment with new API endpoints
   - Integrate with existing authentication and admin panel systems
@@ -224,3 +243,194 @@
   - Conduct user acceptance testing with actual staff members and administrators
 
   - _Requirements: System integration and deployment_
+## New
+ Enhancement Tasks
+
+- [x] 19. Add "View All Staff" calendar option to main staff schedule page
+
+
+
+
+
+
+
+
+  - Add toggle or button on `/staff-schedule` main page to view calendar for all staff
+  - Currently this functionality exists only after selecting a staff member
+  - Should provide same team view functionality from the main landing page
+  - _Requirements: User experience enhancement_
+-
+
+
+- [x] 20. Fix recurring schedule creation workflow
+
+
+
+
+
+
+
+  - Allow saving recurring schedule modal even without time selection
+  - Recurring entry should only be created when user clicks 'Create' on main 'Add Schedule' modal
+  - Fix workflow so time selection is not requ
+ired to proceed with recurring setup
+  - _Requirements: Admin workflow improvement_
+-
+-
+
+- [x] 21. Enhance weekly schedule overview with staff color coding
+
+
+
+
+
+
+
+
+
+
+
+
+
+  - Assign different colored boxes to each staff member in weekly schedule overview
+  - Add gray "[name] OFF" boxes for staff members' days 
+off
+  --Use staff member's assigned color for their name in 
+the OFF indicator
+  - _Requirements: Visual enhancement for schedule clarity_
+
+- [ ] 22. Fix schedule deletion issue for specific entry
+
+
+
+
+
+ 
+
+
+  - Debug and fix deletion issue for Chris Rall's entry on 7/25/2025 10:09am-12:09pm
+- [x] 23. Improve weekly schedule overview tablet responsiveness
+
+
+
+
+
+
+
+  - Entry shows "schedule not found" error when attempting to delete
+  - Investigate database inconsistency or API endpoint issue
+  - _Requirements: Bug fix_
+
+- [ ] 23. Improve weekly schedule overview tablet responsiveness
+
+
+ 
+-
+
+- [x] 24. Add coverage gap indicators to weekly schedule
+
+
+
+
+
+
+  - Fix time format display issues in tablet mode
+  - Ensure proper responsive layout for weekly schedule overview
+  - Optimize touch targets and spacing for tablet screen sizes
+  - _Requirements: Responsive design i
+mprovement_
+
+- [ ] 24. Add coverage gap indicators to weekly schedule
+
+-[]25.Remquckctionuttnrmdin scheduling
+
+
+  - Add red shaded boxes for days with no coverage between 10:00am-11:00pm
+- [x] 25. Remove quick actions button from admin scheduling
+
+
+
+
+
+
+  - Calculate coverage gaps and display visual indicators
+  - Example: if coverage is 11am-11pm, show red box for 10am-11am gap
+  - _Requirements: Schedule coverage visualization_
+
+- [ ] 25. Remove quick actions button from admin scheduling
+
+
+
+  - Remove 'Quick Actions' dropdown button from admin/staff-scheduling page
+- [x] 26. Reorganize admin scheduling page layout
+
+
+
+redundant with 'Today' button)
+- [ ] 26. Reorganize admin scheduling page layout
+
+  - Simplify admin interface by removing unnecessary actions
+
+  - _Requirements: UI simplification_
+
+- [ ] 26. Reorganize admin scheduling page layout
+
+
+-[]27. Sdefles n dd schedule modal
+
+
+  - Move date selector and navigation arrows to be centered left of 'Add Schedule' button
+  - Remove the now-empty section below to bring more content above the fold
+  - Improve layout efficiency and reduce scrolling requirements
+  - _Requirements: Layout optimization_
+
+-
+
+- [x] 27. Set default times in add schedule modal
+
+
+
+
+
+
+
+-[]28. Add rcring schduldicaors
+
+  - Set 'Start Time' default to 10:00 AM (but keep it changeable)
+  - Set 'End Time' default to PM (but keep it changeable)
+  - Improve user experience with sensible defaults for common shift times
+  - _Requirements: UX improvement_
+
+-
+
+- [x] 28. Add recurring schedule indicators
+
+
+
+
+
+
+
+
+  - Add small circular arrow icon in bottom right corner of recurring schedule entries
+  - Visual indicator to distinguish recurring vs one-time schedule entries
+  - Apply to all entries that are part of a recurring schedule set
+  - _Requirements: Visual enhancement for schedule type identification_
+-
+
+- [x] 29. Implement recurring schedule edit options
+
+
+
+
+
+
+
+
+
+
+
+  - When editing a recurring schedule entry, provide option to edit single instance or entire recurring set
+  - Add modal or dialog asking "Edit this occurrence only" vs "Edit entire recurring series"
+  - Handle both single edit and bulk edit operations appropriately
+  - _Requirements: Advanced recurring schedule management_

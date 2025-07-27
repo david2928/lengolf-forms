@@ -6,6 +6,7 @@ import { NavigationTab } from '@/types/staff-schedule'
 interface BottomNavigationProps {
   activeTab: NavigationTab
   onTabChange: (tab: NavigationTab) => void
+  showPersonalTab?: boolean
   className?: string
 }
 
@@ -27,13 +28,18 @@ const navigationItems = [
 export function BottomNavigation({ 
   activeTab, 
   onTabChange,
+  showPersonalTab = true,
   className = '' 
 }: BottomNavigationProps) {
+  
+  const availableItems = navigationItems.filter(item => 
+    showPersonalTab || item.id !== 'personal'
+  )
   return (
     <div className={`bg-white border-t border-slate-200 ${className}`}>
       <div className="flex items-center justify-center px-4 py-3">
         <div className="flex items-center bg-slate-100 rounded-lg p-1">
-          {navigationItems.map((item) => {
+          {availableItems.map((item) => {
             const Icon = item.icon
             const isActive = activeTab === item.id
             

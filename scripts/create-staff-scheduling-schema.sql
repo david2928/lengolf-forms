@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS backoffice.staff_schedules (
   end_time TIME NOT NULL,
   location TEXT,
   notes TEXT,
+  is_recurring BOOLEAN DEFAULT false,
+  recurring_group_id UUID DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_by TEXT,

@@ -7,7 +7,10 @@ import { authOptions } from '@/lib/auth-config'
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+    console.log('Bulk API - Session:', session?.user)
+    
     if (!session?.user?.isAdmin) {
+      console.log('Bulk API - Admin access denied')
       return NextResponse.json({
         success: false,
         error: 'Admin access required'
@@ -15,6 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    console.log('Bulk API - Request body:', body)
     const { operation, data } = body
 
     if (operation === 'generate_from_template') {
@@ -81,6 +85,88 @@ export async function POST(request: NextRequest) {
           notes: notes || null,
           created_by: session.user.email
         })
+      }
+
+      // Insert all schedules
+      const { data: newSchedules, error: insertError } = await refacSupabaseAdmin
+        .schema('backoffice')
+        .from('staff_schedules')
+        .insert(schedulesToCreate)
+        .select()
+
+      if (insertError) {
+        console.error('Error creating recurring schedules:', insertError)
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to create recurring schedules'
+        }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          schedules_created: newSchedules?.length || 0,
+          schedules: newSchedules,
+          message: `Created ${newSchedules?.length || 0} recurring schedules`
+        }
+      })
+
+    } else if (operation === 'create_recurring_days') {
+      console.log('Bulk API - Processing create_recurring_days')
+      const { staff_id, start_date, end_date, start_time, end_time, days_of_week, location, notes } = data
+      console.log('Bulk API - Extracted data:', { staff_id, start_date, end_date, start_time, end_time, days_of_week, location, notes })
+
+      // Validate required fields
+      if (!staff_id || staff_id <= 0 || !start_date || !end_date || !start_time || !end_time || !days_of_week || days_of_week.length === 0) {
+        console.log('Bulk API - Validation failed:', {
+          staff_id: !!staff_id,
+          start_date: !!start_date,
+          end_date: !!end_date,
+          start_time: !!start_time,
+          end_time: !!end_time,
+          days_of_week: !!days_of_week,
+          days_of_week_length: days_of_week?.length
+        })
+        return NextResponse.json({
+          success: false,
+          error: 'staff_id, start_date, end_date, start_time, end_time, and days_of_week are required'
+        }, { status: 400 })
+      }
+
+      const schedulesToCreate = []
+      const startDateObj = new Date(start_date)
+      const endDateObj = new Date(end_date)
+      
+      // Generate a unique group ID for this recurring schedule set
+      const recurringGroupId = crypto.randomUUID()
+      
+      // Iterate through each day from start to end date
+      for (let currentDate = new Date(startDateObj); currentDate <= endDateObj; currentDate.setDate(currentDate.getDate() + 1)) {
+        const dayOfWeek = currentDate.getDay() // 0 = Sunday, 1 = Monday, etc.
+        
+        // Check if this day of the week is selected
+        if (days_of_week.includes(dayOfWeek)) {
+          const dateStr = currentDate.toISOString().split('T')[0]
+          
+          schedulesToCreate.push({
+            staff_id,
+            schedule_date: dateStr,
+            start_time,
+            end_time,
+            location: location || null,
+            notes: notes || null,
+            is_recurring: true,
+            recurring_group_id: recurringGroupId,
+            created_by: session.user.email
+          })
+        }
+      }
+
+      if (schedulesToCreate.length === 0) {
+        return NextResponse.json({
+          success: false,
+          error: 'No schedules would be created with the selected date range and days'
+        }, { status: 400 })
       }
 
       // Insert all schedules

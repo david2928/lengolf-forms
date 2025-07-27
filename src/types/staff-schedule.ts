@@ -21,6 +21,8 @@ export interface StaffSchedule {
   notes: string | null
   shift_color: string
   duration_hours: number
+  is_recurring?: boolean
+  recurring_group_id?: string | null
 }
 
 export interface ScheduleIndicator {
@@ -106,13 +108,19 @@ export function getShiftColor(startTime: string): string {
   }
 }
 
-// Helper function to format time for display
+// Helper function to format time for display - only show minutes when not at top of hour
 export function formatTime(time: string): string {
   const [hours, minutes] = time.split(':')
   const hour = parseInt(hours)
-  const ampm = hour >= 12 ? 'PM' : 'AM'
+  const ampm = hour >= 12 ? 'pm' : 'am'
   const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
-  return `${displayHour}:${minutes} ${ampm}`
+  
+  // Only show minutes if not at the top of the hour
+  if (minutes === '00') {
+    return `${displayHour}${ampm}`
+  } else {
+    return `${displayHour}:${minutes}${ampm}`
+  }
 }
 
 // Helper function to format date for display

@@ -1,6 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Import responsive styles for schedule visualization */
+@import '../src/styles/schedule-visualization-responsive.css';
+
+
  
 @layer base {
   :root {
@@ -298,6 +303,56 @@ button:focus-visible,
 
 .animate-slide-down {
   animation: slide-down 0.3s ease-out;
+}
+
+/* Coverage gap indicator styles */
+@layer components {
+  .coverage-gap-indicator {
+    @apply bg-red-50 border-red-200 text-red-800;
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 4px,
+      rgba(239, 68, 68, 0.1) 4px,
+      rgba(239, 68, 68, 0.1) 8px
+    );
+  }
+  
+  .coverage-status-good {
+    @apply bg-green-50 border-green-200 text-green-800;
+  }
+  
+  .coverage-status-warning {
+    @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+  }
+  
+  .coverage-status-critical {
+    @apply bg-red-50 border-red-200 text-red-800;
+  }
+}
+
+/* Tablet-specific optimizations */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* Optimize touch targets for tablet */
+  .tablet-touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better spacing for tablet screens */
+  .tablet-spacing {
+    @apply p-4 space-y-3;
+  }
+  
+  /* Improved text sizing for tablets */
+  .tablet-text {
+    @apply text-base leading-relaxed;
+  }
+  
+  /* Better grid layout for tablets */
+  .tablet-grid {
+    @apply grid-cols-2 lg:grid-cols-7;
+  }
 }
 
 /* Mobile-specific optimizations */

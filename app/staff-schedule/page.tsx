@@ -10,12 +10,15 @@ import { SessionManager } from '@/components/auth/SessionManager'
 
 export default function StaffSchedulePage() {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
+  const [viewAllStaff, setViewAllStaff] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
 
   // Initialize from sessionStorage after mount to avoid hydration issues
   useEffect(() => {
     if (!isInitialized) {
       const savedStaff = sessionStorage.getItem('selectedStaff')
+      const savedViewAllStaff = sessionStorage.getItem('viewAllStaff')
+      
       if (savedStaff) {
         try {
           const parsed = JSON.parse(savedStaff)
@@ -25,6 +28,11 @@ export default function StaffSchedulePage() {
           sessionStorage.removeItem('selectedStaff')
         }
       }
+      
+      if (savedViewAllStaff === 'true') {
+        setViewAllStaff(true)
+      }
+      
       setIsInitialized(true)
     }
     
@@ -34,12 +42,23 @@ export default function StaffSchedulePage() {
 
   const handleStaffSelect = (staff: Staff) => {
     setSelectedStaff(staff)
+    setViewAllStaff(false)
     sessionStorage.setItem('selectedStaff', JSON.stringify(staff))
+    sessionStorage.removeItem('viewAllStaff')
+  }
+
+  const handleViewAllStaff = () => {
+    setViewAllStaff(true)
+    setSelectedStaff(null)
+    sessionStorage.setItem('viewAllStaff', 'true')
+    sessionStorage.removeItem('selectedStaff')
   }
 
   const handleBackToSelection = () => {
     sessionStorage.removeItem('selectedStaff')
+    sessionStorage.removeItem('viewAllStaff')
     setSelectedStaff(null)
+    setViewAllStaff(false)
   }
 
 
@@ -60,11 +79,15 @@ export default function StaffSchedulePage() {
       <SessionManager>
         <div className="min-h-screen bg-slate-50">
           <div className="container mx-auto px-4 py-8">
-            {!selectedStaff ? (
-              <StaffNameSelector onStaffSelect={handleStaffSelect} />
+            {!selectedStaff && !viewAllStaff ? (
+              <StaffNameSelector 
+                onStaffSelect={handleStaffSelect}
+                onViewAllStaff={handleViewAllStaff}
+              />
             ) : (
               <StaffScheduleView 
                 selectedStaff={selectedStaff} 
+                viewAllStaff={viewAllStaff}
                 onBackToSelection={handleBackToSelection}
               />
             )}

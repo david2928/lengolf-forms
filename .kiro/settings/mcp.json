@@ -26,7 +26,8 @@
         "list_migrations",
         "get_anon_key",
         "apply_migration",
-        "execute_sql"
+        "execute_sql",
+        "get_logs"
       ]
     }
   }

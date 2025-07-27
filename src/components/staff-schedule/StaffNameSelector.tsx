@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import { Users } from 'lucide-react'
-import { useStaffSchedule } from '@/hooks/useStaffSchedule'
+import { useStaff } from '@/hooks/useStaffScheduleSWR'
 import { Staff } from '@/types/staff-schedule'
+import { StaffProfileImage } from '@/components/common/OptimizedImage'
+import { performanceMonitor } from '@/lib/performance-monitor'
 
 interface StaffNameSelectorProps {
   onStaffSelect: (staff: Staff) => void
+  onViewAllStaff: () => void
 }
 
-export function StaffNameSelector({ onStaffSelect }: StaffNameSelectorProps) {
-  const { staff, staffLoading: isLoading, staffError: error, fetchStaff } = useStaffSchedule()
-  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set())
+export function StaffNameSelector({ onStaffSelect, onViewAllStaff }: StaffNameSelectorProps) {
+  const { staff, staffLoading: isLoading, staffError: error, refreshStaff } = useStaff()
 
   // Clean up any old session data on mount
   useEffect(() => {
@@ -24,17 +26,16 @@ export function StaffNameSelector({ onStaffSelect }: StaffNameSelectorProps) {
   }, [])
 
   const handleStaffClick = (selectedStaff: Staff) => {
-    // Store selected staff in session storage for persistence
-    try {
-      sessionStorage.setItem('selectedStaff', JSON.stringify(selectedStaff))
-    } catch (error) {
-      console.warn('Error saving staff selection:', error)
-    }
-    onStaffSelect(selectedStaff)
-  }
-
-  const handleImageError = (staffId: number) => {
-    setImageErrors(prev => new Set(prev).add(staffId))
+    // Measure staff selection performance
+    performanceMonitor.measure('staff.selection', () => {
+      // Store selected staff in session storage for persistence
+      try {
+        sessionStorage.setItem('selectedStaff', JSON.stringify(selectedStaff))
+      } catch (error) {
+        console.warn('Error saving staff selection:', error)
+      }
+      onStaffSelect(selectedStaff)
+    }, { staffId: selectedStaff.id, staffName: selectedStaff.name })
   }
 
   if (isLoading) {
@@ -74,7 +75,7 @@ export function StaffNameSelector({ onStaffSelect }: StaffNameSelectorProps) {
             </p>
           </div>
           <button
-            onClick={fetchStaff}
+            onClick={() => refreshStaff()}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             Try Again
@@ -106,6 +107,25 @@ export function StaffNameSelector({ onStaffSelect }: StaffNameSelectorProps) {
           <h2 className="text-lg md:text-xl font-semibold text-slate-900 mb-2 text-center">Select Your Name</h2>
           <p className="text-sm md:text-base text-slate-600 text-center mb-8">Choose your name to view your schedule</p>
 
+          {/* View All Staff Button */}
+          <div className="w-full max-w-md mb-6">
+            <button
+              onClick={onViewAllStaff}
+              className="w-full bg-blue-600 text-white rounded-lg p-4 flex items-center justify-center gap-3 hover:bg-blue-700 transition-all duration-200 active:scale-[0.98] shadow-sm"
+              aria-label="View all staff schedules"
+            >
+              <Users className="h-5 w-5" />
+              <span className="font-semibold">View All Staff Schedules</span>
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="w-full max-w-md mb-6 flex items-center">
+            <div className="flex-1 border-t border-slate-200"></div>
+            <span className="px-4 text-sm text-slate-500">or select individual staff</span>
+            <div className="flex-1 border-t border-slate-200"></div>
+          </div>
+
           {/* Staff List */}
           <div className="w-full max-w-md space-y-3">
             {staff.map((member) => (
@@ -116,22 +136,13 @@ export function StaffNameSelector({ onStaffSelect }: StaffNameSelectorProps) {
                 aria-label={`Select ${member.name}`}
               >
                 {/* Avatar */}
-                <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  {member.profile_photo && !imageErrors.has(member.id) ? (
-                    <img
-                      src={member.profile_photo}
-                      alt={`${member.name} profile`}
-                      className="w-full h-full object-cover"
-                      onError={() => handleImageError(member.id)}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-semibold text-lg">
-                        {member.initials}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                <StaffProfileImage
+                  src={member.profile_photo}
+                  staffName={member.name}
+                  size="md"
+                  className="flex-shrink-0"
+                  priority={true}
+                />
 
                 {/* Staff Info */}
                 <div className="flex-1 text-left min-w-0">

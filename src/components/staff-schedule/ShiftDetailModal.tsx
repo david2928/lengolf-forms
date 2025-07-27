@@ -1,9 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Clock, MapPin, Users, FileText, Timer } from 'lucide-react'
+import { X, Clock, Users, FileText } from 'lucide-react'
 import { formatTime, formatDate, calculateDuration } from '@/types/staff-schedule'
-import { TimeClockModal } from './TimeClockModal'
 
 interface ShiftDetailModalProps {
   isOpen: boolean
@@ -19,7 +18,6 @@ interface ShiftDetailModalProps {
     staff_names?: string[]
     shift_color?: string
   } | null
-  onClockInOut?: () => void
   className?: string
 }
 
@@ -27,11 +25,9 @@ export function ShiftDetailModal({
   isOpen, 
   onClose, 
   schedule, 
-  onClockInOut,
   className = '' 
 }: ShiftDetailModalProps) {
   const [isClosing, setIsClosing] = useState(false)
-  const [showTimeClockModal, setShowTimeClockModal] = useState(false)
 
   if (!isOpen || !schedule) return null
 
@@ -39,7 +35,6 @@ export function ShiftDetailModal({
     schedule_date,
     start_time,
     end_time,
-    location,
     notes,
     staff_name,
     staff_names,
@@ -74,19 +69,7 @@ export function ShiftDetailModal({
     }
   }
 
-  // Handle clock in/out
-  const handleClockInOut = () => {
-    setShowTimeClockModal(true)
-  }
 
-  // Handle time clock modal close
-  const handleTimeClockClose = () => {
-    setShowTimeClockModal(false)
-    // Optionally call the original onClockInOut callback if provided
-    if (onClockInOut) {
-      onClockInOut()
-    }
-  }
 
   return (
     <div 
@@ -185,31 +168,10 @@ export function ShiftDetailModal({
           )}
         </div>
 
-        {/* Actions */}
-        <div className="p-4 border-t border-slate-200">
-          <button
-            onClick={handleClockInOut}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-          >
-            <Timer className="h-5 w-5" />
-            <span>Clock In/Out</span>
-          </button>
-        </div>
+
       </div>
 
-      {/* Time Clock Modal */}
-      <TimeClockModal
-        isOpen={showTimeClockModal}
-        onClose={handleTimeClockClose}
-        schedule={{
-          schedule_id: schedule.schedule_id,
-          staff_name: staff_name || staff_names?.[0] || 'Unknown Staff',
-          schedule_date: schedule.schedule_date,
-          start_time: schedule.start_time,
-          end_time: schedule.end_time,
-          location: schedule.location
-        }}
-      />
+
     </div>
   )
 }

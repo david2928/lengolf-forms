@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Users, MapPin, Clock } from 'lucide-react'
+import { Users, MapPin, Clock, RotateCcw } from 'lucide-react'
 import { formatTime, getDayAbbreviation, getShiftColor, calculateDuration } from '@/types/staff-schedule'
 
 interface ScheduleCardProps {
@@ -16,6 +16,8 @@ interface ScheduleCardProps {
     staff_names?: string[]
     staff_photos?: string[]
     shift_color?: string
+    is_recurring?: boolean
+    recurring_group_id?: string | null
   }
   viewMode: 'personal' | 'team'
   onCardTap?: (scheduleId: string) => void
@@ -37,7 +39,8 @@ export function ScheduleCard({
     staff_name,
     staff_names,
     staff_photos,
-    shift_color
+    shift_color,
+    is_recurring
   } = schedule
 
   // Get color based on start time if not provided
@@ -109,7 +112,7 @@ export function ScheduleCard({
     <button
       onClick={handleClick}
       className={`
-        w-full bg-white rounded-xl border border-slate-200 p-4 text-left transition-all duration-200
+        relative w-full bg-white rounded-xl border border-slate-200 p-4 text-left transition-all duration-200
         hover:shadow-lg hover:border-slate-300 hover:-translate-y-0.5 
         active:scale-[0.98] active:shadow-md
         touch-target tap-highlight no-select
@@ -120,7 +123,7 @@ export function ScheduleCard({
         borderLeftWidth: '4px',
         borderLeftColor: cardColor
       }}
-      aria-label={`View details for ${timeRange} shift${viewMode === 'team' && staffDisplay?.length ? ` with ${staffDisplay.join(', ')}` : ''}`}
+      aria-label={`View details for ${timeRange} shift${viewMode === 'team' && staffDisplay?.length ? ` with ${staffDisplay.join(', ')}` : ''}${is_recurring ? ' (recurring)' : ''}`}
     >
       <div className="flex items-start justify-between">
         {/* Left side - Date and time info */}
@@ -200,6 +203,19 @@ export function ScheduleCard({
           </div>
         )}
       </div>
+
+      {/* Recurring schedule indicator - positioned in bottom right corner */}
+      {is_recurring && (
+        <div className="absolute bottom-2 right-2">
+          <div 
+            className="w-5 h-5 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center shadow-sm"
+            title="Recurring schedule"
+            aria-label="This is a recurring schedule"
+          >
+            <RotateCcw className="h-3 w-3 text-slate-600" />
+          </div>
+        </div>
+      )}
     </button>
   )
 }

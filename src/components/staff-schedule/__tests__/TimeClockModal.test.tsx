@@ -1,348 +1,348 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { TimeClockModal } from '../TimeClockModal'
-import { useTimeClockIntegration } from '@/hooks/useTimeClockIntegration'
 
 // Mock the time clock integration hook
-jest.mock('@/hooks/useTimeClockIntegration')
+jest.mock('@/hooks/useTimeClockIntegration', () => ({
+  useTimeClockIntegration: jest.fn(),
+}))
 
-const mockUseTimeClockIntegration = useTimeClockIntegration as jest.MockedFunction<typeof useTimeClockIntegration>
-
-const mockSchedule = {
-  schedule_id: 'test-schedule-123',
-  staff_name: 'John Doe',
-  schedule_date: '2025-07-15',
-  start_time: '09:00',
-  end_time: '17:00',
-  location: 'Main Office'
-}
+const mockUseTimeClockIntegration = require('@/hooks/useTimeClockIntegration').useTimeClockIntegration
 
 describe('TimeClockModal', () => {
   const mockOnClose = jest.fn()
-  
-  const defaultHookReturn = {
-    isLoading: false,
-    error: null,
-    success: null,
-    currentStatus: null,
-    clockInOut: jest.fn(),
-    resetState: jest.fn(),
-    validatePinFormat: jest.fn(),
-    getErrorType: jest.fn(),
-    verifyPin: jest.fn()
+  const mockClockIn = jest.fn()
+  const mockClockOut = jest.fn()
+
+  const defaultProps = {
+    isOpen: true,
+    onClose: mockOnClose,
+    scheduleId: 'schedule-123',
+    staffId: 1,
+    staffName: 'John Doe',
   }
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockUseTimeClockIntegration.mockReturnValue(defaultHookReturn)
+    mockUseTimeClockIntegration.mockReturnValue({
+      clockIn: mockClockIn,
+      clockOut: mockClockOut,
+      isLoading: false,
+      error: null,
+      currentStatus: null,
+    })
   })
 
   it('renders correctly when open', () => {
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
+    render(<TimeClockModal {...defaultProps} />)
 
     expect(screen.getByText('Time Clock')).toBeInTheDocument()
     expect(screen.getByText('John Doe')).toBeInTheDocument()
-    expect(screen.getByText('09:00 - 17:00 • Main Office')).toBeInTheDocument()
-    expect(screen.getByText('Enter your 6-digit PIN')).toBeInTheDocument()
   })
 
   it('does not render when closed', () => {
-    render(
-      <TimeClockModal
-        isOpen={false}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
+    render(<TimeClockModal {...defaultProps} isOpen={false} />)
 
     expect(screen.queryByText('Time Clock')).not.toBeInTheDocument()
   })
 
-  it('handles PIN input correctly', () => {
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
+  it('shows PIN input form', () => {
+    render(<TimeClockModal {...defaultProps} />)
 
-    const pinInputs = screen.getAllByRole('textbox')
-    expect(pinInputs).toHaveLength(6)
-
-    // Type digits in PIN inputs
-    fireEvent.change(pinInputs[0], { target: { value: '1' } })
-    fireEvent.change(pinInputs[1], { target: { value: '2' } })
-    fireEvent.change(pinInputs[2], { target: { value: '3' } })
-
-    expect(pinInputs[0]).toHaveValue('1')
-    expect(pinInputs[1]).toHaveValue('2')
-    expect(pinInputs[2]).toHaveValue('3')
+    expect(screen.getByLabelText(/enter your pin/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /clock in/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /clock out/i })).toBeInTheDocument()
   })
 
-  it('only allows numeric input', () => {
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
+  it('handles clock in action', async () => {
+    const user = userEvent.setup()
+    render(<TimeClockModal {...defaultProps} />)
 
-    const pinInputs = screen.getAllByRole('textbox')
+    const pinInput = screen.getByLabelText(/enter your pin/i)
+    const clockInButton = screen.getByRole('button', { name: /clock in/i })
+
+    await user.type(pinInput, '1234')
+    await user.click(clockInButton)
+
+    expect(mockClockIn).toHaveBeenCalledWith({
+      staffId: 1,
+      scheduleId: 'schedule-123',
+      pin: '1234',
+    })
+  })
+
+  it('handles clock out action', async () => {
+    const user = userEvent.setup()
+    render(<TimeClockModal {...defaultProps} />)
+
+    const pinInput = screen.getByLabelText(/enter your pin/i)
+    const clockOutButton = screen.getByRole('button', { name: /clock out/i })
+
+    await user.type(pinInput, '1234')
+    await user.click(clockOutButton)
+
+    expect(mockClockOut).toHaveBeenCalledWith({
+      staffId: 1,
+      scheduleId: 'schedule-123',
+      pin: '1234',
+    })
+  })
+
+  it('validates PIN input', async () => {
+    const user = userEvent.setup()
+    render(<TimeClockModal {...defaultProps} />)
+
+    const clockInButton = screen.getByRole('button', { name: /clock in/i })
+    await user.click(clockInButton)
+
+    expect(screen.getByText(/pin is required/i)).toBeInTheDocument()
+  })
+
+  it('validates PIN length', async () => {
+    const user = userEvent.setup()
+    render(<TimeClockModal {...defaultProps} />)
+
+    const pinInput = screen.getByLabelText(/enter your pin/i)
+    const clockInButton = screen.getByRole('button', { name: /clock in/i })
+
+    await user.type(pinInput, '12')
+    await user.click(clockInButton)
+
+    expect(screen.getByText(/pin must be 4 digits/i)).toBeInTheDocument()
+  })
+
+  it('shows loading state during clock action', async () => {
+    const user = userEvent.setup()
     
-    // Try to enter non-numeric characters
-    fireEvent.change(pinInputs[0], { target: { value: 'a' } })
-    fireEvent.change(pinInputs[1], { target: { value: '!' } })
-    
-    // Should remain empty since non-numeric input is rejected
-    expect(pinInputs[0]).toHaveValue('')
-    expect(pinInputs[1]).toHaveValue('')
-  })
-
-  it('disables clock in/out button when PIN is incomplete', () => {
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
-
-    const clockButton = screen.getByRole('button', { name: /clock in\/out/i })
-    expect(clockButton).toBeDisabled()
-
-    // Enter partial PIN
-    const pinInputs = screen.getAllByRole('textbox')
-    fireEvent.change(pinInputs[0], { target: { value: '1' } })
-    fireEvent.change(pinInputs[1], { target: { value: '2' } })
-    fireEvent.change(pinInputs[2], { target: { value: '3' } })
-
-    expect(clockButton).toBeDisabled()
-  })
-
-  it('enables clock in/out button when PIN is complete', () => {
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
-
-    const clockButton = screen.getByRole('button', { name: /clock in\/out/i })
-    const pinInputs = screen.getAllByRole('textbox')
-
-    // Enter complete PIN
-    fireEvent.change(pinInputs[0], { target: { value: '1' } })
-    fireEvent.change(pinInputs[1], { target: { value: '2' } })
-    fireEvent.change(pinInputs[2], { target: { value: '3' } })
-    fireEvent.change(pinInputs[3], { target: { value: '4' } })
-    fireEvent.change(pinInputs[4], { target: { value: '5' } })
-    fireEvent.change(pinInputs[5], { target: { value: '6' } })
-
-    expect(clockButton).toBeEnabled()
-  })
-
-  it('calls clockInOut when button is clicked with complete PIN', async () => {
-    const mockClockInOut = jest.fn()
     mockUseTimeClockIntegration.mockReturnValue({
-      ...defaultHookReturn,
-      clockInOut: mockClockInOut
-    })
-
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
-
-    const pinInputs = screen.getAllByRole('textbox')
-    const clockButton = screen.getByRole('button', { name: /clock in\/out/i })
-
-    // Enter complete PIN
-    fireEvent.change(pinInputs[0], { target: { value: '1' } })
-    fireEvent.change(pinInputs[1], { target: { value: '2' } })
-    fireEvent.change(pinInputs[2], { target: { value: '3' } })
-    fireEvent.change(pinInputs[3], { target: { value: '4' } })
-    fireEvent.change(pinInputs[4], { target: { value: '5' } })
-    fireEvent.change(pinInputs[5], { target: { value: '6' } })
-
-    fireEvent.click(clockButton)
-
-    expect(mockClockInOut).toHaveBeenCalledWith('123456')
-  })
-
-  it('displays error message when error occurs', () => {
-    mockUseTimeClockIntegration.mockReturnValue({
-      ...defaultHookReturn,
-      error: 'Invalid PIN. Please try again.'
-    })
-
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
-
-    expect(screen.getByText('Invalid PIN. Please try again.')).toBeInTheDocument()
-    expect(screen.getByRole('alert')).toBeInTheDocument()
-  })
-
-  it('displays success message when operation succeeds', () => {
-    mockUseTimeClockIntegration.mockReturnValue({
-      ...defaultHookReturn,
-      success: 'Successfully clocked in for John Doe!'
-    })
-
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
-
-    expect(screen.getByText('Successfully clocked in for John Doe!')).toBeInTheDocument()
-  })
-
-  it('shows loading state during operation', () => {
-    mockUseTimeClockIntegration.mockReturnValue({
-      ...defaultHookReturn,
+      clockIn: mockClockIn,
+      clockOut: mockClockOut,
       isLoading: true,
-      currentStatus: 'clock_in'
+      error: null,
+      currentStatus: null,
     })
 
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
+    render(<TimeClockModal {...defaultProps} />)
 
-    expect(screen.getByText('Clocking In...')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /clocking in/i })).toBeDisabled()
+    expect(screen.getByText(/processing/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /clock in/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /clock out/i })).toBeDisabled()
   })
 
-  it('closes modal when backdrop is clicked', () => {
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
-
-    const backdrop = screen.getByRole('dialog').parentElement
-    fireEvent.click(backdrop!)
-
-    // Should trigger close after animation delay
-    setTimeout(() => {
-      expect(mockOnClose).toHaveBeenCalled()
-    }, 250)
-  })
-
-  it('closes modal when X button is clicked', () => {
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
-
-    const closeButton = screen.getByRole('button', { name: /close modal/i })
-    fireEvent.click(closeButton)
-
-    // Should trigger close after animation delay
-    setTimeout(() => {
-      expect(mockOnClose).toHaveBeenCalled()
-    }, 250)
-  })
-
-  it('resets state when modal opens', () => {
-    const mockResetState = jest.fn()
+  it('displays error messages', () => {
     mockUseTimeClockIntegration.mockReturnValue({
-      ...defaultHookReturn,
-      resetState: mockResetState
+      clockIn: mockClockIn,
+      clockOut: mockClockOut,
+      isLoading: false,
+      error: 'Invalid PIN',
+      currentStatus: null,
     })
 
-    const { rerender } = render(
-      <TimeClockModal
-        isOpen={false}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
+    render(<TimeClockModal {...defaultProps} />)
 
-    rerender(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
-
-    expect(mockResetState).toHaveBeenCalled()
+    expect(screen.getByText('Invalid PIN')).toBeInTheDocument()
   })
 
-  it('handles Enter key press to submit PIN', async () => {
-    const mockClockInOut = jest.fn()
+  it('shows current clock status', () => {
     mockUseTimeClockIntegration.mockReturnValue({
-      ...defaultHookReturn,
-      clockInOut: mockClockInOut
+      clockIn: mockClockIn,
+      clockOut: mockClockOut,
+      isLoading: false,
+      error: null,
+      currentStatus: {
+        isClockedIn: true,
+        clockInTime: '09:00',
+        totalHours: '2.5',
+      },
     })
 
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
+    render(<TimeClockModal {...defaultProps} />)
 
-    const pinInputs = screen.getAllByRole('textbox')
-
-    // Enter complete PIN
-    fireEvent.change(pinInputs[0], { target: { value: '1' } })
-    fireEvent.change(pinInputs[1], { target: { value: '2' } })
-    fireEvent.change(pinInputs[2], { target: { value: '3' } })
-    fireEvent.change(pinInputs[3], { target: { value: '4' } })
-    fireEvent.change(pinInputs[4], { target: { value: '5' } })
-    fireEvent.change(pinInputs[5], { target: { value: '6' } })
-
-    // Press Enter on last input
-    fireEvent.keyDown(pinInputs[5], { key: 'Enter' })
-
-    expect(mockClockInOut).toHaveBeenCalledWith('123456')
+    expect(screen.getByText(/clocked in at 09:00/i)).toBeInTheDocument()
+    expect(screen.getByText(/2.5 hours worked/i)).toBeInTheDocument()
   })
 
-  it('handles backspace navigation between inputs', () => {
-    render(
-      <TimeClockModal
-        isOpen={true}
-        onClose={mockOnClose}
-        schedule={mockSchedule}
-      />
-    )
-
-    const pinInputs = screen.getAllByRole('textbox')
-
-    // Focus should move to previous input on backspace when current is empty
-    fireEvent.keyDown(pinInputs[2], { key: 'Backspace' })
+  it('closes modal on successful clock action', async () => {
+    const user = userEvent.setup()
     
-    // This would require more complex testing setup to verify focus changes
-    // For now, we just ensure the event handler doesn't crash
-    expect(pinInputs[2]).toBeInTheDocument()
+    mockClockIn.mockResolvedValue({ success: true })
+    
+    render(<TimeClockModal {...defaultProps} />)
+
+    const pinInput = screen.getByLabelText(/enter your pin/i)
+    const clockInButton = screen.getByRole('button', { name: /clock in/i })
+
+    await user.type(pinInput, '1234')
+    await user.click(clockInButton)
+
+    await waitFor(() => {
+      expect(mockOnClose).toHaveBeenCalled()
+    })
+  })
+
+  it('clears PIN input after failed attempt', async () => {
+    const user = userEvent.setup()
+    
+    mockClockIn.mockRejectedValue(new Error('Invalid PIN'))
+    
+    render(<TimeClockModal {...defaultProps} />)
+
+    const pinInput = screen.getByLabelText(/enter your pin/i) as HTMLInputElement
+    const clockInButton = screen.getByRole('button', { name: /clock in/i })
+
+    await user.type(pinInput, '1234')
+    await user.click(clockInButton)
+
+    await waitFor(() => {
+      expect(pinInput.value).toBe('')
+    })
+  })
+
+  it('handles keyboard navigation', async () => {
+    const user = userEvent.setup()
+    render(<TimeClockModal {...defaultProps} />)
+
+    const pinInput = screen.getByLabelText(/enter your pin/i)
+    
+    await user.type(pinInput, '1234')
+    await user.keyboard('{Enter}')
+
+    expect(mockClockIn).toHaveBeenCalled()
+  })
+
+  it('masks PIN input for security', async () => {
+    const user = userEvent.setup()
+    render(<TimeClockModal {...defaultProps} />)
+
+    const pinInput = screen.getByLabelText(/enter your pin/i)
+    
+    expect(pinInput).toHaveAttribute('type', 'password')
+  })
+
+  it('shows numeric keypad on mobile', () => {
+    render(<TimeClockModal {...defaultProps} />)
+
+    const pinInput = screen.getByLabelText(/enter your pin/i)
+    
+    expect(pinInput).toHaveAttribute('inputMode', 'numeric')
+    expect(pinInput).toHaveAttribute('pattern', '[0-9]*')
+  })
+
+  it('prevents non-numeric input', async () => {
+    const user = userEvent.setup()
+    render(<TimeClockModal {...defaultProps} />)
+
+    const pinInput = screen.getByLabelText(/enter your pin/i) as HTMLInputElement
+    
+    await user.type(pinInput, 'abc123')
+    
+    expect(pinInput.value).toBe('123')
+  })
+
+  it('limits PIN input to 4 digits', async () => {
+    const user = userEvent.setup()
+    render(<TimeClockModal {...defaultProps} />)
+
+    const pinInput = screen.getByLabelText(/enter your pin/i) as HTMLInputElement
+    
+    await user.type(pinInput, '123456')
+    
+    expect(pinInput.value).toBe('1234')
+  })
+
+  it('closes modal when backdrop is clicked', async () => {
+    render(<TimeClockModal {...defaultProps} />)
+
+    const backdrop = screen.getByTestId('modal-backdrop')
+    fireEvent.click(backdrop)
+
+    expect(mockOnClose).toHaveBeenCalled()
+  })
+
+  it('closes modal when escape key is pressed', async () => {
+    render(<TimeClockModal {...defaultProps} />)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(mockOnClose).toHaveBeenCalled()
+  })
+
+  it('focuses PIN input when modal opens', async () => {
+    render(<TimeClockModal {...defaultProps} />)
+
+    await waitFor(() => {
+      const pinInput = screen.getByLabelText(/enter your pin/i)
+      expect(pinInput).toHaveFocus()
+    })
+  })
+
+  it('has proper accessibility attributes', () => {
+    render(<TimeClockModal {...defaultProps} />)
+
+    const modal = screen.getByRole('dialog')
+    expect(modal).toHaveAttribute('aria-labelledby')
+    expect(modal).toHaveAttribute('aria-modal', 'true')
+
+    const pinInput = screen.getByLabelText(/enter your pin/i)
+    expect(pinInput).toHaveAttribute('aria-required', 'true')
+  })
+
+  it('announces status changes to screen readers', async () => {
+    const user = userEvent.setup()
+    
+    mockClockIn.mockResolvedValue({ success: true })
+    
+    render(<TimeClockModal {...defaultProps} />)
+
+    const pinInput = screen.getByLabelText(/enter your pin/i)
+    const clockInButton = screen.getByRole('button', { name: /clock in/i })
+
+    await user.type(pinInput, '1234')
+    await user.click(clockInButton)
+
+    await waitFor(() => {
+      const statusMessage = screen.getByRole('status')
+      expect(statusMessage).toHaveTextContent(/successfully clocked in/i)
+    })
+  })
+
+  it('shows different button states based on clock status', () => {
+    mockUseTimeClockIntegration.mockReturnValue({
+      clockIn: mockClockIn,
+      clockOut: mockClockOut,
+      isLoading: false,
+      error: null,
+      currentStatus: {
+        isClockedIn: true,
+        clockInTime: '09:00',
+      },
+    })
+
+    render(<TimeClockModal {...defaultProps} />)
+
+    const clockInButton = screen.getByRole('button', { name: /clock in/i })
+    const clockOutButton = screen.getByRole('button', { name: /clock out/i })
+
+    expect(clockInButton).toBeDisabled()
+    expect(clockOutButton).not.toBeDisabled()
+  })
+
+  it('handles network errors gracefully', async () => {
+    const user = userEvent.setup()
+    
+    mockClockIn.mockRejectedValue(new Error('Network error'))
+    
+    render(<TimeClockModal {...defaultProps} />)
+
+    const pinInput = screen.getByLabelText(/enter your pin/i)
+    const clockInButton = screen.getByRole('button', { name: /clock in/i })
+
+    await user.type(pinInput, '1234')
+    await user.click(clockInButton)
+
+    await waitFor(() => {
+      expect(screen.getByText(/network error/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+    })
   })
 })
