@@ -14,7 +14,7 @@ export async function POST(
 
   try {
     const { sessionId } = params;
-    const { orderItems, orderTotal, notes } = await request.json();
+    const { orderItems, notes } = await request.json();
 
     if (!orderItems || !Array.isArray(orderItems) || orderItems.length === 0) {
       return NextResponse.json(
@@ -23,38 +23,110 @@ export async function POST(
       );
     }
 
-    // Get the table session
+    // Validate order items structure
+    for (const item of orderItems) {
+      if (!item.productId || !item.quantity || item.quantity <= 0) {
+        return NextResponse.json(
+          { error: "Each order item must have productId and positive quantity" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Get the table session and validate it's active
     const { data: tableSession, error: sessionError } = await supabase
       .schema('pos')
       .from('table_sessions')
       .select('*')
       .eq('id', sessionId)
+      .eq('status', 'occupied')
+      .is('session_end', null)
       .single();
 
     if (sessionError || !tableSession) {
       return NextResponse.json(
-        { error: "Table session not found" },
+        { error: "Table session not found or not active" },
         { status: 404 }
       );
     }
 
-    // Calculate totals
-    const calculatedTotal = orderItems.reduce((sum: number, item: any) => sum + item.totalPrice, 0);
-    const taxAmount = calculatedTotal * 0.07; // 7% tax
-    const subtotalAmount = calculatedTotal - taxAmount;
+    // Fetch product prices from database
+    const productIds = orderItems.map((item: any) => item.productId);
+    const { data: products, error: productsError } = await supabase
+      .schema('products')
+      .from('products')
+      .select('id, name, price')
+      .in('id', productIds);
 
-    // Create the order in normalized table
+    if (productsError || !products) {
+      console.error('Failed to fetch products:', productsError);
+      return NextResponse.json(
+        { error: "Failed to fetch product information" },
+        { status: 500 }
+      );
+    }
+
+    // Create a map for quick product lookup
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    // Validate all products exist and calculate prices
+    let calculatedSubtotal = 0;
+    const enrichedOrderItems = [];
+
+    for (const item of orderItems) {
+      const product = productMap.get(item.productId);
+      if (!product) {
+        return NextResponse.json(
+          { error: `Product not found: ${item.productId}` },
+          { status: 400 }
+        );
+      }
+
+      const unitPrice = parseFloat(product.price);
+      // Validate unitPrice is a valid number
+      if (isNaN(unitPrice) || unitPrice < 0) {
+        console.error('Invalid product price:', product.price, 'for product:', item.productId);
+        return NextResponse.json(
+          { error: `Invalid product price for ${product.name}` },
+          { status: 500 }
+        );
+      }
+
+      const totalPrice = unitPrice * item.quantity;
+      calculatedSubtotal += totalPrice;
+
+      enrichedOrderItems.push({
+        productId: item.productId,
+        productName: product.name,
+        quantity: item.quantity,
+        unitPrice: unitPrice,
+        totalPrice: totalPrice,
+        modifiers: item.modifiers || [],
+        notes: item.notes || null
+      });
+    }
+
+    // Product prices already include VAT - no need to add VAT on top
+    // Calculate the VAT portion that's already included (7% VAT = 7/107 of total)
+    const taxAmount = calculatedSubtotal * (7 / 107);
+    const subtotalWithoutVat = calculatedSubtotal - taxAmount;
+    const totalAmount = calculatedSubtotal; // Total is the same as calculatedSubtotal since VAT is included
+
+    // Create the order in normalized table with context from table session
     const { data: newOrder, error: orderError } = await supabase
       .schema('pos')
       .from('orders')
       .insert({
         table_session_id: sessionId,
         status: 'confirmed',
-        total_amount: calculatedTotal,
+        total_amount: totalAmount,
         tax_amount: taxAmount,
-        subtotal_amount: subtotalAmount,
+        subtotal_amount: subtotalWithoutVat,
         confirmed_by: session.user.email,
-        notes: notes || null
+        notes: notes || null,
+        booking_id: tableSession.booking_id,
+        customer_id: tableSession.customer_id,
+        staff_id: tableSession.staff_id
       })
       .select()
       .single();
@@ -67,13 +139,10 @@ export async function POST(
       );
     }
 
-    // Insert order items
-    const orderItemsData = orderItems.map((item: any) => ({
+    // Insert order items with server-calculated prices
+    const orderItemsData = enrichedOrderItems.map((item: any) => ({
       order_id: newOrder.id,
-      product_id: item.productId || null,
-      product_name: item.productName,
-      category_id: item.categoryId || null,
-      category_name: item.categoryName || null,
+      product_id: item.productId,
       quantity: item.quantity,
       unit_price: item.unitPrice,
       total_price: item.totalPrice,
@@ -96,8 +165,9 @@ export async function POST(
       );
     }
 
-    // Update table session total amount
-    const newSessionTotal = tableSession.total_amount + calculatedTotal;
+    // Update table session total amount - handle null case safely
+    const currentSessionTotal = parseFloat(tableSession.total_amount) || 0;
+    const newSessionTotal = currentSessionTotal + totalAmount;
     const { error: updateError } = await supabase
       .schema('pos')
       .from('table_sessions')

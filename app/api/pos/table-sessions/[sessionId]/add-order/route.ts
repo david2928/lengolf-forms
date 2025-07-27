@@ -29,49 +29,23 @@ export async function POST(
       return NextResponse.json({ error: "Table session not found" }, { status: 404 });
     }
 
-    // Generate UUID for order ID
-    const orderId = crypto.randomUUID();
+    // Note: Order creation is handled by the confirm-order endpoint
+    // This endpoint just adds items to the current session cart
 
-    // Create table order record
-    const { error: orderError } = await supabase
-      .schema('pos')
-      .from('table_orders')
-      .insert({
-        table_session_id: sessionId,
-        order_id: orderId,
-        order_number: `ORD-${Date.now()}`,
-        order_total: orderTotal,
-        order_status: 'active'
-      });
-
-    if (orderError) {
-      console.error('Error creating table order:', orderError);
-      return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
+    // Store order items in current_order_items JSONB column instead of notes
+    // The notes field should remain for human-readable session notes
+    let currentOrderItems = tableSession.current_order_items || [];
+    if (!Array.isArray(currentOrderItems)) {
+      currentOrderItems = [];
     }
 
-    // Store order items as JSON in the table session notes
-    // Parse existing orders or initialize empty structure
-    let existingData: { orders: any[] } = { orders: [] };
-    if (tableSession.notes) {
-      try {
-        existingData = JSON.parse(tableSession.notes);
-        if (!existingData.orders) {
-          existingData.orders = [];
-        }
-      } catch (e) {
-        console.error('Failed to parse existing notes:', e);
-        existingData = { orders: [] };
-      }
-    }
-
-    // Add individual order items to the orders array
-    const itemsWithOrderId = orderItems.map((item: any) => ({
+    // Add individual items to the cart
+    const itemsWithTimestamp = orderItems.map((item: any) => ({
       ...item,
-      orderId, // Add order ID for tracking
       addedAt: new Date().toISOString()
     }));
     
-    existingData.orders.push(...itemsWithOrderId);
+    currentOrderItems.push(...itemsWithTimestamp);
 
     // Update table session with new total and order data
     const newTotalAmount = parseFloat(tableSession.total_amount || '0') + orderTotal;
@@ -81,10 +55,7 @@ export async function POST(
       .from('table_sessions')
       .update({
         total_amount: newTotalAmount,
-        notes: JSON.stringify({
-          ...existingData,
-          lastUpdated: new Date().toISOString()
-        }),
+        current_order_items: currentOrderItems,
         updated_at: new Date().toISOString()
       })
       .eq('id', sessionId);
@@ -96,9 +67,8 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      orderId,
       totalAmount: newTotalAmount,
-      message: "Order added successfully"
+      message: "Items added to cart successfully"
     });
 
   } catch (error) {

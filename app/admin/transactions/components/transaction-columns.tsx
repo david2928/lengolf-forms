@@ -275,7 +275,7 @@ export function createTransactionColumns(
             className="text-right text-sm font-medium text-gray-900 cursor-pointer"
             onClick={() => onTransactionClick(row.original.receipt_number)}
           >
-            ฿{amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+            ฿{amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
         );
       },
@@ -300,20 +300,15 @@ export function createTransactionColumns(
             className="text-right text-sm font-medium text-gray-600 cursor-pointer"
             onClick={() => onTransactionClick(row.original.receipt_number)}
           >
-            ฿{amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+            ฿{amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
         );
       },
       enableSorting: true,
     },
     {
+      accessorKey: "total_cost",
       id: "cost",
-      accessorFn: (row) => {
-        const netAmount = typeof row.net_amount === 'number' ? row.net_amount : parseFloat(String(row.net_amount) || "0");
-        const totalProfit = typeof row.total_profit === 'number' ? row.total_profit : parseFloat(String(row.total_profit) || "0");
-        const cost = netAmount - totalProfit;
-        return isNaN(cost) ? 0 : cost;
-      },
       header: ({ column }) => (
         <Button
           variant="ghost"
@@ -325,14 +320,14 @@ export function createTransactionColumns(
         </Button>
       ),
       cell: ({ row }) => {
-        const cost = row.getValue("cost") as number;
+        const cost = parseFloat(row.getValue("cost"));
         const displayCost = isNaN(cost) ? 0 : cost;
         return (
           <div 
             className="text-right text-sm font-medium text-blue-600 cursor-pointer"
             onClick={() => onTransactionClick(row.original.receipt_number)}
           >
-            ฿{displayCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+            ฿{displayCost.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
         );
       },

@@ -14,8 +14,23 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const loadAll = searchParams.get('all') === 'true';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    
+    // Validate and sanitize pagination parameters
+    let page = parseInt(searchParams.get('page') || '1');
+    let limit = parseInt(searchParams.get('limit') || '50');
+    
+    // Ensure page is at least 1
+    if (isNaN(page) || page < 1) {
+      page = 1;
+    }
+    
+    // Ensure limit is between 1 and 100
+    if (isNaN(limit) || limit < 1) {
+      limit = 50;
+    } else if (limit > 100) {
+      limit = 100;
+    }
+    
     const category = searchParams.get('category');
     const search = searchParams.get('search');
     const sortBy = searchParams.get('sortBy') || 'name';

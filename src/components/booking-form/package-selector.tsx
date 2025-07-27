@@ -104,7 +104,7 @@ export function PackageSelector({
     const isUnactivated = pkg.details.firstUseDate === 'Not activated' // Can be activated on first use
     const isActivatedAndNotExpired = pkg.details.firstUseDate !== 'Not activated' && 
                                     (pkg.details.expirationDate === 'No expiry' || 
-                                     new Date(pkg.details.expirationDate) > new Date())
+                                     new Date(pkg.details.expirationDate).getTime() >= new Date().setHours(0,0,0,0))
     
     // Package is available if it's either unactivated OR (activated + not expired + has hours)
     const isUsableForBooking = hasRemainingHours && (isUnactivated || isActivatedAndNotExpired)

@@ -91,71 +91,174 @@ export class ReceiptGenerator {
    * Generate receipt for thermal printer (58mm width)
    */
   generateThermalReceipt(receiptData: ReceiptData, language: 'th' | 'en' = 'en'): string {
+    return this.generateThermalReceiptWithWidth(receiptData, language, 32);
+  }
+
+  /**
+   * Generate receipt for 80mm thermal printer (wider format)
+   */
+  generateThermalReceipt80mm(receiptData: ReceiptData, language: 'th' | 'en' = 'en'): string {
+    return this.generateThermalReceiptWithWidth(receiptData, language, 48);
+  }
+
+  /**
+   * Generate thermal receipt with configurable width
+   */
+  private generateThermalReceiptWithWidth(receiptData: ReceiptData, language: 'th' | 'en' = 'en', width: number): string {
     const isThaiPrimary = language === 'th';
     const lines: string[] = [];
+    const isWide = width >= 40; // 80mm printer has ~48 chars width
     
-    // Header
-    lines.push(this.centerText(receiptData.businessInfo.name, 32));
-    lines.push(this.centerText(receiptData.businessInfo.address, 32));
-    lines.push(this.centerText(`Tax ID: ${receiptData.businessInfo.taxId}`, 32));
-    lines.push(this.centerText(`Tel: ${receiptData.businessInfo.phone}`, 32));
-    lines.push(this.printLine(32));
-    
-    // Receipt info
-    lines.push(`Receipt No: ${receiptData.receiptNumber}`);
-    lines.push(`Date: ${this.formatDateTime(receiptData.transaction.date)}`);
-    if (receiptData.transaction.tableNumber) {
-      lines.push(`Table: ${receiptData.transaction.tableNumber}`);
-    }
-    if (receiptData.transaction.customerName) {
-      lines.push(`Customer: ${receiptData.transaction.customerName}`);
-    }
-    lines.push(`Staff: ${receiptData.transaction.staffName}`);
-    lines.push(this.printLine(32));
-    
-    // Items
-    lines.push(this.padText('Item', 'Qty', 'Price', 32));
-    lines.push(this.printLine(32, '-'));
-    
-    receiptData.transaction.items.forEach(item => {
-      const name = this.truncateText(item.name, 20);
-      lines.push(name);
-      const qtyPrice = `${item.quantity}x${this.formatCurrency(item.unitPrice, false)}`;
-      const total = this.formatCurrency(item.totalPrice, false);
-      lines.push(this.padText('', qtyPrice, total, 32));
-      if (item.notes) {
-        lines.push(`  Note: ${this.truncateText(item.notes, 28)}`);
-      }
-    });
-    
-    lines.push(this.printLine(32, '-'));
-    
-    // Totals
-    lines.push(this.padText('Subtotal:', '', this.formatCurrency(receiptData.transaction.subtotal, false), 32));
-    lines.push(this.padText('VAT (7%):', '', this.formatCurrency(receiptData.transaction.vatAmount, false), 32));
-    lines.push(this.padText('TOTAL:', '', this.formatCurrency(receiptData.transaction.totalAmount, false), 32));
-    lines.push(this.printLine(32));
-    
-    // Payment methods
-    lines.push('Payment:');
-    receiptData.transaction.paymentMethods.forEach(payment => {
-      const methodName = this.truncateText(payment.method, 15);
-      const amount = this.formatCurrency(payment.amount, false);
-      lines.push(this.padText(`  ${methodName}:`, '', amount, 32));
-    });
-    
-    lines.push(this.printLine(32));
-    
-    // Footer
-    lines.push(this.centerText(receiptData.footer.thankYouMessage, 32));
-    if (receiptData.footer.returnPolicy) {
+    // Header with enhanced formatting for 80mm
+    if (isWide) {
+      lines.push(this.printLine(width, '='));
+      lines.push(this.centerText('*** RECEIPT ***', width));
+      lines.push(this.printLine(width, '='));
       lines.push('');
-      lines.push(this.centerText('Return Policy:', 32));
-      lines.push(this.wrapText(receiptData.footer.returnPolicy, 32));
+      lines.push(this.centerText(receiptData.businessInfo.name.toUpperCase(), width));
+      lines.push(this.centerText(receiptData.businessInfo.address, width));
+      lines.push(this.centerText(`Tax ID: ${receiptData.businessInfo.taxId}`, width));
+      lines.push(this.centerText(`Tel: ${receiptData.businessInfo.phone}`, width));
+      lines.push('');
+      lines.push(this.printLine(width, '='));
+    } else {
+      // Original 58mm format
+      lines.push(this.centerText(receiptData.businessInfo.name, width));
+      lines.push(this.centerText(receiptData.businessInfo.address, width));
+      lines.push(this.centerText(`Tax ID: ${receiptData.businessInfo.taxId}`, width));
+      lines.push(this.centerText(`Tel: ${receiptData.businessInfo.phone}`, width));
+      lines.push(this.printLine(width));
+    }
+    
+    // Receipt info with better formatting for 80mm
+    if (isWide) {
+      lines.push(this.padText('Receipt No:', receiptData.receiptNumber, '', width));
+      lines.push(this.padText('Date:', this.formatDateTime(receiptData.transaction.date), '', width));
+      if (receiptData.transaction.tableNumber) {
+        lines.push(this.padText('Table:', receiptData.transaction.tableNumber, '', width));
+      }
+      if (receiptData.transaction.customerName) {
+        lines.push(this.padText('Customer:', this.truncateText(receiptData.transaction.customerName, 25), '', width));
+      }
+      lines.push(this.padText('Staff:', receiptData.transaction.staffName, '', width));
+    } else {
+      lines.push(`Receipt No: ${receiptData.receiptNumber}`);
+      lines.push(`Date: ${this.formatDateTime(receiptData.transaction.date)}`);
+      if (receiptData.transaction.tableNumber) {
+        lines.push(`Table: ${receiptData.transaction.tableNumber}`);
+      }
+      if (receiptData.transaction.customerName) {
+        lines.push(`Customer: ${receiptData.transaction.customerName}`);
+      }
+      lines.push(`Staff: ${receiptData.transaction.staffName}`);
+    }
+    
+    lines.push(this.printLine(width, '='));
+    
+    // Items header with better spacing for 80mm
+    if (isWide) {
+      lines.push(this.padText('ITEM', 'QTY', 'PRICE', width));
+      lines.push(this.printLine(width, '-'));
+      
+      (receiptData.transaction.items || []).forEach(item => {
+        const itemName = this.truncateText(item.name, width - 20);
+        lines.push(itemName);
+        
+        const qtyText = `${item.quantity}x`;
+        const unitPriceText = this.formatCurrency(item.unitPrice, false);
+        const totalPriceText = this.formatCurrency(item.totalPrice, false);
+        
+        lines.push(this.padText(qtyText, unitPriceText, totalPriceText, width));
+        
+        if (item.notes) {
+          lines.push(`  Note: ${this.truncateText(item.notes, width - 8)}`);
+        }
+        lines.push(''); // Empty line between items for better readability
+      });
+    } else {
+      // Original 58mm format
+      lines.push(this.padText('Item', 'Qty', 'Price', width));
+      lines.push(this.printLine(width, '-'));
+      
+      (receiptData.transaction.items || []).forEach(item => {
+        const name = this.truncateText(item.name, 20);
+        lines.push(name);
+        const qtyPrice = `${item.quantity}x${this.formatCurrency(item.unitPrice, false)}`;
+        const total = this.formatCurrency(item.totalPrice, false);
+        lines.push(this.padText('', qtyPrice, total, width));
+        if (item.notes) {
+          lines.push(`  Note: ${this.truncateText(item.notes, width - 8)}`);
+        }
+      });
+    }
+    
+    lines.push(this.printLine(width, '-'));
+    
+    // Totals with enhanced formatting for 80mm
+    if (isWide) {
+      lines.push('');
+      lines.push(this.padText('Subtotal:', '', this.formatCurrency(receiptData.transaction.subtotal, false), width));
+      lines.push(this.padText('VAT (7%):', '', `+ ${this.formatCurrency(receiptData.transaction.vatAmount, false)}`, width));
+      lines.push(this.printLine(width, '='));
+      lines.push(this.padText('TOTAL:', '', this.formatCurrency(receiptData.transaction.totalAmount, false), width));
+      lines.push(this.printLine(width, '='));
+    } else {
+      lines.push(this.padText('Subtotal:', '', this.formatCurrency(receiptData.transaction.subtotal, false), width));
+      lines.push(this.padText('VAT (7%):', '', this.formatCurrency(receiptData.transaction.vatAmount, false), width));
+      lines.push(this.padText('TOTAL:', '', this.formatCurrency(receiptData.transaction.totalAmount, false), width));
+      lines.push(this.printLine(width));
+    }
+    
+    // Payment methods with better formatting
+    lines.push('');
+    if (isWide) {
+      lines.push(this.centerText('PAYMENT DETAILS', width));
+      lines.push(this.printLine(width, '-'));
+      (receiptData.transaction.paymentMethods || []).forEach(payment => {
+        const methodName = payment.method;
+        const amount = this.formatCurrency(payment.amount, false);
+        lines.push(this.padText(methodName, '', amount, width));
+      });
+    } else {
+      lines.push('Payment:');
+      (receiptData.transaction.paymentMethods || []).forEach(payment => {
+        const methodName = this.truncateText(payment.method, 15);
+        const amount = this.formatCurrency(payment.amount, false);
+        lines.push(this.padText(`  ${methodName}:`, '', amount, width));
+      });
+    }
+    
+    lines.push(this.printLine(width, '='));
+    
+    // Footer with enhanced formatting for 80mm
+    lines.push('');
+    if (isWide) {
+      lines.push(this.centerText('🎉 ' + receiptData.footer.thankYouMessage + ' 🎉', width));
+      lines.push('');
+      if (receiptData.footer.returnPolicy) {
+        lines.push(this.centerText('RETURN POLICY', width));
+        lines.push(this.printLine(width, '-'));
+        lines.push(this.wrapText(receiptData.footer.returnPolicy, width));
+        lines.push('');
+      }
+      lines.push(this.centerText('Visit us again soon!', width));
+      lines.push(this.centerText('www.lengolf.com', width));
+    } else {
+      lines.push(this.centerText(receiptData.footer.thankYouMessage, width));
+      if (receiptData.footer.returnPolicy) {
+        lines.push('');
+        lines.push(this.centerText('Return Policy:', width));
+        lines.push(this.wrapText(receiptData.footer.returnPolicy, width));
+      }
     }
     
     lines.push('');
-    lines.push(this.centerText(`Generated: ${this.formatDateTime(new Date())}`, 32));
+    lines.push(this.printLine(width, '='));
+    lines.push(this.centerText(`Generated: ${this.formatDateTime(new Date())}`, width));
+    if (isWide) {
+      lines.push(this.centerText('Powered by Lengolf POS System', width));
+    }
+    lines.push(this.printLine(width, '='));
     
     return lines.join('\n');
   }
@@ -173,8 +276,8 @@ export class ReceiptGenerator {
     return {
       receiptNumber: receiptData.receiptNumber,
       totalAmount: receiptData.transaction.totalAmount,
-      itemCount: receiptData.transaction.items.length,
-      paymentMethods: receiptData.transaction.paymentMethods.map(p => p.method),
+      itemCount: receiptData.transaction.items?.length || 0,
+      paymentMethods: receiptData.transaction.paymentMethods?.map(p => p.method) || [],
       date: this.formatDate(receiptData.transaction.date)
     };
   }
@@ -326,7 +429,7 @@ export class ReceiptGenerator {
   }
 
   private generateReceiptBody(receiptData: ReceiptData, isThaiPrimary: boolean): string {
-    const itemsRows = receiptData.transaction.items.map(item => `
+    const itemsRows = (receiptData.transaction.items || []).map(item => `
       <tr>
         <td class="item-name">${this.escapeHtml(item.name)}</td>
         <td>${item.quantity}</td>
@@ -393,7 +496,7 @@ export class ReceiptGenerator {
 
       <div class="payment-methods">
         <strong>Payment:</strong>
-        ${receiptData.transaction.paymentMethods.map(payment => `
+        ${(receiptData.transaction.paymentMethods || []).map(payment => `
           <div class="payment-method">
             <span>${payment.method}:</span>
             <span>${this.formatCurrency(payment.amount)}</span>
@@ -439,7 +542,9 @@ export class ReceiptGenerator {
   }
 
   private truncateText(text: string, maxLength: number): string {
-    return text.length > maxLength ? text.substring(0, maxLength - 3) + '...' : text;
+    if (!text) return '';
+    const str = String(text);
+    return str.length > maxLength ? str.substring(0, maxLength - 3) + '...' : str;
   }
 
   private wrapText(text: string, width: number): string {
@@ -493,9 +598,13 @@ export class ReceiptGenerator {
   }
 
   private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    if (!text) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }
 

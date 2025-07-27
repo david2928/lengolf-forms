@@ -1,11 +1,3 @@
-export type BayName = "Bay 1 (Bar)" | "Bay 2" | "Bay 3 (Entrance)";
-
-export const BAY_CALENDARS: Record<BayName, string> = {
-  "Bay 1 (Bar)": process.env.BAY_1_CALENDAR_ID || "",
-  "Bay 2": process.env.BAY_2_CALENDAR_ID || "",
-  "Bay 3 (Entrance)": process.env.BAY_3_CALENDAR_ID || ""
-};
-
 // LINE Messaging API configuration
 export const LINE_MESSAGING = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || "",

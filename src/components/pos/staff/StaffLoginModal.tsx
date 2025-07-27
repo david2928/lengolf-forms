@@ -141,7 +141,7 @@ export const StaffLoginModal: React.FC<StaffLoginModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4" data-testid="staff-login-modal">
       <div 
         className="bg-white rounded-lg max-w-md w-full mx-auto shadow-xl"
         tabIndex={-1}
@@ -221,6 +221,7 @@ export const StaffLoginModal: React.FC<StaffLoginModalProps> = ({
             onClick={handleLogin}
             disabled={isLoading || pin.length !== 6}
             className="w-full h-12 text-lg font-semibold"
+            data-testid="staff-login-submit"
           >
             {isLoading ? 'Authenticating...' : 'Login to POS'}
           </Button>

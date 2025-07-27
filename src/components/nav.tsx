@@ -181,6 +181,20 @@ export function Nav() {
           </Button>
         </Link>
 
+        {/* POS System - Only for Admin Users */}
+        {isAdmin && (
+          <Link href="/pos">
+            <Button
+              variant={pathname === '/pos' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              POS
+            </Button>
+          </Link>
+        )}
+
         {/* Admin Dropdown - Only for Admin Users */}
         {isAdmin && (
           <DropdownMenu>
@@ -236,7 +250,7 @@ export function Nav() {
               
               {/* Operations */}
               <DropdownMenuItem asChild>
-                <Link href="/time-clock" className="flex items-center gap-2 w-full">
+                <Link href="/admin/time-clock" className="flex items-center gap-2 w-full">
                   <Clock className="h-4 w-4" />
                   Time Clock
                 </Link>
@@ -323,15 +337,20 @@ export function Nav() {
           <Calendar className="h-3.5 w-3.5" />
         </Button>
       </Link>
-      <Link href="/manage-bookings" className="flex-1">
-        <Button 
-          variant={pathname === '/manage-bookings' ? 'secondary' : 'ghost'} 
-          size="sm" 
-          className="w-full flex justify-center"
-        >
-          <ClipboardList className="h-3.5 w-3.5" />
-        </Button>
-      </Link>
+      {isAdmin && (
+        <Link href="/pos" className="flex-1">
+          <Button 
+            variant={pathname === '/pos' ? 'default' : 'outline'} 
+            size="sm" 
+            className={cn(
+              "w-full flex justify-center font-bold text-xs",
+              pathname === '/pos' ? 'bg-black text-white' : 'bg-white text-black border-black'
+            )}
+          >
+            POS
+          </Button>
+        </Link>
+      )}
       <PackageMonitorNavButton />
       {isAdmin && (
         <Link href="/admin/customers" className="flex-1">

@@ -24,18 +24,16 @@ export async function POST(request: NextRequest) {
 
     const startTime = Date.now();
 
-    // Execute the database function - use v2 if customer_id is provided or if explicitly requested
-    const useV2 = customerId || body.useNewSystem !== false;
-    
+    // Execute the consolidated database function
     const { data: transactions, error: transactionsError } = await refacSupabaseAdmin
-      .rpc(useV2 ? 'get_transactions_list_v2' : 'get_transactions_list', {
+      .rpc('get_transactions_list', {
         p_start_date: startDate,
         p_end_date: endDate,
         p_status: status,
         p_payment_method: paymentMethod,
         p_staff_name: staffName,
         p_customer_name: customerName,
-        ...(useV2 ? { p_customer_id: customerId } : {}),
+        p_customer_id: customerId,
         p_min_amount: minAmount,
         p_max_amount: maxAmount,
         p_has_sim_usage: hasSimUsage,
@@ -60,6 +58,7 @@ export async function POST(request: NextRequest) {
       total_amount: parseFloat(t.total_amount || 0),
       net_amount: parseFloat(t.net_amount || 0),
       total_profit: parseFloat(t.total_profit || 0),
+      total_cost: parseFloat(t.total_cost || 0),
       item_count: parseInt(t.item_count || 0),
       sim_usage_count: parseInt(t.sim_usage_count || 0),
       status: t.status

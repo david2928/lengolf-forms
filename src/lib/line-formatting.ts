@@ -2,7 +2,7 @@ import type { Booking } from '@/types/booking';
 import { format, parse, getDate, parseISO, addMinutes } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 
-const TIMEZONE = 'Asia/Bangkok'; // Consistent with google-calendar.ts
+const TIMEZONE = 'Asia/Bangkok';
 
 function getOrdinalSuffix(day: number): string {
   const j = day % 10, k = day % 100;

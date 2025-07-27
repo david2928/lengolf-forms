@@ -60,81 +60,56 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
   
   return (
     <div className={`pos-header bg-white border-b border-slate-200 ${className}`}>
-      {/* Minimal Header - Table + Customer Only */}
-      <div className="px-4 py-3 sm:px-6 sm:py-4">
+      {/* Compact Header */}
+      <div className="px-4 py-2">
         <div className="flex items-center justify-between">
           {/* Left: Back + Table/Customer Info */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             <button
               onClick={onBack}
-              className="flex items-center justify-center w-10 h-10 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              className="flex items-center justify-center w-8 h-8 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
             </button>
             
-            <div className="flex items-center space-x-3">
-              <div>
-                <h1 className="text-lg font-semibold text-slate-900">
-                  {customer ? customer.name : (
-                    tableSession.table?.displayName || 
-                    (tableSession.table?.tableNumber ? `Table ${tableSession.table.tableNumber}` : 'Walk-in')
-                  )}
-                </h1>
-                <div className="flex items-center space-x-3 text-sm text-slate-500">
-                  {tableSession.paxCount > 0 && (
-                    <span>{tableSession.paxCount} guests</span>
-                  )}
-                  {sessionDuration && (
-                    <span>{sessionDuration}</span>
-                  )}
-                </div>
+            <div>
+              <h1 className="text-base font-semibold text-slate-900">
+                {customer ? customer.name : (
+                  tableSession.table?.displayName || 
+                  (tableSession.table?.tableNumber ? `Table ${tableSession.table.tableNumber}` : 'Walk-in')
+                )}
+              </h1>
+              <div className="flex items-center space-x-2 text-xs text-slate-500">
+                {tableSession.paxCount > 0 && (
+                  <span>{tableSession.paxCount} guests</span>
+                )}
+                {sessionDuration && (
+                  <span>{sessionDuration}</span>
+                )}
               </div>
             </div>
           </div>
           
-          {/* Right: Staff Info + Actions */}
-          <div className="flex items-center space-x-3">
-            {/* Staff Dropdown */}
+          {/* Right: Staff Info + Home Button */}
+          <div className="flex items-center gap-3">
+            {/* Staff Info - Clickable */}
             {currentStaff && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center space-x-2 bg-white border-slate-200 hover:bg-slate-50"
-                  >
-                    <User className="w-4 h-4" />
-                    <span className="font-medium">{currentStaff.staff_name}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel>Staff Account</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <div className="px-2 py-1.5 text-sm text-slate-600">
-                    <div className="font-medium">{currentStaff.staff_name}</div>
-                    {currentStaff.staff_id && (
-                      <div className="text-xs">ID: {currentStaff.staff_id}</div>
-                    )}
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={logout}
-                    className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <button
+                onClick={logout}
+                className="flex items-center space-x-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors"
+              >
+                <User className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">{currentStaff.staff_name}</span>
+              </button>
             )}
 
-            {/* Backoffice Button */}
+            {/* Home Button */}
             <button
               onClick={() => router.push('/')}
-              className="flex items-center justify-center w-10 h-10 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              className="flex items-center justify-center w-8 h-8 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
               title="Back to Backoffice"
             >
-              <Home className="h-5 w-5" />
+              <Home className="h-4 w-4" />
             </button>
           </div>
         </div>

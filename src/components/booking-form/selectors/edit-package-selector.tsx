@@ -10,6 +10,7 @@ interface EditPackageSelectorProps {
   value: string | null
   customerName: string
   customerPhone?: string
+  customerId?: string | null
   currentPackageName?: string | null
   onChange: (packageId: string | null) => void
   disabled?: boolean
@@ -29,6 +30,7 @@ export function EditPackageSelector({
   value,
   customerName,
   customerPhone,
+  customerId,
   currentPackageName,
   onChange,
   disabled = false
@@ -39,22 +41,35 @@ export function EditPackageSelector({
 
   useEffect(() => {
     const fetchPackages = async () => {
-      if (!customerName) return
+      if (!customerName && !customerId) return
       
       setIsLoading(true)
       setError(null)
       
       try {
-        const params = new URLSearchParams({
-          customerName: customerName,
-          includeInactive: 'true' // Include unactivated packages
-        })
+        let url: string;
         
-        if (customerPhone) {
-          params.append('customerPhone', customerPhone)
+        if (customerId) {
+          // Use customer ID for new system
+          const params = new URLSearchParams({
+            customerId: customerId,
+            includeInactive: 'true' // Include unactivated packages
+          })
+          url = `/api/packages/customer?${params}`
+        } else {
+          // Fallback to customer name for legacy support
+          const params = new URLSearchParams({
+            customerName: customerName,
+            includeInactive: 'true' // Include unactivated packages
+          })
+          
+          if (customerPhone) {
+            params.append('customerPhone', customerPhone)
+          }
+          url = `/api/packages/customer?${params}`
         }
         
-        const response = await fetch(`/api/packages/customer?${params}`)
+        const response = await fetch(url)
         if (!response.ok) {
           throw new Error('Failed to fetch packages')
         }
@@ -71,7 +86,7 @@ export function EditPackageSelector({
     }
     
     fetchPackages()
-  }, [customerName, customerPhone])
+  }, [customerName, customerPhone, customerId])
 
   if (isLoading) {
     return <div className="text-sm text-gray-500">Loading packages...</div>

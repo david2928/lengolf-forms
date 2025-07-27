@@ -12,6 +12,16 @@
 
 # testing
 /coverage
+test-results/
+playwright-report/
+.nyc_output/
+junit.xml
+test-report.html
+
+# playwright specific
+playwright/.cache/
+playwright/screenshots/
+playwright/videos/
 
 # next.js
 /.next/

@@ -302,6 +302,7 @@ export interface POSStaffAuthResponse {
 export interface POSStaffContext {
   currentStaff: Staff | null;
   session: POSStaffSession | null;
+  currentPin: string | null;
   isAuthenticated: boolean;
   login: (pin: string) => Promise<POSStaffAuthResponse>;
   logout: () => void;

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Order } from '@/types/pos';
-import { PaymentMethod, PaymentProcessingResponse } from '@/types/payment';
+import { PaymentMethod, PaymentProcessingResponse, PaymentAllocation } from '@/types/payment';
 import { generatePromptPayQR } from '@/services/PromptPayQRGenerator';
 import { usePOSStaffAuth } from '@/hooks/use-pos-staff-auth';
 import { AlertTriangle, X, Printer, User } from 'lucide-react';
@@ -20,7 +20,7 @@ interface SimplifiedPaymentModalProps {
   onPaymentComplete: (result: PaymentProcessingResponse) => void;
 }
 
-type PaymentStep = 'method-selection' | 'payment-screen' | 'processing' | 'success';
+type PaymentStep = 'method-selection' | 'split-management' | 'payment-screen' | 'processing' | 'success';
 
 export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
   isOpen,
@@ -37,6 +37,8 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
   const [paymentResult, setPaymentResult] = useState<PaymentProcessingResponse | null>(null);
   const [requiresAdditionalAuth, setRequiresAdditionalAuth] = useState(false);
   const [additionalPin, setAdditionalPin] = useState<string>('');
+  const [splitPayments, setSplitPayments] = useState<PaymentAllocation[]>([]);
+  const [isSplitPayment, setIsSplitPayment] = useState(false);
 
   const { currentStaff } = usePOSStaffAuth();
 
@@ -50,6 +52,8 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
       setPaymentResult(null);
       setRequiresAdditionalAuth(false);
       setAdditionalPin('');
+      setSplitPayments([]);
+      setIsSplitPayment(false);
     }
   }, [isOpen]);
 
@@ -72,6 +76,69 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
     setCurrentStep('payment-screen');
   };
 
+  const handleSplitPayment = () => {
+    setIsSplitPayment(true);
+    setCurrentStep('split-management');
+  };
+
+  const addSplitPayment = (method: PaymentMethod, amount: number) => {
+    const newPayment: PaymentAllocation = {
+      method,
+      amount,
+      percentage: (amount / order.totalAmount) * 100
+    };
+    setSplitPayments(prev => [...prev, newPayment]);
+  };
+
+  const removeSplitPayment = (index: number) => {
+    setSplitPayments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const getTotalSplitAmount = () => {
+    return splitPayments.reduce((sum, payment) => sum + payment.amount, 0);
+  };
+
+  const getRemainingAmount = () => {
+    return order.totalAmount - getTotalSplitAmount();
+  };
+
+  const completeSplitPayment = async () => {
+    if (!currentStaff) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      const response = await fetch('/api/pos/payments/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          tableSessionId: order.tableSessionId,
+          paymentMethods: splitPayments,
+          staffId: currentStaff.id,
+          staffName: currentStaff.staff_name,
+          customerName,
+          tableNumber,
+          closeTableSession: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Split payment processing failed');
+      }
+
+      const result = await response.json();
+      setPaymentResult(result);
+      setCurrentStep('success');
+      
+    } catch (error) {
+      console.error('Split payment failed:', error);
+      alert('Split payment failed. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleConfirmPayment = async () => {
     if (!selectedMethod || !currentStaff) return;
     
@@ -84,7 +151,7 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
         body: JSON.stringify({
           orderId: order.id,
           tableSessionId: order.tableSessionId,
-          paymentMethods: [{
+          paymentMethods: isSplitPayment ? splitPayments : [{
             method: selectedMethod,
             amount: order.totalAmount,
             percentage: 100
@@ -113,11 +180,53 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
     }
   };
 
-  const handlePrintReceipt = () => {
+  const handlePrintReceipt = (format: 'html' | 'thermal80' = 'html') => {
     if (paymentResult?.receiptNumber) {
-      // Open receipt in new window for printing
-      const receiptUrl = `/api/pos/receipts/${paymentResult.receiptNumber}`;
-      window.open(receiptUrl, '_blank', 'width=300,height=600');
+      const receiptUrl = `/api/pos/receipts/${paymentResult.receiptNumber}?format=${format}`;
+      
+      console.log('🖨️ Opening receipt URL:', receiptUrl);
+      
+      // Open HTML receipt and auto-print
+      const printWindow = window.open(receiptUrl, '_blank', 'width=800,height=600');
+      if (printWindow) {
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+          }, 1000);
+        };
+      }
+    }
+  };
+
+  
+  const handleWin32Print = async () => {
+    if (!paymentResult?.receiptNumber) return;
+
+    try {
+      console.log('🖨️ Printing to LENGOLF printer via Python win32print...');
+      
+      const response = await fetch('/api/pos/print-win32', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiptNumber: paymentResult.receiptNumber
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert('✅ Receipt printed via Python win32print successfully!');
+        console.log('✅ Win32 print successful:', result);
+      } else {
+        throw new Error(result.details || result.error || 'Win32 print failed');
+      }
+
+    } catch (error) {
+      console.error('❌ Win32 print failed:', error);
+      alert(`❌ Win32 print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -186,6 +295,138 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
           onClick={() => handleMethodSelect(PaymentMethod.ALIPAY)}
         >
           💰 Alipay
+        </Button>
+        
+        <Button
+          className="w-full h-20 text-xl font-semibold bg-gray-600 hover:bg-gray-700 border-2 border-dashed"
+          onClick={handleSplitPayment}
+        >
+          🔀 Split Payment
+        </Button>
+      </div>
+    </div>
+  );
+
+  const renderSplitManagement = () => (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b bg-slate-50">
+        <Button variant="ghost" size="sm" onClick={() => setCurrentStep('method-selection')}>
+          ← Back
+        </Button>
+        <h2 className="text-lg font-semibold">Split Payment</h2>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          <X className="w-5 h-5" />
+        </Button>
+      </div>
+
+      {/* Total and Progress */}
+      <div className="p-6 text-center bg-white border-b">
+        <div className="text-3xl font-bold text-gray-900 mb-2">
+          Total: {formatCurrency(order.totalAmount)}
+        </div>
+        <div className="text-sm text-gray-600 mb-4">
+          Remaining: {formatCurrency(getRemainingAmount())}
+        </div>
+        
+        {/* Progress Bar */}
+        <div className="w-full bg-gray-200 rounded-full h-4">
+          <div 
+            className="bg-green-600 h-4 rounded-full transition-all duration-300"
+            style={{ width: `${Math.min((getTotalSplitAmount() / order.totalAmount) * 100, 100)}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Split Payments List */}
+      <div className="flex-1 p-6 space-y-4 overflow-auto">
+        {splitPayments.map((payment, index) => (
+          <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+            <div className="flex items-center space-x-3">
+              <div className="font-semibold text-lg">{payment.method}</div>
+              <div className="text-lg text-gray-700">
+                {formatCurrency(payment.amount)}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => removeSplitPayment(index)}
+              className="text-red-600 hover:text-red-700 h-10 px-4"
+            >
+              Remove
+            </Button>
+          </div>
+        ))}
+        
+        {getRemainingAmount() > 0 && (
+          <>
+            <div className="text-center py-2">
+              <div className="text-sm text-gray-600">Add payment methods for remaining amount</div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                className="h-20 text-lg font-semibold bg-green-600 hover:bg-green-700"
+                onClick={() => {
+                  const remaining = getRemainingAmount();
+                  addSplitPayment(PaymentMethod.CASH, remaining);
+                }}
+              >
+                💵 Cash<br/>
+                <span className="text-sm">{formatCurrency(getRemainingAmount())}</span>
+              </Button>
+              
+              <Button
+                className="h-20 text-lg font-semibold bg-blue-600 hover:bg-blue-700"
+                onClick={() => {
+                  const amount = parseFloat(prompt(`Enter Visa amount (max ${formatCurrency(getRemainingAmount())}):`) || '0');
+                  if (amount > 0 && amount <= getRemainingAmount()) {
+                    addSplitPayment(PaymentMethod.VISA_MANUAL, amount);
+                  }
+                }}
+              >
+                💳 Visa<br/>
+                <span className="text-sm">Custom Amount</span>
+              </Button>
+              
+              <Button
+                className="h-20 text-lg font-semibold bg-orange-600 hover:bg-orange-700"
+                onClick={() => {
+                  const amount = parseFloat(prompt(`Enter Mastercard amount (max ${formatCurrency(getRemainingAmount())}):`) || '0');
+                  if (amount > 0 && amount <= getRemainingAmount()) {
+                    addSplitPayment(PaymentMethod.MASTERCARD_MANUAL, amount);
+                  }
+                }}
+              >
+                💳 Mastercard<br/>
+                <span className="text-sm">Custom Amount</span>
+              </Button>
+              
+              <Button
+                className="h-20 text-lg font-semibold bg-purple-600 hover:bg-purple-700"
+                onClick={() => {
+                  const amount = parseFloat(prompt(`Enter PromptPay amount (max ${formatCurrency(getRemainingAmount())}):`) || '0');
+                  if (amount > 0 && amount <= getRemainingAmount()) {
+                    addSplitPayment(PaymentMethod.PROMPTPAY_MANUAL, amount);
+                  }
+                }}
+              >
+                📱 PromptPay<br/>
+                <span className="text-sm">Custom Amount</span>
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Complete Button */}
+      <div className="p-6 bg-white border-t">
+        <Button
+          className="w-full h-16 text-2xl font-bold bg-green-600 hover:bg-green-700"
+          onClick={completeSplitPayment}
+          disabled={isProcessing || getRemainingAmount() !== 0 || splitPayments.length === 0}
+        >
+          {isProcessing ? 'PROCESSING...' : `COMPLETE PAYMENT`}
         </Button>
       </div>
     </div>
@@ -345,13 +586,22 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
 
       {/* Action Buttons */}
       <div className="p-6 space-y-4 bg-white border-t">
-        <Button
-          className="w-full h-14 text-lg font-semibold bg-blue-600 hover:bg-blue-700"
-          onClick={handlePrintReceipt}
-        >
-          <Printer className="w-5 h-5 mr-2" />
-          Print Receipt
-        </Button>
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            className="h-14 text-sm font-semibold bg-blue-600 hover:bg-blue-700"
+            onClick={() => handlePrintReceipt('html')}
+          >
+            <Printer className="w-4 h-4 mr-2" />
+            HTML Print
+          </Button>
+          <Button
+            className="h-14 text-sm font-semibold bg-green-600 hover:bg-green-700"
+            onClick={handleWin32Print}
+          >
+            <Printer className="w-4 h-4 mr-2" />
+            LENGOLF Print
+          </Button>
+        </div>
         
         <Button
           className="w-full h-14 text-lg font-semibold bg-gray-600 hover:bg-gray-700"
@@ -367,6 +617,7 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="fixed inset-0 w-full h-full max-w-none max-h-none m-0 p-0 rounded-none border-none bg-white">
         {currentStep === 'method-selection' && renderMethodSelection()}
+        {currentStep === 'split-management' && renderSplitManagement()}
         {currentStep === 'payment-screen' && renderPaymentScreen()}
         {currentStep === 'success' && renderSuccessScreen()}
       </DialogContent>

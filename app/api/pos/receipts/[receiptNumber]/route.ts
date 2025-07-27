@@ -17,8 +17,9 @@ export async function GET(
   try {
     const { receiptNumber } = params;
     const { searchParams } = new URL(request.url);
-    const format = searchParams.get('format') || 'json'; // json, html, thermal
+    const format = searchParams.get('format') || 'json'; // json, html, thermal, thermal80
     const language = searchParams.get('language') || 'en'; // en, th
+    const width = searchParams.get('width') || '58mm'; // 58mm, 80mm
 
     if (!receiptNumber) {
       return NextResponse.json({
@@ -111,7 +112,7 @@ export async function GET(
     });
 
     // Generate receipt data
-    const receiptData = receiptGenerator.generateReceiptData(transaction, {
+    const orderForReceipt = {
       id: order.id,
       orderNumber: order.order_number || 'N/A',
       tableSessionId: order.table_session_id,
@@ -137,11 +138,45 @@ export async function GET(
       notes: order.notes,
       createdAt: new Date(order.created_at),
       updatedAt: new Date(order.updated_at)
-    }, {
-      customerName: transaction.customerName,
-      tableNumber: transaction.tableNumber,
-      staffName: `Staff-${transaction.staffPin}`
-    });
+    };
+
+    // Create receipt data manually to avoid structure issues
+    const receiptData = {
+      transactionId: transaction.transactionId,
+      receiptNumber: transaction.receiptNumber,
+      businessInfo: {
+        name: "Lengolf Golf Club",
+        address: "123 Golf Course Road, Bangkok 10120",
+        taxId: "1234567890123",
+        phone: "02-123-4567"
+      },
+      transaction: {
+        date: transaction.transactionDate,
+        tableNumber: transaction.tableNumber || 'N/A',
+        staffName: `Staff-${transaction.staffPin}`,
+        customerName: transaction.customerName || 'Guest',
+        items: orderForReceipt.items.map((item: any) => ({
+          name: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+          notes: item.notes
+        })),
+        subtotal: transaction.subtotal,
+        vatAmount: transaction.vatAmount,
+        totalAmount: transaction.totalAmount,
+        paymentMethods: transaction.paymentMethods || [
+          {
+            method: 'Cash',
+            amount: transaction.totalAmount
+          }
+        ]
+      },
+      footer: {
+        thankYouMessage: "Thank you for dining with us!",
+        returnPolicy: "Returns accepted within 24 hours with receipt."
+      }
+    };
 
     console.log('✅ Receipt API: Receipt data generated for format:', format);
 
@@ -157,11 +192,22 @@ export async function GET(
         });
 
       case 'thermal':
-        const thermalContent = receiptGenerator.generateThermalReceipt(receiptData, language as 'th' | 'en');
+        const thermalContent = width === '80mm' 
+          ? receiptGenerator.generateThermalReceipt80mm(receiptData, language as 'th' | 'en')
+          : receiptGenerator.generateThermalReceipt(receiptData, language as 'th' | 'en');
         return new NextResponse(thermalContent, {
           headers: {
             'Content-Type': 'text/plain',
-            'Content-Disposition': `attachment; filename="receipt-${transaction.receiptNumber}.txt"`
+            'Content-Disposition': `attachment; filename="receipt-${width}-${transaction.receiptNumber}.txt"`
+          }
+        });
+
+      case 'thermal80':
+        const thermal80Content = receiptGenerator.generateThermalReceipt80mm(receiptData, language as 'th' | 'en');
+        return new NextResponse(thermal80Content, {
+          headers: {
+            'Content-Type': 'text/plain',
+            'Content-Disposition': `attachment; filename="receipt-80mm-${transaction.receiptNumber}.txt"`
           }
         });
 
@@ -177,7 +223,9 @@ export async function GET(
   } catch (error) {
     console.error('❌ Receipt API: Error generating receipt:', error);
     return NextResponse.json({
-      error: 'Internal server error'
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
 }

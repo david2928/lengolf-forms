@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         
         const isActive = !isActivated || 
                         (isActivated && 
-                         (!expirationDate || expirationDate > now) && 
+                         (!expirationDate || expirationDate.getTime() >= new Date().setHours(0,0,0,0)) && 
                          (pkg.package_type === 'Unlimited' || (pkg.remaining_hours && pkg.remaining_hours > 0)));
 
         return {
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       // 2. It's activated AND not expired AND (unlimited OR has remaining hours)
       const isActive = !isActivated || 
                       (isActivated && 
-                       (!expirationDate || expirationDate > now) && 
+                       (!expirationDate || expirationDate.getTime() >= new Date().setHours(0,0,0,0)) && 
                        (pkg.package_type === 'Unlimited' || (pkg.remaining_hours && pkg.remaining_hours > 0)));
 
       return {

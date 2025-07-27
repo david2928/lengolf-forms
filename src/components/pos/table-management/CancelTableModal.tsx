@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import { StaffPinModal } from '@/components/pos/payment/StaffPinModal';
 import type { Table } from '@/types/pos';
 
@@ -21,6 +21,7 @@ export function CancelTableModal({ isOpen, table, onClose, onConfirm }: CancelTa
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPinModal, setShowPinModal] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // Debug logging to see table structure
   React.useEffect(() => {
@@ -46,10 +47,18 @@ export function CancelTableModal({ isOpen, table, onClose, onConfirm }: CancelTa
     console.log('🔍 CancelTableModal: PIN success, canceling table');
     setIsSubmitting(true);
     setShowPinModal(false);
+    setError(null); // Clear any previous errors
 
     try {
+      console.log('🔍 CancelTableModal: Calling onConfirm with:', { pin: pin ? 'PROVIDED' : 'MISSING', reason });
       await onConfirm(pin, reason);
-      handleClose();
+      console.log('🔍 CancelTableModal: onConfirm completed successfully - showing animation');
+      setIsSubmitting(false); // Reset before showing success
+      setShowSuccess(true);
+      // Auto-close after showing success animation
+      setTimeout(() => {
+        handleClose();
+      }, 3000);
     } catch (error) {
       console.error('🔍 CancelTableModal: Cancel failed:', error);
       setError(error instanceof Error ? error.message : 'Failed to cancel table');
@@ -67,6 +76,7 @@ export function CancelTableModal({ isOpen, table, onClose, onConfirm }: CancelTa
     setError(null);
     setIsSubmitting(false);
     setShowPinModal(false);
+    setShowSuccess(false);
     onClose();
   };
 
@@ -81,7 +91,25 @@ export function CancelTableModal({ isOpen, table, onClose, onConfirm }: CancelTa
 
   return (
     <>
-      <Dialog open={isOpen && !showPinModal} onOpenChange={handleClose}>
+      {/* Success Animation Modal */}
+      <Dialog open={showSuccess} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md">
+          <div className="text-center py-8">
+            <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-green-100 flex items-center justify-center animate-pulse">
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Table Session Cancelled
+            </h3>
+            <p className="text-sm text-gray-600">
+              Table {table.displayName} has been successfully cancelled
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Main Cancel Dialog */}
+      <Dialog open={isOpen && !showPinModal && !showSuccess} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -189,13 +217,6 @@ export function CancelTableModal({ isOpen, table, onClose, onConfirm }: CancelTa
         title="Authorization Required"
         description="Please enter your staff PIN to cancel this table session"
       />
-      
-      {/* Debug */}
-      {process.env.NODE_ENV === 'development' && (
-        <div style={{ position: 'fixed', top: 10, right: 10, background: 'yellow', padding: '5px', fontSize: '12px', zIndex: 9999 }}>
-          showPinModal: {showPinModal.toString()}
-        </div>
-      )}
     </>
   );
 }

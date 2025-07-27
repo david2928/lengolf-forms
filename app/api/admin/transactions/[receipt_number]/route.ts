@@ -128,7 +128,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         gross_profit: parseFloat(item.gross_profit || 0),
         is_sim_usage: item.is_sim_usage,
         item_notes: item.item_notes,
-        sku_number: item.sku_number
+        sku_number: item.sku_number,
+        item_cost: item.item_cost !== undefined && item.item_cost !== null ? parseFloat(item.item_cost) : null
       })),
       summary: {
         subtotal,
