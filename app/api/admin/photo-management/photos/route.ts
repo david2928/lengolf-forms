@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
     let urlGenerationSuccess = 0
 
     // PHASE 4 FIX: Process all photos with consistent structure
-    const processPromises = (timeEntries || []).map(async (entry) => {
+    const processPromises = (timeEntries || []).map(async (entry: any) => {
       if (!entry.photo_url) {
         return null
       }
@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
         total_entries: timeEntries?.length || 0,
         successful_urls: urlGenerationSuccess,
         failed_urls: urlGenerationErrors,
-        photos_with_valid_urls: photosWithDetails.filter(p => p.photo_url).length,
+        photos_with_valid_urls: photosWithDetails.filter((p: any) => p.photo_url).length,
         phase: "Phase 4 Optimized"
       }
     })

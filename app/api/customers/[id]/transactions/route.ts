@@ -62,7 +62,7 @@ export async function GET(
     // Group by receipt_number and aggregate
     const receiptMap = new Map();
     
-    (rawTransactions || []).forEach(item => {
+    (rawTransactions || []).forEach((item: any) => {
       const receiptKey = item.receipt_number;
       
       if (!receiptMap.has(receiptKey)) {
@@ -97,7 +97,7 @@ export async function GET(
     const count = total;
 
     // Format transactions for frontend
-    const formattedTransactions = transactions.map(transaction => ({
+    const formattedTransactions = transactions.map((transaction: any) => ({
       id: transaction.receipt_number, // Use receipt_number as ID since it's unique per transaction
       date: transaction.date,
       receipt_number: transaction.receipt_number,
@@ -109,7 +109,7 @@ export async function GET(
     }));
 
     // Calculate summary statistics from aggregated data
-    const totalSpent = aggregatedTransactions.reduce((sum, t) => sum + t.total_amount, 0);
+    const totalSpent = aggregatedTransactions.reduce((sum: any, t: any) => sum + t.total_amount, 0);
     const averageTransaction = aggregatedTransactions.length ? totalSpent / aggregatedTransactions.length : 0;
 
     return NextResponse.json({

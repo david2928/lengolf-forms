@@ -52,7 +52,7 @@ export async function GET() {
     }
 
     // Override with database values
-    settingsRows?.forEach(row => {
+    settingsRows?.forEach((row: any) => {
       if (row.key in settings) {
         (settings as any)[row.key] = row.value
       }

@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         .list('', { limit: 1000 })
       
       if (!storageError && storageFiles) {
-        storageFiles.forEach(file => {
+        storageFiles.forEach((file: any) => {
           fileSizes.set(file.name, file.metadata?.size || 0)
         })
       }
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       const filePaths: string[] = []
       const entryIds: number[] = []
       
-      batch.forEach(entry => {
+      batch.forEach((entry: any) => {
         if (entry.photo_url) {
           filePaths.push(entry.photo_url)
           entryIds.push(entry.id)

@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     const csvRows = [headers.join(',')];
 
-    products?.forEach(product => {
+    products?.forEach((product: any) => {
       const category = product.category as any;
       const tab = category?.parent?.name || '';
       const categoryName = category?.name || '';

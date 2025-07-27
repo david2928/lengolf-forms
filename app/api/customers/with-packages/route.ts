@@ -52,7 +52,7 @@ export async function GET(request: Request) {
           if (!customerError && customersData) {
             // Transform to expected format
             data = customersData
-              .map(customer => ({
+              .map((customer: any) => ({
                 customer_id: customer.id,
                 customer_name: customer.contact_number 
                   ? `${customer.customer_name} (${customer.contact_number})`

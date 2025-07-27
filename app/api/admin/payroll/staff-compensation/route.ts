@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get compensation settings for active staff
-    const staffIds = (allStaff || []).map(s => s.id);
+    const staffIds = (allStaff || []).map((s: any) => s.id);
     const { data: compensationData, error } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('staff_compensation')
@@ -101,8 +101,8 @@ export async function GET(request: NextRequest) {
       success: true,
       staff_compensation: result,
       total_staff: result.length,
-      staff_with_compensation: result.filter(s => s.current_compensation).length,
-      staff_without_compensation: result.filter(s => !s.current_compensation).length
+      staff_with_compensation: result.filter((s: any) => s.current_compensation).length,
+      staff_without_compensation: result.filter((s: any) => !s.current_compensation).length
     });
 
   } catch (error) {

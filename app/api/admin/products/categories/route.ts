@@ -207,7 +207,7 @@ async function buildCategoryHierarchy() {
   const rootCategories: any[] = [];
 
   // First pass: create map of all categories
-  allCategories.forEach(cat => {
+  allCategories.forEach((cat: any) => {
     categoryMap.set(cat.id, {
       ...cat,
       children: [],
@@ -216,7 +216,7 @@ async function buildCategoryHierarchy() {
   });
 
   // Second pass: build parent-child relationships
-  allCategories.forEach(cat => {
+  allCategories.forEach((cat: any) => {
     const category = categoryMap.get(cat.id);
     if (cat.parent_id) {
       const parent = categoryMap.get(cat.parent_id);
@@ -230,7 +230,7 @@ async function buildCategoryHierarchy() {
 
   // Calculate total values for parent categories
   function calculateTotals(categories: any[]): any[] {
-    return categories.map(cat => {
+    return categories.map((cat: any) => {
       if (cat.children.length > 0) {
         const childTotals = calculateTotals(cat.children);
         cat.total_products = childTotals.reduce((sum: number, child: any) => 

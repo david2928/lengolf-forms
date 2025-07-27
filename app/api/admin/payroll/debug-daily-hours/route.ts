@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter for Dolly only (staff_id = 9)
-    const dollyEntries = (timeEntries || []).filter(entry => entry.staff_id === 9);
+    const dollyEntries = (timeEntries || []).filter((entry: any) => entry.staff_id === 9);
     
     // Manual daily hours calculation with detailed debugging
     const dailyGroups = new Map<string, any[]>();
