@@ -18,6 +18,7 @@ interface ShiftDetailModalProps {
     staff_names?: string[]
     shift_color?: string
   } | null
+  clickPosition?: { x: number; y: number } | null
   className?: string
 }
 
@@ -25,6 +26,7 @@ export function ShiftDetailModal({
   isOpen, 
   onClose, 
   schedule, 
+  clickPosition,
   className = '' 
 }: ShiftDetailModalProps) {
   const [isClosing, setIsClosing] = useState(false)
@@ -69,22 +71,63 @@ export function ShiftDetailModal({
     }
   }
 
+  // Calculate modal position based on click location
+  const getModalStyle = () => {
+    if (!clickPosition) {
+      // Default bottom positioning for mobile
+      return {
+        justifyContent: 'center',
+        alignItems: 'flex-end'
+      }
+    }
 
+    const { x, y } = clickPosition
+    const modalWidth = 320 // max-w-md is roughly 320px
+    const modalHeight = 400 // estimated modal height
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const padding = 16
+
+    // Calculate optimal position
+    let left = x - modalWidth / 2
+    let top = y + 10 // Small offset below click
+
+    // Ensure modal stays within viewport bounds
+    if (left < padding) left = padding
+    if (left + modalWidth > viewportWidth - padding) left = viewportWidth - modalWidth - padding
+    if (top + modalHeight > viewportHeight - padding) {
+      // If modal would be cut off at bottom, show it above the click
+      top = y - modalHeight - 10
+    }
+    if (top < padding) top = padding
+
+    return {
+      justifyContent: 'flex-start',
+      alignItems: 'flex-start',
+      paddingLeft: `${left}px`,
+      paddingTop: `${top}px`
+    }
+  }
+
+  const modalStyle = getModalStyle()
 
   return (
     <div 
       className={`
-        fixed inset-0 z-50 flex items-end justify-center bg-black bg-opacity-50 p-4
+        fixed inset-0 z-50 flex bg-black bg-opacity-50 p-4
         ${isClosing ? 'animate-fade-out' : 'animate-fade-in'}
         ${className}
       `}
+      style={modalStyle}
       onClick={handleBackdropClick}
     >
       <div 
         className={`
-          w-full max-w-md bg-white rounded-t-2xl shadow-xl transform transition-transform duration-200
-          ${isClosing ? 'translate-y-full' : 'translate-y-0'}
+          w-full max-w-sm bg-white rounded-2xl shadow-xl transform transition-transform duration-200
+          ${isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}
+          ${clickPosition ? '' : 'rounded-t-2xl'}
         `}
+        style={clickPosition ? { width: '320px', maxHeight: '400px' } : {}}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

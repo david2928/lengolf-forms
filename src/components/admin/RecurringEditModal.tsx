@@ -76,7 +76,7 @@ export function RecurringEditModal({
         {/* Content */}
         <div className="p-6 space-y-4">
           <div className="text-sm text-slate-600 mb-4">
-            You're editing a recurring schedule for <strong>{staffName}</strong> on{' '}
+            You&apos;re editing a recurring schedule for <strong>{staffName}</strong> on{' '}
             <strong>{formatDate(scheduleDate)}</strong>. How would you like to proceed?
           </div>
 

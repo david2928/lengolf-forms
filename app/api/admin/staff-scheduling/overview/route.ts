@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
-import { getServerSession } from 'next-auth'
+import { getDevSession } from '@/lib/dev-session'
 import { authOptions } from '@/lib/auth-config'
 
 export async function GET(request: NextRequest) {
   try {
-    // Check admin authentication
-    const session = await getServerSession(authOptions)
+    // Check admin authentication with development bypass support
+    const session = await getDevSession(authOptions, request)
     if (!session?.user?.isAdmin) {
       return NextResponse.json({
         success: false,
@@ -91,7 +91,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response, {
       headers: {
-        'Cache-Control': 'public, max-age=30, stale-while-revalidate=60'
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       }
     })
 

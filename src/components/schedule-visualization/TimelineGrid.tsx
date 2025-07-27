@@ -66,7 +66,9 @@ export function TimelineGrid({
   
   // Generate responsive grid template
   const gridTemplateColumns = responsiveConfig.gridColumns
-  const gridTemplateRows = `auto repeat(14, ${responsiveConfig.timeSlotHeight}px)`
+  // Business hours: 10am-11pm = 14 hours (10,11,12,13,14,15,16,17,18,19,20,21,22,23)
+  const timeSlotCount = (businessHours.end - businessHours.start) + 1 // 23-10+1 = 14
+  const gridTemplateRows = `auto repeat(${timeSlotCount}, ${responsiveConfig.timeSlotHeight}px)`
   
   // Set up horizontal scrolling for mobile/tablet
   React.useEffect(() => {
@@ -119,9 +121,10 @@ export function TimelineGrid({
           display: 'grid',
           gridTemplateColumns,
           gridTemplateRows,
-          gap: '1px',
+          gap: '2px',
           backgroundColor: '#f1f5f9', // Slate-100 for grid lines
-          minWidth: responsiveConfig.scrollable ? '800px' : 'auto'
+          minWidth: responsiveConfig.scrollable ? '800px' : 'auto',
+          padding: '4px'
         }}
         role="grid"
         aria-label="Weekly staff schedule timeline"
@@ -153,17 +156,18 @@ export function TimelineGrid({
         
         {/* Empty Grid Cells for Structure */}
         {Array.from({ length: 7 }, (_, dayIndex) => 
-          Array.from({ length: 14 }, (_, hourIndex) => {
+          Array.from({ length: timeSlotCount }, (_, hourIndex) => {
             const cellAriaLabel = generateGridCellAriaLabel(dayIndex, hourIndex, weekStart, businessHours)
             
             return (
               <div
                 key={`empty-${dayIndex}-${hourIndex}`}
-                className="grid-cell bg-white border-r border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                className="grid-cell bg-white rounded-sm hover:bg-slate-50 transition-colors"
                 style={{
                   gridColumn: dayIndex + 2, // +2 for time column
                   gridRow: hourIndex + 2,   // +2 for header row
-                  minHeight: `${responsiveConfig.timeSlotHeight}px`
+                  minHeight: `${responsiveConfig.timeSlotHeight}px`,
+                  border: '1px solid #e2e8f0' // slate-200
                 }}
                 role="gridcell"
                 aria-label={cellAriaLabel}
@@ -182,19 +186,40 @@ export function TimelineGrid({
               console.warn(`No color assignment found for staff ID ${schedule.staffId}`)
               return null
             }
-            const blockStyles = calculateBlockStyles(
-              schedule, 
-              scheduleIndex, 
-              scheduleGroup.length
-            )
+            
+            // Calculate proper grid positioning for overlapping blocks
+            const { gridPosition } = schedule
+            const isOverlapping = scheduleGroup.length > 1
+            const blockWidth = isOverlapping ? `calc(${100 / scheduleGroup.length}% - 2px)` : '100%'
+            const leftOffset = isOverlapping ? `calc(${(scheduleIndex * 100) / scheduleGroup.length}% + 1px)` : '0px'
+            
+            // Debug logging for development
+            if (process.env.NODE_ENV === 'development' && schedule.id === groupedSchedules[0]?.[0]?.id) {
+              console.log('TimelineGrid Debug:', {
+                scheduleName: schedule.staffName,
+                startTime: schedule.startTime,
+                endTime: schedule.endTime,
+                gridPosition: gridPosition,
+                calculatedGridColumn: gridPosition.dayIndex + 2,
+                calculatedGridRow: `${gridPosition.startRow + 2} / span ${gridPosition.rowSpan}`,
+                timeSlotCount,
+                businessHours
+              })
+            }
             
             return (
               <div
                 key={schedule.id}
-                className="schedule-block-container absolute"
+                className="schedule-block-container"
                 style={{
-                  ...blockStyles,
-                  zIndex: 10 + scheduleIndex // Ensure blocks are above grid cells
+                  gridColumn: gridPosition.dayIndex + 2, // +2 because first column is for time labels
+                  gridRow: `${gridPosition.startRow + 2} / span ${gridPosition.rowSpan}`, // +2 for header row
+                  position: 'relative',
+                  width: blockWidth,
+                  marginLeft: leftOffset,
+                  zIndex: 10 + scheduleIndex, // Ensure blocks are above grid cells
+                  padding: '3px',
+                  minHeight: `${responsiveConfig.timeSlotHeight * gridPosition.rowSpan - 6}px` // Account for padding and gaps
                 }}
                 onMouseEnter={() => handleBlockHover(schedule)}
                 onMouseLeave={() => handleBlockHover(null)}
@@ -206,7 +231,7 @@ export function TimelineGrid({
                   duration={schedule.duration}
                   className={`
                     ${hoveredBlock?.id === schedule.id ? 'ring-2 ring-blue-500 ring-opacity-50' : ''}
-                    ${scheduleGroup.length > 1 ? 'shadow-lg' : ''}
+                    ${scheduleGroup.length > 1 ? 'shadow-lg border-2 border-white' : ''}
                   `}
                   isFocused={focusedBlockId === schedule.id}
                   tabIndex={isNavigationMode ? (focusedBlockId === schedule.id ? 0 : -1) : 0}

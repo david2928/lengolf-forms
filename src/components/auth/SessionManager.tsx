@@ -20,6 +20,16 @@ export function SessionManager({
   const [showWarning, setShowWarning] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
 
+  // Development bypass - skip session management
+  const shouldBypass = (
+    process.env.NODE_ENV === 'development' &&
+    process.env.NEXT_PUBLIC_SKIP_AUTH === 'true'
+  );
+  
+  if (shouldBypass) {
+    return <>{children}</>
+  }
+
   const checkSessionExpiry = useCallback(() => {
     if (!session?.expires) return
 

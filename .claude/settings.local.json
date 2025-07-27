@@ -69,7 +69,10 @@
       "Bash(python:*)",
       "mcp__playwright__browser_handle_dialog",
       "Bash(xxd:*)",
-      "mcp__supabase__list_migrations"
+      "mcp__supabase__list_migrations",
+      "Bash(echo:*)",
+      "mcp__playwright__browser_network_requests",
+      "Bash(sed:*)"
     ],
     "deny": []
   },

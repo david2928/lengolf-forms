@@ -35,6 +35,7 @@ interface ScheduleFormProps {
   isOpen: boolean
   onClose: () => void
   onSubmit: (schedule: Schedule | BulkSchedule, editType?: 'single' | 'series') => Promise<void>
+  onDelete?: (schedule: Schedule) => void
   schedule?: Schedule | null
   title?: string
 }
@@ -43,6 +44,7 @@ export function ScheduleForm({
   isOpen, 
   onClose, 
   onSubmit, 
+  onDelete,
   schedule,
   title = 'Add Schedule'
 }: ScheduleFormProps) {
@@ -79,7 +81,7 @@ export function ScheduleForm({
         const data = await response.json()
         
         if (data.success) {
-          setStaff(data.data)
+          setStaff(data.data.staff || [])
         } else {
           setError('Failed to load staff list')
         }
@@ -246,6 +248,11 @@ export function ScheduleForm({
       setLoading(false)
     }
   }
+
+  const handleDelete = () => {
+    if (!schedule || !onDelete) return
+    onDelete(schedule) // This will show the confirmation modal
+  }
   if (!isOpen) return null
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -399,6 +406,17 @@ export function ScheduleForm({
             >
               Cancel
             </Button>
+            {schedule && onDelete && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDelete}
+                disabled={loading}
+                className="flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+              >
+                Delete
+              </Button>
+            )}
             <Button
               type="submit"
               disabled={loading || staffLoading}

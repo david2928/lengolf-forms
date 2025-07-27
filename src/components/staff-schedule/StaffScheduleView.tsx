@@ -26,6 +26,7 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
   const [activeTab, setActiveTab] = useState<NavigationTab>(viewAllStaff ? 'all' : 'personal')
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null)
   
   const {
     schedules,
@@ -170,10 +171,11 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
   }
 
   // Handle schedule card tap
-  const handleScheduleCardTap = (scheduleId: string) => {
+  const handleScheduleCardTap = (scheduleId: string, clickPos: { x: number; y: number }) => {
     const schedule = schedulesToShow.find(s => s.schedule_id === scheduleId)
     if (schedule) {
       setSelectedSchedule(schedule)
+      setClickPosition(clickPos)
       setIsModalOpen(true)
     }
   }
@@ -182,6 +184,7 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
   const handleModalClose = () => {
     setIsModalOpen(false)
     setSelectedSchedule(null)
+    setClickPosition(null)
   }
 
   // Filter schedules for selected date (using local timezone)
@@ -385,6 +388,7 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
         isOpen={isModalOpen}
         onClose={handleModalClose}
         schedule={selectedSchedule}
+        clickPosition={clickPosition}
       />
       </div>
     </ScheduleErrorBoundary>

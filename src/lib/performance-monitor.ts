@@ -209,10 +209,107 @@ class PerformanceMonitor {
     
     console.groupEnd()
   }
+
+  // Method to get all metrics
+  getMetrics(): PerformanceMetric[] {
+    return [...this.metrics]
+  }
+
+  // System health check
+  getSystemHealth(): any {
+    return {
+      status: 'healthy',
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      version: process.version
+    }
+  }
+
+  // API performance summary
+  getApiPerformanceSummary(): any {
+    const apiMetrics = this.metrics.filter(m => m.name.startsWith('api.'))
+    return {
+      totalRequests: apiMetrics.length,
+      averageResponseTime: apiMetrics.reduce((sum, m) => sum + m.duration, 0) / apiMetrics.length || 0,
+      recentRequests: apiMetrics.slice(-10)
+    }
+  }
+
+  // Database performance summary
+  getDatabasePerformanceSummary(): any {
+    const dbMetrics = this.metrics.filter(m => m.name.startsWith('database.'))
+    return {
+      totalQueries: dbMetrics.length,
+      averageQueryTime: dbMetrics.reduce((sum, m) => sum + m.duration, 0) / dbMetrics.length || 0,
+      recentQueries: dbMetrics.slice(-10)
+    }
+  }
+
+  // Performance alerts
+  checkPerformanceAlerts(): any[] {
+    const alerts = []
+    const apiMetrics = this.metrics.filter(m => m.name.startsWith('api.'))
+    const slowRequests = apiMetrics.filter(m => m.duration > 5000)
+    
+    if (slowRequests.length > 0) {
+      alerts.push({
+        type: 'slow_api',
+        message: `${slowRequests.length} slow API requests detected`,
+        severity: 'warning'
+      })
+    }
+    
+    return alerts
+  }
 }
 
 // Global performance monitor instance
 export const performanceMonitor = new PerformanceMonitor()
+
+// API performance tracking
+export function trackApiPerformance(
+  method: string,
+  endpoint: string,
+  statusCode: number,
+  responseTime: number,
+  userAgent: string,
+  metadata?: Record<string, any>
+): void {
+  performanceMonitor.measure(`api.${method}.${endpoint.replace(/\//g, '.')}`, () => {
+    return Promise.resolve({
+      status: statusCode,
+      responseTime,
+      userAgent,
+      ...metadata
+    })
+  }, {
+    method,
+    endpoint,
+    statusCode,
+    responseTime,
+    userAgent,
+    ...metadata
+  })
+}
+
+// Database performance tracking
+export function trackDatabasePerformance(
+  operation: string,
+  duration: number,
+  table?: string,
+  queryType?: string,
+  metadata?: Record<string, any>
+): void {
+  performanceMonitor.measure(`database.${operation}`, () => {
+    return Promise.resolve({ duration })
+  }, {
+    operation,
+    duration,
+    table,
+    queryType,
+    ...metadata
+  })
+}
 
 // React hook for performance monitoring
 export function usePerformanceMonitor() {
@@ -253,7 +350,7 @@ export function measureComponentRender(componentName: string) {
     const MeasuredComponent = (props: any) => {
       return performanceMonitor.measure(
         `component.${componentName}`,
-        () => React.createElement(Component, props),
+        () => { return React.createElement(Component, props) },
         { componentName }
       )
     }
@@ -272,13 +369,13 @@ if (typeof window !== 'undefined' && 'PerformanceObserver' in window) {
       for (const entry of list.getEntries()) {
         if (entry.entryType === 'navigation') {
           const navEntry = entry as PerformanceNavigationTiming
-          performanceMonitor.addMetric({
+          (performanceMonitor as any).addMetric({
             name: 'page.navigation',
-            duration: navEntry.loadEventEnd - navEntry.navigationStart,
+            duration: navEntry.loadEventEnd - (navEntry as any).navigationStart,
             timestamp: Date.now(),
             metadata: {
-              domContentLoaded: navEntry.domContentLoadedEventEnd - navEntry.navigationStart,
-              firstPaint: navEntry.loadEventStart - navEntry.navigationStart,
+              domContentLoaded: navEntry.domContentLoadedEventEnd - (navEntry as any).navigationStart,
+              firstPaint: navEntry.loadEventStart - (navEntry as any).navigationStart,
               type: navEntry.type
             }
           })
@@ -292,7 +389,7 @@ if (typeof window !== 'undefined' && 'PerformanceObserver' in window) {
     const resourceObserver = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (entry.name.includes('/api/staff-schedule')) {
-          performanceMonitor.addMetric({
+          (performanceMonitor as any).addMetric({
             name: 'api.request',
             duration: entry.duration,
             timestamp: Date.now(),

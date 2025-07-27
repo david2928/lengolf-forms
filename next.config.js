@@ -83,8 +83,6 @@ const nextConfig = {
   // Optimize builds
   experimental: {
     serverComponentsExternalPackages: ['@supabase/supabase-js'],
-    optimizeCss: true,
-    scrollRestoration: true,
   },
   
   // Compression

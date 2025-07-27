@@ -33,6 +33,23 @@ export async function authenticateStaffScheduleRequest(
   requireAdmin: boolean = false
 ): Promise<AuthResult> {
   try {
+    // Development bypass - skip all auth checks
+    const shouldBypass = (
+      process.env.NODE_ENV === 'development' &&
+      process.env.SKIP_AUTH === 'true'
+    );
+    
+    if (shouldBypass) {
+      return {
+        success: true,
+        user: {
+          email: 'dev@lengolf.com',
+          isAdmin: true,
+          isCoach: true
+        }
+      }
+    }
+
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
@@ -175,6 +192,16 @@ function getClientIP(request: NextRequest): string {
  */
 export async function validateSessionTimeout(request: NextRequest): Promise<boolean> {
   try {
+    // Development bypass - skip session validation
+    const shouldBypass = (
+      process.env.NODE_ENV === 'development' &&
+      process.env.SKIP_AUTH === 'true'
+    );
+    
+    if (shouldBypass) {
+      return true
+    }
+
     const session = await getServerSession(authOptions)
     
     if (!session) {

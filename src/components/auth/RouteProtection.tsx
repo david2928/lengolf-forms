@@ -24,6 +24,18 @@ export function RouteProtection({
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Development bypass - skip all auth checks
+    const shouldBypass = (
+      process.env.NODE_ENV === 'development' &&
+      process.env.NEXT_PUBLIC_SKIP_AUTH === 'true'
+    );
+    
+    if (shouldBypass) {
+      setIsAuthorized(true)
+      setIsLoading(false)
+      return
+    }
+
     if (status === 'loading') {
       return // Still loading session
     }

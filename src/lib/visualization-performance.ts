@@ -3,6 +3,8 @@
  * Provides throttling and performance monitoring for visualization components
  */
 
+import * as React from 'react'
+
 /**
  * Performance monitoring utility
  */

@@ -20,7 +20,7 @@ interface ScheduleCardProps {
     recurring_group_id?: string | null
   }
   viewMode: 'personal' | 'team'
-  onCardTap?: (scheduleId: string) => void
+  onCardTap?: (scheduleId: string, clickPosition: { x: number; y: number }) => void
   className?: string
 }
 
@@ -58,9 +58,14 @@ export function ScheduleCard({
   const durationText = duration === 1 ? '1 hour' : `${duration} hours`
   
   // Handle card click
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
     if (onCardTap) {
-      onCardTap(schedule_id)
+      const rect = e.currentTarget.getBoundingClientRect()
+      const clickPosition = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      }
+      onCardTap(schedule_id, clickPosition)
     }
   }
 

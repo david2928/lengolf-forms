@@ -24,7 +24,9 @@ export function calculateGridPosition(schedule: StaffSchedule): GridPosition {
   
   // Handle partial hours and calculate span
   const hasEndMinutes = endMinutes > 0
-  const rowSpan = Math.max(1, endRow - startRow + (hasEndMinutes ? 1 : 0))
+  // Fix rowSpan calculation - if end time has minutes, we need to span to the next hour
+  const actualEndRow = hasEndMinutes ? endRow + 1 : endRow
+  const rowSpan = Math.max(1, actualEndRow - startRow)
   
   return {
     dayIndex: getDayIndex(schedule.schedule_date),

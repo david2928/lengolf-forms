@@ -58,20 +58,20 @@ export function ScheduleVisualizationContainer({
   // Process schedule data when it changes
   const processScheduleDataAsync = React.useCallback(async () => {
     if (!scheduleData || loading) {
-      console.log('ScheduleVisualizationContainer: No data or loading', { scheduleData: !!scheduleData, loading })
+      // // console.log('ScheduleVisualizationContainer: No data or loading', { scheduleData: !!scheduleData, loading })
       setProcessedData(null)
       return
     }
 
-    console.log('ScheduleVisualizationContainer: Processing data', { scheduleData, staffAssignments })
+    // // console.log('ScheduleVisualizationContainer: Processing data', { scheduleData, staffAssignments })
 
-    const result = await handleAsyncError(async () => {
+    try {
       // Validate and process raw schedule data
       const rawSchedules = scheduleData.raw_schedules || []
-      console.log('ScheduleVisualizationContainer: Raw schedules', rawSchedules)
+      // // console.log('ScheduleVisualizationContainer: Raw schedules', rawSchedules)
       
       if (rawSchedules.length === 0) {
-        console.log('ScheduleVisualizationContainer: No raw schedules, returning empty result')
+        // console.log('ScheduleVisualizationContainer: No raw schedules, returning empty result')
         // Don't throw error for empty data, just return empty result
         return {
           scheduleBlocks: [],
@@ -88,11 +88,11 @@ export function ScheduleVisualizationContainer({
         return isValid
       })
 
-      console.log('ScheduleVisualizationContainer: Valid schedules', validSchedules)
+      // console.log('ScheduleVisualizationContainer: Valid schedules', validSchedules)
 
       // Process schedules into visualization blocks
       const scheduleBlocks = processScheduleData(validSchedules)
-      console.log('ScheduleVisualizationContainer: Schedule blocks', scheduleBlocks)
+      // console.log('ScheduleVisualizationContainer: Schedule blocks', scheduleBlocks)
 
       // Ensure staff assignments are available
       let validatedStaffAssignments = staffAssignments
@@ -109,26 +109,22 @@ export function ScheduleVisualizationContainer({
         )
         
         validatedStaffAssignments = generateStaffColorAssignments(uniqueStaff)
-        console.log('ScheduleVisualizationContainer: Generated staff assignments', validatedStaffAssignments)
+        // console.log('ScheduleVisualizationContainer: Generated staff assignments', validatedStaffAssignments)
       }
 
       const finalResult = {
         scheduleBlocks,
         validatedStaffAssignments
       }
-      console.log('ScheduleVisualizationContainer: Final result', finalResult)
+      // console.log('ScheduleVisualizationContainer: Final result', finalResult)
 
-      return finalResult
-    }, 'data processing')
-
-    if (result) {
-      console.log('ScheduleVisualizationContainer: Setting processed data', result)
-      setProcessedData(result)
-    } else {
-      console.log('ScheduleVisualizationContainer: No result, setting null')
+      // console.log('ScheduleVisualizationContainer: Setting processed data', finalResult)
+      setProcessedData(finalResult)
+    } catch (error) {
+      console.error('ScheduleVisualizationContainer: Error processing data', error)
       setProcessedData(null)
     }
-  }, [scheduleData, staffAssignments, loading, handleAsyncError])
+  }, [scheduleData, staffAssignments, loading])
 
   React.useEffect(() => {
     processScheduleDataAsync()

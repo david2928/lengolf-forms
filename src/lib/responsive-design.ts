@@ -186,7 +186,7 @@ export function enableHorizontalScroll(element: HTMLElement) {
   element.style.scrollbarWidth = 'thin'
   
   // Add momentum scrolling for iOS
-  element.style.webkitOverflowScrolling = 'touch'
+  ;(element.style as any).webkitOverflowScrolling = 'touch'
 }
 
 export function createStickyTimeLabels(

@@ -522,6 +522,12 @@ export async function DELETE(
           schedules_deleted: deletedSchedules.length,
           message: `Deleted ${deletedSchedules.length} schedules from the recurring series`
         }
+      }, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       })
 
     } else {
@@ -566,6 +572,12 @@ export async function DELETE(
       return NextResponse.json({
         success: true,
         message: 'Schedule deleted successfully'
+      }, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       })
     }
 

@@ -18,7 +18,7 @@ import { RecurringDeleteModal } from '@/components/admin/RecurringDeleteModal'
 import { performanceMonitor } from '@/lib/performance-monitor'
 import { generateStaffColorAssignments, getStaffColor, getStaffName, OFF_DAY_COLOR, type StaffColorAssignment } from '@/lib/staff-colors'
 import { calculateDayCoverageGaps, formatCoverageGap, type DayCoverage } from '@/lib/coverage-analysis'
-import { ScheduleVisualizationContainer } from '@/components/schedule-visualization'
+import { CleanScheduleView } from '@/components/schedule-visualization/CleanScheduleView'
 import { getOffStaffForDay, debugStaffStatus } from '@/lib/staff-status-utils'
 
 
@@ -48,14 +48,16 @@ function WeeklyCalendarGrid({
   onEditSchedule, 
   onDeleteSchedule,
   staffAssignments,
-  allStaff
+  allStaff,
+  overview
 }: { 
   scheduleGrid: { [date: string]: any[] }, 
   weekStart: string,
   onEditSchedule: (schedule: any) => void,
   onDeleteSchedule: (schedule: any) => void,
   staffAssignments: StaffColorAssignment[],
-  allStaff: Array<{ id: number; staff_name: string }>
+  allStaff: Array<{ id: number; staff_name: string }>,
+  overview: ScheduleOverview | null
 }) {
   const startDate = new Date(weekStart)
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -93,16 +95,17 @@ function WeeklyCalendarGrid({
   // Get staff members who are OFF for a specific day
   // Only show active staff members who don't have schedules
   const getOffStaff = (dayOffset: number) => {
-    const scheduledStaffIds = getScheduledStaffIds(dayOffset)
+    const scheduledIds = getScheduledStaffIds(dayOffset)
     
-    // Convert raw schedules to the format expected by the utility
-    const scheduleStaff = overview?.raw_schedules?.map((schedule: any) => ({
-      staff_id: schedule.staff_id,
-      staff_name: schedule.staff_name
-    })) || []
+    // Get all schedules from the grid data and map to required format
+    const gridSchedules = Object.values(scheduleGrid).flat()
+    const staffFromSchedules = gridSchedules.map((s: any) => ({
+      staff_id: s.staff_id,
+      staff_name: s.staff_name
+    }))
     
-    // Use the utility function to get confirmed active staff who are OFF
-    return getOffStaffForDay(allStaff, scheduledStaffIds, scheduleStaff)
+    // Return staff who are OFF using the utility function
+    return getOffStaffForDay(allStaff, scheduledIds, staffFromSchedules)
   }
 
   const getStaffScheduleColor = (staffId: number) => {
@@ -204,14 +207,14 @@ function WeeklyCalendarGrid({
                   if (item.type === 'schedule') {
                     const schedule = item.data
                     // Debug: Check if is_recurring is present
-                    if (schedule.is_recurring) {
-                      console.log('Found recurring schedule for:', schedule.staff_name)
-                    }
+                    // if (schedule.is_recurring) {
+                    //   console.log('Found recurring schedule for:', schedule.staff_name)
+                    // }
                     return (
                       <button
                         key={`schedule-${itemIndex}`}
                         onClick={() => onEditSchedule(schedule)}
-                        className={`w-full text-left text-xs p-1 rounded-md hover:opacity-80 transition-colors border relative cursor-pointer ${getStaffScheduleColor(schedule.staff_id)}`}
+                        className={`w-full text-left text-xs p-2 rounded-md hover:opacity-80 transition-colors border relative cursor-pointer ${getStaffScheduleColor(schedule.staff_id)}`}
                       >
                         {/* Recurring indicator - positioned in top right corner */}
                         {schedule.is_recurring && (
@@ -225,23 +228,21 @@ function WeeklyCalendarGrid({
                         )}
 
                         
-                        {/* Layout similar to coverage gap box */}
-                        <div className="flex items-center space-x-2">
-                          <div className="flex-1 min-w-0">
-                            {/* Staff name - made more prominent */}
-                            <div className="font-semibold text-xs">
-                              {schedule.staff_name}
-                            </div>
-                            {/* Time - made smaller and less prominent */}
-                            <div className="text-xs opacity-90">
-                              {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
-                            </div>
-                            {schedule.location && (
-                              <div className="truncate text-xs text-gray-600 opacity-75">
-                                {schedule.location}
-                              </div>
-                            )}
+                        {/* Improved layout with better spacing */}
+                        <div className="space-y-1">
+                          {/* Staff name - made more prominent */}
+                          <div className="font-semibold text-xs">
+                            {schedule.staff_name}
                           </div>
+                          {/* Time - with better visibility */}
+                          <div className="text-xs opacity-90 break-words leading-tight">
+                            {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
+                          </div>
+                          {schedule.location && (
+                            <div className="text-xs text-gray-600 opacity-75">
+                              {schedule.location}
+                            </div>
+                          )}
                         </div>
                       </button>
                     )
@@ -332,6 +333,7 @@ export default function AdminStaffSchedulingDashboard() {
   const [isRecurringDeleteModalOpen, setIsRecurringDeleteModalOpen] = useState(false)
   const [scheduleToDelete, setScheduleToDelete] = useState<any>(null)
   const [formLoading, setFormLoading] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   
   // Component preloader for better UX
   const { preloadOnHover } = useAdminComponentPreloader()
@@ -361,7 +363,12 @@ export default function AdminStaffSchedulingDashboard() {
     return performanceMonitor.measureAsync('admin.fetchOverview', async () => {
       try {
         setLoading(true)
-        const response = await fetch(`/api/admin/staff-scheduling/overview?week_start=${weekStart}`)
+        const response = await fetch(`/api/admin/staff-scheduling/overview?week_start=${weekStart}&_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        })
         const data = await response.json()
         
         if (data.success) {
@@ -376,6 +383,38 @@ export default function AdminStaffSchedulingDashboard() {
         setLoading(false)
       }
     }, { weekStart })
+  }
+
+  const refreshOverview = async (weekStart: string) => {
+    try {
+      console.log('Refreshing overview data after deletion...')
+      const response = await fetch(`/api/admin/staff-scheduling/overview?week_start=${weekStart}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        console.log('Overview data refreshed successfully:', data.data)
+        console.log('Previous schedule count:', overview?.raw_schedules?.length || 0)
+        console.log('New schedule count:', data.data?.raw_schedules?.length || 0)
+        
+        // Force a completely new object reference to ensure React re-renders
+        setOverview({
+          ...data.data,
+          _timestamp: Date.now() // Add timestamp to force new object reference
+        })
+        setError(null)
+      } else {
+        console.error('Failed to refresh overview:', data.error)
+        setError(data.error || 'Failed to fetch overview')
+      }
+    } catch (err: any) {
+      console.error('Network error during refresh:', err)
+      setError(err.message || 'Network error')
+    }
   }
 
   useEffect(() => {
@@ -480,7 +519,7 @@ export default function AdminStaffSchedulingDashboard() {
       }
 
       // Refresh the overview data
-      await fetchOverview(weekStart)
+      await refreshOverview(weekStart)
       setIsFormOpen(false)
       setEditingSchedule(null)
     } catch (error: any) {
@@ -516,11 +555,29 @@ export default function AdminStaffSchedulingDashboard() {
         throw new Error(data.error || 'Failed to delete schedule')
       }
 
-      // Refresh the overview data
-      await fetchOverview(weekStart)
+      console.log('Schedule deleted successfully, closing modals and refreshing...')
+      
+      // Close all modals first
       setIsDeleteDialogOpen(false)
       setIsRecurringDeleteModalOpen(false)
       setScheduleToDelete(null)
+      setIsFormOpen(false)
+      setEditingSchedule(null)
+      
+      console.log('Modals closed, waiting for DB commit...')
+      
+      // Wait a moment for database transaction to fully commit
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      console.log('Calling refresh...')
+      
+      // Then refresh the overview data without loading state
+      await refreshOverview(weekStart)
+      
+      // Force re-render of all components
+      setRefreshKey(prev => prev + 1)
+      
+      console.log('Refresh completed')
     } catch (error: any) {
       setError(error.message || 'Failed to delete schedule')
     } finally {
@@ -698,20 +755,24 @@ export default function AdminStaffSchedulingDashboard() {
 
       {/* Weekly Calendar Grid */}
       <WeeklyCalendarGrid 
+        key={`calendar-${refreshKey}`}
         scheduleGrid={overview.schedule_grid} 
         weekStart={overview.week_period.start_date}
         onEditSchedule={handleEditSchedule}
         onDeleteSchedule={handleDeleteSchedule}
         staffAssignments={staffAssignments}
         allStaff={allStaff}
+        overview={overview}
       />
 
       {/* Schedule Visualization */}
-      <ScheduleVisualizationContainer
+      <CleanScheduleView
+        key={`schedule-${refreshKey}`}
         scheduleData={overview}
         staffAssignments={staffAssignments}
         weekStart={overview.week_period.start_date}
         loading={loading}
+        onEditSchedule={handleEditSchedule}
       />
           </div>
 
@@ -723,6 +784,17 @@ export default function AdminStaffSchedulingDashboard() {
               setEditingSchedule(null)
             }}
             onSubmit={handleFormSubmit}
+            onDelete={(schedule) => {
+              setScheduleToDelete(schedule)
+              
+              // Check if this is a recurring schedule
+              if (schedule.is_recurring && schedule.recurring_group_id) {
+                setIsRecurringDeleteModalOpen(true)
+              } else {
+                // For non-recurring schedules, show confirmation dialog
+                setIsDeleteDialogOpen(true)
+              }
+            }}
             schedule={editingSchedule}
             title={editingSchedule ? 'Edit Schedule' : 'Add Schedule'}
           />

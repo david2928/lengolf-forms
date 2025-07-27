@@ -78,8 +78,8 @@ export function StaffScheduleBlock({
     <div
       ref={refCallback}
       className={`
-        staff-schedule-block relative
-        bg-white rounded-xl border border-slate-200 
+        staff-schedule-block relative w-full h-full
+        bg-white rounded-lg border border-slate-200 
         shadow-sm hover:shadow-md transition-all duration-200
         overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50
         ${staffColor.color.bg} ${staffColor.color.border}
@@ -90,9 +90,9 @@ export function StaffScheduleBlock({
       style={{
         borderLeftWidth: '4px',
         borderLeftColor: staffColor.color.hex,
-        minHeight: `${blockHeight}px`,
         fontSize: responsiveConfig.fontSize,
-        padding: `${responsiveConfig.blockPadding}px`
+        padding: `${Math.max(responsiveConfig.blockPadding - 2, 2)}px`,
+        minHeight: '100%'
       }}
       role="button"
       aria-label={ariaLabel}
@@ -104,15 +104,17 @@ export function StaffScheduleBlock({
     >
       {/* Staff Name Tab */}
       <div 
-        className="staff-name-tab absolute top-0 left-0 right-0 px-2 py-1 text-center font-semibold text-xs truncate"
+        className="staff-name-tab absolute top-0 left-0 right-0 px-1 py-0.5 text-center font-semibold text-xs truncate"
         style={{
           backgroundColor: staffColor.color.hex,
           color: hasGoodContrast ? accessibleTextColor : '#ffffff',
-          borderTopLeftRadius: '0.75rem',
-          borderTopRightRadius: '0.75rem',
+          borderTopLeftRadius: '0.5rem',
+          borderTopRightRadius: '0.5rem',
           marginTop: '-1px', // Overlap the border slightly
           marginLeft: '-1px',
-          marginRight: '-1px'
+          marginRight: '-1px',
+          fontSize: '0.7rem',
+          lineHeight: '1.2'
         }}
         title={schedule.staffName}
         aria-hidden="true" // Content is already in aria-label
@@ -121,21 +123,23 @@ export function StaffScheduleBlock({
       </div>
       
       {/* Schedule Content */}
-      <div className="schedule-content pt-6 h-full flex flex-col justify-between">
+      <div className="schedule-content pt-4 h-full flex flex-col justify-center">
         {/* Time Display */}
-        <div className="time-display">
+        <div className="time-display text-center">
           <div 
-            className={`font-medium text-center ${staffColor.color.text}`}
+            className={`font-medium text-xs ${staffColor.color.text}`}
+            style={{ lineHeight: '1.3' }}
           >
             {timeRange}
           </div>
           
           {/* Duration indicator for longer blocks */}
-          {duration >= 2 && responsiveConfig.showMinutes && (
+          {duration >= 2 && responsiveConfig.showMinutes && blockHeight > 50 && (
             <div 
-              className={`text-xs text-center mt-1 opacity-75 ${staffColor.color.text}`}
+              className={`text-xs mt-1 opacity-75 ${staffColor.color.text}`}
+              style={{ fontSize: '0.65rem', lineHeight: '1.2' }}
             >
-              {duration === 1 ? '1 hour' : `${duration} hours`}
+              {duration === 1 ? '1 hour' : `${duration}h`}
             </div>
           )}
         </div>
