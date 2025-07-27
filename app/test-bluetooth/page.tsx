@@ -14,12 +14,18 @@ export default function BluetoothTestPage() {
   const [deviceInfo, setDeviceInfo] = useState<{ name?: string; id?: string } | null>(null);
   const [receiptNumber, setReceiptNumber] = useState<string>('R20250727-0146');
   const [lastResult, setLastResult] = useState<any>(null);
+  const [lastDevice, setLastDevice] = useState<string | null>(null);
 
   useEffect(() => {
     const checkSupport = () => {
       const supported = BluetoothThermalPrinter.isSupported();
       setIsSupported(supported);
       console.log('📱 Bluetooth support:', supported);
+      
+      // Check for last connected device
+      const lastConnected = bluetoothThermalPrinter.getLastConnectedDevice();
+      setLastDevice(lastConnected);
+      console.log('🔍 Last connected device:', lastConnected);
     };
 
     checkSupport();
@@ -232,6 +238,26 @@ export default function BluetoothTestPage() {
                     </Button>
                   </div>
                   
+                  {lastDevice && (
+                    <Button
+                      onClick={() => handleConnect(lastDevice)}
+                      disabled={!isSupported || isConnected || isLoading}
+                      className="w-full h-12 bg-purple-600 hover:bg-purple-700"
+                    >
+                      {isLoading && !isConnected ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Quick connecting to {lastDevice}...
+                        </>
+                      ) : (
+                        <>
+                          <Bluetooth className="w-5 h-5 mr-2" />
+                          Quick Connect to &quot;{lastDevice}&quot;
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  
                   <Button
                     onClick={() => handleConnect('printer001')}
                     disabled={!isSupported || isConnected || isLoading}
@@ -358,8 +384,9 @@ export default function BluetoothTestPage() {
                 <div><strong>1. Enable Bluetooth:</strong> Turn on Bluetooth on your Android device</div>
                 <div><strong>2. Pair Printer:</strong> Go to Settings → Bluetooth and pair your thermal printer</div>
                 <div><strong>3. Use Chrome:</strong> Open this page in Chrome browser (not Firefox/Samsung Internet)</div>
-                <div><strong>4a. Quick Connect:</strong> Click &quot;Connect to printer001 directly&quot; if your printer is named &quot;printer001&quot;</div>
-                <div><strong>4b. Scan Connect:</strong> Click &quot;Scan &amp; Connect&quot; to choose from available printers</div>
+                <div><strong>4a. Quick Reconnect:</strong> Use the purple &quot;Quick Connect&quot; button if available (remembers your last printer)</div>
+                <div><strong>4b. Direct Connect:</strong> Click &quot;Connect to printer001 directly&quot; if your printer is named &quot;printer001&quot;</div>
+                <div><strong>4c. Scan Connect:</strong> Click &quot;Scan &amp; Connect&quot; to choose from available printers</div>
                 <div><strong>5. Test:</strong> Send a test print to verify connection</div>
                 <div><strong>6. Print:</strong> Use &quot;Print Receipt&quot; for actual receipts</div>
               </div>
