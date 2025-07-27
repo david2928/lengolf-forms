@@ -72,6 +72,7 @@ export class BluetoothThermalPrinter {
   private device: BluetoothDevice | null = null;
   private characteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private isConnected: boolean = false;
+  private lastConnectedDevice: string | null = null;
 
   /**
    * Check if Web Bluetooth is supported
@@ -205,6 +206,13 @@ export class BluetoothThermalPrinter {
       }
 
       this.isConnected = true;
+      this.lastConnectedDevice = this.device.name || this.device.id;
+      
+      // Store last connected device in localStorage for quick access
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('lastBluetoothPrinter', this.lastConnectedDevice);
+      }
+      
       console.log('🎉 Successfully connected to Bluetooth printer!');
       return true;
 
@@ -308,8 +316,8 @@ export class BluetoothThermalPrinter {
       ...Array.from(new TextEncoder().encode('LENGOLF TEST PRINT\n')),
       ...Array.from(new TextEncoder().encode('Bluetooth Connection OK\n')),
       ...Array.from(new TextEncoder().encode(new Date().toLocaleString() + '\n')),
-      0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, // More feed lines
-      0x1B, 0x64, 0x05, // Feed 5 lines (ESC d n)
+      0x0A, 0x0A, 0x0A, 0x0A, // Moderate feed lines
+      0x1B, 0x64, 0x03, // Feed 3 lines (ESC d n)
       0x1D, 0x56, 0x01 // Cut paper
     ]);
 
@@ -458,11 +466,11 @@ export class BluetoothThermalPrinter {
     commands.push(0x0A);
     this.addText(commands, 'Powered by Lengolf POS System');
     
-    // Add extra line feeds to ensure receipt isn't cut off
-    commands.push(0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A);
+    // Add moderate line feeds to prevent cutoff without too much waste
+    commands.push(0x0A, 0x0A, 0x0A, 0x0A);
     
     // Feed and cut paper
-    commands.push(ESC, 0x64, 0x05); // Feed 5 lines (ESC d n)
+    commands.push(ESC, 0x64, 0x03); // Feed 3 lines (ESC d n) - reduced from 5
     commands.push(GS, 0x56, 0x01);  // Cut paper
     
     return new Uint8Array(commands);
@@ -505,6 +513,29 @@ export class BluetoothThermalPrinter {
       name: this.device.name,
       id: this.device.id
     };
+  }
+
+  /**
+   * Get last connected device name from localStorage
+   */
+  getLastConnectedDevice(): string | null {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('lastBluetoothPrinter');
+    }
+    return null;
+  }
+
+  /**
+   * Quick connect to last used device
+   */
+  async quickConnect(): Promise<boolean> {
+    const lastDevice = this.getLastConnectedDevice();
+    if (lastDevice) {
+      console.log('🔄 Attempting quick connect to:', lastDevice);
+      return await this.connect(lastDevice);
+    }
+    console.log('ℹ️ No previous device found, use regular connect()');
+    return await this.connect();
   }
 }
 

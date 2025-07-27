@@ -68,7 +68,8 @@
       "Bash(notepad:*)",
       "Bash(python:*)",
       "mcp__playwright__browser_handle_dialog",
-      "Bash(xxd:*)"
+      "Bash(xxd:*)",
+      "mcp__supabase__list_migrations"
     ],
     "deny": []
   },
