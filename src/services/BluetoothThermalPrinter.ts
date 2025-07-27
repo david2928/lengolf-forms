@@ -84,8 +84,9 @@ export class BluetoothThermalPrinter {
 
   /**
    * Connect to Bluetooth thermal printer
+   * @param printerName Optional: Connect to specific printer by name (e.g., "printer001")
    */
-  async connect(): Promise<boolean> {
+  async connect(printerName?: string): Promise<boolean> {
     try {
       if (!BluetoothThermalPrinter.isSupported()) {
         throw new Error('Web Bluetooth is not supported on this device');
@@ -93,21 +94,33 @@ export class BluetoothThermalPrinter {
 
       console.log('🔍 Scanning for Bluetooth thermal printers...');
 
-      // Request device with thermal printer services
-      this.device = await (navigator as any).bluetooth.requestDevice({
-        filters: [
-          { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }, // ESC/POS service
-          { namePrefix: 'MTP-' }, // Common thermal printer prefix
-          { namePrefix: 'BlueTooth Printer' },
-          { namePrefix: 'Printer' },
-          { namePrefix: 'POS' }
-        ],
+      // Build request options
+      const requestOptions: any = {
         optionalServices: [
           '000018f0-0000-1000-8000-00805f9b34fb', // ESC/POS
           '0000ff00-0000-1000-8000-00805f9b34fb', // Generic printer
           '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // Common thermal printer
         ]
-      });
+      };
+
+      if (printerName) {
+        // Connect to specific printer by name
+        console.log('🎯 Looking for specific printer:', printerName);
+        requestOptions.filters = [{ name: printerName }];
+      } else {
+        // Scan for any thermal printer
+        requestOptions.filters = [
+          { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }, // ESC/POS service
+          { namePrefix: 'MTP-' }, // Common thermal printer prefix
+          { namePrefix: 'BlueTooth Printer' },
+          { namePrefix: 'Printer' },
+          { namePrefix: 'POS' },
+          { namePrefix: 'printer' } // lowercase variant
+        ];
+      }
+
+      // Request device with thermal printer services
+      this.device = await (navigator as any).bluetooth.requestDevice(requestOptions);
 
       if (!this.device) {
         throw new Error('No printer selected');
@@ -141,18 +154,54 @@ export class BluetoothThermalPrinter {
         throw new Error('Could not find compatible printer service');
       }
 
-      // Get characteristic for writing (common UUIDs for thermal printers)
-      try {
-        this.characteristic = await service.getCharacteristic('0000ff02-0000-1000-8000-00805f9b34fb');
-        console.log('✅ Found writable characteristic: 0000ff02-0000-1000-8000-00805f9b34fb');
-      } catch {
+      // Try multiple characteristic UUIDs commonly used by thermal printers
+      const characteristicUUIDs = [
+        '0000ff02-0000-1000-8000-00805f9b34fb', // Common write characteristic
+        '0000ffe1-0000-1000-8000-00805f9b34fb', // Alternative write characteristic
+        '00002af1-0000-1000-8000-00805f9b34fb', // Xprinter characteristic
+        '49535343-1e4d-4bd9-ba61-23c647249616', // Another common UUID
+        '6e400002-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART write
+        '0000fff2-0000-1000-8000-00805f9b34fb', // Alternative UUID
+        '0000ff01-0000-1000-8000-00805f9b34fb'  // Another alternative
+      ];
+
+      let foundCharacteristic = false;
+      for (const charUUID of characteristicUUIDs) {
         try {
-          // Try alternative characteristic UUID
-          this.characteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
-          console.log('✅ Found writable characteristic: 0000ffe1-0000-1000-8000-00805f9b34fb');
-        } catch {
-          throw new Error('Could not find writable characteristic');
+          this.characteristic = await service.getCharacteristic(charUUID);
+          console.log('✅ Found writable characteristic:', charUUID);
+          foundCharacteristic = true;
+          break;
+        } catch (e) {
+          console.log('⚠️ Characteristic not found:', charUUID);
+          continue;
         }
+      }
+
+      if (!foundCharacteristic) {
+        // Last resort: try to get all characteristics and find a writable one
+        try {
+          console.log('🔍 Attempting to discover all characteristics...');
+          // This is a fallback - some printers might have custom UUIDs
+          const characteristics = await (service as any).getCharacteristics();
+          console.log('📋 Available characteristics:', characteristics.map((c: any) => c.uuid));
+          
+          // Try the first characteristic that supports writing
+          for (const char of characteristics) {
+            if ((char as any).properties && (char as any).properties.write) {
+              this.characteristic = char;
+              console.log('✅ Found writable characteristic via discovery:', char.uuid);
+              foundCharacteristic = true;
+              break;
+            }
+          }
+        } catch (discoveryError) {
+          console.log('⚠️ Characteristic discovery failed:', discoveryError);
+        }
+      }
+
+      if (!foundCharacteristic) {
+        throw new Error('Could not find writable characteristic. This printer may not be ESC/POS compatible or may require pairing in Android Bluetooth settings first.');
       }
 
       this.isConnected = true;
