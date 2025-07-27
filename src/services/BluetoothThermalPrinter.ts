@@ -245,17 +245,32 @@ export class BluetoothThermalPrinter {
       
       const escposData = this.generateESCPOSData(receiptData);
       
-      // Split data into chunks (most Bluetooth devices have MTU limits)
-      const chunkSize = 20; // Conservative chunk size for Bluetooth LE
+      // Split data into chunks - use larger chunks for faster printing
+      const chunkSize = 512; // Most modern Bluetooth printers support 512-byte chunks
       const chunks = this.splitIntoChunks(escposData, chunkSize);
       
+      console.log(`📤 Sending ${chunks.length} chunks of ${chunkSize} bytes each...`);
+      
       for (let i = 0; i < chunks.length; i++) {
-        await this.characteristic.writeValue(chunks[i]);
-        console.log(`📤 Sent chunk ${i + 1}/${chunks.length}`);
-        
-        // Small delay between chunks to prevent buffer overflow
-        if (i < chunks.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 50));
+        try {
+          await this.characteristic.writeValue(chunks[i]);
+          
+          // Only add delay every 10 chunks or if we're sending a lot of data
+          if (i > 0 && i % 10 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 20)); // Reduced delay
+          }
+        } catch (error) {
+          // If chunk is too large, fall back to smaller chunks
+          if (error instanceof Error && error.message.includes('GATT')) {
+            console.warn('⚠️ Chunk too large, falling back to smaller size...');
+            const smallerChunks = this.splitIntoChunks(chunks[i], 128);
+            for (const smallChunk of smallerChunks) {
+              await this.characteristic.writeValue(smallChunk);
+              await new Promise(resolve => setTimeout(resolve, 10));
+            }
+          } else {
+            throw error;
+          }
         }
       }
       
@@ -281,7 +296,8 @@ export class BluetoothThermalPrinter {
       ...Array.from(new TextEncoder().encode('LENGOLF TEST PRINT\n')),
       ...Array.from(new TextEncoder().encode('Bluetooth Connection OK\n')),
       ...Array.from(new TextEncoder().encode(new Date().toLocaleString() + '\n')),
-      0x0A, 0x0A, 0x0A, // Feed lines
+      0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, // More feed lines
+      0x1B, 0x64, 0x05, // Feed 5 lines (ESC d n)
       0x1D, 0x56, 0x01 // Cut paper
     ]);
 
@@ -429,10 +445,13 @@ export class BluetoothThermalPrinter {
     this.addText(commands, `Generated: ${new Date().toLocaleString('th-TH')}`);
     commands.push(0x0A);
     this.addText(commands, 'Powered by Lengolf POS System');
-    commands.push(0x0A, 0x0A, 0x0A, 0x0A);
     
-    // Cut paper
-    commands.push(GS, 0x56, 0x01);
+    // Add extra line feeds to ensure receipt isn't cut off
+    commands.push(0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A);
+    
+    // Feed and cut paper
+    commands.push(ESC, 0x64, 0x05); // Feed 5 lines (ESC d n)
+    commands.push(GS, 0x56, 0x01);  // Cut paper
     
     return new Uint8Array(commands);
   }
