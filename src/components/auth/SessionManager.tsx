@@ -25,10 +25,6 @@ export function SessionManager({
     process.env.NODE_ENV === 'development' &&
     process.env.NEXT_PUBLIC_SKIP_AUTH === 'true'
   );
-  
-  if (shouldBypass) {
-    return <>{children}</>
-  }
 
   const checkSessionExpiry = useCallback(() => {
     if (!session?.expires) return
@@ -56,7 +52,7 @@ export function SessionManager({
   }, [session, warningMinutes, showWarning, router])
 
   useEffect(() => {
-    if (status !== 'authenticated') return
+    if (status !== 'authenticated' || shouldBypass) return
 
     // Check immediately
     checkSessionExpiry()
@@ -65,7 +61,7 @@ export function SessionManager({
     const interval = setInterval(checkSessionExpiry, checkInterval)
 
     return () => clearInterval(interval)
-  }, [status, checkSessionExpiry, checkInterval])
+  }, [status, checkSessionExpiry, checkInterval, shouldBypass])
 
   const handleExtendSession = () => {
     // Trigger session refresh by making a request
@@ -74,6 +70,10 @@ export function SessionManager({
 
   const handleSignOut = () => {
     router.push('/auth/signin')
+  }
+
+  if (shouldBypass) {
+    return <>{children}</>
   }
 
   return (

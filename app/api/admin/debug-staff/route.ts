@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       // Check 2: Compensation records
       if (staffData && staffData.length > 0) {
         console.log('Testing compensation query...');
-        const staffIds = staffData.map(s => s.id);
+        const staffIds = staffData.map((s: any) => s.id);
         const { data: compensationData, error: compensationError } = await supabase
           .schema('backoffice')
           .from('staff_compensation')
@@ -81,8 +81,8 @@ export async function GET(request: NextRequest) {
         
         // Check 4: Service charge eligibility analysis
         if (compensationData) {
-          const analysis = staffData.map(staff => {
-            const compensation = compensationData.find(comp => comp.staff_id === staff.id);
+          const analysis = staffData.map((staff: any) => {
+            const compensation = compensationData.find((comp: any) => comp.staff_id === staff.id);
             return {
               staff_name: staff.staff_name,
               staff_table_eligible: staff.is_service_charge_eligible,
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
             check: 'Service Charge Eligibility Analysis',
             success: true,
             data: analysis,
-            summary: `${analysis.filter(a => a.match).length}/${analysis.length} staff have matching eligibility`
+            summary: `${analysis.filter((a: any) => a.match).length}/${analysis.length} staff have matching eligibility`
           });
         }
       }

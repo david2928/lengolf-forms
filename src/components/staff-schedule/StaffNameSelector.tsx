@@ -5,7 +5,6 @@ import { Users } from 'lucide-react'
 import { useStaff } from '@/hooks/useStaffScheduleSWR'
 import { Staff } from '@/types/staff-schedule'
 import { StaffProfileImage } from '@/components/common/OptimizedImage'
-import { performanceMonitor } from '@/lib/performance-monitor'
 
 interface StaffNameSelectorProps {
   onStaffSelect: (staff: Staff) => void
@@ -26,16 +25,13 @@ export function StaffNameSelector({ onStaffSelect, onViewAllStaff }: StaffNameSe
   }, [])
 
   const handleStaffClick = (selectedStaff: Staff) => {
-    // Measure staff selection performance
-    performanceMonitor.measure('staff.selection', () => {
-      // Store selected staff in session storage for persistence
-      try {
-        sessionStorage.setItem('selectedStaff', JSON.stringify(selectedStaff))
-      } catch (error) {
-        console.warn('Error saving staff selection:', error)
-      }
-      onStaffSelect(selectedStaff)
-    }, { staffId: selectedStaff.id, staffName: selectedStaff.name })
+    // Store selected staff in session storage for persistence
+    try {
+      sessionStorage.setItem('selectedStaff', JSON.stringify(selectedStaff))
+    } catch (error) {
+      console.warn('Error saving staff selection:', error)
+    }
+    onStaffSelect(selectedStaff)
   }
 
   if (isLoading) {

@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button'
 import { LazyScheduleForm, LazyConfirmDialog, useAdminComponentPreloader } from '@/components/admin/LazyAdminComponents'
 import { RecurringDeleteModal } from '@/components/admin/RecurringDeleteModal'
 
-import { performanceMonitor } from '@/lib/performance-monitor'
 import { generateStaffColorAssignments, getStaffColor, getStaffName, OFF_DAY_COLOR, type StaffColorAssignment } from '@/lib/staff-colors'
 import { calculateDayCoverageGaps, formatCoverageGap, type DayCoverage } from '@/lib/coverage-analysis'
 import { CleanScheduleView } from '@/components/schedule-visualization/CleanScheduleView'
@@ -360,29 +359,27 @@ export default function AdminStaffSchedulingDashboard() {
   }
 
   const fetchOverview = async (weekStart: string) => {
-    return performanceMonitor.measureAsync('admin.fetchOverview', async () => {
-      try {
-        setLoading(true)
-        const response = await fetch(`/api/admin/staff-scheduling/overview?week_start=${weekStart}&_t=${Date.now()}`, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache'
-          }
-        })
-        const data = await response.json()
-        
-        if (data.success) {
-          setOverview(data.data)
-          setError(null)
-        } else {
-          setError(data.error || 'Failed to fetch overview')
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/admin/staff-scheduling/overview?week_start=${weekStart}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
         }
-      } catch (err: any) {
-        setError(err.message || 'Network error')
-      } finally {
-        setLoading(false)
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        setOverview(data.data)
+        setError(null)
+      } else {
+        setError(data.error || 'Failed to fetch overview')
       }
-    }, { weekStart })
+    } catch (err: any) {
+      setError(err.message || 'Network error')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const refreshOverview = async (weekStart: string) => {

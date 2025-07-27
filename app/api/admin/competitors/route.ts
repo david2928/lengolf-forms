@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     // Get latest metrics for each competitor
     const competitorsWithMetrics = await Promise.all(
-      competitors.map(async (competitor) => {
+      competitors.map(async (competitor: any) => {
         const { data: metrics } = await supabase
           .schema('marketing')
           .from('competitor_latest_metrics')
