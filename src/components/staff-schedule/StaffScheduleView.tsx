@@ -76,6 +76,9 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
       endDate.setDate(endDate.getDate() + 10)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e1aca89 (scheduling feature)
       if (viewAllStaff) {
         // Load team data for "View All Staff" mode
         fetchTeamSchedule(new Date().toISOString().split('T')[0])
@@ -94,6 +97,7 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           viewMode: 'personal'
         })
       }
+<<<<<<< HEAD
 =======
       fetchSchedules({
         staffId: selectedStaff.id,
@@ -102,6 +106,8 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
         viewMode: 'personal'
       })
 >>>>>>> a6e5a33 (fix problems)
+=======
+>>>>>>> e1aca89 (scheduling feature)
       
       setHasInitialized(true)
     }
@@ -119,10 +125,14 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
       endDate.setDate(date.getDate() + 10)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
       if (activeTab === 'personal' && selectedStaff) {
 =======
       if (activeTab === 'personal') {
 >>>>>>> a6e5a33 (fix problems)
+=======
+      if (activeTab === 'personal' && selectedStaff) {
+>>>>>>> e1aca89 (scheduling feature)
         fetchSchedules({
           staffId: selectedStaff.id,
           startDate: startDate.toISOString().split('T')[0],
@@ -130,10 +140,14 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           viewMode: 'personal'
         })
 <<<<<<< HEAD
+<<<<<<< HEAD
       } else if (activeTab === 'team' || activeTab === 'all' || viewAllStaff) {
 =======
       } else if (activeTab === 'team') {
 >>>>>>> a6e5a33 (fix problems)
+=======
+      } else if (activeTab === 'team' || activeTab === 'all' || viewAllStaff) {
+>>>>>>> e1aca89 (scheduling feature)
         // Format date in local timezone for API call
         const year = date.getFullYear()
         const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -148,6 +162,7 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           viewMode: 'team'
         })
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
       } else if (activeTab === 'all') {
         fetchSchedules({
@@ -157,6 +172,8 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           viewMode: 'team'
         })
 >>>>>>> a6e5a33 (fix problems)
+=======
+>>>>>>> e1aca89 (scheduling feature)
       }
     })
   }
@@ -172,10 +189,14 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
       endDate.setDate(selectedDate.getDate() + 10)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
       if (tab === 'personal' && selectedStaff) {
 =======
       if (tab === 'personal') {
 >>>>>>> a6e5a33 (fix problems)
+=======
+      if (tab === 'personal' && selectedStaff) {
+>>>>>>> e1aca89 (scheduling feature)
         fetchSchedules({
           staffId: selectedStaff.id,
           startDate: startDate.toISOString().split('T')[0],
@@ -183,10 +204,14 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           viewMode: 'personal'
         })
 <<<<<<< HEAD
+<<<<<<< HEAD
       } else if (tab === 'team' || tab === 'all' || viewAllStaff) {
 =======
       } else if (tab === 'team') {
 >>>>>>> a6e5a33 (fix problems)
+=======
+      } else if (tab === 'team' || tab === 'all' || viewAllStaff) {
+>>>>>>> e1aca89 (scheduling feature)
         // Format selected date in local timezone for API call
         const year = selectedDate.getFullYear()
         const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
@@ -201,6 +226,7 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           viewMode: 'team'
         })
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
       } else if (tab === 'all') {
         fetchSchedules({
@@ -210,6 +236,8 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           viewMode: 'team'
         })
 >>>>>>> a6e5a33 (fix problems)
+=======
+>>>>>>> e1aca89 (scheduling feature)
       }
     })
   }
@@ -229,6 +257,10 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
     setSelectedSchedule(null)
   }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> e1aca89 (scheduling feature)
 
 <<<<<<< HEAD
 
@@ -341,13 +373,6 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
           viewMode: 'team'
         })
       ])
-    } else if (activeTab === 'all') {
-      await fetchSchedules({
-        staffId: null,
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
-        viewMode: 'team'
-      })
     }
   }
 
@@ -368,10 +393,14 @@ export function StaffScheduleView({ selectedStaff, viewAllStaff = false, onBackT
             </button>
             <h1 className="text-lg font-semibold text-slate-900 truncate">
 <<<<<<< HEAD
+<<<<<<< HEAD
               {activeTab === 'personal' && selectedStaff
 =======
               {activeTab === 'personal' 
 >>>>>>> a6e5a33 (fix problems)
+=======
+              {activeTab === 'personal' && selectedStaff
+>>>>>>> e1aca89 (scheduling feature)
                 ? `${selectedStaff.name}'s Schedule`
                 : 'All Staff Schedules'
               }

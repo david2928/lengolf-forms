@@ -3,10 +3,14 @@
 import { useState, useEffect } from 'react'
 import { Users } from 'lucide-react'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { useStaff } from '@/hooks/useStaffScheduleSWR'
 =======
 import { useStaffSchedule } from '@/hooks/useStaffSchedule'
 >>>>>>> a6e5a33 (fix problems)
+=======
+import { useStaff } from '@/hooks/useStaffScheduleSWR'
+>>>>>>> e1aca89 (scheduling feature)
 import { Staff } from '@/types/staff-schedule'
 import { StaffProfileImage } from '@/components/common/OptimizedImage'
 import { performanceMonitor } from '@/lib/performance-monitor'
@@ -31,6 +35,9 @@ export function StaffNameSelector({ onStaffSelect, onViewAllStaff }: StaffNameSe
 
   const handleStaffClick = (selectedStaff: Staff) => {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e1aca89 (scheduling feature)
     // Measure staff selection performance
     performanceMonitor.measure('staff.selection', () => {
       // Store selected staff in session storage for persistence
@@ -41,6 +48,7 @@ export function StaffNameSelector({ onStaffSelect, onViewAllStaff }: StaffNameSe
       }
       onStaffSelect(selectedStaff)
     }, { staffId: selectedStaff.id, staffName: selectedStaff.name })
+<<<<<<< HEAD
 =======
     // Store selected staff in session storage for persistence
     try {
@@ -54,6 +62,8 @@ export function StaffNameSelector({ onStaffSelect, onViewAllStaff }: StaffNameSe
   const handleImageError = (staffId: number) => {
     setImageErrors(prev => new Set(prev).add(staffId))
 >>>>>>> a6e5a33 (fix problems)
+=======
+>>>>>>> e1aca89 (scheduling feature)
   }
 
   if (isLoading) {
@@ -94,10 +104,14 @@ export function StaffNameSelector({ onStaffSelect, onViewAllStaff }: StaffNameSe
           </div>
           <button
 <<<<<<< HEAD
+<<<<<<< HEAD
             onClick={() => refreshStaff()}
 =======
             onClick={fetchStaff}
 >>>>>>> a6e5a33 (fix problems)
+=======
+            onClick={() => refreshStaff()}
+>>>>>>> e1aca89 (scheduling feature)
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             Try Again
@@ -130,6 +144,9 @@ export function StaffNameSelector({ onStaffSelect, onViewAllStaff }: StaffNameSe
           <p className="text-sm md:text-base text-slate-600 text-center mb-8">Choose your name to view your schedule</p>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e1aca89 (scheduling feature)
           {/* View All Staff Button */}
           <div className="w-full max-w-md mb-6">
             <button
@@ -149,6 +166,7 @@ export function StaffNameSelector({ onStaffSelect, onViewAllStaff }: StaffNameSe
             <div className="flex-1 border-t border-slate-200"></div>
           </div>
 
+<<<<<<< HEAD
           {/* Staff List */}
           <div className="w-full max-w-md space-y-3">
             {staff.map((member) => (
@@ -186,6 +204,8 @@ export function StaffNameSelector({ onStaffSelect, onViewAllStaff }: StaffNameSe
           </div>
 
 =======
+=======
+>>>>>>> e1aca89 (scheduling feature)
           {/* Staff List */}
           <div className="w-full max-w-md space-y-3">
             {staff.map((member) => (
@@ -196,22 +216,13 @@ export function StaffNameSelector({ onStaffSelect, onViewAllStaff }: StaffNameSe
                 aria-label={`Select ${member.name}`}
               >
                 {/* Avatar */}
-                <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  {member.profile_photo && !imageErrors.has(member.id) ? (
-                    <img
-                      src={member.profile_photo}
-                      alt={`${member.name} profile`}
-                      className="w-full h-full object-cover"
-                      onError={() => handleImageError(member.id)}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-semibold text-lg">
-                        {member.initials}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                <StaffProfileImage
+                  src={member.profile_photo}
+                  staffName={member.name}
+                  size="md"
+                  className="flex-shrink-0"
+                  priority={true}
+                />
 
                 {/* Staff Info */}
                 <div className="flex-1 text-left min-w-0">

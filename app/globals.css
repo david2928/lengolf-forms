@@ -354,6 +354,10 @@ button:focus-visible,
     @apply grid-cols-2 lg:grid-cols-7;
   }
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> e1aca89 (scheduling feature)
 /* Mobile-specific optimizations */
 @media (max-width: 640px) {
   /* Reduce padding on small screens */
