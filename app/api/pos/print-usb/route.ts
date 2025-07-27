@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       tableNumber: transaction.tableNumber,
       customerName: transaction.customerName,
       staffName: transaction.staffName || 'Unknown Staff',
-      transactionDate: transaction.salesTimestampBkk || transaction.transaction_date || transaction.created_at,
+      transactionDate: transaction.salesTimestampBkk || data.created_at,
       paxCount: transaction.paxCount || 1
     };
 
