@@ -64,7 +64,7 @@ export async function GET(
     }
 
     // Get package usage for each package
-    const packageIds = (packages || []).map(p => p.id);
+    const packageIds = (packages || []).map((p: any) => p.id);
     let packageUsage: any[] = [];
     
     if (packageIds.length > 0) {
