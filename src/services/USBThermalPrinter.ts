@@ -1,96 +1,7 @@
 // USB Thermal Printer Service using WebUSB API
 // Direct USB connection - faster and more reliable than Bluetooth
 
-// Type declarations for WebUSB API
-declare global {
-  interface Navigator {
-    usb: USB;
-  }
-  
-  interface USB {
-    requestDevice(options?: USBDeviceRequestOptions): Promise<USBDevice>;
-    getDevices(): Promise<USBDevice[]>;
-  }
-  
-  interface USBDeviceRequestOptions {
-    filters: USBDeviceFilter[];
-  }
-  
-  interface USBDeviceFilter {
-    vendorId?: number;
-    productId?: number;
-    classCode?: number;
-    subclassCode?: number;
-    protocolCode?: number;
-  }
-  
-  interface USBDevice {
-    vendorId: number;
-    productId: number;
-    deviceClass: number;
-    deviceSubclass: number;
-    deviceProtocol: number;
-    productName?: string;
-    manufacturerName?: string;
-    serialNumber?: string;
-    configuration?: USBConfiguration;
-    configurations: USBConfiguration[];
-    opened: boolean;
-    usbVersionMajor: number;
-    usbVersionMinor: number;
-    usbVersionSubminor: number;
-    deviceVersionMajor: number;
-    deviceVersionMinor: number;
-    deviceVersionSubminor: number;
-    
-    open(): Promise<void>;
-    close(): Promise<void>;
-    selectConfiguration(configurationValue: number): Promise<void>;
-    claimInterface(interfaceNumber: number): Promise<void>;
-    releaseInterface(interfaceNumber: number): Promise<void>;
-    transferOut(endpointNumber: number, data: BufferSource): Promise<USBOutTransferResult>;
-    transferIn(endpointNumber: number, length: number): Promise<USBInTransferResult>;
-  }
-  
-  interface USBConfiguration {
-    configurationValue: number;
-    configurationName?: string;
-    interfaces: USBInterface[];
-  }
-  
-  interface USBInterface {
-    interfaceNumber: number;
-    alternate: USBAlternateInterface;
-    alternates: USBAlternateInterface[];
-    claimed: boolean;
-  }
-  
-  interface USBAlternateInterface {
-    alternateSetting: number;
-    interfaceClass: number;
-    interfaceSubclass: number;
-    interfaceProtocol: number;
-    interfaceName?: string;
-    endpoints: USBEndpoint[];
-  }
-  
-  interface USBEndpoint {
-    endpointNumber: number;
-    direction: "in" | "out";
-    type: "bulk" | "interrupt" | "isochronous";
-    packetSize: number;
-  }
-  
-  interface USBOutTransferResult {
-    bytesWritten: number;
-    status: "ok" | "stall" | "babble";
-  }
-  
-  interface USBInTransferResult {
-    data?: DataView;
-    status: "ok" | "stall" | "babble";
-  }
-}
+// WebUSB API is available in modern browsers but types may not be complete
 
 export interface USBReceiptData {
   receiptNumber: string;
@@ -123,7 +34,7 @@ export class USBThermalPrinter {
   static isSupported(): boolean {
     return typeof navigator !== 'undefined' && 
            'usb' in navigator && 
-           typeof (navigator as any).usb.requestDevice === 'function';
+           typeof (navigator as any).usb?.requestDevice === 'function';
   }
 
   /**
@@ -149,7 +60,7 @@ export class USBThermalPrinter {
         { classCode: 7 }       // Printer class
       ];
 
-      this.device = await navigator.usb.requestDevice({ filters });
+      this.device = await (navigator as any).usb.requestDevice({ filters });
 
       if (!this.device) {
         throw new Error('No USB printer selected');

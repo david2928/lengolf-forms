@@ -339,7 +339,7 @@ export default function USBTestPage() {
               <div className="space-y-3 text-sm text-gray-700">
                 <div><strong>1. Connect Printer:</strong> Connect your thermal printer via USB cable</div>
                 <div><strong>2. Use Chrome/Edge:</strong> Open this page in Chrome or Edge browser</div>
-                <div><strong>3. Enable HTTPS:</strong> Ensure you're using HTTPS (or localhost for testing)</div>
+                <div><strong>3. Enable HTTPS:</strong> Ensure you&apos;re using HTTPS (or localhost for testing)</div>
                 <div><strong>4. Connect:</strong> Click &quot;Connect USB Printer&quot; and select your device</div>
                 <div><strong>5. Test:</strong> Send a test print to verify connection</div>
                 <div><strong>6. Print:</strong> Use &quot;Print Receipt&quot; for actual receipts</div>
