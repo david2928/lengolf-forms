@@ -3,7 +3,41 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
-// Remove hardcoded category mapping - use pure database hierarchy
+// Type definitions for products
+interface DatabaseProduct {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+  category_id: string;
+  sku: string;
+  description: string;
+  is_active: boolean;
+  show_in_staff_ui: boolean;
+  pos_display_color: string;
+  categories: DatabaseCategory;
+}
+
+interface DatabaseCategory {
+  id: string;
+  name: string;
+  parent_id: string | null;
+}
+
+interface TransformedProduct {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+  categoryId: string;
+  categoryName?: string;
+  sku: string;
+  description: string;
+  posDisplayColor: string;
+  imageUrl: null;
+  modifiers: any[];
+  isActive: boolean;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -101,13 +135,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Build category hierarchy
-    const categoryMap = new Map(categories?.map((cat: any) => [cat.id, cat]) || []);
-    const rootCategories = categories?.filter((cat: any) => !cat.parent_id) || [];
+    const categoryMap = new Map((categories || []).map((cat: DatabaseCategory) => [cat.id, cat]));
+    const rootCategories = categories?.filter((cat: DatabaseCategory) => !cat.parent_id) || [];
     
-    const buildCategoryTree = (parentId: string | null): any[] => {
+    const buildCategoryTree = (parentId: string | null): DatabaseCategory[] => {
       return categories
-        ?.filter((cat: any) => cat.parent_id === parentId)
-        .map((cat: any) => ({
+        ?.filter((cat: DatabaseCategory) => cat.parent_id === parentId)
+        .map((cat: DatabaseCategory) => ({
           ...cat,
           children: buildCategoryTree(cat.id)
         })) || [];
@@ -116,8 +150,8 @@ export async function GET(request: NextRequest) {
     const categoryHierarchy = buildCategoryTree(null);
 
     // Transform products for POS interface - use pure database hierarchy
-    const transformedProducts = products?.map(product => {
-      const category = product.categories as any;
+    const transformedProducts = products?.map((product: DatabaseProduct): TransformedProduct => {
+      const category = product.categories;
       
       return {
         id: product.id,

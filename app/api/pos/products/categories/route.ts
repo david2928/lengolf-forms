@@ -3,6 +3,44 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
+// Type definitions for categories
+interface DatabaseCategory {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  display_order: number | null;
+  color_code: string | null;
+  icon: string | null;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ProductCountData {
+  category_id: string;
+}
+
+interface TransformedCategory {
+  id: string;
+  name: string;
+  parentId: string | null;
+  posTabCategory: string;
+  displayOrder: number | null;
+  colorTheme: string;
+  icon: string | null;
+  description: string | null;
+  isActive: boolean;
+  productCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface TabTotals {
+  categoryCount: number;
+  productCount?: number;
+}
+
 // Helper function to map category names to POS tabs
 function mapCategoryToPosTab(categoryName: string): string {
   const name = categoryName.toLowerCase();
@@ -55,7 +93,7 @@ export async function GET(request: NextRequest) {
         .eq('is_active', true);
 
       if (!countError && productCountData) {
-        productCounts = productCountData.reduce((acc, product) => {
+        productCounts = productCountData.reduce((acc: Record<string, number>, product: ProductCountData) => {
           acc[product.category_id] = (acc[product.category_id] || 0) + 1;
           return acc;
         }, {} as Record<string, number>);
@@ -63,7 +101,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform categories for POS interface
-    const transformedCategories = (categories || []).map(category => ({
+    const transformedCategories = (categories || []).map((category: DatabaseCategory): TransformedCategory => ({
       id: category.id,
       name: category.name,
       parentId: category.parent_id,
@@ -80,21 +118,21 @@ export async function GET(request: NextRequest) {
 
     // Group by POS tab categories for easy navigation
     const tabCategories = {
-      DRINK: transformedCategories.filter(cat => cat.posTabCategory === 'DRINK'),
-      FOOD: transformedCategories.filter(cat => cat.posTabCategory === 'FOOD'),
-      GOLF: transformedCategories.filter(cat => cat.posTabCategory === 'GOLF'),
-      PACKAGES: transformedCategories.filter(cat => cat.posTabCategory === 'PACKAGE'),
-      OTHER: transformedCategories.filter(cat => !cat.posTabCategory || cat.posTabCategory === 'OTHER')
+      DRINK: transformedCategories.filter((cat: TransformedCategory) => cat.posTabCategory === 'DRINK'),
+      FOOD: transformedCategories.filter((cat: TransformedCategory) => cat.posTabCategory === 'FOOD'),
+      GOLF: transformedCategories.filter((cat: TransformedCategory) => cat.posTabCategory === 'GOLF'),
+      PACKAGES: transformedCategories.filter((cat: TransformedCategory) => cat.posTabCategory === 'PACKAGE'),
+      OTHER: transformedCategories.filter((cat: TransformedCategory) => !cat.posTabCategory || cat.posTabCategory === 'OTHER')
     };
 
     // Calculate totals per tab
-    const tabTotals = Object.entries(tabCategories).reduce((acc, [tab, cats]) => {
+    const tabTotals = Object.entries(tabCategories).reduce((acc: Record<string, TabTotals>, [tab, cats]: [string, TransformedCategory[]]) => {
       acc[tab] = {
         categoryCount: cats.length,
-        productCount: includeProductCount ? cats.reduce((sum, cat) => sum + (cat.productCount || 0), 0) : undefined
+        productCount: includeProductCount ? cats.reduce((sum: number, cat: TransformedCategory) => sum + (cat.productCount || 0), 0) : undefined
       };
       return acc;
-    }, {} as Record<string, { categoryCount: number; productCount?: number }>);
+    }, {} as Record<string, TabTotals>);
 
     return NextResponse.json({
       categories: transformedCategories,
@@ -102,7 +140,7 @@ export async function GET(request: NextRequest) {
       tabTotals,
       metadata: {
         totalCategories: transformedCategories.length,
-        activeCategories: transformedCategories.filter(cat => cat.isActive).length,
+        activeCategories: transformedCategories.filter((cat: TransformedCategory) => cat.isActive).length,
         includeProductCount,
         lastUpdated: new Date().toISOString()
       }

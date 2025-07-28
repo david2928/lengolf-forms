@@ -3,17 +3,7 @@
 import React, { useState, useMemo } from 'react'
 import { StaffColorAssignment } from '@/lib/staff-colors'
 import { Clock, MapPin, RotateCcw, User, Edit3, Trash2 } from 'lucide-react'
-
-interface ScheduleEntry {
-  id: string
-  staff_id: number
-  staff_name: string
-  start_time: string
-  end_time: string
-  schedule_date: string
-  location?: string
-  is_recurring?: boolean
-}
+import { ScheduleEntry, EnhancedScheduleEntry } from '@/types/schedule-visualization'
 
 interface CleanScheduleViewProps {
   scheduleData: {
@@ -58,8 +48,8 @@ const getSchedulePosition = (startTime: string, endTime: string) => {
 }
 
 // Simple overlap resolution - side by side
-const resolveOverlaps = (schedules: ScheduleEntry[]) => {
-  const processed = schedules.map(schedule => {
+const resolveOverlaps = (schedules: ScheduleEntry[]): EnhancedScheduleEntry[] => {
+  const processed: EnhancedScheduleEntry[] = schedules.map(schedule => {
     const { startSlot, duration, endSlot } = getSchedulePosition(schedule.start_time, schedule.end_time)
     return {
       ...schedule,
@@ -67,7 +57,10 @@ const resolveOverlaps = (schedules: ScheduleEntry[]) => {
       duration,
       endSlot,
       column: 0,
-      totalColumns: 1
+      totalColumns: 1,
+      group: 0,
+      startPosition: startSlot,
+      endPosition: endSlot
     }
   })
 
@@ -75,7 +68,7 @@ const resolveOverlaps = (schedules: ScheduleEntry[]) => {
   processed.sort((a, b) => a.startSlot - b.startSlot)
 
   // Group overlapping schedules
-  const groups: typeof processed[][] = []
+  const groups: EnhancedScheduleEntry[][] = []
   
   for (const schedule of processed) {
     let placed = false
@@ -140,7 +133,7 @@ export function CleanScheduleView({
     })
 
     // Process schedules for each day
-    const schedulesData: Record<string, ReturnType<typeof resolveOverlaps>> = {}
+    const schedulesData: Record<string, EnhancedScheduleEntry[]> = {}
     const uniqueStaffSet = new Set<number>()
 
     days.forEach(day => {

@@ -150,7 +150,7 @@ export async function getStaffForUI(): Promise<Array<{
       return getMockStaffData()
     }
 
-    const formattedStaff = (staff || []).map(member => ({
+    const formattedStaff = (staff || []).map((member: any) => ({
       id: member.id,
       name: member.staff_name,
       staff_id: member.staff_id,

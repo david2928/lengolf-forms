@@ -4,6 +4,21 @@ import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 import type { GetTablesResponse, Table, Zone, TableSummary } from '@/types/pos';
 
+// Database response types (snake_case)
+interface DatabaseTableSession {
+  id: string;
+  table_id: string;
+  session_end: string | null;
+  status: string;
+  booking_id?: string;
+}
+
+interface DatabaseBooking {
+  id: string;
+  customer_name?: string;
+  // Add other booking fields as needed
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getDevSession(authOptions, request);
@@ -54,7 +69,7 @@ export async function GET(request: NextRequest) {
       .order('updated_at', { ascending: false }); // Get most recently updated first
     
     // Filter for active sessions (exclude paid and closed sessions)
-    const sessionsData = allSessionsData?.filter(session => 
+    const sessionsData = allSessionsData?.filter((session: DatabaseTableSession) => 
       session.session_end === null && session.status !== 'paid'
     ) || [];
 
@@ -66,13 +81,13 @@ export async function GET(request: NextRequest) {
     // Create a map of table_id to session data
     const sessionMap = new Map();
     if (sessionsData) {
-      sessionsData.forEach(session => {
+      sessionsData.forEach((session: DatabaseTableSession) => {
         sessionMap.set(session.table_id, session);
       });
     }
 
     // Fetch booking data for sessions that have booking_id
-    const bookingIds = sessionsData?.filter(s => s.booking_id).map(s => s.booking_id) || [];
+    const bookingIds = sessionsData?.filter((s: DatabaseTableSession) => s.booking_id).map((s: DatabaseTableSession) => s.booking_id!) || [];
     let bookingsMap = new Map();
     
     if (bookingIds.length > 0) {
@@ -82,7 +97,7 @@ export async function GET(request: NextRequest) {
         .in('id', bookingIds);
       
       if (!bookingsError && bookingsData) {
-        bookingsData.forEach(booking => {
+        bookingsData.forEach((booking: DatabaseBooking) => {
           bookingsMap.set(booking.id, booking);
         });
       }
@@ -170,9 +185,9 @@ export async function GET(request: NextRequest) {
     const availableTables = totalTables - occupiedTables;
     const totalRevenue = tables.reduce((sum, t) => sum + (t.currentSession?.totalAmount || 0), 0);
 
-    const byZone = zonesData.map((zone: any) => {
-      const zoneTables = tables.filter(t => t.zoneId === zone.id);
-      const zoneOccupied = zoneTables.filter(t => t.currentSession?.status === 'occupied').length;
+    const byZone = zonesData.map((zone: Zone) => {
+      const zoneTables = tables.filter((t: Table) => t.zoneId === zone.id);
+      const zoneOccupied = zoneTables.filter((t: Table) => t.currentSession?.status === 'occupied').length;
       return {
         zoneName: zone.displayName,
         total: zoneTables.length,
@@ -190,7 +205,7 @@ export async function GET(request: NextRequest) {
     };
 
     const response: GetTablesResponse = {
-      tables: tables.sort((a, b) => a.zone.displayOrder - b.zone.displayOrder || a.tableNumber - b.tableNumber),
+      tables: tables.sort((a: Table, b: Table) => a.zone.displayOrder - b.zone.displayOrder || a.tableNumber - b.tableNumber),
       zones: zonesData,
       summary
     };

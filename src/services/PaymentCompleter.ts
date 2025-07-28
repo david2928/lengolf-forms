@@ -154,13 +154,13 @@ export class PaymentCompleter {
     // Combine all split payments into single payment allocations
     const allPaymentAllocations: PaymentAllocation[] = [];
     
-    splits.forEach(split => {
+    splits.forEach((split: { splitId: string; paymentAllocations: PaymentAllocation[]; customerInfo?: string }) => {
       allPaymentAllocations.push(...split.paymentAllocations);
     });
 
     // Group by payment method and sum amounts
-    const groupedPayments = allPaymentAllocations.reduce((acc, allocation) => {
-      const existing = acc.find(a => a.method === allocation.method);
+    const groupedPayments = allPaymentAllocations.reduce((acc: PaymentAllocation[], allocation: PaymentAllocation) => {
+      const existing = acc.find((a: PaymentAllocation) => a.method === allocation.method);
       if (existing) {
         existing.amount += allocation.amount;
       } else {
@@ -196,8 +196,8 @@ export class PaymentCompleter {
     try {
       const transactions = await transactionService.getTransactionsByTableSession(tableSessionId);
       
-      const completedTransactions = transactions.filter(t => t.paymentStatus === 'completed');
-      const totalPaid = completedTransactions.reduce((sum, t) => sum + t.totalAmount, 0);
+      const completedTransactions = transactions.filter((t: Transaction) => t.paymentStatus === 'completed');
+      const totalPaid = completedTransactions.reduce((sum: number, t: Transaction) => sum + t.totalAmount, 0);
       
       // Get total order amount for this session
       const { data: orders, error } = await supabase
@@ -207,7 +207,7 @@ export class PaymentCompleter {
         .eq('table_session_id', tableSessionId)
         .eq('status', 'confirmed');
 
-      const totalOrderAmount = orders?.reduce((sum, order) => sum + order.total_amount, 0) || 0;
+      const totalOrderAmount = orders?.reduce((sum: number, order: any) => sum + order.total_amount, 0) || 0;
       const totalUnpaid = Math.max(0, totalOrderAmount - totalPaid);
 
       return {

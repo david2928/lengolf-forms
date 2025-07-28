@@ -212,7 +212,7 @@ export async function verifyStaffPin(pin: string, deviceId?: string): Promise<Pi
     }
 
     // Phase 5: Parallel PIN verification for better performance
-    const pinVerificationPromises = staffData.map(async (staff) => {
+    const pinVerificationPromises = staffData.map(async (staff: any) => {
       const isMatch = await verifyPin(pin, staff.pin_hash);
       return isMatch ? staff : null;
     });
@@ -684,7 +684,7 @@ export async function getStaffWithLastActivity(): Promise<any[]> {
 
     // Get last activity for each staff member
     const staffWithActivity = await Promise.all(
-      staff.map(async (member) => {
+      staff.map(async (member: any) => {
         // Get last time entry for this staff member
         const { data: lastEntry, error: entryError } = await refacSupabaseAdmin
           .schema('backoffice')

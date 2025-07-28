@@ -234,7 +234,7 @@ export class TransactionService {
     }
     
     // Map transactions with view data
-    return transactions.map(transaction => ({
+    return transactions.map((transaction: any) => ({
       ...this.mapDatabaseTransactionToType(transaction),
       items: [] // Transaction items loaded separately if needed
     }));
@@ -333,7 +333,7 @@ export class TransactionService {
     console.log('🔍 validatePaymentAmounts - orderTotal:', orderTotal);
     console.log('🔍 validatePaymentAmounts - paymentAllocations:', paymentAllocations);
     
-    const totalPaymentAmount = paymentAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+    const totalPaymentAmount = paymentAllocations.reduce((sum: number, allocation: PaymentAllocation) => sum + allocation.amount, 0);
     console.log('🔍 validatePaymentAmounts - totalPaymentAmount:', totalPaymentAmount);
     
     // Allow small rounding differences (1 satang)
@@ -429,7 +429,7 @@ export class TransactionService {
       console.log('🔍 getTableSessionForPayment - using current_order_items');
       
       // Get product details for all items
-      const productIds = tableSession.current_order_items.map((item: any) => item.productId || item.product_id).filter(Boolean);
+      const productIds = tableSession.current_order_items.map((item: any) => item.productId || item.product_id).filter((id: any) => Boolean(id));
       let productDetails: any = {};
       
       if (productIds.length > 0) {
@@ -440,10 +440,10 @@ export class TransactionService {
           .in('id', productIds);
         
         if (!productsError && products) {
-          productDetails = products.reduce((acc: any, product: any) => {
+          productDetails = products.reduce((acc: Record<string, any>, product: any) => {
             acc[product.id] = product;
             return acc;
-          }, {});
+          }, {} as Record<string, any>);
         }
       }
       
@@ -498,7 +498,7 @@ export class TransactionService {
         
         if (latestOrder.order_items && latestOrder.order_items.length > 0) {
           // Get product details for all items in the order
-          const productIds = latestOrder.order_items.map((item: any) => item.product_id).filter(Boolean);
+          const productIds = latestOrder.order_items.map((item: any) => item.product_id).filter((id: any) => Boolean(id));
           let productDetails: any = {};
           
           if (productIds.length > 0) {
@@ -509,10 +509,10 @@ export class TransactionService {
               .in('id', productIds);
             
             if (!productsError && products) {
-              productDetails = products.reduce((acc: any, product: any) => {
+              productDetails = products.reduce((acc: Record<string, any>, product: any) => {
                 acc[product.id] = product;
                 return acc;
-              }, {});
+              }, {} as Record<string, any>);
             }
           }
           
@@ -643,7 +643,7 @@ export class TransactionService {
         
         // Create mapping for each unique method
         for (const method of uniqueMethods) {
-          const found = paymentMethods?.find(pm => 
+          const found = paymentMethods?.find((pm: any) => 
             pm.code === method || 
             (pm.legacy_names && pm.legacy_names.includes(method))
           );
@@ -658,7 +658,7 @@ export class TransactionService {
       }
     }
     
-    const paymentRecords = paymentAllocations.map((payment, index) => ({
+    const paymentRecords = paymentAllocations.map((payment: PaymentAllocation, index: number) => ({
       transaction_id: transactionId,
       payment_sequence: index + 1,
       payment_method: methodMappings[payment.method] || 'other',
@@ -805,7 +805,7 @@ export class TransactionService {
       transactionDate: new Date(data.transaction_date),
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
-      items: data.transaction_items?.map(this.mapDatabaseTransactionItemToType) || []
+      items: data.transaction_items?.map((item: any) => this.mapDatabaseTransactionItemToType(item)) || []
     };
   }
   

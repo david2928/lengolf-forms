@@ -12,7 +12,8 @@ import { RouteProtection } from '@/components/auth/RouteProtection'
 import { SessionManager } from '@/components/auth/SessionManager'
 import { Calendar, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { LazyScheduleForm, LazyConfirmDialog, useAdminComponentPreloader } from '@/components/admin/LazyAdminComponents'
+import { ScheduleForm } from '@/components/admin/ScheduleForm'
+import { ConfirmDialog } from '@/components/admin/ConfirmDialog'
 import { RecurringDeleteModal } from '@/components/admin/RecurringDeleteModal'
 
 import { generateStaffColorAssignments, getStaffColor, getStaffName, OFF_DAY_COLOR, type StaffColorAssignment } from '@/lib/staff-colors'
@@ -334,8 +335,6 @@ export default function AdminStaffSchedulingDashboard() {
   const [formLoading, setFormLoading] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   
-  // Component preloader for better UX
-  const { preloadOnHover } = useAdminComponentPreloader()
 
   const fetchStaffData = async () => {
     try {
@@ -676,7 +675,6 @@ export default function AdminStaffSchedulingDashboard() {
                       size="sm" 
                       onClick={handleAddSchedule} 
                       className="flex items-center gap-2 touch-manipulation"
-                      {...preloadOnHover('form')}
                     >
                       <Plus className="h-4 w-4" />
                       <span className="hidden sm:inline">Add Schedule</span>
@@ -774,7 +772,7 @@ export default function AdminStaffSchedulingDashboard() {
           </div>
 
           {/* Schedule Form Modal */}
-          <LazyScheduleForm
+          <ScheduleForm
             isOpen={isFormOpen}
             onClose={() => {
               setIsFormOpen(false)
@@ -797,7 +795,7 @@ export default function AdminStaffSchedulingDashboard() {
           />
 
           {/* Delete Confirmation Dialog */}
-          <LazyConfirmDialog
+          <ConfirmDialog
             isOpen={isDeleteDialogOpen}
             onClose={() => {
               setIsDeleteDialogOpen(false)

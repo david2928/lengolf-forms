@@ -3,6 +3,55 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 
+// Type definitions for table session orders
+interface DatabaseOrder {
+  id: string;
+  order_number: string;
+  table_session_id: string;
+  created_at: string;
+}
+
+interface DatabaseOrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: string;
+  total_price: string;
+  modifiers: any[];
+  notes: string | null;
+  created_at: string;
+}
+
+interface DatabaseProduct {
+  id: string;
+  name: string;
+  category_id: string | null;
+  categories: {
+    name: string;
+  } | null;
+}
+
+interface TransformedOrderItem {
+  id: string;
+  productId: string;
+  productName: string;
+  categoryId: string | null;
+  categoryName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  modifiers: any[];
+  notes: string | null;
+  orderId?: string;
+  orderNumber?: string;
+  confirmedAt?: string;
+}
+
+interface LegacyOrderData {
+  orders: any[];
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { sessionId: string } }
@@ -40,7 +89,7 @@ export async function GET(
       .schema('pos')
       .from('order_items')
       .select('*')
-      .in('order_id', ordersData?.map(o => o.id) || [])
+      .in('order_id', (ordersData || []).map((o: DatabaseOrder) => o.id))
       .order('created_at', { ascending: true });
 
     if (ordersError || itemsError) {
@@ -49,8 +98,8 @@ export async function GET(
     }
 
     // Get product information for order items to enrich the data
-    const productIds = orderItemsData?.map(item => item.product_id) || [];
-    let productsData: any[] = [];
+    const productIds = (orderItemsData || []).map((item: DatabaseOrderItem) => item.product_id);
+    let productsData: DatabaseProduct[] = [];
     
     if (productIds.length > 0) {
       const { data: products } = await supabase
@@ -62,11 +111,11 @@ export async function GET(
     }
     
     // Create a product lookup map
-    const productMap = new Map(productsData.map(p => [p.id, p]));
+    const productMap = new Map(productsData.map((p: DatabaseProduct) => [p.id, p]));
 
     // Transform the orders data to match the expected format
-    const orders = orderItemsData?.map((item: any) => {
-      const order = ordersData?.find(o => o.id === item.order_id);
+    const orders = (orderItemsData || []).map((item: DatabaseOrderItem): TransformedOrderItem => {
+      const order = ordersData?.find((o: DatabaseOrder) => o.id === item.order_id);
       const product = productMap.get(item.product_id);
       
       return {
@@ -89,7 +138,7 @@ export async function GET(
     // If no orders found in normalized tables, fallback to checking notes field for migration
     if (orders.length === 0 && tableSession.notes) {
       try {
-        const orderData = JSON.parse(tableSession.notes);
+        const orderData: LegacyOrderData = JSON.parse(tableSession.notes);
         if (orderData.orders && Array.isArray(orderData.orders)) {
           // Return the legacy format but mark for potential migration
           const legacyOrders = orderData.orders;

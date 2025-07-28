@@ -287,7 +287,7 @@ export function ScheduleForm({
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-800 text-sm">
-                {typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'An error occurred')}
+                {typeof error === 'string' ? error : (error as any)?.message || JSON.stringify(error) || 'An error occurred'}
               </p>
             </div>
           )}
@@ -459,7 +459,7 @@ export function ScheduleForm({
               {error && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-red-800 text-sm">
-                    {typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'An error occurred')}
+                    {typeof error === 'string' ? error : (error as any)?.message || JSON.stringify(error) || 'An error occurred'}
                   </p>
                 </div>
               )}

@@ -83,6 +83,44 @@ export interface TimelineHeaderProps {
   className?: string
 }
 
+// Core schedule entry interface that all components should use
+export interface ScheduleEntry {
+  id: string
+  staff_id: number
+  staff_name: string
+  start_time: string
+  end_time: string
+  schedule_date: string
+  location?: string
+  notes?: string
+  is_recurring?: boolean
+  recurring_group_id?: string
+  // Additional computed properties for visualization
+  startSlot?: number
+  endSlot?: number
+  duration?: number
+  column?: number
+  totalColumns?: number
+  group?: number
+  startPosition?: number
+  endPosition?: number
+}
+
+// Enhanced schedule entry with position calculations
+export interface EnhancedScheduleEntry extends ScheduleEntry {
+  startSlot: number
+  endSlot: number
+  duration: number
+  column: number
+  totalColumns: number
+  group: number
+  startPosition: number
+  endPosition: number
+  // Additional properties for different calculation methods
+  startPos?: number
+  endPos?: number
+}
+
 // Schedule overview interface (from existing admin system)
 export interface ScheduleOverview {
   week_period: {
@@ -96,9 +134,9 @@ export interface ScheduleOverview {
     coverage_percentage: number
     conflicts_count: number
   }
-  schedule_grid: { [date: string]: any[] }
-  conflicts: any[]
-  raw_schedules: any[]
+  schedule_grid: { [date: string]: ScheduleEntry[] }
+  conflicts: ScheduleEntry[]
+  raw_schedules: ScheduleEntry[]
 }
 
 // Error handling interfaces

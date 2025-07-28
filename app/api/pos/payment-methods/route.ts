@@ -3,6 +3,35 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 
+// Type definitions for payment methods
+interface PaymentMethod {
+  code: string;
+  display_name: string;
+  database_value: string;
+  requires_amount_input: boolean;
+  supports_split_payment: boolean;
+  icon_name: string;
+  color_class: string;
+  instructions: string;
+  group_code: string;
+  group_name: string;
+}
+
+interface GroupedMethod {
+  group_code: string;
+  group_name: string;
+  methods: {
+    code: string;
+    display_name: string;
+    database_value: string;
+    requires_amount_input: boolean;
+    supports_split_payment: boolean;
+    icon_name: string;
+    color_class: string;
+    instructions: string;
+  }[];
+}
+
 export async function GET(request: NextRequest) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
@@ -25,7 +54,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Group by group_code for organized frontend consumption
-    const groupedMethods = paymentMethods.reduce((acc, method) => {
+    const groupedMethods = (paymentMethods || []).reduce((acc: Record<string, GroupedMethod>, method: PaymentMethod) => {
       if (!acc[method.group_code]) {
         acc[method.group_code] = {
           group_code: method.group_code,
@@ -44,7 +73,7 @@ export async function GET(request: NextRequest) {
         instructions: method.instructions
       });
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, GroupedMethod>);
 
     return NextResponse.json({
       success: true,

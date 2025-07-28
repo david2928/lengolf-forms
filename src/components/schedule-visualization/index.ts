@@ -1,21 +1,16 @@
 /**
  * Schedule Visualization Components
- * Export all components for easy importing
+ * Export remaining components after cleanup
  */
 
-export { ScheduleVisualizationContainer, ScheduleVisualizationError } from './ScheduleVisualizationContainer'
-export { TimelineGrid, TimelineGridSkeleton } from './TimelineGrid'
-export { StaffScheduleBlock, StaffScheduleBlockSkeleton } from './StaffScheduleBlock'
-export { TimelineHeader, TimeLabels } from './TimelineHeader'
+export { CleanScheduleView } from './CleanScheduleView'
+export { StaffScheduleBlock } from './StaffScheduleBlock'
+export { TimelineHeader } from './TimelineHeader'
 
 // Re-export types for convenience
 export type {
-  ScheduleVisualizationProps,
-  TimelineGridProps,
   StaffScheduleBlockProps,
   TimelineHeaderProps,
   ProcessedScheduleBlock,
-  GridPosition,
-  VisualizationConfig,
-  VisualizationError
+  GridPosition
 } from '@/types/schedule-visualization'

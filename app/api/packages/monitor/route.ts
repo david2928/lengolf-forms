@@ -3,6 +3,43 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 export const dynamic = 'force-dynamic';
 
+// Type definitions for package monitoring
+interface PackageType {
+  name: string;
+  type: string;
+  hours?: number;
+}
+
+interface DatabasePackage {
+  id: string;
+  customer_name: string;
+  purchase_date: string;
+  first_use_date: string | null;
+  expiration_date: string | null;
+  employee_name: string;
+  package_types: PackageType | PackageType[];
+}
+
+interface PackageUsage {
+  package_id: string;
+  used_hours: number;
+}
+
+interface TransformedPackage {
+  id: string;
+  customer_name: string;
+  package_type_name?: string;
+  package_type?: string;
+  purchase_date: string;
+  first_use_date: string | null;
+  expiration_date: string | null;
+  employee_name: string;
+  remaining_hours: string;
+  used_hours?: number;
+  total_hours?: number;
+  usage_percentage?: number;
+}
+
 export async function GET() {
   try {
     // Use direct SQL instead of stored procedure to avoid potential caching issues
@@ -28,7 +65,7 @@ export async function GET() {
     }
 
     // Transform the data to match the stored procedure format
-    const unlimited_packages = unlimitedData.map(pkg => {
+    const unlimited_packages = (unlimitedData || []).map((pkg: DatabasePackage): TransformedPackage => {
       const packageType = Array.isArray(pkg.package_types) ? pkg.package_types[0] : pkg.package_types;
       return {
         id: pkg.id,
@@ -68,8 +105,8 @@ export async function GET() {
     }
 
     // Calculate usage for expiring packages
-    const expiringPackageIds = expiringData?.map(p => p.id) || [];
-    let expiringUsage: any[] = [];
+    const expiringPackageIds = (expiringData || []).map((p: DatabasePackage) => p.id);
+    let expiringUsage: PackageUsage[] = [];
     
     if (expiringPackageIds.length > 0) {
       const { data: usage } = await refacSupabaseAdmin
@@ -82,7 +119,7 @@ export async function GET() {
     }
 
     // Calculate usage by package for expiring packages
-    const expiringUsageByPackage = expiringUsage.reduce((acc, usage) => {
+    const expiringUsageByPackage = expiringUsage.reduce((acc: Record<string, number>, usage: PackageUsage) => {
       if (!acc[usage.package_id]) {
         acc[usage.package_id] = 0;
       }
@@ -90,7 +127,7 @@ export async function GET() {
       return acc;
     }, {} as Record<string, number>);
 
-    const expiring_packages = expiringData?.map(pkg => {
+    const expiring_packages = (expiringData || []).map((pkg: DatabasePackage): TransformedPackage => {
       const packageType = Array.isArray(pkg.package_types) ? pkg.package_types[0] : pkg.package_types;
       const totalHours = packageType?.hours || 0;
       const usedHours = expiringUsageByPackage[pkg.id] || 0;
@@ -110,15 +147,15 @@ export async function GET() {
         total_hours: totalHours,
         usage_percentage: totalHours > 0 ? Math.round((usedHours / totalHours) * 100) : 0
       };
-    }) || [];
+    });
 
     const data = [{
       unlimited_active: unlimited_packages.length,
       unlimited_packages: unlimited_packages,
       expiring_count: expiring_packages.length,
       expiring_packages: expiring_packages,
-      diamond_active: unlimited_packages.filter(pkg => pkg.package_type_name.toLowerCase().includes('diamond')).length,
-      diamond_packages: unlimited_packages.filter(pkg => pkg.package_type_name.toLowerCase().includes('diamond'))
+      diamond_active: unlimited_packages.filter((pkg: TransformedPackage) => pkg.package_type_name?.toLowerCase().includes('diamond')).length,
+      diamond_packages: unlimited_packages.filter((pkg: TransformedPackage) => pkg.package_type_name?.toLowerCase().includes('diamond'))
     }];
 
     const error = null;

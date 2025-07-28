@@ -61,14 +61,14 @@ export async function POST(
         console.warn(`Found ${existingSessions.length} existing sessions for table ${tableId}, checking for cleanup...`);
         
         // Check if sessions are truly orphaned (older than 1 hour with no recent activity)
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-        const orphanedSessions = existingSessions.filter(session => 
-          session.updated_at < oneHourAgo && session.total_amount === 0
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        const orphanedSessions = existingSessions.filter((session: TableSession) => 
+          session.updatedAt < oneHourAgo && session.totalAmount === 0
         );
         
         if (orphanedSessions.length > 0) {
           console.log(`Cleaning up ${orphanedSessions.length} orphaned sessions...`);
-          for (const session of orphanedSessions) {
+          for (const session of orphanedSessions as any[]) {
             await supabase
               .schema('pos')
               .from('table_sessions')

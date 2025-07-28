@@ -4,7 +4,7 @@
  */
 
 import { StaffSchedule, formatTime, calculateDuration } from '@/types/staff-schedule'
-import { ProcessedScheduleBlock, GridPosition, DEFAULT_VISUALIZATION_CONFIG } from '@/types/schedule-visualization'
+import { ProcessedScheduleBlock, GridPosition, DEFAULT_VISUALIZATION_CONFIG, ScheduleEntry } from '@/types/schedule-visualization'
 
 /**
  * Calculate grid position for a schedule block
@@ -85,7 +85,7 @@ export function generateDayLabels(weekStart: string): Array<{ day: string; date:
 /**
  * Process raw schedule data into visualization blocks
  */
-export function processScheduleData(rawSchedules: any[]): ProcessedScheduleBlock[] {
+export function processScheduleData(rawSchedules: ScheduleEntry[]): ProcessedScheduleBlock[] {
   if (!rawSchedules || !Array.isArray(rawSchedules)) {
     return []
   }
@@ -100,11 +100,27 @@ export function processScheduleData(rawSchedules: any[]): ProcessedScheduleBlock
       return startHour >= start && startHour <= end && endHour >= start && endHour <= end
     })
     .map(schedule => {
-      const gridPosition = calculateGridPosition(schedule)
+      // Convert ScheduleEntry to StaffSchedule for compatibility
+      const staffSchedule: StaffSchedule = {
+        schedule_id: schedule.id,
+        staff_id: schedule.staff_id,
+        staff_name: schedule.staff_name,
+        schedule_date: schedule.schedule_date,
+        start_time: schedule.start_time,
+        end_time: schedule.end_time,
+        location: schedule.location || null,
+        notes: schedule.notes || null,
+        shift_color: '#3B82F6', // Default blue color
+        duration_hours: calculateDuration(schedule.start_time, schedule.end_time),
+        is_recurring: schedule.is_recurring,
+        recurring_group_id: schedule.recurring_group_id || null
+      }
+      
+      const gridPosition = calculateGridPosition(staffSchedule)
       const duration = calculateDuration(schedule.start_time, schedule.end_time)
       
       return {
-        id: schedule.schedule_id || `${schedule.staff_id}-${schedule.start_time}-${schedule.schedule_date}`,
+        id: schedule.id || `${schedule.staff_id}-${schedule.start_time}-${schedule.schedule_date}`,
         staffId: schedule.staff_id,
         staffName: schedule.staff_name,
         startTime: schedule.start_time,
@@ -115,7 +131,7 @@ export function processScheduleData(rawSchedules: any[]): ProcessedScheduleBlock
         gridPosition,
         duration,
         isRecurring: schedule.is_recurring,
-        originalSchedule: schedule
+        originalSchedule: staffSchedule
       }
     })
     .sort((a, b) => {
@@ -193,10 +209,10 @@ export function calculateBlockStyles(
 /**
  * Validate schedule data for visualization
  */
-export function validateScheduleData(schedule: any): boolean {
+export function validateScheduleData(schedule: ScheduleEntry): boolean {
   if (!schedule) return false
   
-  const requiredFields = ['staff_id', 'staff_name', 'start_time', 'end_time', 'schedule_date']
+  const requiredFields: (keyof ScheduleEntry)[] = ['staff_id', 'staff_name', 'start_time', 'end_time', 'schedule_date']
   const hasRequiredFields = requiredFields.every(field => schedule[field] != null)
   
   if (!hasRequiredFields) return false

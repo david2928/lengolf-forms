@@ -3,6 +3,46 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 
+// Type definitions for order confirmation
+interface OrderItem {
+  productId: string;
+  quantity: number;
+  modifiers?: any[];
+  notes?: string;
+}
+
+interface DatabaseProduct {
+  id: string;
+  name: string;
+  price: string;
+}
+
+interface EnrichedOrderItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  modifiers: any[];
+  notes: string | null;
+}
+
+interface TableSession {
+  id: string;
+  status: string;
+  session_end: string | null;
+  total_amount: string;
+  booking_id: string | null;
+  customer_id: string | null;
+  staff_id: string | null;
+}
+
+interface NewOrder {
+  id: string;
+  order_number: string;
+  total_amount: number;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { sessionId: string } }
@@ -24,7 +64,7 @@ export async function POST(
     }
 
     // Validate order items structure
-    for (const item of orderItems) {
+    for (const item of orderItems as OrderItem[]) {
       if (!item.productId || !item.quantity || item.quantity <= 0) {
         return NextResponse.json(
           { error: "Each order item must have productId and positive quantity" },
@@ -51,7 +91,7 @@ export async function POST(
     }
 
     // Fetch product prices from database
-    const productIds = orderItems.map((item: any) => item.productId);
+    const productIds = (orderItems as OrderItem[]).map((item: OrderItem) => item.productId);
     const { data: products, error: productsError } = await supabase
       .schema('products')
       .from('products')
@@ -67,14 +107,14 @@ export async function POST(
     }
 
     // Create a map for quick product lookup
-    const productMap = new Map(products.map(p => [p.id, p]));
+    const productMap = new Map((products || []).map((p: DatabaseProduct) => [p.id, p]));
 
     // Validate all products exist and calculate prices
     let calculatedSubtotal = 0;
-    const enrichedOrderItems = [];
+    const enrichedOrderItems: EnrichedOrderItem[] = [];
 
-    for (const item of orderItems) {
-      const product = productMap.get(item.productId);
+    for (const item of orderItems as OrderItem[]) {
+      const product = productMap.get(item.productId) as DatabaseProduct | undefined;
       if (!product) {
         return NextResponse.json(
           { error: `Product not found: ${item.productId}` },
@@ -140,7 +180,7 @@ export async function POST(
     }
 
     // Insert order items with server-calculated prices
-    const orderItemsData = enrichedOrderItems.map((item: any) => ({
+    const orderItemsData = enrichedOrderItems.map((item: EnrichedOrderItem) => ({
       order_id: newOrder.id,
       product_id: item.productId,
       quantity: item.quantity,
