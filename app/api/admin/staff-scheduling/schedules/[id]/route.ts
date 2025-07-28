@@ -398,13 +398,9 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Debug logging
-    console.log('DELETE request received for schedule ID:', params.id)
-    
     // Authenticate admin user
     const authResult = await authenticateStaffScheduleRequest(request, true)
     if (!authResult.success) {
-      console.log('Authentication failed:', authResult.error)
       return NextResponse.json({
         success: false,
         error: authResult.error
@@ -461,15 +457,6 @@ export async function DELETE(
       }, { status: 500 })
     }
 
-    console.log('Schedule found for deletion:', {
-      id: scheduleToDelete.id,
-      staff_id: scheduleToDelete.staff_id,
-      schedule_date: scheduleToDelete.schedule_date,
-      start_time: scheduleToDelete.start_time,
-      end_time: scheduleToDelete.end_time,
-      is_recurring: scheduleToDelete.is_recurring,
-      recurring_group_id: scheduleToDelete.recurring_group_id
-    })
 
     // Handle recurring schedule deletions
     if (scheduleToDelete.is_recurring && scheduleToDelete.recurring_group_id && deleteType === 'series') {
@@ -497,7 +484,6 @@ export async function DELETE(
         }, { status: 500 })
       }
 
-      console.log('Recurring series deleted successfully:', deletedSchedules.length, 'schedules')
 
       // Log audit trail for series deletion
       try {
@@ -551,7 +537,6 @@ export async function DELETE(
         }, { status: 500 })
       }
 
-      console.log('Schedule deleted successfully:', params.id)
 
       // Log audit trail for schedule deletion
       try {

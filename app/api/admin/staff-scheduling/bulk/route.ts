@@ -7,10 +7,8 @@ import { authOptions } from '@/lib/auth-config'
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    console.log('Bulk API - Session:', session?.user)
     
     if (!session?.user?.isAdmin) {
-      console.log('Bulk API - Admin access denied')
       return NextResponse.json({
         success: false,
         error: 'Admin access required'
@@ -18,7 +16,6 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    console.log('Bulk API - Request body:', body)
     const { operation, data } = body
 
     if (operation === 'generate_from_template') {
@@ -112,21 +109,10 @@ export async function POST(request: NextRequest) {
       })
 
     } else if (operation === 'create_recurring_days') {
-      console.log('Bulk API - Processing create_recurring_days')
       const { staff_id, start_date, end_date, start_time, end_time, days_of_week, location, notes } = data
-      console.log('Bulk API - Extracted data:', { staff_id, start_date, end_date, start_time, end_time, days_of_week, location, notes })
 
       // Validate required fields
       if (!staff_id || staff_id <= 0 || !start_date || !end_date || !start_time || !end_time || !days_of_week || days_of_week.length === 0) {
-        console.log('Bulk API - Validation failed:', {
-          staff_id: !!staff_id,
-          start_date: !!start_date,
-          end_date: !!end_date,
-          start_time: !!start_time,
-          end_time: !!end_time,
-          days_of_week: !!days_of_week,
-          days_of_week_length: days_of_week?.length
-        })
         return NextResponse.json({
           success: false,
           error: 'staff_id, start_date, end_date, start_time, end_time, and days_of_week are required'

@@ -7,6 +7,9 @@ import {
   ApiResponse 
 } from '@/types/errors'
 import { validateScheduleQuery } from '@/lib/validation'
+
+export const dynamic = 'force-dynamic';
+
 import { 
   authenticateStaffScheduleRequest, 
   logScheduleAudit, 

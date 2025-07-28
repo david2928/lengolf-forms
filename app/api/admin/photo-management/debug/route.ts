@@ -5,6 +5,8 @@ import { isUserAdmin } from '@/lib/auth'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 import { PHOTO_CONFIG } from '@/types/staff'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Verify admin access

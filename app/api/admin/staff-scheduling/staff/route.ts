@@ -3,6 +3,8 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 import { getDevSession } from '@/lib/dev-session'
 import { authOptions } from '@/lib/auth-config'
 
+export const dynamic = 'force-dynamic';
+
 // GET - Fetch active staff list
 export async function GET(request: NextRequest) {
   try {

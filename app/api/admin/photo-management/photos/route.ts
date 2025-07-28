@@ -7,6 +7,8 @@ import { getTimeClockPhotoUrl } from '@/lib/photo-storage'
 import { PHOTO_CONFIG } from '@/types/staff'
 import { photoApiRateLimit } from '@/lib/rate-limiter'
 
+export const dynamic = 'force-dynamic';
+
 interface PhotoRecord {
   id: string
   staff_id: number

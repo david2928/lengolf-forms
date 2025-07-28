@@ -2,13 +2,9 @@ import { NextResponse } from 'next/server'
 import { getStaffForUI } from '@/lib/staff-integration'
 
 export async function GET() {
-  console.log('GET /api/staff-schedule/staff - Request received')
   try {
-    console.log('Attempting to fetch staff data...')
-    
     // Use the integrated staff utility for consistent data access
     const formattedStaff = await getStaffForUI()
-    console.log('Staff data fetched successfully:', formattedStaff.length, 'staff members')
 
     const response = {
       success: true,

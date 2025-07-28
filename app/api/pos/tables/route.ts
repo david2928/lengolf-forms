@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 import type { GetTablesResponse, Table, Zone, TableSummary } from '@/types/pos';
 
+export const dynamic = 'force-dynamic';
+
 // Database response types (snake_case)
 interface DatabaseTableSession {
   id: string;

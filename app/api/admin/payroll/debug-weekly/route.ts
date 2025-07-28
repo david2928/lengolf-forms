@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateWeeklyHours, calculateDailyHours } from '@/lib/payroll-calculations';
 
+export const dynamic = 'force-dynamic';
+
 // Test getWeekStart function
 function getWeekStart(date: Date): string {
   const d = new Date(date.getTime()); // Create a proper copy to avoid mutation
