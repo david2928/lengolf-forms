@@ -5,7 +5,6 @@ import { TimeClockPunchRequest, TimeClockPunchResponse } from '@/types/staff';
 import { DateTime } from 'luxon';
 import { timeClockRateLimit } from '@/lib/rate-limiter';
 import { logger, logApi, logError, logUserAction } from '@/lib/logger';
-import { trackApiPerformance, trackDatabasePerformance } from '@/lib/performance-monitor';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -77,9 +76,6 @@ export async function POST(request: NextRequest) {
         userAgent
       });
       
-      trackApiPerformance('POST', '/api/time-clock/punch', 429, responseTime, userAgent, {
-        reason: 'rate_limited'
-      });
       
       return NextResponse.json(
         {
@@ -121,9 +117,6 @@ export async function POST(request: NextRequest) {
     const pinVerification = await verifyStaffPin(pin);
     const pinDuration = performance.now() - pinStartTime;
     
-    trackDatabasePerformance('PIN verification', pinDuration, 'staff', undefined, {
-      success: pinVerification.success
-    });
     
     if (!pinVerification.success) {
       const responseTime = performance.now() - startTime;
@@ -134,9 +127,6 @@ export async function POST(request: NextRequest) {
         userAgent
       });
       
-      trackApiPerformance('POST', '/api/time-clock/punch', 401, responseTime, userAgent, {
-        reason: 'invalid_pin'
-      });
       
       return NextResponse.json(
         {
@@ -205,11 +195,6 @@ export async function POST(request: NextRequest) {
         responseTime: `${responseTime.toFixed(0)}ms`
       });
       
-      trackApiPerformance('POST', '/api/time-clock/punch', 200, responseTime, userAgent, {
-        action,
-        staffId: pinVerification.staff_id,
-        photoCaptured
-      });
 
       // Generate success message
       const welcomeMessage = action === 'clock_in' 
@@ -254,9 +239,6 @@ export async function POST(request: NextRequest) {
         responseTime: `${responseTime.toFixed(0)}ms`
       });
       
-      trackApiPerformance('POST', '/api/time-clock/punch', 500, responseTime, userAgent, {
-        error: 'database_error'
-      });
       
       return NextResponse.json(
         {
@@ -276,9 +258,6 @@ export async function POST(request: NextRequest) {
       responseTime: `${responseTime.toFixed(0)}ms`
     });
     
-    trackApiPerformance('POST', '/api/time-clock/punch', 500, responseTime, userAgent, {
-      error: 'system_error'
-    });
     
     return NextResponse.json(
       {

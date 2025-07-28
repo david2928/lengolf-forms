@@ -80,10 +80,10 @@ export async function GET(
 
     const transactions = transactionSummary || [];
     const totalTransactions = transactions.length;
-    const totalSpent = transactions.reduce((sum, t) => sum + (t.sales_net || 0), 0);
+    const totalSpent = transactions.reduce((sum: any, t: any) => sum + (t.sales_net || 0), 0);
     const averageTransaction = totalTransactions > 0 ? totalSpent / totalTransactions : 0;
     const lastTransaction = transactions.length > 0 
-      ? Math.max(...transactions.map(t => new Date(t.date).getTime()))
+      ? Math.max(...transactions.map((t: any) => new Date(t.date).getTime()))
       : null;
 
     // Get package summary using the enhanced packages API
@@ -114,7 +114,7 @@ export async function GET(
 
       const packages = dbPackages || [];
       packageSummary = {
-        activePackages: packages.filter(p => 
+        activePackages: packages.filter((p: any) => 
           !p.expiration_date || new Date(p.expiration_date) > new Date()
         ).length,
         totalPackages: packages.length,
@@ -132,11 +132,11 @@ export async function GET(
 
     const bookings = bookingSummary || [];
     const totalBookings = bookings.length;
-    const upcomingBookings = bookings.filter(b => 
+    const upcomingBookings = bookings.filter((b: any) => 
       new Date(b.date) > new Date() && b.status !== 'cancelled'
     ).length;
     const lastBooking = bookings.length > 0
-      ? Math.max(...bookings.map(b => new Date(b.date).getTime()))
+      ? Math.max(...bookings.map((b: any) => new Date(b.date).getTime()))
       : null;
 
     return NextResponse.json({

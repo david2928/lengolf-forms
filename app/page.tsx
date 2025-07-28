@@ -27,6 +27,8 @@ const packageItems = appMenuItems.filter(item =>
   item.title === "Create Package" || item.title === "Update Package Usage" || item.title === "Package Monitor"
 );
 
+// Note: operationsItems is dynamically filtered below based on admin status
+
 const coachingItems = appMenuItems.filter(item => 
   item.title === "Coaching Assistant"
 );
@@ -52,7 +54,7 @@ export default function Home() {
   
   // Filter operations items based on admin status
   const operationsItems = appMenuItems.filter(item => {
-    if (item.title === "Inventory Management" || item.title === "Staff Time Clock") {
+    if (item.title === "Inventory Management" || item.title === "Staff Time Clock" || item.title === "Staff Schedule") {
       return true; // Available to all users
     }
     if (item.title === "POS System") {

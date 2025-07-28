@@ -3,6 +3,59 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
+export const dynamic = 'force-dynamic';
+
+// Type definitions for product search
+interface DatabaseProduct {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+  category_id: string;
+  sku: string;
+  description: string;
+  is_active: boolean;
+  pos_display_color: string;
+  categories: DatabaseCategory;
+}
+
+interface DatabaseCategory {
+  id: string;
+  name: string;
+  parent_id: string | null;
+}
+
+interface ScoredProduct extends DatabaseProduct {
+  relevanceScore: number;
+  category: {
+    id?: string;
+    name?: string;
+    posTabCategory: string;
+  };
+}
+
+interface TransformedProduct {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+  categoryId: string;
+  categoryName?: string;
+  posTabCategory?: string;
+  sku: string;
+  description: string;
+  posDisplayColor: string;
+  imageUrl: any;
+  modifiers: any[];
+  relevanceScore: number;
+  isActive: boolean;
+}
+
+interface SuggestionProduct {
+  name: string;
+  sku: string;
+}
+
 // Helper function to map category names to POS tabs
 function mapCategoryToPosTab(categoryName: string): string {
   const name = categoryName.toLowerCase();
@@ -65,7 +118,7 @@ export async function GET(request: NextRequest) {
       .eq('is_active', true);
 
     // Build search conditions with ranking
-    const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 1);
+    const searchTerms = query.toLowerCase().split(' ').filter((term: string) => term.length > 1);
     
     // Create weighted search across multiple fields
     const searchConditions = [
@@ -118,7 +171,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate relevance scores and sort by relevance if needed
-    const scoredProducts = (products || []).map(product => {
+    const scoredProducts = (products || []).map((product: DatabaseProduct): ScoredProduct => {
       let score = 0;
       const productName = product.name.toLowerCase();
       const productSku = (product.sku || '').toLowerCase();
@@ -140,7 +193,7 @@ export async function GET(request: NextRequest) {
       if ((product.description || '').toLowerCase().includes(queryLower)) score += 20;
 
       // Boost score for popular categories or special attributes
-      const posTabCategory = mapCategoryToPosTab((product.categories as any)?.name || '');
+      const posTabCategory = mapCategoryToPosTab(product.categories?.name || '');
       if (posTabCategory === 'DRINK') score += 10;
       if (posTabCategory === 'FOOD') score += 5;
 
@@ -148,8 +201,8 @@ export async function GET(request: NextRequest) {
         ...product,
         relevanceScore: score,
         category: {
-          id: (product.categories as any)?.id,
-          name: (product.categories as any)?.name,
+          id: product.categories?.id,
+          name: product.categories?.name,
           posTabCategory: posTabCategory
         }
       };
@@ -157,7 +210,7 @@ export async function GET(request: NextRequest) {
 
     // Sort by relevance if that's the selected sort method
     if (sortBy === 'relevance') {
-      scoredProducts.sort((a, b) => b.relevanceScore - a.relevanceScore);
+      scoredProducts.sort((a: ScoredProduct, b: ScoredProduct) => b.relevanceScore - a.relevanceScore);
     }
 
     // Generate search suggestions for autocomplete
@@ -166,7 +219,7 @@ export async function GET(request: NextRequest) {
     const searchTime = Date.now() - startTime;
 
     // Transform products for POS interface
-    const transformedProducts = scoredProducts.map(product => ({
+    const transformedProducts = scoredProducts.map((product: ScoredProduct): TransformedProduct => ({
       id: product.id,
       name: product.name,
       price: product.price,
@@ -223,7 +276,7 @@ async function generateSearchSuggestions(query: string, category?: string | null
 
     const suggestions = new Set<string>();
     
-    suggestionProducts?.forEach(product => {
+    suggestionProducts?.forEach((product: SuggestionProduct) => {
       // Add product name if it matches
       if (product.name.toLowerCase().includes(query.toLowerCase())) {
         suggestions.add(product.name);

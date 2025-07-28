@@ -44,8 +44,8 @@ export async function POST(request: Request) {
     // Analyze the history to understand the timeline
     const analysis = {
       totalHistoryEntries: history.length,
-      actionTypes: history.map(h => h.action_type),
-      timeline: history.map(h => ({
+      actionTypes: history.map((h: any) => h.action_type),
+      timeline: history.map((h: any) => ({
         timestamp: h.created_at,
         action: h.action_type,
         changedBy: h.changed_by_identifier,

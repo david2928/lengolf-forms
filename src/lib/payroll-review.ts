@@ -48,13 +48,13 @@ export async function getReviewEntries(monthYear: string): Promise<ReviewEntry[]
       throw new Error(`Failed to fetch staff: ${staffError.message}`);
     }
     
-    const staffMap = new Map(staff?.map(s => [s.id, s.staff_name]) || []);
+    const staffMap = new Map<number, string>(staff?.map((s: any) => [s.id, s.staff_name]) || []);
     
     const reviewEntries: ReviewEntry[] = [];
     
     // Process each daily hours entry to find issues
     for (const daily of dailyHours) {
-      const staffName = staffMap.get(daily.staff_id) || `Staff ${daily.staff_id}`;
+      const staffName: string = staffMap.get(daily.staff_id) || `Staff ${daily.staff_id}`;
       
       // Check for daily hours issues
       const isDailyHoursShort = daily.total_hours < 3 && daily.total_hours > 0;

@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
       
       if (subcategories && subcategories.length > 0) {
         // If it's a parent category, include products from both the parent and its subcategories
-        const categoryIds = [filters.category_id, ...subcategories.map(sub => sub.id)];
+        const categoryIds = [filters.category_id, ...subcategories.map((sub: any) => sub.id)];
         query = query.in('category_id', categoryIds);
       } else {
         // If it's not a parent category, just filter by the specific category

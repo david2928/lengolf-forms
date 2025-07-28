@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/payroll/months - Returns last 3 months for payroll processing
 export async function GET(request: NextRequest) {
   try {

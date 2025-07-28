@@ -1,0 +1,301 @@
+/**
+ * Responsive styles for Schedule Visualization
+ */
+
+/* Base styles */
+.schedule-visualization-container {
+  width: 100%;
+  max-width: 100%;
+}
+
+.timeline-grid {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Mobile styles (0px and up) */
+@media (max-width: 767px) {
+  .schedule-visualization-container {
+    padding: 0.5rem;
+  }
+
+  .timeline-grid {
+    font-size: 0.75rem;
+    min-width: 800px; /* Enable horizontal scrolling */
+  }
+
+  .timeline-header {
+    font-size: 0.75rem;
+  }
+
+  .staff-schedule-block {
+    min-height: 48px;
+    padding: 6px;
+    font-size: 0.75rem;
+  }
+
+  .staff-name-tab {
+    font-size: 0.625rem; /* 10px */
+    padding: 2px 4px;
+  }
+
+  .time-display {
+    font-size: 0.75rem;
+  }
+
+  .location-display {
+    display: none; /* Hide location on mobile */
+  }
+
+  .grid-legend {
+    font-size: 0.625rem;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Touch-friendly scrolling */
+  .timeline-grid {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  /* Larger touch targets */
+  .staff-schedule-block {
+    min-height: 48px; /* Minimum touch target size */
+  }
+}
+
+/* Tablet styles (768px and up) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .schedule-visualization-container {
+    padding: 0.75rem;
+  }
+
+  .timeline-grid {
+    font-size: 0.875rem;
+    min-width: 900px; /* Enable horizontal scrolling */
+  }
+
+  .timeline-header {
+    font-size: 0.875rem;
+  }
+
+  .staff-schedule-block {
+    min-height: 56px;
+    padding: 8px;
+    font-size: 0.875rem;
+  }
+
+  .staff-name-tab {
+    font-size: 0.75rem; /* 12px */
+    padding: 3px 6px;
+  }
+
+  .time-display {
+    font-size: 0.875rem;
+  }
+
+  .location-display {
+    font-size: 0.75rem;
+  }
+
+  .grid-legend {
+    font-size: 0.75rem;
+  }
+
+  /* Smooth scrolling for tablets */
+  .timeline-grid {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Desktop styles (1024px and up) */
+@media (min-width: 1024px) {
+  .schedule-visualization-container {
+    padding: 1rem;
+  }
+
+  .timeline-grid {
+    font-size: 0.875rem;
+    overflow: hidden; /* No horizontal scrolling */
+  }
+
+  .timeline-header {
+    font-size: 0.875rem;
+  }
+
+  .staff-schedule-block {
+    min-height: 60px;
+    padding: 10px;
+    font-size: 0.875rem;
+  }
+
+  .staff-name-tab {
+    font-size: 0.75rem; /* 12px */
+    padding: 4px 8px;
+  }
+
+  .time-display {
+    font-size: 0.875rem;
+  }
+
+  .location-display {
+    font-size: 0.75rem;
+  }
+
+  .grid-legend {
+    font-size: 0.75rem;
+  }
+}
+
+/* Wide desktop styles (1440px and up) */
+@media (min-width: 1440px) {
+  .schedule-visualization-container {
+    padding: 1.25rem;
+  }
+
+  .timeline-grid {
+    font-size: 1rem;
+  }
+
+  .timeline-header {
+    font-size: 1rem;
+  }
+
+  .staff-schedule-block {
+    min-height: 64px;
+    padding: 12px;
+    font-size: 1rem;
+  }
+
+  .staff-name-tab {
+    font-size: 0.875rem; /* 14px */
+    padding: 4px 8px;
+  }
+
+  .time-display {
+    font-size: 1rem;
+  }
+
+  .location-display {
+    font-size: 0.875rem;
+  }
+
+  .grid-legend {
+    font-size: 0.875rem;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .staff-schedule-block {
+    border-width: 0.5px; /* Thinner borders on high DPI */
+  }
+
+  .timeline-grid {
+    border-width: 0.5px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 767px) and (orientation: landscape) {
+  .timeline-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .staff-schedule-block {
+    min-height: 40px; /* Smaller in landscape */
+  }
+}
+
+/* Print styles */
+@media print {
+  .schedule-visualization-container {
+    padding: 0;
+    background: white;
+  }
+
+  .timeline-grid {
+    overflow: visible;
+    min-width: auto;
+    font-size: 0.75rem;
+  }
+
+  .staff-schedule-block {
+    border: 1px solid #000 !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+
+  .staff-name-tab {
+    background: #f0f0f0 !important;
+    color: black !important;
+  }
+
+  .grid-legend {
+    display: none;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .staff-schedule-block {
+    transition: none !important;
+  }
+
+  .timeline-grid {
+    scroll-behavior: auto;
+  }
+
+  .hover\\:shadow-md:hover {
+    box-shadow: none !important;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .staff-schedule-block {
+    border: 2px solid currentColor !important;
+  }
+
+  .timeline-grid {
+    border: 2px solid currentColor;
+  }
+
+  .staff-name-tab {
+    border: 1px solid currentColor;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .schedule-visualization-container {
+    background-color: #1f2937;
+    color: #f9fafb;
+  }
+
+  .timeline-grid {
+    background-color: #374151;
+    border-color: #4b5563;
+  }
+
+  .staff-schedule-block {
+    background-color: #374151;
+    border-color: #4b5563;
+    color: #f9fafb;
+  }
+
+  .time-label-cell {
+    background-color: #4b5563;
+    color: #f9fafb;
+  }
+
+  .grid-legend {
+    color: #d1d5db;
+  }
+}

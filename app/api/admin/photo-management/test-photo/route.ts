@@ -6,6 +6,8 @@ import { getTimeClockPhotoUrl } from '@/lib/photo-storage'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 import { PHOTO_CONFIG } from '@/types/staff'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Verify admin access
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
       .from(PHOTO_CONFIG.STORAGE_BUCKET)
       .list('2025-06-17', { limit: 100 })
     
-    const fileExists = fileList?.some(f => f.name === 'timeclock_1750190337182_2_clock_out.jpg')
+    const fileExists = fileList?.some((f: any) => f.name === 'timeclock_1750190337182_2_clock_out.jpg')
     
     // Test 2: Try signed URL directly
     const { data: signedData, error: signedError } = await refacSupabaseAdmin.storage
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
       test_photo_path: testPhotoPath,
       tests: {
         file_exists: fileExists,
-        file_list: fileList?.map(f => f.name),
+        file_list: fileList?.map((f: any) => f.name),
         list_error: listError,
         signed_url: {
           success: !signedError,

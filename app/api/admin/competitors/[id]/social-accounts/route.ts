@@ -48,11 +48,11 @@ export async function PUT(
     }
 
     // 2. Determine which accounts to insert, update, or delete
-    const existingAccountIds = existingAccounts?.map(acc => acc.id) || [];
+    const existingAccountIds = existingAccounts?.map((acc: any) => acc.id) || [];
     const submittedAccountIds = social_accounts.filter(acc => acc.id).map(acc => acc.id);
     
     // Accounts to delete (existed before but not in submission)
-    const accountsToDelete = existingAccountIds.filter(id => !submittedAccountIds.includes(id));
+    const accountsToDelete = existingAccountIds.filter((id: any) => !submittedAccountIds.includes(id));
     
     // Accounts to insert (no ID)
     const accountsToInsert = social_accounts.filter(acc => !acc.id).map(acc => ({

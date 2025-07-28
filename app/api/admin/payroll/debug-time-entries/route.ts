@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import { buildOptimizedTimeEntryQuery } from '@/lib/payroll-performance';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
     // 4. Group by month to see data distribution
     const monthGroups = new Map<string, number>();
     if (monthsData) {
-      monthsData.forEach(entry => {
+      monthsData.forEach((entry: any) => {
         const month = entry.timestamp.substring(0, 7); // YYYY-MM
         monthGroups.set(month, (monthGroups.get(month) || 0) + 1);
       });

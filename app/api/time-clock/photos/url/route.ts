@@ -3,6 +3,8 @@ import { getTimeClockPhotoUrl } from '@/lib/photo-storage';
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/time-clock/photos/url - Get signed URL for a time clock photo
  * Requires authentication (session or dev token)

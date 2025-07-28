@@ -3,6 +3,35 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 
+// Type definitions for orders
+interface DatabaseOrder {
+  id: string;
+  order_number: string;
+  table_session_id: string;
+  total_amount: number;
+  subtotal_amount: number;
+  tax_amount: number;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  confirmed_at: string | null;
+}
+
+interface TransformedOrder {
+  id: string;
+  orderNumber: string;
+  tableSessionId: string;
+  totalAmount: number;
+  subtotalAmount: number;
+  taxAmount: number;
+  discountAmount: number;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  items: any[];
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getDevSession(authOptions, request);
@@ -56,7 +85,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform orders (temporarily without items to get basic functionality working)
-    const transformedOrders = orders?.map(order => ({
+    const transformedOrders = (orders || []).map((order: DatabaseOrder): TransformedOrder => ({
       id: order.id,
       orderNumber: order.order_number,
       tableSessionId: order.table_session_id,
@@ -69,10 +98,10 @@ export async function GET(request: NextRequest) {
       createdAt: order.created_at,
       updatedAt: order.confirmed_at, // Use confirmed_at as updated timestamp
       items: [] // Temporarily empty until we fix the cross-schema issue
-    })) || [];
+    }));
 
     // Calculate total amount across all orders
-    const total = transformedOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    const total = transformedOrders.reduce((sum: number, order: TransformedOrder) => sum + (order.totalAmount || 0), 0);
 
     return NextResponse.json({
       orders: transformedOrders,

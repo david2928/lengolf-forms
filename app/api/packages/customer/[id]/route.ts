@@ -64,7 +64,7 @@ export async function GET(
     }
 
     // Get package usage for each package
-    const packageIds = (packages || []).map(p => p.id);
+    const packageIds = (packages || []).map((p: any) => p.id);
     let packageUsage: any[] = [];
     
     if (packageIds.length > 0) {
@@ -136,18 +136,18 @@ export async function GET(
     let filteredPackages = formattedPackages;
     
     if (!includeExpired) {
-      filteredPackages = filteredPackages.filter(p => p.status !== 'expired');
+      filteredPackages = filteredPackages.filter((p: any) => p.status !== 'expired');
     }
     
     if (!includeUsed) {
-      filteredPackages = filteredPackages.filter(p => p.status !== 'fully_used');
+      filteredPackages = filteredPackages.filter((p: any) => p.status !== 'fully_used');
     }
 
     // Calculate summary
-    const activePackages = formattedPackages.filter(p => p.status === 'active' || p.status === 'unlimited').length;
-    const expiredPackages = formattedPackages.filter(p => p.status === 'expired').length;
-    const unusedPackages = formattedPackages.filter(p => p.status === 'unused').length;
-    const fullyUsedPackages = formattedPackages.filter(p => p.status === 'fully_used').length;
+    const activePackages = formattedPackages.filter((p: any) => p.status === 'active' || p.status === 'unlimited').length;
+    const expiredPackages = formattedPackages.filter((p: any) => p.status === 'expired').length;
+    const unusedPackages = formattedPackages.filter((p: any) => p.status === 'unused').length;
+    const fullyUsedPackages = formattedPackages.filter((p: any) => p.status === 'fully_used').length;
 
     return NextResponse.json({
       packages: filteredPackages,

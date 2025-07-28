@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 
     // Group by contact number and count
     const contactCounts = new Map<string, number>();
-    duplicateNumbers?.forEach(row => {
+    duplicateNumbers?.forEach((row: any) => {
       const count = contactCounts.get(row.contact_number) || 0;
       contactCounts.set(row.contact_number, count + 1);
     });
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
 
       // Get usage counts for each customer
       const customersWithCounts = await Promise.all(
-        (customers || []).map(async (customer) => {
+        (customers || []).map(async (customer: any) => {
           // Count bookings
           const { count: bookingsCount } = await refacSupabaseAdmin
             .from('bookings')
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
       );
 
       // Determine suggested primary (oldest with most usage)
-      const suggestedPrimary = customersWithCounts.reduce((best, current) => {
+      const suggestedPrimary = customersWithCounts.reduce((best: any, current: any) => {
         const currentScore = current.bookings_count + current.sales_count + current.packages_count;
         const bestScore = best.bookings_count + best.sales_count + best.packages_count;
         
@@ -152,8 +152,8 @@ export async function GET(request: NextRequest) {
       });
 
       // Check for merge conflicts
-      const uniqueNames = new Set(customers?.map(c => c.customer_name));
-      const uniqueEmails = new Set(customers?.filter(c => c.email).map(c => c.email));
+      const uniqueNames = new Set(customers?.map((c: any) => c.customer_name));
+      const uniqueEmails = new Set(customers?.filter((c: any) => c.email).map((c: any) => c.email));
 
       duplicateGroups.push({
         contact_number: contact,
@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const primaryCustomer = customers.find(c => c.id === primaryCustomerId);
+    const primaryCustomer = customers.find((c: any) => c.id === primaryCustomerId);
     if (!primaryCustomer) {
       return NextResponse.json(
         { error: "Primary customer not found" },
@@ -291,8 +291,8 @@ export async function POST(request: NextRequest) {
 
     // If merge strategy is 'combine_data', update the primary customer with combined values
     if (mergeStrategy === 'combine_data') {
-      const totalVisits = customers.reduce((sum, c) => sum + (c.total_visits || 0), 0);
-      const totalValue = customers.reduce((sum, c) => sum + (c.total_lifetime_value || 0), 0);
+      const totalVisits = customers.reduce((sum: any, c: any) => sum + (c.total_visits || 0), 0);
+      const totalValue = customers.reduce((sum: any, c: any) => sum + (c.total_lifetime_value || 0), 0);
 
       const { error: updateError } = await refacSupabaseAdmin
         .from('customers')

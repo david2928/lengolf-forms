@@ -3,6 +3,47 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
+export const dynamic = 'force-dynamic';
+
+// Type definitions for category hierarchy
+interface DatabaseCategory {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  display_order: number | null;
+  color_code: string | null;
+  icon: string | null;
+  description: string | null;
+  is_active: boolean;
+}
+
+interface ProductCountData {
+  category_id: string;
+}
+
+interface CategoryHierarchy {
+  id: string;
+  name: string;
+  parentId: string | null;
+  posTabCategory: string;
+  displayOrder: number | null;
+  colorTheme: string;
+  icon: string | null;
+  description: string | null;
+  isActive: boolean;
+  productCount?: number;
+  totalProductCount?: number;
+  children: CategoryHierarchy[];
+  level: number;
+  path: string[];
+}
+
+interface TabStats {
+  categories: number;
+  totalProducts: number;
+  maxDepth: number;
+}
+
 // Helper function to map category names to POS tabs
 function mapCategoryToPosTab(categoryName: string): string {
   const name = categoryName.toLowerCase();
@@ -53,7 +94,7 @@ export async function GET(request: NextRequest) {
         .eq('is_active', true);
 
       if (!countError && productCountData) {
-        productCounts = productCountData.reduce((acc, product) => {
+        productCounts = productCountData.reduce((acc: Record<string, number>, product: ProductCountData) => {
           acc[product.category_id] = (acc[product.category_id] || 0) + 1;
           return acc;
         }, {} as Record<string, number>);
@@ -61,7 +102,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build category hierarchy tree
-    const categoryMap = new Map((categories || []).map(cat => [cat.id, {
+    const categoryMap = new Map<string, CategoryHierarchy>((categories || []).map((cat: DatabaseCategory): [string, CategoryHierarchy] => [cat.id, {
       id: cat.id,
       name: cat.name,
       parentId: cat.parent_id,
@@ -72,16 +113,17 @@ export async function GET(request: NextRequest) {
       description: cat.description,
       isActive: cat.is_active,
       productCount: includeProductCount ? (productCounts[cat.id] || 0) : undefined,
-      children: [] as any[],
+      children: [] as CategoryHierarchy[],
       level: 0,
       path: [] as string[]
     }]));
 
     // Build tree structure with levels and paths
-    const buildHierarchy = (parentId: string | null = null, level: number = 0, parentPath: string[] = []): any[] => {
-      return Array.from(categoryMap.values())
-        .filter(cat => cat.parentId === parentId)
-        .map(cat => {
+    const buildHierarchy = (parentId: string | null = null, level: number = 0, parentPath: string[] = []): CategoryHierarchy[] => {
+      const categoriesArray = Array.from(categoryMap.values()) as CategoryHierarchy[];
+      return categoriesArray
+        .filter((cat: CategoryHierarchy) => cat.parentId === parentId)
+        .map((cat: CategoryHierarchy) => {
           const currentPath = [...parentPath, cat.name];
           const categoryWithHierarchy = {
             ...cat,
@@ -92,38 +134,38 @@ export async function GET(request: NextRequest) {
 
           // Calculate total product count including children
           if (includeProductCount) {
-            const calculateTotalProducts = (category: any): number => {
+            const calculateTotalProducts = (category: CategoryHierarchy): number => {
               let total = category.productCount || 0;
-              category.children.forEach((child: any) => {
+              category.children.forEach((child: CategoryHierarchy) => {
                 total += calculateTotalProducts(child);
               });
               return total;
             };
-            (categoryWithHierarchy as any).totalProductCount = calculateTotalProducts(categoryWithHierarchy);
+            categoryWithHierarchy.totalProductCount = calculateTotalProducts(categoryWithHierarchy);
           }
 
           return categoryWithHierarchy;
         })
-        .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0) || a.name.localeCompare(b.name));
+        .sort((a: CategoryHierarchy, b: CategoryHierarchy) => (a.displayOrder || 0) - (b.displayOrder || 0) || a.name.localeCompare(b.name));
     };
 
     const hierarchyTree = buildHierarchy();
 
     // Create tab-based organization for POS interface
     const tabHierarchy = {
-      DRINK: hierarchyTree.filter(cat => cat.posTabCategory === 'DRINK'),
-      FOOD: hierarchyTree.filter(cat => cat.posTabCategory === 'FOOD'),
-      GOLF: hierarchyTree.filter(cat => cat.posTabCategory === 'GOLF'),
-      PACKAGES: hierarchyTree.filter(cat => cat.posTabCategory === 'PACKAGES'),
-      OTHER: hierarchyTree.filter(cat => !cat.posTabCategory || cat.posTabCategory === 'OTHER')
+      DRINK: hierarchyTree.filter((cat: CategoryHierarchy) => cat.posTabCategory === 'DRINK'),
+      FOOD: hierarchyTree.filter((cat: CategoryHierarchy) => cat.posTabCategory === 'FOOD'),
+      GOLF: hierarchyTree.filter((cat: CategoryHierarchy) => cat.posTabCategory === 'GOLF'),
+      PACKAGES: hierarchyTree.filter((cat: CategoryHierarchy) => cat.posTabCategory === 'PACKAGES'),
+      OTHER: hierarchyTree.filter((cat: CategoryHierarchy) => !cat.posTabCategory || cat.posTabCategory === 'OTHER')
     };
 
     // Create flat list for easy lookup
-    const flatCategories = Array.from(categoryMap.values());
+    const flatCategories: CategoryHierarchy[] = Array.from(categoryMap.values());
 
     // Get category navigation breadcrumbs for each category
     const getCategoryBreadcrumbs = (categoryId: string): string[] => {
-      const category = categoryMap.get(categoryId);
+      const category: CategoryHierarchy | undefined = categoryMap.get(categoryId);
       if (!category) return [];
       
       if (!category.parentId) return [category.name];
@@ -132,17 +174,17 @@ export async function GET(request: NextRequest) {
     };
 
     const categoryBreadcrumbs = Object.fromEntries(
-      flatCategories.map(cat => [cat.id, getCategoryBreadcrumbs(cat.id)])
+      flatCategories.map((cat: CategoryHierarchy) => [cat.id, getCategoryBreadcrumbs(cat.id)])
     );
 
     // Calculate tab statistics
-    const tabStats = Object.entries(tabHierarchy).reduce((acc, [tab, cats]) => {
-      const calculateTabStats = (categories: any[]): { categories: number, totalProducts: number, maxDepth: number } => {
+    const tabStats = Object.entries(tabHierarchy).reduce((acc: Record<string, TabStats>, [tab, cats]: [string, CategoryHierarchy[]]) => {
+      const calculateTabStats = (categories: CategoryHierarchy[]): TabStats => {
         let categoryCount = categories.length;
         let totalProducts = 0;
         let maxDepth = 0;
 
-        categories.forEach(cat => {
+        categories.forEach((cat: CategoryHierarchy) => {
           // Count this category
           categoryCount += cat.children.length;
           
@@ -152,9 +194,9 @@ export async function GET(request: NextRequest) {
           }
           
           // Calculate max depth
-          const getDepth = (category: any, currentDepth: number = 1): number => {
+          const getDepth = (category: CategoryHierarchy, currentDepth: number = 1): number => {
             if (category.children.length === 0) return currentDepth;
-            return Math.max(...category.children.map((child: any) => getDepth(child, currentDepth + 1)));
+            return Math.max(...category.children.map((child: CategoryHierarchy) => getDepth(child, currentDepth + 1)));
           };
           
           maxDepth = Math.max(maxDepth, getDepth(cat));
@@ -173,7 +215,7 @@ export async function GET(request: NextRequest) {
 
       acc[tab] = calculateTabStats(cats);
       return acc;
-    }, {} as Record<string, { categories: number, totalProducts: number, maxDepth: number }>);
+    }, {} as Record<string, TabStats>);
 
     return NextResponse.json({
       hierarchy: hierarchyTree,
@@ -183,7 +225,7 @@ export async function GET(request: NextRequest) {
       tabStats,
       metadata: {
         totalCategories: flatCategories.length,
-        maxDepth: Math.max(...Object.values(tabStats).map(stat => stat.maxDepth)),
+        maxDepth: Math.max(...Object.values(tabStats).map((stat: TabStats) => stat.maxDepth)),
         tabCount: Object.keys(tabHierarchy).filter(tab => tabHierarchy[tab as keyof typeof tabHierarchy].length > 0).length,
         includeProductCount,
         activeOnly,

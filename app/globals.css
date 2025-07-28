@@ -1,6 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Import responsive styles for schedule visualization */
+@import '../src/styles/schedule-visualization-responsive.css';
+
+
  
 @layer base {
   :root {
@@ -148,4 +153,231 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Mobile-first responsive design enhancements */
+@layer utilities {
+  /* Touch-friendly tap targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Prevent zoom on input focus (iOS) */
+  .no-zoom {
+    font-size: 16px;
+  }
+  
+  /* Safe area padding for devices with notches */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  /* Improved touch scrolling */
+  .smooth-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Prevent text selection on interactive elements */
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Enhanced tap feedback */
+  .tap-highlight {
+    -webkit-tap-highlight-color: rgba(59, 130, 246, 0.1);
+  }
+  
+  /* Mobile-optimized card spacing */
+  .mobile-card-spacing {
+    @apply space-y-2 sm:space-y-3;
+  }
+  
+  /* Responsive text sizing */
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl;
+  }
+  
+  /* Mobile-friendly button sizing */
+  .btn-mobile {
+    @apply px-4 py-3 text-base font-medium rounded-lg transition-all duration-200;
+    min-height: 44px;
+  }
+  
+  /* Optimized modal for mobile */
+  .modal-mobile {
+    @apply fixed inset-0 z-50 flex items-end sm:items-center justify-center;
+  }
+  
+  .modal-content-mobile {
+    @apply w-full max-w-lg mx-4 bg-white rounded-t-xl sm:rounded-xl shadow-xl;
+    max-height: 90vh;
+  }
+}
+
+/* Enhanced mobile scrolling */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent horizontal scroll on mobile */
+body {
+  overflow-x: hidden;
+}
+
+/* Improved focus states for accessibility */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Time Clock Modal Animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slide-up {
+  from { 
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  from { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to { 
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-fade-out {
+  animation: fade-out 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out;
+}
+
+/* Coverage gap indicator styles */
+@layer components {
+  .coverage-gap-indicator {
+    @apply bg-red-50 border-red-200 text-red-800;
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 4px,
+      rgba(239, 68, 68, 0.1) 4px,
+      rgba(239, 68, 68, 0.1) 8px
+    );
+  }
+  
+  .coverage-status-good {
+    @apply bg-green-50 border-green-200 text-green-800;
+  }
+  
+  .coverage-status-warning {
+    @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+  }
+  
+  .coverage-status-critical {
+    @apply bg-red-50 border-red-200 text-red-800;
+  }
+}
+
+/* Tablet-specific optimizations */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* Optimize touch targets for tablet */
+  .tablet-touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better spacing for tablet screens */
+  .tablet-spacing {
+    @apply p-4 space-y-3;
+  }
+  
+  /* Improved text sizing for tablets */
+  .tablet-text {
+    @apply text-base leading-relaxed;
+  }
+  
+  /* Better grid layout for tablets */
+  .tablet-grid {
+    @apply grid-cols-2 lg:grid-cols-7;
+  }
+}
+<<<<<<< HEAD
+=======
+
+>>>>>>> e1aca89 (scheduling feature)
+/* Mobile-specific optimizations */
+@media (max-width: 640px) {
+  /* Reduce padding on small screens */
+  .mobile-padding {
+    @apply px-3 py-2;
+  }
+  
+  /* Stack elements vertically on mobile */
+  .mobile-stack {
+    @apply flex-col space-y-2 space-x-0;
+  }
+  
+  /* Full width buttons on mobile */
+  .mobile-full-width {
+    @apply w-full;
+  }
+  
+  /* Larger touch targets on mobile */
+  .mobile-touch-target {
+    min-height: 48px;
+    min-width: 48px;
+  }
 }

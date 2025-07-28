@@ -12,6 +12,7 @@ if (!supabaseUrl) {
 
 if (!supabaseAnonKey) {
   console.error('Error: Missing environment variable NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY');
+  console.error('Please add NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY to your .env.local file');
 }
 
 // Check for service role key only on server side
@@ -19,28 +20,39 @@ if (typeof window === 'undefined' && !supabaseServiceRoleKey) {
   console.error('Error: Missing environment variable REFAC_SUPABASE_SERVICE_ROLE_KEY');
 }
 
-// Create Supabase client with minimal configuration to avoid realtime issues
-export const refacSupabase = createClient(
-  supabaseUrl || '',
-  supabaseAnonKey || '',
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false
-    },
-    global: {
-      headers: {
-        'X-Client-Info': 'lengolf-forms'
+// Only create Supabase client if we have the required keys
+let refacSupabase: any = null;
+
+if (supabaseUrl && supabaseAnonKey) {
+  // Create Supabase client with minimal configuration to avoid realtime issues
+  refacSupabase = createClient(
+    supabaseUrl,
+    supabaseAnonKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false
+      },
+      global: {
+        headers: {
+          'X-Client-Info': 'lengolf-forms'
+        }
       }
     }
-  }
-);
+  );
+} else {
+  console.error('Cannot create Supabase client: missing URL or anon key');
+}
+
+export { refacSupabase };
 
 // Create a service role client for server-side operations that need to bypass RLS
-export const refacSupabaseAdmin = supabaseServiceRoleKey ? 
-  createClient(
-    supabaseUrl || '',
+let refacSupabaseAdmin: any = null;
+
+if (supabaseUrl && supabaseServiceRoleKey) {
+  refacSupabaseAdmin = createClient(
+    supabaseUrl,
     supabaseServiceRoleKey,
     {
       auth: {
@@ -56,12 +68,27 @@ export const refacSupabaseAdmin = supabaseServiceRoleKey ?
         }
       }
     }
-  ) : 
+  );
+} else if (refacSupabase) {
   // Fallback to anon key with warning
-  (() => {
-    console.warn('🚨 Using anon key for admin client - service role missing!');
+  console.warn('🚨 Using anon key for admin client - service role missing!');
+  refacSupabaseAdmin = refacSupabase;
+} else {
+  console.error('Cannot create Supabase admin client: missing URL or service role key');
+}
+
+export { refacSupabaseAdmin };
+
+// Helper function to get the appropriate client (used in API routes)
+export function getRefacSupabaseClient() {
+  if (typeof window === 'undefined') {
+    // Server-side: use admin client with service role
+    return refacSupabaseAdmin;
+  } else {
+    // Client-side: use regular client
     return refacSupabase;
-  })();
+  }
+}
 
 // Helper function to get the appropriate client (used in API routes)
 export function getRefacSupabaseClient() {

@@ -94,6 +94,18 @@ export const menuItems: MenuItem[] = [
     description: "Staff clock in/out system"
   },
   {
+    icon: Calendar,
+    title: "Staff Schedule",
+    path: '/staff-schedule',
+    description: "View personal work schedule"
+  },
+  {
+    icon: Users,
+    title: "Staff Scheduling Admin",
+    path: '/admin/staff-scheduling',
+    description: "Manage staff schedules and coverage"
+  },
+  {
     icon: Target,
     title: "Competitor Tracking",
     path: '/admin/competitors',

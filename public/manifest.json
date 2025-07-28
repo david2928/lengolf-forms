@@ -1,0 +1,13 @@
+{
+  "name": "LenGolf Staff Schedule",
+  "short_name": "Staff Schedule",
+  "description": "Mobile-optimized staff scheduling system for LenGolf",
+  "start_url": "/staff-schedule",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "lang": "en-US",
+  "dir": "ltr"
+}

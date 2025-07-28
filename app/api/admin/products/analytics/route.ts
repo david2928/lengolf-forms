@@ -3,6 +3,8 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabase } from '@/lib/refac-supabase';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/products/analytics - Get product analytics
 export async function GET(request: NextRequest) {
   try {

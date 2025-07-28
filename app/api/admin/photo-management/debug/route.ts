@@ -5,6 +5,8 @@ import { isUserAdmin } from '@/lib/auth'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 import { PHOTO_CONFIG } from '@/types/staff'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Verify admin access
@@ -33,14 +35,14 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    console.log('Available buckets:', buckets?.map(b => b.name))
-    const bucketExists = buckets?.some(b => b.name === PHOTO_CONFIG.STORAGE_BUCKET)
+    console.log('Available buckets:', buckets?.map((b: any) => b.name))
+    const bucketExists = buckets?.some((b: any) => b.name === PHOTO_CONFIG.STORAGE_BUCKET)
     
     if (!bucketExists) {
       return NextResponse.json({
         success: false,
         error: `Bucket '${PHOTO_CONFIG.STORAGE_BUCKET}' does not exist`,
-        available_buckets: buckets?.map(b => b.name) || []
+        available_buckets: buckets?.map((b: any) => b.name) || []
       })
     }
 
@@ -89,13 +91,13 @@ export async function GET(request: NextRequest) {
           
           if (!folderError && folderFiles && folderFiles.length > 0) {
             // Add the folder path to each file
-            const fullPathFiles = folderFiles.map(file => ({
+            const fullPathFiles = folderFiles.map((file: any) => ({
               ...file,
               full_path: `${dateFolder.name}/${file.name}`,
               folder: dateFolder.name
             }))
             actualPhotoFiles.push(...fullPathFiles)
-            console.log(`Found ${folderFiles.length} files in ${dateFolder.name}:`, folderFiles.map(f => f.name))
+            console.log(`Found ${folderFiles.length} files in ${dateFolder.name}:`, folderFiles.map((f: any) => f.name))
           }
         }
       }
@@ -120,13 +122,13 @@ export async function GET(request: NextRequest) {
       photo_captured: boolean;
     }> = []
     if (!dbPhotoError && dbPhotos && dbPhotos.length > 0) {
-      dbPhotoPaths = dbPhotos.map(entry => ({
+      dbPhotoPaths = dbPhotos.map((entry: any) => ({
         id: entry.id,
         photo_url: entry.photo_url,
         timestamp: entry.timestamp,
         photo_captured: entry.photo_captured
       }))
-      console.log('Database photo paths:', dbPhotoPaths.map(p => p.photo_url))
+      console.log('Database photo paths:', dbPhotoPaths.map((p: any) => p.photo_url))
     }
 
     // Test URL generation for an actual photo file if any exist
@@ -169,7 +171,7 @@ export async function GET(request: NextRequest) {
       // If no actual photo files found, note that we only found directories
       testUrlResult = {
         error: 'No actual photo files found',
-        found_directories: recentFiles.map(f => f.name),
+        found_directories: recentFiles.map((f: any) => f.name),
         note: 'Only date folders found, no photo files inside them'
       }
     }
@@ -179,7 +181,7 @@ export async function GET(request: NextRequest) {
       bucket_name: PHOTO_CONFIG.STORAGE_BUCKET,
       bucket_exists: true,
       total_directories: files?.length || 0,
-      directories: files?.slice(0, 10).map(f => ({
+      directories: files?.slice(0, 10).map((f: any) => ({
         name: f.name,
         id: f.id,
         size: f.metadata?.size,
@@ -187,7 +189,7 @@ export async function GET(request: NextRequest) {
         updated_at: f.updated_at
       })),
       actual_photo_files_count: actualPhotoFiles.length,
-      actual_photo_files: actualPhotoFiles.slice(0, 5).map(f => ({
+      actual_photo_files: actualPhotoFiles.slice(0, 5).map((f: any) => ({
         name: f.name,
         full_path: f.full_path,
         folder: f.folder,

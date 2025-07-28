@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         total_amount: serviceChargeAmount,
         eligible_staff_count: eligibleCount,
         per_staff_amount: perStaffAmount,
-        eligible_staff_names: eligibleStaff?.map(s => s.staff_name) || []
+        eligible_staff_names: eligibleStaff?.map((s: any) => s.staff_name) || []
       }
     });
 
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       current_service_charge: currentCharge,
-      eligible_staff: eligibleStaff?.map(s => s.staff_name) || [],
+      eligible_staff: eligibleStaff?.map((s: any) => s.staff_name) || [],
       eligible_count: eligibleStaff?.length || 0,
       month_year: monthYear
     });

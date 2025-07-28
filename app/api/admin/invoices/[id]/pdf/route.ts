@@ -72,7 +72,7 @@ export async function POST(
       .select('key, value')
 
     const settings: Record<string, string> = {}
-    settingsRows?.forEach(row => {
+    settingsRows?.forEach((row: any) => {
       settings[row.key] = row.value
     })
 

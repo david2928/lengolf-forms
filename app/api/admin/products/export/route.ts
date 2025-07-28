@@ -3,6 +3,8 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabase } from '@/lib/refac-supabase';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/products/export - Export products to CSV
 export async function GET(request: NextRequest) {
   try {
@@ -61,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     const csvRows = [headers.join(',')];
 
-    products?.forEach(product => {
+    products?.forEach((product: any) => {
       const category = product.category as any;
       const tab = category?.parent?.name || '';
       const categoryName = category?.name || '';

@@ -217,7 +217,7 @@ export async function calculateWeeklyHours(monthYear: string): Promise<WeeklyHou
         // Continue without holiday exclusion if there's an error
       }
 
-      const holidayDates = new Set((holidays || []).map(h => h.holiday_date));
+      const holidayDates = new Set((holidays || []).map((h: any) => h.holiday_date));
       
       // Group by staff and week
       const weeklyGroups = new Map<string, DailyHours[]>();
@@ -302,7 +302,7 @@ export async function calculateHolidayHours(monthYear: string): Promise<Map<numb
         return new Map(); // No holidays in this month
       }
 
-      const holidayDates = new Set(holidays.map(h => h.holiday_date));
+      const holidayDates = new Set(holidays.map((h: any) => h.holiday_date));
       const dailyHours = await calculateDailyHours(monthYear);
       
       // Calculate holiday hours per staff

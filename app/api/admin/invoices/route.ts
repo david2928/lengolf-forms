@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform data for frontend
-    const transformedInvoices: InvoiceHistoryItem[] = (invoices || []).map(invoice => ({
+    const transformedInvoices: InvoiceHistoryItem[] = (invoices || []).map((invoice: any) => ({
       id: invoice.id,
       invoice_number: invoice.invoice_number,
       invoice_date: invoice.invoice_date,

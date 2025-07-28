@@ -52,14 +52,14 @@ export async function GET(request: Request) {
           if (!customerError && customersData) {
             // Transform to expected format
             data = customersData
-              .map(customer => ({
+              .map((customer: any) => ({
                 customer_id: customer.id,
                 customer_name: customer.contact_number 
                   ? `${customer.customer_name} (${customer.contact_number})`
                   : customer.customer_name,
                 has_active_packages: true
               }))
-              .sort((a, b) => a.customer_name.localeCompare(b.customer_name));
+              .sort((a: any, b: any) => a.customer_name.localeCompare(b.customer_name));
           } else {
             error = customerError;
           }

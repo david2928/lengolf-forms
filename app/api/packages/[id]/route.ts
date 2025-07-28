@@ -59,7 +59,7 @@ export async function GET(
     }
 
     // Calculate remaining hours
-    const totalUsed = usageData.reduce((sum, usage) => sum + usage.used_hours, 0)
+    const totalUsed = usageData.reduce((sum: any, usage: any) => sum + usage.used_hours, 0)
     const remainingHours = packageData.package_types.hours 
       ? packageData.package_types.hours - totalUsed 
       : null // null for unlimited packages

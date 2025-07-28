@@ -58,7 +58,7 @@ export async function GET(
     if (error) throw error;
 
     // Format bookings
-    const formattedBookings = (bookings || []).map(booking => ({
+    const formattedBookings = (bookings || []).map((booking: any) => ({
       id: booking.id,
       date: booking.date,
       time: booking.start_time,
@@ -73,10 +73,10 @@ export async function GET(
     }));
 
     // Calculate summary
-    const upcomingBookings = formattedBookings.filter(b => b.is_upcoming).length;
-    const pastBookings = formattedBookings.filter(b => !b.is_upcoming).length;
-    const confirmedBookings = formattedBookings.filter(b => b.status === 'confirmed').length;
-    const cancelledBookings = formattedBookings.filter(b => b.status === 'cancelled').length;
+    const upcomingBookings = formattedBookings.filter((b: any) => b.is_upcoming).length;
+    const pastBookings = formattedBookings.filter((b: any) => !b.is_upcoming).length;
+    const confirmedBookings = formattedBookings.filter((b: any) => b.status === 'confirmed').length;
+    const cancelledBookings = formattedBookings.filter((b: any) => b.status === 'cancelled').length;
 
     return NextResponse.json({
       bookings: formattedBookings,

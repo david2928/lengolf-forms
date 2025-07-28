@@ -195,7 +195,7 @@ export async function listTimeClockPhotos(
     let filteredFiles = data || [];
     
     if (endDate) {
-      filteredFiles = filteredFiles.filter(file => {
+      filteredFiles = filteredFiles.filter((file: any) => {
         // Extract date from filename (assuming YYYY-MM-DD/filename.jpg structure)
         const dateMatch = file.name.match(/^(\d{4}-\d{2}-\d{2})/);
         if (dateMatch) {
@@ -206,7 +206,7 @@ export async function listTimeClockPhotos(
       });
     }
 
-    return filteredFiles.map(file => file.name);
+    return filteredFiles.map((file: any) => file.name);
   } catch (error) {
     console.error('Error in listTimeClockPhotos:', error);
     return [];
@@ -447,7 +447,7 @@ export async function checkStorageBucket(): Promise<{
       };
     }
 
-    const bucketExists = buckets?.some(b => b.name === PHOTO_CONFIG.STORAGE_BUCKET) || false;
+    const bucketExists = buckets?.some((b: any) => b.name === PHOTO_CONFIG.STORAGE_BUCKET) || false;
     
     if (!bucketExists) {
       return {
