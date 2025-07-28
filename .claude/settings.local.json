@@ -72,7 +72,10 @@
       "mcp__supabase__list_migrations",
       "Bash(echo:*)",
       "mcp__playwright__browser_network_requests",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(git fetch:*)",
+      "Bash(gh pr create:*)",
+      "Bash(git pull:*)"
     ],
     "deny": []
   },
