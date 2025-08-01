@@ -3,7 +3,7 @@
  * Used in the customer mapping UI for selecting customers to link
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Search, Check, User, Phone, Hash } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -59,14 +59,7 @@ export function CustomerSearchSelect({
   const [loading, setLoading] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-  // Fetch selected customer details if value is provided
-  useEffect(() => {
-    if (value && !selectedCustomer) {
-      fetchCustomerById(value);
-    }
-  }, [value]);
-
-  const fetchCustomerById = async (customerId: string) => {
+  const fetchCustomerById = useCallback(async (customerId: string) => {
     try {
       const response = await fetch(`/api/customers/${customerId}`);
       if (response.ok) {
@@ -82,11 +75,18 @@ export function CustomerSearchSelect({
     } catch (error) {
       console.error('Error fetching customer:', error);
     }
-  };
+  }, []);
+
+  // Fetch selected customer details if value is provided
+  useEffect(() => {
+    if (value && !selectedCustomer) {
+      fetchCustomerById(value);
+    }
+  }, [value, selectedCustomer, fetchCustomerById]);
 
   // Debounced search function
-  const searchCustomers = useCallback(
-    debounce(async (search: string) => {
+  const searchCustomers = useMemo(
+    () => debounce(async (search: string) => {
       if (!search || search.length < 2) {
         setCustomers([]);
         return;

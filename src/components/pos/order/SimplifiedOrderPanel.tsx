@@ -6,6 +6,7 @@ import { ShoppingCart, Check, Trash2, Plus, Minus, X, CreditCard } from 'lucide-
 import { RemoveItemModal } from './RemoveItemModal';
 import { SimplifiedPaymentModal } from '../payment/SimplifiedPaymentModal';
 import { PaymentProcessingResponse } from '@/types/payment';
+import { ItemDiscountButton } from '../discount/ItemDiscountButton';
 
 export interface SimplifiedOrderPanelProps {
   // Running tab (confirmed orders from previous sessions)
@@ -24,6 +25,12 @@ export interface SimplifiedOrderPanelProps {
   onTabChange?: (tab: 'running' | 'current') => void;
   // Running tab item removal
   onRemoveRunningTabItem?: (itemId: string, reason: string, staffPin: string) => Promise<void>;
+  // Discount props
+  onItemDiscountApplied?: (itemId: string, discountId: string) => void;
+  onItemDiscountRemoved?: (itemId: string) => void;
+  onReceiptDiscountApplied?: (discountId: string) => void;
+  onReceiptDiscountRemoved?: () => void;
+  appliedReceiptDiscountId?: string | null;
 }
 
 export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
@@ -38,7 +45,12 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
   className = '',
   activeTab = 'running',
   onTabChange,
-  onRemoveRunningTabItem
+  onRemoveRunningTabItem,
+  onItemDiscountApplied,
+  onItemDiscountRemoved,
+  onReceiptDiscountApplied,
+  onReceiptDiscountRemoved,
+  appliedReceiptDiscountId
 }) => {
   // Use external activeTab if provided, otherwise fall back to local state
   const [localActiveTab, setLocalActiveTab] = useState<'running' | 'current'>('running');
@@ -63,9 +75,12 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
     item: null
   });
 
-  // Calculate totals
+  // Calculate totals and discounts
   const runningTabTotal = runningTab.reduce((total, item) => total + item.totalPrice, 0);
+  const runningTabDiscounts = runningTab.reduce((total, item) => total + (item.discount_amount || 0), 0);
   const currentOrderTotal = currentOrder.reduce((total, item) => total + item.totalPrice, 0);
+  const currentOrderDiscounts = currentOrder.reduce((total, item) => total + (item.discount_amount || 0), 0);
+  const totalDiscounts = runningTabDiscounts + currentOrderDiscounts;
   const grandTotal = runningTabTotal + currentOrderTotal;
 
   // Format currency
@@ -121,7 +136,7 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
                     Confirmed Items
                   </div>
                   {runningTab.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-lg">
+                    <div key={item.id} className="flex items-center justify-between py-2 px-3 sm:py-3 sm:px-4 bg-blue-50 rounded-lg">
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">{item.productName}</p>
                         <p className="text-sm text-gray-600">
@@ -130,17 +145,31 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="text-right">
-                          <p className="font-semibold text-gray-900">
-                            {formatCurrency(item.totalPrice)}
-                          </p>
+                          {item.applied_discount_id && item.discount_amount ? (
+                            <div>
+                              <p className="text-xs text-gray-500 line-through">
+                                {formatCurrency(item.unitPrice * item.quantity)}
+                              </p>
+                              <p className="font-semibold text-green-700">
+                                {formatCurrency(item.totalPrice)}
+                              </p>
+                              <p className="text-xs text-green-600">
+                                -{formatCurrency(item.discount_amount)}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="font-semibold text-gray-900">
+                              {formatCurrency(item.totalPrice)}
+                            </p>
+                          )}
                         </div>
                         {onRemoveRunningTabItem && (
                           <button
                             onClick={() => handleRemoveRunningTabItem(item)}
-                            className="w-6 h-6 flex items-center justify-center text-red-600 hover:bg-red-100 rounded"
+                            className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center text-red-600 hover:bg-red-100 rounded"
                             title="Remove item"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
                           </button>
                         )}
                       </div>
@@ -172,38 +201,62 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
                     Current Order (Not Confirmed)
                   </div>
                   {currentOrder.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between py-2 px-3 bg-orange-50 rounded-lg">
+                    <div key={item.id} className="flex items-center justify-between py-2 px-3 sm:py-3 sm:px-4 bg-orange-50 rounded-lg">
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">{item.productName}</p>
                         <div className="flex items-center space-x-2 mt-1">
                           <button
                             onClick={() => onItemQuantityChange(item.id, Math.max(0, item.quantity - 1))}
-                            className="w-6 h-6 flex items-center justify-center bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
+                            className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
                           >
-                            <Minus className="h-3 w-3" />
+                            <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
                           </button>
-                          <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
+                          <span className="text-sm sm:text-base font-medium w-8 sm:w-10 text-center">{item.quantity}</span>
                           <button
                             onClick={() => onItemQuantityChange(item.id, item.quantity + 1)}
-                            className="w-6 h-6 flex items-center justify-center bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
+                            className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
                           >
-                            <Plus className="h-3 w-3" />
+                            <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
                           </button>
                           <span className="text-sm text-gray-600">@ {formatCurrency(item.unitPrice)}</span>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="text-right">
-                          <p className="font-semibold text-gray-900">
-                            {formatCurrency(item.totalPrice)}
-                          </p>
+                          {item.applied_discount_id && item.discount_amount ? (
+                            <div>
+                              <p className="text-xs text-gray-500 line-through">
+                                {formatCurrency(item.unitPrice * item.quantity)}
+                              </p>
+                              <p className="font-semibold text-green-700">
+                                {formatCurrency(item.totalPrice)}
+                              </p>
+                              <p className="text-xs text-green-600">
+                                -{formatCurrency(item.discount_amount)}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="font-semibold text-gray-900">
+                              {formatCurrency(item.totalPrice)}
+                            </p>
+                          )}
                         </div>
-                        <button
-                          onClick={() => onItemRemove(item.id)}
-                          className="w-6 h-6 flex items-center justify-center text-red-600 hover:bg-red-50 rounded"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center space-x-1">
+                          {onItemDiscountApplied && onItemDiscountRemoved && (
+                            <ItemDiscountButton
+                              orderItem={item}
+                              onDiscountApplied={onItemDiscountApplied}
+                              onDiscountRemoved={onItemDiscountRemoved}
+                              className="text-xs"
+                            />
+                          )}
+                          <button
+                            onClick={() => onItemRemove(item.id)}
+                            className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center text-red-600 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -225,6 +278,8 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
           )}
         </div>
 
+        {/* Receipt Discount removed - only available in table detail modal */}
+
         {/* Totals */}
         <div className="border-t border-gray-200 p-4 space-y-3 bg-gray-50">
           {hasRunningTab && (
@@ -239,6 +294,12 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
               <span className="font-medium text-orange-700">{formatCurrency(currentOrderTotal)}</span>
             </div>
           )}
+          {totalDiscounts > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-green-700">Total Discounts:</span>
+              <span className="font-medium text-green-700">-{formatCurrency(totalDiscounts)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-lg font-semibold border-t border-gray-300 pt-2">
             <span className="text-gray-900">Total:</span>
             <span className="text-gray-900">{formatCurrency(grandTotal)}</span>
@@ -250,16 +311,16 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
           <div className="border-t border-gray-200 p-4 space-y-2">
             <button
               onClick={onConfirmOrder}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              className="w-full flex items-center justify-center space-x-2 px-4 py-3 sm:px-6 sm:py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm sm:text-base min-h-[48px] sm:min-h-[56px]"
             >
-              <Check className="h-5 w-5" />
+              <Check className="h-5 w-5 sm:h-6 sm:w-6" />
               <span>Confirm Order ({currentOrder.length} items)</span>
             </button>
             <button
               onClick={onClearCurrentOrder}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              className="w-full flex items-center justify-center space-x-2 px-4 py-3 sm:px-6 sm:py-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm sm:text-base min-h-[48px] sm:min-h-[56px]"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
               <span>Clear Current Order</span>
             </button>
           </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -163,9 +164,11 @@ function PhotoDialog({ entry, loadPhotoUrl, photoUrls, loadingPhotos }: PhotoDia
               </div>
             </div>
           ) : photoUrl ? (
-            <img 
+            <Image 
               src={photoUrl} 
               alt="Time clock photo"
+              width={400}
+              height={400}
               className="max-w-full h-auto rounded-lg border"
               style={{ maxHeight: '400px' }}
               onError={() => {

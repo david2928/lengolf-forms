@@ -21,6 +21,9 @@ interface DatabaseOrderItem {
   modifiers: any[];
   notes: string | null;
   created_at: string;
+  // Discount fields
+  applied_discount_id: string | null;
+  discount_amount: string | null;
 }
 
 interface DatabaseProduct {
@@ -46,6 +49,9 @@ interface TransformedOrderItem {
   orderId?: string;
   orderNumber?: string;
   confirmedAt?: string;
+  // Discount fields
+  applied_discount_id: string | null;
+  discount_amount: number | null;
 }
 
 interface LegacyOrderData {
@@ -131,7 +137,10 @@ export async function GET(
         notes: item.notes,
         orderId: order?.id,
         orderNumber: order?.order_number,
-        confirmedAt: order?.created_at
+        confirmedAt: order?.created_at,
+        // Include discount fields
+        applied_discount_id: item.applied_discount_id,
+        discount_amount: item.discount_amount ? parseFloat(item.discount_amount) : null
       };
     }) || [];
 

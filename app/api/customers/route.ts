@@ -115,34 +115,44 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Direct query for non-search requests - OPTIMIZED
+    // Direct query for non-search requests - Get count for pagination
+    let countQuery = refacSupabaseAdmin
+      .from('customer_analytics')
+      .select('*', { count: 'exact', head: true });
+    
     let query = refacSupabaseAdmin
       .from('customer_analytics')
-      .select('*'); // Remove count: 'exact' for better performance
+      .select('*');
 
-    // Apply filters
+    // Apply filters to both queries
     if (filters.isActive !== undefined) {
       query = query.eq('is_active', filters.isActive);
+      countQuery = countQuery.eq('is_active', filters.isActive);
     }
 
     if (filters.registrationDateFrom) {
       query = query.gte('customer_create_date', filters.registrationDateFrom);
+      countQuery = countQuery.gte('customer_create_date', filters.registrationDateFrom);
     }
 
     if (filters.registrationDateTo) {
       query = query.lte('customer_create_date', filters.registrationDateTo);
+      countQuery = countQuery.lte('customer_create_date', filters.registrationDateTo);
     }
 
     if (filters.lastVisitFrom) {
       query = query.gte('last_visit_date', filters.lastVisitFrom);
+      countQuery = countQuery.gte('last_visit_date', filters.lastVisitFrom);
     }
 
     if (filters.lastVisitTo) {
       query = query.lte('last_visit_date', filters.lastVisitTo);
+      countQuery = countQuery.lte('last_visit_date', filters.lastVisitTo);
     }
 
     if (filters.preferredContactMethod && filters.preferredContactMethod !== 'all') {
       query = query.eq('preferred_contact_method', filters.preferredContactMethod);
+      countQuery = countQuery.eq('preferred_contact_method', filters.preferredContactMethod);
     }
 
     // Apply sorting
@@ -158,9 +168,16 @@ export async function GET(request: NextRequest) {
     const offset = (filters.page! - 1) * filters.limit!;
     query = query.range(offset, offset + filters.limit! - 1);
 
-    const { data: customers, error } = await query;
+    // Execute both queries
+    const [{ data: customers, error }, { count, error: countError }] = await Promise.all([
+      query,
+      countQuery
+    ]);
 
     if (error) throw error;
+    if (countError) throw countError;
+
+    const totalCount = count || 0;
 
     // Get cached KPIs only if no filters applied (first page load)
     let kpis = {};
@@ -176,8 +193,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       customers: customers || [],
       pagination: {
-        total: customers?.length || 0, // Use returned data length
-        pages: Math.ceil((customers?.length || 0) / filters.limit!),
+        total: totalCount, // Use actual count from database
+        pages: Math.ceil(totalCount / filters.limit!),
         current: filters.page!,
         limit: filters.limit!
       },

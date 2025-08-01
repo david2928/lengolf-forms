@@ -1,395 +1,956 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, Printer, Download, Eye } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Bluetooth, Printer, TestTube, CheckCircle, XCircle, Usb, Smartphone, Eye, FileText, Receipt } from 'lucide-react';
+import { bluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
+import { usbThermalPrinter } from '@/services/USBThermalPrinter';
 
-interface TestReceiptData {
-  receiptNumber: string;
-  tableNumber: string;
-  customerName: string;
-  staffName: string;
-  items: Array<{
-    name: string;
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-    notes?: string;
-  }>;
-  subtotal: number;
-  vatAmount: number;
-  totalAmount: number;
-  paymentMethods: Array<{
-    method: string;
-    amount: number;
-  }>;
-}
+export default function UnifiedPrinterTestPage() {
+  const [bluetoothSupported, setBluetoothSupported] = useState<boolean>(false);
+  const [usbSupported, setUSBSupported] = useState<boolean>(false);
+  const [bluetoothConnected, setBluetoothConnected] = useState<boolean>(false);
+  const [usbConnected, setUSBConnected] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [bluetoothDeviceInfo, setBluetoothDeviceInfo] = useState<any>(null);
+  const [usbDeviceInfo, setUSBDeviceInfo] = useState<any>(null);
+  const [receiptNumber, setReceiptNumber] = useState<string>('R20250727-0146');
+  const [tableSessionId, setTableSessionId] = useState<string>('1');
+  const [lastResult, setLastResult] = useState<any>(null);
+  const [currentTab, setCurrentTab] = useState<'bluetooth' | 'usb'>('bluetooth');
+  const [previewData, setPreviewData] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<'normal' | 'tax' | 'bill'>('normal');
+  const [showPreview, setShowPreview] = useState<boolean>(false);
 
-export default function PrinterTestPage() {
-  const [receiptNumber, setReceiptNumber] = useState('');
-  const [format, setFormat] = useState<'json' | 'html' | 'thermal'>('thermal');
-  const [language, setLanguage] = useState<'en' | 'th'>('en');
-  const [isLoading, setIsLoading] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Sample test data
-  const sampleTestData: TestReceiptData = {
-    receiptNumber: `TEST-${Date.now()}`,
-    tableNumber: 'T-05',
-    customerName: 'Test Customer',
-    staffName: 'Test Staff',
-    items: [
-      {
-        name: 'Premium Coffee',
-        quantity: 2,
-        unitPrice: 85.00,
-        totalPrice: 170.00,
-        notes: 'No sugar'
-      },
-      {
-        name: 'Club Sandwich',
-        quantity: 1,
-        unitPrice: 180.00,
-        totalPrice: 180.00
-      },
-      {
-        name: 'Caesar Salad',
-        quantity: 1,
-        unitPrice: 150.00,
-        totalPrice: 150.00
+  useEffect(() => {
+    // Check support for both printer types
+    const checkSupport = () => {
+      try {
+        const btSupported = typeof navigator !== 'undefined' && 'bluetooth' in navigator;
+        const usbSupported = typeof navigator !== 'undefined' && 'usb' in navigator;
+        
+        setBluetoothSupported(btSupported);
+        setUSBSupported(usbSupported);
+        
+        // Check connection status
+        setBluetoothConnected(bluetoothThermalPrinter.getConnectionStatus());
+        setUSBConnected(usbThermalPrinter.getConnectionStatus());
+        
+        // Get device info if connected
+        if (bluetoothThermalPrinter.getConnectionStatus()) {
+          setBluetoothDeviceInfo(bluetoothThermalPrinter.getDeviceInfo());
+        }
+        if (usbThermalPrinter.getConnectionStatus()) {
+          setUSBDeviceInfo(usbThermalPrinter.getDeviceInfo());
+        }
+      } catch (error) {
+        console.error('Error checking printer support:', error);
       }
-    ],
-    subtotal: 467.29,
-    vatAmount: 32.71,
-    totalAmount: 500.00,
-    paymentMethods: [
-      {
-        method: 'Cash',
-        amount: 300.00
-      },
-      {
-        method: 'PromptPay',
-        amount: 200.00
-      }
-    ]
-  };
+    };
 
-  // Generate test receipt using existing service
-  const generateTestReceipt = async () => {
+    checkSupport();
+    const interval = setInterval(checkSupport, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const connectBluetooth = async () => {
     setIsLoading(true);
-    setError(null);
-    setTestResult(null);
-
     try {
-      const response = await fetch('/api/test/receipt-generator', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          testData: sampleTestData,
-          format: format,
-          language: language
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+      const success = await bluetoothThermalPrinter.connect();
+      if (success) {
+        setBluetoothConnected(true);
+        setBluetoothDeviceInfo(bluetoothThermalPrinter.getDeviceInfo());
+        setLastResult({ success: true, message: 'Bluetooth printer connected successfully!' });
       }
-
-      if (format === 'thermal' || format === 'html') {
-        const content = await response.text();
-        setTestResult(content);
-      } else {
-        const data = await response.json();
-        setTestResult(JSON.stringify(data, null, 2));
-      }
-
-    } catch (err) {
-      console.error('Test receipt generation failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to generate test receipt');
+    } catch (error) {
+      setLastResult({ success: false, message: `Bluetooth connection failed: ${error}` });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Test actual receipt from database
-  const testExistingReceipt = async () => {
-    if (!receiptNumber.trim()) {
-      setError('Please enter a receipt number');
+  const connectUSB = async () => {
+    setIsLoading(true);
+    try {
+      const success = await usbThermalPrinter.connect();
+      if (success) {
+        setUSBConnected(true);
+        setUSBDeviceInfo(usbThermalPrinter.getDeviceInfo());
+        setLastResult({ success: true, message: 'USB printer connected successfully!' });
+      }
+    } catch (error) {
+      setLastResult({ success: false, message: `USB connection failed: ${error}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const disconnectBluetooth = async () => {
+    setIsLoading(true);
+    try {
+      await bluetoothThermalPrinter.disconnect();
+      setBluetoothConnected(false);
+      setBluetoothDeviceInfo(null);
+      setLastResult({ success: true, message: 'Bluetooth printer disconnected' });
+    } catch (error) {
+      setLastResult({ success: false, message: `Disconnect failed: ${error}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const disconnectUSB = async () => {
+    setIsLoading(true);
+    try {
+      await usbThermalPrinter.disconnect();
+      setUSBConnected(false);
+      setUSBDeviceInfo(null);
+      setLastResult({ success: true, message: 'USB printer disconnected' });
+    } catch (error) {
+      setLastResult({ success: false, message: `Disconnect failed: ${error}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const testPrintBluetooth = async () => {
+    if (!bluetoothConnected) {
+      setLastResult({ success: false, message: 'Please connect to Bluetooth printer first' });
       return;
     }
 
     setIsLoading(true);
-    setError(null);
-    setTestResult(null);
-
     try {
-      const response = await fetch(
-        `/api/pos/receipts/${receiptNumber}?format=${format}&language=${language}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Receipt not found or server error: ${response.status}`);
-      }
-
-      if (format === 'thermal' || format === 'html') {
-        const content = await response.text();
-        setTestResult(content);
-      } else {
-        const data = await response.json();
-        setTestResult(JSON.stringify(data, null, 2));
-      }
-
-    } catch (err) {
-      console.error('Receipt fetch failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch receipt');
+      await bluetoothThermalPrinter.testPrint();
+      setLastResult({ success: true, message: 'Bluetooth test print sent successfully!' });
+    } catch (error) {
+      setLastResult({ success: false, message: `Test print failed: ${error}` });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Download thermal content as file
-  const downloadThermalFile = () => {
-    if (!testResult) return;
+  const testPrintUSB = async () => {
+    if (!usbConnected) {
+      setLastResult({ success: false, message: 'Please connect to USB printer first' });
+      return;
+    }
 
-    const blob = new Blob([testResult], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `thermal-receipt-${receiptNumber || 'test'}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setIsLoading(true);
+    try {
+      await usbThermalPrinter.testPrint();
+      setLastResult({ success: true, message: 'USB test print sent successfully!' });
+    } catch (error) {
+      setLastResult({ success: false, message: `Test print failed: ${error}` });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Print thermal content (for testing with browser print dialog)
-  const printThermalContent = () => {
-    if (!testResult) return;
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Thermal Receipt Test</title>
-            <style>
-              body { 
-                font-family: 'Courier New', monospace; 
-                font-size: 12px; 
-                line-height: 1.2;
-                white-space: pre-wrap;
-                margin: 20px;
-              }
-            </style>
-          </head>
-          <body>${testResult}</body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
+  const printReceiptBluetooth = async () => {
+    if (!bluetoothConnected) {
+      setLastResult({ success: false, message: 'Please connect to Bluetooth printer first' });
+      return;
     }
+
+    if (!receiptNumber) {
+      setLastResult({ success: false, message: 'Please enter a receipt number' });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Call API to get receipt data
+      const response = await fetch('/api/pos/print-bluetooth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiptNumber })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        // Print using the service
+        await bluetoothThermalPrinter.printReceipt(result.receiptData);
+        setLastResult({ success: true, message: `Receipt ${receiptNumber} printed via Bluetooth!` });
+      } else {
+        setLastResult({ success: false, message: result.error || 'Receipt not found' });
+      }
+    } catch (error) {
+      setLastResult({ success: false, message: `Print failed: ${error}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const printReceiptUSB = async () => {
+    if (!usbConnected) {
+      setLastResult({ success: false, message: 'Please connect to USB printer first' });
+      return;
+    }
+
+    if (!receiptNumber) {
+      setLastResult({ success: false, message: 'Please enter a receipt number' });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Call API to get receipt data
+      const response = await fetch('/api/pos/print-bluetooth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiptNumber })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        // Print using the service
+        await usbThermalPrinter.printReceipt(result.receiptData);
+        setLastResult({ success: true, message: `Receipt ${receiptNumber} printed via USB!` });
+      } else {
+        setLastResult({ success: false, message: result.error || 'Receipt not found' });
+      }
+    } catch (error) {
+      setLastResult({ success: false, message: `Print failed: ${error}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const printBillBluetooth = async () => {
+    if (!bluetoothConnected) {
+      setLastResult({ success: false, message: 'Please connect to Bluetooth printer first' });
+      return;
+    }
+
+    if (!tableSessionId) {
+      setLastResult({ success: false, message: 'Please enter a table session ID' });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Call API to get bill data
+      const response = await fetch('/api/pos/print-bill-bluetooth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableSessionId })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        // Print using the service
+        await bluetoothThermalPrinter.printReceipt(result.billData);
+        setLastResult({ success: true, message: `Bill for table session ${tableSessionId} printed via Bluetooth!` });
+      } else {
+        setLastResult({ success: false, message: result.error || 'Bill not found' });
+      }
+    } catch (error) {
+      setLastResult({ success: false, message: `Print failed: ${error}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const printBillUSB = async () => {
+    if (!usbConnected) {
+      setLastResult({ success: false, message: 'Please connect to USB printer first' });
+      return;
+    }
+
+    if (!tableSessionId) {
+      setLastResult({ success: false, message: 'Please enter a table session ID' });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Call API to get bill data
+      const response = await fetch('/api/pos/print-bill-usb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableSessionId })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        // Print using the service
+        await usbThermalPrinter.printReceipt(result.billData);
+        setLastResult({ success: true, message: `Bill for table session ${tableSessionId} printed via USB!` });
+      } else {
+        setLastResult({ success: false, message: result.error || 'Bill not found' });
+      }
+    } catch (error) {
+      setLastResult({ success: false, message: `Print failed: ${error}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const testPrintWithDefaults = async () => {
+    setIsLoading(true);
+    try {
+      if (currentTab === 'bluetooth' && bluetoothConnected) {
+        await bluetoothThermalPrinter.testPrintWithDefaults();
+        setLastResult({ success: true, message: 'Bluetooth test receipt printed with default data!' });
+      } else if (currentTab === 'usb' && usbConnected) {
+        await usbThermalPrinter.testPrintWithDefaults();
+        setLastResult({ success: true, message: 'USB test receipt printed with default data!' });
+      } else {
+        setLastResult({ success: false, message: `Please connect to ${currentTab} printer first` });
+      }
+    } catch (error) {
+      setLastResult({ success: false, message: `Test receipt failed: ${error}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load preview data for receipt or bill
+  const loadPreview = async (type: 'normal' | 'tax' | 'bill') => {
+    if (type === 'bill') {
+      if (!tableSessionId) {
+        setLastResult({ success: false, message: 'Please enter a table session ID' });
+        return;
+      }
+    } else {
+      if (!receiptNumber) {
+        setLastResult({ success: false, message: 'Please enter a receipt number' });
+        return;
+      }
+    }
+    
+    setIsLoading(true);
+    try {
+      let response;
+      if (type === 'bill') {
+        // Get bill data from API  
+        response = await fetch(`/api/pos/bills/${tableSessionId}?format=json`);
+      } else {
+        // Get receipt data from API
+        response = await fetch(`/api/pos/receipts/${receiptNumber}?format=json&taxInvoice=${type === 'tax'}`);
+      }
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        setLastResult({ success: false, message: errorData.error || `Failed to load ${type === 'bill' ? 'bill' : 'receipt'}.` });
+        return;
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && (data.receiptData || data.billData)) {
+        const receiptData = data.receiptData || data.billData;
+        // Generate thermal preview
+        const thermalPreview = generateThermalPreview(receiptData, type === 'tax', type === 'bill');
+        
+        setPreviewData(thermalPreview);
+        setPreviewType(type);
+        setShowPreview(true);
+        setLastResult({ 
+          success: true, 
+          message: `${type === 'bill' ? 'Bill' : type === 'tax' ? 'Tax invoice' : 'Normal receipt'} preview loaded successfully!` 
+        });
+      } else {
+        setLastResult({ success: false, message: `Failed to load ${type === 'bill' ? 'bill' : 'receipt'} preview. Check if ${type === 'bill' ? 'table session ID' : 'receipt number'} exists.` });
+      }
+    } catch (error) {
+      setLastResult({ success: false, message: `Preview failed: ${error}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Generate thermal preview exactly like TaxInvoiceModal does
+  const generateThermalPreview = (receiptData: any, isTaxInvoice: boolean = false, isBill: boolean = false) => {
+    const width = 48; // 80mm thermal printer width
+    const lines: string[] = [];
+    
+    // Company name (larger effect)
+    lines.push(centerText('L E N G O L F   C O .   L T D .', width));
+    lines.push('');
+    
+    // Business info
+    lines.push(centerText('540 Mercury Tower, 4th Floor, Unit 407', width));
+    lines.push(centerText('Ploenchit Road, Lumpini, Pathumwan', width));
+    lines.push(centerText('Bangkok 10330', width));
+    lines.push(centerText('TAX ID: 0105566207013', width));
+    lines.push('');
+    
+    // Receipt type
+    if (isTaxInvoice) {
+      lines.push(centerText('Receipt / TAX Invoice (ABB)', width));
+    } else if (isBill) {
+      lines.push(centerText('BILL', width));
+    } else {
+      lines.push(centerText('RECEIPT', width));
+    }
+    lines.push('------------------------------------------------');
+    
+    // Receipt details
+    if (!isBill) {
+      lines.push(`Receipt No: ${receiptData.receiptNumber}`);
+    }
+    
+    if (receiptData.staffName) {
+      lines.push(`Staff: ${receiptData.staffName}`);
+    }
+    
+    // Guest count
+    const guestCount = receiptData.paxCount || 1;
+    lines.push(`Guests: ${guestCount}`);
+    
+    // Date and time
+    const transactionDate = receiptData.transactionDate ? new Date(receiptData.transactionDate) : new Date();
+    const dateStr = transactionDate.toLocaleDateString('en-GB', { year: '2-digit', month: '2-digit', day: '2-digit' });
+    const timeStr = transactionDate.toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit' });
+    const dateText = `Date: ${dateStr}`;
+    const timeText = `Time: ${timeStr}`;
+    const totalLength = dateText.length + timeText.length;
+    const spacing = ' '.repeat(Math.max(1, width - totalLength));
+    lines.push(`${dateText}${spacing}${timeText}`);
+    
+    lines.push('------------------------------------------------');
+    
+    // Items
+    if (receiptData.items) {
+      receiptData.items.forEach((item: any) => {
+        const qty = item.qty || 1;
+        const itemTotal = (item.price * qty) || 0;
+        const qtyStr = qty.toString();
+        const priceStr = itemTotal.toFixed(2);
+        const nameMaxLength = width - qtyStr.length - priceStr.length - 4;
+        const itemName = item.name.length > nameMaxLength ? 
+          item.name.substring(0, nameMaxLength - 3) + '...' : item.name;
+        
+        const spaces = ' '.repeat(Math.max(1, width - qtyStr.length - 4 - itemName.length - priceStr.length));
+        lines.push(`${qtyStr}    ${itemName}${spaces}${priceStr}`);
+      });
+    }
+    
+    lines.push('------------------------------------------------');
+    
+    // Items count
+    const itemCount = receiptData.items ? 
+      receiptData.items.reduce((sum: number, item: any) => sum + (item.qty || 1), 0) : 0;
+    lines.push(`Items: ${itemCount}`);
+    lines.push('');
+    
+    // Totals section
+    const leftAlign = 20;
+    
+    // Subtotal
+    const subtotalAmount = (receiptData.subtotal || 0).toFixed(2);
+    lines.push(`${' '.repeat(leftAlign)}Subtotal:${' '.repeat(width - leftAlign - 9 - subtotalAmount.length)}${subtotalAmount}`);
+    
+    // VAT
+    const vatAmount = (receiptData.tax || 0).toFixed(2);
+    lines.push(`${' '.repeat(leftAlign)}VAT(7%):${' '.repeat(width - leftAlign - 8 - vatAmount.length)}${vatAmount}`);
+    
+    // Double line under VAT
+    lines.push(`${' '.repeat(leftAlign)}============================`);
+    
+    // Total
+    const totalAmount = (receiptData.total || 0).toFixed(2);
+    lines.push(`${' '.repeat(leftAlign)}Total:${' '.repeat(width - leftAlign - 6 - totalAmount.length)}${totalAmount}`);
+    
+    lines.push('');
+    lines.push('------------------------------------------------');
+    
+    if (isBill) {
+      // For bills, show amount due and available payment options
+      const totalAmount = (receiptData.total || 0);
+      lines.push(`AMOUNT DUE: THB ${totalAmount.toFixed(2)}`);
+      lines.push('');
+      
+      lines.push('PAYMENT OPTIONS AVAILABLE:');
+      lines.push('• Cash');
+      lines.push('• PromptPay (QR Code)');
+      lines.push('• Visa/Mastercard (EDC)');
+      lines.push('• Alipay');
+    } else {
+      // Payment method
+      if (receiptData.paymentMethods && receiptData.paymentMethods.length > 0) {
+        receiptData.paymentMethods.forEach((payment: any) => {
+          const methodText = payment.method;
+          const amountText = payment.amount.toFixed(2);
+          const paymentSpacing = ' '.repeat(Math.max(1, width - methodText.length - amountText.length));
+          lines.push(`${methodText}${paymentSpacing}${amountText}`);
+        });
+      }
+    }
+    
+    lines.push('------------------------------------------------');
+    lines.push('');
+    
+    // Tax invoice specific additions
+    if (isTaxInvoice) {
+      lines.push('Customer Information:');
+      
+      // Use stored tax invoice customer information if available
+      if (receiptData.taxInvoiceData && receiptData.taxInvoiceData.customerName) {
+        lines.push(`Name: ${receiptData.taxInvoiceData.customerName}`);
+        
+        if (receiptData.taxInvoiceData.customerAddress) {
+          // Split long addresses into multiple lines
+          const addressLines = receiptData.taxInvoiceData.customerAddress.match(/.{1,46}/g) || [receiptData.taxInvoiceData.customerAddress];
+          addressLines.forEach((line: string, index: number) => {
+            lines.push(index === 0 ? `Address: ${line}` : `         ${line}`);
+          });
+        } else {
+          lines.push(`Address: [To be filled by customer]`);
+        }
+        
+        if (receiptData.taxInvoiceData.customerTaxId) {
+          lines.push(`Tax ID: ${receiptData.taxInvoiceData.customerTaxId}`);
+        } else {
+          lines.push(`Tax ID: [To be filled by customer]`);
+        }
+      } else {
+        // Fallback to basic customer name or placeholders
+        lines.push(`Name: ${receiptData.customerName || '[To be filled by customer]'}`);
+        lines.push(`Address: [To be filled by customer]`);
+        lines.push(`Tax ID: [To be filled by customer]`);
+      }
+      
+      lines.push('');
+    }
+    
+    // Footer
+    if (isBill) {
+      lines.push(centerText('Please present this bill when paying', width));
+      lines.push('');
+      lines.push(centerText('Staff will process your payment', width));
+      lines.push(centerText('and provide a receipt', width));
+    } else {
+      lines.push(centerText('May your next round be under par!', width));
+    }
+    lines.push(centerText('www.len.golf', width));
+    lines.push('');
+    
+    lines.push(centerText(`Generated: ${transactionDate.toLocaleString('th-TH')}`, width));
+    lines.push(centerText('Powered by Lengolf POS System', width));
+    
+    if (isTaxInvoice) {
+      // Signature section
+      lines.push('');
+      lines.push(centerText('________________________', width));
+      lines.push(centerText('Signature Cashier', width));
+      lines.push('');
+      
+      // ABB reference
+      lines.push(`Issued to replace the TAX Invoice (ABB)`);
+      lines.push(`number: ${receiptData.receiptNumber}`);
+    }
+    
+    return lines.join('\n');
+  };
+
+  // Helper function to center text
+  const centerText = (text: string, width: number): string => {
+    const padding = Math.max(0, Math.floor((width - text.length) / 2));
+    return ' '.repeat(padding) + text;
   };
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Receipt Printer Test</h1>
-        <p className="text-muted-foreground mt-2">
-          Test receipt generation and printing capabilities for your Bluetooth thermal printer
-        </p>
-      </div>
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <Printer className="w-8 h-8 text-blue-600" />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Unified Thermal Printer Test</h1>
+            <p className="text-gray-600">Test both Bluetooth and USB thermal printing with live preview (no connection required for preview)</p>
+          </div>
+        </div>
 
-      <Tabs defaultValue="test-receipt" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="test-receipt">Generate Test Receipt</TabsTrigger>
-          <TabsTrigger value="existing-receipt">Test Existing Receipt</TabsTrigger>
-        </TabsList>
+        {/* Tab Selection */}
+        <div className="flex mb-6 border-b">
+          <button
+            className={`px-4 py-2 font-medium flex items-center gap-2 border-b-2 ${
+              currentTab === 'bluetooth' 
+                ? 'border-blue-500 text-blue-600' 
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setCurrentTab('bluetooth')}
+          >
+            <Bluetooth className="w-4 h-4" />
+            Bluetooth Printing
+          </button>
+          <button
+            className={`px-4 py-2 font-medium flex items-center gap-2 border-b-2 ${
+              currentTab === 'usb' 
+                ? 'border-blue-500 text-blue-600' 
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setCurrentTab('usb')}
+          >
+            <Usb className="w-4 h-4" />
+            USB Printing
+          </button>
+        </div>
 
-        <TabsContent value="test-receipt" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Printer className="h-5 w-5" />
-                Generate Test Receipt
-              </CardTitle>
-              <CardDescription>
-                Generate a sample receipt using predefined test data to test your printer
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="format">Receipt Format</Label>
-                  <Select value={format} onValueChange={(value: 'json' | 'html' | 'thermal') => setFormat(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="thermal">Thermal (58mm)</SelectItem>
-                      <SelectItem value="html">HTML (A4)</SelectItem>
-                      <SelectItem value="json">JSON Data</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="language">Language</Label>
-                  <Select value={language} onValueChange={(value: 'en' | 'th') => setLanguage(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="th">Thai</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        {/* Bluetooth Tab */}
+        {currentTab === 'bluetooth' && (
+          <div className="space-y-6">
+            {/* Support Status */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Smartphone className="w-5 h-5" />
+                <span className="font-medium">Bluetooth Support Status</span>
               </div>
-              
-              <Button 
-                onClick={generateTestReceipt} 
-                disabled={isLoading}
-                className="w-full"
-              >
-                {isLoading ? 'Generating...' : 'Generate Test Receipt'}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              <div className="flex items-center gap-2">
+                {bluetoothSupported ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600" />
+                )}
+                <span className={bluetoothSupported ? 'text-green-600' : 'text-red-600'}>
+                  {bluetoothSupported ? 'Web Bluetooth API supported' : 'Web Bluetooth API not supported'}
+                </span>
+              </div>
+              {!bluetoothSupported && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Use Chrome or Edge browser on Android/Windows for Bluetooth printing support.
+                </p>
+              )}
+            </div>
 
-        <TabsContent value="existing-receipt" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Test Existing Receipt
-              </CardTitle>
-              <CardDescription>
-                Enter a receipt number from your database to test actual receipt data
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            {/* Connection Status */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Bluetooth className="w-5 h-5" />
+                <span className="font-medium">Connection Status</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {bluetoothConnected ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600" />
+                )}
+                <span className={bluetoothConnected ? 'text-green-600' : 'text-red-600'}>
+                  {bluetoothConnected ? 'Connected to Bluetooth printer' : 'Not connected'}
+                </span>
+              </div>
+              {bluetoothDeviceInfo && (
+                <div className="mt-2 text-sm text-gray-600">
+                  <p><strong>Device:</strong> {bluetoothDeviceInfo.name || 'Unknown'}</p>
+                  <p><strong>ID:</strong> {bluetoothDeviceInfo.id}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Connection Controls */}
+            <div className="flex gap-3">
+              <Button
+                onClick={connectBluetooth}
+                disabled={!bluetoothSupported || bluetoothConnected || isLoading}
+                className="flex items-center gap-2"
+              >
+                <Bluetooth className="w-4 h-4" />
+                Connect Bluetooth
+              </Button>
+              <Button
+                onClick={disconnectBluetooth}
+                disabled={!bluetoothConnected || isLoading}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <XCircle className="w-4 h-4" />
+                Disconnect
+              </Button>
+            </div>
+
+            {/* Test Controls */}
+            <div className="flex gap-3">
+              <Button
+                onClick={testPrintBluetooth}
+                disabled={!bluetoothConnected || isLoading}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <TestTube className="w-4 h-4" />
+                Test Print
+              </Button>
+              <Button
+                onClick={testPrintWithDefaults}
+                disabled={!bluetoothConnected || isLoading}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                Test Receipt (Default Data)
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* USB Tab */}
+        {currentTab === 'usb' && (
+          <div className="space-y-6">
+            {/* Support Status */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Usb className="w-5 h-5" />
+                <span className="font-medium">USB Support Status</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {usbSupported ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600" />
+                )}
+                <span className={usbSupported ? 'text-green-600' : 'text-red-600'}>
+                  {usbSupported ? 'WebUSB API supported' : 'WebUSB API not supported'}
+                </span>
+              </div>
+              {!usbSupported && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Use Chrome or Edge browser for WebUSB printing support.
+                </p>
+              )}
+            </div>
+
+            {/* Connection Status */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Usb className="w-5 h-5" />
+                <span className="font-medium">Connection Status</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {usbConnected ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600" />
+                )}
+                <span className={usbConnected ? 'text-green-600' : 'text-red-600'}>
+                  {usbConnected ? 'Connected to USB printer' : 'Not connected'}
+                </span>
+              </div>
+              {usbDeviceInfo && (
+                <div className="mt-2 text-sm text-gray-600">
+                  <p><strong>Device:</strong> {usbDeviceInfo.product || 'Unknown'}</p>
+                  <p><strong>Manufacturer:</strong> {usbDeviceInfo.manufacturer || 'Unknown'}</p>
+                  <p><strong>Vendor ID:</strong> 0x{usbDeviceInfo.vendorId}</p>
+                  <p><strong>Product ID:</strong> 0x{usbDeviceInfo.productId}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Connection Controls */}
+            <div className="flex gap-3">
+              <Button
+                onClick={connectUSB}
+                disabled={!usbSupported || usbConnected || isLoading}
+                className="flex items-center gap-2"
+              >
+                <Usb className="w-4 h-4" />
+                Connect USB
+              </Button>
+              <Button
+                onClick={disconnectUSB}
+                disabled={!usbConnected || isLoading}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <XCircle className="w-4 h-4" />
+                Disconnect
+              </Button>
+            </div>
+
+            {/* Test Controls */}
+            <div className="flex gap-3">
+              <Button
+                onClick={testPrintUSB}
+                disabled={!usbConnected || isLoading}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <TestTube className="w-4 h-4" />
+                Test Print
+              </Button>
+              <Button
+                onClick={testPrintWithDefaults}
+                disabled={!usbConnected || isLoading}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                Test Receipt (Default Data)
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Receipt Testing & Preview */}
+        <div className="border-t pt-6">
+          <h3 className="text-lg font-semibold mb-4">Receipt & Bill Testing & Preview</h3>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="receiptNumber">Receipt Number</Label>
                 <Input
                   id="receiptNumber"
-                  placeholder="e.g., RCP-20250126-001"
+                  type="text"
+                  placeholder="e.g., R20250727-0146"
                   value={receiptNumber}
                   onChange={(e) => setReceiptNumber(e.target.value)}
                 />
+                <p className="text-sm text-gray-500 mt-1">
+                  For testing existing receipts
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="tableSessionId">Table Session ID</Label>
+                <Input
+                  id="tableSessionId"
+                  type="text"
+                  placeholder="e.g., 1, 123, abc-def-ghi"
+                  value={tableSessionId}
+                  onChange={(e) => setTableSessionId(e.target.value)}
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  For testing bill printing
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500">
+              💡 Preview works without printer connection - just enter IDs to see how they will look
+            </p>
+            
+            {/* Preview Controls - No printer connection required */}
+            <div className="space-y-3">
+              <div className="flex gap-3 flex-wrap">
+                <Button
+                  onClick={() => loadPreview('normal')}
+                  disabled={isLoading || !receiptNumber}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Eye className="w-4 h-4" />
+                  Preview Normal Receipt
+                </Button>
+                <Button
+                  onClick={() => loadPreview('tax')}
+                  disabled={isLoading || !receiptNumber}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Preview Tax Invoice
+                </Button>
+                <Button
+                  onClick={() => loadPreview('bill')}
+                  disabled={isLoading || !tableSessionId}
+                  variant="outline"
+                  className="flex items-center gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+                >
+                  <Receipt className="w-4 h-4" />
+                  Preview Bill
+                </Button>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="format">Receipt Format</Label>
-                  <Select value={format} onValueChange={(value: 'json' | 'html' | 'thermal') => setFormat(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="thermal">Thermal (58mm)</SelectItem>
-                      <SelectItem value="html">HTML (A4)</SelectItem>
-                      <SelectItem value="json">JSON Data</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="language">Language</Label>
-                  <Select value={language} onValueChange={(value: 'en' | 'th') => setLanguage(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="th">Thai</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="flex gap-3 flex-wrap">
+                <Button
+                  onClick={currentTab === 'bluetooth' ? printReceiptBluetooth : printReceiptUSB}
+                  disabled={
+                    (!bluetoothConnected && currentTab === 'bluetooth') || 
+                    (!usbConnected && currentTab === 'usb') || 
+                    isLoading || 
+                    !receiptNumber
+                  }
+                  className="flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print Receipt via {currentTab === 'bluetooth' ? 'Bluetooth' : 'USB'}
+                </Button>
+                <Button
+                  onClick={currentTab === 'bluetooth' ? printBillBluetooth : printBillUSB}
+                  disabled={
+                    (!bluetoothConnected && currentTab === 'bluetooth') || 
+                    (!usbConnected && currentTab === 'usb') || 
+                    isLoading || 
+                    !tableSessionId
+                  }
+                  variant="outline"
+                  className="flex items-center gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+                >
+                  <FileText className="w-4 h-4" />
+                  Print Bill via {currentTab === 'bluetooth' ? 'Bluetooth' : 'USB'}
+                </Button>
               </div>
-              
-              <Button 
-                onClick={testExistingReceipt} 
-                disabled={isLoading || !receiptNumber.trim()}
-                className="w-full"
+            </div>
+          </div>
+        </div>
+        
+        {/* Preview Section */}
+        {showPreview && previewData && (
+          <div className="border-t pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Receipt className="w-5 h-5" />
+                {previewType === 'bill' ? 'Bill Preview' : `Receipt Preview - ${previewType === 'tax' ? 'Tax Invoice' : 'Normal Receipt'}`}
+              </h3>
+              <Button
+                onClick={() => setShowPreview(false)}
+                variant="ghost"
+                size="sm"
               >
-                {isLoading ? 'Loading...' : 'Test Receipt'}
+                <XCircle className="w-4 h-4" />
               </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {testResult && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Receipt Output ({format.toUpperCase()})
-              <div className="flex gap-2">
-                {format === 'thermal' && (
-                  <>
-                    <Button variant="outline" size="sm" onClick={downloadThermalFile}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={printThermalContent}>
-                      <Printer className="h-4 w-4 mr-2" />
-                      Print Test
-                    </Button>
-                  </>
-                )}
+            </div>
+            
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+              {/* Thermal Receipt Preview - exactly like TaxInvoiceModal */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 font-mono text-sm text-gray-900 whitespace-pre-wrap overflow-auto max-h-96" style={{fontFamily: 'Courier New, monospace'}}>
+                {previewData}
               </div>
-            </CardTitle>
-            <CardDescription>
-              {format === 'thermal' && 'Ready for thermal printer (58mm width)'}
-              {format === 'html' && 'HTML format for A4 printing'}
-              {format === 'json' && 'Raw JSON data structure'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {format === 'html' ? (
-              <div 
-                className="border rounded p-4 bg-white"
-                dangerouslySetInnerHTML={{ __html: testResult }}
-              />
-            ) : (
-              <Textarea
-                value={testResult}
-                readOnly
-                className="font-mono text-sm min-h-[400px]"
-              />
-            )}
-          </CardContent>
-        </Card>
-      )}
+              <div className="border-t border-gray-200 pt-3 mt-4">
+                <p className="text-xs text-gray-500 text-center">
+                  80mm thermal printer output preview (48 characters wide)
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {format === 'thermal' && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Bluetooth Printer Tips:</strong>
-            <br />• Download the thermal file and send it directly to your printer
-            <br />• Use your printer&apos;s mobile app or driver software 
-            <br />• Most thermal printers support plain text files
-            <br />• 58mm width format is standard for receipt printers
-          </AlertDescription>
-        </Alert>
-      )}
+        {/* Results */}
+        {lastResult && (
+          <div className={`mt-6 p-4 rounded-lg ${
+            lastResult.success 
+              ? 'bg-green-50 border border-green-200' 
+              : 'bg-red-50 border border-red-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              {lastResult.success ? (
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              ) : (
+                <XCircle className="w-5 h-5 text-red-600" />
+              )}
+              <span className={`font-medium ${
+                lastResult.success ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {lastResult.success ? 'Success' : 'Error'}
+              </span>
+            </div>
+            <p className={`mt-1 text-sm ${
+              lastResult.success ? 'text-green-700' : 'text-red-700'
+            }`}>
+              {lastResult.message}
+            </p>
+          </div>
+        )}
+
+        {/* Loading Indicator */}
+        {isLoading && (
+          <div className="mt-6 flex items-center justify-center p-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Processing...</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

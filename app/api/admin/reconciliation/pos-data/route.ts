@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { isUserAdmin } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
@@ -16,7 +16,7 @@ const supabase = createClient(
 export async function GET(request: NextRequest) {
   try {
     // Verify admin access
-    const session = await getServerSession(authOptions);
+    const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
@@ -138,68 +138,59 @@ export async function GET(request: NextRequest) {
       };
 
     } else {
-      // Golf coaching reconciliation: aggregated lesson usage
-      // Original filters:
-      // - Ratchavin: "product_name = '1 Golf Lesson Used' or product_name = '1 Golf Lesson Used (Ratchavin)'"
-      // - Boss: "product_name = '1 Golf Lesson Used' or product_name = '1 Golf Lesson Used (Boss)'"
+      // Golf coaching reconciliation: use coach earnings data instead of POS sales
+      // This provides actual monetary value of lessons delivered
       
-      const productNames = reconciliationType === 'golf_coaching_ratchavin'
-        ? ['1 Golf Lesson Used', '1 Golf Lesson Used (Ratchavin)']
+      const coachName = reconciliationType === 'golf_coaching_ratchavin'
+        ? 'RATCHAVIN'
         : reconciliationType === 'golf_coaching_boss'
-          ? ['1 Golf Lesson Used', '1 Golf Lesson Used (Boss)']
+          ? 'BOSS'
           : reconciliationType === 'golf_coaching_noon'
-            ? ['1 Golf Lesson Used', '1 Golf Lesson Used (Noon)']
-            : ['1 Golf Lesson Used']; // fallback
+            ? 'NOON'
+            : null;
 
-      const { data: golfData, error } = await supabase
-        .schema('pos')
-        .from('lengolf_sales')
+      if (!coachName) {
+        return NextResponse.json({
+          error: 'Invalid golf coaching reconciliation type',
+          details: `Unknown coach for type: ${reconciliationType}`
+        }, { status: 400 });
+      }
+
+      const { data: earningsData, error } = await supabase
+        .schema('backoffice')
+        .from('coach_earnings')
         .select(`
           date,
           customer_name,
-          product_name,
-          item_cnt,
-          item_price_incl_vat
+          rate_type,
+          hour_cnt,
+          coach_earnings,
+          receipt_number
         `)
+        .eq('coach', coachName)
         .gte('date', startDate)
         .lte('date', endDate)
-        .in('product_name', productNames)
-        .or('is_voided.is.null,is_voided.eq.false')
         .order('date', { ascending: true })
         .order('customer_name', { ascending: true });
 
       if (error) {
-        console.error('Supabase error (golf coaching):', error);
+        console.error('Supabase error (coach earnings):', error);
         return NextResponse.json({
-          error: 'Failed to fetch golf coaching data',
+          error: 'Failed to fetch coach earnings data',
           details: error.message
         }, { status: 500 });
       }
 
-      // Aggregate by date, customer, and product
-      const aggregated = new Map<string, any>();
-
-      golfData?.forEach(item => {
-        const key = `${item.date}_${item.customer_name}_${item.product_name}`;
-        
-        if (aggregated.has(key)) {
-          const existing = aggregated.get(key);
-          existing.totalQuantity += (item.item_cnt || 0);
-          existing.totalAmount += parseFloat(item.item_price_incl_vat || '0');
-          existing.transactionCount += 1;
-        } else {
-          aggregated.set(key, {
-            date: item.date,
-            customerName: item.customer_name,
-            productName: item.product_name,
-            totalQuantity: item.item_cnt || 0,
-            totalAmount: parseFloat(item.item_price_incl_vat || '0'),
-            transactionCount: 1
-          });
-        }
-      });
-
-      data = Array.from(aggregated.values());
+      // Transform earnings data to match POS record interface
+      data = earningsData?.map(earning => ({
+        date: earning.date,
+        customerName: earning.customer_name || 'Unknown',
+        productName: `${earning.rate_type} Lesson`,
+        totalQuantity: earning.hour_cnt || 1,
+        totalAmount: parseFloat(earning.coach_earnings || '0'),
+        transactionCount: 1,
+        receiptNumber: earning.receipt_number
+      })) || [];
 
       summary = {
         totalRecords: data.length,

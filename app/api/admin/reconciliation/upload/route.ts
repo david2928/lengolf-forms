@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { parse } from 'csv-parse/sync';
 import * as XLSX from 'xlsx';
@@ -79,12 +79,24 @@ const PARSING_CONFIGS = {
     },
     dateFormats: ['M/D/YYYY', 'MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD', 'DD-MM-YYYY'],
     currencySymbols: ['฿', 'THB', '$', 'บาท']
+  },
+  golf_coaching_noon: {
+    expectedColumns: {
+      date: ['Date', 'Lesson Date', 'Class Date', 'date', 'วันที่', 'เวลา', 'Date/Time'],
+      customer: ['Name', 'Student', 'Student Name', 'Customer', 'customer_name', 'ชื่อ', 'ลูกค้า'],
+      quantity: ['QTY', 'Qty', 'Lessons', 'Lesson Count', 'Sessions', 'quantity', 'จำนวน', 'จำนวนครั้ง', 'Count'],
+      amount: ['AMOUNT', 'Amount', 'Total', 'Fee', 'Price', 'total_amount', 'ราคา', 'จำนวนเงิน'],
+      unitPrice: ['UNIT PRICE', 'Unit Price', 'Per Lesson', 'Lesson Fee', 'Rate', 'unit_price', 'ราคาต่อครั้ง'],
+      product: ['Type', 'Service', 'Lesson Type', 'Product', 'บริการ', 'ประเภท']
+    },
+    dateFormats: ['M/D/YYYY', 'MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD', 'DD-MM-YYYY'],
+    currencySymbols: ['฿', 'THB', '$', 'บาท']
   }
 };
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getDevSession(authOptions, request);
     if (!session?.user?.email || !session.user.isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

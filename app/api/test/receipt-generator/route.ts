@@ -1,8 +1,102 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
-import { receiptGenerator } from '@/services/ReceiptGenerator';
-import { ReceiptData, PaymentMethod } from '@/types/payment';
+import { ReceiptFormatter, type ReceiptData } from '@/lib/receipt-formatter';
+import { PaymentMethod } from '@/types/payment';
+
+// Simple HTML test receipt generator
+function generateTestHTMLReceipt(receiptData: ReceiptData): string {
+  const receiptType = receiptData.isTaxInvoice ? 'TAX INVOICE (ABB)' : 'TEST RECEIPT';
+  const transactionDate = receiptData.transactionDate ? new Date(receiptData.transactionDate) : new Date();
+  
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TEST - ${receiptType} - ${receiptData.receiptNumber}</title>
+  <style>
+    body { font-family: 'Courier New', monospace; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+    .test-notice { background: #e3f2fd; text-align: center; padding: 10px; margin-bottom: 20px; font-weight: bold; border: 2px dashed #2196f3; }
+    .company-name { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+    .receipt-type { font-size: 18px; font-weight: bold; background: #f0f0f0; padding: 5px; }
+    .details { margin: 20px 0; }
+    .items { margin: 20px 0; }
+    .items table { width: 100%; border-collapse: collapse; }
+    .items th, .items td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+    .totals { margin-top: 20px; text-align: right; }
+    .total-line { font-weight: bold; font-size: 18px; border-top: 2px solid #000; padding-top: 5px; }
+    .footer { margin-top: 30px; text-align: center; font-style: italic; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="test-notice">🧪 TEST RECEIPT - FOR DEVELOPMENT TESTING ONLY 🧪</div>
+  
+  <div class="header">
+    <div class="company-name">LENGOLF CO. LTD.</div>
+    <div>540 Mercury Tower, 4th Floor, Unit 407</div>
+    <div>Ploenchit Road, Lumpini, Pathumwan</div>
+    <div>Bangkok 10330</div>
+    <div>TAX ID: 0105566207013</div>
+    <br>
+    <div class="receipt-type">${receiptType}</div>
+  </div>
+  
+  <div class="details">
+    <strong>Receipt No:</strong> ${receiptData.receiptNumber}<br>
+    <strong>Date:</strong> ${transactionDate.toLocaleDateString('en-GB')} ${transactionDate.toLocaleTimeString('en-GB', { hour12: false })}<br>
+    ${receiptData.staffName ? `<strong>Staff:</strong> ${receiptData.staffName}<br>` : ''}
+    ${receiptData.customerName ? `<strong>Customer:</strong> ${receiptData.customerName}<br>` : ''}
+    ${receiptData.tableNumber ? `<strong>Table:</strong> ${receiptData.tableNumber}<br>` : ''}
+    <strong>Guests:</strong> ${receiptData.paxCount || 1}
+  </div>
+  
+  <div class="items">
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Qty</th>
+          <th>Price</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${receiptData.items.map(item => `
+          <tr>
+            <td>${item.name}${item.notes ? `<br><small><em>${item.notes}</em></small>` : ''}</td>
+            <td>${item.qty}</td>
+            <td>฿${item.price.toFixed(2)}</td>
+            <td>฿${(item.price * item.qty).toFixed(2)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="totals">
+    <div>Subtotal: ฿${receiptData.subtotal.toFixed(2)}</div>
+    <div>VAT (7%): ฿${receiptData.tax.toFixed(2)}</div>
+    <div class="total-line">Total: ฿${receiptData.total.toFixed(2)}</div>
+    
+    <div style="margin-top: 20px;">
+      <strong>Payment:</strong><br>
+      ${receiptData.paymentMethods.map(payment => 
+        `${payment.method}: ฿${payment.amount.toFixed(2)}`
+      ).join('<br>')}
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>🧪 This is a test receipt for development purposes only!</p>
+    <p>www.len.golf</p>
+    <p><small>Test Generated: ${new Date().toLocaleString('th-TH')}<br>
+    Powered by Lengolf POS System</small></p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
 
 interface TestReceiptData {
   receiptNumber: string;
@@ -54,35 +148,26 @@ export async function POST(request: NextRequest) {
 
     // Convert test data to ReceiptData format
     const receiptData: ReceiptData = {
-      transactionId: `test-${Date.now()}`,
       receiptNumber: testData.receiptNumber,
-      businessInfo: {
-        name: "Lengolf Golf Club",
-        address: "123 Golf Course Road, Bangkok 10120",
-        taxId: "1234567890123",
-        phone: "02-123-4567"
-      },
-      transaction: {
-        date: new Date(),
-        tableNumber: testData.tableNumber,
-        staffName: testData.staffName,
-        customerName: testData.customerName,
-        items: testData.items.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.totalPrice,
-          notes: item.notes
-        })),
-        subtotal: testData.subtotal,
-        vatAmount: testData.vatAmount,
-        totalAmount: testData.totalAmount,
-        paymentMethods: testData.paymentMethods
-      },
-      footer: {
-        thankYouMessage: "Thank you for dining with us!",
-        returnPolicy: "Returns accepted within 24 hours with receipt."
-      }
+      transactionDate: new Date().toISOString(),
+      staffName: testData.staffName,
+      customerName: testData.customerName,
+      tableNumber: testData.tableNumber,
+      paxCount: 1,
+      items: testData.items.map(item => ({
+        name: item.name,
+        qty: item.quantity,
+        price: item.unitPrice,
+        notes: item.notes
+      })),
+      subtotal: testData.subtotal,
+      tax: testData.vatAmount,
+      total: testData.totalAmount,
+      paymentMethods: testData.paymentMethods.map(pm => ({
+        method: pm.method,
+        amount: pm.amount
+      })),
+      isTaxInvoice: false
     };
 
     console.log('✅ Test Receipt Generator: Receipt data prepared');
@@ -90,7 +175,8 @@ export async function POST(request: NextRequest) {
     // Return different formats based on request
     switch (format) {
       case 'html':
-        const htmlContent = receiptGenerator.generateHTMLReceipt(receiptData, language as 'th' | 'en');
+        // Simple HTML test receipt
+        const htmlContent = generateTestHTMLReceipt(receiptData);
         return new NextResponse(htmlContent, {
           headers: {
             'Content-Type': 'text/html',
@@ -99,19 +185,25 @@ export async function POST(request: NextRequest) {
         });
 
       case 'thermal':
-        const thermalContent = width === '80mm' 
-          ? receiptGenerator.generateThermalReceipt80mm(receiptData, language as 'th' | 'en')
-          : receiptGenerator.generateThermalReceipt(receiptData, language as 'th' | 'en');
-        return new NextResponse(thermalContent, {
+        // Generate ESC/POS thermal test receipt
+        const escposData = ReceiptFormatter.generateESCPOSData(receiptData);
+        const thermalText = Array.from(escposData)
+          .map(byte => String.fromCharCode(byte))
+          .join('');
+        return new NextResponse(thermalText, {
           headers: {
             'Content-Type': 'text/plain',
-            'Content-Disposition': `attachment; filename="test-receipt-${width}-${testData.receiptNumber}.txt"`
+            'Content-Disposition': `attachment; filename="test-receipt-thermal-${testData.receiptNumber}.txt"`
           }
         });
 
       case 'thermal80':
-        const thermal80Content = receiptGenerator.generateThermalReceipt80mm(receiptData, language as 'th' | 'en');
-        return new NextResponse(thermal80Content, {
+        // Legacy support - map to thermal
+        const escpos80Data = ReceiptFormatter.generateESCPOSData(receiptData);
+        const thermal80Text = Array.from(escpos80Data)
+          .map(byte => String.fromCharCode(byte))
+          .join('');
+        return new NextResponse(thermal80Text, {
           headers: {
             'Content-Type': 'text/plain',
             'Content-Disposition': `attachment; filename="test-receipt-80mm-${testData.receiptNumber}.txt"`
@@ -122,8 +214,14 @@ export async function POST(request: NextRequest) {
       default:
         return NextResponse.json({
           success: true,
-          receipt: receiptData,
-          summary: receiptGenerator.generateReceiptSummary(receiptData),
+          receiptData: receiptData,
+          summary: {
+            receiptNumber: receiptData.receiptNumber,
+            totalAmount: receiptData.total,
+            itemCount: receiptData.items.length,
+            paymentMethods: receiptData.paymentMethods.map(p => p.method),
+            date: new Date(receiptData.transactionDate || new Date()).toLocaleDateString()
+          },
           testMetadata: {
             generated: new Date().toISOString(),
             format: format,

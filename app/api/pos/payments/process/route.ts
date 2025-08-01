@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { PaymentProcessingRequest, PaymentProcessingResponse, PaymentError } from '@/types/payment';
-import { fastPaymentProcessor } from '@/services/FastPaymentProcessor';
+import { posTransactionService } from '@/services/POSTransactionService';
+import { tableSessionService } from '@/services/TableSessionService';
 
 export async function POST(request: NextRequest) {
   const session = await getDevSession(authOptions, request);
@@ -13,21 +14,12 @@ export async function POST(request: NextRequest) {
   try {
     const startTime = Date.now();
     const body: PaymentProcessingRequest = await request.json();
-    console.log('🔍 Payment processing request received:', JSON.stringify(body, null, 2));
     
     const { orderId, tableSessionId, paymentMethods, staffPin, staffId, staffName, customerName, tableNumber, closeTableSession = true } = body;
 
-    // Debug validation inputs
-    console.log('🔍 Validation check:');
-    console.log('  - tableSessionId:', tableSessionId);
-    console.log('  - paymentMethods:', paymentMethods);
-    console.log('  - staffPin:', staffPin ? '***' : 'undefined');
-    console.log('  - staffId:', staffId);
-    console.log('  - staffName:', staffName);
 
     // Validate required fields
     if (!tableSessionId || !paymentMethods || paymentMethods.length === 0) {
-      console.log('❌ Validation failed: Missing required fields');
       return NextResponse.json({
         success: false,
         errors: ['Table session ID and payment methods are required']
@@ -41,7 +33,6 @@ export async function POST(request: NextRequest) {
     if (staffPin && staffPin.trim().length > 0) {
       // ALWAYS verify PIN against database for payment authorization
       const pinStartTime = Date.now();
-      console.log('🔍 Verifying staff PIN for payment authorization...');
       
       // Direct database verification instead of HTTP call for better performance
       const { getStaffIdFromPin } = await import('@/lib/staff-helpers');
@@ -55,10 +46,8 @@ export async function POST(request: NextRequest) {
         error: 'Invalid PIN or inactive staff' 
       };
       
-      console.log(`⏱️ PIN verification took: ${Date.now() - pinStartTime}ms`);
       
       if (!verifyResult.success) {
-        console.log('❌ Staff PIN verification failed');
         return NextResponse.json({
           success: false,
           requiresStaffAuth: true,
@@ -68,10 +57,8 @@ export async function POST(request: NextRequest) {
       
       validatedStaffId = verifyResult.staff?.id;
       validatedStaffName = verifyResult.staff?.staff_name;
-      console.log('✅ Staff PIN verified for payment:', { id: validatedStaffId, name: validatedStaffName });
     } else {
       // No PIN provided - require staff authentication
-      console.log('❌ Validation failed: Staff PIN required for payment authorization');
       return NextResponse.json({
         success: false,
         requiresStaffAuth: true,
@@ -79,12 +66,10 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('✅ Basic validation passed, proceeding to payment completion...');
-    console.log('🔍 Payment API: closeTableSession flag:', closeTableSession);
 
-    // Process payment using simplified processor
+    // Step 1: Create POS transaction
     const paymentStartTime = Date.now();
-    const transaction = await fastPaymentProcessor.processPayment(
+    const transaction = await posTransactionService.createTransaction(
       tableSessionId,
       paymentMethods,
       validatedStaffId!, // Use validated staff ID directly
@@ -94,8 +79,20 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    console.log(`⏱️ Payment completion took: ${Date.now() - paymentStartTime}ms`);
-    console.log(`⏱️ Total API processing time: ${Date.now() - startTime}ms`);
+    // Step 2: Close table session if requested
+    if (closeTableSession !== false) {
+      try {
+        const staffPin = body.staffPin!; // We already validated this above
+        await tableSessionService.completeSessionWithPayment(
+          tableSessionId,
+          staffPin,
+          'Payment completed via POS'
+        );
+      } catch (error) {
+        // Don't fail the whole payment if table closing fails
+      }
+    }
+
 
     // Return successful response
     const response: PaymentProcessingResponse = {

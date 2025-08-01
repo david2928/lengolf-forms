@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { POSProduct } from '@/types/pos';
 import { Plus, Star, AlertCircle, Package, Info } from 'lucide-react';
 
@@ -100,9 +101,11 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
       <div className="p-4 flex items-center space-x-4">
         {/* Product Image */}
         <div className="relative flex-shrink-0">
-          <img
+          <Image
             src={getImageUrl()}
             alt={product.name}
+            width={64}
+            height={64}
             className="w-16 h-16 object-cover rounded-lg"
             loading="lazy"
             onError={(e) => {

@@ -52,52 +52,7 @@ export default function FileUploadForm({
     preview: null
   });
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
-    // Handle rejected files
-    if (rejectedFiles.length > 0) {
-      const errors = rejectedFiles.map(rejection => 
-        rejection.errors.map((err: any) => err.message).join(', ')
-      ).join('; ');
-      setUploadState(prev => ({ ...prev, error: `File rejected: ${errors}` }));
-      return;
-    }
-
-    // Handle accepted file - automatically process it
-    if (acceptedFiles.length > 0) {
-      const file = acceptedFiles[0];
-      setUploadState(prev => ({ 
-        ...prev, 
-        file, 
-        error: null,
-        preview: null 
-      }));
-      
-      // Auto-process the file
-      setTimeout(() => {
-        processFileImmediately(file);
-      }, 100);
-    }
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: ACCEPTED_FILE_TYPES,
-    maxSize: MAX_FILE_SIZE,
-    maxFiles: 1,
-    disabled: uploadState.uploading
-  });
-
-  const clearFile = () => {
-    setUploadState({
-      file: null,
-      uploading: false,
-      progress: 0,
-      error: null,
-      preview: null
-    });
-  };
-
-  const startReconciliation = async (uploadResult: any, detectedDateRange: { start: string; end: string }) => {
+  const startReconciliation = useCallback(async (uploadResult: any, detectedDateRange: { start: string; end: string }) => {
     if (!onReconciliationComplete) return;
     
     try {
@@ -129,9 +84,9 @@ export default function FileUploadForm({
       console.error('Auto-reconciliation error:', error);
       // Still show the upload result even if reconciliation fails
     }
-  };
+  }, [onReconciliationComplete, reconciliationType]);
 
-  const processFileImmediately = async (file: File) => {
+  const processFileImmediately = useCallback(async (file: File) => {
     setUploadState(prev => ({ ...prev, uploading: true, error: null, progress: 0 }));
 
     try {
@@ -191,6 +146,51 @@ export default function FileUploadForm({
         error: errorMessage 
       }));
     }
+  }, [reconciliationType, dateRange, onFileProcessed, onReconciliationComplete, startReconciliation]);
+
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
+    // Handle rejected files
+    if (rejectedFiles.length > 0) {
+      const errors = rejectedFiles.map(rejection => 
+        rejection.errors.map((err: any) => err.message).join(', ')
+      ).join('; ');
+      setUploadState(prev => ({ ...prev, error: `File rejected: ${errors}` }));
+      return;
+    }
+
+    // Handle accepted file - automatically process it
+    if (acceptedFiles.length > 0) {
+      const file = acceptedFiles[0];
+      setUploadState(prev => ({ 
+        ...prev, 
+        file, 
+        error: null,
+        preview: null 
+      }));
+      
+      // Auto-process the file
+      setTimeout(() => {
+        processFileImmediately(file);
+      }, 100);
+    }
+  }, [processFileImmediately]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: ACCEPTED_FILE_TYPES,
+    maxSize: MAX_FILE_SIZE,
+    maxFiles: 1,
+    disabled: uploadState.uploading
+  });
+
+  const clearFile = () => {
+    setUploadState({
+      file: null,
+      uploading: false,
+      progress: 0,
+      error: null,
+      preview: null
+    });
   };
 
   const getFileIcon = (fileName: string) => {

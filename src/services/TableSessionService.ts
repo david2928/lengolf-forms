@@ -3,7 +3,7 @@
 
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 import { getStaffIdFromPin } from '@/lib/staff-helpers';
-import { paymentCompleter } from './PaymentCompleter';
+import { transactionQueryService } from './TransactionQueryService';
 
 export interface SessionCloseResult {
   success: boolean;
@@ -25,13 +25,8 @@ export class TableSessionService {
   ): Promise<SessionCloseResult> {
     
     try {
-      // Use PaymentCompleter for actual payment completion
-      const success = await paymentCompleter.closeTableSession(
-        sessionId,
-        staffPin,
-        reason,
-        false // Not force close - requires payment
-      );
+      // Close table session after payment verification
+      const success = await this.closeTableSession(sessionId, staffPin, reason, false);
 
       return {
         success,
@@ -150,8 +145,8 @@ export class TableSessionService {
         throw new Error('Session not found');
       }
 
-      // Use PaymentCompleter to get payment status
-      const paymentStatus = await paymentCompleter.getPaymentStatus(sessionId);
+      // Get payment status
+      const paymentStatus = await transactionQueryService.getPaymentStatus(sessionId);
       
       return {
         status: session.status,
@@ -168,6 +163,54 @@ export class TableSessionService {
         totalPaid: 0,
         totalUnpaid: 0
       };
+    }
+  }
+
+  /**
+   * Close table session after payment verification
+   */
+  private async closeTableSession(
+    sessionId: string, 
+    staffPin: string,
+    reason: string = 'Payment completed',
+    forceClose: boolean = false
+  ): Promise<boolean> {
+    
+    try {
+      // Check if all payments are complete (unless forceClose is true)
+      const paymentStatus = await transactionQueryService.getPaymentStatus(sessionId);
+      
+      if (!forceClose && paymentStatus.hasPendingPayments) {
+        throw new Error('Cannot close table session with pending payments');
+      }
+      
+      // Get staff ID for tracking
+      const staffId = await getStaffIdFromPin(staffPin);
+      if (!staffId) {
+        throw new Error('Invalid staff PIN or inactive staff');
+      }
+
+      // Update session to paid/closed status
+      const { error } = await supabase
+        .schema('pos')
+        .from('table_sessions')
+        .update({
+          status: 'paid',
+          pax_count: 0,
+          session_end: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sessionId);
+
+      if (error) {
+        throw new Error(`Failed to close table session: ${error.message}`);
+      }
+
+      return true;
+
+    } catch (error) {
+      console.error('Failed to close table session:', error);
+      throw error;
     }
   }
 }

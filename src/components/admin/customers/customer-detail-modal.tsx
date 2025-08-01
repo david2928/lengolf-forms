@@ -10,7 +10,7 @@
  * - Analytics: Customer spending patterns and metrics
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import { 
   Dialog, 
@@ -63,7 +63,7 @@ interface TransactionRecord {
   id: string;
   date: string;
   receipt_number: string;
-  sales_net: number;
+  sales_net: number | string;
   items?: string;
   item_count?: number;
   payment_method?: string;
@@ -74,10 +74,12 @@ interface PackageRecord {
   id: string;
   package_name: string;
   purchase_date: string;
-  expiration_date?: string;
-  first_use_date?: string;
-  uses_remaining?: number;
-  status: 'active' | 'expired' | 'unused';
+  expiration_date?: string | null;
+  first_use_date?: string | null;
+  uses_remaining?: number | null;
+  original_uses?: number | null;
+  status: 'active' | 'expired' | 'unused' | 'fully_used' | string;
+  usage_percentage?: number;
 }
 
 interface BookingRecord {
@@ -86,8 +88,66 @@ interface BookingRecord {
   time: string;
   type: string;
   status: string;
-  package_used?: string;
+  package_used?: string | null;
+  bay?: string | null;
+  duration?: number | null;
+  number_of_people?: number;
 }
+
+// Safe formatting utility functions
+const formatTransactionDate = (dateStr: string) => {
+  try {
+    if (!dateStr) return 'Invalid Date';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return format(date, 'dd MMM yyyy');
+  } catch {
+    return 'Invalid Date';
+  }
+};
+
+const formatAmount = (amount: number | string | null | undefined) => {
+  try {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
+    if (isNaN(numAmount)) return '฿0';
+    return `฿${numAmount.toLocaleString()}`;
+  } catch {
+    return '฿0';
+  }
+};
+
+const formatPackageDate = (dateStr: string | null | undefined) => {
+  try {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return format(date, 'dd MMM yyyy');
+  } catch {
+    return 'Invalid Date';
+  }
+};
+
+const formatBookingDate = (dateStr: string) => {
+  try {
+    if (!dateStr) return 'Invalid Date';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return format(date, 'dd MMM yyyy');
+  } catch {
+    return 'Invalid Date';
+  }
+};
+
+const safeFormatDate = (dateStr: string | null | undefined, fallback = 'Never') => {
+  try {
+    if (!dateStr) return fallback;
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return format(date, 'dd MMM yyyy');
+  } catch {
+    return 'Invalid Date';
+  }
+};
 
 export function CustomerDetailModal({ 
   customerId, 
@@ -123,7 +183,7 @@ export function CustomerDetailModal({
   const BOOKINGS_PER_PAGE = 10;
 
   // Fetch tab-specific data
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     if (!customerId) return;
     setLoadingTab('transactions');
     try {
@@ -137,9 +197,9 @@ export function CustomerDetailModal({
     } finally {
       setLoadingTab(null);
     }
-  };
+  }, [customerId]);
 
-  const fetchPackages = async () => {
+  const fetchPackages = useCallback(async () => {
     if (!customerId) return;
     setLoadingTab('packages');
     try {
@@ -153,9 +213,9 @@ export function CustomerDetailModal({
     } finally {
       setLoadingTab(null);
     }
-  };
+  }, [customerId]);
 
-  const fetchBookings = async (page = 1) => {
+  const fetchBookings = useCallback(async (page = 1) => {
     if (!customerId) return;
     setLoadingTab('bookings');
     try {
@@ -174,7 +234,7 @@ export function CustomerDetailModal({
     } finally {
       setLoadingTab(null);
     }
-  };
+  }, [customerId]);
 
   useEffect(() => {
     if (customerId && open) {
@@ -189,7 +249,7 @@ export function CustomerDetailModal({
     }
   }, [customerId, open]);
 
-  // Track which tabs have been loaded
+  // Track which tabs have been loaded to avoid duplicate API calls
   const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set());
 
   // Fetch data when tab changes
@@ -212,7 +272,7 @@ export function CustomerDetailModal({
     }
     
     setLoadedTabs(prev => new Set(prev).add(tabKey));
-  }, [activeTab, customerId, open]);
+  }, [activeTab, customerId, open, fetchTransactions, fetchPackages, fetchBookings]);
 
   const handleEditSuccess = () => {
     setEditModalOpen(false);
@@ -227,10 +287,10 @@ export function CustomerDetailModal({
         <div className="flex justify-between items-start mb-2">
           <div>
             <p className="font-semibold text-gray-900">
-              ฿{transaction.sales_net.toLocaleString()}
+              {formatAmount(transaction.sales_net)}
             </p>
             <p className="text-sm text-gray-600">
-              {format(new Date(transaction.date), 'dd MMM yyyy')}
+              {formatTransactionDate(transaction.date)}
             </p>
           </div>
           <Badge variant="outline" className="text-xs">
@@ -238,7 +298,7 @@ export function CustomerDetailModal({
           </Badge>
         </div>
         <p className="text-xs font-mono text-gray-500">
-          Receipt: {transaction.receipt_number}
+          Receipt: {transaction.receipt_number || 'N/A'}
         </p>
       </CardContent>
     </Card>
@@ -251,14 +311,14 @@ export function CustomerDetailModal({
         <div className="flex justify-between items-start mb-2">
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-900 truncate">
-              {pkg.package_name}
+              {pkg.package_name || 'Unknown Package'}
             </p>
             <p className="text-sm text-gray-600">
-              Purchased: {format(new Date(pkg.purchase_date), 'dd MMM yyyy')}
+              Purchased: {formatPackageDate(pkg.purchase_date)}
             </p>
             {pkg.expiration_date && (
               <p className="text-sm text-gray-600">
-                Expires: {format(new Date(pkg.expiration_date), 'dd MMM yyyy')}
+                Expires: {formatPackageDate(pkg.expiration_date)}
               </p>
             )}
           </div>
@@ -267,11 +327,11 @@ export function CustomerDetailModal({
               variant={pkg.status === 'active' ? 'default' : 'secondary'}
               className="mb-1"
             >
-              {pkg.status}
+              {pkg.status || 'unknown'}
             </Badge>
-            {pkg.uses_remaining && (
+            {pkg.uses_remaining !== null && pkg.uses_remaining !== undefined && (
               <p className="text-xs text-gray-500">
-                {pkg.uses_remaining} uses left
+                {pkg.uses_remaining} / {pkg.original_uses || 0} uses
               </p>
             )}
           </div>
@@ -287,11 +347,16 @@ export function CustomerDetailModal({
         <div className="flex justify-between items-start mb-2">
           <div>
             <p className="font-semibold text-gray-900">
-              {format(new Date(booking.date), 'dd MMM yyyy')} at {booking.time}
+              {formatBookingDate(booking.date)} at {booking.time || 'N/A'}
             </p>
             <p className="text-sm text-gray-600">
-              {booking.type}
+              {booking.type || 'Unknown'}
             </p>
+            {booking.bay && (
+              <p className="text-xs text-gray-500 mt-1">
+                Bay: {booking.bay}
+              </p>
+            )}
             {booking.package_used && (
               <p className="text-xs text-gray-500 mt-1">
                 Package: {booking.package_used}
@@ -305,7 +370,7 @@ export function CustomerDetailModal({
               'secondary'
             }
           >
-            {booking.status}
+            {booking.status || 'unknown'}
           </Badge>
         </div>
       </CardContent>
@@ -476,7 +541,7 @@ export function CustomerDetailModal({
                               <div>
                                 <p className="text-sm text-muted-foreground">Date of Birth</p>
                                 <p className="font-medium">
-                                  {format(new Date(customer.customer.date_of_birth), 'dd MMM yyyy')}
+                                  {safeFormatDate(customer.customer.date_of_birth, 'Not provided')}
                                 </p>
                               </div>
                             </div>
@@ -547,15 +612,13 @@ export function CustomerDetailModal({
                             <div>
                               <p className="text-sm text-muted-foreground">Customer Since</p>
                               <p className="font-medium">
-                                {format(new Date(customer.customer.customer_create_date), 'dd MMM yyyy')}
+                                {safeFormatDate(customer.customer.customer_create_date, 'Unknown')}
                               </p>
                             </div>
                             <div>
                               <p className="text-sm text-muted-foreground">Last Visit</p>
                               <p className="font-medium">
-                                {customer.customer.last_visit_date 
-                                  ? format(new Date(customer.customer.last_visit_date), 'dd MMM yyyy')
-                                  : 'Never'}
+                                {safeFormatDate(customer.customer.last_visit_date, 'Never')}
                               </p>
                             </div>
                           </div>
@@ -678,16 +741,16 @@ export function CustomerDetailModal({
                                       `}
                                     >
                                       <TableCell className="py-6 px-8 font-medium text-gray-900 text-base">
-                                        {format(new Date(transaction.date), 'dd MMM yyyy')}
+                                        {formatTransactionDate(transaction.date)}
                                       </TableCell>
                                       <TableCell className="py-6 px-6 font-mono text-sm text-gray-700">
-                                        {transaction.receipt_number}
+                                        {transaction.receipt_number || 'N/A'}
                                       </TableCell>
                                       <TableCell className="py-6 px-6 text-gray-600 text-center">
                                         {transaction.item_count || 0}
                                       </TableCell>
                                       <TableCell className="py-6 px-6 text-right font-semibold text-gray-900 text-base">
-                                        ฿{transaction.sales_net.toLocaleString()}
+                                        {formatAmount(transaction.sales_net)}
                                       </TableCell>
                                     </TableRow>
                                   ))}
@@ -700,12 +763,13 @@ export function CustomerDetailModal({
                           <div className="text-center py-8 text-muted-foreground">
                             <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-20" />
                             <p>No transactions found for this customer</p>
-                            <p className="text-sm mt-1">
-                              Customer-transaction linking in progress (CMS-016.2)
-                            </p>
-                            <p className="text-xs mt-1 text-gray-400">
-                              Found {(transactions || []).length} matching phone records
-                            </p>
+                            <div className="text-sm mt-3 space-y-1 text-gray-500">
+                              <p>Customer Phone: {customer?.customer?.contact_number || 'N/A'}</p>
+                              <p>Customer ID: {customerId}</p>
+                              <p className="text-xs mt-2">
+                                Transactions are linked by customer ID and phone number.
+                              </p>
+                            </div>
                           </div>
                         )}
                     </div>
@@ -760,18 +824,21 @@ export function CustomerDetailModal({
                                       `}
                                     >
                                       <TableCell className="py-6 px-8 font-medium text-gray-900 text-base">
-                                        {pkg.package_name}
+                                        {pkg.package_name || 'Unknown Package'}
                                       </TableCell>
                                       <TableCell className="py-6 px-6 text-gray-700">
-                                        {format(new Date(pkg.purchase_date), 'dd MMM yyyy')}
+                                        {formatPackageDate(pkg.purchase_date)}
                                       </TableCell>
                                       <TableCell className="py-6 px-6 text-gray-700">
-                                        {pkg.expiration_date 
-                                          ? format(new Date(pkg.expiration_date), 'dd MMM yyyy')
-                                          : <span className="text-gray-400 italic">No expiry</span>}
+                                        {pkg.expiration_date ? 
+                                          formatPackageDate(pkg.expiration_date) : 
+                                          <span className="text-gray-400 italic">No expiry</span>
+                                        }
                                       </TableCell>
                                       <TableCell className="py-6 px-6 text-gray-700 text-center">
-                                        {pkg.uses_remaining || (
+                                        {pkg.uses_remaining !== null && pkg.uses_remaining !== undefined ? (
+                                          `${pkg.uses_remaining} / ${pkg.original_uses || 0}`
+                                        ) : (
                                           <span className="text-gray-400">-</span>
                                         )}
                                       </TableCell>
@@ -780,7 +847,7 @@ export function CustomerDetailModal({
                                           variant={pkg.status === 'active' ? 'default' : 'secondary'}
                                           className="font-medium"
                                         >
-                                          {pkg.status}
+                                          {pkg.status || 'unknown'}
                                         </Badge>
                                       </TableCell>
                                     </TableRow>
@@ -792,7 +859,13 @@ export function CustomerDetailModal({
                         ) : (
                           <div className="text-center py-8 text-muted-foreground">
                             <Package className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                            <p>No packages found</p>
+                            <p>No packages found for this customer</p>
+                            <div className="text-sm mt-3 space-y-1 text-gray-500">
+                              <p>Customer ID: {customerId}</p>
+                              <p className="text-xs mt-2">
+                                Packages are linked directly by customer ID.
+                              </p>
+                            </div>
                           </div>
                         )}
                     </div>
@@ -834,6 +907,8 @@ export function CustomerDetailModal({
                                       <TableHead className="font-semibold text-gray-700 py-6 px-8 w-[140px]">Date</TableHead>
                                       <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[100px]">Time</TableHead>
                                       <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[120px]">Type</TableHead>
+                                      <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[100px]">Bay</TableHead>
+                                      <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[80px]">Duration</TableHead>
                                       <TableHead className="font-semibold text-gray-700 py-6 px-6">Package Used</TableHead>
                                       <TableHead className="font-semibold text-gray-700 py-6 px-6 w-[120px]">Status</TableHead>
                                     </TableRow>
@@ -848,13 +923,23 @@ export function CustomerDetailModal({
                                         `}
                                       >
                                         <TableCell className="py-6 px-8 font-medium text-gray-900 text-base">
-                                          {format(new Date(booking.date), 'dd MMM yyyy')}
+                                          {formatBookingDate(booking.date)}
                                         </TableCell>
                                         <TableCell className="py-6 px-6 text-gray-700 font-mono text-sm">
-                                          {booking.time}
+                                          {booking.time || 'N/A'}
                                         </TableCell>
                                         <TableCell className="py-6 px-6 text-gray-700">
-                                          {booking.type}
+                                          {booking.type || 'Unknown'}
+                                        </TableCell>
+                                        <TableCell className="py-6 px-6 text-gray-700">
+                                          {booking.bay || (
+                                            <span className="text-gray-400 italic">Any</span>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="py-6 px-6 text-gray-700 text-center">
+                                          {booking.duration ? `${booking.duration}h` : (
+                                            <span className="text-gray-400 italic">N/A</span>
+                                          )}
                                         </TableCell>
                                         <TableCell className="py-6 px-6 text-gray-600">
                                           {booking.package_used || (
@@ -870,7 +955,7 @@ export function CustomerDetailModal({
                                             }
                                             className="font-medium"
                                           >
-                                            {booking.status}
+                                            {booking.status || 'unknown'}
                                           </Badge>
                                         </TableCell>
                                       </TableRow>
@@ -925,7 +1010,13 @@ export function CustomerDetailModal({
                         ) : (
                           <div className="text-center py-8 text-muted-foreground">
                             <CalendarDays className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                            <p>No bookings found</p>
+                            <p>No bookings found for this customer</p>
+                            <div className="text-sm mt-3 space-y-1 text-gray-500">
+                              <p>Customer ID: {customerId}</p>
+                              <p className="text-xs mt-2">
+                                Bookings are linked directly by customer ID.
+                              </p>
+                            </div>
                           </div>
                         )}
                     </div>
@@ -1004,7 +1095,7 @@ export function CustomerDetailModal({
                                 Customer Since
                               </span>
                               <span className="font-medium">
-                                {format(new Date(customer.customer.customer_create_date), 'MMM yyyy')}
+                                {safeFormatDate(customer.customer.customer_create_date, 'Unknown')?.replace(/\d{2} /, '') || 'Unknown'}
                               </span>
                             </div>
                             {customer.bookingSummary.lastBooking && (
@@ -1198,6 +1289,8 @@ export function CustomerDetailModal({
 
 // Helper function to calculate engagement score
 function calculateEngagementScore(customer: any): number {
+  if (!customer?.bookingSummary || !customer?.customer) return 0;
+  
   // Simple engagement calculation based on various factors
   let score = 0;
   

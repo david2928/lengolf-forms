@@ -297,6 +297,8 @@ export interface POSStaffAuthResponse {
   staff?: Staff;
   sessionId?: string;
   error?: string;
+  is_locked?: boolean;
+  lock_expires_at?: string;
 }
 
 export interface POSStaffContext {
@@ -304,6 +306,7 @@ export interface POSStaffContext {
   session: POSStaffSession | null;
   currentPin: string | null;
   isAuthenticated: boolean;
+  isLoggingIn: boolean;
   login: (pin: string) => Promise<POSStaffAuthResponse>;
   logout: () => void;
 } 

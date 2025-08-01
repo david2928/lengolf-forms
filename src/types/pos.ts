@@ -73,6 +73,106 @@ export interface Customer {
   updatedAt?: Date | string;
 }
 
+// POS Customer Management Types
+export interface POSCustomer {
+  id: string;
+  customerCode: string;
+  name: string;
+  phone: string;
+  email?: string;
+  lifetimeValue: number;
+  lastVisit?: string;
+  totalVisits: number;
+  activePackages: number;
+  recentTransactions: number;
+  isActive: boolean;
+  registrationDate: string;
+}
+
+export interface CustomerSearchResult {
+  customers: any[]; // Raw API response - will be transformed to POSCustomer[]
+  pagination: {
+    total: number;
+    pages: number;
+    current: number;
+    limit: number;
+  };
+  kpis?: {
+    totalCustomers: number;
+    activeCustomers: number;
+    newThisMonth: number;
+    averageLifetimeValue: number;
+  };
+}
+
+export interface CustomerDetailData {
+  customer: {
+    id: string;
+    customer_code: string;
+    customer_name: string;
+    contact_number: string;
+    email?: string;
+    date_of_birth?: string;
+    address?: string;
+    notes?: string;
+    preferred_contact_method: string;
+    customer_profiles: any[];
+    total_lifetime_value: number;
+    total_visits: number;
+    last_visit_date?: string;
+    customer_create_date: string;
+    is_active: boolean;
+  };
+  transactionSummary: {
+    totalTransactions: number;
+    totalSpent: number;
+    averageTransaction: number;
+    lastTransaction?: string;
+  };
+  packageSummary: {
+    activePackages: number;
+    totalPackages: number;
+    lastPackagePurchase?: string;
+  };
+  bookingSummary: {
+    totalBookings: number;
+    upcomingBookings: number;
+    lastBooking?: string;
+  };
+}
+
+export interface CreateCustomerData {
+  fullName: string;
+  primaryPhone: string;
+  email?: string;
+  dateOfBirth?: string;
+  address?: string;
+  notes?: string;
+  preferredContactMethod?: 'Phone' | 'LINE' | 'Email';
+}
+
+export interface DuplicateCustomer {
+  customer: {
+    id: string;
+    customer_code: string;
+    customer_name: string;
+    contact_number: string;
+    email?: string;
+    match_method: string;
+  };
+  matchScore: number;
+  matchReasons: string[];
+}
+
+export interface CustomerFilters {
+  search?: string;
+  isActive?: boolean;
+  sortBy?: 'fullName' | 'customerCode' | 'registrationDate' | 'lastVisit' | 'lifetimeValue';
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+}
+
 export interface Staff {
   id: string;
   name: string;
@@ -381,6 +481,8 @@ export interface OrderItem {
   notes?: string;
   categoryId: string;
   categoryName: string;
+  applied_discount_id?: string;
+  discount_amount?: number;
 }
 
 export interface SelectedModifier {

@@ -80,11 +80,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Reset PIN and clear any lockout status
+    // IMPORTANT: Update both pin_hash AND clear_pin for compatibility with optimized verification
     const { error: updateError } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('staff')
       .update({
         pin_hash: hashedPin,
+        clear_pin: new_pin,  // Store clear PIN for fast verification
         failed_attempts: 0,
         locked_until: null,
         updated_at: new Date().toISOString()

@@ -38,7 +38,6 @@ export async function POST(
     }
 
     // Check if table is already occupied
-    console.log(`🔍 Checking if table ${tableId} is occupied...`);
     const { data: existingSessions, error: sessionCheckError } = await supabase
       .schema('pos')
       .from('table_sessions')
@@ -52,13 +51,11 @@ export async function POST(
       return NextResponse.json({ error: "Failed to check table status" }, { status: 500 });
     }
 
-    console.log(`🔍 Found ${existingSessions?.length || 0} existing sessions for table ${tableId}`);
 
     // If there are any open sessions, table is occupied
     if (existingSessions && existingSessions.length > 0) {
       // In development, allow more aggressive cleanup of orphaned sessions
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`Found ${existingSessions.length} existing sessions for table ${tableId}, checking for cleanup...`);
         
         // Check if sessions are truly orphaned (older than 1 hour with no recent activity)
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -67,7 +64,6 @@ export async function POST(
         );
         
         if (orphanedSessions.length > 0) {
-          console.log(`Cleaning up ${orphanedSessions.length} orphaned sessions...`);
           for (const session of orphanedSessions as any[]) {
             await supabase
               .schema('pos')
@@ -91,7 +87,6 @@ export async function POST(
             
           if (!refreshedSessions || refreshedSessions.length === 0) {
             // Table is now available after cleanup
-            console.log('Table is now available after cleanup');
           } else {
             return NextResponse.json({ error: "Table is already occupied" }, { status: 409 });
           }
@@ -124,13 +119,10 @@ export async function POST(
     }
 
     // Resolve staff_id - use provided staffId or resolve from PIN
-    console.log(`🔍 Resolving staff ID for staffId: ${staffId}, staffPin: ${staffPin}`);
     let resolvedStaffId: number | undefined = staffId;
     if (!resolvedStaffId && staffPin) {
       const staffIdFromPin = await getStaffIdFromPin(staffPin);
-      console.log(`🔍 Staff ID from PIN ${staffPin}: ${staffIdFromPin}`);
       if (!staffIdFromPin) {
-        console.log(`❌ Invalid staff PIN: ${staffPin}`);
         return NextResponse.json({ error: "Invalid staff PIN or inactive staff" }, { status: 400 });
       }
       resolvedStaffId = staffIdFromPin;

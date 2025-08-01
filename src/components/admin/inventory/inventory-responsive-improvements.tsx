@@ -129,10 +129,10 @@ export function useVirtualizedList<T>(
     const itemsPerPage = Math.ceil(containerHeight / itemHeight)
     const buffer = Math.floor(itemsPerPage / 2)
     
-    setVisibleRange({
-      start: Math.max(0, visibleRange.start - buffer),
-      end: Math.min(items.length, visibleRange.start + itemsPerPage + buffer)
-    })
+    setVisibleRange(prevRange => ({
+      start: Math.max(0, prevRange.start - buffer),
+      end: Math.min(items.length, prevRange.start + itemsPerPage + buffer)
+    }))
   }, [items.length, itemHeight, containerHeight])
   
   return {

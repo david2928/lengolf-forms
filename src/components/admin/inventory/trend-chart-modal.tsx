@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -34,13 +34,7 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
     return `${amount} ${product.unit || ''}`
   }
 
-  useEffect(() => {
-    if (isOpen && product.id) {
-      fetchTrendData()
-    }
-  }, [isOpen, product.id])
-
-  const fetchTrendData = async () => {
+  const fetchTrendData = useCallback(async () => {
     setIsLoading(true)
     setError(null)
 
@@ -70,7 +64,13 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [product.id])
+
+  useEffect(() => {
+    if (isOpen && product.id) {
+      fetchTrendData()
+    }
+  }, [isOpen, product.id, fetchTrendData])
 
   const getTrendDirection = () => {
     if (!trendData?.trend_data || trendData.trend_data.length < 2) return 'stable'

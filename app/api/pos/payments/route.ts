@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
-import { transactionService } from '@/services/TransactionService';
+import { transactionQueryService } from '@/services/TransactionQueryService';
 import { PaymentInitializationRequest, PaymentError } from '@/types/payment';
 
 export async function POST(request: NextRequest) {
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     if (transactionId) {
       // Get specific transaction
-      const transaction = await transactionService.getTransaction(transactionId);
+      const transaction = await transactionQueryService.getTransaction(transactionId);
       if (!transaction) {
         return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
       }
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 
     if (tableSessionId) {
       // Get all transactions for table session
-      const transactions = await transactionService.getTransactionsByTableSession(tableSessionId);
+      const transactions = await transactionQueryService.getTransactionsByTableSession(tableSessionId);
       return NextResponse.json({ transactions });
     }
 

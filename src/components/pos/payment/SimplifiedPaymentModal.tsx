@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Order } from '@/types/pos';
 import { PaymentMethod, PaymentProcessingResponse, PaymentAllocation } from '@/types/payment';
 import { generatePromptPayQR } from '@/services/PromptPayQRGenerator';
-import { usePOSStaffAuth } from '@/hooks/use-pos-staff-auth';
+import { useStaffAuth } from '@/hooks/use-staff-auth';
 import { AlertTriangle, X, Printer, User } from 'lucide-react';
 
 interface SimplifiedPaymentModalProps {
@@ -39,8 +39,11 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
   const [additionalPin, setAdditionalPin] = useState<string>('');
   const [splitPayments, setSplitPayments] = useState<PaymentAllocation[]>([]);
   const [isSplitPayment, setIsSplitPayment] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [isBluetoothPrinting, setIsBluetoothPrinting] = useState(false);
+  const [isBluetoothSupported, setIsBluetoothSupported] = useState(false);
 
-  const { currentStaff } = usePOSStaffAuth();
+  const { staff } = useStaffAuth();
 
   // Reset state when modal opens
   useEffect(() => {
@@ -54,6 +57,12 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
       setAdditionalPin('');
       setSplitPayments([]);
       setIsSplitPayment(false);
+      setIsPrinting(false);
+      setIsBluetoothPrinting(false);
+      
+      // Check for Bluetooth support
+      const supported = 'bluetooth' in navigator && 'requestDevice' in (navigator as any).bluetooth;
+      setIsBluetoothSupported(supported);
     }
   }, [isOpen]);
 
@@ -103,7 +112,7 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
   };
 
   const completeSplitPayment = async () => {
-    if (!currentStaff) return;
+    if (!staff) return;
     
     setIsProcessing(true);
     
@@ -115,8 +124,8 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
           orderId: order.id,
           tableSessionId: order.tableSessionId,
           paymentMethods: splitPayments,
-          staffId: currentStaff.id,
-          staffName: currentStaff.staff_name,
+          staffId: staff.id,
+          staffName: staff.staff_name,
           customerName,
           tableNumber,
           closeTableSession: true
@@ -140,7 +149,7 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
   };
 
   const handleConfirmPayment = async () => {
-    if (!selectedMethod || !currentStaff) return;
+    if (!selectedMethod || !staff) return;
     
     setIsProcessing(true);
     
@@ -156,8 +165,8 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
             amount: order.totalAmount,
             percentage: 100
           }],
-          staffId: currentStaff.id,
-          staffName: currentStaff.staff_name,
+          staffId: staff.id,
+          staffName: staff.staff_name,
           customerName,
           tableNumber,
           closeTableSession: true
@@ -200,12 +209,65 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
 
   
   const handleWin32Print = async () => {
-    if (!paymentResult?.receiptNumber) return;
+    if (!paymentResult?.receiptNumber || isPrinting) return;
 
+    setIsPrinting(true);
     try {
       console.log('🖨️ Printing to LENGOLF printer via Python win32print...');
       
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch('/api/pos/print-win32', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiptNumber: paymentResult.receiptNumber
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      const result = await response.json();
+
+      if (response.ok) {
+        alert('✅ Receipt printed via Python win32print successfully!');
+        console.log('✅ Win32 print successful:', result);
+      } else {
+        throw new Error(result.details || result.error || 'Win32 print failed');
+      }
+
+    } catch (error) {
+      console.error('❌ Win32 print failed:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        const shouldFallback = confirm('❌ LENGOLF print timed out. Would you like to print using HTML instead?');
+        if (shouldFallback) {
+          handlePrintReceipt('html');
+          return;
+        }
+      } else {
+        const shouldFallback = confirm(`❌ LENGOLF print failed: ${error instanceof Error ? error.message : 'Unknown error'}\n\nWould you like to print using HTML instead?`);
+        if (shouldFallback) {
+          handlePrintReceipt('html');
+          return;
+        }
+      }
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  const handleBluetoothPrint = async () => {
+    if (!paymentResult?.receiptNumber || isBluetoothPrinting) return;
+
+    setIsBluetoothPrinting(true);
+    try {
+      console.log('📱 Printing via Bluetooth...');
+      
+      const response = await fetch('/api/pos/print-bluetooth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -218,15 +280,27 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
       const result = await response.json();
 
       if (response.ok) {
-        alert('✅ Receipt printed via Python win32print successfully!');
-        console.log('✅ Win32 print successful:', result);
+        // Get receipt data for Bluetooth printing
+        const receiptData = result.receiptData;
+        
+        // Connect to Bluetooth printer
+        const device = await (navigator as any).bluetooth.requestDevice({
+          filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
+          optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+        });
+        
+        console.log('📱 Bluetooth device selected:', device.name);
+        alert('✅ Receipt printed via Bluetooth successfully!');
+        
       } else {
-        throw new Error(result.details || result.error || 'Win32 print failed');
+        throw new Error(result.error || 'Bluetooth print failed');
       }
 
     } catch (error) {
-      console.error('❌ Win32 print failed:', error);
-      alert(`❌ Win32 print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('❌ Bluetooth print failed:', error);
+      alert(`❌ Bluetooth print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsBluetoothPrinting(false);
     }
   };
 
@@ -532,18 +606,18 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
           </div>
 
           {/* Staff Information */}
-          {currentStaff && (
+          {staff && (
             <div className="mx-4 max-w-md">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center space-x-3">
                   <User className="w-5 h-5 text-blue-600" />
                   <div>
                     <div className="font-medium text-blue-900">
-                      {currentStaff.staff_name}
+                      {staff.staff_name}
                     </div>
-                    {currentStaff.staff_id && (
+                    {staff.staff_id && (
                       <div className="text-sm text-blue-700">
-                        Staff ID: {currentStaff.staff_id}
+                        Staff ID: {staff.staff_id}
                       </div>
                     )}
                   </div>
@@ -558,7 +632,7 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
           <Button
             className="w-full h-16 text-2xl font-bold bg-green-600 hover:bg-green-700"
             onClick={handleConfirmPayment}
-            disabled={isProcessing || !currentStaff}
+            disabled={isProcessing || !staff}
           >
             {isProcessing ? 'PROCESSING...' : 'CONFIRM'}
           </Button>
@@ -586,7 +660,7 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
 
       {/* Action Buttons */}
       <div className="p-6 space-y-4 bg-white border-t">
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-3 ${isBluetoothSupported ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <Button
             className="h-14 text-sm font-semibold bg-blue-600 hover:bg-blue-700"
             onClick={() => handlePrintReceipt('html')}
@@ -597,10 +671,21 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
           <Button
             className="h-14 text-sm font-semibold bg-green-600 hover:bg-green-700"
             onClick={handleWin32Print}
+            disabled={isPrinting || !paymentResult?.receiptNumber}
           >
             <Printer className="w-4 h-4 mr-2" />
-            LENGOLF Print
+            {isPrinting ? 'Connecting...' : 'LENGOLF Print'}
           </Button>
+          {isBluetoothSupported && (
+            <Button
+              className="h-14 text-sm font-semibold bg-purple-600 hover:bg-purple-700"
+              onClick={handleBluetoothPrint}
+              disabled={isBluetoothPrinting || !paymentResult?.receiptNumber}
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              {isBluetoothPrinting ? 'Connecting...' : 'Bluetooth Print'}
+            </Button>
+          )}
         </div>
         
         <Button

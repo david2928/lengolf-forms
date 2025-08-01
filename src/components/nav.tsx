@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target } from 'lucide-react'
+import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target, Percent } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
 import {
   DropdownMenu,
@@ -181,19 +181,17 @@ export function Nav() {
           </Button>
         </Link>
 
-        {/* POS System - Only for Admin Users */}
-        {isAdmin && (
-          <Link href="/pos">
-            <Button
-              variant={pathname === '/pos' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              POS
-            </Button>
-          </Link>
-        )}
+        {/* POS System - Available to All Users */}
+        <Link href="/pos">
+          <Button
+            variant={pathname === '/pos' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <ShoppingCart className="h-4 w-4" />
+            POS
+          </Button>
+        </Link>
 
         {/* Staff Schedule - Available to All Users */}
         <Link href="/staff-schedule">
@@ -309,6 +307,12 @@ export function Nav() {
                   Invoice Management
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/discounts" className="flex items-center gap-2 w-full">
+                  <Percent className="h-4 w-4" />
+                  Discount Management
+                </Link>
+              </DropdownMenuItem>
               
               <DropdownMenuSeparator />
               
@@ -355,20 +359,18 @@ export function Nav() {
           <Calendar className="h-3.5 w-3.5" />
         </Button>
       </Link>
-      {isAdmin && (
-        <Link href="/pos" className="flex-1">
-          <Button 
-            variant={pathname === '/pos' ? 'default' : 'outline'} 
-            size="sm" 
-            className={cn(
-              "w-full flex justify-center font-bold text-xs",
-              pathname === '/pos' ? 'bg-black text-white' : 'bg-white text-black border-black'
-            )}
-          >
-            POS
-          </Button>
-        </Link>
-      )}
+      <Link href="/pos" className="flex-1">
+        <Button 
+          variant={pathname === '/pos' ? 'default' : 'outline'} 
+          size="sm" 
+          className={cn(
+            "w-full flex justify-center font-bold text-xs",
+            pathname === '/pos' ? 'bg-black text-white' : 'bg-white text-black border-black'
+          )}
+        >
+          POS
+        </Button>
+      </Link>
       <PackageMonitorNavButton />
       {isAdmin && (
         <Link href="/admin/customers" className="flex-1">

@@ -1,5 +1,8 @@
 // Bluetooth Thermal Printer Service for Android tablets/phones
 // Uses Web Bluetooth API to connect directly to ESC/POS thermal printers
+// Optimized version using shared ReceiptFormatter
+
+import { ReceiptFormatter, type ReceiptData } from '@/lib/receipt-formatter';
 
 // Type declarations for Web Bluetooth API
 declare global {
@@ -49,25 +52,6 @@ declare global {
   type BluetoothCharacteristicUUID = string;
 }
 
-export interface BluetoothReceiptData {
-  receiptNumber: string;
-  items: Array<{
-    name: string;
-    price: number;
-    qty: number;
-    notes?: string;
-  }>;
-  subtotal: number;
-  tax: number;
-  total: number;
-  paymentMethods: Array<{ method: string; amount: number }>;
-  tableNumber?: string;
-  customerName?: string;
-  staffName?: string;
-  transactionDate?: string | Date;
-  paxCount?: number;
-}
-
 export class BluetoothThermalPrinter {
   private device: BluetoothDevice | null = null;
   private characteristic: BluetoothRemoteGATTCharacteristic | null = null;
@@ -100,7 +84,7 @@ export class BluetoothThermalPrinter {
         optionalServices: [
           '000018f0-0000-1000-8000-00805f9b34fb', // ESC/POS
           '0000ff00-0000-1000-8000-00805f9b34fb', // Generic printer
-          '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // Common thermal printer
+          '49535341-fe7d-4ae5-8fa9-9fafd205e455'  // Common thermal printer
         ]
       };
 
@@ -243,7 +227,7 @@ export class BluetoothThermalPrinter {
   /**
    * Print receipt to Bluetooth thermal printer
    */
-  async printReceipt(receiptData: BluetoothReceiptData): Promise<void> {
+  async printReceipt(receiptData: ReceiptData): Promise<void> {
     if (!this.isConnected || !this.characteristic) {
       throw new Error('Not connected to printer. Call connect() first.');
     }
@@ -251,11 +235,11 @@ export class BluetoothThermalPrinter {
     try {
       console.log('🖨️ Printing receipt via Bluetooth...');
       
-      const escposData = this.generateESCPOSData(receiptData);
+      const escposData = ReceiptFormatter.generateESCPOSData(receiptData);
       
       // Split data into chunks - use moderate size for compatibility
       const chunkSize = 100; // Balance between speed and compatibility
-      const chunks = this.splitIntoChunks(escposData, chunkSize);
+      const chunks = ReceiptFormatter.splitIntoChunks(escposData, chunkSize);
       
       console.log(`📤 Sending ${chunks.length} chunks of ${chunkSize} bytes each...`);
       console.log(`📊 Total data size: ${escposData.length} bytes`);
@@ -280,7 +264,7 @@ export class BluetoothThermalPrinter {
           // If chunk fails, retry with smaller chunk
           if (error instanceof Error) {
             console.warn('⚠️ Retrying with smaller chunk size...');
-            const smallerChunks = this.splitIntoChunks(chunks[i], 20);
+            const smallerChunks = ReceiptFormatter.splitIntoChunks(chunks[i], 20);
             for (const smallChunk of smallerChunks) {
               await this.characteristic.writeValue(smallChunk);
               await new Promise(resolve => setTimeout(resolve, 20));
@@ -331,170 +315,11 @@ export class BluetoothThermalPrinter {
   }
 
   /**
-   * Generate ESC/POS commands for thermal printer
+   * Test print functionality using shared test data
    */
-  private generateESCPOSData(data: BluetoothReceiptData): Uint8Array {
-    const commands: number[] = [];
-    
-    // ESC/POS Commands
-    const ESC = 0x1B;
-    const GS = 0x1D;
-    
-    // Initialize printer
-    commands.push(ESC, 0x40);
-    
-    // Header - centered
-    commands.push(ESC, 0x61, 0x01); // Center alignment
-    
-    // Company name
-    commands.push(ESC, 0x21, 0x30); // Double size
-    this.addText(commands, 'LENGOLF CO. LTD.');
-    commands.push(0x0A, 0x0A);
-    
-    commands.push(ESC, 0x21, 0x00); // Normal size
-    
-    // Business info
-    this.addText(commands, '540 Mercury Tower, 4th Floor, Unit 407');
-    commands.push(0x0A);
-    this.addText(commands, 'Ploenchit Road, Lumpini, Pathumwan');
-    commands.push(0x0A);
-    this.addText(commands, 'Bangkok 10330');
-    commands.push(0x0A);
-    this.addText(commands, 'TAX ID: 0105566207013');
-    commands.push(0x0A, 0x0A);
-    
-    // TAX INVOICE
-    commands.push(ESC, 0x21, 0x20); // Double height
-    this.addText(commands, 'TAX INVOICE (ABB)');
-    commands.push(0x0A);
-    commands.push(ESC, 0x21, 0x00); // Reset
-    
-    this.addText(commands, '------------------------------------------------');
-    commands.push(0x0A);
-    
-    // Receipt details - left aligned
-    commands.push(ESC, 0x61, 0x00);
-    
-    this.addText(commands, `Receipt No: ${data.receiptNumber}`);
-    commands.push(0x0A);
-    
-    if (data.staffName) {
-      this.addText(commands, `Staff: ${data.staffName}`);
-      commands.push(0x0A);
-    }
-    
-    const guestCount = data.paxCount || 1;
-    this.addText(commands, `Guests: ${guestCount}`);
-    commands.push(0x0A);
-    
-    // Date and time
-    const transactionDate = data.transactionDate ? new Date(data.transactionDate) : new Date();
-    const dateStr = transactionDate.toLocaleDateString('en-GB', { year: '2-digit', month: '2-digit', day: '2-digit' });
-    const timeStr = transactionDate.toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit' });
-    const dateText = `Date: ${dateStr}`;
-    const timeText = `Time: ${timeStr}`;
-    const spacing = ' '.repeat(Math.max(1, 48 - dateText.length - timeText.length));
-    this.addText(commands, `${dateText}${spacing}${timeText}`);
-    commands.push(0x0A);
-    
-    this.addText(commands, '------------------------------------------------');
-    commands.push(0x0A);
-    
-    // Items
-    data.items.forEach(item => {
-      const qty = item.qty || 1;
-      const itemTotal = item.price * qty;
-      const qtyStr = qty.toString();
-      const priceStr = itemTotal.toFixed(2);
-      const nameMaxLength = 48 - qtyStr.length - priceStr.length - 4;
-      const itemName = item.name.length > nameMaxLength ? 
-        item.name.substring(0, nameMaxLength - 3) + '...' : item.name;
-      
-      const itemLine = `${qtyStr}    ${itemName}${' '.repeat(Math.max(1, 48 - qtyStr.length - 4 - itemName.length - priceStr.length))}${priceStr}`;
-      this.addText(commands, itemLine);
-      commands.push(0x0A);
-    });
-    
-    this.addText(commands, '------------------------------------------------');
-    commands.push(0x0A);
-    
-    const itemCount = data.items.reduce((sum, item) => sum + (item.qty || 1), 0);
-    this.addText(commands, `Items: ${itemCount}`);
-    commands.push(0x0A, 0x0A);
-    
-    // Totals
-    const leftAlign = 20;
-    
-    const subtotalAmount = data.subtotal.toFixed(2);
-    this.addText(commands, `${' '.repeat(leftAlign)}Subtotal:${' '.repeat(48 - leftAlign - 9 - subtotalAmount.length)}${subtotalAmount}`);
-    commands.push(0x0A);
-    
-    const vatAmount = data.tax.toFixed(2);
-    this.addText(commands, `${' '.repeat(leftAlign)}VAT(7%):${' '.repeat(48 - leftAlign - 8 - vatAmount.length)}${vatAmount}`);
-    commands.push(0x0A);
-    
-    this.addText(commands, `${' '.repeat(leftAlign)}============================`);
-    commands.push(0x0A);
-    
-    const totalAmount = data.total.toFixed(2);
-    this.addText(commands, `${' '.repeat(leftAlign)}Total:${' '.repeat(48 - leftAlign - 6 - totalAmount.length)}${totalAmount}`);
-    commands.push(0x0A, 0x0A);
-    
-    // Payment methods
-    this.addText(commands, '------------------------------------------------');
-    commands.push(0x0A);
-    
-    data.paymentMethods.forEach(payment => {
-      const methodText = payment.method;
-      const amountText = payment.amount.toFixed(2);
-      const spacing = ' '.repeat(Math.max(1, 48 - methodText.length - amountText.length));
-      this.addText(commands, `${methodText}${spacing}${amountText}`);
-      commands.push(0x0A);
-    });
-    
-    this.addText(commands, '------------------------------------------------');
-    commands.push(0x0A, 0x0A);
-    
-    // Footer
-    commands.push(ESC, 0x61, 0x01); // Center
-    this.addText(commands, 'May your next round be under par!');
-    commands.push(0x0A);
-    this.addText(commands, 'www.len.golf');
-    commands.push(0x0A, 0x0A);
-    
-    this.addText(commands, `Generated: ${new Date().toLocaleString('th-TH')}`);
-    commands.push(0x0A);
-    this.addText(commands, 'Powered by Lengolf POS System');
-    
-    // Add moderate line feeds to prevent cutoff without too much waste
-    commands.push(0x0A, 0x0A, 0x0A, 0x0A);
-    
-    // Feed and cut paper
-    commands.push(ESC, 0x64, 0x03); // Feed 3 lines (ESC d n) - reduced from 5
-    commands.push(GS, 0x56, 0x01);  // Cut paper
-    
-    return new Uint8Array(commands);
-  }
-
-  /**
-   * Add text to command array
-   */
-  private addText(commands: number[], text: string): void {
-    const bytes = new TextEncoder().encode(text);
-    for (let i = 0; i < bytes.length; i++) {
-      commands.push(bytes[i]);
-    }
-  }
-
-  /**
-   * Split data into chunks for Bluetooth transmission
-   */
-  private splitIntoChunks(data: Uint8Array, chunkSize: number): Uint8Array[] {
-    const chunks: Uint8Array[] = [];
-    for (let i = 0; i < data.length; i += chunkSize) {
-      chunks.push(data.slice(i, i + chunkSize));
-    }
-    return chunks;
+  async testPrintWithDefaults(): Promise<void> {
+    const testData = ReceiptFormatter.generateTestData();
+    await this.printReceipt(testData);
   }
 
   /**

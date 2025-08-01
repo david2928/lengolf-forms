@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -39,19 +39,7 @@ export function PayrollDashboard() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const { toast } = useToast()
 
-  // Fetch available months on component mount
-  useEffect(() => {
-    fetchAvailableMonths()
-  }, [])
-
-  // Fetch payroll summary when month changes
-  useEffect(() => {
-    if (selectedMonth) {
-      fetchPayrollSummary()
-    }
-  }, [selectedMonth, refreshTrigger])
-
-  const fetchAvailableMonths = async () => {
+  const fetchAvailableMonths = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch('/api/admin/payroll/months')
@@ -79,9 +67,9 @@ export function PayrollDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
-  const fetchPayrollSummary = async () => {
+  const fetchPayrollSummary = useCallback(async () => {
     if (!selectedMonth) return
     
     try {
@@ -115,7 +103,19 @@ export function PayrollDashboard() {
     } catch (error) {
       console.error('Error fetching payroll summary:', error)
     }
-  }
+  }, [selectedMonth])
+
+  // Fetch available months on component mount
+  useEffect(() => {
+    fetchAvailableMonths()
+  }, [fetchAvailableMonths])
+
+  // Fetch payroll summary when month changes
+  useEffect(() => {
+    if (selectedMonth) {
+      fetchPayrollSummary()
+    }
+  }, [selectedMonth, refreshTrigger, fetchPayrollSummary])
 
   const handleRefreshData = () => {
     setRefreshTrigger(prev => prev + 1)

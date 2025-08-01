@@ -7,7 +7,7 @@ import { Order } from '@/types/pos';
 import { PaymentMethod, PaymentProcessingResponse, PaymentAllocation } from '@/types/payment';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { usePOSStaffAuth } from '@/hooks/use-pos-staff-auth';
+import { useStaffAuth } from '@/hooks/use-staff-auth';
 import { generatePromptPayQR } from '@/services/PromptPayQRGenerator';
 import { StaffPinModal } from './StaffPinModal';
 import { bluetoothThermalPrinter, BluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
@@ -33,7 +33,7 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   onBack,
   onPaymentComplete
 }) => {
-  const { currentStaff } = usePOSStaffAuth();
+  const { staff } = useStaffAuth();
   const [currentStep, setCurrentStep] = useState<PaymentStep>('method-selection');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -224,8 +224,8 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
       const paymentRequest = {
         tableSessionId: tableSessionId || order?.tableSessionId,
         paymentMethods: splitPayments,
-        staffId: currentStaff?.id,
-        staffName: currentStaff?.staff_name,
+        staffId: staff?.id,
+        staffName: staff?.staff_name,
         staffPin: providedPin || staffPin,
         customerName,
         tableNumber,
@@ -258,12 +258,14 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
       }
       
       setPaymentResult(result);
+      setIsProcessing(false); // Ensure processing state is reset on success
       setCurrentStep('success');
       
     } catch (error) {
       console.error('Split payment failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       alert(`Split payment failed: ${errorMessage}`);
+    } finally {
       setIsProcessing(false);
     }
   };
@@ -309,8 +311,8 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
           amount: totalAmount,
           percentage: 100
         }],
-        staffId: currentStaff?.id,
-        staffName: currentStaff?.staff_name,
+        staffId: staff?.id,
+        staffName: staff?.staff_name,
         staffPin: providedPin || staffPin,
         customerName,
         tableNumber,
@@ -341,13 +343,13 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
       }
 
       setPaymentResult(result);
+      setIsProcessing(false); // Ensure processing state is reset on success
       setCurrentStep('success');
       
     } catch (error) {
       console.error('Payment failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       alert(`Payment failed: ${errorMessage}`);
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -355,13 +357,22 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   const handlePrintReceipt = async () => {
     if (!paymentResult?.receiptNumber) return;
     
+    console.log('🖨️ Print receipt clicked:', {
+      receiptNumber: paymentResult.receiptNumber,
+      isBluetoothSupported,
+      userAgent: navigator.userAgent,
+      isMobile: /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+    });
+    
     try {
       setIsProcessing(true);
       
       // Check if we should use Bluetooth (Android/mobile) or Windows printing
       if (isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+        console.log('🖨️ Using Bluetooth printing');
         await handleBluetoothPrint();
       } else {
+        console.log('🖨️ Using Windows printing');
         await handleWindowsPrint();
       }
       
@@ -369,6 +380,7 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
       console.error('Print error:', error);
       alert(`❌ Print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
+      console.log('🖨️ Print operation finished, resetting isProcessing');
       setIsProcessing(false);
     }
   };
@@ -810,54 +822,67 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
     );
   };
 
-  const renderSuccessScreen = () => (
-    <>
-      {/* Success Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8">
-        <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-8">
-          <Check className="w-12 h-12 text-green-600" />
+  const renderSuccessScreen = () => {
+    console.log('🔍 Success screen render - state check:', {
+      isProcessing,
+      isBluetoothSupported,
+      bluetoothConnected,
+      isMobile: /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent),
+      receiptNumber: paymentResult?.receiptNumber,
+      isSplitPayment,
+      splitPaymentsCount: splitPayments.length
+    });
+    
+    return (
+      <>
+        {/* Success Content */}
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-8">
+            <Check className="w-12 h-12 text-green-600" />
+          </div>
+          
+          <div className="text-2xl font-semibold text-slate-900 mb-2">Payment Successful</div>
+          
+          <div className="text-center text-slate-600 mb-8 max-w-md">
+            <div className="text-lg mb-2">{formatCurrency(totalAmount)}</div>
+            <div className="text-sm">Receipt: {paymentResult?.receiptNumber}</div>
+            {tableNumber && <div className="text-sm">Table: {tableNumber}</div>}
+            {isSplitPayment && <div className="text-sm">Split Payment ({splitPayments.length} methods)</div>}
+          </div>
         </div>
-        
-        <div className="text-2xl font-semibold text-slate-900 mb-2">Payment Successful</div>
-        
-        <div className="text-center text-slate-600 mb-8 max-w-md">
-          <div className="text-lg mb-2">{formatCurrency(totalAmount)}</div>
-          <div className="text-sm">Receipt: {paymentResult?.receiptNumber}</div>
-          {tableNumber && <div className="text-sm">Table: {tableNumber}</div>}
-        </div>
-      </div>
 
-      {/* Action Buttons */}
-      <div className="p-6 space-y-3 bg-white border-t border-slate-200">
-        <Button
-          variant="outline"
-          className="w-full h-12"
-          onClick={handlePrintReceipt}
-          disabled={isProcessing}
-        >
-          {isProcessing ? (
-            <>
-              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2" />
-              {isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ? 'Connecting...' : 'Printing...'}
-            </>
-          ) : (
-            <>
-              <Printer className="w-5 h-5 mr-2" />
-              {isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ? 'Print via Bluetooth' : 'Print Receipt'}
-              {bluetoothConnected && <span className="ml-2 text-xs text-green-600">• Connected</span>}
-            </>
-          )}
-        </Button>
-        
-        <Button
-          className="w-full h-12"
-          onClick={handleFinish}
-        >
-          Finish
-        </Button>
-      </div>
-    </>
-  );
+        {/* Action Buttons */}
+        <div className="p-6 space-y-3 bg-white border-t border-slate-200">
+          <Button
+            variant="outline"
+            className="w-full h-12"
+            onClick={handlePrintReceipt}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <>
+                <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2" />
+                {isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ? 'Connecting...' : 'Printing...'}
+              </>
+            ) : (
+              <>
+                <Printer className="w-5 h-5 mr-2" />
+                {isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ? 'Print via Bluetooth' : 'Print Receipt'}
+                {bluetoothConnected && <span className="ml-2 text-xs text-green-600">• Connected</span>}
+              </>
+            )}
+          </Button>
+          
+          <Button
+            className="w-full h-12"
+            onClick={handleFinish}
+          >
+            Finish
+          </Button>
+        </div>
+      </>
+    );
+  };
 
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-50">

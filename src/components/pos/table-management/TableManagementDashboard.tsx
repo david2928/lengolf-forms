@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, Wifi, WifiOff, Plus, Table2, Home, User } from 'lucide-react';
 import { useTableManagement } from '@/hooks/use-table-management';
-import { usePOSStaffAuth } from '@/hooks/use-pos-staff-auth';
+import { useStaffAuth } from '@/hooks/use-staff-auth';
+import { bluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
+import { USBThermalPrinter } from '@/services/USBThermalPrinter';
 import { TableCard } from './TableCard';
 import { TableDetailModal } from './TableDetailModal';
 import { PaymentInterface } from '../payment/PaymentInterface';
@@ -21,7 +23,7 @@ export interface TableManagementDashboardProps {
 
 export function TableManagementDashboard({ onTableSelect }: TableManagementDashboardProps = {}) {
   const router = useRouter();
-  const { currentStaff, logout } = usePOSStaffAuth();
+  const { staff, logout } = useStaffAuth();
   const {
     tables,
     zones,
@@ -44,6 +46,28 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
   const [selectedOccupiedTable, setSelectedOccupiedTable] = useState<Table | null>(null);
   const [showOccupiedDetailsPanel, setShowOccupiedDetailsPanel] = useState(false);
   const [showOccupiedCancelModal, setShowOccupiedCancelModal] = useState(false);
+  
+  // Bill printing states
+  const [isBluetoothSupported, setIsBluetoothSupported] = useState<boolean>(false);
+
+  // Check Bluetooth support on mount
+  useEffect(() => {
+    const checkBluetoothSupport = () => {
+      try {
+        // Import BluetoothThermalPrinter class and check static method
+        import('@/services/BluetoothThermalPrinter').then(({ BluetoothThermalPrinter }) => {
+          const supported = BluetoothThermalPrinter.isSupported();
+          setIsBluetoothSupported(supported);
+          console.log('🔵 Bluetooth support:', supported);
+        });
+      } catch (error) {
+        console.log('🔵 Bluetooth not supported:', error);
+        setIsBluetoothSupported(false);
+      }
+    };
+    
+    checkBluetoothSupport();
+  }, []);
 
   const handleTableClick = (table: Table) => {
     // If table is already occupied, show the occupied table details panel
@@ -180,6 +204,100 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
     setSelectedOccupiedTable(null);
   };
 
+  // Handler for print bill functionality with actual thermal printing
+  const handleOccupiedTablePrintBill = async () => {
+    if (!selectedOccupiedTable?.currentSession?.id) {
+      console.error('No table session ID available for bill printing');
+      return;
+    }
+
+    const tableSessionId = selectedOccupiedTable.currentSession.id;
+    console.log('🖨️ Print bill clicked:', {
+      tableSessionId,
+      isBluetoothSupported,
+      userAgent: navigator.userAgent,
+      isMobile: /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+    });
+
+    try {
+      // Check if we should use Bluetooth (Android/mobile) or USB printing
+      if (isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+        console.log('🖨️ Using Bluetooth printing for bill');
+        await handleBluetoothPrintBill(tableSessionId);
+      } else {
+        console.log('🖨️ Using USB printing for bill');
+        await handleUSBPrintBill(tableSessionId);
+      }
+      
+    } catch (error) {
+      console.error('❌ Print bill error:', error);
+      alert(`❌ Print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  // Handle Bluetooth bill printing
+  const handleBluetoothPrintBill = async (tableSessionId: string) => {
+    try {
+      // Generate bill data via API
+      const response = await fetch('/api/pos/print-bill-bluetooth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tableSessionId })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate bill data');
+      }
+
+      console.log('📄 Bill data generated, sending to Bluetooth printer');
+      
+      // Use the receipt data format for printing
+      await bluetoothThermalPrinter.printReceipt(result.billData);
+      
+      console.log('✅ Bill printed successfully via Bluetooth');
+      
+    } catch (error) {
+      console.error('❌ Bluetooth bill printing failed:', error);
+      throw error;
+    }
+  };
+
+  // Handle USB bill printing
+  const handleUSBPrintBill = async (tableSessionId: string) => {
+    try {
+      // Generate bill data via API  
+      const response = await fetch('/api/pos/print-bill-usb', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tableSessionId })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate bill data');
+      }
+
+      console.log('📄 Bill data generated, sending to USB printer');
+      
+      // Create USB printer instance and use it
+      const usbPrinter = new USBThermalPrinter();
+      await usbPrinter.printReceipt(result.billData);
+      
+      console.log('✅ Bill printed successfully via USB');
+      
+    } catch (error) {
+      console.error('❌ USB bill printing failed:', error);
+      throw error;
+    }
+  };
+
   if (error) {
     return (
       <div className="h-full flex items-center justify-center bg-red-50">
@@ -222,37 +340,6 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
 
   return (
     <div className="h-full flex flex-col">
-      {/* Compact Header */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="px-4 py-2 flex items-center justify-between">
-          {/* Left: Title */}
-          <h1 className="text-lg font-semibold text-slate-900">Lengolf POS</h1>
-          
-          {/* Right: Staff Info + Home Button */}
-          <div className="flex items-center gap-3">
-            {/* Staff Info - Clickable */}
-            {currentStaff && (
-              <button
-                onClick={logout}
-                className="flex items-center space-x-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors"
-              >
-                <User className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-900">{currentStaff.staff_name}</span>
-              </button>
-            )}
-            
-            {/* Home Button */}
-            <button
-              onClick={() => router.push('/')}
-              className="flex items-center justify-center w-8 h-8 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-              title="Back to Backoffice"
-            >
-              <Home className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Stats and Actions Bar */}
       <div className="bg-slate-50 border-b border-slate-200 px-4 py-2">
         <div className="flex items-center justify-between">
@@ -318,7 +405,7 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
                 </div>
 
                 {/* Tables Grid - Optimized for Zone Type */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 tablet:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                   {/* Show all bay tables, but for other zones show compact plus icons */}
                   {zone.zoneType === 'bay' ? (
                     // Bay tables - Always show full cards
@@ -415,6 +502,7 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
         onAddOrder={handleOccupiedTableAddOrder}
         onPayment={handleOccupiedTablePayment}
         onCancel={handleOccupiedTableCancel}
+        onPrintBill={handleOccupiedTablePrintBill}
       />
 
       {/* Occupied Table Cancel Modal */}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,8 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Plus, Minus, Clock, Calendar, Search, ArrowLeft, Table2 } from 'lucide-react';
-import { usePOSStaffAuth } from '@/hooks/use-pos-staff-auth';
+import { Users, Plus, Minus, Clock, Calendar, Search, ArrowLeft, Table2, X } from 'lucide-react';
+import { useResponsive } from '@/hooks/use-responsive';
+import { useStaffAuth } from '@/hooks/use-staff-auth';
 import { useBookingIntegration } from '@/hooks/use-booking-integration';
 import { getBayColor } from '@/lib/calendar-utils';
 import { BookingSelector } from './BookingSelector';
@@ -20,8 +21,9 @@ import type { TableDetailModalProps, OpenTableRequest, Booking } from '@/types/p
 
 export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableDetailModalProps) {
   const router = useRouter();
-  const { currentStaff, session, isAuthenticated, login } = usePOSStaffAuth();
+  const { staff, isAuthenticated, login } = useStaffAuth();
   const { getBayUpcomingBookings } = useBookingIntegration();
+  const { isMobile, isTablet } = useResponsive();
   
   // Get bay-specific upcoming bookings
   const bayUpcomingBookings = getBayUpcomingBookings(table.displayName);
@@ -93,11 +95,9 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
   };
 
   const handleOpenTable = async () => {
-    console.log('handleOpenTable called', { currentStaff, isAuthenticated, paxCount });
     
     // Check if we have valid staff authentication
-    if (!isAuthenticated || !currentStaff) {
-      console.log('No staff authentication, showing staff PIN modal');
+    if (!isAuthenticated || !staff) {
       setShowStaffPinModal(true);
       return;
     }
@@ -110,13 +110,12 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
     setIsSubmitting(true);
     try {
       const request: OpenTableRequest = {
-        staffId: currentStaff.id, // Use staff ID instead of PIN
+        staffId: staff.id, // Use staff ID instead of PIN
         paxCount,
         notes: notes.trim() || undefined,
         bookingId: selectedBooking?.id
       };
 
-      console.log('Attempting to open table with request:', request);
       await onOpenTable(request);
     } catch (error) {
       console.error('Error opening table:', error);
@@ -124,7 +123,6 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
       
       // If the error is about invalid staff pin, trigger login
       if (errorMessage.includes('Invalid staff pin') || errorMessage.includes('inactive staff')) {
-        console.log('Invalid staff PIN error, showing staff PIN modal');
         setShowStaffPinModal(true);
       } else {
         alert(errorMessage);
@@ -174,55 +172,98 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
       <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         data-testid="table-detail-modal"
-        className="max-w-full max-h-full h-screen w-screen m-0 p-0 rounded-none sm:max-w-lg sm:max-h-[80vh] sm:h-auto sm:w-auto sm:m-auto sm:p-0 sm:rounded-lg focus:outline-none flex flex-col"
+        className={`focus:outline-none flex flex-col ${
+          isTablet || isMobile
+            ? "max-w-full max-h-full h-screen w-screen m-0 p-0 rounded-none"
+            : "max-w-lg max-h-[80vh] h-auto w-auto m-auto p-0 rounded-lg"
+        } [&>button]:hidden`}
       >
+        {/* Accessibility Components - visually hidden */}
+        <DialogTitle className="sr-only">
+          Table Details - {table.displayName}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          View and manage table {table.displayName} in {table.zone.name}. Select a booking or create walk-in service to open the table.
+        </DialogDescription>
+        
         {/* Mobile Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 px-4 py-3 sm:hidden relative">
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={onClose}
-              className="flex items-center justify-center w-8 h-8 text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-sm">{table.displayName.charAt(table.displayName.length - 1)}</span>
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 px-6 py-5 sm:hidden relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {/* Table Icon */}
+              <div className="w-14 h-14 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                <span className="text-white font-bold text-xl">
+                  {table.displayName.slice(-2)}
+                </span>
               </div>
-              <h1 className="text-lg font-bold text-blue-900">{table.displayName}</h1>
+              
+              {/* Table Info */}
+              <div className="space-y-1">
+                <h2 className="text-2xl font-bold text-blue-900">
+                  {table.displayName}
+                </h2>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Staff Info - POS Header Style */}
+              {staff && (
+                <div className="flex items-center space-x-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
+                  <Users className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">{staff.staff_name}</span>
+                </div>
+              )}
+              
+              {/* Close Button - More Prominent */}
+              <button
+                onClick={onClose}
+                className="w-10 h-10 flex items-center justify-center text-blue-700 bg-white/80 hover:bg-white rounded-lg shadow-sm hover:shadow-md transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
             </div>
           </div>
-          
-          {/* Staff Info - Mobile */}
-          {currentStaff && (
-            <div className="mt-2 flex items-center space-x-2 bg-white/70 px-2 py-1 rounded-lg border border-blue-200 w-fit">
-              <Users className="w-3 h-3 text-blue-600" />
-              <span className="text-xs font-medium text-blue-900">{currentStaff.staff_name}</span>
-            </div>
-          )}
         </div>
         
-        {/* Desktop Header - Standard Dialog Structure */}
+        {/* Desktop Header */}
         <div className="hidden sm:block">
-          <DialogHeader className="px-6 py-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-sm">{table.displayName.charAt(table.displayName.length - 1)}</span>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 px-6 py-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                {/* Table Icon */}
+                <div className="w-14 h-14 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                  <span className="text-white font-bold text-xl">
+                    {table.displayName.slice(-2)}
+                  </span>
+                </div>
+                
+                {/* Table Info */}
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-bold text-blue-900">
+                    {table.displayName}
+                  </h2>
+                </div>
               </div>
-              <DialogTitle className="text-lg font-bold text-slate-900">{table.displayName}</DialogTitle>
-            </div>
-          </DialogHeader>
-          
-          {/* Staff Info Bar - Separate from header to avoid close button interference */}
-          {currentStaff && (
-            <div className="px-6 pb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-              <div className="flex items-center space-x-2 bg-white/70 px-3 py-1.5 rounded-lg border border-blue-200 w-fit">
-                <Users className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-900">{currentStaff.staff_name}</span>
+              
+              <div className="flex items-center gap-3">
+                {/* Staff Info - POS Header Style */}
+                {staff && (
+                  <div className="flex items-center space-x-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
+                    <Users className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-900">{staff.staff_name}</span>
+                  </div>
+                )}
+                
+                {/* Close Button - More Prominent */}
+                <button
+                  onClick={onClose}
+                  className="w-10 h-10 flex items-center justify-center text-blue-700 bg-white/80 hover:bg-white rounded-lg shadow-sm hover:shadow-md transition-all"
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3 sm:px-4 sm:space-y-3">
@@ -294,8 +335,8 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                           >
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                {/* Customer name and phone - mobile optimized */}
-                                <div className={isFirstBooking ? "mb-3" : "mb-2"}>
+                                {/* Customer name and phone - tablet optimized */}
+                                <div className="mb-3">
                                   <div className={`font-bold text-gray-900 break-words ${isFirstBooking ? "text-lg sm:text-xl" : "text-base"}`}>
                                     {booking.name}
                                   </div>
@@ -304,8 +345,22 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                                   </div>
                                 </div>
                                 
-                                {/* Essential info - mobile optimized */}
-                                <div className={`flex items-center text-gray-700 ${isFirstBooking ? "gap-3 sm:gap-4" : "gap-2"}`}>
+                                {/* Date info - prominent for tablet */}
+                                <div className="mb-3">
+                                  <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                                    <Calendar className="h-4 w-4 text-blue-600" />
+                                    <span className={`font-semibold text-blue-800 ${isFirstBooking ? "text-base" : "text-sm"}`}>
+                                      {new Date(booking.date).toLocaleDateString('en-US', {
+                                        weekday: 'short',
+                                        month: 'short', 
+                                        day: 'numeric'
+                                      })}
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                {/* Essential info - tablet optimized */}
+                                <div className={`flex items-center text-gray-700 ${isTablet ? "gap-4" : isFirstBooking ? "gap-3 sm:gap-4" : "gap-2"}`}>
                                   <div className={`flex items-center gap-2 bg-gray-100 rounded-lg ${isFirstBooking ? "px-3 py-1.5" : "px-2 py-1"}`}>
                                     <Users className="h-4 w-4 text-blue-600" />
                                     <span className="font-semibold text-sm">{booking.numberOfPeople}</span>
@@ -473,7 +528,7 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
                                     {/* Customer name and phone - responsive layout */}
-                                    <div className="mb-2">
+                                    <div className="mb-3">
                                       <div className="text-lg font-bold text-gray-900 break-words">
                                         {booking.name}
                                       </div>
@@ -482,8 +537,23 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                                       </div>
                                     </div>
                                     
-                                    {/* Essential info - optimized spacing */}
-                                    <div className="flex items-center gap-3 text-gray-700">
+                                    {/* Date info - tablet optimized */}
+                                    <div className="mb-3">
+                                      <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5">
+                                        <Calendar className="h-4 w-4 text-blue-600" />
+                                        <span className="font-semibold text-blue-800 text-sm">
+                                          {new Date(booking.date).toLocaleDateString('en-US', {
+                                            weekday: 'short',
+                                            month: 'short', 
+                                            day: 'numeric',
+                                            year: new Date(booking.date).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                                          })}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Essential info - tablet optimized spacing */}
+                                    <div className={`flex items-center text-gray-700 ${isTablet ? "gap-4" : "gap-3"}`}>
                                       <div className="flex items-center gap-1.5 bg-gray-100 px-2.5 py-1 rounded-lg">
                                         <Users className="h-3.5 w-3.5 text-blue-600" />
                                         <span className="font-semibold text-sm">{booking.numberOfPeople}</span>
@@ -491,7 +561,19 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                                       
                                       <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1 rounded-lg">
                                         <Clock className="h-3.5 w-3.5 text-green-600" />
-                                        <span className="font-semibold text-sm">{booking.startTime}</span>
+                                        <span className="font-semibold text-sm">
+                                          {booking.startTime} - {(() => {
+                                            const [hours, minutes] = booking.startTime.split(':').map(Number);
+                                            const durationHours = Math.floor(booking.duration || 1);
+                                            const durationMinutes = Math.round(((booking.duration || 1) % 1) * 60);
+                                            
+                                            const totalMinutes = hours * 60 + minutes + durationHours * 60 + durationMinutes;
+                                            const endHour = Math.floor(totalMinutes / 60) % 24;
+                                            const endMinute = totalMinutes % 60;
+                                            
+                                            return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+                                          })()} 
+                                        </span>
                                       </div>
                                     </div>
                                     
@@ -666,12 +748,12 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
 
 
         {/* Fixed Bottom Action Bar */}
-        <div className="bg-background border-t px-4 py-3 sm:px-4 flex gap-3 flex-shrink-0">
+        <div className="bg-background border-t px-6 py-4 flex gap-3 flex-shrink-0">
           <Button 
             variant="outline" 
             onClick={onClose} 
             size="lg"
-            className="flex-1"
+            className="flex-1 h-12 font-semibold"
           >
             Cancel
           </Button>
@@ -682,7 +764,7 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
               onClick={handleOpenTable}
               disabled={isSubmitting || (table.zone.zoneType === 'bay' && !selectedBooking)}
               size="lg"
-              className="flex-2"
+              className="flex-1 h-12 font-semibold bg-blue-600 hover:bg-blue-700"
             >
               {isSubmitting ? 'Opening...' : 'Open Table'}
             </Button>

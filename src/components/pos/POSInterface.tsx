@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, PanInfo } from 'framer-motion';
+import { motion, PanInfo, AnimatePresence } from 'framer-motion';
 import { ProductCatalog } from './product-catalog/ProductCatalog';
 import { SimplifiedOrderPanel } from './order/SimplifiedOrderPanel';
 import { POSHeader } from './POSHeader';
@@ -29,6 +29,9 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [activeOrderTab, setActiveOrderTab] = useState<'running' | 'current'>('running');
   
+  // Discount state management
+  const [appliedReceiptDiscountId, setAppliedReceiptDiscountId] = useState<string | null>(null);
+  
   // Mobile enhancement states
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState<'products' | 'order'>('products');
@@ -36,7 +39,28 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
   const [dragY, setDragY] = useState(0);
   const orderPanelRef = useRef<HTMLDivElement>(null);
   const [lastSelectedCategory, setLastSelectedCategory] = useState<string | null>(null);
-  const [addProductAnimation, setAddProductAnimation] = useState<string | null>(null);
+  // Notification system - support multiple notifications
+  interface Notification {
+    id: string;
+    type: 'success' | 'error' | 'warning';
+    title: string;
+    message: string;
+    icon: 'plus' | 'minus' | 'check' | 'x';
+  }
+  
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const addNotification = (notification: Omit<Notification, 'id'>) => {
+    const id = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newNotification = { ...notification, id };
+    
+    setNotifications(prev => [...prev, newNotification]);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 3000);
+  };
 
   // Detect mobile screen size
   useEffect(() => {
@@ -147,9 +171,13 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
       setCurrentOrder(prev => [...prev, newItem]);
     }
     
-    // Trigger add animation
-    setAddProductAnimation(product.name);
-    setTimeout(() => setAddProductAnimation(null), 2000);
+    // Trigger add notification
+    addNotification({
+      type: 'success',
+      title: 'Added to order',
+      message: product.name,
+      icon: 'plus'
+    });
     
     // Auto-switch to current order tab when product is added
     setActiveOrderTab('current');
@@ -246,6 +274,9 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
 
   const handleRemoveRunningTabItem = async (itemId: string, reason: string, staffPin: string, quantityToRemove?: number) => {
     try {
+      // Find the item before removal for notification
+      const itemToRemove = runningTab.find(item => item.id === itemId);
+      
       const response = await fetch(`/api/pos/table-sessions/${tableSession.id}/remove-item`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -260,6 +291,17 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to remove item');
+      }
+
+      // Show success notification
+      if (itemToRemove) {
+        const isPartialRemoval = quantityToRemove && quantityToRemove < itemToRemove.quantity;
+        addNotification({
+          type: 'success',
+          title: isPartialRemoval ? 'Quantity reduced' : 'Item removed',
+          message: `${itemToRemove.productName}${isPartialRemoval ? ` (-${quantityToRemove})` : ''}`,
+          icon: 'minus'
+        });
       }
 
       // Update running tab locally - handle partial vs full removal
@@ -285,45 +327,142 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
       }
     } catch (error) {
       console.error('Failed to remove running tab item:', error);
+      
+      // Show error notification
+      addNotification({
+        type: 'error',
+        title: 'Removal failed',
+        message: error instanceof Error ? error.message : 'Failed to remove item',
+        icon: 'x'
+      });
+      
       throw error; // Re-throw to let the modal handle the error display
     }
   };
 
+  // Discount handlers
+  const handleItemDiscountApplied = (itemId: string, discountId: string, discountDetails?: any) => {
+    setCurrentOrder(prev => prev.map(item => {
+      if (item.id === itemId) {
+        // If we have discount calculation results, apply them
+        if (discountDetails && discountDetails.final_amount !== undefined) {
+          return {
+            ...item,
+            applied_discount_id: discountId,
+            totalPrice: discountDetails.final_amount,
+            discount_amount: discountDetails.discount_amount
+          };
+        }
+        // Otherwise just store the discount ID (calculation will be done elsewhere)
+        return {
+          ...item,
+          applied_discount_id: discountId
+        };
+      }
+      return item;
+    }));
+  };
+
+  const handleItemDiscountRemoved = (itemId: string) => {
+    setCurrentOrder(prev => prev.map(item => {
+      if (item.id === itemId) {
+        const { applied_discount_id, discount_amount, ...itemWithoutDiscount } = item;
+        // Restore original price
+        const originalPrice = item.unitPrice * item.quantity;
+        return {
+          ...itemWithoutDiscount,
+          totalPrice: originalPrice
+        } as OrderItem;
+      }
+      return item;
+    }));
+  };
+
+  const handleReceiptDiscountApplied = (discountId: string) => {
+    setAppliedReceiptDiscountId(discountId);
+  };
+
+  const handleReceiptDiscountRemoved = () => {
+    setAppliedReceiptDiscountId(null);
+  };
+
   return (
     <div className={`pos-interface fixed inset-0 flex flex-col bg-slate-50 ${className}`} data-testid="pos-interface">
-      {/* Product Added Animation - Subtle toast-style */}
-      {addProductAnimation && (
-        <motion.div
-          initial={{ opacity: 0, x: 300 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 300 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          className="fixed top-4 right-4 z-50 bg-white border border-green-200 shadow-lg rounded-lg overflow-hidden max-w-xs"
-        >
-          <div className="bg-green-50 border-l-4 border-green-400 p-3">
-            <div className="flex items-center">
-              <motion.div
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ delay: 0.1, duration: 0.3 }}
-                className="flex-shrink-0 w-6 h-6 bg-green-400 rounded-full flex items-center justify-center mr-3"
-              >
-                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </motion.div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-green-800 truncate">
-                  Added to order
-                </p>
-                <p className="text-xs text-green-600 truncate">
-                  {addProductAnimation}
-                </p>
+      {/* Notification System - Supports stacking */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        <AnimatePresence>
+          {notifications.map((notification, index) => (
+          <motion.div
+            key={notification.id}
+            initial={{ opacity: 0, x: 300 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 300 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className={`bg-white border shadow-lg rounded-lg overflow-hidden max-w-xs ${
+              notification.type === 'success' ? 'border-green-200' :
+              notification.type === 'error' ? 'border-red-200' :
+              'border-yellow-200'
+            }`}
+          >
+            <div className={`border-l-4 p-3 ${
+              notification.type === 'success' ? 'bg-green-50 border-green-400' :
+              notification.type === 'error' ? 'bg-red-50 border-red-400' :
+              'bg-yellow-50 border-yellow-400'
+            }`}>
+              <div className="flex items-center">
+                <motion.div
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: 0.1, duration: 0.3 }}
+                  className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mr-3 ${
+                    notification.type === 'success' ? 'bg-green-400' :
+                    notification.type === 'error' ? 'bg-red-400' :
+                    'bg-yellow-400'
+                  }`}
+                >
+                  {notification.icon === 'plus' && (
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                  {notification.icon === 'minus' && (
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                  {notification.icon === 'check' && (
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                  {notification.icon === 'x' && (
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </motion.div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium truncate ${
+                    notification.type === 'success' ? 'text-green-800' :
+                    notification.type === 'error' ? 'text-red-800' :
+                    'text-yellow-800'
+                  }`}>
+                    {notification.title}
+                  </p>
+                  <p className={`text-xs truncate ${
+                    notification.type === 'success' ? 'text-green-600' :
+                    notification.type === 'error' ? 'text-red-600' :
+                    'text-yellow-600'
+                  }`}>
+                    {notification.message}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        </motion.div>
-      )}
+          </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
 
       {/* Header */}
       <POSHeader
@@ -401,6 +540,8 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
                     className="h-full"
                     rememberLastCategory={lastSelectedCategory}
                     onCategoryChange={setLastSelectedCategory}
+                    onBack={handleBackWithCheck}
+                    showBackButton={true}
                   />
                 </div>
               ) : (
@@ -415,6 +556,11 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
                     onConfirmOrder={handleConfirmOrder}
                     onClearCurrentOrder={handleClearCurrentOrder}
                     onRemoveRunningTabItem={handleRemoveRunningTabItem}
+                    onItemDiscountApplied={handleItemDiscountApplied}
+                    onItemDiscountRemoved={handleItemDiscountRemoved}
+                    onReceiptDiscountApplied={handleReceiptDiscountApplied}
+                    onReceiptDiscountRemoved={handleReceiptDiscountRemoved}
+                    appliedReceiptDiscountId={appliedReceiptDiscountId}
                     className="h-full"
                     activeTab={activeOrderTab}
                     onTabChange={setActiveOrderTab}
@@ -479,6 +625,8 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
               showSearch={false}
               showFilters={false}
               className="h-full"
+              onBack={handleBackWithCheck}
+              showBackButton={true}
             />
           </div>
           
@@ -494,6 +642,11 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
               onConfirmOrder={handleConfirmOrder}
               onClearCurrentOrder={handleClearCurrentOrder}
               onRemoveRunningTabItem={handleRemoveRunningTabItem}
+              onItemDiscountApplied={handleItemDiscountApplied}
+              onItemDiscountRemoved={handleItemDiscountRemoved}
+              onReceiptDiscountApplied={handleReceiptDiscountApplied}
+              onReceiptDiscountRemoved={handleReceiptDiscountRemoved}
+              appliedReceiptDiscountId={appliedReceiptDiscountId}
               className="h-full"
               activeTab={activeOrderTab}
               onTabChange={setActiveOrderTab}

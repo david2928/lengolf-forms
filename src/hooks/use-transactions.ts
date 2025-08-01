@@ -15,6 +15,7 @@ import type {
 } from '@/types/transactions';
 import { DEFAULT_FILTERS, DEFAULT_PAGINATION } from '@/types/transactions';
 import { getBangkokToday, getBangkokNow, parseBangkokTime, formatBangkokTime } from '@/lib/bangkok-timezone';
+import { formatDateToLocalString } from '@/lib/utils';
 
 // API fetcher functions
 async function fetchTransactions(
@@ -298,26 +299,26 @@ export function useTransactionFilters() {
         endDateStr = bangkokToday;
         break;
       case 'yesterday':
-        // Calculate yesterday in Bangkok timezone
-        const yesterdayDate = new Date(bangkokToday);
+        // Calculate yesterday in Bangkok timezone without timezone conversion issues
+        const yesterdayDate = new Date(bangkokToday + 'T00:00:00');
         yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-        const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+        const yesterdayStr = formatDateToLocalString(yesterdayDate);
         startDateStr = yesterdayStr;
         endDateStr = yesterdayStr;
         break;
       case 'last7days':
-        // Calculate 6 days ago to today (7 days total)
-        const sevenDaysAgoDate = new Date(bangkokToday);
+        // Calculate 6 days ago to today (7 days total) without timezone conversion issues
+        const sevenDaysAgoDate = new Date(bangkokToday + 'T00:00:00');
         sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 6);
-        const sevenDaysAgoStr = sevenDaysAgoDate.toISOString().split('T')[0];
+        const sevenDaysAgoStr = formatDateToLocalString(sevenDaysAgoDate);
         startDateStr = sevenDaysAgoStr;
         endDateStr = bangkokToday;
         break;
       case 'last30days':
-        // Calculate 29 days ago to today (30 days total)
-        const thirtyDaysAgoDate = new Date(bangkokToday);
+        // Calculate 29 days ago to today (30 days total) without timezone conversion issues
+        const thirtyDaysAgoDate = new Date(bangkokToday + 'T00:00:00');
         thirtyDaysAgoDate.setDate(thirtyDaysAgoDate.getDate() - 29);
-        const thirtyDaysAgoStr = thirtyDaysAgoDate.toISOString().split('T')[0];
+        const thirtyDaysAgoStr = formatDateToLocalString(thirtyDaysAgoDate);
         startDateStr = thirtyDaysAgoStr;
         endDateStr = bangkokToday;
         break;

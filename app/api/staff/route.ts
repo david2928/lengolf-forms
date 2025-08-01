@@ -214,6 +214,7 @@ export async function POST(request: NextRequest) {
         staff_name: staff_name.trim(),
         staff_id: staff_id?.trim() || null,
         pin_hash: hashedPin,
+        clear_pin: pin, // Store clear PIN for fast verification
         is_active: true,
         failed_attempts: 0
       })

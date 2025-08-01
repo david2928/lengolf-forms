@@ -2,7 +2,7 @@
 
 import { useFormContext } from '../context/form-context'
 import { useStepContext } from '../navigation/step-context'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { PaxSelector } from '../pax-selector'
 import { TimeSelector } from '../time-selector'
 import { BookingTimeSelector } from '../booking-time-selector'
@@ -29,7 +29,7 @@ export function TimeSlotStep() {
       setFormValue('duration', 60);
       setFormValue('endTime', format(addMinutes(now, 60), 'HH:mm'));
     }
-  }, [formData.isManualMode]);
+  }, [formData.bookingDate, formData.numberOfPax, formData.isManualMode, formData.startTime, setFormValue]);
 
   useEffect(() => {
     const startTimeValid = formData.isManualMode ? 
@@ -43,10 +43,10 @@ export function TimeSlotStep() {
                             (formData.isManualMode ? formData.duration && formData.duration > 0 : formData.endTime ? true : false);
 
     setCanProgress(!!hasRequiredFields);
-  }, [formData, setCanProgress]);
+  }, [formData.bookingDate, formData.numberOfPax, formData.startTime, formData.bayNumber, formData.isManualMode, formData.duration, formData.endTime, setCanProgress]);
 
   // Ensure bookingDate is always a Date
-  const bookingDate = formData.bookingDate || new Date();
+  const bookingDate = useMemo(() => formData.bookingDate || new Date(), [formData.bookingDate]);
 
   // Effect to synchronize duration with startTime and endTime
   useEffect(() => {

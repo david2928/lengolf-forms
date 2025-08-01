@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
-import { transactionService } from '@/services/TransactionService';
+import { transactionQueryService } from '@/services/TransactionQueryService';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 
 export async function POST(request: NextRequest) {

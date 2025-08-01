@@ -75,7 +75,12 @@
       "Bash(sed:*)",
       "Bash(git fetch:*)",
       "Bash(gh pr create:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(timeout:*)",
+      "Bash(dos2unix:*)",
+      "Bash(for i in {1..5})",
+      "Bash(do echo \"Request $i:\")",
+      "Bash(time curl:*)"
     ],
     "deny": []
   },

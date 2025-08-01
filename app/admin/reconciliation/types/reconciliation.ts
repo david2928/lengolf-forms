@@ -1,7 +1,7 @@
 // Reconciliation system TypeScript interfaces
 // Based on lengolf-reconciliation analysis and POS data structure
 
-export type ReconciliationType = 'restaurant' | 'golf_coaching_ratchavin' | 'golf_coaching_boss';
+export type ReconciliationType = 'restaurant' | 'golf_coaching_ratchavin' | 'golf_coaching_boss' | 'golf_coaching_noon';
 
 export type ReconciliationStatus = 'processing' | 'completed' | 'failed';
 

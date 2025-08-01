@@ -240,7 +240,7 @@ export function isScreenReaderActive(): boolean {
          window.speechSynthesis?.speaking === true
 }
 
-export default {
+const scheduleAccessibility = {
   getContrastRatio,
   hasAccessibleContrast,
   getAccessibleTextColor,
@@ -254,3 +254,5 @@ export default {
   prefersReducedMotion,
   isScreenReaderActive
 }
+
+export default scheduleAccessibility

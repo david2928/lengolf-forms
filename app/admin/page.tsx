@@ -16,7 +16,8 @@ import {
   Link2,
   Clock,
   ShoppingCart,
-  CalendarDays
+  CalendarDays,
+  Percent
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -93,6 +94,12 @@ const inventoryItems = [
     title: "Product Management",
     description: "Manage product catalog, categories, and pricing for POS system",
     path: "/admin/products"
+  },
+  {
+    icon: Percent,
+    title: "Discount Management",
+    description: "Create and manage discounts for POS system",
+    path: "/admin/discounts"
   },
   {
     icon: FileText,

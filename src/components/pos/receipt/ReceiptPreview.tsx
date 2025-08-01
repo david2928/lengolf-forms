@@ -3,9 +3,97 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ReceiptData } from '@/types/payment';
-import { receiptGenerator } from '@/services/ReceiptGenerator';
+import { ReceiptFormatter, type ReceiptData } from '@/lib/receipt-formatter';
 import { Printer, Download, Eye, EyeOff, FileText } from 'lucide-react';
+
+// Simple HTML receipt generator for preview component
+function generateHTMLReceipt(receiptData: ReceiptData, language: 'th' | 'en' = 'en'): string {
+  const receiptType = receiptData.isTaxInvoice ? 'TAX INVOICE (ABB)' : 'RECEIPT';
+  const transactionDate = receiptData.transactionDate ? new Date(receiptData.transactionDate) : new Date();
+  
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>${receiptType} - ${receiptData.receiptNumber}</title>
+  <style>
+    body { font-family: 'Courier New', monospace; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+    .company-name { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+    .receipt-type { font-size: 18px; font-weight: bold; background: #f0f0f0; padding: 5px; }
+    .details { margin: 20px 0; }
+    .items { margin: 20px 0; }
+    .items table { width: 100%; border-collapse: collapse; }
+    .items th, .items td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+    .totals { margin-top: 20px; text-align: right; }
+    .total-line { font-weight: bold; font-size: 18px; border-top: 2px solid #000; padding-top: 5px; }
+    .footer { margin-top: 30px; text-align: center; font-style: italic; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="company-name">LENGOLF CO. LTD.</div>
+    <div>540 Mercury Tower, 4th Floor, Unit 407</div>
+    <div>Ploenchit Road, Lumpini, Pathumwan</div>
+    <div>Bangkok 10330</div>
+    <div>TAX ID: 0105566207013</div>
+    <br>
+    <div class="receipt-type">${receiptType}</div>
+  </div>
+  
+  <div class="details">
+    <strong>Receipt No:</strong> ${receiptData.receiptNumber}<br>
+    <strong>Date:</strong> ${transactionDate.toLocaleDateString('en-GB')} ${transactionDate.toLocaleTimeString('en-GB', { hour12: false })}<br>
+    ${receiptData.staffName ? `<strong>Staff:</strong> ${receiptData.staffName}<br>` : ''}
+    <strong>Guests:</strong> ${receiptData.paxCount || 1}
+  </div>
+  
+  <div class="items">
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Qty</th>
+          <th>Price</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${receiptData.items.map(item => `
+          <tr>
+            <td>${item.name}${item.notes ? `<br><small><em>${item.notes}</em></small>` : ''}</td>
+            <td>${item.qty}</td>
+            <td>฿${item.price.toFixed(2)}</td>
+            <td>฿${(item.price * item.qty).toFixed(2)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="totals">
+    <div>Subtotal: ฿${receiptData.subtotal.toFixed(2)}</div>
+    <div>VAT (7%): ฿${receiptData.tax.toFixed(2)}</div>
+    <div class="total-line">Total: ฿${receiptData.total.toFixed(2)}</div>
+    
+    <div style="margin-top: 20px;">
+      <strong>Payment:</strong><br>
+      ${receiptData.paymentMethods.map(payment => 
+        `${payment.method}: ฿${payment.amount.toFixed(2)}`
+      ).join('<br>')}
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>May your next round be under par!</p>
+    <p>www.len.golf</p>
+    <p><small>Generated: ${new Date().toLocaleString('th-TH')}<br>
+    Powered by Lengolf POS System</small></p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
 
 interface ReceiptPreviewProps {
   receiptData: ReceiptData;
@@ -27,7 +115,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handlePrint = () => {
-    const htmlContent = receiptGenerator.generateHTMLReceipt(receiptData, language);
+    const htmlContent = generateHTMLReceipt(receiptData, language);
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(htmlContent);
@@ -39,7 +127,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
   };
 
   const handleDownload = () => {
-    const htmlContent = receiptGenerator.generateHTMLReceipt(receiptData, language);
+    const htmlContent = generateHTMLReceipt(receiptData, language);
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -73,7 +161,11 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
 
   const renderReceiptContent = () => {
     if (format === 'thermal') {
-      const thermalContent = receiptGenerator.generateThermalReceipt(receiptData, language);
+      // Generate ESC/POS thermal content and convert to text
+      const escposData = ReceiptFormatter.generateESCPOSData(receiptData);
+      const thermalContent = Array.from(escposData)
+        .map(byte => String.fromCharCode(byte))
+        .join('');
       return (
         <div className="bg-white border rounded-lg p-4">
           <div className="font-mono text-xs whitespace-pre-wrap bg-gray-50 p-4 rounded border">
@@ -87,11 +179,12 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
       <div className="bg-white border rounded-lg p-6 max-w-lg mx-auto">
         {/* Header */}
         <div className="text-center border-b-2 border-gray-300 pb-4 mb-4">
-          <h2 className="text-lg font-bold">{receiptData.businessInfo.name}</h2>
+          <h2 className="text-lg font-bold">LENGOLF CO. LTD.</h2>
           <div className="text-sm text-gray-600 space-y-1">
-            <div>{receiptData.businessInfo.address}</div>
-            <div>Tax ID: {receiptData.businessInfo.taxId}</div>
-            <div>Tel: {receiptData.businessInfo.phone}</div>
+            <div>540 Mercury Tower, 4th Floor, Unit 407</div>
+            <div>Ploenchit Road, Lumpini, Pathumwan</div>
+            <div>Bangkok 10330</div>
+            <div>Tax ID: 0105566207013</div>
           </div>
         </div>
 
@@ -103,40 +196,40 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
           </div>
           <div className="flex justify-between">
             <span>Date:</span>
-            <span>{formatDateTime(receiptData.transaction.date)}</span>
+            <span>{receiptData.transactionDate ? formatDateTime(new Date(receiptData.transactionDate)) : formatDateTime(new Date())}</span>
           </div>
-          {receiptData.transaction.tableNumber && (
+          {receiptData.tableNumber && (
             <div className="flex justify-between">
               <span>Table:</span>
-              <span>{receiptData.transaction.tableNumber}</span>
+              <span>{receiptData.tableNumber}</span>
             </div>
           )}
-          {receiptData.transaction.customerName && (
+          {receiptData.customerName && (
             <div className="flex justify-between">
               <span>Customer:</span>
-              <span>{receiptData.transaction.customerName}</span>
+              <span>{receiptData.customerName}</span>
             </div>
           )}
           <div className="flex justify-between">
             <span>Staff:</span>
-            <span>{receiptData.transaction.staffName}</span>
+            <span>{receiptData.staffName}</span>
           </div>
         </div>
 
         {/* Items */}
         <div className="border-t border-gray-300 pt-3 mb-4">
           <div className="space-y-3">
-            {receiptData.transaction.items.map((item, index) => (
+            {receiptData.items.map((item, index) => (
               <div key={index} className="space-y-1">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="font-medium text-sm">{item.name}</div>
                     <div className="text-xs text-gray-600">
-                      {item.quantity} × {formatCurrency(item.unitPrice)}
+                      {item.qty} × {formatCurrency(item.price)}
                     </div>
                   </div>
                   <div className="text-sm font-medium">
-                    {formatCurrency(item.totalPrice)}
+                    {formatCurrency(item.price * item.qty)}
                   </div>
                 </div>
                 {item.notes && (
@@ -153,15 +246,15 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
         <div className="border-t-2 border-gray-300 pt-3 mb-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span>Subtotal:</span>
-            <span>{formatCurrency(receiptData.transaction.subtotal)}</span>
+            <span>{formatCurrency(receiptData.subtotal)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span>VAT (7%):</span>
-            <span>{formatCurrency(receiptData.transaction.vatAmount)}</span>
+            <span>{formatCurrency(receiptData.tax)}</span>
           </div>
           <div className="flex justify-between text-lg font-bold border-t pt-2">
             <span>TOTAL:</span>
-            <span>{formatCurrency(receiptData.transaction.totalAmount)}</span>
+            <span>{formatCurrency(receiptData.total)}</span>
           </div>
         </div>
 
@@ -169,7 +262,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
         <div className="border-t border-gray-300 pt-3 mb-4">
           <div className="font-medium text-sm mb-2">Payment:</div>
           <div className="space-y-1">
-            {receiptData.transaction.paymentMethods.map((payment, index) => (
+            {receiptData.paymentMethods.map((payment, index) => (
               <div key={index} className="flex justify-between text-sm">
                 <span>{payment.method}:</span>
                 <span>{formatCurrency(payment.amount)}</span>
@@ -181,15 +274,14 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
         {/* Footer */}
         <div className="text-center border-t-2 border-gray-300 pt-4 text-sm">
           <div className="font-medium mb-2">
-            {receiptData.footer.thankYouMessage}
+            May your next round be under par!
           </div>
-          {receiptData.footer.returnPolicy && (
-            <div className="text-xs text-gray-600 mb-2">
-              Return Policy: {receiptData.footer.returnPolicy}
-            </div>
-          )}
+          <div className="text-xs text-gray-600 mb-2">
+            www.len.golf
+          </div>
           <div className="text-xs text-gray-500">
-            Generated: {formatDateTime(new Date())}
+            Generated: {formatDateTime(new Date())}<br/>
+            Powered by Lengolf POS System
           </div>
         </div>
       </div>
@@ -270,19 +362,19 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
           </div>
           <div>
             <div className="text-lg font-bold text-blue-900">
-              {formatCurrency(receiptData.transaction.totalAmount)}
+              {formatCurrency(receiptData.total)}
             </div>
             <div className="text-sm text-blue-700">Total Amount</div>
           </div>
           <div>
             <div className="text-lg font-bold text-blue-900">
-              {receiptData.transaction.items.length}
+              {receiptData.items.length}
             </div>
             <div className="text-sm text-blue-700">Items</div>
           </div>
           <div>
             <div className="text-lg font-bold text-blue-900">
-              {receiptData.transaction.paymentMethods.length}
+              {receiptData.paymentMethods.length}
             </div>
             <div className="text-sm text-blue-700">Payment Methods</div>
           </div>

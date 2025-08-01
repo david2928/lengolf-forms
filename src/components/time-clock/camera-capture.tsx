@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Camera, X, RotateCcw, CameraOff } from 'lucide-react'
@@ -190,9 +191,11 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
             onLoadedMetadata={() => setLoading(false)}
           />
         ) : (
-          <img
+          <Image
             src={capturedPhoto}
             alt="Captured photo"
+            width={640}
+            height={480}
             className="w-full aspect-video object-cover"
           />
         )}

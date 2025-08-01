@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -76,7 +76,7 @@ export function AvailabilityCalendar({ coachId }: AvailabilityCalendarProps) {
   }, [currentWeekStart]);
 
   // Fetch all availability data
-  const fetchAvailabilityData = async () => {
+  const fetchAvailabilityData = useCallback(async () => {
     setLoading(true);
     try {
       const [weeklyRes, blocksRes, overridesRes] = await Promise.all([
@@ -105,11 +105,11 @@ export function AvailabilityCalendar({ coachId }: AvailabilityCalendarProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [coachId, weekDates]);
 
   useEffect(() => {
     fetchAvailabilityData();
-  }, [currentWeekStart]);
+  }, [fetchAvailabilityData]);
 
   // Calculate availability for each day
   const dayAvailabilities = useMemo((): DayAvailability[] => {

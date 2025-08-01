@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { createClient } from '@supabase/supabase-js';
 
@@ -79,7 +79,7 @@ interface ReconciliationRequest {
 export async function POST(request: NextRequest) {
   try {
     // Check admin authentication
-    const session = await getServerSession(authOptions);
+    const session = await getDevSession(authOptions, request);
     if (!session?.user?.email || !session.user.isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid invoice data' }, { status: 400 });
     }
 
-    if (!reconciliationType || !['golf_coaching_ratchavin', 'golf_coaching_boss', 'smith_and_co_restaurant'].includes(reconciliationType)) {
+    if (!reconciliationType || !['golf_coaching_ratchavin', 'golf_coaching_boss', 'golf_coaching_noon', 'smith_and_co_restaurant'].includes(reconciliationType)) {
       return NextResponse.json({ error: 'Invalid reconciliation type' }, { status: 400 });
     }
 
@@ -157,30 +157,42 @@ async function fetchPOSData(reconciliationType: string, dateRange: { start: stri
       }));
 
     case 'golf_coaching_ratchavin':
-      // Golf lessons for Pro Ratchavin
-      query = supabase
-        .schema('pos')
-        .from('lengolf_sales')
-        .select('id, date, customer_name, product_name, product_category, item_cnt, item_price_incl_vat, is_voided')
-        .gte('date', dateRange.start)
-        .lte('date', dateRange.end)
-        .in('product_name', ['1 Golf Lesson Used', '1 Golf Lesson Used (Ratchavin)'])
-        .or('is_voided.is.null,is_voided.eq.false')
-        .order('date', { ascending: true });
-      break;
+    case 'golf_coaching_boss':  
+    case 'golf_coaching_noon':
+      // Golf coaching reconciliation: use coach earnings data for actual lesson values
+      const coachName = reconciliationType === 'golf_coaching_ratchavin'
+        ? 'RATCHAVIN'
+        : reconciliationType === 'golf_coaching_boss'
+          ? 'BOSS'
+          : 'NOON';
 
-    case 'golf_coaching_boss':
-      // Golf lessons for Pro Boss
-      query = supabase
-        .schema('pos')
-        .from('lengolf_sales')
-        .select('id, date, customer_name, product_name, product_category, item_cnt, item_price_incl_vat, is_voided')
+      const { data: earningsData, error: earningsError } = await supabase
+        .schema('backoffice')
+        .from('coach_earnings')
+        .select('receipt_number, date, customer_name, rate_type, hour_cnt, coach_earnings')
+        .eq('coach', coachName)
         .gte('date', dateRange.start)
         .lte('date', dateRange.end)
-        .in('product_name', ['1 Golf Lesson Used', '1 Golf Lesson Used (Boss)'])
-        .or('is_voided.is.null,is_voided.eq.false')
-        .order('date', { ascending: true });
-      break;
+        .order('date', { ascending: true })
+        .order('customer_name', { ascending: true });
+
+      if (earningsError) {
+        throw new Error(`Failed to fetch coach earnings data: ${earningsError.message}`);
+      }
+      
+      // Transform earnings data to match POSSalesRecord interface and return
+      return (earningsData || []).map((earning: any, index: number) => ({
+        id: index + 1, // Use index as ID since table doesn't have id column
+        date: earning.date,
+        customerName: earning.customer_name || 'Unknown',
+        productName: `${earning.rate_type} Lesson`,
+        productCategory: 'Coaching',
+        quantity: earning.hour_cnt || 1,
+        totalAmount: parseFloat(earning.coach_earnings || '0'),
+        skuNumber: '',
+        isVoided: false,
+        receiptNumber: earning.receipt_number
+      }));
 
     default:
       throw new Error('Invalid reconciliation type');
@@ -374,12 +386,10 @@ function findMatches(invoiceItem: InvoiceItem, posRecords: POSSalesRecord[], opt
 }
 
 function calculateMatch(invoiceItem: InvoiceItem, posRecord: POSSalesRecord, options: any): MatchedItem | null {
-  // For golf coaching reconciliation, we only match on customer names
-  // (Invoice dates = package purchase, POS dates = lesson usage)
-  // For other reconciliation types, require exact date match
-  const isGolfCoaching = options.reconciliationType?.includes('golf_coaching');
-  
-  if (!isGolfCoaching && invoiceItem.date !== posRecord.date) {
+  // All reconciliation types require exact date match
+  // Golf coaching: Invoice date = lesson date (both should be same day)
+  // Restaurant: Transaction date = POS date (same day)
+  if (invoiceItem.date !== posRecord.date) {
     return null;
   }
 
@@ -398,18 +408,22 @@ function calculateMatch(invoiceItem: InvoiceItem, posRecord: POSSalesRecord, opt
   // Calculate quantity variance
   const quantityDiff = Math.abs(invoiceItem.quantity - posRecord.quantity);
 
-  // Determine match type and confidence
+  // Determine match type and confidence based on reconciliation type
   let matchType: 'exact' | 'fuzzy_name' | 'fuzzy_amount' | 'fuzzy_both';
   let confidence = 0;
+  const isGolfCoaching = options.reconciliationType?.includes('golf_coaching');
 
   if (isGolfCoaching) {
-    // For golf coaching, only match on customer names (ignore amounts since invoice=package purchase, POS=usage)
-    if (nameSimilarity >= 0.95) {
+    // For golf coaching: Match on customer names, quantity, and amounts (now using coach earnings data)
+    if (nameSimilarity >= 0.95 && quantityDiff === 0 && amountDiff <= options.toleranceAmount) {
       matchType = 'exact';
       confidence = 1.0;
-    } else if (nameSimilarity >= options.nameSimilarityThreshold) {
+    } else if (nameSimilarity >= options.nameSimilarityThreshold && quantityDiff === 0 && amountDiff <= options.toleranceAmount) {
       matchType = 'fuzzy_name';
-      confidence = 0.5 + (nameSimilarity - options.nameSimilarityThreshold) * 0.5;
+      confidence = 0.7 + (nameSimilarity - options.nameSimilarityThreshold) * 0.3;
+    } else if (nameSimilarity >= 0.95 && quantityDiff === 0 && (amountDiff <= options.toleranceAmount * 2 || amountPercentageDiff <= options.tolerancePercentage)) {
+      matchType = 'fuzzy_amount';
+      confidence = 0.6 + (1 - Math.min(amountPercentageDiff / options.tolerancePercentage, 1)) * 0.3;
     } else {
       return null;
     }

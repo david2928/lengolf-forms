@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
+import { verifyStaffPin } from '@/lib/staff-utils';
 
 export async function POST(
   request: NextRequest,
@@ -23,6 +24,19 @@ export async function POST(
       );
     }
 
+    // Verify staff PIN against the staff table
+    const pinVerification = await verifyStaffPin(staffPin);
+    if (!pinVerification.success) {
+      return NextResponse.json(
+        { 
+          error: "Invalid staff PIN", 
+          message: pinVerification.message,
+          is_locked: pinVerification.is_locked 
+        },
+        { status: 401 }
+      );
+    }
+
     // Get the table session
     const { data: tableSession, error: sessionError } = await supabase
       .schema('pos')
@@ -38,21 +52,19 @@ export async function POST(
       );
     }
 
-    // Find the order item in the normalized tables using view
+    // Get order item with order details in a single query
     const { data: orderItem, error: itemError } = await supabase
       .schema('pos')
-      .from('v_order_items')
-      .select('*')
+      .from('order_items')
+      .select(`
+        *,
+        orders!inner(*)
+      `)
       .eq('id', itemId)
       .single();
       
-    // Get the order details separately
-    const { data: orderData, error: orderError } = await supabase
-      .schema('pos')
-      .from('v_orders')
-      .select('*')
-      .eq('id', orderItem?.order_id)
-      .single();
+    const orderData = orderItem?.orders;
+    const orderError = !orderData;
 
     if (itemError || !orderItem || orderError || !orderData) {
       return NextResponse.json(
@@ -81,7 +93,7 @@ export async function POST(
 
     const removedItem = {
       id: orderItem.id,
-      productName: orderItem.product_name,
+      productId: orderItem.product_id,
       quantity: removeQuantity,
       totalPrice: (orderItem.total_price / orderItem.quantity) * removeQuantity
     };
@@ -115,8 +127,7 @@ export async function POST(
         .from('order_items')
         .update({
           quantity: remainingQuantity,
-          total_price: newTotalPrice,
-          updated_at: new Date().toISOString()
+          total_price: newTotalPrice
         })
         .eq('id', itemId);
 
@@ -129,15 +140,14 @@ export async function POST(
       }
     }
 
-    // Update the order total
+    // Update the order total (removed updated_at since column doesn't exist)
     const { error: updateOrderError } = await supabase
       .schema('pos')
       .from('orders')
       .update({
         total_amount: orderData.total_amount - amountToRemove,
         subtotal_amount: (orderData.total_amount - amountToRemove) / 1.07, // Remove tax
-        tax_amount: (orderData.total_amount - amountToRemove) * 0.07,
-        updated_at: new Date().toISOString()
+        tax_amount: (orderData.total_amount - amountToRemove) * 0.07
       })
       .eq('id', orderData.id);
 
@@ -151,8 +161,7 @@ export async function POST(
       .schema('pos')
       .from('table_sessions')
       .update({
-        total_amount: tableSession.total_amount - amountToRemove,
-        updated_at: new Date().toISOString()
+        total_amount: tableSession.total_amount - amountToRemove
       })
       .eq('id', sessionId);
 
@@ -161,26 +170,29 @@ export async function POST(
       // Don't fail the request, but log the error
     }
 
-    // Log the removal for audit trail
-    const { error: logError } = await supabase
+    // Log the removal for audit trail (async - don't block response)
+    const auditPromise = supabase
       .schema('pos')
       .from('item_removals')
       .insert({
         table_session_id: sessionId,
         item_id: itemId,
-        item_name: removedItem.productName,
+        product_id: removedItem.productId,
+        item_name: 'legacy_placeholder', // Keep existing required field for now
         item_quantity: removeQuantity,
         item_total_price: removedItem.totalPrice,
         removal_reason: reason,
         staff_pin: staffPin,
-        removed_by: session.user.email,
+        removed_by: `${pinVerification.staff_name} (${session.user.email})`,
         removed_at: new Date().toISOString()
+      })
+      .then(({ error }: { error: any }) => {
+        if (error) {
+          console.error('Failed to log item removal:', error);
+        }
       });
 
-    if (logError) {
-      console.error('Failed to log item removal:', logError);
-      // Don't fail the request if logging fails, but log the error
-    }
+    // Don't await - let it run in background
 
     const newTotalAmount = tableSession.total_amount - amountToRemove;
 
@@ -190,7 +202,7 @@ export async function POST(
       newTotalAmount,
       removedItem: {
         id: removedItem.id,
-        productName: removedItem.productName,
+        productId: removedItem.productId,
         quantity: removedItem.quantity,
         totalPrice: removedItem.totalPrice
       }

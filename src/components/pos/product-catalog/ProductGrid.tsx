@@ -93,16 +93,16 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     return () => observer.disconnect();
   }, [enableLazyLoading, hasMore, isLoadingMore, loadMore]);
 
-  // Get responsive grid classes - limit to 3 columns max for pagination
+  // Get responsive grid classes - optimized for tablet view
   const getGridClasses = () => {
     const baseClasses = 'grid gap-4 auto-rows-fr';
     
     if (viewMode === 'list') {
-      return 'space-y-2';
+      return 'space-y-2 sm:space-y-3';
     }
     
-    // Mobile 2-column grid layout for better spacing
-    return `${baseClasses} grid-cols-2`;
+    // Responsive grid: 2 cols mobile, 3 cols tablet (686x991), 4+ cols desktop
+    return `${baseClasses} grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5`;
   };
 
   // Handle product selection with feedback

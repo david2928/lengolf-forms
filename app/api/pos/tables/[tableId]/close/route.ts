@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
-import { paymentCompleter } from '@/services/PaymentCompleter';
+import { transactionQueryService } from '@/services/TransactionQueryService';
 import { tableSessionService } from '@/services/TableSessionService';
 import { getStaffIdFromPin } from '@/lib/staff-helpers';
 import type { CloseTableRequest, CloseTableResponse, TableSession } from '@/types/pos';
@@ -79,7 +79,7 @@ export async function POST(
     }
 
     // Check payment status before allowing closure (unless forceClose is true for cancellations)
-    const paymentStatus = await paymentCompleter.getPaymentStatus(currentSession.id);
+    const paymentStatus = await transactionQueryService.getPaymentStatus(currentSession.id);
     
     if (!forceClose && paymentStatus.hasPendingPayments) {
       return NextResponse.json({ 

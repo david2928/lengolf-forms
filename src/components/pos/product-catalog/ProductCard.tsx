@@ -93,39 +93,49 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         product-card bg-white rounded-xl border border-slate-200
         hover:shadow-lg hover:border-slate-300 transition-all duration-200
         cursor-pointer active:scale-[0.98] touch-manipulation
-        p-4 flex flex-col items-center text-center
+        p-4 sm:p-6 flex flex-col items-center text-center
         ${!product.isActive ? 'opacity-50' : ''}
         ${className}
       `}
       onClick={handleCardClick}
-      style={{ minHeight: '120px', minWidth: '140px' }}
+      style={{ 
+        minHeight: '120px', 
+        minWidth: '140px',
+        // Tablet sizing for 686x991
+        '@media (min-width: 640px) and (max-width: 1023px)': {
+          minHeight: '160px',
+          minWidth: '180px'
+        }
+      }}
     >
       {/* Product Name */}
-      <div className="text-sm font-semibold text-slate-900 mb-2 leading-tight h-10 overflow-hidden">
+      <div className="text-sm sm:text-base font-semibold text-slate-900 mb-2 leading-tight h-10 sm:h-12 overflow-hidden">
         <div className="line-clamp-2">
           {product.name}
         </div>
       </div>
       
       {/* Price */}
-      <div className="text-lg font-bold text-blue-600 mb-3">
+      <div className="text-lg sm:text-xl font-bold text-blue-600 mb-3">
         {formatPrice(product.price)}
       </div>
       
       {product.unit && (
-        <div className="text-xs text-slate-500 mb-3">
+        <div className="text-xs sm:text-sm text-slate-500 mb-3">
           per {product.unit}
         </div>
       )}
 
-      {/* Quick Add Button */}
+      {/* Quick Add Button - Larger for tablets */}
       {onQuickAdd && product.isActive && (
         <button
           onClick={handleQuickAdd}
           className="
-            bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium
+            bg-blue-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg 
+            text-sm sm:text-base font-medium
             hover:bg-blue-700 transition-colors w-full
             active:scale-95 mt-auto
+            min-h-[40px] sm:min-h-[48px]
           "
         >
           Add

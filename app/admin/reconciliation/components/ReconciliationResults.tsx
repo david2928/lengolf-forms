@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -88,18 +88,7 @@ export default function ReconciliationResults({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // Auto-start reconciliation when data is available
-  useEffect(() => {
-    console.log('🔄 ReconciliationResults useEffect triggered');
-    console.log('📅 Date range received:', dateRange);
-    console.log('📊 Uploaded data:', uploadedData?.autoDetectedDateRange);
-    
-    if (uploadedData?.data?.items && !isProcessing && !reconciliationResult && !error) {
-      startReconciliation();
-    }
-  }, [uploadedData, reconciliationType, dateRange]);
-
-  const startReconciliation = async () => {
+  const startReconciliation = useCallback(async () => {
     if (!uploadedData?.data?.items) return;
 
     setIsProcessing(true);
@@ -169,7 +158,18 @@ export default function ReconciliationResults({
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [uploadedData, dateRange, reconciliationType]);
+
+  // Auto-start reconciliation when data is available
+  useEffect(() => {
+    console.log('🔄 ReconciliationResults useEffect triggered');
+    console.log('📅 Date range received:', dateRange);
+    console.log('📊 Uploaded data:', uploadedData?.autoDetectedDateRange);
+    
+    if (uploadedData?.data?.items && !isProcessing && !reconciliationResult && !error) {
+      startReconciliation();
+    }
+  }, [uploadedData, reconciliationType, dateRange, isProcessing, reconciliationResult, error, startReconciliation]);
 
   const getMatchTypeColor = (matchType: string) => {
     switch (matchType) {

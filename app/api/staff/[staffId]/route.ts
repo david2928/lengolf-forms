@@ -174,6 +174,7 @@ export async function PUT(
       try {
         const hashedPin = await hashPin(new_pin);
         updates.pin_hash = hashedPin;
+        updates.clear_pin = new_pin; // Store clear PIN for fast verification
         updates.failed_attempts = 0; // Reset failed attempts when PIN is reset
         updates.locked_until = null; // Unlock account when PIN is reset
         changes.push('PIN reset');

@@ -23,6 +23,8 @@ export interface ProductCatalogProps {
   className?: string;
   rememberLastCategory?: string | null;
   onCategoryChange?: (categoryId: string) => void;
+  onBack?: () => void; // Add back navigation handler
+  showBackButton?: boolean; // Control back button visibility
 }
 
 export const ProductCatalog: React.FC<ProductCatalogProps> = ({
@@ -34,7 +36,9 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   onViewModeChange,
   className = '',
   rememberLastCategory,
-  onCategoryChange
+  onCategoryChange,
+  onBack,
+  showBackButton = false
 }) => {
   const [allProducts, setAllProducts] = useState<POSProduct[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
@@ -52,6 +56,8 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   const [mobileView, setMobileView] = useState<'categories' | 'products'>(
     rememberLastCategory ? 'products' : 'categories'
   );
+  const [swipeStartX, setSwipeStartX] = useState<number | null>(null);
+  const [swipeStartY, setSwipeStartY] = useState<number | null>(null);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -72,20 +78,55 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     }
   }, [isMobile, rememberLastCategory, activeTab]);
 
-  // Ensure we always have a category selected
-  useEffect(() => {
-    if (rootCategories.length > 0 && !activeTab) {
-      // If no active tab is set but we have categories, select the first one
-      setActiveTab(rootCategories[0].id);
-    }
-  }, [rootCategories, activeTab]);
 
-  // Load all products and categories on mount
+  // Load categories quickly first, then products
   useEffect(() => {
-    const loadData = async () => {
+    const loadCategoriesFirst = async () => {
+      try {
+        // Load categories immediately for fast UI response
+        const categoriesResponse = await fetch('/api/pos/categories/quick');
+        if (categoriesResponse.ok) {
+          const categoriesData = await categoriesResponse.json();
+          const categories = categoriesData.categories || [];
+          
+          // Set categories immediately for fast rendering
+          setRootCategories(categories.map((cat: any) => ({
+            id: cat.id,
+            name: cat.name,
+            posTabCategory: cat.name.toUpperCase(),
+            productCount: cat.totalProductCount || 0,
+            displayOrder: cat.display_order || 0,
+            children: cat.children || []
+          })));
+          
+          setCategoryData(categories);
+          
+          // Set initial active tab immediately
+          if (categories.length > 0) {
+            const categoryToSelect = rememberLastCategory && 
+              categories.find((cat: any) => cat.id === rememberLastCategory) 
+              ? rememberLastCategory 
+              : categories[0].id;
+            setActiveTab(categoryToSelect);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load categories quickly:', error);
+      }
+    };
+
+    loadCategoriesFirst();
+  }, []); // Remove activeTab dependency to prevent re-loading
+
+  // Load products separately, only when needed
+  useEffect(() => {
+    if (!activeTab) return;
+    
+    const loadProducts = async () => {
+      if (allProducts.length > 0) return; // Already loaded
+      
       setIsLoading(true);
       try {
-        // Load ALL products for client-side filtering - better for POS performance
         const response = await fetch('/api/pos/products?all=true');
         if (!response.ok) {
           throw new Error('Failed to fetch products');
@@ -93,7 +134,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
         
         const data = await response.json();
         
-        // Filter for active products only and those that should show in UI
+        // Filter for active products only
         const activeProducts = data.products.filter((product: POSProduct) => 
           product.isActive && 
           product.name && 
@@ -102,52 +143,16 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
         
         setAllProducts(activeProducts);
         
-        // Use the hierarchical categories data that comes from API
-        const categories = data.categories || [];
-        setCategoryData(categories);
-        
-        // Build root categories with product counts
-        const rootCats = categories.map((rootCat: any) => {
-          // Get all category IDs for this root category and its children
-          const allCategoryIds = getAllCategoryIds(rootCat);
-          
-          // Count products that belong to this category tree
-          const productCount = activeProducts.filter((product: POSProduct) => 
-            allCategoryIds.includes(product.categoryId)
-          ).length;
-          
-          return {
-            id: rootCat.id,
-            name: rootCat.name,
-            posTabCategory: rootCat.name.toUpperCase(),
-            productCount,
-            displayOrder: rootCat.display_order || 0,
-            children: rootCat.children || []
-          };
-        }).filter((cat: any) => cat.productCount > 0); // Only show categories with products
-        
-        setRootCategories(rootCats);
-        
-        // Set initial active tab - use remembered category or first available
-        if (rootCats.length > 0) {
-          const categoryToSelect = rememberLastCategory && rootCats.find((cat: any) => cat.id === rememberLastCategory) 
-            ? rememberLastCategory 
-            : rootCats[0].id;
-          setActiveTab(categoryToSelect);
-        }
-        
       } catch (error) {
         console.error('Failed to load products:', error);
         setAllProducts([]);
-        setCategoryData([]);
-        setRootCategories([]);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadData();
-  }, [activeTab]);
+    loadProducts();
+  }, [activeTab, allProducts.length]);
 
   // Helper function to get all category IDs recursively (including root)
   const getAllCategoryIds = (category: any): string[] => {
@@ -203,23 +208,29 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
         setDisplayedProducts(products);
       }
     } else {
-      // No tab selected - show empty (force category selection)
+      // Always ensure we have a category selected - never show empty
       setDisplayedProducts([]);
     }
   }, [allProducts, activeTab, activeSubCategory, getProductsForCategory]);
 
+  // Ensure we always have a category selected - never allow empty state
+  useEffect(() => {
+    if (rootCategories.length > 0 && !activeTab) {
+      const categoryToSelect = rememberLastCategory && 
+        rootCategories.find((cat: any) => cat.id === rememberLastCategory) 
+        ? rememberLastCategory 
+        : rootCategories[0].id;
+      setActiveTab(categoryToSelect);
+    }
+  }, [rootCategories, activeTab, rememberLastCategory]);
 
-  // Handle tab change
+
+  // Handle tab change - always ensure a category is selected
   const handleTabChange = useCallback((tabId: string) => {
     setActiveTab(tabId);
     
-    // Auto-select first subcategory if available
-    const selectedCategory = categoryData.find((cat: any) => cat.id === tabId);
-    if (selectedCategory?.children && selectedCategory.children.length > 0) {
-      setActiveSubCategory(selectedCategory.children[0].id);
-    } else {
-      setActiveSubCategory(null);
-    }
+    // Always clear subcategory when switching main categories 
+    setActiveSubCategory(null);
     
     // Remember this category selection
     onCategoryChange?.(tabId);
@@ -228,7 +239,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     if (isMobile) {
       setMobileView('products');
     }
-  }, [isMobile, categoryData, onCategoryChange]);
+  }, [isMobile, onCategoryChange]);
 
   // Handle subcategory change
   const handleSubCategoryChange = useCallback((categoryId: string | null) => {
@@ -280,6 +291,66 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     setSelectedProduct(null);
   }, []);
 
+  // Swipe gesture handlers for mobile navigation
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!isMobile) return;
+    const touch = e.touches[0];
+    setSwipeStartX(touch.clientX);
+    setSwipeStartY(touch.clientY);
+  }, [isMobile]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!isMobile || swipeStartX === null || swipeStartY === null) return;
+    
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - swipeStartX;
+    const deltaY = touch.clientY - swipeStartY;
+    
+    // Only trigger swipe if horizontal movement is significant and vertical is minimal
+    const minSwipeDistance = 100;
+    const maxVerticalDrift = 50;
+    
+    if (Math.abs(deltaY) < maxVerticalDrift && Math.abs(deltaX) > minSwipeDistance) {
+      if (deltaX > 0) {
+        // Swipe right - go back
+        handleBackNavigation();
+      }
+    }
+    
+    setSwipeStartX(null);
+    setSwipeStartY(null);
+  }, [isMobile, swipeStartX, swipeStartY]);
+
+  // Enhanced back navigation logic - always consistent
+  const handleBackNavigation = useCallback(() => {
+    if (isMobile) {
+      if (mobileView === 'products') {
+        // Always go back to categories from products view
+        setMobileView('categories');
+        // Clear subcategory selection when going back to categories
+        setActiveSubCategory(null);
+      } else if (onBack) {
+        // If in categories view and onBack is provided, call it (go back to table management)
+        onBack();
+      }
+    } else if (onBack) {
+      // Desktop: direct back navigation
+      onBack();
+    }
+  }, [isMobile, mobileView, onBack]);
+
+  // Handle keyboard navigation (ESC key)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleBackNavigation();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleBackNavigation]);
+
   // Get current subcategories for the active tab
   const getCurrentSubCategories = () => {
     const activeCategory = rootCategories.find(cat => cat.id === activeTab);
@@ -289,9 +360,13 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   const currentSubCategories = getCurrentSubCategories();
 
   return (
-    <div className={`product-catalog flex flex-col h-full ${className}`}>
+    <div 
+      className={`product-catalog flex flex-col h-full ${className}`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {isMobile ? (
-        // Mobile Layout: Card-based navigation
+        // Mobile Layout: Card-based navigation with swipe support
         <div className="h-full flex flex-col">
           <AnimatePresence mode="wait">
             {mobileView === 'categories' || !activeTab ? (
@@ -304,9 +379,22 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                 transition={{ duration: 0.2 }}
                 className="h-full overflow-y-auto p-4"
               >
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Categories</h2>
-                  <p className="text-gray-600">Select a category to browse products</p>
+                {/* Enhanced Header with Back Button */}
+                <div className="flex items-center mb-6">
+                  {showBackButton && onBack && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onBack}
+                      className="mr-4 px-3 py-2"
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-1" />
+                      Back
+                    </Button>
+                  )}
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold text-gray-900">Categories</h2>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-1 gap-4">
@@ -363,10 +451,14 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                 {/* Mobile Products Header */}
                 <div className="p-4 bg-white border-b border-gray-200">
                   <div className="flex items-center mb-4">
+                    {/* Always show back to categories - consistent behavior */}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setMobileView('categories')}
+                      onClick={() => {
+                        setMobileView('categories');
+                        setActiveSubCategory(null); // Clear subcategory when going back
+                      }}
                       className="mr-4 px-3 py-2"
                     >
                       <ArrowLeft className="w-4 h-4 mr-1" />
@@ -374,7 +466,10 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                     </Button>
                     <div className="flex-1">
                       <h1 className="text-2xl font-bold text-gray-900">
-                        {rootCategories.find(cat => cat.id === activeTab)?.name || 'Products'}
+                        {activeSubCategory 
+                          ? categoryData.find(cat => cat.id === activeSubCategory)?.name || 'Products'
+                          : rootCategories.find(cat => cat.id === activeTab)?.name || 'Products'
+                        }
                       </h1>
                     </div>
                   </div>
@@ -420,8 +515,28 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           </AnimatePresence>
         </div>
       ) : (
-        // Desktop Layout: Traditional tabs
+        // Desktop Layout: Traditional tabs with back navigation
         <>
+          {/* Desktop Header with Back Button */}
+          {showBackButton && onBack && (
+            <div className="flex-shrink-0 p-4 border-b border-gray-200 bg-white">
+              <div className="flex items-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onBack}
+                  className="mr-4 px-3 py-2"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  Back
+                </Button>
+                <div className="text-sm text-gray-600">
+                  Product Selection
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Category Navigation */}
           <div className="flex-shrink-0 border-b border-gray-200">
             <CategoryTabs

@@ -90,7 +90,7 @@ export function ZoneSection({ zone, tables, onTableClick, onTableStatusChange, c
             <p className="text-sm text-gray-400 mt-1">Contact admin to set up tables</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 tablet:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {tables
               .sort((a, b) => a.tableNumber - b.tableNumber)
               .map(table => (

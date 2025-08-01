@@ -106,7 +106,7 @@ export default function ManageBookingsPage() {
     } else {
       setShowPastBookings(true); // Show all bookings for other days
     }
-  }, [selectedDate]);
+  }, [selectedDate, isToday]);
 
   const isBookingInPast = (booking: Booking): boolean => {
     if (booking.date && booking.start_time && booking.duration) {

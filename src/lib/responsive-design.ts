@@ -222,7 +222,7 @@ export function getScaledFontSize(baseFontSize: number, breakpoint: Breakpoint):
 
 // React is already imported at the top
 
-export default {
+const responsiveDesign = {
   BREAKPOINTS,
   RESPONSIVE_CONFIGS,
   getCurrentBreakpoint,
@@ -237,3 +237,5 @@ export default {
   createStickyTimeLabels,
   getScaledFontSize
 }
+
+export default responsiveDesign

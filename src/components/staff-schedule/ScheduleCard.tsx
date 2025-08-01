@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { Users, MapPin, Clock, RotateCcw } from 'lucide-react'
 import { formatTime, getDayAbbreviation, getShiftColor, calculateDuration } from '@/types/staff-schedule'
 
@@ -89,9 +90,11 @@ export function ScheduleCard({
     if (photo && !imageError) {
       return (
         <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-sm">
-          <img 
+          <Image 
             src={photo} 
             alt={name}
+            width={32}
+            height={32}
             className="w-full h-full object-cover"
             onError={handleImageError}
             loading="lazy"

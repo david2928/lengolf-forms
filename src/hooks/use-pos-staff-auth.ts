@@ -10,6 +10,7 @@ export function POSStaffProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<POSStaffSession | null>(null);
   const [currentPin, setCurrentPin] = useState<string | null>(null); // Store raw PIN for API calls
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Load session from localStorage on mount
   useEffect(() => {
@@ -47,6 +48,7 @@ export function POSStaffProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (pin: string): Promise<POSStaffAuthResponse> => {
+    setIsLoggingIn(true);
     try {
       const response = await fetch('/api/staff/verify-pin', {
         method: 'POST',
@@ -88,6 +90,8 @@ export function POSStaffProvider({ children }: { children: ReactNode }) {
         success: false,
         error: 'Network error occurred'
       };
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -104,6 +108,7 @@ export function POSStaffProvider({ children }: { children: ReactNode }) {
     session,
     currentPin,
     isAuthenticated: isHydrated ? !!currentStaff : false,
+    isLoggingIn,
     login,
     logout
   };

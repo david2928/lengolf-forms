@@ -9,6 +9,10 @@ interface OrderItem {
   quantity: number;
   modifiers?: any[];
   notes?: string;
+  // Discount fields
+  applied_discount_id?: string;
+  discount_amount?: number;
+  totalPrice?: number; // May be different from calculated due to discounts
 }
 
 interface DatabaseProduct {
@@ -25,6 +29,9 @@ interface EnrichedOrderItem {
   totalPrice: number;
   modifiers: any[];
   notes: string | null;
+  // Discount fields
+  applied_discount_id: string | null;
+  discount_amount: number | null;
 }
 
 interface TableSession {
@@ -132,7 +139,8 @@ export async function POST(
         );
       }
 
-      const totalPrice = unitPrice * item.quantity;
+      // Use discounted total price if available, otherwise calculate normally
+      const totalPrice = item.totalPrice !== undefined ? item.totalPrice : (unitPrice * item.quantity);
       calculatedSubtotal += totalPrice;
 
       enrichedOrderItems.push({
@@ -142,7 +150,9 @@ export async function POST(
         unitPrice: unitPrice,
         totalPrice: totalPrice,
         modifiers: item.modifiers || [],
-        notes: item.notes || null
+        notes: item.notes || null,
+        applied_discount_id: item.applied_discount_id || null,
+        discount_amount: item.discount_amount || null
       });
     }
 
@@ -179,7 +189,7 @@ export async function POST(
       );
     }
 
-    // Insert order items with server-calculated prices
+    // Insert order items with server-calculated prices and discount data
     const orderItemsData = enrichedOrderItems.map((item: EnrichedOrderItem) => ({
       order_id: newOrder.id,
       product_id: item.productId,
@@ -187,7 +197,9 @@ export async function POST(
       unit_price: item.unitPrice,
       total_price: item.totalPrice,
       modifiers: item.modifiers || [],
-      notes: item.notes || null
+      notes: item.notes || null,
+      applied_discount_id: item.applied_discount_id,
+      discount_amount: item.discount_amount
     }));
 
     const { error: itemsError } = await supabase

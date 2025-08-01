@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
-import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
+import { ReceiptDataService } from '@/lib/receipt-data-service';
 
 export async function POST(request: NextRequest) {
   const session = await getDevSession(authOptions, request);
@@ -15,99 +15,17 @@ export async function POST(request: NextRequest) {
 
     console.log('📱 Bluetooth Print API: Request received', { receiptNumber });
 
-    if (!receiptNumber) {
+    if (!receiptNumber || !ReceiptDataService.isValidReceiptNumber(receiptNumber)) {
       return NextResponse.json({
-        error: 'Receipt number is required'
+        error: 'Valid receipt number is required'
       }, { status: 400 });
     }
 
-    // Look up transaction using the transaction_details view
-    const { data, error } = await supabase
-      .schema('pos')
-      .from('transaction_details')
-      .select('*')
-      .eq('receipt_number', receiptNumber)
-      .single();
+    // Get receipt data using shared service
+    const receiptData = await ReceiptDataService.getReceiptData(receiptNumber);
+    const summary = ReceiptDataService.getReceiptSummary(receiptData);
 
-    if (error || !data) {
-      return NextResponse.json({ 
-        error: 'Receipt not found' 
-      }, { status: 404 });
-    }
-
-    // Use transaction details directly from view
-    const transaction = {
-      receiptNumber: data.receipt_number,
-      subtotal: data.subtotal,
-      vatAmount: data.vat_amount,
-      totalAmount: data.total_amount,
-      tableNumber: data.table_number,
-      customerName: data.customer_name,
-      staffName: data.staff_name,
-      tableSessionId: data.table_session_id,
-      salesTimestampBkk: data.sales_timestamp_bkk,
-      paxCount: data.pax_count,
-      paymentMethods: [{
-        method: 'Cash',
-        amount: data.total_amount
-      }]
-    };
-
-    console.log('✅ Bluetooth Print API: Transaction found:', transaction.receiptNumber);
-
-    // Get order data using table session ID
-    const { data: orderData, error: orderError } = await supabase
-      .schema('pos')
-      .from('orders')
-      .select(`*, order_items (*)`)
-      .eq('table_session_id', transaction.tableSessionId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (orderError || !orderData) {
-      return NextResponse.json({ 
-        error: 'Order not found for table session' 
-      }, { status: 404 });
-    }
-    const order = orderData;
-
-    // Get product names
-    const productIds = order.order_items.map((item: any) => item.product_id);
-    const { data: products } = await supabase
-      .schema('products')
-      .from('products')
-      .select('id, name')
-      .in('id', productIds);
-
-    const productMap = new Map(products?.map((p: any) => [p.id, p.name]) || []);
-
-    // Prepare receipt data for Bluetooth printing
-    const receiptData = {
-      receiptNumber: transaction.receiptNumber,
-      items: (order.order_items || []).map((item: any) => ({
-        name: productMap.get(item.product_id) || 'Unknown Item',
-        price: item.unit_price || 0,
-        qty: item.quantity || 1,
-        notes: item.notes
-      })),
-      subtotal: transaction.subtotal,
-      tax: transaction.vatAmount,
-      total: transaction.totalAmount,
-      paymentMethods: transaction.paymentMethods || [
-        {
-          method: 'Cash',
-          amount: transaction.totalAmount
-        }
-      ],
-      tableNumber: transaction.tableNumber,
-      customerName: transaction.customerName,
-      staffName: transaction.staffName || 'Unknown Staff',
-      transactionDate: (transaction as any).salesTimestampBkk || (transaction as any).transactionDate || (transaction as any).createdAt,
-      paxCount: transaction.paxCount || 1
-    };
-
-    console.log('📱 Bluetooth Print API: Receipt data prepared for client-side printing');
+    console.log('✅ Bluetooth Print API: Receipt data prepared', summary);
 
     // Return receipt data for client-side Bluetooth printing
     return NextResponse.json({
@@ -115,8 +33,8 @@ export async function POST(request: NextRequest) {
       message: 'Receipt data ready for Bluetooth printing',
       receiptData: receiptData,
       method: 'Web Bluetooth API',
-      itemCount: receiptData.items.length,
-      total: receiptData.total
+      itemCount: summary.itemCount,
+      total: summary.total
     });
 
   } catch (error) {
