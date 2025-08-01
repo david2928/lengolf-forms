@@ -10,6 +10,7 @@ import { formatThaiDateTime, formatCurrency } from '@/lib/pos-utils';
 import { VoidPinModal } from './VoidPinModal';
 import { TaxInvoiceModal } from './TaxInvoiceModal';
 import { bluetoothThermalPrinter, BluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
+import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
 
 interface TransactionDetail {
   receipt_number: string;
@@ -17,6 +18,14 @@ interface TransactionDetail {
   total_amount: number;
   subtotal_amount: number;
   vat_amount: number;
+  discount_amount: number;
+  discount_name?: string;
+  discount_type?: string;
+  discount_value?: number;
+  original_items_total: number;
+  items_after_item_discounts_total: number;
+  total_item_level_discounts: number;
+  receipt_level_discounts: number;
   status: string;
   customer_name: string;
   staff_name: string;
@@ -33,6 +42,8 @@ interface TransactionDetail {
     item_notes?: string;
     vat_amount: number;
     line_number: number;
+    has_item_discount?: boolean;
+    item_discount_amount?: number;
   }>;
 }
 
@@ -156,7 +167,7 @@ export function TransactionDetailModal({
       if (isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
         await handleBluetoothPrint(receiptNumber);
       } else {
-        await handleWindowsPrint(receiptNumber);
+        await handleUnifiedPrint(receiptNumber);
       }
       
     } catch (error) {
@@ -216,27 +227,21 @@ export function TransactionDetailModal({
     }
   };
 
-  const handleWindowsPrint = async (receiptNumber: string) => {
+  const handleUnifiedPrint = async (receiptNumber: string) => {
     try {
-      const response = await fetch('/api/pos/print-win32', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          receiptNumber: receiptNumber
-        })
-      });
+      console.log('🖨️ Using unified print service for transaction receipt');
       
-      const result = await response.json();
+      // Use unified print service for smart printer selection
+      const result = await unifiedPrintService.print(PrintType.TAX_INV_ABB, receiptNumber);
       
       if (result.success) {
-        alert(`✅ Receipt printed successfully!`);
+        alert(`✅ ${result.message}`);
       } else {
-        alert(`❌ Print failed: ${result.message || result.error}`);
+        throw new Error(result.error || result.message);
       }
     } catch (error) {
-      console.error('Windows print error:', error);
+      console.error('Unified print error:', error);
+      alert(`❌ Print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   };
@@ -362,15 +367,16 @@ export function TransactionDetailModal({
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Details</h3>
                 
                 {transactionDetails.items && transactionDetails.items.length > 0 ? (
-                  <div className="space-y-4 mb-6">
+                  <div className="space-y-3 mb-6">
                     {transactionDetails.items.map((item, index) => (
-                      <div key={index} className="flex justify-between items-start">
+                      <div key={index} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
                         <div className="flex-1">
-                          <div className="font-medium text-gray-900">
-                            {item.product_name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {item.item_cnt} × ฿{item.unit_price}
+                          <div className="font-medium text-gray-900">{item.product_name}</div>
+                          <div className="text-sm text-gray-600">
+                            {item.item_cnt} × {formatCurrency(item.unit_price)}
+                            {item.has_item_discount && (
+                              <span className="ml-2 text-green-600 font-medium">• Discount Applied</span>
+                            )}
                           </div>
                           {item.item_notes && (
                             <div className="text-xs text-gray-400 mt-1">
@@ -378,8 +384,24 @@ export function TransactionDetailModal({
                             </div>
                           )}
                         </div>
-                        <div className="font-semibold text-gray-900">
-                          ฿{item.line_total}
+                        <div className="text-right">
+                          {item.has_item_discount ? (
+                            <div>
+                              <div className="text-xs text-gray-500 line-through">
+                                {formatCurrency(item.unit_price)} each
+                              </div>
+                              <div className="font-semibold text-green-700">
+                                {formatCurrency(item.unit_price - (item.item_discount_amount || 0))} each
+                              </div>
+                              <div className="text-xs text-green-600">
+                                -{formatCurrency(item.item_discount_amount || 0)}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="font-semibold text-gray-900">
+                              {formatCurrency(item.unit_price)} each
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -393,19 +415,25 @@ export function TransactionDetailModal({
                 )}
               </div>
 
-              {/* Summary */}
-              <div className="border-t border-gray-200 pt-4 space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal (excl. VAT):</span>
-                  <span className="text-gray-900">{formatCurrency(Math.round(transactionDetails.subtotal_amount - transactionDetails.vat_amount))}</span>
+              {/* Summary - Match occupied table modal format exactly */}
+              <div className="border-t border-gray-200 pt-4 space-y-2">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Subtotal:</span>
+                  <span>{formatCurrency(transactionDetails.original_items_total || transactionDetails.subtotal_amount)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">VAT (7%):</span>
-                  <span className="text-gray-900">{formatCurrency(Math.round(transactionDetails.vat_amount))}</span>
+                {transactionDetails.receipt_level_discounts > 0 && transactionDetails.discount_name && (
+                  <div className="flex justify-between text-sm text-green-700 font-medium">
+                    <span>Discount {transactionDetails.discount_type === 'percentage' ? `(${transactionDetails.discount_value}%)` : ''}:</span>
+                    <span>-{formatCurrency(transactionDetails.receipt_level_discounts)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>VAT (7%) incl.:</span>
+                  <span>{formatCurrency(transactionDetails.vat_amount)}</span>
                 </div>
-                <div className="flex justify-between text-lg font-semibold border-t border-gray-200 pt-3">
-                  <span className="text-gray-900">Total:</span>
-                  <span className="text-green-600">{formatCurrency(Math.round(transactionDetails.total_amount))}</span>
+                <div className="flex justify-between items-center text-lg font-bold text-green-800 border-t border-gray-200 pt-2">
+                  <span>Total:</span>
+                  <span>{formatCurrency(transactionDetails.total_amount)}</span>
                 </div>
               </div>
 
@@ -522,7 +550,7 @@ export function TransactionDetailModal({
         className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300"
         style={{ zIndex: 100000 }}
       >
-        <div className="bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3">
+        <div className="bg-red-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3">
           <CheckCircle className="h-6 w-6" />
           <div>
             <div className="font-semibold">Transaction Voided Successfully</div>

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { X, Plus, CreditCard, XCircle, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/pos-utils';
 import type { Table, OrderItem } from '@/types/pos';
 import { ReceiptDiscountButton } from '../discount/ReceiptDiscountButton';
 
@@ -17,6 +18,7 @@ export interface OccupiedTableDetailsPanelProps {
   onPayment: () => void;
   onCancel: () => void;
   onPrintBill?: () => void;
+  onRefreshTable?: () => void;
 }
 
 export function OccupiedTableDetailsPanel({
@@ -26,13 +28,17 @@ export function OccupiedTableDetailsPanel({
   onAddOrder,
   onPayment,
   onCancel,
-  onPrintBill
+  onPrintBill,
+  onRefreshTable
 }: OccupiedTableDetailsPanelProps) {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [isPrintingBill, setIsPrintingBill] = useState(false);
   const [appliedReceiptDiscountId, setAppliedReceiptDiscountId] = useState<string | null>(null);
   const [receiptDiscountAmount, setReceiptDiscountAmount] = useState<number>(0);
+  const [appliedReceiptDiscount, setAppliedReceiptDiscount] = useState<any>(null);
+  const [localTableData, setLocalTableData] = useState<Table | null>(table);
+  const [ordersApiTotalAmount, setOrdersApiTotalAmount] = useState<number>(0);
 
   // Format session duration
   const formatDuration = (start?: Date | string) => {
@@ -52,6 +58,11 @@ export function OccupiedTableDetailsPanel({
     return `${hours}h ${mins}m`;
   };
 
+  // Update local table data when table prop changes
+  useEffect(() => {
+    setLocalTableData(table);
+  }, [table]);
+
   // Fetch order items when panel opens
   useEffect(() => {
     if (isOpen && table?.currentSession?.id) {
@@ -60,10 +71,29 @@ export function OccupiedTableDetailsPanel({
         .then(response => response.json())
         .then(data => {
           setOrderItems(data.orders || []);
+          
+          // Capture totalAmount from orders API as fallback
+          if (data.totalAmount) {
+            setOrdersApiTotalAmount(data.totalAmount);
+          }
+          
+          // Load receipt discount information if available
+          if (data.receiptDiscount) {
+            setAppliedReceiptDiscountId(data.receiptDiscount.id);
+            setReceiptDiscountAmount(data.receiptDiscount.amount || 0);
+            setAppliedReceiptDiscount(data.receiptDiscount);
+          } else {
+            setAppliedReceiptDiscountId(null);
+            setReceiptDiscountAmount(0);
+            setAppliedReceiptDiscount(null);
+          }
         })
         .catch(error => {
           console.error('Failed to load order items:', error);
           setOrderItems([]);
+          setAppliedReceiptDiscountId(null);
+          setReceiptDiscountAmount(0);
+          setAppliedReceiptDiscount(null);
         })
         .finally(() => {
           setIsLoadingOrders(false);
@@ -93,52 +123,47 @@ export function OccupiedTableDetailsPanel({
     }
 
     try {
-      // First, we need to find the order ID for this table session
-      // Get the most recent confirmed order for this session
-      const ordersResponse = await fetch(`/api/pos/table-sessions/${table.currentSession.id}/orders`);
-      if (!ordersResponse.ok) {
-        console.error('Failed to fetch orders for table session');
-        return;
-      }
-      
-      const ordersData = await ordersResponse.json();
-      const orders = ordersData.orders || [];
-      
-      if (orders.length === 0) {
-        console.error('No orders found for this table session');
-        return;
-      }
-      
-      // Get the order ID from the most recent order item
-      const mostRecentOrder = orders[orders.length - 1];
-      const orderId = mostRecentOrder.orderId;
-      
-      if (!orderId) {
-        console.error('No order ID found for applying receipt discount');
-        return;
-      }
-
-      // Apply the discount to the database
-      const applyResponse = await fetch('/api/pos/discounts/apply', {
+      // Use the new simplified session-level API
+      const applyResponse = await fetch(`/api/pos/table-sessions/${table.currentSession.id}/receipt-discount/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          discount_id: discountId,
-          application_scope: 'receipt',
-          order_id: orderId
+          discount_id: discountId
         })
       });
-      
+
       if (applyResponse.ok) {
         const result = await applyResponse.json();
-        setAppliedReceiptDiscountId(discountId);
-        setReceiptDiscountAmount(result.discount_amount || 0);
+        console.log('✅ Successfully applied receipt discount:', result);
         
-        // Refresh the order items to get updated totals
+        // Refresh table data to get updated session totals
+        if (onRefreshTable) {
+          await onRefreshTable();
+        }
+        
+        // Fetch updated table session data
+        const tableResponse = await fetch(`/api/pos/tables/${table.id}`);
+        if (tableResponse.ok) {
+          const updatedTableData = await tableResponse.json();
+          setLocalTableData(updatedTableData);
+        }
+        
+        // Refresh order items and session data
         const refreshResponse = await fetch(`/api/pos/table-sessions/${table.currentSession.id}/orders`);
         if (refreshResponse.ok) {
           const refreshData = await refreshResponse.json();
           setOrderItems(refreshData.orders || []);
+          
+          if (refreshData.totalAmount) {
+            setOrdersApiTotalAmount(refreshData.totalAmount);
+          }
+          
+          // Update local state with session-level receipt discount
+          if (refreshData.receiptDiscount) {
+            setAppliedReceiptDiscountId(refreshData.receiptDiscount.id);
+            setReceiptDiscountAmount(refreshData.receiptDiscount.amount || 0);
+            setAppliedReceiptDiscount(refreshData.receiptDiscount);
+          }
         }
       } else {
         const error = await applyResponse.json();
@@ -157,44 +182,51 @@ export function OccupiedTableDetailsPanel({
     }
 
     try {
-      // Get the order ID first
-      const ordersResponse = await fetch(`/api/pos/table-sessions/${table.currentSession.id}/orders`);
-      if (!ordersResponse.ok) {
-        console.error('Failed to fetch orders for removing receipt discount');
-        return;
-      }
-      
-      const ordersData = await ordersResponse.json();
-      const orders = ordersData.orders || [];
-      
-      if (orders.length === 0) {
-        console.error('No orders found for removing receipt discount');
-        return;
-      }
-      
-      const mostRecentOrder = orders[orders.length - 1];
-      const orderId = mostRecentOrder.orderId;
-      
-      if (!orderId) {
-        console.error('No order ID found for removing receipt discount');
-        return;
-      }
+      // Use the new simplified session-level API
+      const removeResponse = await fetch(`/api/pos/table-sessions/${table.currentSession.id}/receipt-discount/remove`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
 
-      // Remove the discount by updating the order to remove applied_discount_id
-      // Note: There isn't a specific "remove discount" API, so we'll update directly
-      // This is a simplified approach - in a full system you might want a dedicated endpoint
-      
-      setAppliedReceiptDiscountId(null);
-      setReceiptDiscountAmount(0);
-      
-      // Refresh the order items
-      const refreshResponse = await fetch(`/api/pos/table-sessions/${table.currentSession.id}/orders`);
-      if (refreshResponse.ok) {
-        const refreshData = await refreshResponse.json();
-        setOrderItems(refreshData.orders || []);
+      if (removeResponse.ok) {
+        const result = await removeResponse.json();
+        console.log('✅ Successfully removed receipt discount:', result);
+        
+        // Refresh table data to get updated session totals
+        if (onRefreshTable) {
+          await onRefreshTable();
+        }
+        
+        // Fetch updated table session data
+        const tableResponse = await fetch(`/api/pos/tables/${table.id}`);
+        if (tableResponse.ok) {
+          const updatedTableData = await tableResponse.json();
+          setLocalTableData(updatedTableData);
+        }
+        
+        // Refresh order items and session data
+        const refreshResponse = await fetch(`/api/pos/table-sessions/${table.currentSession.id}/orders`);
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json();
+          setOrderItems(refreshData.orders || []);
+          
+          if (refreshData.totalAmount) {
+            setOrdersApiTotalAmount(refreshData.totalAmount);
+          }
+          
+          // Clear discount state since it was removed
+          setAppliedReceiptDiscountId(null);
+          setReceiptDiscountAmount(0);
+          setAppliedReceiptDiscount(null);
+        }
+      } else {
+        const error = await removeResponse.json();
+        console.error('Failed to remove receipt discount:', error);
+        alert(`Error removing discount: ${error.error}`);
       }
     } catch (error) {
       console.error('Error removing receipt discount:', error);
+      alert('Error removing discount');
     }
   };
 
@@ -205,15 +237,38 @@ export function OccupiedTableDetailsPanel({
   const customer = session.customer || session.booking;
   const sessionDuration = formatDuration(session.sessionStart);
 
-  // Calculate discounts and totals
-  const itemDiscountTotal = orderItems.reduce((sum, item) => sum + (item.discount_amount || 0), 0);
-  const totalDiscountAmount = itemDiscountTotal + receiptDiscountAmount;
+  // Use the actual table session total (which includes all order-level discounts via database trigger)
+  // Use localTableData for calculations to ensure we have the most up-to-date data
+  const currentTable = localTableData || table;
+  const tableTotalAmount = currentTable.currentSession?.totalAmount || 0;
   
-  // Calculate VAT (prices already include VAT and discounts)
-  const totalInclVat = orderItems.reduce((sum, item) => sum + item.totalPrice, 0) - receiptDiscountAmount;
+  // Use orders API totalAmount as fallback if table data is zero or stale
+  const totalInclVat = tableTotalAmount > 0 ? tableTotalAmount : ordersApiTotalAmount;
+  
+  // Debug logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 Total amount calculation debug:', {
+      tableTotalAmount,
+      ordersApiTotalAmount,
+      finalTotalInclVat: totalInclVat,
+      usingFallback: tableTotalAmount <= 0 && ordersApiTotalAmount > 0
+    });
+  }
   const vatRate = 0.07; // 7% VAT
-  const totalExclVat = totalInclVat / (1 + vatRate); // Remove VAT from inclusive price
-  const vatAmount = totalInclVat - totalExclVat; // VAT amount is the difference
+  const vatAmount = totalInclVat * vatRate / (1 + vatRate); // Extract VAT from VAT-inclusive price
+  const totalExclVat = totalInclVat - vatAmount; // Subtotal without VAT
+  
+  // Use subtotal from session if available, otherwise calculate from items
+  const originalItemsTotal = session.subtotalAmount || orderItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+  const currentItemsTotal = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  const itemLevelDiscounts = originalItemsTotal - currentItemsTotal;
+  
+  // Use the ACTUAL receipt discount amount from the API data
+  // receiptDiscountAmount is set from API response in useEffect
+  const receiptLevelDiscounts = receiptDiscountAmount;
+  
+  // Total of ALL discounts applied
+  const totalDiscountAmount = itemLevelDiscounts + receiptLevelDiscounts;
 
   return (
     <AnimatePresence>
@@ -310,7 +365,7 @@ export function OccupiedTableDetailsPanel({
                           <div className="flex-1">
                             <div className="font-medium text-gray-900">{item.productName}</div>
                             <div className="text-sm text-gray-600">
-                              {item.quantity} × ฿{item.unitPrice.toFixed(0)}
+                              {item.quantity} × {formatCurrency(item.unitPrice)}
                               {item.applied_discount_id && (
                                 <span className="ml-2 text-green-600 font-medium">• Discount Applied</span>
                               )}
@@ -320,15 +375,15 @@ export function OccupiedTableDetailsPanel({
                             {item.applied_discount_id ? (
                               <div>
                                 <div className="text-xs text-gray-500 line-through">
-                                  ฿{(item.unitPrice * item.quantity).toFixed(0)}
+                                  {formatCurrency(item.unitPrice * item.quantity)}
                                 </div>
                                 <div className="font-semibold text-green-700">
-                                  ฿{item.totalPrice.toFixed(0)}
+                                  {formatCurrency(item.totalPrice)}
                                 </div>
                               </div>
                             ) : (
                               <div className="font-semibold text-gray-900">
-                                ฿{item.totalPrice.toFixed(0)}
+                                {formatCurrency(item.totalPrice)}
                               </div>
                             )}
                           </div>
@@ -342,6 +397,7 @@ export function OccupiedTableDetailsPanel({
                         orderItems={orderItems}
                         appliedDiscountId={appliedReceiptDiscountId}
                         discountAmount={receiptDiscountAmount}
+                        appliedDiscountDetails={appliedReceiptDiscount}
                         onDiscountApplied={handleReceiptDiscountApplied}
                         onDiscountRemoved={handleReceiptDiscountRemoved}
                       />
@@ -350,22 +406,22 @@ export function OccupiedTableDetailsPanel({
                     {/* Order Summary */}
                     <div className="border-t border-gray-200 pt-4 space-y-2 flex-shrink-0">
                       <div className="flex justify-between text-sm text-gray-600">
-                        <span>Subtotal (excl. VAT):</span>
-                        <span>฿{totalExclVat.toFixed(0)}</span>
+                        <span>Subtotal:</span>
+                        <span>{formatCurrency(originalItemsTotal)}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-gray-600">
-                        <span>VAT (7%):</span>
-                        <span>฿{vatAmount.toFixed(0)}</span>
-                      </div>
-                      {totalDiscountAmount > 0 && (
+                      {receiptLevelDiscounts > 0 && appliedReceiptDiscount && (
                         <div className="flex justify-between text-sm text-green-700 font-medium">
-                          <span>Total Discount:</span>
-                          <span>-฿{totalDiscountAmount.toFixed(0)}</span>
+                          <span>Discount {appliedReceiptDiscount.type === 'percentage' ? `(${appliedReceiptDiscount.value}%)` : ''}:</span>
+                          <span>-{formatCurrency(receiptLevelDiscounts)}</span>
                         </div>
                       )}
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>VAT (7%) incl.:</span>
+                        <span>{formatCurrency(vatAmount)}</span>
+                      </div>
                       <div className="flex justify-between items-center text-lg font-bold text-green-800 border-t border-gray-200 pt-2">
                         <span>Total:</span>
-                        <span>฿{totalInclVat.toFixed(0)}</span>
+                        <span>{formatCurrency(totalInclVat)}</span>
                       </div>
                     </div>
                   </div>

@@ -68,20 +68,18 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
       };
     });
 
-    // Apply discount
-    const discountAmount = order.discountAmount || 0;
-    const subtotalAfterDiscount = Math.max(0, subtotal + modifiersTotal - discountAmount);
+    // Order-level discounts removed - only item-level and session-level discounts remain
+    const subtotalAfterDiscount = subtotal + modifiersTotal;
     
-    // Calculate VAT
-    const vatAmount = subtotalAfterDiscount * vatRate;
-    const total = subtotalAfterDiscount + vatAmount;
+    // Extract VAT from VAT-inclusive price (prices already include VAT)
+    const vatAmount = subtotalAfterDiscount * vatRate / (1 + vatRate);
+    const total = subtotalAfterDiscount; // Total is the same as subtotal since VAT is already included
 
     return {
       subtotal,
       itemCount,
       totalQuantity,
       modifiersTotal,
-      discountAmount,
       subtotalAfterDiscount,
       vatAmount,
       total,
@@ -198,15 +196,7 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
                 </div>
               )}
 
-              {/* Discount */}
-              {calculations.discountAmount > 0 && (
-                <div className="flex items-center justify-between text-base py-1">
-                  <span className="text-green-600">Discount</span>
-                  <span className="text-green-600">
-                    -{formatCurrency(calculations.discountAmount)}
-                  </span>
-                </div>
-              )}
+              {/* Order-level discount removed - discounts now handled at session and item level */}
 
               {/* VAT */}
               <div className="flex items-center justify-between text-base py-1">

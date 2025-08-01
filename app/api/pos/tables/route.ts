@@ -105,10 +105,49 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Fetch receipt discount information for active sessions
+    const sessionIds = sessionsData?.map((s: DatabaseTableSession) => s.id) || [];
+    let receiptDiscountsMap = new Map();
+    
+    if (sessionIds.length > 0) {
+      // Get all orders for active sessions that have receipt-level discounts
+      const { data: ordersWithDiscounts, error: discountsError } = await supabase
+        .schema('pos')
+        .from('orders')
+        .select(`
+          table_session_id,
+          applied_discount_id,
+          discounts:applied_discount_id (
+            id,
+            title,
+            discount_type,
+            discount_value
+          )
+        `)
+        .in('table_session_id', sessionIds)
+        .not('applied_discount_id', 'is', null);
+
+      if (!discountsError && ordersWithDiscounts) {
+        // Group discounts by session ID (assuming one receipt discount per session)
+        ordersWithDiscounts.forEach((order: any) => {
+          if (order.discounts && !receiptDiscountsMap.has(order.table_session_id)) {
+            receiptDiscountsMap.set(order.table_session_id, {
+              id: order.discounts.id,
+              title: order.discounts.title,
+              discount_type: order.discounts.discount_type,
+              discount_value: order.discounts.discount_value,
+              amount: 0 // Will be calculated from actual discount amount if needed
+            });
+          }
+        });
+      }
+    }
+
     // Transform data to match TypeScript interfaces
     const tables: Table[] = tablesData?.map((table: any) => {
       const currentSession = sessionMap.get(table.id);
       const booking = currentSession?.booking_id ? bookingsMap.get(currentSession.booking_id) : null;
+      const receiptDiscount = currentSession ? receiptDiscountsMap.get(currentSession.id) : null;
       
       return {
         id: table.id,
@@ -163,7 +202,8 @@ export async function GET(request: NextRequest) {
             status: booking.status || '',
             createdAt: new Date(booking.created_at),
             updatedAt: new Date(booking.updated_at)
-          } : undefined
+          } : undefined,
+          receiptDiscount: receiptDiscount || undefined
         } : undefined
       };
     }) || [];

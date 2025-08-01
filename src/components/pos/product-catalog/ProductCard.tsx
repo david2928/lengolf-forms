@@ -94,19 +94,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         hover:shadow-lg hover:border-slate-300 transition-all duration-200
         cursor-pointer active:scale-[0.98] touch-manipulation
         p-4 sm:p-6 flex flex-col items-center text-center
+        min-h-[120px] min-w-[140px] sm:min-h-[160px] sm:min-w-[180px]
         ${!product.isActive ? 'opacity-50' : ''}
         ${className}
       `}
       onClick={handleCardClick}
-      style={{ 
-        minHeight: '120px', 
-        minWidth: '140px',
-        // Tablet sizing for 686x991
-        '@media (min-width: 640px) and (max-width: 1023px)': {
-          minHeight: '160px',
-          minWidth: '180px'
-        }
-      }}
     >
       {/* Product Name */}
       <div className="text-sm sm:text-base font-semibold text-slate-900 mb-2 leading-tight h-10 sm:h-12 overflow-hidden">

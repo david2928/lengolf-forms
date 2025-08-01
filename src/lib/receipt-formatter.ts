@@ -7,6 +7,14 @@ export interface ReceiptItem {
   price: number;
   qty: number;
   notes?: string;
+  // Item discount fields
+  originalPrice?: number;
+  itemDiscount?: {
+    title: string;
+    type: string;
+    value: number;
+  };
+  itemDiscountAmount?: number;
 }
 
 export interface ReceiptData {
@@ -24,6 +32,16 @@ export interface ReceiptData {
   isTaxInvoice?: boolean;
   taxInvoiceData?: TaxInvoiceData;
   isBill?: boolean; // Flag to indicate this is a bill (pre-payment) vs receipt (post-payment)
+  // Receipt discount fields
+  receiptDiscount?: {
+    id: string;
+    title: string;
+    type: string;
+    value: number;
+    amount: number;
+  };
+  receiptDiscountAmount?: number;
+  orderItemsTotal?: number; // Original total before receipt discount
 }
 
 export interface TaxInvoiceData {
@@ -73,11 +91,11 @@ export class ReceiptFormatter {
     // Receipt type header
     commands.push(ESC, 0x21, 0x20); // Double height
     if (data.isTaxInvoice) {
-      this.addText(commands, 'TAX INVOICE (ABB)');
+      this.addText(commands, 'TAX INVOICE (ORIGINAL)');
     } else if (data.isBill) {
       this.addText(commands, 'BILL');
     } else {
-      this.addText(commands, 'RECEIPT');
+      this.addText(commands, 'TAX INVOICE (ABB)');
     }
     commands.push(0x0A);
     commands.push(ESC, 0x21, 0x00); // Reset
@@ -130,9 +148,10 @@ export class ReceiptFormatter {
     // Items
     data.items.forEach(item => {
       const qty = item.qty || 1;
-      const itemTotal = item.price * qty;
+      const originalPrice = item.originalPrice || item.price;
+      const originalTotal = originalPrice * qty;
       const qtyStr = qty.toString();
-      const priceStr = itemTotal.toFixed(2);
+      const priceStr = originalTotal.toFixed(2);
       const nameMaxLength = 48 - qtyStr.length - priceStr.length - 4;
       const itemName = item.name.length > nameMaxLength ? 
         item.name.substring(0, nameMaxLength - 3) + '...' : item.name;
@@ -140,6 +159,15 @@ export class ReceiptFormatter {
       const itemLine = `${qtyStr}    ${itemName}${' '.repeat(Math.max(1, 48 - qtyStr.length - 4 - itemName.length - priceStr.length))}${priceStr}`;
       this.addText(commands, itemLine);
       commands.push(0x0A);
+      
+      // Show item discount if applicable
+      if (item.itemDiscount && item.itemDiscountAmount && item.itemDiscountAmount > 0) {
+        const discountLabel = `     ${item.itemDiscount.title} (${item.itemDiscount.value}${item.itemDiscount.type === 'percentage' ? '%' : ''})`;
+        const discountAmount = `-${item.itemDiscountAmount.toFixed(2)}`;
+        const discountSpacing = ' '.repeat(Math.max(1, 48 - discountLabel.length - discountAmount.length));
+        this.addText(commands, `${discountLabel}${discountSpacing}${discountAmount}`);
+        commands.push(0x0A);
+      }
       
       if (item.notes) {
         this.addText(commands, `  Note: ${item.notes}`);
@@ -156,20 +184,47 @@ export class ReceiptFormatter {
     
     // Totals
     const leftAlign = 20;
+    const width = 48;
     
-    const subtotalAmount = data.subtotal.toFixed(2);
-    this.addText(commands, `${' '.repeat(leftAlign)}Subtotal:${' '.repeat(48 - leftAlign - 9 - subtotalAmount.length)}${subtotalAmount}`);
+    // Original subtotal (before discount)
+    const originalSubtotal = (data.orderItemsTotal || data.subtotal || 0);
+    const originalSubtotalStr = originalSubtotal.toFixed(2);
+    this.addText(commands, `${' '.repeat(leftAlign)}Subtotal:${' '.repeat(width - leftAlign - 9 - originalSubtotalStr.length)}${originalSubtotalStr}`);
     commands.push(0x0A);
     
+    // Receipt discount (if applicable)
+    if (data.receiptDiscount && data.receiptDiscountAmount && data.receiptDiscountAmount > 0) {
+      const discount = data.receiptDiscount;
+      const discountAmount = data.receiptDiscountAmount;
+      
+      let discountLabel = '';
+      let discountAmountStr = '';
+      if (discount.type === 'percentage') {
+        // Calculate the correct discount amount based on order items total
+        const correctDiscountAmount = data.orderItemsTotal ? 
+          (data.orderItemsTotal * discount.value / 100) : discountAmount;
+        discountLabel = `Discount (${discount.value}%):`;
+        discountAmountStr = `-${correctDiscountAmount.toFixed(2)}`;
+      } else {
+        discountLabel = 'Discount:';
+        discountAmountStr = `-${discountAmount.toFixed(2)}`;
+      }
+      
+      const discountSpacing = ' '.repeat(Math.max(1, width - leftAlign - discountLabel.length - discountAmountStr.length));
+      this.addText(commands, `${' '.repeat(leftAlign)}${discountLabel}${discountSpacing}${discountAmountStr}`);
+      commands.push(0x0A);
+    }
+    
+    // VAT (calculated from final amount)
     const vatAmount = data.tax.toFixed(2);
-    this.addText(commands, `${' '.repeat(leftAlign)}VAT(7%):${' '.repeat(48 - leftAlign - 8 - vatAmount.length)}${vatAmount}`);
+    this.addText(commands, `${' '.repeat(leftAlign)}VAT(7%) incl.:${' '.repeat(width - leftAlign - 14 - vatAmount.length)}${vatAmount}`);
     commands.push(0x0A);
     
     this.addText(commands, `${' '.repeat(leftAlign)}============================`);
     commands.push(0x0A);
     
     const totalAmount = data.total.toFixed(2);
-    this.addText(commands, `${' '.repeat(leftAlign)}Total:${' '.repeat(48 - leftAlign - 6 - totalAmount.length)}${totalAmount}`);
+    this.addText(commands, `${' '.repeat(leftAlign)}Total:${' '.repeat(width - leftAlign - 6 - totalAmount.length)}${totalAmount}`);
     commands.push(0x0A, 0x0A);
     
     // Payment section
@@ -216,8 +271,10 @@ export class ReceiptFormatter {
       commands.push(0x0A);
       this.addText(commands, 'and provide a receipt');
     } else {
-      this.addText(commands, 'May your next round be under par!');
+      this.addText(commands, 'You\'re tee-rific. Come back soon!');
     }
+    commands.push(0x0A);
+    this.addText(commands, 'Tel: 096-668-2335 | @lengolf');
     commands.push(0x0A);
     this.addText(commands, 'www.len.golf');
     commands.push(0x0A, 0x0A);

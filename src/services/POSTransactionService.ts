@@ -97,8 +97,6 @@ export class POSTransactionService {
       orderData = {
         id: crypto.randomUUID(),
         total_amount: tableSession.total_amount || 0,
-        tax_amount: 0,
-        subtotal_amount: 0,
         order_items: tableSession.current_order_items.map((item: any) => ({
           id: item.id || crypto.randomUUID(),
           product_id: item.productId || item.product_id,
@@ -114,7 +112,7 @@ export class POSTransactionService {
         .schema('pos')
         .from('orders')
         .select(`
-          id, total_amount, tax_amount, subtotal_amount,
+          id, total_amount,
           order_items(id, product_id, quantity, unit_price, total_price, notes)
         `)
         .eq('table_session_id', tableSessionId)
@@ -127,7 +125,10 @@ export class POSTransactionService {
         throw new PaymentError('No orders found for payment');
       }
       
-      orderData = orders[0];
+      orderData = {
+        ...orders[0]
+        // Order-level tax and subtotal removed - calculated at session/transaction level
+      };
       if (!orderData.order_items || orderData.order_items.length === 0) {
         throw new PaymentError('No order items found for payment');
       }
@@ -138,6 +139,32 @@ export class POSTransactionService {
       customerIdBigint,
       bookingId,
       order: orderData
+    };
+  }
+  
+  private async getSessionDiscountData(tableSessionId: string) {
+    const { data: sessionData, error } = await supabase
+      .schema('pos')
+      .from('table_sessions')
+      .select('subtotal_amount, receipt_discount_amount, applied_receipt_discount_id')
+      .eq('id', tableSessionId)
+      .single();
+    
+    if (error) {
+      console.warn('Could not fetch session discount data:', error);
+      return {
+        receiptDiscountAmount: 0,
+        receiptDiscountPercentage: 0,
+        appliedReceiptDiscountId: null
+      };
+    }
+    
+    return {
+      receiptDiscountAmount: sessionData?.receipt_discount_amount || 0,
+      receiptDiscountPercentage: sessionData?.subtotal_amount > 0 
+        ? (sessionData?.receipt_discount_amount || 0) / sessionData.subtotal_amount 
+        : 0,
+      appliedReceiptDiscountId: sessionData?.applied_receipt_discount_id || null
     };
   }
   
@@ -152,9 +179,16 @@ export class POSTransactionService {
   ): Promise<Transaction> {
     
     const transactionId = crypto.randomUUID();
+    
+    // Get session discount data
+    const sessionDiscountData = await this.getSessionDiscountData(tableSessionId);
+    
+    // Calculate amounts correctly with discount data
     const vatRate = 0.07;
-    const subtotalAmountExclVat = totalAmount / (1 + vatRate);
-    const vatAmount = totalAmount - subtotalAmountExclVat;
+    // subtotal_amount should be VAT-inclusive amount after all discounts (final amount paid)
+    const subtotalAmount = totalAmount; // Final amount paid (VAT-inclusive)
+    const netAmount = subtotalAmount / (1 + vatRate); // Amount excluding VAT
+    const vatAmount = subtotalAmount - netAmount; // VAT portion of final amount
     
     // Create transaction record
     const { data: transaction, error: txError } = await supabase
@@ -164,9 +198,10 @@ export class POSTransactionService {
         id: crypto.randomUUID(),
         transaction_id: transactionId,
         receipt_number: receiptNumber,
-        subtotal_amount: subtotalAmountExclVat,
-        discount_amount: 0,
-        net_amount: subtotalAmountExclVat,
+        subtotal_amount: subtotalAmount, // VAT-inclusive final amount
+        discount_amount: sessionDiscountData.receiptDiscountAmount,
+        applied_discount_id: sessionDiscountData.appliedReceiptDiscountId,
+        net_amount: netAmount,
         vat_amount: vatAmount,
         total_amount: totalAmount,
         status: 'paid',
@@ -216,12 +251,30 @@ export class POSTransactionService {
   }
   
   private async createTransactionItems(transactionId: string, context: TransactionContext, tableSessionId: string): Promise<void> {
+    // Get session discount data for calculating line-level receipt discount distribution
+    const sessionDiscountData = await this.getSessionDiscountData(tableSessionId);
+    
     const transactionItems = context.order.order_items.map((item: any, index: number) => {
       const unitPriceInclVat = item.unit_price;
       const unitPriceExclVat = unitPriceInclVat / 1.07;
-      const lineDiscount = 0;
-      const lineTotalInclVat = (item.quantity * unitPriceInclVat) - lineDiscount;
-      const lineTotalExclVat = (item.quantity * unitPriceExclVat) - lineDiscount;
+      
+      // Calculate item discount (item-level discount from order_items)
+      const itemDiscount = item.discount_amount || 0;
+      
+      // Calculate item total after item-level discount
+      const itemTotalAfterItemDiscount = (item.quantity * unitPriceInclVat) - itemDiscount;
+      
+      // Calculate proportional receipt discount for this line
+      const receiptDiscountForThisLine = item.total_price > 0 && sessionDiscountData.receiptDiscountPercentage > 0
+        ? item.total_price * sessionDiscountData.receiptDiscountPercentage
+        : 0;
+      
+      // Total line discount = item discount + proportional receipt discount
+      const totalLineDiscount = itemDiscount + receiptDiscountForThisLine;
+      
+      // Final line totals after all discounts
+      const lineTotalInclVat = (item.quantity * unitPriceInclVat) - totalLineDiscount;
+      const lineTotalExclVat = lineTotalInclVat / 1.07;
       const lineVatAmount = lineTotalInclVat - lineTotalExclVat;
       
       return {
@@ -233,14 +286,16 @@ export class POSTransactionService {
         customer_id: context.customerIdBigint,
         booking_id: context.bookingId,
         item_cnt: item.quantity,
-        item_price_incl_vat: unitPriceInclVat,
-        item_price_excl_vat: unitPriceExclVat,
+        item_price_incl_vat: unitPriceInclVat * item.quantity,
+        item_price_excl_vat: unitPriceExclVat * item.quantity,
         unit_price_incl_vat: unitPriceInclVat,
         unit_price_excl_vat: unitPriceExclVat,
-        line_discount: lineDiscount,
+        line_discount: totalLineDiscount, // Total discount (item + receipt proportion)
         line_total_incl_vat: lineTotalInclVat,
         line_total_excl_vat: lineTotalExclVat,
         line_vat_amount: lineVatAmount,
+        applied_discount_id: item.applied_discount_id || null, // Item-level discount ID
+        item_discount: itemDiscount, // Item-level discount amount
         item_notes: item.notes || null,
         is_voided: false
       };
@@ -257,16 +312,22 @@ export class POSTransactionService {
   }
   
   private async createPaymentRecords(transactionId: string, paymentAllocations: PaymentAllocation[], staffId: number): Promise<void> {
-    const paymentRecords = paymentAllocations.map((payment, index) => ({
-      transaction_id: transactionId,
-      payment_sequence: index + 1,
-      payment_method: this.mapPaymentMethodToDatabase(payment.method),
-      payment_amount: payment.amount,
-      payment_reference: payment.reference || null,
-      payment_status: 'completed',
-      processed_by: staffId,
-      processed_at: new Date().toISOString()
-    }));
+    // Get payment method IDs for all payment methods - normalized storage
+    const paymentRecords = await Promise.all(
+      paymentAllocations.map(async (payment, index) => {
+        const paymentMethodId = await this.getPaymentMethodId(payment.method);
+        return {
+          transaction_id: transactionId,
+          payment_sequence: index + 1,
+          payment_method_id: paymentMethodId,
+          payment_amount: payment.amount,
+          payment_reference: payment.reference || null,
+          payment_status: 'completed',
+          processed_by: staffId,
+          processed_at: new Date().toISOString()
+        };
+      })
+    );
     
     const { error } = await supabase
       .schema('pos')
@@ -278,31 +339,45 @@ export class POSTransactionService {
     }
   }
   
-  private static methodCache = new Map<string, string>();
+  private static methodIdCache = new Map<string, number>();
   private static cacheTimestamp = 0;
   private static readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
-  private mapPaymentMethodToDatabase(method: string): string {
+  private async getPaymentMethodId(method: string): Promise<number> {
     // Check cache first
-    if (this.isCacheValid() && POSTransactionService.methodCache.has(method)) {
-      return POSTransactionService.methodCache.get(method)!;
+    if (this.isCacheValid() && POSTransactionService.methodIdCache.has(method)) {
+      return POSTransactionService.methodIdCache.get(method)!;
     }
 
-    const methodMap: Record<string, string> = {
-      'Cash': 'cash',
-      'Visa Manual': 'credit_card',
-      'Mastercard Manual': 'credit_card',
-      'PromptPay Manual': 'qr_code',
-      'Alipay1': 'other'
-    };
-    
-    const result = methodMap[method] || 'other';
-    
+    // Query the payment_methods_enum table
+    const { data, error } = await supabase
+      .schema('pos')
+      .from('payment_methods_enum')
+      .select('id')
+      .or(`legacy_names.cs.{${method}},display_name.eq.${method}`)
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      // Fallback to Other method if not found
+      const { data: fallback } = await supabase
+        .schema('pos')
+        .from('payment_methods_enum')
+        .select('id')
+        .eq('code', 'OTHER')
+        .single();
+      
+      const result = fallback?.id || 7; // Default to ID 7 (Other)
+      POSTransactionService.methodIdCache.set(method, result);
+      POSTransactionService.cacheTimestamp = Date.now();
+      return result;
+    }
+
     // Cache the result
-    POSTransactionService.methodCache.set(method, result);
+    POSTransactionService.methodIdCache.set(method, data.id);
     POSTransactionService.cacheTimestamp = Date.now();
     
-    return result;
+    return data.id;
   }
 
   private isCacheValid(): boolean {

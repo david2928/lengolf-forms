@@ -48,22 +48,23 @@ const calculateItemTotal = (item: OrderItem): number => {
   return basePrice + modifierTotal;
 };
 
-const calculateOrderTotals = (items: OrderItem[], vatRate: number = 0.07, discountAmount: number = 0) => {
+const calculateOrderTotals = (items: OrderItem[], vatRate: number = 0.07) => {
   const subtotal = items.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
   const modifiersTotal = items.reduce((total, item) => 
     total + calculateModifierTotal(item.modifiers, item.unitPrice, item.quantity), 0
   );
   
-  const subtotalAfterDiscount = Math.max(0, subtotal + modifiersTotal - discountAmount);
-  const vatAmount = subtotalAfterDiscount * vatRate;
-  const total = subtotalAfterDiscount + vatAmount;
+  // Order-level discounts removed - only item-level and session-level discounts remain
+  const subtotalAfterDiscount = subtotal + modifiersTotal;
+  // Extract VAT from VAT-inclusive price (prices already include VAT)
+  const vatAmount = subtotalAfterDiscount * vatRate / (1 + vatRate);
+  const total = subtotalAfterDiscount; // Total is same as subtotal since VAT is already included
   
   return {
     itemCount: items.length,
     totalQuantity: items.reduce((total, item) => total + item.quantity, 0),
     subtotal,
     modifiersTotal,
-    discountAmount,
     vatAmount,
     total
   };
@@ -116,9 +117,7 @@ interface OrderManagerReturn {
   clearAllItems: () => Promise<void>;
   duplicateItem: (itemId: string) => Promise<void>;
   
-  // Discount management
-  applyDiscount: (discountAmount: number, discountType?: 'fixed' | 'percentage') => Promise<void>;
-  removeDiscount: () => Promise<void>;
+  // Order-level discount management removed - now using session-level and item-level discounts only
   
   // Order calculations
   getOrderSummary: () => {
@@ -126,7 +125,6 @@ interface OrderManagerReturn {
     totalQuantity: number;
     subtotal: number;
     modifiersTotal: number;
-    discountAmount: number;
     vatAmount: number;
     total: number;
   };
@@ -238,10 +236,7 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
       staffPin: '', // Will be set by staff authentication
       items: [],
       status: 'draft',
-      subtotal: 0,
       totalAmount: 0,
-      vatAmount: 0,
-      discountAmount: 0,
       notes: '',
       createdAt: new Date(),
       updatedAt: new Date()
@@ -306,7 +301,7 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
     
     await updateOrderOptimistically(order => {
       const updatedItems = [...order.items, orderItem];
-      const totals = calculateOrderTotals(updatedItems, vatRate, order.discountAmount);
+      const totals = calculateOrderTotals(updatedItems, vatRate);
       
       return {
         ...order,
@@ -336,7 +331,7 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
         return item;
       });
       
-      const totals = calculateOrderTotals(updatedItems, vatRate, order.discountAmount);
+      const totals = calculateOrderTotals(updatedItems, vatRate);
       
       return {
         ...order,
@@ -361,7 +356,7 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
         return item;
       });
       
-      const totals = calculateOrderTotals(updatedItems, vatRate, order.discountAmount);
+      const totals = calculateOrderTotals(updatedItems, vatRate);
       
       return {
         ...order,
@@ -390,7 +385,7 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
     
     await updateOrderOptimistically(order => {
       const updatedItems = order.items.filter(item => item.id !== itemId);
-      const totals = calculateOrderTotals(updatedItems, vatRate, order.discountAmount);
+      const totals = calculateOrderTotals(updatedItems, vatRate);
       
       return {
         ...order,
@@ -431,7 +426,7 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
     
     await updateOrderOptimistically(order => {
       const updatedItems = [...order.items, ...newItems];
-      const totals = calculateOrderTotals(updatedItems, vatRate, order.discountAmount);
+      const totals = calculateOrderTotals(updatedItems, vatRate);
       
       return {
         ...order,
@@ -468,7 +463,7 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
     
     await updateOrderOptimistically(order => {
       const updatedItems = [...order.items, duplicatedItem];
-      const totals = calculateOrderTotals(updatedItems, vatRate, order.discountAmount);
+      const totals = calculateOrderTotals(updatedItems, vatRate);
       
       return {
         ...order,
@@ -480,47 +475,7 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
     });
   }, [currentOrder, vatRate, updateOrderOptimistically]);
   
-  // Discount management
-  const applyDiscount = useCallback(async (discountAmount: number, discountType: 'fixed' | 'percentage' = 'fixed') => {
-    if (!currentOrder) return;
-    
-    let actualDiscountAmount = discountAmount;
-    
-    if (discountType === 'percentage') {
-      const subtotalWithModifiers = currentOrder.items.reduce((total, item) => 
-        total + calculateItemTotal(item), 0
-      );
-      actualDiscountAmount = subtotalWithModifiers * (discountAmount / 100);
-    }
-    
-    await updateOrderOptimistically(order => {
-      const totals = calculateOrderTotals(order.items, vatRate, actualDiscountAmount);
-      
-      return {
-        ...order,
-        discountAmount: actualDiscountAmount,
-        totalAmount: totals.total,
-        vatAmount: totals.vatAmount,
-        updatedAt: new Date()
-      };
-    });
-  }, [currentOrder, vatRate, updateOrderOptimistically]);
-  
-  const removeDiscount = useCallback(async () => {
-    if (!currentOrder) return;
-    
-    await updateOrderOptimistically(order => {
-      const totals = calculateOrderTotals(order.items, vatRate, 0);
-      
-      return {
-        ...order,
-        discountAmount: 0,
-        totalAmount: totals.total,
-        vatAmount: totals.vatAmount,
-        updatedAt: new Date()
-      };
-    });
-  }, [currentOrder, vatRate, updateOrderOptimistically]);
+  // Order-level discount management removed - now using session-level and item-level discounts only
   
   // Order calculations
   const getOrderSummary = useCallback(() => {
@@ -536,7 +491,7 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
       };
     }
     
-    return calculateOrderTotals(currentOrder.items, vatRate, currentOrder.discountAmount);
+    return calculateOrderTotals(currentOrder.items, vatRate);
   }, [currentOrder, vatRate]);
   
   // Utility functions
@@ -564,8 +519,6 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
     addMultipleItems,
     clearAllItems,
     duplicateItem,
-    applyDiscount,
-    removeDiscount,
     getOrderSummary,
     refreshOrder
   };

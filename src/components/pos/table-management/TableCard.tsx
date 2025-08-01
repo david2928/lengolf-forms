@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Users, Clock, DollarSign, MoreVertical, Crown, CreditCard, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/pos-utils';
 import { CancelTableModal } from './CancelTableModal';
 import { useToast } from '@/components/ui/use-toast';
 import type { TableCardProps } from '@/types/pos';
@@ -179,7 +180,7 @@ export function TableCard({ table, onClick, onStatusChange, onPayment, closeTabl
                     ? "text-emerald-700 bg-emerald-100" 
                     : "text-green-700 bg-green-100"
                 )}>
-                  <span>฿{session.totalAmount.toFixed(0)}</span>
+                  <span>{formatCurrency(session.totalAmount)}</span>
                 </div>
               )}
               

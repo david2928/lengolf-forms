@@ -28,9 +28,6 @@ export interface SimplifiedOrderPanelProps {
   // Discount props
   onItemDiscountApplied?: (itemId: string, discountId: string) => void;
   onItemDiscountRemoved?: (itemId: string) => void;
-  onReceiptDiscountApplied?: (discountId: string) => void;
-  onReceiptDiscountRemoved?: () => void;
-  appliedReceiptDiscountId?: string | null;
 }
 
 export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
@@ -47,10 +44,7 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
   onTabChange,
   onRemoveRunningTabItem,
   onItemDiscountApplied,
-  onItemDiscountRemoved,
-  onReceiptDiscountApplied,
-  onReceiptDiscountRemoved,
-  appliedReceiptDiscountId
+  onItemDiscountRemoved
 }) => {
   // Use external activeTab if provided, otherwise fall back to local state
   const [localActiveTab, setLocalActiveTab] = useState<'running' | 'current'>('running');
@@ -81,6 +75,7 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
   const currentOrderTotal = currentOrder.reduce((total, item) => total + item.totalPrice, 0);
   const currentOrderDiscounts = currentOrder.reduce((total, item) => total + (item.discount_amount || 0), 0);
   const totalDiscounts = runningTabDiscounts + currentOrderDiscounts;
+  // Grand total for order modification view - only items, no receipt discount
   const grandTotal = runningTabTotal + currentOrderTotal;
 
   // Format currency
@@ -278,8 +273,6 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
           )}
         </div>
 
-        {/* Receipt Discount removed - only available in table detail modal */}
-
         {/* Totals */}
         <div className="border-t border-gray-200 p-4 space-y-3 bg-gray-50">
           {hasRunningTab && (
@@ -294,12 +287,19 @@ export const SimplifiedOrderPanel: React.FC<SimplifiedOrderPanelProps> = ({
               <span className="font-medium text-orange-700">{formatCurrency(currentOrderTotal)}</span>
             </div>
           )}
-          {totalDiscounts > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-green-700">Total Discounts:</span>
-              <span className="font-medium text-green-700">-{formatCurrency(totalDiscounts)}</span>
-            </div>
-          )}
+          {(() => {
+            // Calculate discounts based on active tab - only item-level discounts
+            const activeDiscounts = showRunningTab 
+              ? runningTabDiscounts  // Show only running tab item discounts when in running tab
+              : currentOrderDiscounts; // Show only current order item discounts when in current order tab
+            
+            return (activeDiscounts > 0) && (
+              <div className="flex justify-between text-sm">
+                <span className="text-green-700">Item Discounts:</span>
+                <span className="font-medium text-green-700">-{formatCurrency(activeDiscounts)}</span>
+              </div>
+            );
+          })()}
           <div className="flex justify-between text-lg font-semibold border-t border-gray-300 pt-2">
             <span className="text-gray-900">Total:</span>
             <span className="text-gray-900">{formatCurrency(grandTotal)}</span>

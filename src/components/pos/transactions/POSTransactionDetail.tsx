@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
 import { 
   Receipt, 
   Printer, 
@@ -112,17 +113,15 @@ export const POSTransactionDetail: React.FC<POSTransactionDetailProps> = ({
   const handlePrintReceipt = async () => {
     setActionLoading('print');
     try {
-      const response = await fetch('/api/pos/print-win32', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiptNumber })
-      });
+      console.log('🖨️ Using unified print service for transaction receipt');
       
-      if (response.ok) {
-        // Show success message
-        alert('Receipt sent to printer!');
+      // Use unified print service for smart printer selection
+      const result = await unifiedPrintService.print(PrintType.TAX_INV_ABB, receiptNumber);
+      
+      if (result.success) {
+        alert(`✅ ${result.message}`);
       } else {
-        throw new Error('Print failed');
+        throw new Error(result.error || result.message);
       }
     } catch (error) {
       console.error('Print failed:', error);

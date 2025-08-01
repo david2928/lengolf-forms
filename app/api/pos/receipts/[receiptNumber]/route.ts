@@ -70,8 +70,12 @@ function generateHTMLReceipt(receiptData: ReceiptData): string {
   </div>
   
   <div class="totals">
-    <div>Subtotal: ฿${receiptData.subtotal.toFixed(2)}</div>
-    <div>VAT (7%): ฿${receiptData.tax.toFixed(2)}</div>
+    <div>Subtotal: ฿${(receiptData.orderItemsTotal || receiptData.subtotal).toFixed(2)}</div>
+    ${receiptData.receiptDiscount && receiptData.receiptDiscountAmount && receiptData.receiptDiscountAmount > 0 ? 
+      `<div>Discount (${receiptData.receiptDiscount.value}${receiptData.receiptDiscount.type === 'percentage' ? '%' : ''}): -฿${receiptData.receiptDiscountAmount.toFixed(2)}</div>` : 
+      ''
+    }
+    <div>VAT (7%) incl.: ฿${receiptData.tax.toFixed(2)}</div>
     <div class="total-line">Total: ฿${receiptData.total.toFixed(2)}</div>
     
     <div style="margin-top: 20px;">
@@ -83,7 +87,8 @@ function generateHTMLReceipt(receiptData: ReceiptData): string {
   </div>
   
   <div class="footer">
-    <p>May your next round be under par!</p>
+    <p>You're tee-rific. Come back soon!</p>
+    <p>Tel: 096-668-2335 | @lengolf</p>
     <p>www.len.golf</p>
     <p><small>Generated: ${new Date().toLocaleString('th-TH')}<br>
     Powered by Lengolf POS System</small></p>

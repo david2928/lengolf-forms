@@ -154,18 +154,41 @@ function generateHTMLBill(receiptData: any): string {
     <div class="separator"></div>
     
     <div>
-        ${receiptData.items.map((item: any) => `
+        ${receiptData.items.map((item: any) => {
+            const originalTotal = (item.originalPrice || item.price) * item.qty;
+            return `
             <div class="item-row">
                 <span>${item.qty}x ${item.name}</span>
-                <span>${formatAmount(item.price * item.qty)}</span>
+                <span>${formatAmount(originalTotal)}</span>
             </div>
+            ${item.itemDiscount && item.itemDiscountAmount > 0 ? `
+                <div class="item-row" style="margin-left: 20px;">
+                    <span style="color: #666;">${item.itemDiscount.title} -${item.itemDiscount.type === 'percentage' ? item.itemDiscount.value + '%' : ''}</span>
+                    <span style="color: #666;">-${formatAmount(item.itemDiscountAmount)}</span>
+                </div>
+            ` : ''}
             ${item.notes ? `<div style="font-size: 12px; margin-left: 20px;">Note: ${item.notes}</div>` : ''}
-        `).join('')}
+        `;
+        }).join('')}
     </div>
     
     <div class="separator"></div>
     
     <div class="totals">
+        ${receiptData.receiptDiscount && receiptData.receiptDiscountAmount > 0 ? `
+        <div class="total-row">
+            <span>Subtotal:</span>
+            <span>${formatAmount(receiptData.orderItemsTotal || receiptData.subtotal + receiptData.receiptDiscountAmount)}</span>
+        </div>
+        <div class="total-row">
+            <span>Discount ${receiptData.receiptDiscount.type === 'percentage' ? '(' + receiptData.receiptDiscount.value + '%)' : ''}:</span>
+            <span>-${formatAmount(receiptData.orderItemsTotal ? (receiptData.orderItemsTotal * receiptData.receiptDiscount.value / 100) : receiptData.receiptDiscountAmount)}</span>
+        </div>
+        <div class="total-row">
+            <span>VAT (7%) incl.:</span>
+            <span>${formatAmount(receiptData.tax)}</span>
+        </div>
+        ` : `
         <div class="total-row">
             <span>Subtotal:</span>
             <span>${formatAmount(receiptData.subtotal)}</span>
@@ -174,6 +197,7 @@ function generateHTMLBill(receiptData: any): string {
             <span>VAT (7%):</span>
             <span>${formatAmount(receiptData.tax)}</span>
         </div>
+        `}
         <div class="separator"></div>
         <div class="total-row amount-due">
             <span>AMOUNT DUE:</span>

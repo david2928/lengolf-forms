@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { PaymentProcessingRequest, PaymentProcessingResponse, PaymentError } from '@/types/payment';
-import { posTransactionService } from '@/services/POSTransactionService';
+import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 import { tableSessionService } from '@/services/TableSessionService';
 
 export async function POST(request: NextRequest) {
@@ -67,31 +67,98 @@ export async function POST(request: NextRequest) {
     }
 
 
-    // Step 1: Create POS transaction
+    // Step 1: Create POS transaction using optimized database function
     const paymentStartTime = Date.now();
-    const transaction = await posTransactionService.createTransaction(
-      tableSessionId,
-      paymentMethods,
-      validatedStaffId!, // Use validated staff ID directly
-      {
-        customerName,
-        tableNumber
+    
+    // Helper function to get payment method ID
+    const getPaymentMethodId = async (method: string): Promise<number> => {
+      const { data, error } = await supabase
+        .schema('pos')
+        .from('payment_methods_enum')
+        .select('id')
+        .or(`legacy_names.cs.{${method}},display_name.eq.${method}`)
+        .limit(1)
+        .single();
+
+      if (error || !data) {
+        // Fallback to Other method if not found
+        const { data: fallback } = await supabase
+          .schema('pos')
+          .from('payment_methods_enum')
+          .select('id')
+          .eq('code', 'OTHER')
+          .single();
+        
+        return fallback?.id || 7; // Default to ID 7 (Other)
       }
+
+      return data.id;
+    };
+
+    // Format payment allocations for the database function using normalized payment method IDs
+    const paymentAllocations = await Promise.all(
+      paymentMethods.map(async method => ({
+        method_id: await getPaymentMethodId(method.method),
+        amount: method.amount,
+        reference: method.reference || null
+      }))
     );
 
-    // Step 2: Close table session if requested
-    if (closeTableSession !== false) {
-      try {
-        const staffPin = body.staffPin!; // We already validated this above
-        await tableSessionService.completeSessionWithPayment(
-          tableSessionId,
-          staffPin,
-          'Payment completed via POS'
-        );
-      } catch (error) {
-        // Don't fail the whole payment if table closing fails
-      }
+    // Use the optimized database function instead of multiple queries
+    console.log('🔍 Calling create_complete_transaction with:', {
+      p_table_session_id: tableSessionId,
+      p_payment_allocations: paymentAllocations,
+      p_staff_id: validatedStaffId!,
+      p_customer_id: null,
+      p_booking_id: null
+    });
+    
+    const { data: transactionResult, error: transactionError } = await supabase
+      .rpc('create_complete_transaction', {
+        p_table_session_id: tableSessionId,
+        p_payment_allocations: paymentAllocations,
+        p_staff_id: validatedStaffId!,
+        p_customer_id: null, // Let function use session customer
+        p_booking_id: null   // Let function use session booking
+      });
+      
+    console.log('🔍 Database function result:', { transactionResult, transactionError });
+
+    if (transactionError) {
+      throw new PaymentError(`Transaction creation failed: ${transactionError.message}`);
     }
+
+    if (!transactionResult?.success) {
+      throw new PaymentError('Transaction creation failed: Unknown error');
+    }
+
+    const paymentEndTime = Date.now();
+    console.log(`💡 Optimized payment processing took ${paymentEndTime - paymentStartTime}ms`);
+
+    // Create transaction object for response (matching original interface)
+    const transaction = {
+      id: transactionResult.transaction_db_id,
+      transactionId: transactionResult.transaction_id,
+      receiptNumber: transactionResult.receipt_number,
+      subtotal: transactionResult.total_amount,
+      vatAmount: transactionResult.total_amount * 0.07 / 1.07,
+      totalAmount: transactionResult.total_amount,
+      discountAmount: transactionResult.discount_amount,
+      paymentMethods: paymentMethods,
+      paymentStatus: 'completed' as const,
+      tableSessionId: tableSessionId,
+      orderId: '',
+      staffPin: '',
+      customerId: undefined,
+      tableNumber: tableNumber,
+      transactionDate: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      items: []
+    };
+
+    // Table session is automatically closed by the database function
+    // No additional table session processing needed
 
 
     // Return successful response

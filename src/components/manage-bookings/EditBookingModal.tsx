@@ -533,7 +533,9 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           if (payload.booking_type && booking.booking_type !== payload.booking_type) changesSummary.push(`Type: ${booking.booking_type || 'None'} -> ${payload.booking_type}`);
           if (payload.package_id !== undefined && booking.package_id !== payload.package_id) {
             const oldPackage = booking.package_name || 'None';
-            const newPackage = payload.package_id === null ? 'Keep Current' : (payload.package_id === '' ? 'None' : 'Changed');
+            const newPackage = payload.package_id === null ? 'Keep Current' : 
+                              (payload.package_id === '' ? 'None' : 
+                              (updatedBookingData.package_name || 'Changed'));
             changesSummary.push(`Package: ${oldPackage} -> ${newPackage}`);
           }
           if (payload.referral_source && booking.referral_source !== payload.referral_source) changesSummary.push(`Referral: ${booking.referral_source || 'None'} -> ${payload.referral_source}`);

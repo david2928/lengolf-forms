@@ -10,6 +10,7 @@ import { PaymentMethod, PaymentProcessingResponse, PaymentAllocation } from '@/t
 import { generatePromptPayQR } from '@/services/PromptPayQRGenerator';
 import { useStaffAuth } from '@/hooks/use-staff-auth';
 import { AlertTriangle, X, Printer, User } from 'lucide-react';
+import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
 
 interface SimplifiedPaymentModalProps {
   isOpen: boolean;
@@ -208,52 +209,29 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
   };
 
   
-  const handleWin32Print = async () => {
+  const handleUnifiedPrint = async () => {
     if (!paymentResult?.receiptNumber || isPrinting) return;
 
     setIsPrinting(true);
     try {
-      console.log('🖨️ Printing to LENGOLF printer via Python win32print...');
+      console.log('🖨️ Using unified print service for receipt printing...');
       
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      // Use unified print service for smart printer selection
+      const result = await unifiedPrintService.print(PrintType.TAX_INV_ABB, paymentResult.receiptNumber);
       
-      const response = await fetch('/api/pos/print-win32', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          receiptNumber: paymentResult.receiptNumber
-        }),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      const result = await response.json();
-
-      if (response.ok) {
-        alert('✅ Receipt printed via Python win32print successfully!');
-        console.log('✅ Win32 print successful:', result);
+      if (result.success) {
+        alert(`✅ ${result.message}`);
+        console.log('✅ Unified print successful:', result);
       } else {
-        throw new Error(result.details || result.error || 'Win32 print failed');
+        throw new Error(result.error || result.message);
       }
 
     } catch (error) {
-      console.error('❌ Win32 print failed:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        const shouldFallback = confirm('❌ LENGOLF print timed out. Would you like to print using HTML instead?');
-        if (shouldFallback) {
-          handlePrintReceipt('html');
-          return;
-        }
-      } else {
-        const shouldFallback = confirm(`❌ LENGOLF print failed: ${error instanceof Error ? error.message : 'Unknown error'}\n\nWould you like to print using HTML instead?`);
-        if (shouldFallback) {
-          handlePrintReceipt('html');
-          return;
-        }
+      console.error('❌ Unified print failed:', error);
+      const shouldFallback = confirm(`❌ Print failed: ${error instanceof Error ? error.message : 'Unknown error'}\n\nWould you like to print using HTML instead?`);
+      if (shouldFallback) {
+        handlePrintReceipt('html');
+        return;
       }
     } finally {
       setIsPrinting(false);
@@ -670,7 +648,7 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
           </Button>
           <Button
             className="h-14 text-sm font-semibold bg-green-600 hover:bg-green-700"
-            onClick={handleWin32Print}
+            onClick={handleUnifiedPrint}
             disabled={isPrinting || !paymentResult?.receiptNumber}
           >
             <Printer className="w-4 h-4 mr-2" />

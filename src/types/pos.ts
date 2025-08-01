@@ -42,6 +42,8 @@ export interface TableSession {
   sessionStart?: Date;
   sessionEnd?: Date;
   totalAmount: number;
+  subtotalAmount?: number; // Total before receipt discount
+  receiptDiscountAmount?: number; // Receipt discount amount
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -50,6 +52,14 @@ export interface TableSession {
   assignedStaff?: Staff;
   table?: Table;
   booking?: Booking;
+  // Receipt discount information (populated when available)
+  receiptDiscount?: {
+    id: string;
+    title: string;
+    discount_type: 'percentage' | 'fixed';
+    discount_value: number;
+    amount: number;
+  };
 }
 
 export interface TableOrder {
@@ -505,10 +515,7 @@ export interface Order {
   customerId?: string;
   staffPin: string;
   items: OrderItem[];
-  subtotal: number;
-  vatAmount: number;
-  totalAmount: number;
-  discountAmount: number;
+  totalAmount: number; // Sum of all item totals (after item-level discounts)
   status: 'draft' | 'active' | 'completed' | 'cancelled';
   notes?: string;
   createdAt: Date;

@@ -34,23 +34,52 @@ export class ReceiptDataService {
       .eq('receipt_number', receiptNumber)
       .single();
 
+    // Also get the full transaction record for discount information
+    const { data: fullTransaction } = await supabase
+      .schema('pos')
+      .from('transactions')
+      .select('discount_amount, applied_discount_id, subtotal_amount')
+      .eq('receipt_number', receiptNumber)
+      .single();
+
     if (transactionError || !transaction) {
       throw new Error(`Receipt not found: ${receiptNumber}`);
     }
 
-    // Get payment methods from transaction_payments table
-    const { data: paymentMethods } = await supabase
+    // Get payment methods from transaction_payments table with display names
+    // Note: transaction_payments.transaction_id references the database ID, not the logical transaction_id
+    const { data: paymentMethods, error: paymentError } = await supabase
       .schema('pos')
       .from('transaction_payments')
-      .select('payment_method, payment_amount')
-      .eq('transaction_id', transaction.transaction_id)
+      .select(`
+        payment_amount,
+        payment_method_id,
+        payment_method_enum:payment_methods_enum!inner(display_name)
+      `)
+      .eq('transaction_id', transaction.id)  // Use database ID instead of logical transaction_id
       .order('payment_sequence');
 
-    // Get order data using table session ID
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Payment methods for receipt:', receiptNumber, {
+        transactionDbId: transaction.id,
+        transactionLogicalId: transaction.transaction_id,
+        paymentMethods,
+        paymentCount: paymentMethods?.length || 0,
+        paymentError
+      });
+    }
+
+    // Get order data using table session ID with discount information
     const { data: orderData, error: orderError } = await supabase
       .schema('pos')
       .from('orders')
-      .select(`*, order_items (*)`)
+      .select(`
+        *, 
+        order_items (
+          *, 
+          applied_discount:discounts(id, title, discount_type, discount_value)
+        )
+      `)
       .eq('table_session_id', transaction.table_session_id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -70,31 +99,68 @@ export class ReceiptDataService {
 
     const productMap = new Map(products?.map((p: any) => [p.id, p.name]) || []);
 
+    // Get discount information if available
+    let receiptDiscountInfo = null;
+    if (fullTransaction?.applied_discount_id) {
+      const { data: discountData } = await supabase
+        .schema('pos')
+        .from('discounts')
+        .select('id, title, discount_type, discount_value')
+        .eq('id', fullTransaction.applied_discount_id)
+        .single();
+      
+      if (discountData) {
+        receiptDiscountInfo = {
+          id: discountData.id,
+          title: discountData.title,
+          type: discountData.discount_type,
+          value: discountData.discount_value,
+          amount: fullTransaction.discount_amount || 0
+        };
+      }
+    }
+
     // Prepare receipt data
     const receiptData: ReceiptData = {
       receiptNumber: transaction.receipt_number,
       items: (orderData.order_items || []).map((item: any) => ({
         name: productMap.get(item.product_id) || 'Unknown Item',
-        price: item.unit_price || 0,
+        price: item.total_price || (item.unit_price * item.quantity), // Final price after item discount
         qty: item.quantity || 1,
-        notes: item.notes
+        notes: item.notes,
+        // Item discount fields
+        originalPrice: item.unit_price || 0,
+        itemDiscount: item.applied_discount ? {
+          title: item.applied_discount.title,
+          type: item.applied_discount.discount_type,
+          value: item.applied_discount.discount_value
+        } : undefined,
+        itemDiscountAmount: item.discount_amount || 0
       })),
       subtotal: transaction.subtotal,
       tax: transaction.vat_amount,
       total: transaction.total_amount,
-      paymentMethods: paymentMethods?.map((pm: any) => ({
-        method: pm.payment_method,
-        amount: pm.payment_amount
-      })) || [{
-        method: 'Cash',
-        amount: transaction.total_amount
-      }],
+      paymentMethods: (paymentMethods && paymentMethods.length > 0 && paymentMethods[0].payment_method_id) 
+        ? paymentMethods.map((pm: any) => ({
+            method: pm.payment_method_enum?.display_name || 'Unknown',
+            amount: pm.payment_amount
+          }))
+        : [{
+            method: 'Cash',
+            amount: transaction.total_amount
+          }],
       tableNumber: transaction.table_number,
       customerName: transaction.customer_name,
       staffName: transaction.staff_name || 'Unknown Staff',
       transactionDate: transaction.sales_timestamp_bkk,
       paxCount: transaction.pax_count || 1,
-      isTaxInvoice: false
+      isTaxInvoice: false,
+      // Add discount information
+      receiptDiscount: receiptDiscountInfo || undefined,
+      receiptDiscountAmount: fullTransaction?.discount_amount || 0,
+      orderItemsTotal: fullTransaction?.subtotal_amount ? 
+        fullTransaction.subtotal_amount + (fullTransaction.discount_amount || 0) : 
+        transaction.subtotal
     };
 
     console.log('✅ ReceiptDataService: Receipt data prepared', {

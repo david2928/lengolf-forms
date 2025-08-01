@@ -9,6 +9,7 @@ import { useTableManagement } from '@/hooks/use-table-management';
 import { useStaffAuth } from '@/hooks/use-staff-auth';
 import { bluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
 import { USBThermalPrinter } from '@/services/USBThermalPrinter';
+import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
 import { TableCard } from './TableCard';
 import { TableDetailModal } from './TableDetailModal';
 import { PaymentInterface } from '../payment/PaymentInterface';
@@ -238,27 +239,16 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
   // Handle Bluetooth bill printing
   const handleBluetoothPrintBill = async (tableSessionId: string) => {
     try {
-      // Generate bill data via API
-      const response = await fetch('/api/pos/print-bill-bluetooth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ tableSessionId })
-      });
+      console.log('📄 Using unified print service for bill printing via Bluetooth');
       
-      const result = await response.json();
+      // Use unified print service with Bluetooth preference
+      const result = await unifiedPrintService.print(PrintType.BILL, tableSessionId, { method: 'bluetooth' });
       
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to generate bill data');
+      if (result.success) {
+        console.log(`✅ ${result.message}`);
+      } else {
+        throw new Error(result.error || result.message);
       }
-
-      console.log('📄 Bill data generated, sending to Bluetooth printer');
-      
-      // Use the receipt data format for printing
-      await bluetoothThermalPrinter.printReceipt(result.billData);
-      
-      console.log('✅ Bill printed successfully via Bluetooth');
       
     } catch (error) {
       console.error('❌ Bluetooth bill printing failed:', error);
@@ -269,28 +259,16 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
   // Handle USB bill printing
   const handleUSBPrintBill = async (tableSessionId: string) => {
     try {
-      // Generate bill data via API  
-      const response = await fetch('/api/pos/print-bill-usb', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ tableSessionId })
-      });
+      console.log('📄 Using unified print service for bill printing');
       
-      const result = await response.json();
+      // Use unified print service with smart selection
+      const result = await unifiedPrintService.print(PrintType.BILL, tableSessionId, { method: 'usb' });
       
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to generate bill data');
+      if (result.success) {
+        console.log(`✅ ${result.message}`);
+      } else {
+        throw new Error(result.error || result.message);
       }
-
-      console.log('📄 Bill data generated, sending to USB printer');
-      
-      // Create USB printer instance and use it
-      const usbPrinter = new USBThermalPrinter();
-      await usbPrinter.printReceipt(result.billData);
-      
-      console.log('✅ Bill printed successfully via USB');
       
     } catch (error) {
       console.error('❌ USB bill printing failed:', error);
@@ -503,6 +481,7 @@ export function TableManagementDashboard({ onTableSelect }: TableManagementDashb
         onPayment={handleOccupiedTablePayment}
         onCancel={handleOccupiedTableCancel}
         onPrintBill={handleOccupiedTablePrintBill}
+        onRefreshTable={refreshTables}
       />
 
       {/* Occupied Table Cancel Modal */}

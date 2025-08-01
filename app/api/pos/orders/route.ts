@@ -9,8 +9,6 @@ interface DatabaseOrder {
   order_number: string;
   table_session_id: string;
   total_amount: number;
-  subtotal_amount: number;
-  tax_amount: number;
   status: string;
   notes: string | null;
   created_at: string;
@@ -65,8 +63,6 @@ export async function GET(request: NextRequest) {
         order_number,
         table_session_id,
         total_amount,
-        subtotal_amount,
-        tax_amount,
         status,
         notes,
         created_at,
@@ -90,9 +86,9 @@ export async function GET(request: NextRequest) {
       orderNumber: order.order_number,
       tableSessionId: order.table_session_id,
       totalAmount: order.total_amount,
-      subtotalAmount: order.subtotal_amount,
-      taxAmount: order.tax_amount,
-      discountAmount: 0, // Default value since this column doesn't exist
+      subtotalAmount: order.total_amount, // Use total_amount as subtotal since VAT is included
+      taxAmount: order.total_amount * 0.07 / 1.07, // Extract VAT from total
+      discountAmount: 0, // Order-level discounts removed - now session-level only
       status: order.status,
       notes: order.notes,
       createdAt: order.created_at,

@@ -16,6 +16,15 @@ export interface BillData {
   subtotal: number;
   tax: number;
   total: number;
+  orderItemsTotal?: number; // Original total before receipt discount
+  receiptDiscount?: {
+    id: string;
+    title: string;
+    type: string;
+    value: number;
+    amount: number;
+  };
+  receiptDiscountAmount?: number;
   isBill: true; // Flag to indicate this is a bill, not a receipt
 }
 
@@ -24,6 +33,17 @@ export interface BillItem {
   price: number;
   qty: number;
   notes?: string;
+  originalPrice?: number;
+  discountedPrice?: number;
+  itemDiscount?: {
+    id: string;
+    title: string;
+    type: string;
+    value: number;
+    amount: number;
+  };
+  itemDiscountAmount?: number;
+  totalPrice?: number;
 }
 
 export class BillDataService {
@@ -60,6 +80,9 @@ export class BillDataService {
       subtotal: parseFloat(data.subtotal) || 0,
       tax: parseFloat(data.tax) || 0,
       total: parseFloat(data.total) || 0,
+      orderItemsTotal: parseFloat(data.orderItemsTotal) || 0,
+      receiptDiscount: data.receiptDiscount || undefined,
+      receiptDiscountAmount: parseFloat(data.receiptDiscountAmount) || 0,
       isBill: true
     };
 
@@ -90,6 +113,10 @@ export class BillDataService {
       transactionDate: billData.sessionStart,
       paxCount: billData.paxCount,
       isTaxInvoice: false,
+      // Add receipt discount data for bills
+      receiptDiscount: billData.receiptDiscount,
+      receiptDiscountAmount: billData.receiptDiscountAmount || 0,
+      orderItemsTotal: billData.orderItemsTotal,
       // Add bill-specific flag
       isBill: true
     };

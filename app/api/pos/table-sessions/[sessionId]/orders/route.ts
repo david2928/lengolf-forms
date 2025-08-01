@@ -70,11 +70,11 @@ export async function GET(
 
     const { sessionId } = params;
 
-    // Get table session with order data
+    // Get table session with receipt discount data
     const { data: tableSession, error: sessionError } = await supabase
       .schema('pos')
       .from('table_sessions')
-      .select('*')
+      .select('*, discounts(id, title, discount_type, discount_value, application_scope)')
       .eq('id', sessionId)
       .single();
 
@@ -82,7 +82,7 @@ export async function GET(
       return NextResponse.json({ error: "Table session not found" }, { status: 404 });
     }
 
-    // Fetch orders from the normalized orders table
+    // Fetch orders from the normalized orders table (no longer need order-level discount data)
     const { data: ordersData, error: ordersError } = await supabase
       .schema('pos')
       .from('orders')
@@ -164,12 +164,24 @@ export async function GET(
       }
     }
 
+    // Get session-level receipt discount information
+    const sessionReceiptDiscount = tableSession.applied_receipt_discount_id ? tableSession.discounts : null;
+    const sessionReceiptDiscountAmount = parseFloat(tableSession.receipt_discount_amount || '0');
+
     return NextResponse.json({
       success: true,
       orders,
       totalAmount: parseFloat(tableSession.total_amount || '0'),
       sessionId: tableSession.id,
-      isNormalizedData: true
+      isNormalizedData: true,
+      // Include session-level receipt discount information
+      receiptDiscount: sessionReceiptDiscount ? {
+        id: sessionReceiptDiscount.id,
+        title: sessionReceiptDiscount.title,
+        discount_type: sessionReceiptDiscount.discount_type,
+        discount_value: sessionReceiptDiscount.discount_value,
+        amount: sessionReceiptDiscountAmount
+      } : null
     });
 
   } catch (error) {

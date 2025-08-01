@@ -84,7 +84,8 @@ function generateHTMLReceipt(receiptData: ReceiptData): string {
   </div>
   
   <div class="footer">
-    <p>May your next round be under par!</p>
+    <p>You're tee-rific. Come back soon!</p>
+    <p>Tel: 096-668-2335 | @lengolf</p>
     <p>www.len.golf</p>
     <p><small>Generated: ${new Date().toLocaleString('th-TH')}<br>
     Powered by Lengolf POS System</small></p>

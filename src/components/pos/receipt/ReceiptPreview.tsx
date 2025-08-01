@@ -8,7 +8,7 @@ import { Printer, Download, Eye, EyeOff, FileText } from 'lucide-react';
 
 // Simple HTML receipt generator for preview component
 function generateHTMLReceipt(receiptData: ReceiptData, language: 'th' | 'en' = 'en'): string {
-  const receiptType = receiptData.isTaxInvoice ? 'TAX INVOICE (ABB)' : 'RECEIPT';
+  const receiptType = receiptData.isTaxInvoice ? 'TAX INVOICE (ORIGINAL)' : 'TAX INVOICE (ABB)';
   const transactionDate = receiptData.transactionDate ? new Date(receiptData.transactionDate) : new Date();
   
   return `
@@ -73,6 +73,7 @@ function generateHTMLReceipt(receiptData: ReceiptData, language: 'th' | 'en' = '
   
   <div class="totals">
     <div>Subtotal: ฿${receiptData.subtotal.toFixed(2)}</div>
+    ${receiptData.receiptDiscountAmount && receiptData.receiptDiscountAmount > 0 ? `<div>Discount: -฿${receiptData.receiptDiscountAmount.toFixed(2)}</div>` : ''}
     <div>VAT (7%): ฿${receiptData.tax.toFixed(2)}</div>
     <div class="total-line">Total: ฿${receiptData.total.toFixed(2)}</div>
     
@@ -85,7 +86,8 @@ function generateHTMLReceipt(receiptData: ReceiptData, language: 'th' | 'en' = '
   </div>
   
   <div class="footer">
-    <p>May your next round be under par!</p>
+    <p>You're tee-rific. Come back soon!</p>
+    <p>Tel: 096-668-2335 | @lengolf</p>
     <p>www.len.golf</p>
     <p><small>Generated: ${new Date().toLocaleString('th-TH')}<br>
     Powered by Lengolf POS System</small></p>
@@ -248,6 +250,12 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
             <span>Subtotal:</span>
             <span>{formatCurrency(receiptData.subtotal)}</span>
           </div>
+          {receiptData.receiptDiscountAmount && receiptData.receiptDiscountAmount > 0 && (
+            <div className="flex justify-between text-sm text-green-700">
+              <span>Discount:</span>
+              <span>-{formatCurrency(receiptData.receiptDiscountAmount)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span>VAT (7%):</span>
             <span>{formatCurrency(receiptData.tax)}</span>
@@ -274,7 +282,10 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
         {/* Footer */}
         <div className="text-center border-t-2 border-gray-300 pt-4 text-sm">
           <div className="font-medium mb-2">
-            May your next round be under par!
+            You&apos;re tee-rific. Come back soon!
+          </div>
+          <div className="text-xs text-gray-600 mb-1">
+            Tel: 096-668-2335 | @lengolf
           </div>
           <div className="text-xs text-gray-600 mb-2">
             www.len.golf

@@ -28,9 +28,7 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]); // Pending order items
   const [error, setError] = useState<string | null>(null);
   const [activeOrderTab, setActiveOrderTab] = useState<'running' | 'current'>('running');
-  
-  // Discount state management
-  const [appliedReceiptDiscountId, setAppliedReceiptDiscountId] = useState<string | null>(null);
+  // Removed receipt discount state - now handled at session level only
   
   // Mobile enhancement states
   const [isMobile, setIsMobile] = useState(false);
@@ -118,6 +116,7 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
         if (response.ok) {
           const data = await response.json();
           setRunningTab(data.orders || []);
+          // Receipt discount is now handled at session level, not in order modification
         } else {
           // Table session might not have any orders yet
           setRunningTab([]);
@@ -293,11 +292,11 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
         throw new Error(errorData.error || 'Failed to remove item');
       }
 
-      // Show success notification
+      // Show removal notification
       if (itemToRemove) {
         const isPartialRemoval = quantityToRemove && quantityToRemove < itemToRemove.quantity;
         addNotification({
-          type: 'success',
+          type: 'error',
           title: isPartialRemoval ? 'Quantity reduced' : 'Item removed',
           message: `${itemToRemove.productName}${isPartialRemoval ? ` (-${quantityToRemove})` : ''}`,
           icon: 'minus'
@@ -378,13 +377,7 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
     }));
   };
 
-  const handleReceiptDiscountApplied = (discountId: string) => {
-    setAppliedReceiptDiscountId(discountId);
-  };
-
-  const handleReceiptDiscountRemoved = () => {
-    setAppliedReceiptDiscountId(null);
-  };
+  // Receipt discount handlers removed - now handled at session level only
 
   return (
     <div className={`pos-interface fixed inset-0 flex flex-col bg-slate-50 ${className}`} data-testid="pos-interface">
@@ -478,7 +471,7 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
           <div className="flex">
             <button
               onClick={() => setActiveOrderTab('running')}
-              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              className={`flex-1 px-4 py-4 text-base font-medium transition-colors ${
                 activeOrderTab === 'running'
                   ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-700'
                   : 'text-gray-600 hover:text-gray-800'
@@ -488,7 +481,7 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
             </button>
             <button
               onClick={() => setActiveOrderTab('current')}
-              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              className={`flex-1 px-4 py-4 text-base font-medium transition-colors ${
                 activeOrderTab === 'current'
                   ? 'bg-orange-50 text-orange-700 border-b-2 border-orange-700'
                   : 'text-gray-600 hover:text-gray-800'
@@ -558,9 +551,6 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
                     onRemoveRunningTabItem={handleRemoveRunningTabItem}
                     onItemDiscountApplied={handleItemDiscountApplied}
                     onItemDiscountRemoved={handleItemDiscountRemoved}
-                    onReceiptDiscountApplied={handleReceiptDiscountApplied}
-                    onReceiptDiscountRemoved={handleReceiptDiscountRemoved}
-                    appliedReceiptDiscountId={appliedReceiptDiscountId}
                     className="h-full"
                     activeTab={activeOrderTab}
                     onTabChange={setActiveOrderTab}
@@ -571,16 +561,16 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
           </div>
 
           {/* Mobile Bottom Navigation */}
-          <div className="flex-shrink-0 bg-white border-t border-slate-200 px-4 py-3">
+          <div className="flex-shrink-0 bg-white border-t border-slate-200 px-4 py-4">
             <div className="flex items-center justify-between">
               {/* View Toggle Buttons */}
               <div className="flex bg-slate-100 rounded-lg p-1 min-w-0">
                 <Button
                   variant={mobileView === 'products' ? 'default' : 'ghost'}
-                  size="sm"
+                  size="lg"
                   onClick={() => handleMobileViewSwitch('products')}
                   className={cn(
-                    "flex-1 h-10 transition-all min-w-0",
+                    "flex-1 h-14 transition-all min-w-0 text-base font-medium",
                     mobileView === 'products' && "shadow-sm"
                   )}
                 >
@@ -588,14 +578,14 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
                 </Button>
                 <Button
                   variant={mobileView === 'order' ? 'default' : 'ghost'}
-                  size="sm"
+                  size="lg"
                   onClick={() => handleMobileViewSwitch('order')}
                   className={cn(
-                    "flex-1 h-10 transition-all min-w-0 whitespace-nowrap",
+                    "flex-1 h-14 transition-all min-w-0 whitespace-nowrap text-base font-medium",
                     mobileView === 'order' && "shadow-sm"
                   )}
                 >
-                  <ShoppingCart className="w-6 h-6 mr-2" />
+                  <ShoppingCart className="w-7 h-7 mr-2" />
                   <span>Order ({currentOrder.length})</span>
                 </Button>
               </div>
@@ -644,9 +634,6 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
               onRemoveRunningTabItem={handleRemoveRunningTabItem}
               onItemDiscountApplied={handleItemDiscountApplied}
               onItemDiscountRemoved={handleItemDiscountRemoved}
-              onReceiptDiscountApplied={handleReceiptDiscountApplied}
-              onReceiptDiscountRemoved={handleReceiptDiscountRemoved}
-              appliedReceiptDiscountId={appliedReceiptDiscountId}
               className="h-full"
               activeTab={activeOrderTab}
               onTabChange={setActiveOrderTab}

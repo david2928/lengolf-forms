@@ -1,8 +1,8 @@
 # POS Receipt Printing System Documentation
 
-**Document Version**: 3.0  
-**Last Updated**: January 2025  
-**Status**: ✅ **PRODUCTION READY - CONSOLIDATED ARCHITECTURE**
+**Document Version**: 4.0  
+**Last Updated**: August 2025  
+**Status**: ✅ **PRODUCTION READY - UNIFIED ARCHITECTURE**
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -17,99 +17,124 @@
 
 ## Overview
 
-The Lengolf POS system includes a **consolidated receipt printing system** optimized for tablet-based operations:
+The Lengolf POS system includes a **unified receipt printing system** optimized for tablet-based operations with intelligent printer selection:
 - **Thermal receipts** (ESC/POS compatible)
 - **HTML receipts** (for browser printing)
 - **JSON data** (for API integrations)
 
 ### Key Features
-- ✅ **Tablet-optimized printing** - Bluetooth + USB only (no server-side Win32)
+- ✅ **Unified Print Service** - Single interface for all printing operations with smart method selection
+- ✅ **Multi-format support** - Tax Invoice (ABB), Tax Invoice (Original), and Bills
+- ✅ **Tablet-optimized printing** - Web Bluetooth API + WebUSB API
 - ✅ **Consolidated architecture** - Single ESC/POS generator, unified data service
-- ✅ **Production-ready receipts** - Real product/staff names, guest counts
+- ✅ **Production-ready receipts** - Real product/staff names, guest counts, discount handling
 - ✅ **Bangkok timezone** - Accurate transaction timestamps
-- ✅ **Real-time data** - Direct database integration
+- ✅ **Real-time data** - Direct database integration with pos schema
 - ✅ **Tax compliance** - Thai VAT calculations and formatting
-- ✅ **Streamlined codebase** - ~600 lines of duplicate code eliminated
-- ✅ **Clean setup** - Both tax invoices and normal receipts use same architecture
-- ✅ **Business branding** - Company info, tax ID, contact details
+- ✅ **Business branding** - Complete LENGOLF CO. LTD. branding
+- ✅ **Smart printer selection** - Auto-selects USB for desktop, Bluetooth for mobile
 
 ---
 
 ## Current Implementation
 
-### Core Files (Consolidated Architecture)
+### Core Files (Unified Architecture)
 ```
+# Unified Print Service (NEW)
+src/services/UnifiedPrintService.ts           # Smart printer selection and routing
+
 # Shared Libraries
 src/lib/receipt-formatter.ts                  # Unified ESC/POS generation
 src/lib/receipt-data-service.ts               # Consolidated database queries
 
-# Thermal Printer Services (Updated)
-src/services/BluetoothThermalPrinter.ts       # Bluetooth printing (uses shared libraries)
-src/services/USBThermalPrinter.ts             # USB printing (uses shared libraries)
+# Thermal Printer Services
+src/services/BluetoothThermalPrinter.ts       # Web Bluetooth API printing
+src/services/USBThermalPrinter.ts             # WebUSB API printing
 
-# API Endpoints (Migrated)
+# API Endpoints (Unified)
+app/api/pos/print/route.ts                    # Unified print API (routes to specific endpoints)
 app/api/pos/print-bluetooth/route.ts          # Bluetooth print API
-app/api/pos/print-usb/route.ts                # USB print API
-app/api/pos/receipts/[receiptNumber]/route.ts # Receipt data API (migrated)
-app/api/pos/receipts/route.ts                 # Receipt generation API (migrated)
-app/api/pos/reprint/route.ts                  # Reprint API (migrated)
-app/api/test/receipt-generator/route.ts       # Test API (migrated)
+app/api/pos/print-bill-bluetooth/route.ts     # Bluetooth bill printing
+app/api/pos/print-bill-usb/route.ts          # USB bill printing
+app/api/pos/print-tax-invoice-bluetooth/route.ts # Tax invoice printing
+app/api/pos/receipts/route.ts                 # Receipt data/generation API
 
 # Test Interface (Unified)
-app/test-printer/page.tsx                     # Single test interface for both Bluetooth & USB
-
-# Components (Updated)
-src/components/pos/receipt/ReceiptPreview.tsx  # Preview component (migrated)
+app/test-printer/page.tsx                     # Comprehensive test interface with live preview
 ```
 
-### Service Architecture (Consolidated)
+### Service Architecture (Unified)
 ```typescript
-// Shared Receipt Formatter (NEW)
-class ReceiptFormatter {
-  static generateESCPOSData(data: ReceiptData): Uint8Array  // Single ESC/POS generator
-  // Supports both normal receipts and tax invoices
-  // Used by both Bluetooth and USB printers
+// Unified Print Service (NEW)
+enum PrintType {
+  TAX_INV_ABB = 'TAX_INV_ABB',        // After payment - Tax Invoice ABB format
+  TAX_INV_RECEIPT = 'TAX_INV_RECEIPT', // From transaction management - Tax Invoice Receipt  
+  BILL = 'BILL'                       // Before payment - Bill/check
 }
 
-// Shared Data Service (NEW)
+class UnifiedPrintService {
+  // Smart printer method selection based on device and preferences
+  selectPrinterMethod(method: 'auto' | 'usb' | 'bluetooth'): PrintMethod
+  
+  // Main unified print interface
+  print(type: PrintType, id: string, options?: PrintOptions): Promise<PrintResponse>
+  
+  // Test functionality
+  testPrint(method?: PrintMethod): Promise<PrintResponse>
+  
+  // Connection management
+  connect(method?: PrintMethod): Promise<PrintResponse>
+  getConnectionStatus(): { usb: boolean; bluetooth: boolean; capabilities: DeviceCapabilities }
+}
+
+// Shared Receipt Formatter
+class ReceiptFormatter {
+  static generateESCPOSData(data: ReceiptData): Uint8Array  // Single ESC/POS generator
+  // Supports tax invoices (ABB & Original), normal receipts, and bills
+  // Complete LENGOLF CO. LTD. branding with tax ID: 0105566207013
+}
+
+// Shared Data Service
 class ReceiptDataService {
   static getReceiptData(receiptNumber: string): Promise<ReceiptData>
   static getTaxInvoiceData(receiptNumber: string): Promise<ReceiptData>
   static getReceiptSummary(receiptData: ReceiptData): ReceiptSummary
   static isValidReceiptNumber(receiptNumber: string): boolean
-  // Consolidates all database queries for receipt data
+  // Integrates with pos.transaction_details view and supports discount calculations
 }
 
-// Updated Bluetooth Printer Service
+// Bluetooth Printer Service
 class BluetoothThermalPrinter {
   connect()                 // Web Bluetooth API connection
   printReceipt()            // Uses shared ReceiptFormatter
   testPrint()               // Test print functionality
-  // No more duplicate ESC/POS generation code
+  getConnectionStatus()     // Connection status
 }
 
-// Updated USB Printer Service
+// USB Printer Service  
 class USBThermalPrinter {
   connect()                 // WebUSB API connection
   printReceipt()            // Uses shared ReceiptFormatter
   testPrint()               // Test print functionality
-  // No more duplicate ESC/POS generation code
+  getConnectionStatus()     // Connection status
 }
 ```
 
-### Database Integration (Consolidated)
+### Database Integration (Unified)
 The **ReceiptDataService** consolidates all database queries:
-- **Primary**: Direct transaction lookup by receipt number
-- **Joins**: Order items, staff names, customer data
-- **Calculations**: VAT, totals, payment methods
-- **Formatting**: Bangkok timezone, proper product names
+- **Primary**: `pos.transaction_details` view for complete transaction data
+- **Secondary**: `pos.transactions` table for discount information  
+- **Joins**: Order items with product names, discount information, payment methods
+- **Calculations**: VAT, totals, item/receipt discounts, payment methods
+- **Formatting**: Bangkok timezone, proper product names, discount handling
 
 **Key Benefits**:
 - **Single source of truth** for receipt data queries
 - **Eliminates duplicate database logic** across endpoints
-- **Consistent data formatting** for all receipt types
+- **Consistent data formatting** for all receipt types (ABB, Original, Bills)
 - **Optimized queries** with proper error handling
-- **Support for both normal receipts and tax invoices**
+- **Full discount support** - item-level and receipt-level discounts
+- **Payment method integration** - automatic fallback to Cash if no payment methods found
 
 ---
 
@@ -163,7 +188,45 @@ R20250727-0146
 
 ## API Endpoints
 
-### 1. Bluetooth Thermal Printing
+### 1. Unified Print API (NEW)
+```http
+POST /api/pos/print
+```
+
+**Request Body:**
+```json
+{
+  "type": "TAX_INV_ABB" | "TAX_INV_RECEIPT" | "BILL",
+  "id": "R20250127-0001" | "table-session-id",
+  "options": {
+    "method": "auto" | "usb" | "bluetooth",
+    "format": "thermal" | "html",
+    "language": "en" | "th"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Print data prepared successfully",
+  "printType": "TAX_INV_ABB",
+  "identifier": "R20250127-0001", 
+  "method": "BLUETOOTH",
+  "targetEndpoint": "/api/pos/print-bluetooth",
+  "data": {
+    "receiptNumber": "R20250127-0001",
+    "items": [...],
+    "total": 520.00,
+    "staffName": "John Smith",
+    "transactionDate": "2025-01-27T14:32:00+07:00",
+    "paxCount": 3
+  }
+}
+```
+
+### 2. Bluetooth Thermal Printing
 ```http
 POST /api/pos/print-bluetooth
 ```
@@ -180,7 +243,7 @@ POST /api/pos/print-bluetooth
 {
   "success": true,
   "receiptData": {
-    "receiptNumber": "R20250127-0001",
+    "receiptNumber": "R20250127-0001", 
     "items": [...],
     "total": 520.00,
     "staffName": "John Smith",
@@ -191,29 +254,26 @@ POST /api/pos/print-bluetooth
 }
 ```
 
-### 3. Receipt Preview
+### 3. Receipt Data API (Unified)
 ```http
-GET /api/pos/receipts/preview?receiptNumber=R20250127-0001
-```
-
-**Features:**
-- HTML preview of thermal receipt
-- Same formatting as actual printer output
-- Real product names and data
-
-### 4. Get Receipt Data (Consolidated)
-```http
-GET /api/pos/receipts/[receiptNumber]?format=thermal&taxInvoice=false
+GET /api/pos/receipts?receiptNumber=R20250127-0001&format=json&taxInvoice=false
 ```
 
 **Parameters:**
+- `receiptNumber`: Receipt number (required)
 - `format`: `json` | `html` | `thermal` (default: `json`)
 - `taxInvoice`: `true` | `false` (default: `false`)
 
-**Response:**
-- `thermal`: ESC/POS thermal data using ReceiptFormatter
-- `html`: Simple HTML receipt
+**Response Formats:**
 - `json`: Structured receipt data from ReceiptDataService
+- `html`: Complete HTML receipt with LENGOLF branding
+- `thermal`: Raw ESC/POS thermal data for direct printing
+
+**Features:**
+- Real-time database integration with pos.transaction_details view
+- Complete discount handling (item-level and receipt-level)
+- Payment method integration with display names
+- Tax invoice customer information support
 
 ### 5. Test Receipt Generator (Consolidated)
 ```http
@@ -243,59 +303,70 @@ POST /api/test/receipt-generator
 
 ## Testing Tools
 
-### 1. Windows Thermal Printer Testing
-**URL**: `http://localhost:3000/test-thermal`
-
-**Features:**
-- Direct Windows thermal printing via Python
-- Test with actual receipt numbers
-- Real-time database data retrieval
-- Production-ready formatting
-
-### 2. Android Bluetooth Printer Testing
-**URL**: `http://localhost:3000/test-bluetooth`
-
-**Features:**
-- Web Bluetooth API connection testing
-- Compatible with Chrome/Edge browsers
-- Connect to any ESC/POS Bluetooth printer
-- Test print and receipt printing functionality
-
-### 3. Unified Test Interface
+### 1. Unified Test Interface (PRIMARY)
 **URL**: `http://localhost:3000/test-printer`
 
 **Features:**
-- **Single interface** for both Bluetooth and USB testing
-- Generate test receipts with sample data
-- Test existing receipts from database
-- Download thermal files
-- Print preview for browser testing
-- **Consolidated architecture** - uses ReceiptFormatter
+- **Tabbed interface** for Bluetooth and USB testing
+- **Live preview** - No printer connection required for preview
+- **Smart device detection** - Shows Web Bluetooth/WebUSB API support
+- **Real-time connection status** - Displays connected device information
+- **Multiple print types** - Tax Invoice (ABB), Tax Invoice (Original), Bills
+- **Test functionality** - Test print, test receipt with default data
+- **Production receipt testing** - Uses actual receipt numbers and table session IDs
+- **Unified Print Service integration** - Smart printer method selection
 
-### 4. API Testing Commands
+**Supported Tests:**
+- Connect/disconnect Bluetooth and USB printers
+- Test print functionality
+- Print receipts using actual receipt numbers
+- Print bills using table session IDs
+- Preview receipts without printer connection
+- Generate thermal preview exactly as printed
+
+### 2. API Testing Commands
 ```bash
-# Test Windows thermal printing
-curl -X POST "http://localhost:3000/api/pos/print-win32" \
+# Test Unified Print API (NEW)
+curl -X POST "http://localhost:3000/api/pos/print" \
   -H "Content-Type: application/json" \
-  -d '{"receiptNumber":"R20250127-0001"}'
+  -d '{
+    "type": "TAX_INV_ABB",
+    "id": "R20250127-0001",
+    "options": {
+      "method": "auto",
+      "format": "thermal"
+    }
+  }'
 
-# Test Android Bluetooth printing data
+# Test Bill Printing
+curl -X POST "http://localhost:3000/api/pos/print" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "BILL", 
+    "id": "table-session-id",
+    "options": {
+      "method": "usb"
+    }
+  }'
+
+# Test Bluetooth printing data
 curl -X POST "http://localhost:3000/api/pos/print-bluetooth" \
   -H "Content-Type: application/json" \
   -d '{"receiptNumber":"R20250127-0001"}'
 
-# Get receipt preview
-curl "http://localhost:3000/api/pos/receipts/preview?receiptNumber=R20250127-0001"
+# Get receipt data (JSON format)
+curl "http://localhost:3000/api/pos/receipts?receiptNumber=R20250127-0001&format=json"
 
-# Legacy: Generate test thermal receipt
-curl -X POST "http://localhost:3000/api/test/receipt-generator" \
-  -H "Content-Type: application/json" \
-  -d '{"testData":{...},"format":"thermal","language":"en"}' \
-  > test_receipt.txt
+# Get receipt as HTML
+curl "http://localhost:3000/api/pos/receipts?receiptNumber=R20250127-0001&format=html" \
+  > receipt.html
 
-# Legacy: Get existing receipt
-curl "http://localhost:3000/api/pos/receipts/R20250127-0001?format=thermal&language=en" \
-  > actual_receipt.txt
+# Get thermal data
+curl "http://localhost:3000/api/pos/receipts?receiptNumber=R20250127-0001&format=thermal" \
+  > receipt_thermal.txt
+
+# Get tax invoice data
+curl "http://localhost:3000/api/pos/receipts?receiptNumber=R20250127-0001&format=json&taxInvoice=true"
 ```
 
 ### 3. PowerShell Print Helpers
@@ -334,15 +405,19 @@ curl -X POST "http://localhost:3003/api/test/receipt-generator" -H "Content-Type
 - **Star TSP series** (TSP100, TSP650, TSP143)
 - **Any ESC/POS compatible** 58mm or 80mm thermal printer
 
-### Platform Support (Tablet-Optimized)
+### Platform Support (Unified Architecture)
 
 #### Tablet POS (Primary Architecture)
-- **Method**: Web Bluetooth API + WebUSB API
+- **Method**: Web Bluetooth API + WebUSB API with smart selection
 - **Connection**: Bluetooth pairing or USB connection
 - **Browser**: Chrome or Edge (Safari/Firefox not supported)
-- **APIs**: `/api/pos/print-bluetooth`, `/api/pos/print-usb`
-- **Status**: ✅ Production Ready - Consolidated Architecture
-- **Benefits**: No server-side dependencies, runs entirely in browser
+- **APIs**: `/api/pos/print` (unified), specific endpoints for each method
+- **Status**: ✅ Production Ready - Unified Architecture
+- **Benefits**: 
+  - Smart printer method selection (USB for desktop, Bluetooth for mobile)
+  - No server-side dependencies, runs entirely in browser
+  - Single API interface for all print types
+  - Automatic fallback and error handling
 
 ### Current Test Configuration
 - **Printer Model**: Xprinter XP-S200M
@@ -356,7 +431,30 @@ curl -X POST "http://localhost:3003/api/test/receipt-generator" -H "Content-Type
 
 ### Integration Methods
 
-#### Method 1: Web Bluetooth API (Primary - Tablet)
+#### Method 1: Unified Print Service (Primary - Recommended)
+```javascript
+// Unified Print Service - Smart method selection
+import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
+
+// Print Tax Invoice (ABB) - Auto method selection
+const result = await unifiedPrintService.print(
+  PrintType.TAX_INV_ABB, 
+  'R20250127-0001',
+  { method: 'auto' }
+);
+
+// Print Bill with specific method
+const billResult = await unifiedPrintService.print(
+  PrintType.BILL,
+  'table-session-id', 
+  { method: 'usb' }
+);
+
+// Test print with smart selection
+const testResult = await unifiedPrintService.testPrint('auto');
+```
+
+#### Method 2: Web Bluetooth API (Direct)
 ```javascript
 // Consolidated ESC/POS generation
 const receiptData = await ReceiptDataService.getReceiptData(receiptNumber);
@@ -372,19 +470,7 @@ const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-
 await characteristic.writeValue(escposData);
 ```
 
-#### Method 2: WebUSB API (Primary - Tablet)
-```javascript
-// Web Bluetooth API for Android
-const device = await navigator.bluetooth.requestDevice({
-  filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }]
-});
-const server = await device.gatt.connect();
-const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
-await characteristic.writeValue(new TextEncoder().encode(receiptContent));
-```
-
-#### Method 3: WebUSB API (Tablet USB)
+#### Method 3: WebUSB API (Direct)
 ```javascript
 // Consolidated ESC/POS generation (same as Bluetooth)
 const receiptData = await ReceiptDataService.getReceiptData(receiptNumber);
@@ -545,17 +631,20 @@ const output = escInit + receiptContent + escFeed + escCut;
 
 ## Production Features (Implemented)
 
-### ✅ Current Production Features (Consolidated Architecture)
-- [x] **Tablet-optimized architecture** - Bluetooth + USB only
-- [x] **Consolidated codebase** - Single ESC/POS generator, unified data service
-- [x] **Code reduction** - ~600 lines of duplicate code eliminated
+### ✅ Current Production Features (Unified Architecture)
+- [x] **Unified Print Service** - Single interface for all printing operations
+- [x] **Smart printer selection** - Auto-selects USB for desktop, Bluetooth for mobile
+- [x] **Multi-format support** - Tax Invoice (ABB), Tax Invoice (Original), Bills
+- [x] **Tablet-optimized architecture** - Web Bluetooth API + WebUSB API
 - [x] **Real-time data** - Live database integration via ReceiptDataService
-- [x] **Production receipts** - Actual product/staff names
+- [x] **Production receipts** - Actual product/staff names with complete LENGOLF branding
 - [x] **Bangkok timezone** - Accurate transaction timestamps
 - [x] **Guest count tracking** - Table session pax_count
+- [x] **Full discount support** - Item-level and receipt-level discounts
+- [x] **Payment method integration** - Real payment method display names
 - [x] **ESC/POS compatibility** - Standard thermal printer commands
-- [x] **Unified test interface** - Single interface for both connection types
-- [x] **Clean setup** - Tax invoices and normal receipts use same architecture
+- [x] **Comprehensive test interface** - Live preview without printer connection
+- [x] **Tax invoice support** - Stored customer tax information integration
 
 ### 🔄 Future Enhancements
 - [ ] **Auto-print on payment** - Automatic printing after successful payment
@@ -581,14 +670,15 @@ class EnhancedThermalGenerator {
 
 ## Production Deployment
 
-### Checklist (Consolidated Architecture)
+### Checklist (Unified Architecture)
+- [x] **Unified Print Service** - Smart printer selection and routing implemented
 - [x] **Test with actual thermal printer** - Xprinter XP-S200M tested
-- [x] **Verify receipt format** - Thai VAT tax invoice format compliant
-- [x] **Production data integration** - Real transaction/product/staff data
-- [x] **Consolidated architecture** - ReceiptFormatter + ReceiptDataService deployed
+- [x] **Verify receipt format** - Thai VAT tax invoice format compliant with LENGOLF branding
+- [x] **Production data integration** - Real transaction/product/staff data with discount support
+- [x] **Multi-format support** - Tax Invoice (ABB), Tax Invoice (Original), Bills
 - [x] **Tablet deployment** - Web Bluetooth + WebUSB API implementation ready
-- [x] **Code optimization** - Duplicate services removed, codebase streamlined
-- [x] **Unified testing** - Single test interface for both connection types
+- [x] **Comprehensive testing** - Live preview and multi-printer testing interface
+- [x] **Tax invoice integration** - Stored customer tax information support
 - [ ] **Auto-print integration** - POS workflow integration (manual for now)
 - [ ] **Configure printer drivers** - On production tablet hardware
 - [ ] **Set up printer monitoring** - Alerts for paper/connectivity
@@ -619,12 +709,17 @@ For printer integration support or questions:
 - Verify Bluetooth pairing and driver installation
 
 **Document maintained by**: Development Team  
-**Last updated**: January 31, 2025  
-**Architecture**: Consolidated (v3.0)  
+**Last updated**: August 1, 2025  
+**Architecture**: Unified (v4.0)  
 **Printers tested**: 
 - Xprinter XP-S200M (Bluetooth + USB via tablet)
-- Production deployment ready with consolidated architecture  
-**Code reduction**: ~600 lines of duplicate code eliminated
+- Production deployment ready with unified architecture
+**Key improvements**:
+- Unified Print Service with smart printer selection
+- Multi-format support (ABB, Original, Bills)
+- Comprehensive discount handling
+- Live preview functionality
+- Complete LENGOLF CO. LTD. branding integration
 
 ---
 

@@ -70,6 +70,8 @@ export async function GET(
         sessionStart: tableData.current_session.session_start ? new Date(tableData.current_session.session_start) : undefined,
         sessionEnd: tableData.current_session.session_end ? new Date(tableData.current_session.session_end) : undefined,
         totalAmount: parseFloat(tableData.current_session.total_amount || '0'),
+        subtotalAmount: parseFloat(tableData.current_session.subtotal_amount || '0'),
+        receiptDiscountAmount: parseFloat(tableData.current_session.receipt_discount_amount || '0'),
         notes: tableData.current_session.notes,
         createdAt: new Date(tableData.current_session.created_at),
         updatedAt: new Date(tableData.current_session.updated_at),

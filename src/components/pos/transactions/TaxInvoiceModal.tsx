@@ -48,24 +48,17 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
 
   // Define fetchTransactionData function first
   const fetchTransactionData = useCallback(async () => {
-    console.log('🚀 fetchTransactionData called for receipt:', receiptNumber);
     try {
       const response = await fetch(`/api/pos/transactions/${receiptNumber}`);
-      console.log('🌐 API response received:', response.status);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('📦 API data received:', data);
         setTransactionData(data.transaction);
         
         // Check if tax invoice data already exists
         const transaction = data.transaction;
-        console.log('🔍 Transaction data:', transaction);
-        console.log('🔍 Tax invoice issued:', transaction.tax_invoice_issued);
-        console.log('🔍 Customer tax info:', transaction.customer_tax_info);
         
         if (transaction.tax_invoice_issued && transaction.customer_tax_info) {
-          console.log('✅ Found existing tax invoice data, pre-filling form');
           setExistingTaxInvoice(transaction);
           
           // Pre-fill with existing tax invoice data
@@ -75,10 +68,8 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
             customerTaxId: transaction.customer_tax_info.taxId || '',
             isCompany: transaction.customer_tax_info.isCompany || false
           };
-          console.log('📝 Setting tax invoice data to:', newTaxInvoiceData);
           setTaxInvoiceData(newTaxInvoiceData);
         } else {
-          console.log('📝 No existing tax invoice, using customer name from transaction');
           // Pre-fill customer name if available (new tax invoice)
           const customerName = transaction.customer?.customer_name || transaction.customer_name || '';
           setTaxInvoiceData(prev => ({
@@ -86,19 +77,15 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
             customerName: customerName !== 'Walk-in' ? customerName : ''
           }));
         }
-      } else {
-        console.error('❌ API response not ok:', response.status, response.statusText);
       }
     } catch (error) {
-      console.error('❌ Failed to fetch transaction data:', error);
+      console.error('Failed to fetch transaction data:', error);
     }
   }, [receiptNumber]);
 
   // Reset and fetch data when modal opens
   useEffect(() => {
     if (isOpen && receiptNumber) {
-      console.log('🔄 Modal opened, fetching transaction data for:', receiptNumber);
-      
       // Reset all states first
       setExistingTaxInvoice(null);
       setTransactionData(null);
@@ -115,21 +102,12 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
     }
   }, [isOpen, receiptNumber, fetchTransactionData]);
 
-  // Debug: Log state changes
-  useEffect(() => {
-    console.log('💾 Tax invoice data state changed:', taxInvoiceData);
-  }, [taxInvoiceData]);
-
-  useEffect(() => {
-    console.log('📋 Existing tax invoice state changed:', existingTaxInvoice);
-  }, [existingTaxInvoice]);
 
   // Check for Bluetooth support on component mount
   useEffect(() => {
     const checkBluetoothSupport = () => {
       const supported = BluetoothThermalPrinter.isSupported();
       setIsBluetoothSupported(supported);
-      console.log('📱 Bluetooth support detected:', supported);
     };
     
     checkBluetoothSupport();
@@ -152,14 +130,12 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Tax invoice saved successfully:', result);
         return true;
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to save tax invoice');
       }
     } catch (error) {
-      console.error('Tax invoice save failed:', error);
       alert(`Failed to save tax invoice: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     } finally {
@@ -200,22 +176,13 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
   const printTaxInvoice = async () => {
     if (!receiptNumber) return;
     
-    console.log('🖨️ Print tax invoice clicked:', {
-      receiptNumber,
-      isBluetoothSupported,
-      userAgent: navigator.userAgent,
-      isMobile: /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
-    });
-    
     try {
       setIsPrinting(true);
       
       // Check if we should use Bluetooth (Android/mobile) or Windows printing
       if (isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
-        console.log('🖨️ Using Bluetooth printing for tax invoice');
         await handleBluetoothPrintTaxInvoice();
       } else {
-        console.log('🖨️ Using Windows printing for tax invoice');
         await handleWindowsPrintTaxInvoice();
       }
       
@@ -223,25 +190,27 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
       onClose();
       
     } catch (error) {
-      console.error('Print error:', error);
       alert(`❌ Print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      console.log('🖨️ Print operation finished, resetting isPrinting');
       setIsPrinting(false);
     }
   };
 
   const handleBluetoothPrintTaxInvoice = async () => {
     try {
-      // First generate tax invoice data
-      const response = await fetch('/api/pos/print-tax-invoice-bluetooth', {
+      // First generate tax invoice data using unified print API
+      const response = await fetch('/api/pos/print', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          receiptNumber: receiptNumber,
-          taxInvoiceData
+          type: 'TAX_INV_RECEIPT',
+          id: receiptNumber,
+          options: {
+            method: 'bluetooth',
+            format: 'thermal'
+          }
         })
       });
       
@@ -260,14 +229,12 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
         setBluetoothConnected(true);
       }
       
-      // Print the tax invoice
-      await bluetoothThermalPrinter.printReceipt(result.taxInvoiceData);
+      // Print the tax invoice using the data from unified API
+      await bluetoothThermalPrinter.printReceipt(result.data);
       
       alert(`✅ Tax invoice printed successfully via Bluetooth!`);
       
     } catch (error) {
-      console.error('Bluetooth tax invoice print error:', error);
-      
       // Reset connection status on error
       setBluetoothConnected(false);
       
@@ -283,14 +250,18 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
 
   const handleWindowsPrintTaxInvoice = async () => {
     try {
-      const response = await fetch('/api/pos/print-tax-invoice-win32', {
+      const response = await fetch('/api/pos/print', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          receiptNumber: receiptNumber,
-          taxInvoiceData
+          type: 'TAX_INV_RECEIPT',
+          id: receiptNumber,
+          options: {
+            method: 'auto',
+            format: 'thermal'
+          }
         })
       });
       
@@ -302,7 +273,6 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
         alert(`❌ Print failed: ${result.message || result.error}`);
       }
     } catch (error) {
-      console.error('Windows tax invoice print error:', error);
       throw error;
     }
   };
@@ -333,8 +303,8 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
     lines.push(centerText('TAX ID: 0105566207013', width));
     lines.push('');
     
-    // Receipt / TAX Invoice (Original)
-    lines.push(centerText('Receipt / TAX Invoice (Original)', width));
+    // Receipt type
+    lines.push(centerText('TAX INVOICE (ORIGINAL)', width));
     lines.push('------------------------------------------------');
     
     // Receipt details - left aligned
@@ -364,15 +334,24 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
     if (transactionData?.items) {
       transactionData.items.forEach((item: any) => {
         const qty = item.item_cnt || 1;
-        const itemTotal = item.line_total || 0;
+        const originalPrice = item.unit_price || 0;
+        const originalTotal = originalPrice * qty;
         const qtyStr = qty.toString();
-        const priceStr = itemTotal.toFixed(2);
+        const priceStr = originalTotal.toFixed(2);
         const nameMaxLength = width - qtyStr.length - priceStr.length - 4;
         const itemName = item.product_name.length > nameMaxLength ? 
           item.product_name.substring(0, nameMaxLength - 3) + '...' : item.product_name;
         
         const spaces = ' '.repeat(Math.max(1, width - qtyStr.length - 4 - itemName.length - priceStr.length));
         lines.push(`${qtyStr}    ${itemName}${spaces}${priceStr}`);
+        
+        // Show item discount if applicable
+        if (item.has_item_discount && item.item_discount_amount > 0) {
+          const discountLabel = `     Item Discount`;
+          const discountAmount = `-${item.item_discount_amount.toFixed(2)}`;
+          const discountSpacing = ' '.repeat(Math.max(1, width - discountLabel.length - discountAmount.length));
+          lines.push(`${discountLabel}${discountSpacing}${discountAmount}`);
+        }
       });
     }
     
@@ -388,13 +367,40 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
     const leftAlign = 20;
     
     if (transactionData) {
-      // Subtotal
-      const subtotalAmount = (transactionData.subtotal_amount - transactionData.vat_amount).toFixed(2);
-      lines.push(`${' '.repeat(leftAlign)}Subtotal:${' '.repeat(width - leftAlign - 9 - subtotalAmount.length)}${subtotalAmount}`);
+      // Original subtotal (before discount) - use original_items_total if available
+      const originalSubtotal = (transactionData.original_items_total || transactionData.subtotal_amount || 0);
+      const originalSubtotalStr = originalSubtotal.toFixed(2);
+      lines.push(`${' '.repeat(leftAlign)}Subtotal:${' '.repeat(width - leftAlign - 9 - originalSubtotalStr.length)}${originalSubtotalStr}`);
       
-      // VAT
+      // Receipt discount (if applicable)
+      if (transactionData.receipt_level_discounts && transactionData.receipt_level_discounts > 0 && transactionData.discount_name) {
+        const discount = {
+          type: transactionData.discount_type,
+          value: transactionData.discount_value,
+          title: transactionData.discount_name
+        };
+        const discountAmount = transactionData.receipt_level_discounts;
+        
+        let discountLabel = '';
+        let discountAmountStr = '';
+        if (discount.type === 'percentage') {
+          // Calculate the correct discount amount based on order items total
+          const correctDiscountAmount = transactionData.original_items_total ? 
+            (transactionData.original_items_total * discount.value / 100) : discountAmount;
+          discountLabel = `Discount (${discount.value}%):`;
+          discountAmountStr = `-${correctDiscountAmount.toFixed(2)}`;
+        } else {
+          discountLabel = 'Discount:';
+          discountAmountStr = `-${discountAmount.toFixed(2)}`;
+        }
+        
+        const discountSpacing = ' '.repeat(Math.max(1, width - leftAlign - discountLabel.length - discountAmountStr.length));
+        lines.push(`${' '.repeat(leftAlign)}${discountLabel}${discountSpacing}${discountAmountStr}`);
+      }
+      
+      // VAT (calculated from final amount)
       const vatAmount = transactionData.vat_amount.toFixed(2);
-      lines.push(`${' '.repeat(leftAlign)}VAT(7%):${' '.repeat(width - leftAlign - 8 - vatAmount.length)}${vatAmount}`);
+      lines.push(`${' '.repeat(leftAlign)}VAT(7%) incl.:${' '.repeat(width - leftAlign - 14 - vatAmount.length)}${vatAmount}`);
       
       // Double line under VAT (before Total)
       lines.push(`${' '.repeat(leftAlign)}============================`);
@@ -436,7 +442,8 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
     }
     
     // Footer
-    lines.push(centerText('May your next round be under par!', width));
+    lines.push(centerText('You\'re tee-rific. Come back soon!', width));
+    lines.push(centerText('Tel: 096-668-2335 | @lengolf', width));
     lines.push(centerText('www.len.golf', width));
     lines.push('');
     

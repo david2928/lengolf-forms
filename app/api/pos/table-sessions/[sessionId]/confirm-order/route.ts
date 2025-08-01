@@ -156,11 +156,9 @@ export async function POST(
       });
     }
 
-    // Product prices already include VAT - no need to add VAT on top
-    // Calculate the VAT portion that's already included (7% VAT = 7/107 of total)
-    const taxAmount = calculatedSubtotal * (7 / 107);
-    const subtotalWithoutVat = calculatedSubtotal - taxAmount;
-    const totalAmount = calculatedSubtotal; // Total is the same as calculatedSubtotal since VAT is included
+    // Product prices already include VAT - store total as-is
+    // Tax calculation will be done at session/bill level only
+    const totalAmount = calculatedSubtotal;
 
     // Create the order in normalized table with context from table session
     const { data: newOrder, error: orderError } = await supabase
@@ -170,8 +168,6 @@ export async function POST(
         table_session_id: sessionId,
         status: 'confirmed',
         total_amount: totalAmount,
-        tax_amount: taxAmount,
-        subtotal_amount: subtotalWithoutVat,
         confirmed_by: session.user.email,
         notes: notes || null,
         booking_id: tableSession.booking_id,

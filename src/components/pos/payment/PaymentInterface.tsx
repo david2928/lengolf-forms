@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Check, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Order } from '@/types/pos';
 import { PaymentMethod, PaymentProcessingResponse, PaymentAllocation } from '@/types/payment';
+import useSWR from 'swr';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useStaffAuth } from '@/hooks/use-staff-auth';
 import { generatePromptPayQR } from '@/services/PromptPayQRGenerator';
 import { StaffPinModal } from './StaffPinModal';
 import { bluetoothThermalPrinter, BluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
+import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
 
 interface PaymentInterfaceProps {
   order?: Order;
@@ -29,7 +31,7 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   tableSessionId,
   tableNumber,
   customerName,
-  totalAmount,
+  totalAmount: initialTotalAmount,
   onBack,
   onPaymentComplete
 }) => {
@@ -48,6 +50,48 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   const [inputAmount, setInputAmount] = useState<string>('');
   const [isBluetoothSupported, setIsBluetoothSupported] = useState<boolean>(false);
   const [bluetoothConnected, setBluetoothConnected] = useState<boolean>(false);
+
+  // Fetch current session data to get updated total amount
+  const fetcher = (url: string) => fetch(url).then(res => res.json());
+  const { data: sessionData } = useSWR(
+    tableSessionId ? `/api/pos/table-sessions/${tableSessionId}` : null,
+    fetcher,
+    { refreshInterval: 2000 } // Refresh every 2 seconds to catch discount changes
+  );
+
+  // Calculate current total amount from session data (includes applied discounts)
+  const totalAmount = useMemo(() => {
+    // Use live session data if available (most up-to-date with discounts)
+    if (sessionData?.totalAmount !== undefined) {
+      return sessionData.totalAmount;
+    }
+    
+    // If order has items, calculate from current order state
+    if (order?.items?.length) {
+      const subtotal = order.items.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
+      const modifiersTotal = order.items.reduce((total, item) => {
+        const modifierCost = item.modifiers?.reduce((sum, mod) => {
+          let modPrice = 0;
+          if (mod.priceType === 'fixed') {
+            modPrice = mod.price * mod.quantity;
+          } else if (mod.priceType === 'percentage') {
+            modPrice = (item.unitPrice * (mod.price / 100)) * mod.quantity;
+          }
+          mod.selectedOptions?.forEach(option => {
+            modPrice += option.priceAdjustment * mod.quantity;
+          });
+          return sum + (modPrice * item.quantity);
+        }, 0) || 0;
+        return total + modifierCost;
+      }, 0);
+      
+      // Use order.totalAmount if available (includes session-level discounts), otherwise calculate
+      return order.totalAmount || (subtotal + modifiersTotal);
+    }
+    
+    // Fallback to initial total amount (from table session)
+    return initialTotalAmount;
+  }, [sessionData, order, initialTotalAmount]);
 
   // Check for Bluetooth support on component mount
   useEffect(() => {
@@ -367,13 +411,14 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
     try {
       setIsProcessing(true);
       
-      // Check if we should use Bluetooth (Android/mobile) or Windows printing
-      if (isBluetoothSupported && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
-        console.log('🖨️ Using Bluetooth printing');
-        await handleBluetoothPrint();
+      // Use unified print service for smart printer selection
+      console.log('🖨️ Using unified print service with smart selection');
+      const result = await unifiedPrintService.print(PrintType.TAX_INV_ABB, paymentResult.receiptNumber);
+      
+      if (result.success) {
+        alert(`✅ ${result.message}`);
       } else {
-        console.log('🖨️ Using Windows printing');
-        await handleWindowsPrint();
+        throw new Error(result.error || result.message);
       }
       
     } catch (error) {
@@ -385,79 +430,6 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
     }
   };
 
-  const handleBluetoothPrint = async () => {
-    try {
-      // First get receipt data from API
-      const response = await fetch('/api/pos/print-bluetooth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          receiptNumber: paymentResult!.receiptNumber
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to get receipt data');
-      }
-      
-      // Connect to Bluetooth printer if not already connected
-      if (!bluetoothConnected) {
-        const connected = await bluetoothThermalPrinter.connect();
-        if (!connected) {
-          throw new Error('Failed to connect to Bluetooth printer');
-        }
-        setBluetoothConnected(true);
-      }
-      
-      // Print the receipt
-      await bluetoothThermalPrinter.printReceipt(result.receiptData);
-      
-      alert(`✅ Receipt printed successfully via Bluetooth!`);
-      
-    } catch (error) {
-      console.error('Bluetooth print error:', error);
-      
-      // Reset connection status on error
-      setBluetoothConnected(false);
-      
-      if (error instanceof Error && error.message.includes('User cancelled')) {
-        alert('❌ Bluetooth connection cancelled by user');
-      } else {
-        alert(`❌ Bluetooth print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-      
-      throw error;
-    }
-  };
-
-  const handleWindowsPrint = async () => {
-    try {
-      const response = await fetch('/api/pos/print-win32', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          receiptNumber: paymentResult!.receiptNumber
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        alert(`✅ Receipt printed successfully!`);
-      } else {
-        alert(`❌ Print failed: ${result.message || result.error}`);
-      }
-    } catch (error) {
-      console.error('Windows print error:', error);
-      throw error;
-    }
-  };
 
   const handleFinish = () => {
     if (paymentResult) {
@@ -487,8 +459,8 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
       {/* Total Amount */}
       <div className="bg-slate-50 border-b border-slate-200 p-6">
         <div className="text-center">
-          <div className="text-sm text-slate-600 mb-1">Total Amount</div>
-          <div className="text-4xl font-bold text-slate-900">
+          <div className="text-base text-slate-600 mb-1">Total Amount</div>
+          <div className="text-5xl font-bold text-slate-900">
             {formatCurrency(totalAmount)}
           </div>
         </div>
@@ -496,19 +468,19 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
 
       {/* Payment Methods */}
       <div className="flex-1 p-6 space-y-3">
-        <div className="text-sm font-medium text-slate-700 mb-4">Select Payment Method</div>
+        <div className="text-base font-medium text-slate-700 mb-4">Select Payment Method</div>
         {paymentMethods.map((method) => (
           <Button
             key={method.id}
             variant="outline"
-            className="w-full h-16 justify-start p-4 border-2 hover:border-slate-400 hover:bg-slate-50"
+            className="w-full h-20 justify-start p-4 border-2 hover:border-slate-400 hover:bg-slate-50"
             onClick={() => handleMethodSelect(method.id)}
           >
             <div className="flex items-center space-x-4">
               {method.icon}
               <div className="text-left">
-                <div className="font-medium text-slate-900">{method.name}</div>
-                <div className="text-sm text-slate-600">{method.description}</div>
+                <div className="text-lg font-medium text-slate-900">{method.name}</div>
+                <div className="text-base text-slate-600">{method.description}</div>
               </div>
             </div>
           </Button>
@@ -595,7 +567,7 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
                     updatedPayments[index].method = method.id;
                     setSplitPayments(updatedPayments);
                   }}
-                  className="h-10 text-xs"
+                  className="h-12 text-sm"
                 >
                   {method.name}
                 </Button>
@@ -678,47 +650,47 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant="outline"
-                  className="h-14 flex flex-col items-center justify-center hover:bg-slate-50"
+                  className="h-16 flex flex-col items-center justify-center hover:bg-slate-50"
                   onClick={() => handleSplitMethodSelect(PaymentMethod.CASH)}
                 >
-                  <div className="font-medium text-slate-700">Cash</div>
-                  <div className="text-xs text-slate-600">Enter Amount</div>
+                  <div className="text-base font-medium text-slate-700">Cash</div>
+                  <div className="text-sm text-slate-600">Enter Amount</div>
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-14 flex flex-col items-center justify-center hover:bg-slate-50"
+                  className="h-16 flex flex-col items-center justify-center hover:bg-slate-50"
                   onClick={() => handleSplitMethodSelect(PaymentMethod.VISA_MANUAL)}
                 >
-                  <div className="font-medium text-slate-700">Visa</div>
-                  <div className="text-xs text-slate-600">Enter Amount</div>
+                  <div className="text-base font-medium text-slate-700">Visa</div>
+                  <div className="text-sm text-slate-600">Enter Amount</div>
                 </Button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant="outline"
-                  className="h-14 flex flex-col items-center justify-center hover:bg-slate-50"
+                  className="h-16 flex flex-col items-center justify-center hover:bg-slate-50"
                   onClick={() => handleSplitMethodSelect(PaymentMethod.MASTERCARD_MANUAL)}
                 >
-                  <div className="font-medium text-slate-700">Mastercard</div>
-                  <div className="text-xs text-slate-600">Enter Amount</div>
+                  <div className="text-base font-medium text-slate-700">Mastercard</div>
+                  <div className="text-sm text-slate-600">Enter Amount</div>
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-14 flex flex-col items-center justify-center hover:bg-slate-50"
+                  className="h-16 flex flex-col items-center justify-center hover:bg-slate-50"
                   onClick={() => handleSplitMethodSelect(PaymentMethod.PROMPTPAY_MANUAL)}
                 >
-                  <div className="font-medium text-slate-700">PromptPay</div>
-                  <div className="text-xs text-slate-600">Enter Amount</div>
+                  <div className="text-base font-medium text-slate-700">PromptPay</div>
+                  <div className="text-sm text-slate-600">Enter Amount</div>
                 </Button>
               </div>
               <div className="grid grid-cols-1 gap-2">
                 <Button
                   variant="outline"
-                  className="h-14 flex flex-col items-center justify-center hover:bg-slate-50"
+                  className="h-16 flex flex-col items-center justify-center hover:bg-slate-50"
                   onClick={() => handleSplitMethodSelect(PaymentMethod.ALIPAY)}
                 >
-                  <div className="font-medium text-slate-700">Alipay</div>
-                  <div className="text-xs text-slate-600">Enter Amount</div>
+                  <div className="text-base font-medium text-slate-700">Alipay</div>
+                  <div className="text-sm text-slate-600">Enter Amount</div>
                 </Button>
               </div>
             </div>
@@ -761,8 +733,8 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
         <div className="flex-1 flex flex-col items-center justify-center p-6 min-h-0">
           {selectedMethod === PaymentMethod.PROMPTPAY_MANUAL ? (
             <div className="text-center max-w-sm w-full flex flex-col">
-              <div className="text-xl font-semibold text-slate-900 mb-1">PromptPay</div>
-              <div className="text-slate-600 mb-4 text-sm">Scan QR code to pay</div>
+              <div className="text-2xl font-semibold text-slate-900 mb-1">PromptPay</div>
+              <div className="text-slate-600 mb-4 text-base">Scan QR code to pay</div>
               
               {qrCodeData && (
                 <div className="w-64 h-64 mx-auto bg-white p-4 rounded-lg border border-slate-200 mb-4 flex-shrink-0">
@@ -770,7 +742,7 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
                 </div>
               )}
               
-              <div className="text-2xl font-bold text-slate-900 mb-4">
+              <div className="text-3xl font-bold text-slate-900 mb-4">
                 {formatCurrency(totalAmount)}
               </div>
             </div>
@@ -780,11 +752,11 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
                 {selectedMethodData?.icon}
               </div>
               
-              <div className="text-2xl font-semibold text-slate-900 mb-2">
+              <div className="text-3xl font-semibold text-slate-900 mb-2">
                 {selectedMethodData?.name}
               </div>
               
-              <div className="text-3xl font-bold text-slate-900 mb-6">
+              <div className="text-4xl font-bold text-slate-900 mb-6">
                 {formatCurrency(totalAmount)}
               </div>
               

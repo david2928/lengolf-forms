@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Bluetooth, Printer, TestTube, CheckCircle, XCircle, Usb, Smartphone, Eye, FileText, Receipt } from 'lucide-react';
 import { bluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
 import { usbThermalPrinter } from '@/services/USBThermalPrinter';
+import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
 
 export default function UnifiedPrinterTestPage() {
   const [bluetoothSupported, setBluetoothSupported] = useState<boolean>(false);
@@ -21,7 +22,7 @@ export default function UnifiedPrinterTestPage() {
   const [lastResult, setLastResult] = useState<any>(null);
   const [currentTab, setCurrentTab] = useState<'bluetooth' | 'usb'>('bluetooth');
   const [previewData, setPreviewData] = useState<string | null>(null);
-  const [previewType, setPreviewType] = useState<'normal' | 'tax' | 'bill'>('normal');
+  const [previewType, setPreviewType] = useState<'abb' | 'original' | 'bill'>('abb');
   const [showPreview, setShowPreview] = useState<boolean>(false);
 
   useEffect(() => {
@@ -267,20 +268,13 @@ export default function UnifiedPrinterTestPage() {
 
     setIsLoading(true);
     try {
-      // Call API to get bill data
-      const response = await fetch('/api/pos/print-bill-usb', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableSessionId })
-      });
-
-      const result = await response.json();
+      // Use unified print service for bill printing
+      const result = await unifiedPrintService.print(PrintType.BILL, tableSessionId, { method: 'usb' });
+      
       if (result.success) {
-        // Print using the service
-        await usbThermalPrinter.printReceipt(result.billData);
-        setLastResult({ success: true, message: `Bill for table session ${tableSessionId} printed via USB!` });
+        setLastResult({ success: true, message: result.message });
       } else {
-        setLastResult({ success: false, message: result.error || 'Bill not found' });
+        setLastResult({ success: false, message: result.error || 'Bill printing failed' });
       }
     } catch (error) {
       setLastResult({ success: false, message: `Print failed: ${error}` });
@@ -309,7 +303,7 @@ export default function UnifiedPrinterTestPage() {
   };
 
   // Load preview data for receipt or bill
-  const loadPreview = async (type: 'normal' | 'tax' | 'bill') => {
+  const loadPreview = async (type: 'abb' | 'original' | 'bill') => {
     if (type === 'bill') {
       if (!tableSessionId) {
         setLastResult({ success: false, message: 'Please enter a table session ID' });
@@ -330,7 +324,7 @@ export default function UnifiedPrinterTestPage() {
         response = await fetch(`/api/pos/bills/${tableSessionId}?format=json`);
       } else {
         // Get receipt data from API
-        response = await fetch(`/api/pos/receipts/${receiptNumber}?format=json&taxInvoice=${type === 'tax'}`);
+        response = await fetch(`/api/pos/receipts/${receiptNumber}?format=json&taxInvoice=${type === 'original'}`);
       }
       
       if (!response.ok) {
@@ -344,14 +338,14 @@ export default function UnifiedPrinterTestPage() {
       if (data.success && (data.receiptData || data.billData)) {
         const receiptData = data.receiptData || data.billData;
         // Generate thermal preview
-        const thermalPreview = generateThermalPreview(receiptData, type === 'tax', type === 'bill');
+        const thermalPreview = generateThermalPreview(receiptData, type === 'original', type === 'bill');
         
         setPreviewData(thermalPreview);
         setPreviewType(type);
         setShowPreview(true);
         setLastResult({ 
           success: true, 
-          message: `${type === 'bill' ? 'Bill' : type === 'tax' ? 'Tax invoice' : 'Normal receipt'} preview loaded successfully!` 
+          message: `${type === 'bill' ? 'Bill' : type === 'original' ? 'Tax invoice (original)' : 'Tax invoice (ABB)'} preview loaded successfully!` 
         });
       } else {
         setLastResult({ success: false, message: `Failed to load ${type === 'bill' ? 'bill' : 'receipt'} preview. Check if ${type === 'bill' ? 'table session ID' : 'receipt number'} exists.` });
@@ -381,11 +375,11 @@ export default function UnifiedPrinterTestPage() {
     
     // Receipt type
     if (isTaxInvoice) {
-      lines.push(centerText('Receipt / TAX Invoice (ABB)', width));
+      lines.push(centerText('TAX INVOICE (ORIGINAL)', width));
     } else if (isBill) {
       lines.push(centerText('BILL', width));
     } else {
-      lines.push(centerText('RECEIPT', width));
+      lines.push(centerText('TAX INVOICE (ABB)', width));
     }
     lines.push('------------------------------------------------');
     
@@ -418,15 +412,24 @@ export default function UnifiedPrinterTestPage() {
     if (receiptData.items) {
       receiptData.items.forEach((item: any) => {
         const qty = item.qty || 1;
-        const itemTotal = (item.price * qty) || 0;
+        const originalPrice = item.originalPrice || item.price;
+        const originalTotal = originalPrice * qty;
         const qtyStr = qty.toString();
-        const priceStr = itemTotal.toFixed(2);
+        const priceStr = originalTotal.toFixed(2);
         const nameMaxLength = width - qtyStr.length - priceStr.length - 4;
         const itemName = item.name.length > nameMaxLength ? 
           item.name.substring(0, nameMaxLength - 3) + '...' : item.name;
         
         const spaces = ' '.repeat(Math.max(1, width - qtyStr.length - 4 - itemName.length - priceStr.length));
         lines.push(`${qtyStr}    ${itemName}${spaces}${priceStr}`);
+        
+        // Show item discount if applicable
+        if (item.itemDiscount && item.itemDiscountAmount > 0) {
+          const discountLabel = `     ${item.itemDiscount.title} -${item.itemDiscount.type === 'percentage' ? item.itemDiscount.value + '%' : ''}`;
+          const discountAmount = `-${item.itemDiscountAmount.toFixed(2)}`;
+          const discountSpacing = ' '.repeat(Math.max(1, width - discountLabel.length - discountAmount.length));
+          lines.push(`${discountLabel}${discountSpacing}${discountAmount}`);
+        }
       });
     }
     
@@ -441,13 +444,36 @@ export default function UnifiedPrinterTestPage() {
     // Totals section
     const leftAlign = 20;
     
-    // Subtotal
-    const subtotalAmount = (receiptData.subtotal || 0).toFixed(2);
-    lines.push(`${' '.repeat(leftAlign)}Subtotal:${' '.repeat(width - leftAlign - 9 - subtotalAmount.length)}${subtotalAmount}`);
+    // Original subtotal (before discount)
+    const originalSubtotal = (receiptData.orderItemsTotal || receiptData.subtotal || 0);
+    const originalSubtotalStr = originalSubtotal.toFixed(2);
+    lines.push(`${' '.repeat(leftAlign)}Subtotal:${' '.repeat(width - leftAlign - 9 - originalSubtotalStr.length)}${originalSubtotalStr}`);
     
-    // VAT
+    // Receipt discount (if applicable)
+    if (receiptData.receiptDiscount && receiptData.receiptDiscountAmount > 0) {
+      const discount = receiptData.receiptDiscount;
+      const discountAmount = receiptData.receiptDiscountAmount;
+      
+      let discountLabel = '';
+      let discountAmountStr = '';
+      if (discount.type === 'percentage') {
+        // Calculate the correct discount amount based on order items total
+        const correctDiscountAmount = receiptData.orderItemsTotal ? 
+          (receiptData.orderItemsTotal * discount.value / 100) : discountAmount;
+        discountLabel = `Discount (${discount.value}%):`;
+        discountAmountStr = `-${correctDiscountAmount.toFixed(2)}`;
+      } else {
+        discountLabel = 'Discount:';
+        discountAmountStr = `-${discountAmount.toFixed(2)}`;
+      }
+      
+      const discountSpacing = ' '.repeat(Math.max(1, width - leftAlign - discountLabel.length - discountAmountStr.length));
+      lines.push(`${' '.repeat(leftAlign)}${discountLabel}${discountSpacing}${discountAmountStr}`);
+    }
+    
+    // VAT (calculated from final amount)
     const vatAmount = (receiptData.tax || 0).toFixed(2);
-    lines.push(`${' '.repeat(leftAlign)}VAT(7%):${' '.repeat(width - leftAlign - 8 - vatAmount.length)}${vatAmount}`);
+    lines.push(`${' '.repeat(leftAlign)}VAT(7%) incl.:${' '.repeat(width - leftAlign - 14 - vatAmount.length)}${vatAmount}`);
     
     // Double line under VAT
     lines.push(`${' '.repeat(leftAlign)}============================`);
@@ -525,8 +551,9 @@ export default function UnifiedPrinterTestPage() {
       lines.push(centerText('Staff will process your payment', width));
       lines.push(centerText('and provide a receipt', width));
     } else {
-      lines.push(centerText('May your next round be under par!', width));
+      lines.push(centerText('You\'re tee-rific. Come back soon!', width));
     }
+    lines.push(centerText('Tel: 096-668-2335 | @lengolf', width));
     lines.push(centerText('www.len.golf', width));
     lines.push('');
     
@@ -824,22 +851,22 @@ export default function UnifiedPrinterTestPage() {
             <div className="space-y-3">
               <div className="flex gap-3 flex-wrap">
                 <Button
-                  onClick={() => loadPreview('normal')}
+                  onClick={() => loadPreview('abb')}
                   disabled={isLoading || !receiptNumber}
                   variant="outline"
                   className="flex items-center gap-2"
                 >
                   <Eye className="w-4 h-4" />
-                  Preview Normal Receipt
+                  Preview Tax Invoice (ABB)
                 </Button>
                 <Button
-                  onClick={() => loadPreview('tax')}
+                  onClick={() => loadPreview('original')}
                   disabled={isLoading || !receiptNumber}
                   variant="outline"
                   className="flex items-center gap-2"
                 >
                   <FileText className="w-4 h-4" />
-                  Preview Tax Invoice
+                  Preview Tax Invoice (Original)
                 </Button>
                 <Button
                   onClick={() => loadPreview('bill')}
@@ -891,7 +918,7 @@ export default function UnifiedPrinterTestPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Receipt className="w-5 h-5" />
-                {previewType === 'bill' ? 'Bill Preview' : `Receipt Preview - ${previewType === 'tax' ? 'Tax Invoice' : 'Normal Receipt'}`}
+                {previewType === 'bill' ? 'Bill Preview' : previewType === 'original' ? 'Tax Invoice (Original) Preview' : 'Tax Invoice (ABB) Preview'}
               </h3>
               <Button
                 onClick={() => setShowPreview(false)}

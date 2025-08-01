@@ -147,6 +147,7 @@ export async function POST(request: NextRequest) {
           .from('order_items')
           .update({
             applied_discount_id: discount_id,
+            discount_amount: discountAmount,
             total_price: newTotal,
             updated_at: new Date().toISOString()
           })
@@ -181,8 +182,38 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: orderError.message }, { status: 500 });
       }
 
-      // Calculate discount amount
-      const originalAmount = parseFloat(order.subtotal_amount);
+      // Get the sum of all order items to calculate discount on original amounts
+      const { data: orderItems, error: itemsError } = await supabase
+        .schema('pos')
+        .from('order_items')
+        .select('total_price')
+        .eq('order_id', order_id);
+
+      if (itemsError) {
+        console.error('Error fetching order items:', itemsError);
+        return NextResponse.json({ error: itemsError.message }, { status: 500 });
+      }
+
+      // Calculate discount amount based on sum of all order items (original amounts)
+      const originalAmount = orderItems?.reduce((sum: number, item: any) => sum + parseFloat(item.total_price), 0) || 0;
+      
+      if (originalAmount === 0) {
+        return NextResponse.json({ error: "Cannot apply discount to order with no items" }, { status: 400 });
+      }
+
+      // Debug logging for development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Receipt discount calculation:', {
+          order_id,
+          discount_id,
+          discount_type: discount.discount_type,
+          discount_value: discount.discount_value,
+          original_total_amount: order.total_amount,
+          calculated_original_amount: originalAmount,
+          item_count: orderItems?.length || 0
+        });
+      }
+
       let discountAmount = 0;
       
       if (discount.discount_type === 'percentage') {
@@ -192,32 +223,18 @@ export async function POST(request: NextRequest) {
       }
 
       const newSubtotal = originalAmount - discountAmount;
-      const taxAmount = newSubtotal * 0.07; // 7% VAT
-      const newTotal = newSubtotal + taxAmount;
+      // Extract VAT from VAT-inclusive price (prices already include VAT)
+      const taxAmount = newSubtotal * 0.07 / (1 + 0.07); // Extract 7% VAT
+      const newTotal = newSubtotal; // Total is same as subtotal since VAT is already included
 
-      // Update order
-      const { error: updateError } = await supabase
-        .schema('pos')
-        .from('orders')
-        .update({
-          applied_discount_id: discount_id,
-          subtotal_amount: newSubtotal,
-          tax_amount: taxAmount,
-          total_amount: newTotal,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', order_id);
+      // Note: Order-level discounts removed - orders now only store sum of item totals
+      // Total amount is automatically calculated by database triggers from order_items
 
-      if (updateError) {
-        console.error('Error updating order:', updateError);
-        return NextResponse.json({ error: updateError.message }, { status: 500 });
-      }
+      // Table session total will be updated automatically by database trigger
 
       return NextResponse.json({ 
         success: true, 
         discount_amount: discountAmount,
-        new_subtotal: newSubtotal,
-        new_tax_amount: taxAmount,
         new_total: newTotal 
       });
     }
@@ -259,16 +276,15 @@ async function recalculateOrderTotals(orderItemId: string) {
     }
 
     const subtotal = orderItems?.reduce((sum: number, item: any) => sum + parseFloat(item.total_price), 0) || 0;
-    const taxAmount = subtotal * 0.07; // 7% VAT
+    // Extract VAT from VAT-inclusive price (prices already include VAT)
+    const taxAmount = subtotal * 0.07 / (1 + 0.07); // Extract 7% VAT
 
-    // Update order totals
+    // Update order totals - only total_amount exists in orders table now
     const { error: updateError } = await supabase
       .schema('pos')
       .from('orders')
       .update({
-        subtotal_amount: subtotal,
-        tax_amount: taxAmount,
-        total_amount: subtotal + taxAmount,
+        total_amount: subtotal, // Total is same as subtotal since VAT is already included
         updated_at: new Date().toISOString()
       })
       .eq('id', orderId);
@@ -280,3 +296,4 @@ async function recalculateOrderTotals(orderItemId: string) {
     console.error('Error in recalculateOrderTotals:', error);
   }
 }
+

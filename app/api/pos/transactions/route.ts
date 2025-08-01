@@ -42,8 +42,8 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Call optimized RPC function
-    const { data, error } = await supabase.rpc('search_transactions', {
+    // Call optimized RPC function from pos schema
+    const { data, error } = await supabase.schema('pos').rpc('search_transactions', {
       p_start_date: startDate,
       p_end_date: endDate,
       p_status: status,
@@ -153,8 +153,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Call optimized RPC function
-    const { data, error } = await supabase.rpc('search_transactions', {
+    // Call optimized RPC function from pos schema
+    const { data, error } = await supabase.schema('pos').rpc('search_transactions', {
       p_start_date: startDate,
       p_end_date: endDate,
       p_status: status,

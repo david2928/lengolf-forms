@@ -42,7 +42,7 @@ function calculateEndTime(dateStr: string, startTimeStr: string, durationMinutes
 }
 
 // Helper to generate a summary of changes
-function generateChangesSummary(oldBooking: Booking, newBookingData: Partial<Booking>, payload: UpdateBookingPayload): string {
+async function generateChangesSummary(oldBooking: Booking, newBookingData: Partial<Booking>, payload: UpdateBookingPayload): Promise<string> {
   const changes: string[] = [];
   const oldEndTime = calculateEndTime(oldBooking.date, oldBooking.start_time, oldBooking.duration * 60);
   const newProposedDate = newBookingData.date || oldBooking.date;
@@ -70,23 +70,58 @@ function generateChangesSummary(oldBooking: Booking, newBookingData: Partial<Boo
     changes.push(`Pax from ${oldBooking.number_of_people} to ${newBookingData.number_of_people}`);
   }
   if (newBookingData.customer_notes !== undefined && oldBooking.customer_notes !== newBookingData.customer_notes) {
-    changes.push(`Notes changed`); // Keep it simple for notes
+    changes.push(`Notes updated`);
   }
   if (newBookingData.phone_number !== undefined && oldBooking.phone_number !== newBookingData.phone_number) {
     changes.push(`Phone from ${oldBooking.phone_number || 'N/A'} to ${newBookingData.phone_number || 'N/A'}`);
   }
   if (newBookingData.package_id !== undefined && oldBooking.package_id !== newBookingData.package_id) {
-    changes.push(`Package changed`);
+    // Fetch package names to show meaningful change description
+    let oldPackageName = 'None';
+    let newPackageName = 'None';
+    let packageLookupFailed = false;
+    
+    try {
+      if (oldBooking.package_id) {
+        const { data: oldPackage } = await refacSupabaseAdmin
+          .schema('backoffice')
+          .from('packages')
+          .select('package_types(display_name)')
+          .eq('id', oldBooking.package_id)
+          .single();
+        if (oldPackage?.package_types?.display_name) {
+          oldPackageName = oldPackage.package_types.display_name;
+        }
+      }
+      
+      if (newBookingData.package_id) {
+        const { data: newPackage } = await refacSupabaseAdmin
+          .schema('backoffice')
+          .from('packages')
+          .select('package_types(display_name)')
+          .eq('id', newBookingData.package_id)
+          .single();
+        if (newPackage?.package_types?.display_name) {
+          newPackageName = newPackage.package_types.display_name;
+        }
+      }
+      
+      changes.push(`Package: ${oldPackageName} → ${newPackageName}`);
+    } catch (error) {
+      console.error('Error fetching package names for changes summary:', error);
+      // Fallback to generic message if package lookup fails
+      changes.push(`Package changed`);
+    }
   }
   if (newBookingData.booking_type !== undefined && oldBooking.booking_type !== newBookingData.booking_type) {
-    changes.push(`Type from ${oldBooking.booking_type || 'N/A'} to ${newBookingData.booking_type || 'N/A'}`);
+    changes.push(`Type: ${oldBooking.booking_type || 'Normal Bay Rate'} → ${newBookingData.booking_type || 'N/A'}`);
   }
   if (newBookingData.referral_source !== undefined && oldBooking.referral_source !== newBookingData.referral_source) {
     changes.push(`Referral: ${oldBooking.referral_source || 'None'} → ${newBookingData.referral_source || 'None'}`);
   }
 
   if (changes.length === 0) return 'No direct field changes detected (audit fields updated).';
-  return changes.join(', ') + ` by ${payload.employee_name}.`;
+  return changes.join(', ');
 }
 
 const getBookingIdFromDescription = (description: string | null | undefined): string | null => {
@@ -395,7 +430,7 @@ export async function PUT(
     }
 
     // Create Audit Log Entry
-    const changesSummary = generateChangesSummary(originalBookingSnapshot, updateDataForSupabase, payload);
+    const changesSummary = await generateChangesSummary(originalBookingSnapshot, updateDataForSupabase, payload);
     const historyEntry = {
       booking_id: bookingId,
       action_type: 'UPDATE_BOOKING_STAFF',
