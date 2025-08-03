@@ -52,7 +52,7 @@ export async function GET() {
       `)
       .eq('package_types.type', 'Unlimited')
       .not('first_use_date', 'is', null)
-      .or('expiration_date.is.null,expiration_date.gt.now()')
+      .or('expiration_date.is.null,expiration_date.gte.today()')
       .order('expiration_date', { ascending: true, nullsFirst: false })
       .limit(50);
 
