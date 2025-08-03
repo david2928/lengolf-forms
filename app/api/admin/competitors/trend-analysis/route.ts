@@ -15,13 +15,13 @@ export async function GET(request: NextRequest) {
 
     const now = new Date();
     
-    // Define periods based on "days ago" for better trend analysis
+    // Define periods based on "days ago"
     const periods = [
       { name: 'latest', days: 0, label: 'Latest' },
-      { name: 'l7days', days: 7, label: '7 Days Ago' },
-      { name: 'l14days', days: 14, label: '14 Days Ago' },
-      { name: 'l21days', days: 21, label: '21 Days Ago' },
-      { name: 'l28days', days: 28, label: '28 Days Ago' }
+      { name: 'l7days', days: 7, label: 'Last 7 Days' },
+      { name: 'l14days', days: 14, label: 'Last 14 Days' },
+      { name: 'l21days', days: 21, label: 'Last 21 Days' },
+      { name: 'l28days', days: 28, label: 'Last 28 Days' }
     ];
 
     // Get all active competitors with their social accounts
@@ -57,18 +57,17 @@ export async function GET(request: NextRequest) {
 
           // Get data for each period
           for (const period of periods) {
-            if (period.days === 0) {
-              // Latest - get most recent record within last 3 days
-              const threeDaysAgo = new Date(now);
-              threeDaysAgo.setDate(now.getDate() - 3);
+            let startDate: Date;
+            let endDate: Date;
 
+            if (period.days === 0) {
+              // Latest - get most recent record
               const { data: latestMetrics } = await supabaseAdmin
                 .schema('marketing')
                 .from('competitor_metrics')
                 .select('*')
                 .eq('competitor_id', competitor.id)
                 .eq('platform', account.platform)
-                .gte('recorded_at', threeDaysAgo.toISOString())
                 .order('recorded_at', { ascending: false })
                 .limit(1);
 
@@ -78,7 +77,7 @@ export async function GET(request: NextRequest) {
               const targetDate = new Date(now);
               targetDate.setDate(now.getDate() - period.days);
               
-              // Look for records within a 2-day window around the target date
+              // Look for records within a 3-day window around the target date
               const windowStart = new Date(targetDate);
               windowStart.setDate(targetDate.getDate() - 1);
               
@@ -122,22 +121,14 @@ export async function GET(request: NextRequest) {
       success: true,
       trends: trendData,
       periods: periods.map(p => ({ name: p.name, label: p.label, days: p.days })),
-      generated_at: now.toISOString(),
-      // Legacy support for existing component
-      comparisons: trendData.map(trend => ({
-        competitor_id: trend.competitor_id,
-        competitor_name: trend.competitor_name,
-        platform: trend.platform,
-        current_week: trend.periods.latest,
-        previous_week: trend.periods.l7days
-      }))
+      generated_at: now.toISOString()
     });
 
   } catch (error: any) {
-    console.error('Weekly comparison error:', error);
+    console.error('Trend analysis error:', error);
     return NextResponse.json({
       success: false,
-      error: 'Failed to fetch weekly comparison data',
+      error: 'Failed to fetch trend analysis data',
       message: error.message
     }, { status: 500 });
   }

@@ -2,7 +2,10 @@
 
 ## Overview
 
-The POS discount system provides comprehensive discount management capabilities with support for both item-level and receipt-level discounts. The system ensures proper calculation, persistence, and display of discounts across all POS interfaces.
+The POS discount system provides comprehensive discount management capabilities with support for both item-level and receipt-level discounts. The system has been recently overhauled with unified printing and discount management, ensuring proper calculation, persistence, and display of discounts across all POS interfaces.
+
+**Last Updated:** December 2024 - Major system overhaul with enhanced table session receipt discounts
+**Status:** Production-ready with comprehensive API and UI components
 
 ## Architecture
 
@@ -11,15 +14,17 @@ The POS discount system provides comprehensive discount management capabilities 
 #### Discounts Table (`pos.discounts`)
 ```sql
 - id: uuid (primary key)
-- title: string (display name)
-- description: string (optional description)
-- discount_type: 'percentage' | 'fixed_amount'
-- discount_value: numeric (percentage or absolute amount)
-- application_scope: 'item' | 'receipt'
-- is_active: boolean
-- availability_type: 'always' | 'date_range'
-- valid_from: timestamp (optional)
-- valid_until: timestamp (optional)
+- title: varchar(255, NOT NULL) (display name)
+- description: text (optional description)
+- discount_type: varchar(20, NOT NULL) ('percentage' | 'fixed')
+- discount_value: numeric (NOT NULL) (percentage or absolute amount)
+- application_scope: varchar(20, NOT NULL) ('item' | 'receipt')
+- is_active: boolean (default: true)
+- availability_type: varchar(20, NOT NULL) ('always' | 'date_range')
+- valid_from: timestamptz (optional)
+- valid_until: timestamptz (optional)
+- created_at: timestamptz (default: now())
+- updated_at: timestamptz (default: now())
 ```
 
 #### Product Eligibility (`pos.discount_product_eligibility`)
@@ -31,7 +36,9 @@ The POS discount system provides comprehensive discount management capabilities 
 
 #### Applied Discounts Storage
 - **Item-level**: `pos.order_items.applied_discount_id` + `discount_amount`
-- **Receipt-level**: `pos.orders.applied_discount_id` with updated totals
+- **Receipt-level**: `pos.table_sessions.applied_receipt_discount_id` + `receipt_discount_amount`
+- **Legacy**: `pos.orders.applied_discount_id` (deprecated in favor of table session discounts)
+- **Transaction-level**: `pos.transactions.applied_discount_id` + discount fields
 
 ## Discount Types
 
@@ -91,11 +98,17 @@ POST /api/pos/discounts/apply
 ## API Endpoints
 
 ### `/api/pos/discounts/available`
-Retrieves available discounts based on scope and eligibility.
+Retrieves available discounts based on scope and eligibility using optimized RPC functions.
 
 **Query Parameters:**
 - `scope`: 'item' | 'receipt'
 - `product_id`: uuid (required for item-level discounts)
+
+**Implementation Details:**
+- Uses `get_available_discounts_for_product()` RPC for item-level discounts
+- Uses `get_available_receipt_discounts()` RPC for receipt-level discounts
+- Validates date ranges and active status automatically
+- Returns empty array if no discounts available
 
 **Response:**
 ```typescript
@@ -112,7 +125,13 @@ Retrieves available discounts based on scope and eligibility.
 ```
 
 ### `/api/pos/discounts/preview`
-Calculates discount amounts without applying them.
+Calculates discount amounts without applying them using the `calculate_discount_preview()` RPC function.
+
+**Key Features:**
+- Comprehensive validation and calculation in single RPC call
+- Supports both in-memory and database order items
+- Returns detailed calculation breakdown
+- Validates product eligibility automatically
 
 **Request:**
 ```typescript
@@ -146,20 +165,64 @@ Calculates discount amounts without applying them.
 ```
 
 ### `/api/pos/discounts/apply`
-Applies discounts to database records.
+Applies discounts to database records with support for both in-memory and persisted items.
 
-**Request:** Same as preview endpoint plus:
+**Enhanced Features:**
+- **In-memory item support**: Apply discounts to items not yet saved to database
+- **Database item support**: Apply discounts to existing order items
+- **Automatic validation**: Uses `validate_discount_application()` RPC
+- **Total recalculation**: Automatically updates order totals
+- **VAT handling**: Proper VAT-inclusive pricing calculations
+
+**Request Types:**
 ```typescript
 {
-  order_id?: string; // for receipt-level discounts
-  order_item_id?: string; // for item-level discounts
+  discount_id: string;
+  application_scope: 'item' | 'receipt';
+  // For in-memory items
+  target_item?: {
+    id: string;
+    product_id: string;
+    quantity: number;
+    unit_price: number;
+  };
+  // For database items
+  order_item_id?: string;
+  order_id?: string;
 }
 ```
+
+### `/api/pos/discounts/remove`
+Removes applied discounts from database records.
+
+**Features:**
+- Removes item-level discounts from `order_items`
+- Removes receipt-level discounts from `orders`
+- Automatically recalculates totals
+- Proper VAT handling
+
+### `/api/pos/table-sessions/[sessionId]/receipt-discount/apply`
+Applies receipt-level discounts directly to table sessions.
+
+**Features:**
+- Session-level discount application
+- Calculates discount on total of all orders in session
+- Updates `table_sessions.applied_receipt_discount_id`
+- Automatic trigger-based total recalculation
+
+### `/api/pos/table-sessions/[sessionId]/receipt-discount/remove`
+Removes receipt-level discounts from table sessions.
 
 ## UI Components
 
 ### ItemDiscountButton
-Handles item-level discount application.
+Handles item-level discount application with enhanced UX.
+
+**Enhanced Features:**
+- **Conditional rendering**: Hidden if no discounts available
+- **Loading states**: Proper loading indicators during API calls
+- **Eligibility checking**: Checks product eligibility on mount
+- **Visual feedback**: Different states for applied/unapplied discounts
 
 **Key Features:**
 - Eligibility checking on mount
@@ -178,7 +241,14 @@ interface ItemDiscountButtonProps {
 ```
 
 ### ReceiptDiscountButton
-Handles receipt-level discount application.
+Handles receipt-level discount application with comprehensive state management.
+
+**Enhanced Features:**
+- **Flexible discount details**: Supports both prop-based and API-fetched discount details
+- **Real-time calculation**: Shows discount amounts and totals
+- **Visual states**: Green applied state with removal options
+- **Dialog interface**: Clean modal for discount selection
+- **Conditional display**: Hidden when no order items present
 
 **Key Features:**
 - Order-wide discount application
@@ -201,32 +271,62 @@ interface ReceiptDiscountButtonProps {
 
 ### Item-Level Calculation
 ```typescript
+// Enhanced calculation with proper validation
 const originalAmount = unitPrice * quantity;
 let discountAmount = 0;
 
 if (discount.discount_type === 'percentage') {
   discountAmount = originalAmount * (discount.discount_value / 100);
-} else {
+} else if (discount.discount_type === 'fixed') {
+  // Fixed discounts cannot exceed item total
   discountAmount = Math.min(discount.discount_value, originalAmount);
 }
 
 const finalAmount = originalAmount - discountAmount;
+
+// Update database with recalculation
+const { error } = await supabase
+  .schema('pos')
+  .from('order_items')
+  .update({
+    applied_discount_id: discount_id,
+    discount_amount: discountAmount,
+    total_price: finalAmount,
+    updated_at: new Date().toISOString()
+  })
+  .eq('id', order_item_id);
 ```
 
-### Receipt-Level Calculation
+### Receipt-Level Calculation (Table Sessions)
 ```typescript
-const subtotal = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
-let discountAmount = 0;
+// Enhanced calculation for table sessions
+const { data: orders } = await supabase
+  .schema('pos')
+  .from('orders')
+  .select('total_amount')
+  .eq('table_session_id', sessionId);
 
+const currentOrdersTotal = orders?.reduce(
+  (sum, order) => sum + parseFloat(order.total_amount.toString()), 0
+) || 0;
+
+let discountAmount = 0;
 if (discount.discount_type === 'percentage') {
-  discountAmount = subtotal * (discount.discount_value / 100);
-} else {
-  discountAmount = Math.min(discount.discount_value, subtotal);
+  discountAmount = currentOrdersTotal * (discount.discount_value / 100);
+} else if (discount.discount_type === 'fixed') {
+  discountAmount = Math.min(discount.discount_value, currentOrdersTotal);
 }
 
-const newSubtotal = subtotal - discountAmount;
-const taxAmount = newSubtotal * 0.07; // 7% VAT
-const newTotal = newSubtotal + taxAmount;
+// Apply to table session (triggers handle total recalculation)
+const { error } = await supabase
+  .schema('pos')
+  .from('table_sessions')
+  .update({
+    applied_receipt_discount_id: discount_id,
+    receipt_discount_amount: discountAmount,
+    updated_at: new Date().toISOString()
+  })
+  .eq('id', sessionId);
 ```
 
 ## Display Logic
@@ -293,60 +393,97 @@ Shows receipt-level discount details:
 ## Database Persistence
 
 ### Item-Level Discounts
-Stored directly in the `order_items` table:
+Stored directly in the `order_items` table with automatic recalculation:
 
 ```sql
 UPDATE pos.order_items 
 SET 
   applied_discount_id = $1,
   discount_amount = $2,
-  total_price = original_price - discount_amount,
+  total_price = (unit_price * quantity) - discount_amount,
   updated_at = NOW()
 WHERE id = $3;
+
+-- Triggers automatically:
+-- 1. Recalculate parent order total
+-- 2. Update table session totals
+-- 3. Maintain referential integrity
 ```
 
 ### Receipt-Level Discounts
-Stored in the `orders` table with recalculated totals:
+**Current Implementation:** Stored in `table_sessions` table (preferred):
 
 ```sql
-UPDATE pos.orders 
+UPDATE pos.table_sessions 
 SET 
-  applied_discount_id = $1,
-  subtotal_amount = original_subtotal - discount_amount,
-  tax_amount = (original_subtotal - discount_amount) * 0.07,
-  total_amount = (original_subtotal - discount_amount) * 1.07,
+  applied_receipt_discount_id = $1,
+  receipt_discount_amount = $2,
   updated_at = NOW()
-WHERE id = $2;
+WHERE id = $3;
+
+-- Database triggers automatically:
+-- 1. Recalculate session total_amount
+-- 2. Apply discount to final session total
+-- 3. Update related payment records
+```
+
+**Legacy Implementation:** Order-level discounts (deprecated):
+
+```sql
+-- Note: Order-level discounts removed from current implementation
+-- Orders now only store sum of item totals
+-- Total amount is automatically calculated by database triggers
 ```
 
 ## Integration Points
 
 ### Table Management
-- `OccupiedTableDetailsPanel`: Receipt discount application
+- `OccupiedTableDetailsPanel`: Enhanced receipt discount integration
+  - Shows applied discount details with green status indicators
+  - Real-time discount amount display
+  - Integration with `ReceiptDiscountButton` component
+- `TableManagementDashboard`: Discount status indicators on table cards
 - Real-time order refresh after discount application
 - Persistent discount display across sessions
 
 ### Order Panel
-- `SimplifiedOrderPanel`: Item and total discount display
+- `SimplifiedOrderPanel`: Enhanced discount display
+  - Item-level discount indicators
+  - Total discount summaries
+  - `ItemDiscountButton` integration for individual items
+- `OrderTotals`: Comprehensive discount breakdown
+  - Total discount amounts
+  - Item-level vs receipt-level separation
+- `OrderPanel`: Legacy order panel with discount support
 - Running tab and current order discount summaries
-- Conditional discount button visibility
+- Conditional discount button visibility based on eligibility
 
-### Product Catalog
-- `ItemDiscountButton`: Eligibility-based rendering
-- Product-specific discount availability
-- Real-time discount application
+### Product Catalog & POS Interface
+- `POSInterface`: Main POS interface with integrated discount management
+- `ProductCard`: Enhanced with discount eligibility indicators
+- `ItemDiscountButton`: 
+  - Eligibility-based rendering (hidden if no discounts available)
+  - Product-specific discount availability checking
+  - Real-time discount application with visual feedback
+- `PaymentInterface`: Discount integration in payment flow
+  - Discount amounts shown in payment summaries
+  - Final total calculations with discount considerations
 
 ## Validation Rules
 
-### Discount Eligibility
+### Discount Eligibility (Integrated in RPC Functions)
+Validation is integrated within the `calculate_discount_preview()` RPC function:
+
 ```sql
--- RPC function: validate_discount_application
-CREATE OR REPLACE FUNCTION validate_discount_application(
-  p_discount_id UUID,
-  p_product_id UUID DEFAULT NULL
-)
-RETURNS TABLE(valid BOOLEAN, reason TEXT);
+-- Validation checks performed:
+-- 1. Discount exists and is active
+-- 2. Date range validation (if applicable)
+-- 3. Product eligibility (for item-level discounts)
+-- 4. Application scope validation
+-- 5. Amount limits (fixed discounts cannot exceed totals)
 ```
+
+**Note:** The standalone `validate_discount_application()` function mentioned in previous documentation has been integrated into the comprehensive `calculate_discount_preview()` function for better performance.
 
 ### Business Rules
 1. **Date Validation**: Discounts must be within valid date ranges
@@ -398,18 +535,31 @@ try {
 ## Performance Considerations
 
 ### Optimization Strategies
-1. **RPC Functions**: Use database RPC functions for complex calculations
+1. **Optimized RPC Functions**: 
+   - `get_available_discounts_for_product()` - Product-specific discount lookup
+   - `get_available_receipt_discounts()` - Receipt-level discount lookup
+   - `calculate_discount_preview()` - Comprehensive validation and calculation
 2. **Eligibility Caching**: Cache product eligibility on component mount
 3. **Conditional Rendering**: Hide discount buttons for ineligible products
-4. **Batch Operations**: Group discount calculations where possible
+4. **Database Triggers**: Automatic total recalculation without API calls
+5. **Strategic Indexing**: Optimized indexes for common query patterns
+6. **Component State Management**: Efficient React state updates
 
-### Database Indexes
+### Database Indexes (Current Implementation)
 ```sql
--- Improve discount lookup performance
+-- Optimized discount lookup performance
 CREATE INDEX idx_discounts_active_scope ON pos.discounts(is_active, application_scope);
-CREATE INDEX idx_discount_eligibility_product ON pos.discount_product_eligibility(product_id);
+CREATE INDEX idx_discounts_date_range ON pos.discounts(availability_type, valid_from, valid_until);
+CREATE INDEX idx_discounts_validity ON pos.discounts(is_active, availability_type);
+
+-- Product eligibility optimization
+CREATE INDEX idx_discount_product_eligibility ON pos.discount_product_eligibility(discount_id, product_id);
+CREATE INDEX idx_discount_product_eligibility_lookup ON pos.discount_product_eligibility(product_id);
+
+-- Applied discount tracking
 CREATE INDEX idx_order_items_discount ON pos.order_items(applied_discount_id);
-CREATE INDEX idx_orders_discount ON pos.orders(applied_discount_id);
+CREATE INDEX idx_table_sessions_receipt_discount ON pos.table_sessions(applied_receipt_discount_id);
+CREATE INDEX idx_transactions_discount ON pos.transactions(applied_discount_id);
 ```
 
 ## Testing Strategy
@@ -470,14 +620,41 @@ if (process.env.NODE_ENV === 'development') {
 }
 ```
 
+## Recent Updates (December 2024)
+
+### Major System Overhaul
+**Commit:** `1335cfd Major POS system overhaul with unified printing and discount management`
+
+**Key Changes:**
+1. **Table Session Receipt Discounts**: New `/api/pos/table-sessions/[sessionId]/receipt-discount/` endpoints
+2. **Unified Printing**: New `/api/pos/print` endpoint with discount integration
+3. **Enhanced API Endpoints**: Improved `/api/pos/discounts/apply` and `/api/pos/discounts/remove`
+4. **Payment Integration**: Streamlined discount handling in payment interfaces
+5. **Order Totals Display**: Enhanced discount breakdown in UI components
+6. **Bill Data Service**: Receipt discount support in billing system
+
+### Current Implementation Status
+- ✅ **Item-level discounts**: Full implementation with UI components
+- ✅ **Receipt-level discounts**: Table session-based implementation
+- ✅ **Database optimization**: RPC functions and triggers
+- ✅ **UI/UX**: Comprehensive React components
+- ✅ **API endpoints**: Complete REST API coverage
+- ✅ **Integration**: Full POS system integration
+
+### Technical Debt & Improvements
+1. **Legacy order-level discounts**: Deprecated in favor of table session discounts
+2. **Validation consolidation**: `validate_discount_application` integrated into preview function
+3. **VAT handling**: Proper VAT-inclusive pricing calculations
+4. **Trigger optimization**: Automatic total recalculation system
+
 ## Future Enhancements
 
 ### Planned Features
-1. **Bulk Discount Management**: Admin interface for discount CRUD operations
+1. **Admin Interface**: Discount CRUD operations management panel
 2. **Combo Discounts**: Support for multiple discounts on single items/orders
 3. **Customer-Specific Discounts**: Integration with customer loyalty system
 4. **Discount Analytics**: Reporting on discount usage and effectiveness
-5. **Conditional Discounts**: Time-based and quantity-based discount rules
+5. **Advanced Rules**: Time-based, quantity-based, and conditional discount rules
 
 ### Technical Improvements
 1. **Real-time Validation**: WebSocket-based discount availability updates
@@ -485,6 +662,41 @@ if (process.env.NODE_ENV === 'development') {
 3. **Advanced Calculations**: Support for tiered and progressive discounts
 4. **API Versioning**: Backward compatibility for discount API changes
 
+## Troubleshooting
+
+### Common Issues & Solutions
+1. **Discounts not persisting**: 
+   - Check database permissions and API endpoint responses
+   - Verify table session state and refresh mechanisms
+2. **Wrong discount amounts**: 
+   - Verify calculation logic in RPC functions
+   - Check VAT-inclusive pricing handling
+3. **Missing discount buttons**: 
+   - Check product eligibility in `discount_product_eligibility` table
+   - Verify component props and eligibility checking logic
+4. **UI not updating**: 
+   - Ensure proper state management and refresh callbacks
+   - Check for component re-rendering after discount application
+
+### Development & Testing
+```bash
+# Test discount API endpoints
+curl -X GET "http://localhost:3000/api/pos/discounts/available?scope=item&product_id=UUID"
+curl -X POST "http://localhost:3000/api/pos/discounts/preview" \
+  -H "Content-Type: application/json" \
+  -d '{"discount_id":"UUID","application_scope":"item","target_item":{...}}'
+
+# Check database state
+SELECT * FROM pos.discounts WHERE is_active = true;
+SELECT * FROM pos.order_items WHERE applied_discount_id IS NOT NULL;
+SELECT * FROM pos.table_sessions WHERE applied_receipt_discount_id IS NOT NULL;
+```
+
 ---
 
-*This documentation covers the complete POS discount system implementation as of the current version. For specific implementation details, refer to the source code in the `/src/components/pos/discount/` directory.*
+**Documentation Status:** ✅ Updated with current implementation (December 2024)
+**Implementation Location:** `/src/components/pos/discount/` directory
+**API Endpoints:** `/app/api/pos/discounts/` and `/app/api/pos/table-sessions/*/receipt-discount/`
+**Database Schema:** `pos.discounts`, `pos.discount_product_eligibility`, related tables
+
+*This documentation reflects the current production implementation after the major POS system overhaul. All features are tested and deployed.*

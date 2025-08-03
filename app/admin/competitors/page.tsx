@@ -20,7 +20,7 @@ import { CreateCompetitorModal } from '@/components/admin/competitors/create-com
 import { EditCompetitorModal } from '@/components/admin/competitors/edit-competitor-modal';
 import { CompetitorMetricsModal } from '@/components/admin/competitors/competitor-metrics-modal';
 import { ManualMetricsModal } from '@/components/admin/competitors/manual-metrics-modal';
-import { WeeklyComparison } from '@/components/admin/competitors/weekly-comparison';
+import { TrendAnalysis } from '@/components/admin/competitors/trend-analysis';
 import { Platform, CompetitorWithAccounts } from '@/types/competitor-tracking';
 
 export default function CompetitorsPage() {
@@ -176,8 +176,8 @@ export default function CompetitorsPage() {
         </Card>
       </div>
 
-      {/* Weekly Comparison */}
-      <WeeklyComparison competitors={competitors} />
+      {/* Trend Analysis */}
+      <TrendAnalysis competitors={competitors} />
 
       {/* Competitors Table */}
       <Card>
