@@ -36,6 +36,7 @@ export default function ProductManagementPage() {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [editingCategory, setEditingCategory] = useState<Category | undefined>(undefined);
+  const [preselectedCategoryId, setPreselectedCategoryId] = useState<string | undefined>(undefined);
   
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -301,6 +302,7 @@ export default function ProductManagementPage() {
       <QuickActions
         onCreateProduct={() => {
           setEditingProduct(undefined);
+          setPreselectedCategoryId(undefined);
           setShowProductForm(true);
         }}
         onCreateCategory={() => {
@@ -626,6 +628,19 @@ export default function ProductManagementPage() {
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
                                       <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() => {
+                                          setEditingProduct(undefined);
+                                          setPreselectedCategoryId(child.id);
+                                          setShowProductForm(true);
+                                        }}
+                                        className="text-xs sm:text-sm"
+                                      >
+                                        <Package className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                                        Create Product
+                                      </Button>
+                                      <Button
                                         variant="outline"
                                         size="sm"
                                         onClick={() => {
@@ -675,10 +690,12 @@ export default function ProductManagementPage() {
         isOpen={showProductForm}
         product={editingProduct}
         categories={categories}
+        preselectedCategoryId={preselectedCategoryId}
         onSubmit={editingProduct ? handleUpdateProduct : handleCreateProduct}
         onCancel={() => {
           setShowProductForm(false);
           setEditingProduct(undefined);
+          setPreselectedCategoryId(undefined);
           // Refresh products when form closes (handles both success and cancel)
           refreshProducts();
         }}

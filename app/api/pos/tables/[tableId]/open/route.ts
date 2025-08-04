@@ -17,7 +17,7 @@ export async function POST(
 
     const { tableId } = params;
     const body: OpenTableRequest = await request.json();
-    const { bookingId, staffPin, staffId, paxCount, notes } = body;
+    const { bookingId, customerId, staffPin, staffId, paxCount, notes } = body;
 
     // Validate required fields - either staffId (preferred) or staffPin (legacy)
     if (!staffId && !staffPin) {
@@ -141,10 +141,13 @@ export async function POST(
       return NextResponse.json({ error: "Invalid or inactive staff" }, { status: 400 });
     }
 
-    // Resolve customer_id from booking if provided
-    let customerId: string | null = null;
+    // Resolve customer_id from booking if provided, or use directly provided customerId
+    let resolvedCustomerId: string | null = null;
     if (bookingId) {
-      customerId = await getCustomerIdFromBooking(bookingId);
+      resolvedCustomerId = await getCustomerIdFromBooking(bookingId);
+    } else if (customerId) {
+      // For walk-in customers (bar tables only), use the provided customerId
+      resolvedCustomerId = customerId;
     }
 
     // Determine final pax count
@@ -165,7 +168,7 @@ export async function POST(
       pax_count: finalPaxCount,
       booking_id: bookingId || null,
       staff_id: resolvedStaffId,
-      customer_id: customerId,
+      customer_id: resolvedCustomerId,
       session_start: new Date().toISOString(),
       session_end: null,
       total_amount: 0,

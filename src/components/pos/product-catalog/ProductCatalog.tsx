@@ -7,7 +7,8 @@ import { CategoryTabs } from './CategoryTabs';
 import { CategorySubTabs } from './CategorySubTabs';
 import { ProductGrid } from './ProductGrid';
 import { ProductModifierModal } from './ProductModifierModal';
-import { Search, Filter, Grid, List, ArrowLeft } from 'lucide-react';
+import { CustomProductModal } from './CustomProductModal';
+import { Search, Filter, Grid, List, ArrowLeft, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +47,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   const [displayedProducts, setDisplayedProducts] = useState<POSProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<POSProduct | null>(null);
   const [showModifierModal, setShowModifierModal] = useState(false);
+  const [showCustomProductModal, setShowCustomProductModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
   const [activeTab, setActiveTab] = useState('');
@@ -291,6 +293,23 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     setSelectedProduct(null);
   }, []);
 
+  // Handle custom product creation
+  const handleCustomProductCreate = useCallback(() => {
+    setShowCustomProductModal(true);
+  }, []);
+
+  // Handle custom product modal completion
+  const handleCustomProductCreated = useCallback((product: POSProduct) => {
+    setShowCustomProductModal(false);
+    // Directly add the custom product to the order
+    onProductSelect(product, [], '');
+  }, [onProductSelect]);
+
+  // Handle custom product modal cancel
+  const handleCustomProductCancel = useCallback(() => {
+    setShowCustomProductModal(false);
+  }, []);
+
   // Swipe gesture handlers for mobile navigation
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isMobile) return;
@@ -398,6 +417,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                 </div>
                 
                 <div className="grid grid-cols-1 gap-4">
+                  {/* Regular Categories */}
                   {rootCategories.map((category, index) => (
                     <motion.div
                       key={category.id}
@@ -436,6 +456,23 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                       </div>
                     </motion.div>
                   ))}
+
+                  {/* Custom Product Button - At Bottom, Less Prominent */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: rootCategories.length * 0.1 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Button
+                      onClick={handleCustomProductCreate}
+                      variant="outline"
+                      className="w-full h-12 border border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600 font-normal"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Custom Product
+                    </Button>
+                  </motion.div>
                 </div>
               </motion.div>
             ) : (
@@ -493,6 +530,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                       ))}
                     </div>
                   )}
+
                 </div>
 
                 {/* Mobile Product Grid */}
@@ -573,18 +611,32 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
 
           {/* Products Grid */}
           <div className="flex-1 overflow-hidden">
-            <div className="h-full p-4">
-              <ProductGrid
-                products={displayedProducts}
-                onProductSelect={handleProductSelect}
-                onProductQuickAdd={handleProductQuickAdd}
-                loading={isLoading}
-                viewMode={viewMode}
-                onViewModeChange={onViewModeChange}
-                enableLazyLoading={false}
-                enableVirtualization={false}
-                itemsPerPage={6}
-              />
+            <div className="h-full p-4 flex flex-col">
+              <div className="flex-1">
+                <ProductGrid
+                  products={displayedProducts}
+                  onProductSelect={handleProductSelect}
+                  onProductQuickAdd={handleProductQuickAdd}
+                  loading={isLoading}
+                  viewMode={viewMode}
+                  onViewModeChange={onViewModeChange}
+                  enableLazyLoading={false}
+                  enableVirtualization={false}
+                  itemsPerPage={6}
+                />
+              </div>
+              
+              {/* Custom Product Button - Desktop Bottom, Less Prominent */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <Button
+                  onClick={handleCustomProductCreate}
+                  variant="ghost"
+                  className="w-full h-10 text-gray-500 hover:text-gray-700 hover:bg-gray-100 font-normal text-sm"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Custom Product
+                </Button>
+              </div>
             </div>
           </div>
         </>
@@ -599,6 +651,14 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           onCancel={handleModifierCancel}
         />
       )}
+
+      {/* Custom Product Modal */}
+      <CustomProductModal
+        isOpen={showCustomProductModal}
+        onClose={handleCustomProductCancel}
+        onProductCreated={handleCustomProductCreated}
+        staffName="Staff" // TODO: Get actual staff name from session/auth
+      />
     </div>
   );
 

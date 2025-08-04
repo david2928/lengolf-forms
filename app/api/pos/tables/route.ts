@@ -13,6 +13,14 @@ interface DatabaseTableSession {
   session_end: string | null;
   status: string;
   booking_id?: string;
+  customer_id?: string;
+  pax_count: number;
+  total_amount: string;
+  notes?: string;
+  session_start?: string;
+  staff_pin?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface DatabaseBooking {
@@ -105,6 +113,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Fetch customer data for sessions that have customer_id (walk-in customers)
+    const customerIds = sessionsData?.filter((s: DatabaseTableSession) => s.customer_id).map((s: DatabaseTableSession) => s.customer_id!) || [];
+    let customersMap = new Map();
+    
+    if (customerIds.length > 0) {
+      const { data: customersData, error: customersError } = await supabase
+        .from('customers')
+        .select('id, customer_name, contact_number, email')
+        .in('id', customerIds);
+      
+      if (!customersError && customersData) {
+        customersData.forEach((customer: any) => {
+          customersMap.set(customer.id, {
+            id: customer.id,
+            name: customer.customer_name,
+            phone: customer.contact_number,
+            email: customer.email
+          });
+        });
+      }
+    }
+
     // Fetch receipt discount information for active sessions
     const sessionIds = sessionsData?.map((s: DatabaseTableSession) => s.id) || [];
     let receiptDiscountsMap = new Map();
@@ -147,6 +177,7 @@ export async function GET(request: NextRequest) {
     const tables: Table[] = tablesData?.map((table: any) => {
       const currentSession = sessionMap.get(table.id);
       const booking = currentSession?.booking_id ? bookingsMap.get(currentSession.booking_id) : null;
+      const customer = currentSession?.customer_id ? customersMap.get(currentSession.customer_id) : null;
       const receiptDiscount = currentSession ? receiptDiscountsMap.get(currentSession.id) : null;
       
       return {
@@ -202,6 +233,12 @@ export async function GET(request: NextRequest) {
             status: booking.status || '',
             createdAt: new Date(booking.created_at),
             updatedAt: new Date(booking.updated_at)
+          } : undefined,
+          customer: customer ? {
+            id: customer.id,
+            name: customer.name,
+            phone: customer.phone,
+            email: customer.email
           } : undefined,
           receiptDiscount: receiptDiscount || undefined
         } : undefined

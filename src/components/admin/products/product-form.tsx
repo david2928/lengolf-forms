@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { CategorySelector } from './category-selector';
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ import { toast } from '@/components/ui/use-toast';
 interface ProductFormProps {
   product?: Product;
   categories: Category[];
+  preselectedCategoryId?: string;
   onSubmit: (data: ProductFormData) => Promise<void>;
   onCancel: () => void;
   isOpen: boolean;
@@ -60,6 +62,7 @@ interface FormData extends ProductFormData {
 export function ProductForm({
   product,
   categories,
+  preselectedCategoryId,
   onSubmit,
   onCancel,
   isOpen,
@@ -99,6 +102,11 @@ export function ProductForm({
     mode: 'onChange'
   });
 
+  // Register category_id field for validation
+  useEffect(() => {
+    register('category_id', { required: 'Category is required' });
+  }, [register]);
+
   const watchedPrice = watch('price');
   const watchedCost = watch('cost');
 
@@ -137,7 +145,7 @@ export function ProductForm({
       } else {
         reset({
           name: '',
-          category_id: '',
+          category_id: preselectedCategoryId || '',
           description: '',
           price: 0,
           cost: 0,
@@ -151,7 +159,7 @@ export function ProductForm({
         });
       }
     }
-  }, [isOpen, product, reset]);
+  }, [isOpen, product, preselectedCategoryId, reset]);
 
   const onFormSubmit = async (data: FormData) => {
     try {
@@ -234,23 +242,13 @@ export function ProductForm({
 
                     <div>
                       <Label htmlFor="category_id">Category *</Label>
-                      <Select
+                      <CategorySelector
+                        categories={categories}
                         value={watch('category_id')}
                         onValueChange={(value) => setValue('category_id', value, { shouldValidate: true })}
-                      >
-                        <SelectTrigger className={errors.category_id ? 'border-red-500' : ''}>
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {subCategories
-                            .sort((a, b) => a.name.localeCompare(b.name))
-                            .map((category) => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select a category"
+                        error={!!errors.category_id}
+                      />
                       {errors.category_id && (
                         <p className="text-sm text-red-600 mt-1">{errors.category_id.message}</p>
                       )}

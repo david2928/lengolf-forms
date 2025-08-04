@@ -235,6 +235,7 @@ export interface ZoneSummary {
 
 export interface OpenTableRequest {
   bookingId?: string; // Optional for walk-ins initially
+  customerId?: string; // Optional for walk-ins to associate with a customer (bar tables only)
   staffPin?: string; // Legacy: From current PIN session
   staffId?: number; // Preferred: Staff ID from authenticated session
   paxCount?: number; // Optional override of booking.numberOfPeople
@@ -392,6 +393,30 @@ export interface POSProduct {
   modifiers: any[];
   isActive: boolean;
   relevanceScore?: number;
+  // Custom product fields
+  isCustomProduct?: boolean;
+  customCreatedBy?: string;
+  showInStaffUi?: boolean;
+}
+
+// Custom Product Creation Data
+export interface CustomProductData {
+  name: string;
+  price: number;
+  description?: string;
+  createdBy: string;
+}
+
+// Custom Product Creation Request
+export interface CreateCustomProductRequest extends CustomProductData {
+  categoryId?: string; // Optional, defaults to "Other" category
+}
+
+// Custom Product Creation Response
+export interface CreateCustomProductResponse {
+  success: boolean;
+  product?: POSProduct;
+  error?: string;
 }
 
 export interface POSCategory {

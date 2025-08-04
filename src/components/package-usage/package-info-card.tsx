@@ -73,11 +73,11 @@ export function PackageInfoCard({ packageId, isLoading = false, onDataLoaded }: 
   if (isLoading || loadingDetails) {
     return (
       <Card>
-        <CardContent className="pt-6 min-h-[240px]">
-          <div className="space-y-3">
-            <Skeleton className="h-4 w-[250px]" />
-            <Skeleton className="h-4 w-[200px]" />
-            <Skeleton className="h-4 w-[300px]" />
+        <CardContent className="pt-4 pb-4">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-[200px]" />
+            <Skeleton className="h-3 w-[150px]" />
+            <Skeleton className="h-3 w-[180px]" />
           </div>
         </CardContent>
       </Card>
@@ -87,8 +87,8 @@ export function PackageInfoCard({ packageId, isLoading = false, onDataLoaded }: 
   if (error) {
     return (
       <Card>
-        <CardContent className="pt-6 min-h-[240px] flex items-center justify-center">
-          <p className="text-red-500">{error}</p>
+        <CardContent className="pt-4 pb-4 flex items-center justify-center">
+          <p className="text-red-500 text-sm">{error}</p>
         </CardContent>
       </Card>
     )
@@ -97,8 +97,8 @@ export function PackageInfoCard({ packageId, isLoading = false, onDataLoaded }: 
   if (!packageDetails) {
     return (
       <Card>
-        <CardContent className="pt-6 min-h-[240px] flex items-center justify-center">
-          <p className="text-muted-foreground">Select a package to view details</p>
+        <CardContent className="pt-4 pb-4 flex items-center justify-center">
+          <p className="text-muted-foreground text-sm">Select a package to view details</p>
         </CardContent>
       </Card>
     )
@@ -109,33 +109,17 @@ export function PackageInfoCard({ packageId, isLoading = false, onDataLoaded }: 
 
   return (
     <Card>
-      <CardContent className="pt-6 min-h-[240px]">
+      <CardContent className="pt-4 pb-4">
         {!isActivated && (
-          <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+          <div className="mb-3 p-2 bg-orange-50 border border-orange-200 rounded-lg">
             <div className="flex items-center gap-2 text-orange-800">
               <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-              <span className="font-medium text-sm">Package Not Activated</span>
+              <span className="font-medium text-xs">Package must be activated first</span>
             </div>
-            <p className="text-sm text-orange-700 mt-1">
-              This package must be activated before recording usage. Please activate it from the Package Monitor page first.
-            </p>
           </div>
         )}
         
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-          <div>
-            <p className="text-sm font-medium text-gray-500">Customer</p>
-            <p className="text-sm font-semibold">
-              {packageDetails.customer?.customer_name || 'Unknown Customer'}
-            </p>
-            {packageDetails.customer?.customer_code && (
-              <p className="text-xs text-gray-400">{packageDetails.customer.customer_code}</p>
-            )}
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Package Type</p>
-            <p className="text-sm font-semibold">{packageDetails.package_types.name}</p>
-          </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Purchase Date</p>
             <p className="text-sm font-semibold">{format(new Date(packageDetails.purchase_date), 'PP')}</p>

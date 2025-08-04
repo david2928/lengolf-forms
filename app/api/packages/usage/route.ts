@@ -20,11 +20,11 @@ export async function POST(request: Request) {
   console.log('Attempting to record package usage and upload signature...');
   try {
     const body = await request.json();
-    const { packageId, employeeName, usedHours, usedDate, customerSignature } = body;
+    const { packageId, employeeName, usedHours, usedDate, customerSignature, bookingId } = body;
 
-    if (!packageId || !employeeName || !usedHours || !usedDate) {
+    if (!packageId || !employeeName || !usedHours || !usedDate || !bookingId) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: packageId, employeeName, usedHours, usedDate, and bookingId are all required' },
         { status: 400 }
       );
     }
@@ -51,6 +51,52 @@ export async function POST(request: Request) {
         { error: 'Package must be activated before recording usage. Please activate the package first.' },
         { status: 400 }
       );
+    }
+
+    // Validate booking if provided
+    if (bookingId) {
+      const { data: bookingData, error: bookingError } = await refacSupabaseAdmin
+        .from('bookings')
+        .select('id, customer_id, package_id, date, status')
+        .eq('id', bookingId)
+        .single();
+
+      if (bookingError || !bookingData) {
+        return NextResponse.json(
+          { error: 'Selected booking not found' },
+          { status: 400 }
+        );
+      }
+
+      // Check if booking is already linked to usage
+      const { data: existingUsage } = await refacSupabaseAdmin
+        .schema('backoffice')
+        .from('package_usage')
+        .select('id')
+        .eq('booking_id', bookingId)
+        .single();
+
+      if (existingUsage) {
+        return NextResponse.json(
+          { error: 'This booking is already linked to a package usage record' },
+          { status: 400 }
+        );
+      }
+
+      // Verify booking belongs to the same customer as the package
+      const { data: packageCustomer } = await refacSupabaseAdmin
+        .schema('backoffice')
+        .from('packages')
+        .select('customer_id')
+        .eq('id', packageId)
+        .single();
+
+      if (packageCustomer && bookingData.customer_id !== packageCustomer.customer_id) {
+        return NextResponse.json(
+          { error: 'Selected booking does not belong to the package customer' },
+          { status: 400 }
+        );
+      }
     }
 
     // === TEMPORARILY COMMENTED OUT FOR TESTING (get_available_packages validation) ===
@@ -164,6 +210,7 @@ export async function POST(request: Request) {
       used_hours: usedHours,
       used_date: usedDate,
       customer_signature_path: customer_signature_path,
+      booking_id: bookingId,
     });
 
     const { data: usageData, error: usageError } = await refacSupabaseAdmin
@@ -175,6 +222,8 @@ export async function POST(request: Request) {
         used_hours: usedHours,
         used_date: usedDate,
         customer_signature_path: customer_signature_path,
+        booking_id: bookingId,
+        match_confidence: bookingId ? 'manual' : null,
       })
       .select()
       .single();

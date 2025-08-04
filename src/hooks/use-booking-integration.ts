@@ -113,6 +113,7 @@ export function useBookingIntegration() {
 
     const now = new Date();
     const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000); // -2 hour buffer
+    const sixHoursLater = new Date(now.getTime() + 6 * 60 * 60 * 1000); // +6 hour limit
 
 
     const filtered = upcomingBookings
@@ -120,7 +121,7 @@ export function useBookingIntegration() {
         const bookingStart = new Date(`${booking.date}T${booking.start_time}`);
         
         // Debug each booking
-        const timeCheck = bookingStart >= twoHoursAgo;
+        const timeCheck = bookingStart >= twoHoursAgo && bookingStart <= sixHoursLater;
         
         // Bay logic: Show bookings that either:
         // 1. Have NO bay assigned (null/undefined) - these can be assigned to any bay

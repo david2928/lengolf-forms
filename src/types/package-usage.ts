@@ -26,6 +26,8 @@ export interface PackageUsage {
   created_at: string
   updated_at: string
   package_type_id: number
+  booking_id?: string | null
+  match_confidence?: 'exact' | 'customer' | 'proximity' | 'manual' | null
 }
 
 // API response types
@@ -56,6 +58,7 @@ export interface PackageUsageFormData {
   usedHours: number | null
   usedDate: Date | null
   customerSignature?: string | null
+  bookingId: string | null
 }
 
 export interface UsageFormState {
@@ -96,4 +99,35 @@ export interface DatePickerProps {
   minDate?: Date
   maxDate?: Date
   isDisabled?: boolean
+}
+
+// Booking-related types
+export interface AvailableBooking {
+  id: string
+  date: string
+  start_time: string
+  duration: number
+  bay: string | null
+  number_of_people: number
+  customer_notes: string | null
+  booking_type: string | null
+  status: string
+  customer_name: string
+  phone_number: string
+  already_linked: boolean
+}
+
+export interface BookingMatchResult {
+  usage_id: string
+  package_id: string
+  used_date: string
+  used_hours: number
+  booking_id: string | null
+  match_confidence: 'exact' | 'customer' | 'proximity' | 'manual' | null
+  booking_details?: {
+    date: string
+    start_time: string
+    duration: number
+    customer_name: string
+  }
 }

@@ -17,6 +17,8 @@ import { useBookingIntegration } from '@/hooks/use-booking-integration';
 import { getBayColor } from '@/lib/calendar-utils';
 import { BookingSelector } from './BookingSelector';
 import { StaffPinModal } from '../payment/StaffPinModal';
+import { CustomerSearchSelect } from '@/components/admin/customers/customer-search-select';
+import { QuickCustomerForm } from '../customer-management/QuickCustomerForm';
 import type { TableDetailModalProps, OpenTableRequest, Booking } from '@/types/pos';
 
 export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableDetailModalProps) {
@@ -38,6 +40,8 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
   const [isSearching, setIsSearching] = useState(false);
   const [showAllBookings, setShowAllBookings] = useState(false);
   const [showStaffPinModal, setShowStaffPinModal] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
 
   const isOccupied = table.currentSession?.status === 'occupied';
 
@@ -46,6 +50,8 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
     if (isOpen) {
       setNotes('');
       setShowCreateBooking(false);
+      setSelectedCustomerId(null);
+      setShowCustomerForm(false);
       
       // Auto-select the most likely booking (first in the list for this bay)
       if (bayUpcomingBookings.length > 0) {
@@ -113,7 +119,9 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
         staffId: staff.id, // Use staff ID instead of PIN
         paxCount,
         notes: notes.trim() || undefined,
-        bookingId: selectedBooking?.id
+        bookingId: selectedBooking?.id,
+        // For bar tables, include customerId if selected
+        ...(table.zone.zoneType === 'bar' && selectedCustomerId && { customerId: selectedCustomerId })
       };
 
       await onOpenTable(request);
@@ -163,6 +171,15 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleCustomerSelect = (customerId: string, customer: any) => {
+    setSelectedCustomerId(customerId);
+  };
+
+  const handleCustomerCreate = (customer: any) => {
+    setSelectedCustomerId(customer.id);
+    setShowCustomerForm(false);
   };
 
   if (!isOpen) return null;
@@ -417,11 +434,11 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                         );
                       })}
                       
-                      {/* Show More Button for Mobile */}
+                      {/* Show More Button - Available on all devices */}
                       {!showAllBookings && bayUpcomingBookings.length > 1 && (
                         <button
                           onClick={() => setShowAllBookings(true)}
-                          className="w-full sm:hidden p-3 text-center text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                          className="w-full p-3 text-center text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
                         >
                           <span className="text-sm font-medium">
                             Show {bayUpcomingBookings.length - 1} more booking{bayUpcomingBookings.length > 2 ? 's' : ''}
@@ -429,11 +446,11 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                         </button>
                       )}
                       
-                      {/* Show Less Button for Mobile */}
+                      {/* Show Less Button - Available on all devices */}
                       {showAllBookings && bayUpcomingBookings.length > 1 && (
                         <button
                           onClick={() => setShowAllBookings(false)}
-                          className="w-full sm:hidden p-2 text-center text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                          className="w-full p-2 text-center text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
                         >
                           <span className="text-sm font-medium">Show less</span>
                         </button>
@@ -728,6 +745,32 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
                     </div>
                   </div>
 
+                  {/* Customer Selection for Bar Tables */}
+                  {table.zone.zoneType === 'bar' && (
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium text-gray-700">
+                        Customer (Optional)
+                      </Label>
+                      <div className="space-y-2">
+                        <CustomerSearchSelect
+                          value={selectedCustomerId || undefined}
+                          onSelect={handleCustomerSelect}
+                          placeholder="Search for customer or leave blank..."
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowCustomerForm(true)}
+                          className="w-full"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create New Customer
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Notes for walk-in */}
                   <div className="space-y-2">
                     <Label htmlFor="notes-walkin" className="text-sm font-medium text-gray-700">Notes (Optional)</Label>
@@ -783,6 +826,13 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
           description="Please enter your staff PIN to open the table"
         />
       )}
+
+      {/* Quick Customer Form - For creating new customers */}
+      <QuickCustomerForm
+        isOpen={showCustomerForm}
+        onClose={() => setShowCustomerForm(false)}
+        onSuccess={handleCustomerCreate}
+      />
     </>
   );
 }

@@ -737,7 +737,7 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
               <div className="text-slate-600 mb-4 text-base">Scan QR code to pay</div>
               
               {qrCodeData && (
-                <div className="w-64 h-64 mx-auto bg-white p-4 rounded-lg border border-slate-200 mb-4 flex-shrink-0">
+                <div className="w-[28rem] h-[28rem] mx-auto bg-white p-8 rounded-lg border border-slate-200 mb-4 flex-shrink-0">
                   <img src={qrCodeData} alt="PromptPay QR Code" className="w-full h-full" />
                 </div>
               )}
@@ -767,14 +767,14 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
           )}
 
           {/* Warning */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 max-w-sm mb-4 mx-4">
-            <div className="flex items-start space-x-2">
-              <div className="w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                <div className="text-white text-xs font-bold">!</div>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 max-w-lg mb-4 mx-4">
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-amber-400 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                <div className="text-white text-sm font-bold">!</div>
               </div>
-              <div className="text-amber-800 text-xs">
-                <div className="font-medium mb-1">Verify Payment</div>
-                <div>Please confirm the payment has been approved before pressing confirm.</div>
+              <div className="text-amber-800 text-base">
+                <div className="font-semibold mb-2 text-lg">Verify Payment</div>
+                <div className="leading-relaxed">Please confirm the payment has been approved before pressing confirm.</div>
               </div>
             </div>
           </div>

@@ -262,6 +262,15 @@ SCRAPER_API_KEY=your_api_key
 - `npm run dev` is usually running and skip auth is already set to true when local
 - Scraper service runs separately on port 8080 for local testing
 
+### Custom Product Feature (Added Jan 2025)
+- **Location**: POS Product Catalog - subtle "Add Custom Product" button at bottom of views
+- **Implementation**: Uses existing `products.products` table with `is_custom_product = true`
+- **Database Fields**: `is_custom_product`, `custom_created_by`, `show_in_staff_ui = false`
+- **Modal**: Full-screen tablet-friendly interface (`CustomProductModal.tsx`)
+- **API**: `/api/pos/products/custom` - creates product and returns immediately for order
+- **Integration**: Custom products work identically to regular products in orders/transactions
+- **Note**: `profit_margin` is a generated column - don't try to insert values into it
+
 ## Key Features
 
 ### Booking System

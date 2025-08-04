@@ -165,10 +165,10 @@ export function TableCard({ table, onClick, onStatusChange, onPayment, closeTabl
                 <span className="font-semibold text-sm sm:text-xs">{session.paxCount} guests</span>
               </div>
 
-              {/* Customer Name - Better organized */}
-              {session.booking && (
+              {/* Customer Name - Show for both bookings and walk-in customers */}
+              {(session.booking?.name || session.customer?.name) && (
                 <div className="text-sm sm:text-xs font-semibold text-gray-900 truncate">
-                  {session.booking.name}
+                  {session.booking?.name || session.customer?.name}
                 </div>
               )}
               

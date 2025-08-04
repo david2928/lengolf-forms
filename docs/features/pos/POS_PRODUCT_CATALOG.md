@@ -4,6 +4,19 @@
 
 The Product Catalog System provides comprehensive product management with hierarchical categories, advanced search capabilities, and real-time inventory integration. Designed for high-performance product browsing with intelligent caching and mobile optimization.
 
+### 🆕 Custom Product Feature
+
+**Added January 2025** - Staff can now create custom products on-the-fly during POS operations without polluting the main product catalog.
+
+**Key Features:**
+- **Full-screen tablet-friendly modal** for easy product creation
+- **Automatic database integration** - custom products stored in `products.products` table
+- **Seamless order integration** - custom products work exactly like regular products
+- **Clean catalog separation** - custom products hidden from main catalog (`show_in_staff_ui = false`)
+- **Complete audit trail** - all custom products tracked with creator information
+
+**Usage:** Click "Add Custom Product" button (located subtly at bottom of category/product views) → Enter name, price, and optional description → Product immediately added to current order.
+
 ## Architecture
 
 ### Core Components
@@ -11,6 +24,7 @@ The Product Catalog System provides comprehensive product management with hierar
 **Catalog Interface:**
 - `ProductCatalog.tsx` - Main catalog with category navigation and search
 - `ProductListItem.tsx` - Individual product display with responsive design
+- `CustomProductModal.tsx` - Full-screen modal for creating custom products
 - Category breadcrumb navigation with touch optimization
 
 **Data Management:**

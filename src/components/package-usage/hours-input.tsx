@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -14,6 +14,11 @@ interface HoursInputProps {
 export function HoursInput({ value, onChange, maxHours = 30, isDisabled = false }: HoursInputProps) {
   const [error, setError] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState<string>(value?.toString() || '');
+
+  // Sync internal state with prop value when it changes
+  useEffect(() => {
+    setInputValue(value?.toString() || '');
+  }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;

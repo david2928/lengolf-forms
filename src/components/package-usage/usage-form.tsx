@@ -12,6 +12,7 @@ import { FullscreenSignature } from './fullscreen-signature'
 import { AcknowledgmentDialog } from './acknowledgment-dialog'
 import { PackageUsageFormData, UsageFormState } from '@/types/package-usage'
 import { Package } from '@/hooks/usePackages'
+import { PackageBookingSelector } from './package-booking-selector'
 import { Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -24,6 +25,7 @@ export function UsageForm() {
     usedHours: null,
     usedDate: new Date(),
     customerSignature: null,
+    bookingId: null,
   })
 
   const [formState, setFormState] = useState<UsageFormState>({
@@ -34,6 +36,7 @@ export function UsageForm() {
 
   const [selectedPackageName, setSelectedPackageName] = useState<string | null>(null)
   const [selectedPackageData, setSelectedPackageData] = useState<any>(null)
+  const [selectedBookingData, setSelectedBookingData] = useState<any>(null)
   const [currentPackageRemainingHours, setCurrentPackageRemainingHours] = useState<number | null>(null);
   const [currentPackageExpirationDate, setCurrentPackageExpirationDate] = useState<string | null>(null);
   const [isPackageActivated, setIsPackageActivated] = useState<boolean>(true);
@@ -49,11 +52,13 @@ export function UsageForm() {
       usedHours: null,
       usedDate: new Date(),
       customerSignature: null,
+      bookingId: null,
     });
 
     // Reset selected package name and data
     setSelectedPackageName(null);
     setSelectedPackageData(null);
+    setSelectedBookingData(null);
     setCurrentPackageRemainingHours(null); // Reset remaining hours
     setCurrentPackageExpirationDate(null); // Reset expiration date
     setIsPackageActivated(true); // Reset activation status
@@ -77,6 +82,14 @@ export function UsageForm() {
       toast({
         title: 'Validation Error',
         description: 'Please select a package.',
+        variant: 'destructive',
+      })
+      return false;
+    }
+    if (!formData.bookingId) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select a booking.',
         variant: 'destructive',
       })
       return false;
@@ -136,6 +149,7 @@ export function UsageForm() {
           usedHours: updatedFormData.usedHours,
           usedDate: updatedFormData.usedDate?.toISOString().split('T')[0],
           customerSignature: updatedFormData.customerSignature,
+          bookingId: updatedFormData.bookingId,
         }),
       });
 
@@ -228,6 +242,27 @@ export function UsageForm() {
               }}
             />
           )}
+
+          <PackageBookingSelector
+            key={formState.success ? 'reset' : 'booking'}
+            packageId={formData.packageId}
+            value={formData.bookingId || null}
+            onChange={(bookingId, bookingData) => {
+              setFormData((prev) => ({ ...prev, bookingId }));
+              setSelectedBookingData(bookingData || null);
+              
+              // Auto-populate date and hours if booking is selected
+              if (bookingData) {
+                const bookingDate = new Date(bookingData.date);
+                setFormData((prev) => ({ 
+                  ...prev, 
+                  usedDate: bookingDate,
+                  usedHours: bookingData.duration 
+                }));
+              }
+            }}
+            isDisabled={formState.isLoading}
+          />
 
           <HoursInput
             key={formState.success ? 'reset' : 'hours'} // Force re-render on success

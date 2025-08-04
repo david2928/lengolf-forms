@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Bluetooth, Printer, TestTube, CheckCircle, XCircle, Usb, Smartphone, Eye, FileText, Receipt } from 'lucide-react';
+import { Bluetooth, Printer, TestTube, CheckCircle, XCircle, Usb, Smartphone, Eye, FileText, Receipt, VolumeX, Volume2 } from 'lucide-react';
 import { bluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
 import { usbThermalPrinter } from '@/services/USBThermalPrinter';
 import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
@@ -24,6 +24,7 @@ export default function UnifiedPrinterTestPage() {
   const [previewData, setPreviewData] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<'abb' | 'original' | 'bill'>('abb');
   const [showPreview, setShowPreview] = useState<boolean>(false);
+  const [silentMode, setSilentMode] = useState<boolean>(false);
 
   useEffect(() => {
     // Check support for both printer types
@@ -125,7 +126,9 @@ export default function UnifiedPrinterTestPage() {
     setIsLoading(true);
     try {
       await bluetoothThermalPrinter.testPrint();
-      setLastResult({ success: true, message: 'Bluetooth test print sent successfully!' });
+      if (!silentMode) {
+        setLastResult({ success: true, message: 'Bluetooth test print sent successfully!' });
+      }
     } catch (error) {
       setLastResult({ success: false, message: `Test print failed: ${error}` });
     } finally {
@@ -142,7 +145,9 @@ export default function UnifiedPrinterTestPage() {
     setIsLoading(true);
     try {
       await usbThermalPrinter.testPrint();
-      setLastResult({ success: true, message: 'USB test print sent successfully!' });
+      if (!silentMode) {
+        setLastResult({ success: true, message: 'USB test print sent successfully!' });
+      }
     } catch (error) {
       setLastResult({ success: false, message: `Test print failed: ${error}` });
     } finally {
@@ -174,7 +179,9 @@ export default function UnifiedPrinterTestPage() {
       if (result.success) {
         // Print using the service
         await bluetoothThermalPrinter.printReceipt(result.receiptData);
-        setLastResult({ success: true, message: `Receipt ${receiptNumber} printed via Bluetooth!` });
+        if (!silentMode) {
+          setLastResult({ success: true, message: `Receipt ${receiptNumber} printed via Bluetooth!` });
+        }
       } else {
         setLastResult({ success: false, message: result.error || 'Receipt not found' });
       }
@@ -209,7 +216,9 @@ export default function UnifiedPrinterTestPage() {
       if (result.success) {
         // Print using the service
         await usbThermalPrinter.printReceipt(result.receiptData);
-        setLastResult({ success: true, message: `Receipt ${receiptNumber} printed via USB!` });
+        if (!silentMode) {
+          setLastResult({ success: true, message: `Receipt ${receiptNumber} printed via USB!` });
+        }
       } else {
         setLastResult({ success: false, message: result.error || 'Receipt not found' });
       }
@@ -244,7 +253,9 @@ export default function UnifiedPrinterTestPage() {
       if (result.success) {
         // Print using the service
         await bluetoothThermalPrinter.printReceipt(result.billData);
-        setLastResult({ success: true, message: `Bill for table session ${tableSessionId} printed via Bluetooth!` });
+        if (!silentMode) {
+          setLastResult({ success: true, message: `Bill for table session ${tableSessionId} printed via Bluetooth!` });
+        }
       } else {
         setLastResult({ success: false, message: result.error || 'Bill not found' });
       }
@@ -272,7 +283,9 @@ export default function UnifiedPrinterTestPage() {
       const result = await unifiedPrintService.print(PrintType.BILL, tableSessionId, { method: 'usb' });
       
       if (result.success) {
-        setLastResult({ success: true, message: result.message });
+        if (!silentMode) {
+          setLastResult({ success: true, message: result.message });
+        }
       } else {
         setLastResult({ success: false, message: result.error || 'Bill printing failed' });
       }
@@ -288,10 +301,14 @@ export default function UnifiedPrinterTestPage() {
     try {
       if (currentTab === 'bluetooth' && bluetoothConnected) {
         await bluetoothThermalPrinter.testPrintWithDefaults();
-        setLastResult({ success: true, message: 'Bluetooth test receipt printed with default data!' });
+        if (!silentMode) {
+          setLastResult({ success: true, message: 'Bluetooth test receipt printed with default data!' });
+        }
       } else if (currentTab === 'usb' && usbConnected) {
         await usbThermalPrinter.testPrintWithDefaults();
-        setLastResult({ success: true, message: 'USB test receipt printed with default data!' });
+        if (!silentMode) {
+          setLastResult({ success: true, message: 'USB test receipt printed with default data!' });
+        }
       } else {
         setLastResult({ success: false, message: `Please connect to ${currentTab} printer first` });
       }
@@ -343,10 +360,12 @@ export default function UnifiedPrinterTestPage() {
         setPreviewData(thermalPreview);
         setPreviewType(type);
         setShowPreview(true);
-        setLastResult({ 
-          success: true, 
-          message: `${type === 'bill' ? 'Bill' : type === 'original' ? 'Tax invoice (original)' : 'Tax invoice (ABB)'} preview loaded successfully!` 
-        });
+        if (!silentMode) {
+          setLastResult({ 
+            success: true, 
+            message: `${type === 'bill' ? 'Bill' : type === 'original' ? 'Tax invoice (original)' : 'Tax invoice (ABB)'} preview loaded successfully!` 
+          });
+        }
       } else {
         setLastResult({ success: false, message: `Failed to load ${type === 'bill' ? 'bill' : 'receipt'} preview. Check if ${type === 'bill' ? 'table session ID' : 'receipt number'} exists.` });
       }
@@ -585,13 +604,48 @@ export default function UnifiedPrinterTestPage() {
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="bg-white rounded-lg shadow-lg p-6">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <Printer className="w-8 h-8 text-blue-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Unified Thermal Printer Test</h1>
-            <p className="text-gray-600">Test both Bluetooth and USB thermal printing with live preview (no connection required for preview)</p>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Printer className="w-8 h-8 text-blue-600" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Unified Thermal Printer Test</h1>
+              <p className="text-gray-600">Test both Bluetooth and USB thermal printing with live preview (no connection required for preview)</p>
+            </div>
+          </div>
+          
+          {/* Silent Mode Toggle */}
+          <div className="flex items-center gap-3 bg-gray-50 px-4 py-3 rounded-lg border">
+            <div className="flex items-center gap-2">
+              {silentMode ? (
+                <VolumeX className="w-5 h-5 text-gray-600" />
+              ) : (
+                <Volume2 className="w-5 h-5 text-blue-600" />
+              )}
+              <span className="text-sm font-medium text-gray-700">Silent Mode</span>
+            </div>
+            <Button
+              onClick={() => setSilentMode(!silentMode)}
+              variant={silentMode ? "default" : "outline"}
+              size="sm"
+              className="text-xs"
+            >
+              {silentMode ? 'ON' : 'OFF'}
+            </Button>
           </div>
         </div>
+
+        {/* Silent Mode Info */}
+        {silentMode && (
+          <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <VolumeX className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">Silent Mode Active</span>
+            </div>
+            <p className="text-sm text-blue-700 mt-1">
+              Print success confirmations are hidden. Error messages will still appear.
+            </p>
+          </div>
+        )}
 
         {/* Tab Selection */}
         <div className="flex mb-6 border-b">
