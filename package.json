@@ -10,12 +10,12 @@
     "lint": "next lint",
     "typecheck": "npx tsc --noEmit",
     "lint:production": "next lint --config .eslintrc.production.json",
-    "test": "jest --run",
+    "test": "playwright test",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --run",
     "test:unit": "jest --testPathPattern=__tests__ --run",
     "test:integration": "jest --testPathPattern=integration --run",
-    "test:e2e": "jest --testPathPattern=e2e --run",
+    "test:e2e": "playwright test tests/e2e",
     "test:crm": "node scripts/test-crm-sync.js",
     "test:crm:prod": "node scripts/test-crm-sync.js production",
     "protect-formatting": "node scripts/comprehensive-formatting-protection.js",
@@ -28,9 +28,7 @@
     "diagnose-auth": "node scripts/auth-diagnostic.js",
     "import:products": "node scripts/import-products.js",
     "update:products": "node scripts/update-products-with-lengolf-data.js",
-    "test": "playwright test",
     "test:api": "playwright test tests/api",
-    "test:e2e": "playwright test tests/e2e",
     "test:database": "playwright test tests/database",
     "test:edge-cases": "playwright test tests/edge-cases",
     "test:pos": "playwright test tests/api/pos tests/e2e/pos tests/database/pos-database-integrity.test.ts",
@@ -42,7 +40,8 @@
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "test:report": "playwright show-report",
-    "test:install": "playwright install chromium"
+    "test:install": "playwright install chromium",
+    "import-lead-feedback": "tsx scripts/import-lead-feedback.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -133,6 +132,7 @@
     "postcss": "^8.4.33",
     "puppeteer": "^24.12.1",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.20.3",
     "typescript": "^5.3.3"
   }
 }

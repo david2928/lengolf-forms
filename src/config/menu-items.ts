@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -128,5 +128,17 @@ export const menuItems: MenuItem[] = [
     title: "POS System",
     path: '/pos',
     description: "Point of Sale system with table management"
+  },
+  {
+    icon: Phone,
+    title: "Lead Feedback",
+    path: '/lead-feedback',
+    description: "Record B2C lead call outcomes and feedback"
+  },
+  {
+    icon: Banknote,
+    title: "Cash Check",
+    path: '/cash-check',
+    description: "Record opening and closing cash amounts"
   }
 ] 

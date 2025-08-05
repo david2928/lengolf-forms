@@ -80,7 +80,8 @@
       "Bash(dos2unix:*)",
       "Bash(for i in {1..5})",
       "Bash(do echo \"Request $i:\")",
-      "Bash(time curl:*)"
+      "Bash(time curl:*)",
+      "mcp__playwright__browser_type"
     ],
     "deny": []
   },

@@ -31,7 +31,7 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
   const [allPackages, setAllPackages] = useState<PackageItem[]>([]);
   const [filteredPackages, setFilteredPackages] = useState<PackageItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'unlimited' | 'expired'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'expired'>('all');
   const { isTablet } = useResponsive();
 
   useEffect(() => {
@@ -65,10 +65,7 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
     
     switch (activeFilter) {
       case 'active':
-        filtered = allPackages.filter(pkg => pkg.status === 'active');
-        break;
-      case 'unlimited':
-        filtered = allPackages.filter(pkg => pkg.status === 'unlimited' || pkg.package_type === 'Unlimited');
+        filtered = allPackages.filter(pkg => pkg.status === 'active' || pkg.status === 'unlimited' || pkg.status === 'unused');
         break;
       case 'expired':
         filtered = allPackages.filter(pkg => pkg.status === 'expired' || pkg.status === 'fully_used');
@@ -123,8 +120,7 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
   const getFilterCounts = () => {
     return {
       all: allPackages.length,
-      active: allPackages.filter(pkg => pkg.status === 'active').length,
-      unlimited: allPackages.filter(pkg => pkg.status === 'unlimited' || pkg.package_type === 'Unlimited').length,
+      active: allPackages.filter(pkg => pkg.status === 'active' || pkg.status === 'unlimited' || pkg.status === 'unused').length,
       expired: allPackages.filter(pkg => pkg.status === 'expired' || pkg.status === 'fully_used').length
     };
   };
@@ -177,17 +173,6 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
             )}
           >
             Active ({filterCounts.active})
-          </Button>
-          <Button
-            variant={activeFilter === 'unlimited' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setActiveFilter('unlimited')}
-            className={cn(
-              "transition-all",
-              activeFilter === 'unlimited' && "bg-blue-600 hover:bg-blue-700"
-            )}
-          >
-            Unlimited ({filterCounts.unlimited})
           </Button>
           <Button
             variant={activeFilter === 'expired' ? 'default' : 'outline'}

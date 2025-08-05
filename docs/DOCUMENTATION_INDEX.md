@@ -37,6 +37,8 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 - **[Time Clock System](./features/TIME_CLOCK_SYSTEM.md)** - Complete staff time tracking system with PIN authentication, camera verification, admin management, payroll integration, and performance optimization
 - **[Staff Management System](./features/STAFF_MANAGEMENT_SYSTEM.md)** - Comprehensive staff administration including employee records, time tracking integration, payroll processing, performance analytics, and administrative controls
 - **[Staff Scheduling System](./features/STAFF_SCHEDULING_SYSTEM.md)** - Complete staff scheduling solution with dual interfaces for staff viewing and admin management, featuring visual calendar displays, recurring schedules, conflict detection, and coverage optimization
+- **[B2C Lead Feedback System](./features/B2C_LEAD_FEEDBACK_SYSTEM.md)** - Comprehensive B2C lead tracking system replacing Google Forms with integrated Supabase storage, smart filtering, follow-up management, and mobile-optimized interface
+- **[Cash Check System](./features/CASH_CHECK_SYSTEM.md)** - Simple and efficient cash recording system for staff to log opening and closing cash amounts with historical data integration and mobile-optimized interface
 
 ### Feature Documentation (Implemented)
 - **[Customer Management System](./features/CUSTOMER_MANAGEMENT_SYSTEM.md)** - Complete customer management with stable IDs, phone normalization, profile integration, full-text search, real-time analytics, and 95%+ data migration success
@@ -118,7 +120,7 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 - **System Administrators**: [Admin Panel](./features/ADMIN_PANEL.md) → [Database Schema](./technical/DATABASE_SCHEMA.md) → [Customer Management System](./features/CUSTOMER_MANAGEMENT_SYSTEM.md)
 - **Business Users**: [Booking System](./features/BOOKING_SYSTEM.md) → [Package Management](./features/PACKAGE_MANAGEMENT.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md) → [Referral Analytics System](./features/REFERRAL_ANALYTICS_SYSTEM.md)
 - **Coaches**: [Coaching System](./features/COACHING_SYSTEM.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
-- **Operations Managers**: [Staff Scheduling System](./features/STAFF_SCHEDULING_SYSTEM.md) → [Inventory Dashboard](./features/INVENTORY_DASHBOARD.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Time Clock System](./features/TIME_CLOCK_SYSTEM.md) → [Staff Management System](./features/STAFF_MANAGEMENT_SYSTEM.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md) → [Referral Analytics System](./features/REFERRAL_ANALYTICS_SYSTEM.md)
+- **Operations Managers**: [Staff Scheduling System](./features/STAFF_SCHEDULING_SYSTEM.md) → [Inventory Dashboard](./features/INVENTORY_DASHBOARD.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Time Clock System](./features/TIME_CLOCK_SYSTEM.md) → [Staff Management System](./features/STAFF_MANAGEMENT_SYSTEM.md) → [B2C Lead Feedback System](./features/B2C_LEAD_FEEDBACK_SYSTEM.md) → [Cash Check System](./features/CASH_CHECK_SYSTEM.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md) → [Referral Analytics System](./features/REFERRAL_ANALYTICS_SYSTEM.md)
 - **Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [Calendar Integration](./features/CALENDAR_INTEGRATION.md)
 
 ## 📝 Documentation Standards
@@ -139,7 +141,7 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 **Focus**: Current system state documentation  
 
 ### ✅ What's Fully Documented
-- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management system, invoice management, transaction management, coaching system, time clock system, staff management system, staff scheduling system, product mapping system, referral analytics system
+- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management system, invoice management, transaction management, coaching system, time clock system, staff management system, staff scheduling system, product mapping system, referral analytics system, B2C lead feedback system, cash check system
 - **Technical Systems**: Authentication, database schema, API endpoints, POS data pipeline, coaching system technical architecture, referral data processing
 - **Frontend Systems**: Component architecture, styling guides, design system patterns, UI consistency analysis, referral analytics dashboard components
 - **Integrations**: LINE messaging, Google Calendar, CRM synchronization  
