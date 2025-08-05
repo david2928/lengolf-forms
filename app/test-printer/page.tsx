@@ -511,10 +511,10 @@ export default function UnifiedPrinterTestPage() {
       lines.push('');
       
       lines.push('PAYMENT OPTIONS AVAILABLE:');
-      lines.push('• Cash');
-      lines.push('• PromptPay (QR Code)');
-      lines.push('• Visa/Mastercard (EDC)');
-      lines.push('• Alipay');
+      lines.push('- Cash');
+      lines.push('- PromptPay (QR Code)');
+      lines.push('- Visa/Mastercard (EDC)');
+      lines.push('- Alipay');
     } else {
       // Payment method
       if (receiptData.paymentMethods && receiptData.paymentMethods.length > 0) {
@@ -569,11 +569,12 @@ export default function UnifiedPrinterTestPage() {
       lines.push('');
       lines.push(centerText('Staff will process your payment', width));
       lines.push(centerText('and provide a receipt', width));
-    } else {
-      lines.push(centerText('You\'re tee-rific. Come back soon!', width));
+      lines.push('');
     }
-    lines.push(centerText('Tel: 096-668-2335 | @lengolf', width));
-    lines.push(centerText('www.len.golf', width));
+    
+    lines.push(centerText('LENGOLF', width));
+    lines.push(centerText('@lengolf | www.len.golf', width));
+    lines.push(centerText('Tel: 096-668-2335', width));
     lines.push('');
     
     lines.push(centerText(`Generated: ${transactionDate.toLocaleString('th-TH')}`, width));
