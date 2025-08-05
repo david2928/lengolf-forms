@@ -270,13 +270,14 @@ export class ReceiptFormatter {
       this.addText(commands, 'Staff will process your payment');
       commands.push(0x0A);
       this.addText(commands, 'and provide a receipt');
-    } else {
-      this.addText(commands, 'You\'re tee-rific. Come back soon!');
+      commands.push(0x0A, 0x0A);
     }
+    
+    this.addText(commands, 'LENGOLF');
     commands.push(0x0A);
-    this.addText(commands, 'Tel: 096-668-2335 | @lengolf');
+    this.addText(commands, '@lengolf | www.len.golf');
     commands.push(0x0A);
-    this.addText(commands, 'www.len.golf');
+    this.addText(commands, 'Tel: 096-668-2335');
     commands.push(0x0A, 0x0A);
     
     this.addText(commands, `Generated: ${new Date().toLocaleString('th-TH')}`);
