@@ -74,17 +74,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter leads: include those without feedback OR those requiring follow-up
-    const feedbackLeadIdSet = new Set(feedbackLeadIds?.map(f => f.lead_id) || []);
-    const followUpLeadIdSet = new Set(followUpNeeded?.map(f => f.lead_id) || []);
+    const feedbackLeadIdSet = new Set(feedbackLeadIds?.map((f: any) => f.lead_id) || []);
+    const followUpLeadIdSet = new Set(followUpNeeded?.map((f: any) => f.lead_id) || []);
     
-    const filteredLeads = (allLeads || []).filter(lead => {
+    const filteredLeads = (allLeads || []).filter((lead: any) => {
       const hasNoFeedback = !feedbackLeadIdSet.has(lead.id);
       const needsFollowUp = followUpLeadIdSet.has(lead.id);
       return hasNoFeedback || needsFollowUp;
     });
 
     // Add display name with phone and follow-up status for easier identification
-    const leadsWithDisplayName = filteredLeads.map(lead => ({
+    const leadsWithDisplayName = filteredLeads.map((lead: any) => ({
       ...lead,
       display_name: `${lead.full_name} (${lead.phone_number})`,
       needs_followup: followUpLeadIdSet.has(lead.id)

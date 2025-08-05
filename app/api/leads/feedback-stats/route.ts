@@ -72,27 +72,27 @@ export async function GET(request: NextRequest) {
     // Calculate statistics
     const stats = {
       total_calls: feedbackData?.length || 0,
-      reachable: feedbackData?.filter(f => f.was_reachable).length || 0,
-      unreachable: feedbackData?.filter(f => !f.was_reachable).length || 0,
+      reachable: feedbackData?.filter((f: any) => f.was_reachable).length || 0,
+      unreachable: feedbackData?.filter((f: any) => !f.was_reachable).length || 0,
       response_breakdown: {
         very_interested: 0,
         interested_need_time: 0,
         not_interested: 0,
         no_clear_answer: 0
-      },
+      } as Record<string, number>,
       visit_timeline: {
         within_1_week: 0,
         within_month: 0,
         no_plan: 0
-      },
-      follow_ups_required: feedbackData?.filter(f => f.requires_followup).length || 0,
-      bookings_submitted: feedbackData?.filter(f => f.booking_submitted).length || 0,
+      } as Record<string, number>,
+      follow_ups_required: feedbackData?.filter((f: any) => f.requires_followup).length || 0,
+      bookings_submitted: feedbackData?.filter((f: any) => f.booking_submitted).length || 0,
       reachability_rate: 0,
       conversion_rate: 0
     };
 
     // Count response types and visit timelines
-    feedbackData?.forEach(feedback => {
+    feedbackData?.forEach((feedback: any) => {
       if (feedback.response_type) {
         stats.response_breakdown[feedback.response_type]++;
       }
@@ -109,9 +109,9 @@ export async function GET(request: NextRequest) {
 
     // Get recent feedback with lead details
     const recentFeedback = feedbackData
-      ?.sort((a, b) => new Date(b.call_date).getTime() - new Date(a.call_date).getTime())
+      ?.sort((a: any, b: any) => new Date(b.call_date).getTime() - new Date(a.call_date).getTime())
       .slice(0, 10)
-      .map(f => ({
+      .map((f: any) => ({
         ...f,
         lead_name: f.lead.full_name,
         lead_phone: f.lead.phone_number
