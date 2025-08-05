@@ -394,11 +394,11 @@ export default function UnifiedPrinterTestPage() {
     
     // Receipt type
     if (isTaxInvoice) {
-      lines.push(centerText('TAX INVOICE (ORIGINAL)', width));
+      lines.push(centerText('Receipt / TAX Invoice (Original)', width));
     } else if (isBill) {
       lines.push(centerText('BILL', width));
     } else {
-      lines.push(centerText('TAX INVOICE (ABB)', width));
+      lines.push(centerText('TAX Invoice (ABB)', width));
     }
     lines.push('------------------------------------------------');
     
@@ -528,15 +528,12 @@ export default function UnifiedPrinterTestPage() {
     }
     
     lines.push('------------------------------------------------');
-    lines.push('');
     
-    // Tax invoice specific additions
+    // Tax invoice customer information (right after payment)
     if (isTaxInvoice) {
-      lines.push('Customer Information:');
-      
       // Use stored tax invoice customer information if available
       if (receiptData.taxInvoiceData && receiptData.taxInvoiceData.customerName) {
-        lines.push(`Name: ${receiptData.taxInvoiceData.customerName}`);
+        lines.push(`Customer Name: ${receiptData.taxInvoiceData.customerName}`);
         
         if (receiptData.taxInvoiceData.customerAddress) {
           // Split long addresses into multiple lines
@@ -547,39 +544,25 @@ export default function UnifiedPrinterTestPage() {
         } else {
           lines.push(`Address: [To be filled by customer]`);
         }
+        lines.push('');
         
         if (receiptData.taxInvoiceData.customerTaxId) {
-          lines.push(`Tax ID: ${receiptData.taxInvoiceData.customerTaxId}`);
+          lines.push(`TAX ID: ${receiptData.taxInvoiceData.customerTaxId}`);
         } else {
-          lines.push(`Tax ID: [To be filled by customer]`);
+          lines.push(`TAX ID: [To be filled by customer]`);
         }
       } else {
         // Fallback to basic customer name or placeholders
-        lines.push(`Name: ${receiptData.customerName || '[To be filled by customer]'}`);
+        lines.push(`Customer Name: ${receiptData.customerName || '[To be filled by customer]'}`);
         lines.push(`Address: [To be filled by customer]`);
-        lines.push(`Tax ID: [To be filled by customer]`);
+        lines.push('');
+        lines.push(`TAX ID: [To be filled by customer]`);
       }
       
       lines.push('');
     }
     
-    // Footer
-    if (isBill) {
-      lines.push(centerText('Please present this bill when paying', width));
-      lines.push('');
-      lines.push(centerText('Staff will process your payment', width));
-      lines.push(centerText('and provide a receipt', width));
-      lines.push('');
-    }
-    
-    lines.push(centerText('LENGOLF', width));
-    lines.push(centerText('@lengolf | www.len.golf', width));
-    lines.push(centerText('Tel: 096-668-2335', width));
-    lines.push('');
-    
-    lines.push(centerText(`Generated: ${transactionDate.toLocaleString('th-TH')}`, width));
-    lines.push(centerText('Powered by Lengolf POS System', width));
-    
+    // Tax invoice specific sections (before footer)
     if (isTaxInvoice) {
       // Signature section
       lines.push('');
@@ -587,10 +570,22 @@ export default function UnifiedPrinterTestPage() {
       lines.push(centerText('Signature Cashier', width));
       lines.push('');
       
-      // ABB reference
-      lines.push(`Issued to replace the TAX Invoice (ABB)`);
+      // ABB reference with lines around it
+      lines.push('------------------------------------------------');
+      lines.push(`Issued to replace the TAX invoice (ABB)`);
       lines.push(`number: ${receiptData.receiptNumber}`);
+      lines.push('------------------------------------------------');
+      lines.push('');
     }
+    
+    // Footer
+    lines.push(centerText('You\'re tee-rific. Come back soon!', width));
+    lines.push('');
+    
+    lines.push(centerText('LENGOLF', width));
+    lines.push(centerText('@lengolf | www.len.golf', width));
+    lines.push(centerText('Tel: 096-668-2335', width));
+    lines.push('');
     
     return lines.join('\n');
   };

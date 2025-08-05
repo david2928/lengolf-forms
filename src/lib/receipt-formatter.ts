@@ -91,11 +91,11 @@ export class ReceiptFormatter {
     // Receipt type header
     commands.push(ESC, 0x21, 0x20); // Double height
     if (data.isTaxInvoice) {
-      this.addText(commands, 'TAX INVOICE (ORIGINAL)');
+      this.addText(commands, 'Receipt / TAX Invoice (Original)');
     } else if (data.isBill) {
       this.addText(commands, 'BILL');
     } else {
-      this.addText(commands, 'TAX INVOICE (ABB)');
+      this.addText(commands, 'TAX Invoice (ABB)');
     }
     commands.push(0x0A);
     commands.push(ESC, 0x21, 0x00); // Reset
@@ -129,18 +129,6 @@ export class ReceiptFormatter {
     const spacing = ' '.repeat(Math.max(1, 48 - dateText.length - timeText.length));
     this.addText(commands, `${dateText}${spacing}${timeText}`);
     commands.push(0x0A);
-    
-    // Tax invoice specific information
-    if (data.isTaxInvoice && data.taxInvoiceData) {
-      if (data.taxInvoiceData.customerTaxId) {
-        this.addText(commands, `Customer Tax ID: ${data.taxInvoiceData.customerTaxId}`);
-        commands.push(0x0A);
-      }
-      if (data.taxInvoiceData.customerAddress) {
-        this.addText(commands, `Address: ${data.taxInvoiceData.customerAddress}`);
-        commands.push(0x0A);
-      }
-    }
     
     this.addText(commands, '------------------------------------------------');
     commands.push(0x0A);
@@ -260,18 +248,67 @@ export class ReceiptFormatter {
     }
     
     this.addText(commands, '------------------------------------------------');
-    commands.push(0x0A, 0x0A);
+    commands.push(0x0A);
+    
+    // Tax invoice customer information (right after payment)
+    if (data.isTaxInvoice) {
+      if (data.taxInvoiceData && data.taxInvoiceData.customerName) {
+        this.addText(commands, `Customer Name: ${data.taxInvoiceData.customerName}`);
+        commands.push(0x0A);
+        
+        if (data.taxInvoiceData.customerAddress) {
+          this.addText(commands, `Address: ${data.taxInvoiceData.customerAddress}`);
+          commands.push(0x0A);
+        } else {
+          this.addText(commands, `Address: [To be filled by customer]`);
+          commands.push(0x0A);
+        }
+        commands.push(0x0A); // Empty row between Address and TAX ID
+        
+        if (data.taxInvoiceData.customerTaxId) {
+          this.addText(commands, `TAX ID: ${data.taxInvoiceData.customerTaxId}`);
+          commands.push(0x0A);
+        } else {
+          this.addText(commands, `TAX ID: [To be filled by customer]`);
+          commands.push(0x0A);
+        }
+      } else {
+        // Fallback to basic customer name or placeholders
+        this.addText(commands, `Customer Name: ${data.customerName || '[To be filled by customer]'}`);
+        commands.push(0x0A);
+        this.addText(commands, `Address: [To be filled by customer]`);
+        commands.push(0x0A);
+        commands.push(0x0A); // Empty row
+        this.addText(commands, `TAX ID: [To be filled by customer]`);
+        commands.push(0x0A);
+      }
+      commands.push(0x0A); // Empty row after customer info
+    }
+    
+    // Tax invoice specific sections (before footer)
+    if (data.isTaxInvoice) {
+      // Signature section
+      commands.push(0x0A);
+      this.addText(commands, '________________________');
+      commands.push(0x0A);
+      this.addText(commands, 'Signature Cashier');
+      commands.push(0x0A, 0x0A);
+      
+      // ABB reference with lines around it
+      this.addText(commands, '------------------------------------------------');
+      commands.push(0x0A);
+      this.addText(commands, `Issued to replace the TAX invoice (ABB)`);
+      commands.push(0x0A);
+      this.addText(commands, `number: ${data.receiptNumber}`);
+      commands.push(0x0A);
+      this.addText(commands, '------------------------------------------------');
+      commands.push(0x0A, 0x0A);
+    }
     
     // Footer
     commands.push(ESC, 0x61, 0x01); // Center
-    if (data.isBill) {
-      this.addText(commands, 'Please present this bill when paying');
-      commands.push(0x0A, 0x0A);
-      this.addText(commands, 'Staff will process your payment');
-      commands.push(0x0A);
-      this.addText(commands, 'and provide a receipt');
-      commands.push(0x0A, 0x0A);
-    }
+    this.addText(commands, 'You\'re tee-rific. Come back soon!');
+    commands.push(0x0A, 0x0A);
     
     this.addText(commands, 'LENGOLF');
     commands.push(0x0A);
@@ -279,10 +316,6 @@ export class ReceiptFormatter {
     commands.push(0x0A);
     this.addText(commands, 'Tel: 096-668-2335');
     commands.push(0x0A, 0x0A);
-    
-    this.addText(commands, `Generated: ${new Date().toLocaleString('th-TH')}`);
-    commands.push(0x0A);
-    this.addText(commands, 'Powered by Lengolf POS System');
     
     // Add moderate line feeds
     commands.push(0x0A, 0x0A, 0x0A, 0x0A);

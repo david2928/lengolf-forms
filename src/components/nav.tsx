@@ -219,8 +219,9 @@ export function Nav() {
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              {/* System & Dashboard */}
+            <DropdownMenuContent align="start" className="w-56 max-h-[80vh] overflow-y-auto">
+              {/* Dashboard */}
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Dashboard</div>
               <DropdownMenuItem asChild>
                 <Link href="/admin" className="flex items-center gap-2 w-full">
                   <Cog className="h-4 w-4" />
@@ -230,7 +231,8 @@ export function Nav() {
               
               <DropdownMenuSeparator />
               
-              {/* Analytics & Reports */}
+              {/* Sales & Analytics */}
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Sales & Analytics</div>
               <DropdownMenuItem asChild>
                 <Link href="/admin/sales-dashboard" className="flex items-center gap-2 w-full">
                   <TrendingUp className="h-4 w-4" />
@@ -250,6 +252,12 @@ export function Nav() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
+                <Link href="/admin/referral-analytics" className="flex items-center gap-2 w-full">
+                  <BarChart3 className="h-4 w-4" />
+                  Referral Analytics
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link href="/admin/competitors" className="flex items-center gap-2 w-full">
                   <Target className="h-4 w-4" />
                   Competitor Tracking
@@ -258,13 +266,8 @@ export function Nav() {
               
               <DropdownMenuSeparator />
               
-              {/* Operations */}
-              <DropdownMenuItem asChild>
-                <Link href="/admin/time-clock" className="flex items-center gap-2 w-full">
-                  <Clock className="h-4 w-4" />
-                  Time Clock
-                </Link>
-              </DropdownMenuItem>
+              {/* Customer Management */}
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Customer Management</div>
               <DropdownMenuItem asChild>
                 <Link href="/admin/customers" className="flex items-center gap-2 w-full">
                   <Users className="h-4 w-4" />
@@ -272,9 +275,32 @@ export function Nav() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/admin/reconciliation" className="flex items-center gap-2 w-full">
-                  <Calculator className="h-4 w-4" />
-                  Reconciliation
+                <Link href="/admin/customers/mapping" className="flex items-center gap-2 w-full">
+                  <Link2 className="h-4 w-4" />
+                  Customer Mapping
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/meta-leads" className="flex items-center gap-2 w-full">
+                  <Mail className="h-4 w-4" />
+                  Meta Leads
+                </Link>
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              {/* Product & Inventory */}
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Product & Inventory</div>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/products" className="flex items-center gap-2 w-full">
+                  <ShoppingCart className="h-4 w-4" />
+                  Product Management
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/products/mapping" className="flex items-center gap-2 w-full">
+                  <Link2 className="h-4 w-4" />
+                  Product Mapping
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
@@ -284,11 +310,16 @@ export function Nav() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/admin/products" className="flex items-center gap-2 w-full">
-                  <ShoppingCart className="h-4 w-4" />
-                  Product Management
+                <Link href="/admin/discounts" className="flex items-center gap-2 w-full">
+                  <Percent className="h-4 w-4" />
+                  Discount Management
                 </Link>
               </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              {/* Staff & Payroll */}
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Staff & Payroll</div>
               <DropdownMenuItem asChild>
                 <Link href="/admin/staff-management" className="flex items-center gap-2 w-full">
                   <Users className="h-4 w-4" />
@@ -302,25 +333,43 @@ export function Nav() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
+                <Link href="/admin/time-clock" className="flex items-center gap-2 w-full">
+                  <Clock className="h-4 w-4" />
+                  Time Clock
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/payroll-calculations" className="flex items-center gap-2 w-full">
+                  <Calculator className="h-4 w-4" />
+                  Payroll Calculations
+                </Link>
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              {/* Financial & Operations */}
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Financial & Operations</div>
+              <DropdownMenuItem asChild>
                 <Link href="/admin/invoices" className="flex items-center gap-2 w-full">
                   <FileText className="h-4 w-4" />
                   Invoice Management
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/admin/discounts" className="flex items-center gap-2 w-full">
-                  <Percent className="h-4 w-4" />
-                  Discount Management
+                <Link href="/admin/reconciliation" className="flex items-center gap-2 w-full">
+                  <Calculator className="h-4 w-4" />
+                  Reconciliation
                 </Link>
               </DropdownMenuItem>
               
               <DropdownMenuSeparator />
               
-              {/* External & Other */}
+              {/* Other */}
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Other</div>
               <DropdownMenuItem asChild>
-                <Link href="/admin/meta-leads" className="flex items-center gap-2 w-full">
-                  <Mail className="h-4 w-4" />
-                  Meta Leads
+                <Link href="/admin/photo-management" className="flex items-center gap-2 w-full">
+                  <Archive className="h-4 w-4" />
+                  Photo Management
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

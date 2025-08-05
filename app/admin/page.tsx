@@ -17,7 +17,12 @@ import {
   Clock,
   ShoppingCart,
   CalendarDays,
-  Percent
+  Percent,
+  BarChart3,
+  Target,
+  Settings,
+  Cog,
+  Camera
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -30,8 +35,8 @@ interface AdminMenuItemProps {
   onClick: () => void;
 }
 
-// Admin Menu Items Configuration - Only existing features
-const analyticsItems = [
+// Admin Menu Items Configuration - Using new grouping structure
+const salesAnalyticsItems = [
   {
     icon: TrendingUp,
     title: "Sales Dashboard",
@@ -45,20 +50,26 @@ const analyticsItems = [
     path: "/admin/transactions"
   },
   {
-    icon: Calculator,
-    title: "Reconciliation",
-    description: "Reconcile transactions and payments",
-    path: "/admin/reconciliation"
+    icon: Activity,
+    title: "Performance Analytics",
+    description: "Monitor real-time availability system performance",
+    path: "/admin/performance"
   },
   {
-    icon: Mail,
-    title: "Meta Leads",
-    description: "Analyze Facebook/Instagram leads and spam detection",
-    path: "/admin/meta-leads"
+    icon: BarChart3,
+    title: "Referral Analytics",
+    description: "Track and analyze customer referral patterns",
+    path: "/admin/referral-analytics"
+  },
+  {
+    icon: Target,
+    title: "Competitor Tracking",
+    description: "Monitor competitor pricing and trends",
+    path: "/admin/competitors"
   }
 ];
 
-const customerItems = [
+const customerManagementItems = [
   {
     icon: UserCheck,
     title: "Customer Management",
@@ -70,25 +81,16 @@ const customerItems = [
     title: "Customer Mapping",
     description: "Link unmapped bookings and sales to customers",
     path: "/admin/customers/mapping"
-  }
-];
-
-const systemItems = [
-  {
-    icon: Activity,
-    title: "Availability Performance",
-    description: "Monitor real-time availability system performance",
-    path: "/admin/performance"
-  }
-];
-
-const inventoryItems = [
-  {
-    icon: Archive,
-    title: "Inventory Dashboard",
-    description: "Monitor stock levels and manage products",
-    path: "/admin/inventory"
   },
+  {
+    icon: Mail,
+    title: "Meta Leads",
+    description: "Analyze Facebook/Instagram leads and spam detection",
+    path: "/admin/meta-leads"
+  }
+];
+
+const productInventoryItems = [
   {
     icon: ShoppingCart,
     title: "Product Management",
@@ -96,23 +98,26 @@ const inventoryItems = [
     path: "/admin/products"
   },
   {
+    icon: Link2,
+    title: "Product Mapping",
+    description: "Map products across different systems",
+    path: "/admin/products/mapping"
+  },
+  {
+    icon: Archive,
+    title: "Inventory Management",
+    description: "Monitor stock levels and manage products",
+    path: "/admin/inventory"
+  },
+  {
     icon: Percent,
     title: "Discount Management",
     description: "Create and manage discounts for POS system",
     path: "/admin/discounts"
-  },
-  {
-    icon: FileText,
-    title: "Invoice Management",
-    description: "Generate and manage supplier invoices",
-    path: "/admin/invoices"
-  },
-  {
-    icon: Clock,
-    title: "Time Clock",
-    description: "Comprehensive time tracking reports and photo administration",
-    path: "/admin/time-clock"
-  },
+  }
+];
+
+const staffPayrollItems = [
   {
     icon: Users,
     title: "Staff Management",
@@ -124,6 +129,48 @@ const inventoryItems = [
     title: "Staff Scheduling",
     description: "Manage staff schedules, view coverage, and resolve conflicts",
     path: "/admin/staff-scheduling"
+  },
+  {
+    icon: Clock,
+    title: "Time Clock",
+    description: "Comprehensive time tracking reports and photo administration",
+    path: "/admin/time-clock"
+  },
+  {
+    icon: Calculator,
+    title: "Payroll Calculations",
+    description: "Calculate and review staff payroll",
+    path: "/admin/payroll-calculations"
+  }
+];
+
+const financialOperationsItems = [
+  {
+    icon: FileText,
+    title: "Invoice Management",
+    description: "Generate and manage supplier invoices",
+    path: "/admin/invoices"
+  },
+  {
+    icon: Calculator,
+    title: "Reconciliation",
+    description: "Reconcile transactions and payments",
+    path: "/admin/reconciliation"
+  }
+];
+
+const otherItems = [
+  {
+    icon: Camera,
+    title: "Photo Management",
+    description: "Manage staff photos and time clock images",
+    path: "/admin/photo-management"
+  },
+  {
+    icon: Settings,
+    title: "Coaching Management",
+    description: "Manage coaching schedules and availability",
+    path: "/coaching"
   }
 ];
 
@@ -148,15 +195,14 @@ export default function AdminDashboard() {
     </div>
   )
 
-  const DesktopMenuItem = ({ icon: Icon, title, description, onClick }: AdminMenuItemProps) => (
+  const DesktopMenuItem = ({ icon: Icon, title, onClick }: AdminMenuItemProps) => (
     <div 
-      className="flex flex-col p-6 border rounded-lg transition-colors cursor-pointer h-full hover:bg-accent/50"
+      className="flex flex-col p-6 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer h-full min-h-[240px]"
       onClick={onClick}
     >
       <div className="flex flex-col items-center text-center flex-1">
         <Icon className="h-12 w-12 mb-4 text-primary" />
-        <h2 className="text-xl font-semibold">{title}</h2>
-        {description && <p className="text-sm text-muted-foreground mt-2 flex-grow">{description}</p>}
+        <h2 className="text-lg lg:text-xl font-semibold leading-tight">{title}</h2>
       </div>
       <Button 
         className="w-full mt-6" 
@@ -176,9 +222,9 @@ export default function AdminDashboard() {
       {/* Mobile Layout */}
       <div className="space-y-6 md:hidden">
         <div>
-          <h2 className="text-lg font-semibold mb-3">Analytics & Reporting</h2>
+          <h2 className="text-lg font-semibold mb-3">Sales & Analytics</h2>
           <div className="space-y-3">
-            {analyticsItems.map((item) => (
+            {salesAnalyticsItems.map((item) => (
               <MobileMenuItem
                 key={item.title}
                 icon={item.icon}
@@ -193,7 +239,7 @@ export default function AdminDashboard() {
         <div>
           <h2 className="text-lg font-semibold mb-3">Customer Management</h2>
           <div className="space-y-3">
-            {customerItems.map((item) => (
+            {customerManagementItems.map((item) => (
               <MobileMenuItem
                 key={item.title}
                 icon={item.icon}
@@ -206,9 +252,9 @@ export default function AdminDashboard() {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold mb-3">Inventory & Operations</h2>
+          <h2 className="text-lg font-semibold mb-3">Product & Inventory</h2>
           <div className="space-y-3">
-            {inventoryItems.map((item) => (
+            {productInventoryItems.map((item) => (
               <MobileMenuItem
                 key={item.title}
                 icon={item.icon}
@@ -221,9 +267,39 @@ export default function AdminDashboard() {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold mb-3">System Management</h2>
+          <h2 className="text-lg font-semibold mb-3">Staff & Payroll</h2>
           <div className="space-y-3">
-            {systemItems.map((item) => (
+            {staffPayrollItems.map((item) => (
+              <MobileMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Financial & Operations</h2>
+          <div className="space-y-3">
+            {financialOperationsItems.map((item) => (
+              <MobileMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Other</h2>
+          <div className="space-y-3">
+            {otherItems.map((item) => (
               <MobileMenuItem
                 key={item.title}
                 icon={item.icon}
@@ -239,14 +315,13 @@ export default function AdminDashboard() {
       {/* Desktop Layout */}
       <div className="hidden md:block space-y-8">
         <div>
-          <h2 className="text-2xl font-semibold mb-4 text-center md:text-left">Analytics & Reporting</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-center md:text-left">Sales & Analytics</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
-            {analyticsItems.map((item) => (
+            {salesAnalyticsItems.map((item) => (
               <DesktopMenuItem
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={isMobile ? undefined : item.description}
                 onClick={() => router.push(item.path)}
               />
             ))}
@@ -256,12 +331,11 @@ export default function AdminDashboard() {
         <div>
           <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Customer Management</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
-            {customerItems.map((item) => (
+            {customerManagementItems.map((item) => (
               <DesktopMenuItem
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={isMobile ? undefined : item.description}
                 onClick={() => router.push(item.path)}
               />
             ))}
@@ -269,14 +343,13 @@ export default function AdminDashboard() {
         </div>
 
         <div>
-          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Inventory & Operations</h2>
+          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Product & Inventory</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
-            {inventoryItems.map((item) => (
+            {productInventoryItems.map((item) => (
               <DesktopMenuItem
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={isMobile ? undefined : item.description}
                 onClick={() => router.push(item.path)}
               />
             ))}
@@ -284,14 +357,41 @@ export default function AdminDashboard() {
         </div>
 
         <div>
-          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">System Management</h2>
+          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Staff & Payroll</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
-            {systemItems.map((item) => (
+            {staffPayrollItems.map((item) => (
               <DesktopMenuItem
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                description={isMobile ? undefined : item.description}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Financial & Operations</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
+            {financialOperationsItems.map((item) => (
+              <DesktopMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Other</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
+            {otherItems.map((item) => (
+              <DesktopMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
                 onClick={() => router.push(item.path)}
               />
             ))}
