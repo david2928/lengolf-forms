@@ -240,13 +240,13 @@ export class ReceiptFormatter {
       
       this.addText(commands, 'PAYMENT OPTIONS AVAILABLE:');
       commands.push(0x0A);
-      this.addText(commands, '• Cash');
+      this.addText(commands, '- Cash');
       commands.push(0x0A);
-      this.addText(commands, '• PromptPay (QR Code)');
+      this.addText(commands, '- PromptPay (QR Code)');
       commands.push(0x0A);
-      this.addText(commands, '• Visa/Mastercard (EDC)');
+      this.addText(commands, '- Visa/Mastercard (EDC)');
       commands.push(0x0A);
-      this.addText(commands, '• Alipay');
+      this.addText(commands, '- Alipay');
       commands.push(0x0A);
     } else {
       // For receipts, show actual payment methods used
