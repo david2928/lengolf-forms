@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 
 export interface ProductCatalogProps {
   onProductSelect: (product: POSProduct, modifiers?: any[], notes?: string) => void;
@@ -370,6 +371,17 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleBackNavigation]);
 
+  // Swipe gesture for tablet navigation
+  const swipeRef = useSwipeGesture({
+    onSwipeRight: () => {
+      // Swipe right to go back (more intuitive on tablets)
+      handleBackNavigation();
+    },
+    threshold: 80, // Require longer swipe for tablets
+    restraint: 150, // Allow more vertical movement during swipe
+    allowedTime: 600 // Give more time for tablet swipes
+  });
+
   // Get current subcategories for the active tab
   const getCurrentSubCategories = () => {
     const activeCategory = rootCategories.find(cat => cat.id === activeTab);
@@ -380,6 +392,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
 
   return (
     <div 
+      ref={swipeRef as any}
       className={`product-catalog flex flex-col h-full ${className}`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}

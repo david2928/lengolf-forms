@@ -11,6 +11,7 @@ import { VoidPinModal } from './VoidPinModal';
 import { TaxInvoiceModal } from './TaxInvoiceModal';
 import { bluetoothThermalPrinter, BluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
 import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
+import { SimpleDiscountTooltip } from '../discount/SimpleDiscountTooltip';
 
 interface TransactionDetail {
   receipt_number: string;
@@ -374,8 +375,13 @@ export function TransactionDetailModal({
                           <div className="font-medium text-gray-900">{item.product_name}</div>
                           <div className="text-sm text-gray-600">
                             {item.item_cnt} × {formatCurrency(item.unit_price)}
-                            {item.has_item_discount && (
-                              <span className="ml-2 text-green-600 font-medium">• Discount Applied</span>
+                            {item.has_item_discount && item.item_discount_amount && (
+                              <SimpleDiscountTooltip 
+                                discountAmount={item.item_discount_amount}
+                                originalAmount={item.unit_price * item.item_cnt}
+                              >
+                                <span className="ml-2 text-green-600 font-medium cursor-pointer">• Discount Applied</span>
+                              </SimpleDiscountTooltip>
                             )}
                           </div>
                           {item.item_notes && (

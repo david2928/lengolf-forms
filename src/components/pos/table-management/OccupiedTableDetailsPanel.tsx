@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/pos-utils';
 import type { Table, OrderItem } from '@/types/pos';
 import { ReceiptDiscountButton } from '../discount/ReceiptDiscountButton';
+import { TouchFriendlyDiscountTooltip } from '../discount/TouchFriendlyDiscountTooltip';
 
 export interface OccupiedTableDetailsPanelProps {
   table: Table | null;
@@ -367,7 +368,9 @@ export function OccupiedTableDetailsPanel({
                             <div className="text-sm text-gray-600">
                               {item.quantity} × {formatCurrency(item.unitPrice)}
                               {item.applied_discount_id && (
-                                <span className="ml-2 text-green-600 font-medium">• Discount Applied</span>
+                                <TouchFriendlyDiscountTooltip orderItem={item}>
+                                  <span className="ml-2 text-green-600 font-medium cursor-pointer">• Discount Applied</span>
+                                </TouchFriendlyDiscountTooltip>
                               )}
                             </div>
                           </div>
@@ -407,7 +410,7 @@ export function OccupiedTableDetailsPanel({
                     <div className="border-t border-gray-200 pt-4 space-y-2 flex-shrink-0">
                       <div className="flex justify-between text-sm text-gray-600">
                         <span>Subtotal:</span>
-                        <span>{formatCurrency(originalItemsTotal)}</span>
+                        <span>{formatCurrency(currentItemsTotal)}</span>
                       </div>
                       {receiptLevelDiscounts > 0 && appliedReceiptDiscount && (
                         <div className="flex justify-between text-sm text-green-700 font-medium">

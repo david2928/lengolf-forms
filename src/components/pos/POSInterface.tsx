@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 
 export interface POSInterfaceProps {
   tableSession: TableSession;
@@ -36,6 +37,28 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
   const [orderPanelExpanded, setOrderPanelExpanded] = useState(false);
   const [dragY, setDragY] = useState(0);
   const orderPanelRef = useRef<HTMLDivElement>(null);
+
+  // Swipe navigation for tablet
+  const handleSwipeNavigation = () => {
+    if (mobileView === 'products') {
+      // Swipe left from products view goes back to table management
+      onBack();
+    } else if (mobileView === 'order') {
+      // Swipe left from order view goes to products
+      setMobileView('products');
+    }
+  };
+
+  const swipeRef = useSwipeGesture({
+    onSwipeLeft: handleSwipeNavigation,
+    onSwipeRight: () => {
+      // Swipe right to go back (alternative gesture)
+      handleSwipeNavigation();
+    },
+    threshold: 60, // Tablet-friendly threshold
+    restraint: 120, // Allow some vertical movement
+    allowedTime: 500
+  });
   const [lastSelectedCategory, setLastSelectedCategory] = useState<string | null>(null);
   // Notification system - support multiple notifications
   interface Notification {
@@ -161,9 +184,26 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
     if (existingItemIndex >= 0) {
       // Update quantity
       const updatedOrder = [...currentOrder];
-      updatedOrder[existingItemIndex].quantity += 1;
-      updatedOrder[existingItemIndex].totalPrice = 
-        updatedOrder[existingItemIndex].quantity * updatedOrder[existingItemIndex].unitPrice;
+      const existingItem = updatedOrder[existingItemIndex];
+      existingItem.quantity += 1;
+      
+      // If item has an applied discount, recalculate the discount for the new quantity
+      if (existingItem.applied_discount_id && existingItem.discount_amount) {
+        // Calculate original amount before discount
+        const originalAmountPerUnit = existingItem.unitPrice;
+        const newOriginalAmount = originalAmountPerUnit * existingItem.quantity;
+        
+        // Calculate discount amount proportionally
+        const discountPerUnit = existingItem.discount_amount / (existingItem.quantity - 1); // Previous quantity
+        const newDiscountAmount = discountPerUnit * existingItem.quantity;
+        
+        existingItem.discount_amount = newDiscountAmount;
+        existingItem.totalPrice = newOriginalAmount - newDiscountAmount;
+      } else {
+        // No discount applied, use simple calculation
+        existingItem.totalPrice = existingItem.quantity * existingItem.unitPrice;
+      }
+      
       setCurrentOrder(updatedOrder);
     } else {
       // Add new item
@@ -198,11 +238,29 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
     
     setCurrentOrder(prev => prev.map(item => {
       if (item.id === itemId) {
-        return {
-          ...item,
-          quantity,
-          totalPrice: quantity * item.unitPrice
-        };
+        // If item has an applied discount, recalculate the discount for the new quantity
+        if (item.applied_discount_id && item.discount_amount) {
+          const originalAmountPerUnit = item.unitPrice;
+          const newOriginalAmount = originalAmountPerUnit * quantity;
+          
+          // Calculate discount amount proportionally
+          const discountPerUnit = item.discount_amount / item.quantity; // Current quantity
+          const newDiscountAmount = discountPerUnit * quantity;
+          
+          return {
+            ...item,
+            quantity,
+            discount_amount: newDiscountAmount,
+            totalPrice: newOriginalAmount - newDiscountAmount
+          };
+        } else {
+          // No discount applied, use simple calculation
+          return {
+            ...item,
+            quantity,
+            totalPrice: quantity * item.unitPrice
+          };
+        }
       }
       return item;
     }));
@@ -512,7 +570,7 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
       {/* Main Content - Responsive Layout */}
       {isMobile ? (
         // Mobile Layout: Full-screen view switching
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div ref={swipeRef as any} className="flex-1 flex flex-col overflow-hidden">
           {/* Mobile View Container */}
           <div className="flex-1 relative overflow-hidden">
             <motion.div

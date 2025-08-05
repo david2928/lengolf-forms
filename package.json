@@ -57,6 +57,7 @@
     "@radix-ui/react-switch": "^1.1.2",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-toast": "^1.2.3",
+    "@radix-ui/react-tooltip": "^1.2.7",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/mcp-server-supabase": "^0.4.5",
     "@supabase/supabase-js": "^2.51.0",
