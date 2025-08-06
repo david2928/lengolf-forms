@@ -135,6 +135,8 @@ The **ReceiptDataService** consolidates all database queries:
 - **Optimized queries** with proper error handling
 - **Full discount support** - item-level and receipt-level discounts
 - **Payment method integration** - automatic fallback to Cash if no payment methods found
+- **Complete item coverage** - Fetches ALL orders from table session + transaction_items fallback
+- **Dual data source support** - Works with both `pos.orders` and `pos.transaction_items` tables
 
 ---
 
@@ -572,6 +574,15 @@ const output = escInit + receiptContent + escFeed + escCut;
 - Test with English-only content first
 - Check printer's character set support
 
+#### 5. Missing items in receipts ✅ FIXED (August 2025)
+**Cause**: Receipt data service only fetching one order instead of all orders from table session  
+**Solution**: 
+- **Fixed**: `ReceiptDataService` now fetches ALL orders for a table session
+- **Fallback**: Uses `transaction_items` table if order items not found
+- **Verification**: Check `/test-printer` page to preview receipts
+- **Examples**: Receipt R20250806-0042 shows all 4 items correctly
+- **Affects**: Normal receipts, Tax Invoice (ABB/Original), Bills
+
 ### Debug Steps
 
 #### Tablet Debugging
@@ -645,6 +656,7 @@ const output = escInit + receiptContent + escFeed + escCut;
 - [x] **ESC/POS compatibility** - Standard thermal printer commands
 - [x] **Comprehensive test interface** - Live preview without printer connection
 - [x] **Tax invoice support** - Stored customer tax information integration
+- [x] **Complete item coverage** - ALL items from table session included in receipts (Fixed August 2025)
 
 ### 🔄 Future Enhancements
 - [ ] **Auto-print on payment** - Automatic printing after successful payment
