@@ -69,8 +69,8 @@ export class ReceiptDataService {
       });
     }
 
-    // Get order data using table session ID with discount information
-    const { data: orderData, error: orderError } = await supabase
+    // Get ALL orders data using table session ID with discount information
+    const { data: ordersData, error: orderError } = await supabase
       .schema('pos')
       .from('orders')
       .select(`
@@ -81,21 +81,52 @@ export class ReceiptDataService {
         )
       `)
       .eq('table_session_id', transaction.table_session_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .order('created_at', { ascending: true }); // Sort by creation time to maintain order sequence
 
-    if (orderError || !orderData) {
+    if (orderError || !ordersData || ordersData.length === 0) {
       throw new Error(`Order not found for table session: ${transaction.table_session_id}`);
     }
 
-    // Get product names
-    const productIds = orderData.order_items.map((item: any) => item.product_id);
-    const { data: products } = await supabase
+    // Combine all order items from all orders
+    let allOrderItems = ordersData.flatMap((order: any) => order.order_items || []);
+
+    // If no order items found, fall back to transaction_items table using the database ID
+    if (allOrderItems.length === 0) {
+      console.log('⚠️ No order items found, checking transaction_items table');
+      
+      // Important: Use transaction.id (the database ID) not transaction.transaction_id (the logical ID)
+      const { data: transactionItems } = await supabase
+        .schema('pos')
+        .from('transaction_items')
+        .select(`
+          *,
+          applied_discount:discounts(id, title, discount_type, discount_value)
+        `)
+        .eq('transaction_id', transaction.id) // Use the database ID
+        .order('line_number');
+
+      if (transactionItems && transactionItems.length > 0) {
+        console.log(`✅ Found ${transactionItems.length} items in transaction_items table`);
+        // Map transaction_items to match order_items structure
+        allOrderItems = transactionItems.map((item: any) => ({
+          product_id: item.product_id,
+          quantity: item.item_cnt || 1,
+          unit_price: parseFloat(item.unit_price_incl_vat || item.item_price_incl_vat),
+          total_price: parseFloat(item.line_total_incl_vat || item.item_price_incl_vat),
+          discount_amount: parseFloat(item.line_discount || item.item_discount || 0),
+          notes: item.item_notes,
+          applied_discount: item.applied_discount
+        }));
+      }
+    }
+
+    // Get product names for all items
+    const productIds = allOrderItems.map((item: any) => item.product_id).filter(Boolean);
+    const { data: products } = productIds.length > 0 ? await supabase
       .schema('products')
       .from('products')
       .select('id, name')
-      .in('id', productIds);
+      .in('id', productIds) : { data: [] };
 
     const productMap = new Map(products?.map((p: any) => [p.id, p.name]) || []);
 
@@ -123,7 +154,7 @@ export class ReceiptDataService {
     // Prepare receipt data
     const receiptData: ReceiptData = {
       receiptNumber: transaction.receipt_number,
-      items: (orderData.order_items || []).map((item: any) => ({
+      items: allOrderItems.map((item: any) => ({
         name: productMap.get(item.product_id) || 'Unknown Item',
         price: item.total_price || (item.unit_price * item.quantity), // Final price after item discount
         qty: item.quantity || 1,
