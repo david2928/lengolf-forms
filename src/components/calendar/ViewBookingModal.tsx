@@ -50,7 +50,7 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
         
         if (response.ok) {
           const data = await response.json();
-          setCurrentBooking(data.currentBooking);
+          setCurrentBooking(data.booking);
         } else {
           console.error('Failed to fetch fresh booking data:', response.statusText);
           setCurrentBooking(booking); // Fallback to original booking
