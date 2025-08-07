@@ -106,7 +106,16 @@ export async function GET(request: NextRequest) {
       calendar_events: undefined,
     }));
 
-    return NextResponse.json({ bookings });
+    return NextResponse.json(
+      { bookings },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }
+    );
 
   } catch (e: any) {
     console.error('Unexpected error in GET /api/bookings/list-by-date:', e);

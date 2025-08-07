@@ -182,7 +182,17 @@ export async function GET(
       customers: undefined // Remove the nested customers object
     };
 
-    return NextResponse.json({ booking: bookingWithCustomerInfo }, { status: 200 });
+    return NextResponse.json(
+      { booking: bookingWithCustomerInfo },
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }
+    );
 
   } catch (error: any) {
     console.error('Error fetching booking:', error);
