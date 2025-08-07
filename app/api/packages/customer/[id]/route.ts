@@ -93,25 +93,22 @@ export async function GET(
       const usedHours = usageByPackage[pkg.id] || 0;
       const remainingHours = totalHours - usedHours;
 
-      // Determine status
-      let status: 'active' | 'expired' | 'unused' | 'fully_used' | 'unlimited' = 'active';
+      // Determine status using new business logic
+      let status: 'created' | 'active' | 'expired' | 'depleted' = 'active';
       
-      if (packageType?.type === 'Unlimited') {
-        if (pkg.expiration_date && new Date(pkg.expiration_date) < new Date()) {
-          status = 'expired';
-        } else {
-          status = 'unlimited';
-        }
+      const isUnlimited = packageType?.type === 'Unlimited';
+      const isExpired = pkg.expiration_date && new Date(pkg.expiration_date) < new Date();
+      const isActivated = pkg.first_use_date !== null;
+
+      // Apply consistent logic for all package types
+      if (isExpired) {
+        status = 'expired';
+      } else if (!isActivated) {
+        status = 'created'; // Package exists but never activated
+      } else if (!isUnlimited && remainingHours <= 0) {
+        status = 'depleted'; // Fully used up
       } else {
-        if (!pkg.first_use_date) {
-          status = 'unused';
-        } else if (pkg.expiration_date && new Date(pkg.expiration_date) < new Date()) {
-          status = 'expired';
-        } else if (remainingHours <= 0) {
-          status = 'fully_used';
-        } else {
-          status = 'active';
-        }
+        status = 'active'; // Activated and usable
       }
 
       const usagePercentage = totalHours > 0 ? Math.round((usedHours / totalHours) * 100) : 0;
@@ -140,23 +137,23 @@ export async function GET(
     }
     
     if (!includeUsed) {
-      filteredPackages = filteredPackages.filter((p: any) => p.status !== 'fully_used');
+      filteredPackages = filteredPackages.filter((p: any) => p.status !== 'depleted');
     }
 
-    // Calculate summary
-    const activePackages = formattedPackages.filter((p: any) => p.status === 'active' || p.status === 'unlimited').length;
+    // Calculate summary using new status categories
+    const createdPackages = formattedPackages.filter((p: any) => p.status === 'created').length;
+    const activePackages = formattedPackages.filter((p: any) => p.status === 'active').length;
     const expiredPackages = formattedPackages.filter((p: any) => p.status === 'expired').length;
-    const unusedPackages = formattedPackages.filter((p: any) => p.status === 'unused').length;
-    const fullyUsedPackages = formattedPackages.filter((p: any) => p.status === 'fully_used').length;
+    const depletedPackages = formattedPackages.filter((p: any) => p.status === 'depleted').length;
 
     return NextResponse.json({
       packages: filteredPackages,
       summary: {
         total: formattedPackages.length,
+        created: createdPackages,
         active: activePackages,
         expired: expiredPackages,
-        unused: unusedPackages,
-        fully_used: fullyUsedPackages
+        depleted: depletedPackages
       },
       customer: {
         id: customer.id,

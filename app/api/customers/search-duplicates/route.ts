@@ -43,8 +43,32 @@ export async function POST(request: NextRequest) {
       ? potentialDuplicates.filter(duplicate => duplicate.id !== body.excludeCustomerId)
       : potentialDuplicates;
 
+    // Only include high-confidence matches for UI warnings
+    const highConfidenceDuplicates = filteredDuplicates.filter(duplicate => {
+      // Include if exact phone match
+      if (body.primaryPhone && duplicate.normalized_phone) {
+        const normalizedInput = customerMappingService.normalizePhoneNumber(body.primaryPhone);
+        if (normalizedInput === duplicate.normalized_phone) {
+          return true;
+        }
+      }
+      
+      // Include if exact email match
+      if (body.email && duplicate.email && 
+          body.email.toLowerCase() === duplicate.email.toLowerCase()) {
+        return true;
+      }
+      
+      // Include if very high name similarity (>90%)
+      if (duplicate.similarity && duplicate.similarity > 0.9) {
+        return true;
+      }
+      
+      return false;
+    });
+
     // Format response with match reasons
-    const duplicatesWithReasons = filteredDuplicates.map(duplicate => {
+    const duplicatesWithReasons = highConfidenceDuplicates.map(duplicate => {
       const matchReasons: string[] = [];
       
       if (body.primaryPhone && duplicate.normalized_phone) {

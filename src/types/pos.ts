@@ -83,6 +83,15 @@ export interface Customer {
   updatedAt?: Date | string;
 }
 
+// Package Status Types
+export interface PackageStatusCounts {
+  created: number;     // Purchased but never used (first_use_date = null)
+  active: number;      // Activated and usable (first_use_date set, not expired, has remaining value)
+  expired: number;     // Past expiration date
+  depleted: number;    // Fully used (remaining_hours = 0)
+  total: number;       // Total packages count
+}
+
 // POS Customer Management Types
 export interface POSCustomer {
   id: string;
@@ -93,7 +102,8 @@ export interface POSCustomer {
   lifetimeValue: number;
   lastVisit?: string;
   totalVisits: number;
-  activePackages: number;
+  activePackages: number; // Keep for backward compatibility
+  packageStatus: PackageStatusCounts;
   recentTransactions: number;
   isActive: boolean;
   registrationDate: string;
@@ -140,7 +150,8 @@ export interface CustomerDetailData {
     lastTransaction?: string;
   };
   packageSummary: {
-    activePackages: number;
+    activePackages: number; // Keep for backward compatibility
+    packageStatus?: PackageStatusCounts; // New detailed status
     totalPackages: number;
     lastPackagePurchase?: string;
   };

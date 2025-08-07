@@ -54,6 +54,7 @@ export function BookingForm() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [canProgress, setCanProgress] = useState(false);
+  const [phoneError, setPhoneError] = useState<string>('');
   
   // Cache the selected customer so it persists even when SWR data changes
   const [selectedCustomerCache, setSelectedCustomerCache] = useState<NewCustomer | null>(null);
@@ -82,12 +83,12 @@ export function BookingForm() {
   useEffect(() => {
     let stepErrors = {};
     if (currentStep === 1) stepErrors = validateStep1(formData);
-    else if (currentStep === 2) stepErrors = validateStep2(formData);
+    else if (currentStep === 2) stepErrors = validateStep2(formData, phoneError);
     else if (currentStep === 3) stepErrors = validateStep3(formData);
     
     setErrors(stepErrors);
     setCanProgress(Object.keys(stepErrors).length === 0);
-  }, [formData, currentStep]);
+  }, [formData, currentStep, phoneError]);
 
   const handleReset = () => {
     setFormData({
@@ -202,7 +203,9 @@ export function BookingForm() {
     searchQuery,
     onSearchQueryChange: setSearchQuery,
     // Customer cache
-    selectedCustomerCache
+    selectedCustomerCache,
+    // Phone validation
+    onPhoneError: setPhoneError
   };
 
   return (

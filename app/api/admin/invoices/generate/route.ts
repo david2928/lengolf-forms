@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
-import { getServerSession } from 'next-auth'
+import { getDevSession } from '@/lib/dev-session'
 import { authOptions } from '@/lib/auth-config'
 
 interface InvoiceItem {
@@ -23,7 +23,7 @@ interface GenerateInvoiceRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getDevSession(authOptions, request)
     if (!session?.user?.isAdmin) {
       console.error('Unauthorized access attempt to generate invoice')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

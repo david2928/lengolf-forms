@@ -82,18 +82,26 @@ export async function GET(
     // If packages came from the fallback database query, format them
     if (packages.length > 0 && !packages[0].package_name) {
       formattedPackages = packages.map((pkg: any) => {
-        let packageStatus: 'active' | 'expired' | 'unused' = 'active';
+        let packageStatus: 'created' | 'active' | 'expired' | 'depleted' = 'active';
         
-        if (pkg.expiration_date && new Date(pkg.expiration_date) < new Date()) {
-          packageStatus = 'expired';
-        } else if (!pkg.first_use_date) {
-          packageStatus = 'unused';
-        }
-
         const packageType = pkg.package_types;
+        const isUnlimited = packageType?.type === 'Unlimited';
         const totalHours = packageType?.hours || 0;
-        const usedHours = 0; // Would need package_usage join
+        const usedHours = 0; // Would need package_usage join for accurate count
         const remainingHours = totalHours - usedHours;
+        const isExpired = pkg.expiration_date && new Date(pkg.expiration_date) < new Date();
+        const isActivated = pkg.first_use_date !== null;
+
+        // Determine package status based on business logic
+        if (isExpired) {
+          packageStatus = 'expired';
+        } else if (!isActivated) {
+          packageStatus = 'created'; // Package exists but never activated
+        } else if (!isUnlimited && remainingHours <= 0) {
+          packageStatus = 'depleted'; // Fully used up
+        } else {
+          packageStatus = 'active'; // Activated and usable
+        }
 
         return {
           id: pkg.id,
@@ -101,11 +109,12 @@ export async function GET(
           purchase_date: pkg.purchase_date,
           expiration_date: pkg.expiration_date,
           first_use_date: pkg.first_use_date,
-          uses_remaining: remainingHours,
-          original_uses: totalHours,
+          uses_remaining: isUnlimited ? null : remainingHours,
+          original_uses: isUnlimited ? null : totalHours,
           used_hours: usedHours,
           status: packageStatus,
-          usage_percentage: totalHours > 0 ? Math.round((usedHours / totalHours) * 100) : 0
+          is_unlimited: isUnlimited,
+          usage_percentage: !isUnlimited && totalHours > 0 ? Math.round((usedHours / totalHours) * 100) : 0
         };
       });
     }
@@ -123,17 +132,17 @@ export async function GET(
     if (packageData.summary) {
       summary = packageData.summary;
     } else {
-      const activePackages = filteredPackages.filter((p: any) => p.status === 'active' || p.status === 'unlimited').length;
-      const expiredPackages = filteredPackages.filter((p: any) => p.status === 'expired').length;
-      const unusedPackages = filteredPackages.filter((p: any) => p.status === 'unused').length;
-      const fullyUsedPackages = filteredPackages.filter((p: any) => p.status === 'fully_used').length;
+      const createdPackages = formattedPackages.filter((p: any) => p.status === 'created').length;
+      const activePackages = formattedPackages.filter((p: any) => p.status === 'active').length;
+      const expiredPackages = formattedPackages.filter((p: any) => p.status === 'expired').length;
+      const depletedPackages = formattedPackages.filter((p: any) => p.status === 'depleted').length;
 
       summary = {
-        total: filteredPackages.length,
+        total: formattedPackages.length,
+        created: createdPackages,
         active: activePackages,
         expired: expiredPackages,
-        unused: unusedPackages,
-        fully_used: fullyUsedPackages
+        depleted: depletedPackages
       };
     }
 

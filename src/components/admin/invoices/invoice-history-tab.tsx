@@ -78,11 +78,30 @@ export function InvoiceHistoryTab() {
     try {
       const response = await fetch(`/api/admin/invoices/${invoice.id}/download`)
       if (response.ok) {
+        const contentType = response.headers.get('content-type') || ''
         const blob = await response.blob()
+        
+        // If it's HTML, open in new tab
+        if (contentType.includes('text/html')) {
+          const url = window.URL.createObjectURL(blob)
+          window.open(url, '_blank')
+          
+          // Clean up URL after a delay
+          setTimeout(() => window.URL.revokeObjectURL(url), 1000)
+          
+          toast({
+            title: 'Invoice Opened',
+            description: 'Invoice opened in new tab.',
+          })
+          return
+        }
+        
+        // If it's a PDF, download normally
         const url = window.URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
-        link.download = `${invoice.invoice_number}_${invoice.supplier.name}.pdf`
+        const extension = contentType.includes('application/pdf') ? 'pdf' : 'html'
+        link.download = `${invoice.invoice_number}_${invoice.supplier.name}.${extension}`
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
@@ -90,15 +109,15 @@ export function InvoiceHistoryTab() {
       } else {
         toast({
           title: 'Error',
-          description: 'Failed to download PDF',
+          description: 'Failed to download invoice',
           variant: 'destructive',
         })
       }
     } catch (error) {
-      console.error('Error downloading PDF:', error)
+      console.error('Error downloading invoice:', error)
       toast({
         title: 'Error',
-        description: 'Failed to download PDF',
+        description: 'Failed to download invoice',
         variant: 'destructive',
       })
     }

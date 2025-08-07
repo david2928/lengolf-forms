@@ -34,6 +34,7 @@ export const CustomerManagementInterface: React.FC<CustomerManagementInterfacePr
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<POSCustomer | null>(null);
+  const [internalSelectedCustomerId, setInternalSelectedCustomerId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [recentCustomers, setRecentCustomers] = useState<POSCustomer[]>([]);
   
@@ -95,6 +96,13 @@ export const CustomerManagementInterface: React.FC<CustomerManagementInterfacePr
           lastVisit: customer.last_visit_date,
           totalVisits: customer.total_visits || 0,
           activePackages: 0, // Will be populated from detail view
+          packageStatus: {
+            created: 0,
+            active: 0,
+            expired: 0,
+            depleted: 0,
+            total: 0
+          }, // Will be populated from detail view
           recentTransactions: customer.total_visits || 0,
           isActive: customer.is_active !== false,
           registrationDate: customer.customer_create_date || ''
@@ -142,6 +150,7 @@ export const CustomerManagementInterface: React.FC<CustomerManagementInterfacePr
   // Handle customer selection
   const handleCustomerSelect = (customer: POSCustomer) => {
     setSelectedCustomer(customer);
+    setInternalSelectedCustomerId(customer.id); // Update internal selection for visual feedback
     onCustomerSelect?.(customer);
   };
 
@@ -154,10 +163,82 @@ export const CustomerManagementInterface: React.FC<CustomerManagementInterfacePr
   // Handle new customer creation success
   const handleCustomerCreated = (newCustomer: any) => {
     setShowCreateForm(false);
+    
+    // Transform the customer data to POSCustomer format
+    const posCustomer: POSCustomer = {
+      id: newCustomer.id,
+      customerCode: newCustomer.customer_code,
+      name: newCustomer.customer_name,
+      phone: newCustomer.contact_number,
+      email: newCustomer.email,
+      lifetimeValue: 0,
+      lastVisit: undefined,
+      totalVisits: 0,
+      activePackages: 0,
+      packageStatus: {
+        created: 0,
+        active: 0,
+        expired: 0,
+        depleted: 0,
+        total: 0
+      },
+      recentTransactions: 0,
+      isActive: true,
+      registrationDate: newCustomer.created_at || new Date().toISOString()
+    };
+    
+    // Select the newly created customer
+    handleCustomerSelect(posCustomer);
+    
     // Refresh customer list
     fetchCustomers();
-    // Show success feedback
-    console.log('Customer created successfully:', newCustomer);
+  };
+
+  // Handle selecting an existing customer (from duplicate selection)
+  const handleExistingCustomerSelect = (existingCustomer: any) => {
+    setShowCreateForm(false);
+    
+    // Clear any existing search to make sure the selected customer is visible
+    setSearchTerm('');
+    setFilters(prev => ({ 
+      ...prev, 
+      page: 1,
+      isActive: true // Show active customers 
+    }));
+    
+    // Transform the existing customer data to POSCustomer format
+    const posCustomer: POSCustomer = {
+      id: existingCustomer.id,
+      customerCode: existingCustomer.customer_code,
+      name: existingCustomer.customer_name,
+      phone: existingCustomer.contact_number,
+      email: existingCustomer.email,
+      lifetimeValue: 0,
+      lastVisit: undefined,
+      totalVisits: 0,
+      activePackages: 0,
+      packageStatus: {
+        created: 0,
+        active: 0,
+        expired: 0,
+        depleted: 0,
+        total: 0
+      },
+      recentTransactions: 0,
+      isActive: true,
+      registrationDate: new Date().toISOString()
+    };
+    
+    // Select the existing customer directly
+    handleCustomerSelect(posCustomer);
+    
+    // Open the customer detail modal immediately to show the selected customer
+    setShowDetailModal(true);
+    
+    // Refresh the customer list to ensure the selected customer is visible
+    setTimeout(() => {
+      fetchCustomers();
+    }, 100);
   };
 
   // Handle search term change - only called on explicit search submission
@@ -263,7 +344,7 @@ export const CustomerManagementInterface: React.FC<CustomerManagementInterfacePr
                       customer={customer}
                       onSelect={() => handleCustomerSelect(customer)}
                       onDetail={() => handleCustomerDetail(customer)}
-                      isSelected={selectedCustomerId === customer.id}
+                      isSelected={selectedCustomerId === customer.id || internalSelectedCustomerId === customer.id}
                     />
                   ))}
                 </div>
@@ -278,6 +359,7 @@ export const CustomerManagementInterface: React.FC<CustomerManagementInterfacePr
         isOpen={showCreateForm}
         onClose={() => setShowCreateForm(false)}
         onSuccess={handleCustomerCreated}
+        onSelectExisting={handleExistingCustomerSelect}
       />
 
       <CustomerDetailModal

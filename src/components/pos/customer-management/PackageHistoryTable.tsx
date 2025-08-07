@@ -18,7 +18,7 @@ interface PackageItem {
   uses_remaining: number;
   original_uses: number;
   used_hours: number;
-  status: 'active' | 'expired' | 'unused' | 'fully_used' | 'unlimited';
+  status: 'created' | 'active' | 'expired' | 'depleted';
   usage_percentage: number;
   employee_name?: string;
 }
@@ -31,7 +31,7 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
   const [allPackages, setAllPackages] = useState<PackageItem[]>([]);
   const [filteredPackages, setFilteredPackages] = useState<PackageItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'expired'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'created' | 'active' | 'expired'>('all');
   const { isTablet } = useResponsive();
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
       }
 
       try {
-        const response = await fetch(`/api/customers/${customerId}/packages`);
+        const response = await fetch(`/api/packages/customer/${customerId}?include_expired=true&include_used=true`);
         if (response.ok) {
           const data = await response.json();
           const packages = data.packages || [];
@@ -64,11 +64,14 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
     let filtered = allPackages;
     
     switch (activeFilter) {
+      case 'created':
+        filtered = allPackages.filter(pkg => pkg.status === 'created');
+        break;
       case 'active':
-        filtered = allPackages.filter(pkg => pkg.status === 'active' || pkg.status === 'unlimited' || pkg.status === 'unused');
+        filtered = allPackages.filter(pkg => pkg.status === 'active');
         break;
       case 'expired':
-        filtered = allPackages.filter(pkg => pkg.status === 'expired' || pkg.status === 'fully_used');
+        filtered = allPackages.filter(pkg => pkg.status === 'expired' || pkg.status === 'depleted');
         break;
       default:
         filtered = allPackages;
@@ -92,23 +95,21 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
 
   const getStatusBadge = (status: string, packageType: string) => {
     switch (status) {
+      case 'created':
+        return <Badge className="bg-blue-500 text-white">Created</Badge>;
       case 'active':
-        return <Badge className="bg-green-100 text-green-800 border-green-300">Active</Badge>;
-      case 'unlimited':
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-300">Unlimited</Badge>;
+        return <Badge className="bg-green-500 text-white">Active</Badge>;
       case 'expired':
-        return <Badge className="bg-red-100 text-red-800 border-red-300">Expired</Badge>;
-      case 'fully_used':
-        return <Badge className="bg-gray-100 text-gray-800 border-gray-300">Fully Used</Badge>;
-      case 'unused':
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">Unused</Badge>;
+        return <Badge className="bg-red-500 text-white">Expired</Badge>;
+      case 'depleted':
+        return <Badge className="bg-orange-500 text-white">Used Up</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   const isUnlimitedPackage = (pkg: PackageItem) => {
-    return pkg.package_type === 'Unlimited' || pkg.status === 'unlimited';
+    return pkg.package_type === 'Unlimited' || pkg.package_type === 'unlimited';
   };
 
   // Calculate used hours from remaining hours (used = total - remaining)
@@ -120,8 +121,9 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
   const getFilterCounts = () => {
     return {
       all: allPackages.length,
-      active: allPackages.filter(pkg => pkg.status === 'active' || pkg.status === 'unlimited' || pkg.status === 'unused').length,
-      expired: allPackages.filter(pkg => pkg.status === 'expired' || pkg.status === 'fully_used').length
+      created: allPackages.filter(pkg => pkg.status === 'created').length,
+      active: allPackages.filter(pkg => pkg.status === 'active').length,
+      expired: allPackages.filter(pkg => pkg.status === 'expired' || pkg.status === 'depleted').length
     };
   };
 
@@ -158,10 +160,21 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
             onClick={() => setActiveFilter('all')}
             className={cn(
               "transition-all",
-              activeFilter === 'all' && "bg-blue-600 hover:bg-blue-700"
+              activeFilter === 'all' && "bg-gray-600 hover:bg-gray-700"
             )}
           >
             All ({filterCounts.all})
+          </Button>
+          <Button
+            variant={activeFilter === 'created' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveFilter('created')}
+            className={cn(
+              "transition-all",
+              activeFilter === 'created' && "bg-blue-600 hover:bg-blue-700"
+            )}
+          >
+            Created ({filterCounts.created})
           </Button>
           <Button
             variant={activeFilter === 'active' ? 'default' : 'outline'}
@@ -277,20 +290,14 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
           <div className="space-y-3 p-4">
             {filteredPackages.map((pkg) => {
               const isExpired = pkg.status === 'expired';
-              const isFullyUsed = pkg.status === 'fully_used';
-              const isUnused = pkg.status === 'unused';
+              const isFullyUsed = pkg.status === 'depleted';
+              const isUnused = pkg.status === 'created';
               const isUnlimited = isUnlimitedPackage(pkg);
               
               return (
                 <div 
                   key={pkg.id}
-                  className={cn(
-                    "bg-white border rounded-lg p-4 transition-all hover:shadow-md",
-                    isExpired ? "border-red-200 bg-red-50" : 
-                    isFullyUsed ? "border-gray-200 bg-gray-50" :
-                    isUnused ? "border-yellow-200 bg-yellow-50" :
-                    isUnlimited ? "border-blue-200 bg-blue-50" : "border-green-200 bg-green-50"
-                  )}
+                  className="bg-white border border-gray-200 rounded-lg p-4 transition-all hover:shadow-md"
                 >
                   {/* Header Row */}
                   <div className="flex items-center justify-between mb-3">
@@ -320,12 +327,7 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
                       </div>
                       <div className="bg-gray-200 rounded-full h-2">
                         <div 
-                          className={cn(
-                            "h-full rounded-full transition-all",
-                            pkg.status === 'active' ? "bg-green-500" :
-                            pkg.status === 'expired' ? "bg-red-500" : 
-                            pkg.status === 'fully_used' ? "bg-gray-500" : "bg-blue-500"
-                          )}
+                          className="h-full bg-blue-600 rounded-full transition-all"
                           style={{ width: `${pkg.usage_percentage}%` }}
                         />
                       </div>
@@ -334,8 +336,8 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
 
                   {/* Unlimited Package Notice */}
                   {isUnlimited && (
-                    <div className="mb-4 p-2 bg-blue-100 rounded-lg border border-blue-200">
-                      <p className="text-sm text-blue-800 font-medium text-center">
+                    <div className="mb-4 p-2 bg-gray-100 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-700 font-medium text-center">
                         🎉 Unlimited Usage Package
                       </p>
                     </div>

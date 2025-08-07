@@ -31,6 +31,8 @@ export interface FormContextType {
   onSearchQueryChange: (query: string) => void;
   // Customer cache
   selectedCustomerCache: NewCustomer | null;
+  // Phone validation
+  onPhoneError?: (error: string) => void;
 }
 
 export const FormContext = createContext<FormContextType | null>(null);

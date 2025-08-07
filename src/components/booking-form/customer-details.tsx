@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CustomerSearch } from '@/components/package-form/customer-search'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,6 +39,8 @@ interface CustomerDetailsProps {
     customerName?: string
     phoneNumber?: string
   }
+  // Callback for phone validation error
+  onPhoneError?: (error: string) => void
 }
 
 export function CustomerDetails({ 
@@ -53,9 +55,11 @@ export function CustomerDetails({
   searchQuery,
   onSearchQueryChange,
   selectedCustomerCache,
-  error
+  error,
+  onPhoneError
 }: CustomerDetailsProps) {
   const [showCustomerDialog, setShowCustomerDialog] = useState(false)
+  const [phoneError, setPhoneError] = useState<string>('')
 
   const getSelectedCustomerDisplay = () => {
     if (!selectedCustomerId) return 'Select customer'
@@ -78,6 +82,54 @@ export function CustomerDetails({
     // Fallback
     return 'Customer selected'
   }
+
+  // Check for phone number duplicates (simplified - just validation)
+  const checkPhoneDuplicates = async (): Promise<void> => {
+    if (!phoneNumber || phoneNumber.length < 8) {
+      setPhoneError('');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/customers/search-duplicates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: customerName || 'temp',
+          primaryPhone: phoneNumber,
+          email: undefined
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Check for exact phone matches only
+        const exactPhoneMatch = (data.potentialDuplicates || []).find((dup: any) => 
+          dup.matchReasons && 
+          dup.matchReasons.some((reason: string) => reason.includes('Phone number match'))
+        );
+        
+        if (exactPhoneMatch) {
+          const errorMsg = 'This phone number is already registered to another customer';
+          setPhoneError(errorMsg);
+          onPhoneError?.(errorMsg);
+        } else {
+          setPhoneError('');
+          onPhoneError?.('');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking phone duplicates:', error);
+    }
+  };
+
+  // Auto-check for phone duplicates when phone number changes
+  useEffect(() => {
+    if (isNewCustomer) {
+      const timeoutId = setTimeout(checkPhoneDuplicates, 500); // Debounce
+      return () => clearTimeout(timeoutId);
+    }
+  }, [phoneNumber, isNewCustomer]);
 
   const mappedCustomers = customers.map(customer => ({
     id: customer.id, // Keep as string UUID
@@ -118,9 +170,10 @@ export function CustomerDetails({
               placeholder="Enter phone number"
               value={phoneNumber}
               onChange={(e) => onPhoneNumberChange(e.target.value)}
+              className={phoneError || error?.phoneNumber ? 'border-red-500' : ''}
             />
-            {error?.phoneNumber && (
-              <p className="text-sm text-red-500">{error.phoneNumber}</p>
+            {(phoneError || error?.phoneNumber) && (
+              <p className="text-sm text-red-500">{phoneError || error?.phoneNumber}</p>
             )}
           </div>
         </>

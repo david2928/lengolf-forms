@@ -206,15 +206,43 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
           </div>
         </div>
 
-        {/* Active Packages */}
-        {customer.activePackages > 0 && (
+        {/* Package Status Badges */}
+        {(customer.packageStatus.total > 0 || customer.activePackages > 0) && (
           <div className="mb-2">
-            <div className="flex items-center">
+            <div className="flex items-center flex-wrap gap-1">
               <Package className="h-3 w-3 mr-1 text-gray-400" />
-              <span className="text-xs text-gray-600">Active packages:</span>
-              <Badge variant="secondary" className="text-xs ml-1">
-                {customer.activePackages}
-              </Badge>
+              <span className="text-xs text-gray-600">Packages:</span>
+              
+              {/* Show new detailed badges if available */}
+              {customer.packageStatus.total > 0 ? (
+                <>
+                  {customer.packageStatus.created > 0 && (
+                    <Badge className="text-xs bg-blue-500 text-white">
+                      {customer.packageStatus.created} Created
+                    </Badge>
+                  )}
+                  {customer.packageStatus.active > 0 && (
+                    <Badge className="text-xs bg-green-500 text-white">
+                      {customer.packageStatus.active} Active
+                    </Badge>
+                  )}
+                  {customer.packageStatus.depleted > 0 && (
+                    <Badge className="text-xs bg-orange-500 text-white">
+                      {customer.packageStatus.depleted} Used Up
+                    </Badge>
+                  )}
+                  {customer.packageStatus.expired > 0 && (
+                    <Badge className="text-xs bg-red-500 text-white">
+                      {customer.packageStatus.expired} Expired
+                    </Badge>
+                  )}
+                </>
+              ) : (
+                /* Fallback to old format for backward compatibility */
+                <Badge variant="secondary" className="text-xs">
+                  {customer.activePackages}
+                </Badge>
+              )}
             </div>
           </div>
         )}

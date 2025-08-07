@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Phone, Mail, User, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ export interface QuickCustomerFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (customer: any) => void;
+  onSelectExisting?: (customer: any) => void;
   prefillData?: Partial<CreateCustomerData>;
 }
 
@@ -32,6 +33,7 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  onSelectExisting,
   prefillData = {}
 }) => {
   const { isTablet, isMobile } = useResponsive();
@@ -90,8 +92,15 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
     return Object.keys(errors).length === 0;
   };
 
-  // Check for duplicates
-  const checkDuplicates = async (): Promise<boolean> => {
+  // Check for duplicates - separate from form submission
+  const checkDuplicates = async (): Promise<void> => {
+    if (!formData.fullName || formData.fullName.length < 2 || 
+        !formData.primaryPhone || formData.primaryPhone.length < 8) {
+      setDuplicates([]);
+      setShowDuplicates(false);
+      return;
+    }
+
     try {
       const response = await fetch('/api/customers/search-duplicates', {
         method: 'POST',
@@ -105,18 +114,27 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
 
       if (response.ok) {
         const data = await response.json();
-        if (data.potentialDuplicates.length > 0) {
-          setDuplicates(data.potentialDuplicates);
-          setShowDuplicates(true);
-          return false; // Block creation
-        }
+        // Only show duplicates if there are high-confidence matches
+        const validDuplicates = (data.potentialDuplicates || []).filter((dup: any) => 
+          dup.customer && 
+          dup.customer.customer_name && 
+          dup.customer.customer_code &&
+          dup.matchScore > 0.85 // Only very high confidence matches
+        );
+        
+        setDuplicates(validDuplicates);
+        setShowDuplicates(validDuplicates.length > 0);
       }
-      return true; // No duplicates, proceed
     } catch (error) {
       console.error('Error checking duplicates:', error);
-      return true; // Proceed despite error
     }
   };
+
+  // Auto-check for duplicates when form data changes
+  useEffect(() => {
+    const timeoutId = setTimeout(checkDuplicates, 500); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [formData.fullName, formData.primaryPhone, formData.email]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -130,13 +148,6 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
     setError(null);
 
     try {
-      // Check for duplicates first
-      const canProceed = await checkDuplicates();
-      if (!canProceed) {
-        setLoading(false);
-        return;
-      }
-
       // Create customer
       const response = await fetch('/api/customers', {
         method: 'POST',
@@ -150,9 +161,14 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
         onSuccess(data.customer);
         handleClose();
       } else if (response.status === 409) {
-        // Handle duplicates returned from server
-        setDuplicates(data.duplicates || []);
-        setShowDuplicates(true);
+        // Handle duplicate phone number error from database constraint  
+        if (data.error_code === 'DUPLICATE_PHONE' || data.duplicate_customer) {
+          setError(`A customer with this phone number already exists - Customer: ${data.duplicate_customer?.customer_name || 'Unknown'} (${data.duplicate_customer?.customer_code || 'N/A'})`);
+        } else {
+          // Handle other duplicates
+          setDuplicates(data.duplicates || []);
+          setShowDuplicates(true);
+        }
       } else {
         setError(data.error || 'Failed to create customer');
       }
@@ -166,44 +182,25 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
 
   // Handle duplicate selection
   const handleSelectDuplicate = (duplicate: DuplicateCustomer) => {
-    // Use existing customer
-    onSuccess(duplicate.customer);
+    // Transform the duplicate customer data to match expected format
+    const customerData = {
+      ...duplicate.customer,
+      id: duplicate.customer.id,
+      customer_code: duplicate.customer.customer_code,
+      customer_name: duplicate.customer.customer_name,
+      contact_number: duplicate.customer.contact_number,
+      email: duplicate.customer.email
+    };
+    
+    // Use onSelectExisting for selecting duplicates, fallback to onSuccess if not provided
+    if (onSelectExisting) {
+      onSelectExisting(customerData);
+    } else {
+      onSuccess(customerData);
+    }
     handleClose();
   };
 
-  // Force create despite duplicates
-  const handleForceCreate = async () => {
-    setShowDuplicates(false);
-    
-    // Proceed with creation by adding a timestamp to make it unique
-    const modifiedData = {
-      ...formData,
-      notes: formData.notes 
-        ? `${formData.notes}\n\nCreated despite duplicates on ${new Date().toLocaleString()}`
-        : `Created despite duplicates on ${new Date().toLocaleString()}`
-    };
-
-    setLoading(true);
-    try {
-      const response = await fetch('/api/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(modifiedData)
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        onSuccess(data.customer);
-        handleClose();
-      } else {
-        setError(data.error || 'Failed to create customer');
-      }
-    } catch (error) {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Handle modal close
   const handleClose = () => {
@@ -256,71 +253,53 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
             isTablet ? "px-8 py-6" : "px-6 py-4"
           )}>
 
-        {/* Duplicate Warning */}
+        {/* Duplicate Warning - Exact same styling as admin form */}
         {showDuplicates && (
-          <Alert className="border-yellow-200 bg-yellow-50">
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            <AlertDescription>
-              <div className="space-y-3">
-                <p className="font-medium text-yellow-800">
-                  Potential duplicate customers found:
-                </p>
-                
-                <div className="space-y-2">
-                  {duplicates.map((duplicate, index) => (
-                    <Card key={index} className="p-3 border-yellow-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-sm">{duplicate.customer.customer_name}</p>
-                          <p className="text-xs text-gray-600">{duplicate.customer.contact_number}</p>
-                          <p className="text-xs text-gray-500">
-                            Code: {duplicate.customer.customer_code}
-                          </p>
-                          <div className="flex gap-1 mt-1">
-                            {duplicate.matchReasons.map((reason, i) => (
-                              <Badge key={i} variant="outline" className="text-xs">
-                                {reason}
-                              </Badge>
-                            ))}
+          <Alert className="border-orange-200 bg-orange-50">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800">
+              <div className="font-semibold mb-2">Similar customers found:</div>
+              <div className="space-y-2">
+                {duplicates.map((duplicate, index) => (
+                  <div key={duplicate.customer?.id || index} className="bg-white/50 p-3 rounded border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm text-gray-900">{duplicate.customer?.customer_name || 'Unknown'}</p>
+                        <p className="text-xs text-gray-600">{duplicate.customer?.contact_number || 'No phone'}</p>
+                        {duplicate.customer?.email && (
+                          <p className="text-xs text-gray-600">{duplicate.customer.email}</p>
+                        )}
+                        <p className="text-xs text-gray-500">Code: {duplicate.customer?.customer_code || 'N/A'}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {duplicate.matchScore && (
+                          <div className="text-xs bg-orange-200 px-2 py-1 rounded">
+                            {Math.round(duplicate.matchScore * 100)}% match
                           </div>
-                        </div>
+                        )}
                         <Button
                           size="sm"
                           onClick={() => handleSelectDuplicate(duplicate)}
-                          className="bg-green-600 hover:bg-green-700"
+                          variant="outline"
+                          className="text-xs"
                         >
-                          Use This
+                          Click to select
                         </Button>
                       </div>
-                    </Card>
-                  ))}
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowDuplicates(false)}
-                  >
-                    Go Back
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleForceCreate}
-                    disabled={loading}
-                    className="bg-orange-600 hover:bg-orange-700"
-                  >
-                    Create Anyway
-                  </Button>
-                </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 text-sm">
+                Please verify this is not a duplicate customer before proceeding.
               </div>
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Error Message */}
+        {/* Error Alert - Exact same styling as admin form */}
         {error && (
-          <Alert className="border-red-200 bg-red-50">
+          <Alert className="border-red-200 bg-red-50 mt-4">
             <AlertTriangle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-800">
               {error}

@@ -26,6 +26,31 @@ export async function POST(req: Request) {
       console.log('Creating new customer for booking:', bookingDataForDb.name);
       
       try {
+        // Check for exact phone number duplicates first (same as POS system)
+        const normalizedPhone = customerMappingService.normalizePhoneNumber(bookingDataForDb.phone_number);
+        
+        if (normalizedPhone) {
+          const { data: exactPhoneMatch, error } = await refacSupabaseAdmin
+            .from('customers')
+            .select('id, customer_code, customer_name, contact_number, email')
+            .eq('normalized_phone', normalizedPhone)
+            .eq('is_active', true)
+            .limit(1);
+
+          if (!error && exactPhoneMatch && exactPhoneMatch.length > 0) {
+            // Return error with duplicate customer information
+            return NextResponse.json({
+              success: false,
+              error: "A customer with this phone number already exists",
+              duplicate_customer: exactPhoneMatch[0],
+              phone_number: bookingDataForDb.phone_number,
+              normalized_phone: normalizedPhone,
+              suggestion: "Please check if this is the same customer or use a different phone number",
+              error_code: "DUPLICATE_PHONE"
+            }, { status: 409 });
+          }
+        }
+
         const { data: newCustomer, error: customerError } = await refacSupabaseAdmin
           .from('customers')
           .insert({
@@ -42,6 +67,16 @@ export async function POST(req: Request) {
 
         if (customerError) {
           console.error('Failed to create new customer:', customerError);
+          // Handle unique constraint violation for phone numbers (same as POS system)
+          if (customerError.code === '23505' && customerError.message.includes('normalized_phone')) {
+            return NextResponse.json({
+              success: false,
+              error: "A customer with this phone number already exists",
+              phone_number: bookingDataForDb.phone_number,
+              suggestion: "Please check if this is the same customer or use a different phone number",
+              error_code: "DUPLICATE_PHONE"
+            }, { status: 409 });
+          }
           throw new Error(`Customer creation failed: ${customerError.message}`);
         }
 

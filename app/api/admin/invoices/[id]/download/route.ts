@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
-import { getServerSession } from 'next-auth'
+import { getDevSession } from '@/lib/dev-session'
 import { authOptions } from '@/lib/auth-config'
 
 export async function GET(
@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getDevSession(authOptions, request)
     if (!session?.user?.isAdmin) {
       console.error('Unauthorized access attempt to download PDF')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -48,15 +48,18 @@ export async function GET(
     })
 
     if (response.ok) {
-      const htmlContent = await response.text()
-      return new NextResponse(htmlContent, {
+      const fileBuffer = await response.arrayBuffer()
+      const contentType = response.headers.get('content-type') || 'application/pdf'
+      const fileExtension = contentType.includes('html') ? 'html' : 'pdf'
+      
+      return new NextResponse(fileBuffer, {
         headers: {
-          'Content-Type': 'text/html',
-          'Content-Disposition': `attachment; filename="${invoice.invoice_number}.html"`
+          'Content-Type': contentType,
+          'Content-Disposition': `attachment; filename="${invoice.invoice_number}.${fileExtension}"`
         }
       })
     } else {
-      return NextResponse.json({ error: 'Failed to generate PDF' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to generate invoice file' }, { status: 500 })
     }
 
   } catch (error) {

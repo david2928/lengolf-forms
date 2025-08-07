@@ -62,12 +62,15 @@ interface CustomerFormData {
 }
 
 interface DuplicateCustomer {
-  id: string;
-  customer_code: string;
-  customer_name: string;
-  contact_number: string;
-  email?: string;
-  similarity?: number;
+  customer: {
+    id: string;
+    customer_code: string;
+    customer_name: string;
+    contact_number: string;
+    email?: string;
+  };
+  matchScore: number;
+  matchReasons?: string[];
 }
 
 // Form validation schema
@@ -185,7 +188,7 @@ export function CustomerFormModal({
   useEffect(() => {
     const checkDuplicates = async () => {
       if (!open || isEditing) return; // Only check for new customers
-      if (!watchedPhone || watchedPhone.length < 8) return;
+      if (!watchedPhone || watchedPhone.length < 8 || !watchedName || watchedName.length < 2) return;
 
       try {
         const response = await fetch('/api/customers/search-duplicates', {
@@ -200,7 +203,14 @@ export function CustomerFormModal({
 
         if (response.ok) {
           const data = await response.json();
-          setDuplicateWarning(data.potentialDuplicates || []);
+          // Only show warnings if we have high confidence matches with proper data
+          const validDuplicates = (data.potentialDuplicates || []).filter((dup: any) => 
+            dup.customer && 
+            dup.customer.customer_name && 
+            dup.customer.customer_code &&
+            dup.matchScore > 0.85 // Only very high confidence matches
+          );
+          setDuplicateWarning(validDuplicates);
         }
       } catch (error) {
         console.error('Error checking duplicates:', error);
@@ -236,10 +246,17 @@ export function CustomerFormModal({
       if (!response.ok) {
         const result = await response.json().catch(() => ({ error: 'Unknown error occurred' }));
         
-        if (response.status === 409 && result.duplicates) {
-          // Handle duplicate warning
-          setDuplicateWarning(result.duplicates);
-          setSubmitError(result.error || 'Potential duplicates found');
+        if (response.status === 409) {
+          // Handle duplicate phone number error
+          if (result.error_code === 'DUPLICATE_PHONE' || result.duplicate_customer) {
+            setSubmitError(`${result.error || 'Duplicate phone number detected'} - Customer: ${result.duplicate_customer?.customer_name || 'Unknown'} (${result.duplicate_customer?.customer_code || 'N/A'})`);
+          } else if (result.duplicates) {
+            // Handle other duplicate warnings
+            setDuplicateWarning(result.duplicates);
+            setSubmitError(result.error || 'Potential duplicates found');
+          } else {
+            setSubmitError(result.error || 'Duplicate customer detected');
+          }
         } else {
           setSubmitError(result.error || `Failed to ${isEditing ? 'update' : 'create'} customer`);
         }
@@ -255,11 +272,18 @@ export function CustomerFormModal({
         ? `Customer "${data.fullName}" updated successfully!`
         : `Customer "${data.fullName}" created successfully!`;
       
+      let description = isEditing 
+        ? 'Customer information has been updated in the system.'
+        : 'New customer has been added to the system.';
+
+      // Add warning about similar customers if present
+      if (result.warnings?.similar_customers?.length > 0) {
+        description += ` Warning: ${result.warnings.similar_customers.length} similar customer(s) found - please verify this is not a duplicate.`;
+      }
+      
       toast.success(successMessage, {
-        description: isEditing 
-          ? 'Customer information has been updated in the system.'
-          : 'New customer has been added to the system.',
-        duration: 5000,
+        description: description,
+        duration: result.warnings ? 8000 : 5000, // Longer duration if there are warnings
       });
 
       // Refresh customer data if editing
@@ -363,7 +387,7 @@ export function CustomerFormModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:max-w-lg md:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
@@ -377,15 +401,30 @@ export function CustomerFormModal({
             <Alert className="border-orange-200 bg-orange-50">
               <AlertTriangle className="h-4 w-4 text-orange-600" />
               <AlertDescription className="text-orange-800">
-                <div className="font-semibold mb-2">Potential duplicates found:</div>
-                {duplicateWarning.map((dup, index) => (
-                  <div key={dup.id} className="text-sm">
-                    {index + 1}. {dup.customer_name} - {dup.contact_number} 
-                    {dup.email && ` - ${dup.email}`} ({dup.customer_code})
-                  </div>
-                ))}
+                <div className="font-semibold mb-2">Similar customers found:</div>
+                <div className="space-y-2">
+                  {duplicateWarning.map((dup, index) => (
+                    <div key={dup.customer?.id || index} className="bg-white/50 p-3 rounded border">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm text-gray-900">{dup.customer?.customer_name || 'Unknown'}</p>
+                          <p className="text-xs text-gray-600">{dup.customer?.contact_number || 'No phone'}</p>
+                          {dup.customer?.email && (
+                            <p className="text-xs text-gray-600">{dup.customer.email}</p>
+                          )}
+                          <p className="text-xs text-gray-500">Code: {dup.customer?.customer_code || 'N/A'}</p>
+                        </div>
+                        {dup.matchScore && (
+                          <div className="text-xs bg-orange-200 px-2 py-1 rounded">
+                            {Math.round(dup.matchScore * 100)}% match
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 <div className="mt-2 text-sm">
-                  Please review these existing customers before proceeding.
+                  Please verify this is not a duplicate customer before proceeding.
                 </div>
               </AlertDescription>
             </Alert>

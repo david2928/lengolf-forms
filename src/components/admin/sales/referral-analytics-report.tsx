@@ -275,10 +275,9 @@ export default function ReferralAnalyticsReport() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Referral Analytics Report</h2>
+    <div className="space-y-6">
+      {/* Controls */}
+      <div className="flex justify-end items-center">
         <div className="flex items-center space-x-2">
           <Button
             variant={analysisType === 'monthly' ? 'default' : 'outline'}
@@ -584,10 +583,22 @@ export default function ReferralAnalyticsReport() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {Object.keys(data.summary.sourceBreakdown)
-                      .filter(source => source !== 'Unknown')
-                      .sort((a, b) => data.summary.sourceBreakdown[b].count - data.summary.sourceBreakdown[a].count)
-                      .slice(0, 6) // Show top 6 sources
+                    {(() => {
+                      // Only show these specific sources in this order
+                      const desiredSources = ['Google', 'Friends', 'Facebook', 'Mall Advertisement', 'Instagram', 'TikTok', 'Other'];
+                      
+                      // Filter to only sources that have data in the trends
+                      const trends = analysisType === 'weekly' ? data.summary.weeklyTrends : data.summary.monthlyTrends;
+                      const sourcesWithData = new Set<string>();
+                      Object.values(trends || {}).forEach((periodData: any) => {
+                        Object.keys(periodData.sources).forEach(source => {
+                          sourcesWithData.add(source);
+                        });
+                      });
+                      
+                      // Return only desired sources that have data
+                      return desiredSources.filter(source => sourcesWithData.has(source));
+                    })()
                       .map((source, index) => (
                         <tr key={source} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                           <td className="px-4 py-4 text-sm font-medium text-gray-900 sticky left-0 bg-inherit z-10">

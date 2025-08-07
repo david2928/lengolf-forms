@@ -87,7 +87,18 @@ export async function GET(
       : null;
 
     // Get package summary using the enhanced packages API
-    let packageSummary: { activePackages: number; totalPackages: number; lastPackagePurchase: number | null } = { 
+    let packageSummary: { 
+      activePackages: number; 
+      totalPackages: number; 
+      lastPackagePurchase: number | null;
+      packageStatus?: {
+        created: number;
+        active: number;
+        expired: number;
+        depleted: number;
+        total: number;
+      };
+    } = { 
       activePackages: 0, 
       totalPackages: 0, 
       lastPackagePurchase: null 
@@ -97,7 +108,14 @@ export async function GET(
       if (packagesResponse.ok) {
         const packagesData = await packagesResponse.json();
         packageSummary = {
-          activePackages: packagesData.summary?.active || 0,
+          activePackages: (packagesData.summary?.active || 0) + (packagesData.summary?.created || 0), // Keep backward compatibility
+          packageStatus: {
+            created: packagesData.summary?.created || 0,
+            active: packagesData.summary?.active || 0,
+            expired: packagesData.summary?.expired || 0,
+            depleted: packagesData.summary?.depleted || 0,
+            total: packagesData.summary?.total || 0
+          },
           totalPackages: packagesData.summary?.total || 0,
           lastPackagePurchase: packagesData.packages && packagesData.packages.length > 0
             ? Math.max(...packagesData.packages.map((p: any) => new Date(p.purchase_date).getTime()))

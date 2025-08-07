@@ -1,3 +1,5 @@
+import puppeteer from 'puppeteer'
+
 export interface InvoiceData {
   invoice_number: string
   invoice_date: string
@@ -337,4 +339,212 @@ export function generateInvoiceHTML(invoiceData: InvoiceData): string {
 </body>
 </html>
   `
+}
+
+/**
+ * Generate a PDF from invoice data using a simplified Puppeteer approach
+ * @param invoiceData - Invoice data to generate PDF from
+ * @returns Buffer containing the PDF
+ */
+export async function generateInvoicePDFSimple(invoiceData: InvoiceData): Promise<Buffer> {
+  const html = generateInvoiceHTML(invoiceData)
+  
+  console.log('Starting simple PDF generation for invoice:', invoiceData.invoice_number)
+  
+  let browser = null
+  try {
+    // Very simple browser launch for Windows
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    })
+    
+    const page = await browser.newPage()
+    await page.setContent(html)
+    
+    // Generate PDF with minimal options
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true
+    })
+    
+    console.log('Simple PDF generated successfully, size:', pdfBuffer.length, 'bytes')
+    return Buffer.from(pdfBuffer)
+    
+  } catch (error) {
+    console.error('Simple PDF generation failed:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      invoice_number: invoiceData.invoice_number
+    })
+    throw error
+  } finally {
+    if (browser) {
+      try {
+        await browser.close()
+      } catch (e) {
+        console.error('Error closing browser:', e)
+      }
+    }
+  }
+}
+
+/**
+ * Generate a PDF from invoice data using Puppeteer (backup method)
+ * @param invoiceData - Invoice data to generate PDF from
+ * @returns Buffer containing the PDF
+ */
+export async function generateInvoicePDFPuppeteer(invoiceData: InvoiceData): Promise<Buffer> {
+  const html = generateInvoiceHTML(invoiceData)
+  
+  console.log('Starting PDF generation with Puppeteer for invoice:', invoiceData.invoice_number)
+  
+  let browser
+  let retries = 3
+  
+  while (retries > 0) {
+    try {
+      // Launch browser with Windows-optimized configuration
+      console.log(`Launching Puppeteer browser (attempt ${4 - retries}/3)...`)
+      browser = await puppeteer.launch({
+        headless: true,
+        pipe: true, // Critical for Windows - uses pipe instead of WebSocket
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--hide-scrollbars',
+          '--mute-audio'
+        ],
+        timeout: 60000 // Increased timeout for Windows
+      })
+      
+      console.log('Browser launched successfully')
+      const page = await browser.newPage()
+      
+      // Set content with longer timeout for Windows
+      console.log('Setting page content...')
+      await page.setContent(html, { 
+        waitUntil: ['domcontentloaded', 'networkidle0'],
+        timeout: 30000 // Increased for Windows stability
+      })
+      
+      console.log('Generating PDF...')
+      // Generate PDF with Windows-optimized settings
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px',
+        },
+        displayHeaderFooter: false,
+        timeout: 60000, // Longer timeout for large documents
+        preferCSSPageSize: false
+      })
+      
+      console.log('PDF generated successfully, size:', pdfBuffer.length, 'bytes')
+      await browser.close()
+      console.log('Browser closed successfully')
+      return Buffer.from(pdfBuffer)
+      
+    } catch (error) {
+      console.error(`Puppeteer PDF generation failed (attempt ${4 - retries}/3):`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        invoice_number: invoiceData.invoice_number
+      })
+      
+      if (browser) {
+        try {
+          await browser.close()
+          console.log('Browser closed after error')
+        } catch (closeError) {
+          console.error('Error closing browser after failure:', closeError)
+        }
+        browser = null
+      }
+      
+      retries--
+      
+      if (retries === 0) {
+        // All retries exhausted, throw the error for fallback handling
+        throw error
+      }
+      
+      // Wait before retry to allow system recovery
+      console.log(`Waiting 2 seconds before retry...`)
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
+  }
+  
+  // This should never be reached, but TypeScript requires it
+  throw new Error('Unexpected end of PDF generation function')
+}
+
+/**
+ * Fallback function to generate a PDF-like HTML file when Puppeteer fails
+ * This creates an HTML file that looks like a PDF and can be printed as one
+ */
+export function generateInvoiceHTMLAsPDF(invoiceData: InvoiceData): Buffer {
+  console.log('Using HTML fallback for PDF generation for invoice:', invoiceData.invoice_number)
+  
+  const html = generateInvoiceHTML(invoiceData)
+  
+  // Add CSS for better PDF-like appearance and print optimization
+  const pdfLikeHTML = html.replace(
+    '</head>',
+    `
+    <style>
+      /* Additional PDF-like styling */
+      @media all {
+        body { 
+          background: white !important; 
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .invoice-container {
+          box-shadow: 0 0 20px rgba(0,0,0,0.1);
+          border: 1px solid #ddd;
+        }
+      }
+      
+      @media print {
+        body { margin: 0; padding: 0; }
+        .invoice-container { 
+          box-shadow: none; 
+          border: none;
+          max-width: none;
+        }
+      }
+    </style>
+    </head>`
+  )
+  
+  return Buffer.from(pdfLikeHTML, 'utf-8')
+}
+
+/**
+ * Main function to generate invoice PDF - using HTML-only approach for reliability
+ * Returns properly formatted HTML that browsers can print/save as PDF
+ */
+export async function generateInvoicePDFWithFallback(invoiceData: InvoiceData): Promise<{buffer: Buffer, contentType: string, filename: string}> {
+  console.log('Generating invoice PDF using HTML-only approach for:', invoiceData.invoice_number)
+  
+  // For now, skip Puppeteer entirely and use HTML approach
+  // This ensures downloads work and users can print to PDF if needed
+  const htmlBuffer = generateInvoiceHTMLAsPDF(invoiceData)
+  return {
+    buffer: htmlBuffer,
+    contentType: 'text/html',
+    filename: `${invoiceData.invoice_number}.html`
+  }
 } 

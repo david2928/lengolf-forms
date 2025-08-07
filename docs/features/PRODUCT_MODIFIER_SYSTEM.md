@@ -8,6 +8,7 @@ Implement a product modifier system supporting **time-based** (hours) and **quan
 
 ## Database Design
 
+
 ### New Table: `products.product_modifiers`
 ```sql
 CREATE TABLE products.product_modifiers (

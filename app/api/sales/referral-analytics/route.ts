@@ -148,10 +148,18 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // Filter data by requested date range
+        const startMonth = new Date(startDate).toISOString().substring(0, 7); // YYYY-MM format
+        const endMonth = new Date(endDate).toISOString().substring(0, 7);
+        
+        const filteredMonthlyData = monthlyData.filter((item: any) => 
+          item.month >= startMonth && item.month <= endMonth
+        );
+
         result = {
           analysisType: 'monthly',
-          data: monthlyData,
-          summary: generateMonthlySummary(monthlyData)
+          data: filteredMonthlyData,
+          summary: generateMonthlySummary(filteredMonthlyData)
         };
         break;
     }
@@ -262,7 +270,8 @@ function generateMonthlySummary(data: any[]) {
       totalCustomers > 0 ? (sourceBreakdown[source].count / totalCustomers) * 100 : 0;
   });
 
-  const monthlyTrends = data.reduce((acc, item) => {
+  // Create raw monthly trends first
+  const rawMonthlyTrends = data.reduce((acc, item) => {
     if (!acc[item.month]) {
       acc[item.month] = { total: 0, sources: {} };
     }
@@ -270,6 +279,30 @@ function generateMonthlySummary(data: any[]) {
     acc[item.month].sources[item.referral_source] = (acc[item.month].sources[item.referral_source] || 0) + item.customer_count;
     return acc;
   }, {} as Record<string, { total: number; sources: Record<string, number> }>);
+
+  // Create extrapolated monthly trends (distribute Unknown sources)
+  const monthlyTrends: Record<string, { total: number; sources: Record<string, number> }> = {};
+  
+  Object.entries(rawMonthlyTrends).forEach(([month, monthData]) => {
+    const monthDataTyped = monthData as { sources: Record<string, number>; total: number };
+    const monthSources = { ...monthDataTyped.sources };
+    const extrapolatedSources = extrapolateUnknownReferrals(
+      Object.fromEntries(
+        Object.entries(monthSources).map(([source, count]) => [
+          source, 
+          { count: count as number, percentage: ((count as number) / monthDataTyped.total) * 100 }
+        ])
+      ),
+      monthDataTyped.total
+    );
+    
+    monthlyTrends[month] = {
+      total: monthDataTyped.total,
+      sources: Object.fromEntries(
+        Object.entries(extrapolatedSources).map(([source, info]) => [source, info.count])
+      )
+    };
+  });
 
   // Data source breakdown - show cutoff methodology
   const dataSourceBreakdown = data.reduce((acc, item) => {

@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
-import { getServerSession } from 'next-auth'
+import { getDevSession } from '@/lib/dev-session'
 import { authOptions } from '@/lib/auth-config'
-import { generateInvoiceHTML, InvoiceData } from '@/lib/pdf-generator'
+import { generateInvoicePDFWithFallback, InvoiceData } from '@/lib/pdf-generator'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getDevSession(authOptions, request)
     if (!session?.user?.isAdmin) {
       console.error('Unauthorized access attempt to generate PDF')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -99,14 +99,11 @@ export async function POST(
       }
     }
 
-    // Generate HTML for PDF
-    const htmlContent = generateInvoiceHTML(invoiceData)
-
-    // For now, return the HTML content
-    // In production, you would use a service like Puppeteer to convert HTML to PDF
-    // and store it in cloud storage
+    // Generate PDF with fallback
+    const result = await generateInvoicePDFWithFallback(invoiceData)
     
-    const pdfPath = `invoices/${invoice.invoice_number}_${Date.now()}.html`
+    const fileExtension = result.contentType === 'application/pdf' ? 'pdf' : 'html'
+    const pdfPath = `invoices/${invoice.invoice_number}_${Date.now()}.${fileExtension}`
     
     // Update invoice with PDF path
     const { error: updateError } = await refacSupabaseAdmin
@@ -127,18 +124,19 @@ export async function POST(
       })
     }
 
-    console.log('Successfully generated PDF for invoice:', {
+    console.log('Successfully generated invoice file:', {
       invoice_id: id,
       invoice_number: invoice.invoice_number,
       pdf_path: pdfPath,
+      content_type: result.contentType,
       timestamp: new Date().toISOString()
     })
 
-    // Return HTML content as PDF preview (for development)
-    return new NextResponse(htmlContent, {
+    // Return the generated file (PDF or HTML fallback)
+    return new NextResponse(result.buffer, {
       headers: {
-        'Content-Type': 'text/html',
-        'Content-Disposition': `inline; filename="${invoice.invoice_number}.html"`
+        'Content-Type': result.contentType,
+        'Content-Disposition': `inline; filename="${result.filename}"`
       }
     })
 

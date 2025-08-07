@@ -32,7 +32,7 @@ export function validateStep1(formData: FormData) {
   return errors
 }
 
-export function validateStep2(formData: FormData) {
+export function validateStep2(formData: FormData, phoneError?: string) {
   const errors: Record<string, string> = {}
 
   if (!formData.isNewCustomer) {
@@ -50,6 +50,13 @@ export function validateStep2(formData: FormData) {
   } else {
     if (!formData.customerName) {
       errors.customerName = 'Please enter customer name'
+    }
+    if (!formData.customerPhone) {
+      errors.customerPhone = 'Please enter customer phone number'
+    }
+    // Block progression if there's a phone validation error
+    if (phoneError) {
+      errors.customerPhone = phoneError
     }
   }
 
