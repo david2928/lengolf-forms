@@ -36,6 +36,7 @@ export interface POSProduct {
   description?: string;
   posDisplayColor?: string;
   imageUrl?: string;
+  hasModifiers: boolean;
   modifiers: any[];
   isActive: boolean;
   relevanceScore?: number;

@@ -53,6 +53,20 @@ export async function GET(request: NextRequest) {
     const today = targetDate || new Date().toLocaleDateString('en-CA');
     const todayDayOfWeek = new Date(today).getDay();
     
+    // Create precise booking type filter to prevent data mixing between coaches
+    const getBookingTypeFilter = (coachDisplayName: string) => {
+      switch (coachDisplayName) {
+        case 'Boss':
+          return 'Coaching (Boss)'; // Exact match to exclude "Coaching (Boss - Ratchavin)"
+        case 'Ratchavin':
+          return 'Coaching (Boss - Ratchavin)'; // Exact match for Ratchavin's bookings
+        case 'Noon':
+          return 'Coaching (Noon)'; // Exact match for Noon's bookings
+        default:
+          return `Coaching (${coachDisplayName})`; // Fallback for other coaches
+      }
+    };
+
     // Batch fetch all availability data
     const [weeklySchedulesResult, dateOverridesResult, recurringBlocksResult, todayBookingsResult, allStudentBookingsResult] = await Promise.all([
       supabase.from('coach_weekly_schedules').select('*').in('coach_id', coachIds),
@@ -69,9 +83,10 @@ export async function GET(request: NextRequest) {
       const dateOverride = dateOverridesResult.data?.find(d => d.coach_id === coach.id);
       const recurringBlocks = recurringBlocksResult.data?.filter(b => b.coach_id === coach.id) || [];
       
-      // Get today's bookings for this coach (all bookings first)
+      // Get today's bookings for this coach using precise filtering
+      const coachBookingType = getBookingTypeFilter(coach.coach_display_name || coach.coach_name);
       const allTodayBookings = todayBookingsResult.data?.filter(b => 
-        b.booking_type && b.booking_type.toLowerCase().includes((coach.coach_display_name || coach.coach_name).toLowerCase())
+        b.booking_type === coachBookingType
       ) || [];
       
       // Determine availability based on priority: override > weekly schedule
@@ -126,9 +141,9 @@ export async function GET(request: NextRequest) {
         nextAvailable = getNextAvailableSlotReal(weeklySchedule, recurringBlocks, todayBookings);
       }
 
-      // Get unique students count from all bookings (not just today)
+      // Get unique students count from all bookings (not just today) using precise filtering
       const allStudentBookings = allStudentBookingsResult.data?.filter(b => 
-        b.booking_type && b.booking_type.toLowerCase().includes((coach.coach_display_name || coach.coach_name).toLowerCase())
+        b.booking_type === coachBookingType
       ) || [];
       const uniqueStudents = new Set(allStudentBookings.map(b => b.name)).size;
       
@@ -210,11 +225,11 @@ export async function GET(request: NextRequest) {
       weeklyAvailability[dayString] = {};
       
       for (const coach of coaches || []) {
-        // Get bookings for this coach on this day (initially all bookings)
+        // Get bookings for this coach on this day using precise filtering
+        const coachBookingType = getBookingTypeFilter(coach.coach_display_name || coach.coach_name);
         const allDayBookings = weekBookings?.filter(b => 
           b.date === dayString && 
-          b.booking_type && 
-          b.booking_type.toLowerCase().includes((coach.coach_display_name || coach.coach_name).toLowerCase())
+          b.booking_type === coachBookingType
         ) || [];
 
         // Get coach's availability settings for this day

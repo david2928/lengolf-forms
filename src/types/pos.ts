@@ -379,6 +379,26 @@ export interface Product {
 }
 
 // Enhanced Product types for POS Interface
+export interface POSProductModifier {
+  id: string;
+  name: string;
+  price: number;
+  isDefault: boolean;
+  displayOrder: number;
+  modifierType: 'time' | 'quantity';
+  // Extended properties for modifier system
+  isRequired: boolean;
+  required: boolean;
+  priceType: 'fixed' | 'percentage';
+  maxSelections: number;
+  description?: string;
+  options?: Array<{
+    id: string;
+    name: string;
+    priceAdjustment: number;
+  }>;
+}
+
 export interface POSProduct {
   id: string;
   name: string;
@@ -390,13 +410,19 @@ export interface POSProduct {
   description?: string;
   posDisplayColor?: string;
   imageUrl?: string;
-  modifiers: any[];
+  hasModifiers: boolean;
+  modifiers: POSProductModifier[];
   isActive: boolean;
   relevanceScore?: number;
   // Custom product fields
   isCustomProduct?: boolean;
   customCreatedBy?: string;
   showInStaffUi?: boolean;
+}
+
+// Extended version with modifier details for components
+export interface POSProductWithModifiers extends Omit<POSProduct, 'modifiers'> {
+  modifiers?: ProductModifier[];
 }
 
 // Custom Product Creation Data
@@ -521,16 +547,21 @@ export interface OrderItem {
 }
 
 export interface SelectedModifier {
-  modifierId: string;
-  modifierName: string;
+  modifier_id: string;
+  modifier_name: string;
+  modifier_price: number;
+  modifier_type: 'time' | 'quantity';
+  // Also support these alternate property names for compatibility
+  modifierId?: string;
+  modifierName?: string;
   price: number;
   priceType: 'fixed' | 'percentage';
   quantity: number;
-  selectedOptions: {
+  selectedOptions: Array<{
     optionId: string;
     optionName: string;
     priceAdjustment: number;
-  }[];
+  }>;
 }
 
 export interface Order {

@@ -189,10 +189,14 @@ export const ProductModifierModal: React.FC<ProductModifierModalProps> = ({
       if (!modifier) return;
 
       selectedModifiers.push({
+        modifier_id: modifier.id,
+        modifier_name: modifier.name,
+        modifier_price: modifier.price,
+        modifier_type: modifier.modifierType,
         modifierId: modifier.id,
         modifierName: modifier.name,
         price: modifier.price,
-        priceType: modifier.priceType,
+        priceType: modifier.priceType || 'fixed',
         quantity: selection.quantity,
         selectedOptions: selection.options.map(optionId => {
           const option = modifier.options?.find((o: any) => o.id === optionId);

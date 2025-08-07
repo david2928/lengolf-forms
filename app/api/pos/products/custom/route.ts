@@ -140,6 +140,7 @@ export async function POST(request: NextRequest) {
       description: newProduct.description,
       posDisplayColor: newProduct.pos_display_color,
       imageUrl: undefined, // Custom products don't have images
+      hasModifiers: false, // Custom products don't have modifiers
       modifiers: [], // Custom products don't have modifiers
       isActive: newProduct.is_active,
       isCustomProduct: newProduct.is_custom_product,

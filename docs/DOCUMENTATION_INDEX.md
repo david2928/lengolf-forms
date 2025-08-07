@@ -32,6 +32,7 @@ This documentation covers the entire Lengolf Forms ecosystem, including:
 - **[POS Data Pipeline](./features/POS_DATA_PIPELINE.md)** - Complete data flow from external POS systems through staging to production tables, ETL functions, and BigQuery compatibility
 - **[Product Mapping System](./features/PRODUCT_MAPPING_SYSTEM.md)** - Administrative tool for mapping unmapped POS products to catalog products with bulk operations, statistics dashboard, and ETL integration
 - **[POS Tablet Enhancements](./features/pos/POS_TABLET_ENHANCEMENTS.md)** - Touch-friendly discount tooltips and swipe navigation optimized for 686x991 tablet resolution
+- **[Product Modifier System](./features/pos/PRODUCT_MODIFIER_SYSTEM.md)** - Complete variable pricing system with time-based and quantity-based modifiers, tablet-optimized POS integration, and admin management interface
 - **[Referral Analytics System](./features/REFERRAL_ANALYTICS_SYSTEM.md)** - Comprehensive referral tracking system with weekly/monthly analytics, multi-source data integration, booking source tracking, and real-time dashboard visualization
 - **[Native Availability System](./features/NATIVE_AVAILABILITY_SYSTEM.md)** - Supabase-native availability checking with real-time updates, 10-40x performance improvement, and zero external dependencies
 - **[Coaching System](./features/COACHING_SYSTEM.md)** - Comprehensive golf coaching management with coach dashboards, admin booking assistant, availability management, student tracking, and earnings analytics
@@ -142,7 +143,7 @@ During the comprehensive system analysis, the following areas were thoroughly ex
 **Focus**: Current system state documentation  
 
 ### ✅ What's Fully Documented
-- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management system, invoice management, transaction management, coaching system, time clock system, staff management system, staff scheduling system, product mapping system, referral analytics system, B2C lead feedback system, cash check system
+- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management system, invoice management, transaction management, coaching system, time clock system, staff management system, staff scheduling system, product mapping system, product modifier system, referral analytics system, B2C lead feedback system, cash check system
 - **Technical Systems**: Authentication, database schema, API endpoints, POS data pipeline, coaching system technical architecture, referral data processing
 - **Frontend Systems**: Component architecture, styling guides, design system patterns, UI consistency analysis, referral analytics dashboard components
 - **Integrations**: LINE messaging, Google Calendar, CRM synchronization  

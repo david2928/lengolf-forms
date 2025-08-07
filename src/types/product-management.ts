@@ -38,6 +38,9 @@ export interface Product {
   unit?: string;
   is_sim_usage: boolean;
   
+  // Modifiers
+  has_modifiers: boolean;
+  
   // Status & Display
   is_active: boolean;
   display_order: number;
@@ -57,6 +60,21 @@ export interface Product {
   updated_at: string;
   created_by?: string;
   updated_by?: string;
+}
+
+export interface ProductModifier {
+  id: string;
+  product_id: string;
+  modifier_type: 'time' | 'quantity';
+  name: string;
+  price: number;
+  cost_multiplier: number;
+  is_default: boolean;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
 }
 
 export interface PriceHistory {
@@ -85,6 +103,13 @@ export interface ProductWithCategory extends Product {
   category?: Category;
   category_path?: string; // e.g., "Drink > Bottle beer"
   price_history?: PriceHistory[];
+  modifiers?: ProductModifier[];
+}
+
+export interface ProductWithModifiers extends Product {
+  modifiers: ProductModifier[];
+  modifier_type?: 'time' | 'quantity';
+  default_modifier?: ProductModifier;
 }
 
 export interface CategoryHierarchy {
@@ -111,6 +136,16 @@ export interface ProductFormData {
   show_in_staff_ui?: boolean;
   display_order?: number;
   pos_display_color?: string;
+  has_modifiers?: boolean;
+}
+
+export interface ModifierFormData {
+  name: string;
+  price: number;
+  cost_multiplier: number;
+  modifier_type: 'time' | 'quantity';
+  is_default?: boolean;
+  display_order?: number;
 }
 
 export interface CategoryFormData {

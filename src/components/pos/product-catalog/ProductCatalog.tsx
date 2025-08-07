@@ -6,7 +6,7 @@ import { POSProduct, POSCategory } from '@/types/pos';
 import { CategoryTabs } from './CategoryTabs';
 import { CategorySubTabs } from './CategorySubTabs';
 import { ProductGrid } from './ProductGrid';
-import { ProductModifierModal } from './ProductModifierModal';
+import { ModifierSelectionModal } from './ModifierSelectionModal';
 import { CustomProductModal } from './CustomProductModal';
 import { Search, Filter, Grid, List, ArrowLeft, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -251,41 +251,74 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
 
   // Handle product selection
   const handleProductSelect = useCallback((product: POSProduct) => {
-    // Check if product has modifiers that require selection
-    if (product.modifiers && product.modifiers.length > 0) {
-      const requiredModifiers = product.modifiers.filter(mod => mod.required);
-      
-      if (requiredModifiers.length > 0) {
-        // Open modifier modal for products with required modifiers
-        setSelectedProduct(product);
-        setShowModifierModal(true);
-        return;
-      }
+    // Check if product has modifiers
+    if (product.hasModifiers && product.modifiers && product.modifiers.length > 0) {
+      // Open modifier modal for products with modifiers
+      setSelectedProduct(product);
+      setShowModifierModal(true);
+      return;
     }
 
-    // Add product directly if no required modifiers
+    // Add product directly if no modifiers
     onProductSelect(product, [], '');
   }, [onProductSelect]);
 
-  // Handle product quick add (bypass modifiers)
+  // Handle product quick add (bypass modifiers or use default)
   const handleProductQuickAdd = useCallback((product: POSProduct) => {
-    if (onProductQuickAdd) {
-      onProductQuickAdd(product);
+    if (product.hasModifiers && product.modifiers.length > 0) {
+      // For products with modifiers, use default modifier for quick add
+      const defaultModifier = product.modifiers.find(m => m.isDefault) || product.modifiers[0];
+      const modifierData = [{
+        modifier_id: defaultModifier.id,
+        modifier_name: defaultModifier.name,
+        modifier_price: defaultModifier.price,
+        modifier_type: defaultModifier.modifierType
+      }];
+      onProductSelect(product, modifierData, '');
     } else {
-      // Fallback to regular selection without modifiers
-      onProductSelect(product, [], '');
+      // Regular quick add for products without modifiers
+      if (onProductQuickAdd) {
+        onProductQuickAdd(product);
+      } else {
+        onProductSelect(product, [], '');
+      }
     }
   }, [onProductQuickAdd, onProductSelect]);
 
   // Handle modifier modal completion
   const handleModifierComplete = useCallback((
     product: POSProduct,
-    selectedModifiers: any[],
-    notes: string
+    selectedModifier: any
   ) => {
     setShowModifierModal(false);
     setSelectedProduct(null);
-    onProductSelect(product, selectedModifiers, notes);
+    
+    const modifierData = [{
+      modifier_id: selectedModifier.id,
+      modifier_name: selectedModifier.name,
+      modifier_price: selectedModifier.price,
+      modifier_type: selectedModifier.modifierType
+    }];
+    
+    onProductSelect(product, modifierData, '');
+  }, [onProductSelect]);
+
+  // Handle modifier modal quick add
+  const handleModifierQuickAdd = useCallback((
+    product: POSProduct,
+    defaultModifier: any
+  ) => {
+    setShowModifierModal(false);
+    setSelectedProduct(null);
+    
+    const modifierData = [{
+      modifier_id: defaultModifier.id,
+      modifier_name: defaultModifier.name,
+      modifier_price: defaultModifier.price,
+      modifier_type: defaultModifier.modifierType
+    }];
+    
+    onProductSelect(product, modifierData, '');
   }, [onProductSelect]);
 
   // Handle modifier modal cancel
@@ -656,14 +689,13 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
       )}
 
       {/* Product Modifier Modal */}
-      {selectedProduct && (
-        <ProductModifierModal
-          product={selectedProduct}
-          isOpen={showModifierModal}
-          onComplete={handleModifierComplete}
-          onCancel={handleModifierCancel}
-        />
-      )}
+      <ModifierSelectionModal
+        product={selectedProduct}
+        isOpen={showModifierModal}
+        onComplete={handleModifierComplete}
+        onQuickAdd={handleModifierQuickAdd}
+        onCancel={handleModifierCancel}
+      />
 
       {/* Custom Product Modal */}
       <CustomProductModal

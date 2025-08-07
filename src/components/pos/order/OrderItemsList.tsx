@@ -89,15 +89,7 @@ export const OrderItemsList: React.FC<OrderItemsListProps> = ({
     if (!item.modifiers || item.modifiers.length === 0) return '';
     
     return item.modifiers.map(modifier => {
-      let text = modifier.modifierName;
-      if (modifier.quantity > 1) {
-        text += ` x${modifier.quantity}`;
-      }
-      if (modifier.selectedOptions.length > 0) {
-        const options = modifier.selectedOptions.map(opt => opt.optionName).join(', ');
-        text += ` (${options})`;
-      }
-      return text;
+      return modifier.modifier_name;
     }).join(', ');
   };
 
@@ -245,19 +237,11 @@ export const OrderItemsList: React.FC<OrderItemsListProps> = ({
                               {item.modifiers.map((modifier, idx) => (
                                 <div key={idx} className="flex items-center justify-between text-xs">
                                   <span className="text-gray-600">
-                                    • {modifier.modifierName}
-                                    {modifier.quantity > 1 && ` (×${modifier.quantity})`}
-                                    {modifier.selectedOptions.length > 0 && (
-                                      <span className="text-gray-500">
-                                        : {modifier.selectedOptions.map(opt => opt.optionName).join(', ')}
-                                      </span>
-                                    )}
+                                    • {modifier.modifier_name}
+                                    <span className="text-gray-500 ml-1">({modifier.modifier_type})</span>
                                   </span>
                                   <span className="text-gray-600">
-                                    {modifier.priceType === 'fixed' 
-                                      ? formatCurrency(modifier.price * modifier.quantity)
-                                      : `${modifier.price}%`
-                                    }
+                                    {formatCurrency(modifier.modifier_price)}
                                   </span>
                                 </div>
                               ))}

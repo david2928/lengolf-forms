@@ -35,6 +35,7 @@ export default function ProductManagementPage() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
+  const [loadingProductDetails, setLoadingProductDetails] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | undefined>(undefined);
   const [preselectedCategoryId, setPreselectedCategoryId] = useState<string | undefined>(undefined);
   
@@ -79,6 +80,43 @@ export default function ProductManagementPage() {
     isLoading: analyticsLoading,
     revalidate: refreshAnalytics
   } = useProductAnalytics();
+
+  // Function to fetch product details with modifiers
+  const fetchProductDetails = async (productId: string) => {
+    setLoadingProductDetails(true);
+    try {
+      const response = await fetch(`/api/admin/products/${productId}`);
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch product details');
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error('Error fetching product details:', error);
+      throw error;
+    } finally {
+      setLoadingProductDetails(false);
+    }
+  };
+
+  // Handler for editing products - fetches full details including modifiers
+  const handleEditProduct = async (product: Product) => {
+    try {
+      // Clear existing editing product first to ensure fresh state
+      setEditingProduct(undefined);
+      // Always fetch fresh data, even for the same product
+      const productWithDetails = await fetchProductDetails(product.id);
+      setEditingProduct(productWithDetails);
+      setShowProductForm(true);
+    } catch (error) {
+      console.error('Failed to load product details:', error);
+      // Fallback to basic product data if fetch fails
+      setEditingProduct(product);
+      setShowProductForm(true);
+    }
+  };
 
   // Handlers
   const handleCreateProduct = async (data: ProductFormData) => {
@@ -461,14 +499,8 @@ export default function ProductManagementPage() {
                 isPartiallySelected={selectedProducts.length > 0 && selectedProducts.length < products.length}
                 sort={sort}
                 onSortChange={updateSort}
-                onProductEdit={(product) => {
-                  setEditingProduct(product);
-                  setShowProductForm(true);
-                }}
-                onProductView={(product) => {
-                  setEditingProduct(product);
-                  setShowProductForm(true);
-                }}
+                onProductEdit={handleEditProduct}
+                onProductView={handleEditProduct}
                 isLoading={productsLoading}
               />
             </CardContent>
@@ -699,7 +731,7 @@ export default function ProductManagementPage() {
           // Refresh products when form closes (handles both success and cancel)
           refreshProducts();
         }}
-        isLoading={productsLoading}
+        isLoading={productsLoading || loadingProductDetails}
       />
 
       {/* Category Form Dialog */}

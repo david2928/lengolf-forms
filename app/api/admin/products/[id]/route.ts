@@ -27,6 +27,19 @@ export async function GET(
           parent:parent_id (
             name
           )
+        ),
+        modifiers:product_modifiers!left (
+          id,
+          name,
+          price,
+          cost_multiplier,
+          modifier_type,
+          is_default,
+          is_active,
+          display_order,
+          created_at,
+          updated_at,
+          created_by
         )
       `)
       .eq('id', params.id)

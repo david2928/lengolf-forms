@@ -129,23 +129,32 @@ export async function POST(
         );
       }
 
-      const unitPrice = parseFloat(product.price);
+      // Use the unit price that was already calculated on the frontend
+      // This handles both regular products and products with modifiers
+      const unitPrice = item.totalPrice !== undefined ? (item.totalPrice / item.quantity) : parseFloat(product.price);
+      
       // Validate unitPrice is a valid number
       if (isNaN(unitPrice) || unitPrice < 0) {
-        console.error('Invalid product price:', product.price, 'for product:', item.productId);
+        console.error('Invalid calculated price:', unitPrice, 'for product:', item.productId);
         return NextResponse.json(
-          { error: `Invalid product price for ${product.name}` },
+          { error: `Invalid price calculation for ${product.name}` },
           { status: 500 }
         );
       }
 
-      // Use discounted total price if available, otherwise calculate normally
+      // Use the total price that was calculated on the frontend
       const totalPrice = item.totalPrice !== undefined ? item.totalPrice : (unitPrice * item.quantity);
       calculatedSubtotal += totalPrice;
 
+      // Create product name with modifier info for display
+      let productDisplayName = product.name;
+      if (item.modifiers && item.modifiers.length > 0) {
+        productDisplayName = `${product.name} (${item.modifiers[0].modifier_name})`;
+      }
+
       enrichedOrderItems.push({
         productId: item.productId,
-        productName: product.name,
+        productName: productDisplayName,
         quantity: item.quantity,
         unitPrice: unitPrice,
         totalPrice: totalPrice,
@@ -189,6 +198,7 @@ export async function POST(
     const orderItemsData = enrichedOrderItems.map((item: EnrichedOrderItem) => ({
       order_id: newOrder.id,
       product_id: item.productId,
+      product_name: item.productName, // Store the display name with modifier info
       quantity: item.quantity,
       unit_price: item.unitPrice,
       total_price: item.totalPrice,

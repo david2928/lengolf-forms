@@ -17,7 +17,20 @@ interface DatabaseProduct {
   is_active: boolean;
   show_in_staff_ui: boolean;
   pos_display_color: string;
+  has_modifiers: boolean;
   categories: DatabaseCategory;
+  product_modifiers?: DatabaseModifier[];
+}
+
+interface DatabaseModifier {
+  id: string;
+  name: string;
+  price: number;
+  cost_multiplier: number;
+  modifier_type: string;
+  is_default: boolean;
+  is_active: boolean;
+  display_order: number;
 }
 
 interface DatabaseCategory {
@@ -37,7 +50,15 @@ interface TransformedProduct {
   description: string;
   posDisplayColor: string;
   imageUrl: null;
-  modifiers: any[];
+  hasModifiers: boolean;
+  modifiers: {
+    id: string;
+    name: string;
+    price: number;
+    isDefault: boolean;
+    displayOrder: number;
+    modifierType: string;
+  }[];
   isActive: boolean;
 }
 
@@ -74,7 +95,7 @@ export async function GET(request: NextRequest) {
 
     const offset = (page - 1) * limit;
 
-    // Build query for POS-optimized product retrieval
+    // Build query for POS-optimized product retrieval with modifiers
     let query = refacSupabaseAdmin
       .schema('products')
       .from('products')
@@ -89,10 +110,21 @@ export async function GET(request: NextRequest) {
         is_active,
         show_in_staff_ui,
         pos_display_color,
+        has_modifiers,
         categories!inner(
           id,
           name,
           parent_id
+        ),
+        product_modifiers!left(
+          id,
+          name,
+          price,
+          cost_multiplier,
+          modifier_type,
+          is_default,
+          display_order,
+          is_active
         )
       `)
       .eq('is_active', true)
@@ -123,6 +155,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
     }
 
+
     // Get category hierarchy for navigation
     const { data: categories, error: categoriesError } = await refacSupabaseAdmin
       .schema('products')
@@ -151,9 +184,22 @@ export async function GET(request: NextRequest) {
 
     const categoryHierarchy = buildCategoryTree(null);
 
-    // Transform products for POS interface - use pure database hierarchy
+    // Transform products for POS interface with modifiers
     const transformedProducts = products?.map((product: DatabaseProduct): TransformedProduct => {
       const category = product.categories;
+      
+      // Transform modifiers for POS interface - filter active only
+      const transformedModifiers = (product.product_modifiers || [])
+        .filter(modifier => modifier.is_active === true)
+        .sort((a, b) => a.display_order - b.display_order || a.name.localeCompare(b.name))
+        .map(modifier => ({
+          id: modifier.id,
+          name: modifier.name,
+          price: modifier.price,
+          isDefault: modifier.is_default,
+          displayOrder: modifier.display_order,
+          modifierType: modifier.modifier_type
+        }));
       
       return {
         id: product.id,
@@ -166,7 +212,8 @@ export async function GET(request: NextRequest) {
         description: product.description,
         posDisplayColor: product.pos_display_color,
         imageUrl: null, // No image_url in database
-        modifiers: [], // No modifiers in database yet
+        hasModifiers: product.has_modifiers || false,
+        modifiers: transformedModifiers,
         isActive: product.is_active
       };
     }) || [];

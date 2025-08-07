@@ -81,7 +81,9 @@
       "Bash(for i in {1..5})",
       "Bash(do echo \"Request $i:\")",
       "Bash(time curl:*)",
-      "mcp__playwright__browser_type"
+      "mcp__playwright__browser_type",
+      "Bash(del test-receipt-fix.js test-exact-receipt.js)",
+      "mcp__playwright__browser_install"
     ],
     "deny": []
   },

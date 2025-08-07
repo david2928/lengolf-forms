@@ -145,9 +145,7 @@ export async function POST(
       .schema('pos')
       .from('orders')
       .update({
-        total_amount: orderData.total_amount - amountToRemove,
-        subtotal_amount: (orderData.total_amount - amountToRemove) / 1.07, // Remove tax
-        tax_amount: (orderData.total_amount - amountToRemove) * 0.07
+        total_amount: orderData.total_amount - amountToRemove
       })
       .eq('id', orderData.id);
 

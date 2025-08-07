@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { POSProduct } from '@/types/pos';
-import { Plus, Star, AlertCircle, Package } from 'lucide-react';
+import { Plus, Star, AlertCircle, Package, Clock, Package2, ChevronRight } from 'lucide-react';
 
 export interface ProductCardProps {
   product: POSProduct;
@@ -87,6 +87,37 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const availability = getAvailabilityStatus();
 
+  // Get modifier info
+  const getModifierInfo = () => {
+    if (!product.hasModifiers || !product.modifiers.length) {
+      return null;
+    }
+
+    const defaultModifier = product.modifiers.find(m => m.isDefault) || product.modifiers[0];
+    const modifierType = product.modifiers[0]?.modifierType;
+    
+    return {
+      defaultModifier,
+      modifierType,
+      icon: modifierType === 'time' ? Clock : Package2,
+      count: product.modifiers.length
+    };
+  };
+
+  const modifierInfo = getModifierInfo();
+
+  // Handle quick add for products with modifiers
+  const handleQuickAddWithModifiers = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (modifierInfo?.defaultModifier) {
+      // For products with modifiers, quick add uses the default modifier
+      onQuickAdd?.(product);
+    } else {
+      // For products without modifiers, regular quick add
+      onQuickAdd?.(product);
+    }
+  };
+
   return (
     <div
       className={`
@@ -97,9 +128,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         min-h-[120px] min-w-[140px] sm:min-h-[160px] sm:min-w-[180px]
         ${!product.isActive ? 'opacity-50' : ''}
         ${className}
+        relative
       `}
       onClick={handleCardClick}
+      data-product-id={product.id}
     >
+      {/* Modifier Indicator */}
+      {modifierInfo && (
+        <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1">
+          <modifierInfo.icon className="h-3 w-3" />
+        </div>
+      )}
+
       {/* Product Name */}
       <div className="text-sm sm:text-base font-semibold text-slate-900 mb-2 leading-tight h-10 sm:h-12 overflow-hidden">
         <div className="line-clamp-2">
@@ -107,31 +147,77 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
       </div>
       
-      {/* Price */}
-      <div className="text-lg sm:text-xl font-bold text-blue-600 mb-3">
-        {formatPrice(product.price)}
+      {/* Price Display */}
+      <div className="mb-3">
+        {modifierInfo ? (
+          <div className="text-lg sm:text-xl font-bold text-blue-600">
+            From {formatPrice(modifierInfo.defaultModifier.price)}
+          </div>
+        ) : (
+          <div className="text-lg sm:text-xl font-bold text-blue-600">
+            {formatPrice(product.price)}
+          </div>
+        )}
       </div>
       
-      {product.unit && (
+      {product.unit && !modifierInfo && (
         <div className="text-xs sm:text-sm text-slate-500 mb-3">
           per {product.unit}
         </div>
       )}
 
-      {/* Quick Add Button - Larger for tablets */}
-      {onQuickAdd && product.isActive && (
-        <button
-          onClick={handleQuickAdd}
-          className="
-            bg-blue-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg 
-            text-sm sm:text-base font-medium
-            hover:bg-blue-700 transition-colors w-full
-            active:scale-95 mt-auto
-            min-h-[40px] sm:min-h-[48px]
-          "
-        >
-          Add
-        </button>
+      {/* Action Buttons */}
+      {product.isActive && (
+        <div className="mt-auto w-full">
+          {modifierInfo && onQuickAdd ? (
+            // Products with modifiers: horizontal layout to match single button height
+            <div className="flex gap-2">
+              <button
+                onClick={handleQuickAddWithModifiers}
+                className="
+                  bg-green-600 text-white px-2 py-2 sm:px-3 sm:py-3 rounded-lg 
+                  text-xs sm:text-sm font-medium
+                  hover:bg-green-700 transition-colors
+                  active:scale-95
+                  min-h-[40px] sm:min-h-[48px]
+                  flex items-center justify-center flex-1
+                "
+              >
+                1 Hour
+              </button>
+              
+              <button
+                onClick={handleCardClick}
+                className="
+                  bg-blue-600 text-white px-2 py-2 sm:px-3 sm:py-3 rounded-lg 
+                  text-xs sm:text-sm font-medium
+                  hover:bg-blue-700 transition-colors
+                  active:scale-95
+                  min-h-[40px] sm:min-h-[48px]
+                  flex items-center justify-center gap-1 flex-1
+                "
+              >
+                More
+                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
+              </button>
+            </div>
+          ) : (
+            // Products without modifiers: single button
+            <button
+              onClick={handleQuickAdd}
+              className="
+                bg-blue-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg 
+                text-sm sm:text-base font-medium
+                hover:bg-blue-700 transition-colors w-full
+                active:scale-95
+                min-h-[40px] sm:min-h-[48px]
+                flex items-center justify-center gap-2
+              "
+            >
+              Add
+            </button>
+          )}
+        </div>
       )}
       
       {/* Status indicator for inactive products */}

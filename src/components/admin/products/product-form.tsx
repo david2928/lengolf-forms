@@ -40,8 +40,10 @@ import {
   ProductFormData, 
   Category,
   PRODUCT_UNITS,
-  ProductUnit
+  ProductUnit,
+  ProductModifier
 } from '@/types/product-management';
+import { ProductModifierManager } from './product-modifier-manager';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 
@@ -59,6 +61,10 @@ interface FormData extends ProductFormData {
   // Additional form-specific fields for validation
 }
 
+interface ExtendedProduct extends Product {
+  modifiers?: ProductModifier[];
+}
+
 export function ProductForm({
   product,
   categories,
@@ -72,6 +78,11 @@ export function ProductForm({
     margin: number;
     profit: number;
   } | null>(null);
+
+  // Modifier state
+  const [modifiers, setModifiers] = useState<ProductModifier[]>([]);
+  const [modifierType, setModifierType] = useState<'time' | 'quantity' | null>(null);
+  const [hasModifiers, setHasModifiers] = useState(false);
 
   const isEditMode = !!product;
   const subCategories = categories.filter(c => c.parent_id);
@@ -97,7 +108,8 @@ export function ProductForm({
       is_sim_usage: false,
       is_active: true,
       display_order: 0,
-      pos_display_color: ''
+      pos_display_color: '',
+      has_modifiers: false
     },
     mode: 'onChange'
   });
@@ -128,6 +140,7 @@ export function ProductForm({
   useEffect(() => {
     if (isOpen) {
       if (product) {
+        const extendedProduct = product as ExtendedProduct;
         reset({
           name: product.name,
           category_id: product.category_id,
@@ -140,8 +153,19 @@ export function ProductForm({
           is_sim_usage: product.is_sim_usage,
           is_active: product.is_active,
           display_order: product.display_order,
-          pos_display_color: product.pos_display_color || ''
+          pos_display_color: product.pos_display_color || '',
+          has_modifiers: product.has_modifiers || false
         });
+        
+        // Set modifier state
+        setHasModifiers(product.has_modifiers || false);
+        if (extendedProduct.modifiers) {
+          setModifiers(extendedProduct.modifiers);
+          setModifierType(extendedProduct.modifiers.length > 0 ? extendedProduct.modifiers[0].modifier_type : null);
+        } else {
+          setModifiers([]);
+          setModifierType(null);
+        }
       } else {
         reset({
           name: '',
@@ -155,8 +179,14 @@ export function ProductForm({
           is_sim_usage: false,
           is_active: true,
           display_order: 0,
-          pos_display_color: ''
+          pos_display_color: '',
+          has_modifiers: false
         });
+        
+        // Reset modifier state
+        setHasModifiers(false);
+        setModifiers([]);
+        setModifierType(null);
       }
     }
   }, [isOpen, product, preselectedCategoryId, reset]);
@@ -168,10 +198,14 @@ export function ProductForm({
         ...data,
         price: parseFloat(data.price.toString()),
         cost: data.cost ? parseFloat(data.cost.toString()) : undefined,
-        display_order: data.display_order ? parseInt(data.display_order.toString()) : undefined
+        display_order: data.display_order ? parseInt(data.display_order.toString()) : undefined,
+        has_modifiers: hasModifiers
       };
 
       await onSubmit(formattedData);
+      
+      // TODO: Save modifiers separately when product is saved
+      // This will be handled by the parent component that calls the API
       
       toast({
         title: isEditMode ? "Product updated" : "Product created",
@@ -383,6 +417,20 @@ export function ProductForm({
                   )}
                 </CardContent>
               </Card>
+
+              {/* Product Modifiers */}
+              <ProductModifierManager
+                productId={product?.id}
+                productCost={parseFloat(watchedCost?.toString() || '0')}
+                modifiers={modifiers}
+                modifierType={modifierType}
+                onModifiersChange={(newModifiers, newModifierType) => {
+                  setModifiers(newModifiers);
+                  setModifierType(newModifierType);
+                }}
+                hasModifiers={hasModifiers}
+                onHasModifiersChange={setHasModifiers}
+              />
             </div>
 
             {/* Right Column - Settings & Preview */}

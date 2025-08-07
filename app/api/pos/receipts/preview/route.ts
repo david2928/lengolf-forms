@@ -88,7 +88,9 @@ export async function POST(request: NextRequest) {
     const previewData = {
       receiptNumber: transaction.receiptNumber,
       items: (order.order_items || []).map((item: any) => ({
-        name: productMap.get(item.product_id) || 'Unknown Item',
+        name: item.modifiers && item.modifiers.length > 0 
+          ? `${productMap.get(item.product_id) || 'Unknown Item'} (${item.modifiers[0].modifier_name})`
+          : productMap.get(item.product_id) || 'Unknown Item',
         price: item.unit_price || 0,
         qty: item.quantity || 1,
         notes: item.notes

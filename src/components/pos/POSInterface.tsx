@@ -162,13 +162,22 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
 
   // Product selection handlers
   const handleProductSelect = (product: POSProduct, modifiers: SelectedModifier[] = [], notes: string = '') => {
+    // Calculate modifier-adjusted price
+    const modifierPrice = modifiers.reduce((total, modifier) => total + modifier.modifier_price, 0);
+    const finalPrice = modifierPrice > 0 ? modifierPrice : product.price; // Use modifier price if available, otherwise base price
+    
+    // Create product name with modifier info for display
+    const productDisplayName = modifiers.length > 0 
+      ? `${product.name} (${modifiers[0].modifier_name})`
+      : product.name;
+    
     const newItem: OrderItem = {
       id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       productId: product.id,
-      productName: product.name,
+      productName: productDisplayName,
       quantity: 1,
-      unitPrice: product.price,
-      totalPrice: product.price,
+      unitPrice: finalPrice,
+      totalPrice: finalPrice,
       modifiers,
       notes,
       categoryId: product.categoryId,

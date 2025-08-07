@@ -127,7 +127,9 @@ export async function GET(
       return {
         id: item.id,
         productId: item.product_id,
-        productName: product?.name || 'Unknown Product',
+        productName: item.modifiers && item.modifiers.length > 0 
+          ? `${product?.name || 'Unknown Product'} (${item.modifiers[0].modifier_name})`
+          : product?.name || 'Unknown Product',
         categoryId: product?.category_id || null,
         categoryName: product?.categories?.name || 'Unknown Category',
         quantity: item.quantity,
