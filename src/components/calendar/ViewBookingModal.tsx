@@ -207,156 +207,258 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Booking Details
-            {isPastBooking && (
-              <Badge variant="secondary" className="ml-2">
-                Past Booking
-              </Badge>
-            )}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className={`focus:outline-none flex flex-col ${
+        'max-w-full max-h-full h-screen w-screen m-0 p-0 rounded-none md:max-w-lg md:max-h-[80vh] md:h-auto md:w-auto md:m-auto md:p-0 md:rounded-lg'
+      } [&>button]:hidden`}>
+        {/* Accessibility Components - visually hidden */}
+        <DialogTitle className="sr-only">
+          Booking Details - {currentBooking?.id}
+        </DialogTitle>
 
-        {isLoadingBooking ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-sm text-muted-foreground">Loading latest booking details...</div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-          {/* Customer Information */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold text-primary">
-                {currentBooking.customer?.customer_name || currentBooking.name}
-              </h3>
-              {(currentBooking.customer?.customer_code || currentBooking.customer_code) && (
-                <span className="text-sm text-muted-foreground">
-                  ({currentBooking.customer?.customer_code || currentBooking.customer_code})
-                </span>
-              )}
-            </div>
-            
-            <div className="grid grid-cols-1 gap-3">
-              {/* Booking ID for past currentBookings */}
-              {isPastBooking && currentBooking.id && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Hash className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-mono text-muted-foreground">{currentBooking.id}</span>
+        {/* Mobile Header */}
+        <div className="bg-gray-50 border-b border-gray-200 px-6 py-5 md:hidden relative">
+          <div className="flex items-center justify-between">
+            {/* Booking Info */}
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-gray-900">
+                Booking Details
+              </h2>
+              {currentBooking && (
+                <div className="text-sm text-gray-600 flex items-center gap-2">
+                  <span>{currentBooking.customer?.customer_name || currentBooking.name}</span>
+                  {isPastBooking && (
+                    <Badge variant="secondary" className="text-xs">
+                      Past
+                    </Badge>
+                  )}
+                  {isCancelled && (
+                    <Badge variant="destructive" className="text-xs">
+                      Cancelled
+                    </Badge>
+                  )}
                 </div>
               )}
-              
-              {currentBooking.phone_number && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <a 
-                    href={`tel:${formatPhoneNumber(currentBooking.phone_number).tel}`}
-                    className="text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    {formatPhoneNumber(currentBooking.phone_number).display}
-                  </a>
-                </div>
-              )}
-              
-              {currentBooking.email && !shouldHideEmail(currentBooking.email) && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <a 
-                    href={`mailto:${currentBooking.email}`}
-                    className="text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    {currentBooking.email}
-                  </a>
-                </div>
-              )}
-              
-              <div className="flex items-center gap-2 text-sm">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span>{currentBooking.number_of_people} {currentBooking.number_of_people === 1 ? 'person' : 'people'}</span>
-              </div>
             </div>
-          </div>
 
-          {/* Booking Details */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span>{formatDisplayDate(currentBooking.date)}</span>
-            </div>
-            
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span>{currentBooking.start_time} - {endTime} ({currentBooking.duration}h)</span>
-            </div>
-            
-            {currentBooking.bay && (
-              <div className="flex items-center gap-2 text-sm">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span>{currentBooking.bay}</span>
-              </div>
-            )}
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="w-10 h-10 flex items-center justify-center text-gray-700 bg-white/80 hover:bg-white rounded-lg shadow-sm hover:shadow-md transition-all"
+            >
+              <X className="w-6 h-6" />
+            </button>
           </div>
+        </div>
 
-          {/* Booking Type & Package */}
-          {(currentBooking.booking_type || currentBooking.package_name) && (
-            <div className="space-y-2">
-              {currentBooking.booking_type && (
+        {/* Desktop Header */}
+        <div className="hidden md:block">
+          <div className="bg-gray-50 border-b border-gray-200 px-6 py-5">
+            <div className="flex items-center justify-between">
+              {/* Booking Info */}
+              <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{currentBooking.booking_type}</Badge>
+                  <Calendar className="h-5 w-5" />
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Booking Details
+                  </h2>
+                  {isPastBooking && (
+                    <Badge variant="secondary">
+                      Past Booking
+                    </Badge>
+                  )}
+                  {isCancelled && (
+                    <Badge variant="destructive">
+                      Cancelled
+                    </Badge>
+                  )}
                 </div>
-              )}
-              
-              {currentBooking.package_name && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                  <span>{currentBooking.package_name}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Customer Notes */}
-          {currentBooking.customer_notes && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span>Notes</span>
+                {currentBooking && (
+                  <div className="text-sm text-gray-600">
+                    {currentBooking.customer?.customer_name || currentBooking.name}
+                  </div>
+                )}
               </div>
-              <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
-                {currentBooking.customer_notes}
-              </p>
-            </div>
-          )}
-        </div>
-        )}
 
-        {/* Action Buttons */}
-        {!isLoadingBooking && (
-        <div className="flex justify-end gap-2 pt-4">
-          <Button onClick={handleOpenConfirmationDialog} variant="secondary" size="sm">
-            <MessageCircle className="h-4 w-4 mr-1" />
-            Show Confirmation
-          </Button>
-          {!isCancelled && (
-            <>
-              <Button onClick={handleOpenEditModal} variant="default" size="sm">
-                <Edit className="h-4 w-4 mr-1" />
-                Edit
-              </Button>
-              {!isPastBooking && (
-                <Button onClick={handleOpenCancelModal} variant="destructive" size="sm">
-                  <X className="h-4 w-4 mr-1" />
-                  Cancel
-                </Button>
-              )}
-            </>
-          )}
-          <Button onClick={onClose} variant="outline">
-            Close
-          </Button>
+              {/* Close Button */}
+              <button
+                onClick={onClose}
+                className="w-10 h-10 flex items-center justify-center text-gray-700 bg-white/80 hover:bg-white rounded-lg shadow-sm hover:shadow-md transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
         </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 md:px-6 md:space-y-6">
+          {isLoadingBooking ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-500">Loading...</span>
+            </div>
+          ) : (
+            currentBooking && (
+              <>
+                {/* Booking ID - Always show */}
+                {currentBooking.id && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Hash className="h-4 w-4 text-gray-500" />
+                      <span className="text-gray-600">Booking ID:</span>
+                      <span className="font-mono text-gray-900 font-medium">{currentBooking.id}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Customer Information */}
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-gray-900">Customer Information</h3>
+                  
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-semibold text-gray-900">
+                        {currentBooking.customer?.customer_name || currentBooking.name}
+                      </span>
+                      {(currentBooking.customer?.customer_code || currentBooking.customer_code) && (
+                        <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded">
+                          {currentBooking.customer?.customer_code || currentBooking.customer_code}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {currentBooking.phone_number && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-4 w-4 text-gray-500" />
+                        <a 
+                          href={`tel:${formatPhoneNumber(currentBooking.phone_number).tel}`}
+                          className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                        >
+                          {formatPhoneNumber(currentBooking.phone_number).display}
+                        </a>
+                      </div>
+                    )}
+                    
+                    {currentBooking.email && !shouldHideEmail(currentBooking.email) && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail className="h-4 w-4 text-gray-500" />
+                        <a 
+                          href={`mailto:${currentBooking.email}`}
+                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          {currentBooking.email}
+                        </a>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <span className="text-gray-900">{currentBooking.number_of_people} {currentBooking.number_of_people === 1 ? 'person' : 'people'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Booking Details */}
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-gray-900">Booking Details</h3>
+                  
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <span className="text-gray-600">Date:</span>
+                      <span className="text-gray-900 font-medium">{formatDisplayDate(currentBooking.date)}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-sm">
+                      <Clock className="h-4 w-4 text-gray-500" />
+                      <span className="text-gray-600">Time:</span>
+                      <span className="text-gray-900 font-medium">{currentBooking.start_time} - {endTime} ({currentBooking.duration}h)</span>
+                    </div>
+                    
+                    {currentBooking.bay && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin className="h-4 w-4 text-gray-500" />
+                        <span className="text-gray-600">Bay:</span>
+                        <span className="text-gray-900 font-medium">{currentBooking.bay}</span>
+                      </div>
+                    )}
+
+                    {currentBooking.booking_type && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-600">Type:</span>
+                        <Badge variant="outline">{currentBooking.booking_type}</Badge>
+                      </div>
+                    )}
+                    
+                    {currentBooking.package_name && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Package className="h-4 w-4 text-gray-500" />
+                        <span className="text-gray-600">Package:</span>
+                        <span className="text-gray-900 font-medium">{currentBooking.package_name}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Customer Notes */}
+                {currentBooking.customer_notes && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-gray-500" />
+                      <h3 className="text-lg font-semibold text-gray-900">Notes</h3>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-gray-900 whitespace-pre-wrap">
+                        {currentBooking.customer_notes}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          )}
+        </div>
+
+        {/* Fixed Bottom Action Bar */}
+        {!isLoadingBooking && currentBooking && (
+          <div className="bg-white border-t px-4 py-4 space-y-3 flex-shrink-0 md:px-6">
+            <div className="flex flex-col gap-3 md:flex-row">
+              <Button 
+                onClick={handleOpenConfirmationDialog} 
+                variant="outline" 
+                size="lg"
+                className="w-full h-12 font-semibold text-sm md:flex-1"
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Show Confirmation</span>
+                <span className="sm:hidden">Confirmation</span>
+              </Button>
+              {!isCancelled && (
+                <>
+                  <Button 
+                    onClick={handleOpenEditModal} 
+                    variant="default" 
+                    size="lg"
+                    className="w-full h-12 font-semibold text-sm md:flex-1"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  {!isPastBooking && (
+                    <Button 
+                      onClick={handleOpenCancelModal} 
+                      variant="outline" 
+                      size="lg"
+                      className="w-full h-12 font-semibold text-sm text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400 md:flex-1"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         )}
       </DialogContent>
 

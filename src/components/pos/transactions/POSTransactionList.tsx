@@ -111,9 +111,9 @@ export const POSTransactionList: React.FC<POSTransactionListProps> = ({ onRegist
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
-      <div className="flex-1 flex flex-col px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-        <div className="flex-1 flex flex-col max-w-7xl mx-auto w-full space-y-6">
+    <div className="h-full flex flex-col bg-gray-50 min-h-0">
+      <div className="flex-1 flex flex-col px-4 py-4 sm:px-6 sm:py-6 lg:px-8 min-h-0">
+        <div className="flex-1 flex flex-col max-w-7xl mx-auto w-full space-y-6 min-h-0">
           
           {/* Filters - removed header as requested */}
           <div className="space-y-4">
@@ -151,9 +151,9 @@ export const POSTransactionList: React.FC<POSTransactionListProps> = ({ onRegist
               Transaction History ({filteredTransactions.length})
             </h2>
             
-            <Card className="flex-1 flex flex-col">
-              <CardContent className="p-0 flex-1 flex flex-col">
-                <div className="flex-1 overflow-auto">
+            <Card className="flex-1 flex flex-col min-h-0">
+              <CardContent className="p-0 flex-1 flex flex-col min-h-0">
+                <div className="flex-1 overflow-auto min-h-0 max-h-full">
                   <Table>
                     <TableHeader>
                       <TableRow className="border-b bg-gray-50/50">

@@ -723,5 +723,5 @@ X-RateLimit-Reset: 1642665600
 
 **Related Documentation**:
 - [Coaching System Overview](../features/COACHING_SYSTEM.md)
-- [Database Schema](../technical/DATABASE_SCHEMA.md)
+- [Database Schema](../database/DATABASE_DOCUMENTATION_INDEX.md)
 - [Authentication System](../technical/AUTHENTICATION_SYSTEM.md)

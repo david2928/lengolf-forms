@@ -1,28 +1,32 @@
-import React from 'react';
-import { cn } from '@/lib/utils';
+"use client"
 
-interface SeparatorProps {
-  orientation?: 'horizontal' | 'vertical';
-  decorative?: boolean;
-  className?: string;
-}
+import * as React from "react"
+import { cn } from "@/lib/utils"
 
-export const Separator: React.FC<SeparatorProps> = ({
-  orientation = 'horizontal',
-  decorative = true,
-  className,
-  ...props
-}) => {
-  return (
+const Separator = React.forwardRef<
+  React.ElementRef<"div">,
+  React.ComponentPropsWithoutRef<"div"> & {
+    orientation?: "horizontal" | "vertical"
+    decorative?: boolean
+  }
+>(
+  (
+    { className, orientation = "horizontal", decorative = true, ...props },
+    ref
+  ) => (
     <div
-      role={decorative ? 'none' : 'separator'}
+      ref={ref}
+      role={decorative ? "none" : "separator"}
       aria-orientation={orientation}
       className={cn(
-        'shrink-0 bg-gray-200',
-        orientation === 'horizontal' ? 'h-[1px] w-full' : 'h-full w-[1px]',
+        "shrink-0 bg-border",
+        orientation === "horizontal" ? "h-[1px] w-full" : "h-full w-[1px]",
         className
       )}
       {...props}
     />
-  );
-};
+  )
+)
+Separator.displayName = "Separator"
+
+export { Separator }

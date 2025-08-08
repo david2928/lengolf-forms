@@ -334,8 +334,9 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
     if (transactionData?.items) {
       transactionData.items.forEach((item: any) => {
         const qty = item.item_cnt || 1;
-        const originalPrice = item.unit_price || 0;
-        const originalTotal = originalPrice * qty;
+        const finalTotal = item.line_total || 0;
+        const discountAmount = item.item_discount_amount || 0;
+        const originalTotal = finalTotal + discountAmount; // Calculate correct original price
         const qtyStr = qty.toString();
         const priceStr = originalTotal.toFixed(2);
         const nameMaxLength = width - qtyStr.length - priceStr.length - 4;
@@ -347,10 +348,12 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
         
         // Show item discount if applicable
         if (item.has_item_discount && item.item_discount_amount > 0) {
-          const discountLabel = `     Item Discount`;
-          const discountAmount = `-${item.item_discount_amount.toFixed(2)}`;
-          const discountSpacing = ' '.repeat(Math.max(1, width - discountLabel.length - discountAmount.length));
-          lines.push(`${discountLabel}${discountSpacing}${discountAmount}`);
+          // Use actual discount name from applied_discount or fallback to generic name
+          const discountName = item.applied_discount?.title || 'Item Discount';
+          const discountLabel = `     ${discountName}`;
+          const discountAmountStr = `-${item.item_discount_amount.toFixed(2)}`;
+          const discountSpacing = ' '.repeat(Math.max(1, width - discountLabel.length - discountAmountStr.length));
+          lines.push(`${discountLabel}${discountSpacing}${discountAmountStr}`);
         }
       });
     }

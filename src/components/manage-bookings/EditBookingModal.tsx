@@ -13,7 +13,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { PenSquare, Phone, Mail, Users, Package, FileText } from "lucide-react";
+import { PenSquare, Phone, Mail, Users, Package, FileText, X } from "lucide-react";
 import { Booking, CustomerInfo } from '@/types/booking';
 import { format, parseISO, isValid, parse, addMinutes, isWithinInterval, isEqual, startOfDay, endOfDay, subHours, isBefore } from 'date-fns';
 import { useToast } from "@/components/ui/use-toast";
@@ -643,16 +643,82 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
 
   return (
     <Dialog open={isOpen} onOpenChange={(openState) => !openState && onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle>Edit Booking (ID: {booking.id})</DialogTitle>
-          <DialogDescription>
-            Modify the details for this booking. Availability will be checked as you edit time/date/bay.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className={`focus:outline-none flex flex-col ${
+        'max-w-full max-h-full h-screen w-screen m-0 p-0 rounded-none md:max-w-2xl md:max-h-[90vh] md:h-auto md:w-auto md:m-auto md:p-0 md:rounded-lg'
+      } [&>button]:hidden`}>
+        {/* Accessibility Components - visually hidden */}
+        <DialogTitle className="sr-only">
+          Edit Booking - {booking.id}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Modify the details for this booking. Availability will be checked as you edit time/date/bay.
+        </DialogDescription>
 
-        {/* Customer Information Section */}
-        <div className="border-b pb-4 space-y-3">
+        {/* Mobile Header */}
+        <div className="bg-gray-50 border-b border-gray-200 px-6 py-5 md:hidden relative">
+          <div className="flex items-center justify-between">
+            {/* Booking Info */}
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-gray-900">
+                Edit Booking
+              </h2>
+              <div className="text-sm text-gray-600 flex items-center gap-2">
+                <span>ID: {booking.id}</span>
+                {isPastBooking && (
+                  <Badge variant="secondary" className="text-xs">
+                    Past
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="w-10 h-10 flex items-center justify-center text-gray-700 bg-white/80 hover:bg-white rounded-lg shadow-sm hover:shadow-md transition-all"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop Header */}
+        <div className="hidden md:block">
+          <div className="bg-gray-50 border-b border-gray-200 px-6 py-5">
+            <div className="flex items-center justify-between">
+              {/* Booking Info */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <PenSquare className="h-5 w-5" />
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Edit Booking (ID: {booking.id})
+                  </h2>
+                  {isPastBooking && (
+                    <Badge variant="secondary">
+                      Past Booking
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-sm text-gray-600">
+                  Modify the details for this booking. Availability will be checked as you edit time/date/bay.
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={onClose}
+                className="w-10 h-10 flex items-center justify-center text-gray-700 bg-white/80 hover:bg-white rounded-lg shadow-sm hover:shadow-md transition-all"
+              >
+                <PenSquare className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 md:px-6 md:space-y-6">
+          {/* Customer Information Section */}
+          <div className="border-b pb-4 space-y-3">
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-semibold text-primary">
               {booking.customer?.customer_name || booking.name}
@@ -978,24 +1044,36 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
             </div>
           </TabsContent>
         </Tabs>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-          </DialogClose>
-<Button 
-            type="button" 
-            onClick={handleSubmit} 
-            disabled={
-              isSubmitting || 
-              (!isSlotAvailable && !allowOverwrite && isMainInfoEditable) ||
-              (!formData.bay && isMainInfoEditable) || 
-              !formData.employee_name?.trim() ||
-              (isCheckingAllBays && isMainInfoEditable)
-            }
-          >
-            {isSubmitting ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </DialogFooter>
+        </div>
+
+        {/* Fixed Bottom Action Bar */}
+        <div className="bg-white border-t px-6 py-4 space-y-3 flex-shrink-0">
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              size="lg"
+              className="flex-1 h-12 font-semibold text-sm"
+              onClick={onClose}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="button" 
+              size="lg"
+              className="flex-1 h-12 font-semibold text-sm"
+              onClick={handleSubmit} 
+              disabled={
+                isSubmitting || 
+                (!isSlotAvailable && !allowOverwrite && isMainInfoEditable) ||
+                (!formData.bay && isMainInfoEditable) || 
+                !formData.employee_name?.trim() ||
+                (isCheckingAllBays && isMainInfoEditable)
+              }
+            >
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

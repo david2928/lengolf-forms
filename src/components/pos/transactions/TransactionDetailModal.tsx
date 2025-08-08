@@ -11,7 +11,7 @@ import { VoidPinModal } from './VoidPinModal';
 import { TaxInvoiceModal } from './TaxInvoiceModal';
 import { bluetoothThermalPrinter, BluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
 import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
-import { SimpleDiscountTooltip } from '../discount/SimpleDiscountTooltip';
+import { TouchFriendlyDiscountTooltip } from '../discount/TouchFriendlyDiscountTooltip';
 
 interface TransactionDetail {
   receipt_number: string;
@@ -45,6 +45,7 @@ interface TransactionDetail {
     line_number: number;
     has_item_discount?: boolean;
     item_discount_amount?: number;
+    applied_discount_id?: string;
   }>;
 }
 
@@ -376,12 +377,23 @@ export function TransactionDetailModal({
                           <div className="text-sm text-gray-600">
                             {item.item_cnt} × {formatCurrency(item.unit_price)}
                             {item.has_item_discount && item.item_discount_amount && (
-                              <SimpleDiscountTooltip 
-                                discountAmount={item.item_discount_amount}
-                                originalAmount={item.unit_price * item.item_cnt}
+                              <TouchFriendlyDiscountTooltip 
+                                orderItem={{
+                                  id: `${index}`,
+                                  productId: '',
+                                  productName: item.product_name,
+                                  quantity: item.item_cnt,
+                                  unitPrice: item.unit_price,
+                                  totalPrice: item.line_total,
+                                  modifiers: [],
+                                  categoryId: '',
+                                  categoryName: '',
+                                  applied_discount_id: item.applied_discount_id,
+                                  discount_amount: item.item_discount_amount
+                                }}
                               >
-                                <span className="ml-2 text-green-600 font-medium cursor-pointer">• Discount Applied</span>
-                              </SimpleDiscountTooltip>
+                                <span className="ml-2 text-green-600 font-medium cursor-pointer touch-manipulation">• Discount Applied</span>
+                              </TouchFriendlyDiscountTooltip>
                             )}
                           </div>
                           {item.item_notes && (
@@ -391,21 +403,21 @@ export function TransactionDetailModal({
                           )}
                         </div>
                         <div className="text-right">
-                          {item.has_item_discount ? (
+                          {item.has_item_discount && item.item_discount_amount ? (
                             <div>
                               <div className="text-xs text-gray-500 line-through">
-                                {formatCurrency(item.unit_price)} each
+                                {formatCurrency(item.line_total + item.item_discount_amount)}
                               </div>
                               <div className="font-semibold text-green-700">
-                                {formatCurrency(item.unit_price - (item.item_discount_amount || 0))} each
+                                {formatCurrency(item.line_total)}
                               </div>
                               <div className="text-xs text-green-600">
-                                -{formatCurrency(item.item_discount_amount || 0)}
+                                -{formatCurrency(item.item_discount_amount)}
                               </div>
                             </div>
                           ) : (
                             <div className="font-semibold text-gray-900">
-                              {formatCurrency(item.unit_price)} each
+                              {formatCurrency(item.line_total)}
                             </div>
                           )}
                         </div>

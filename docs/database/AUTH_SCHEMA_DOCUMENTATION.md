@@ -3,10 +3,23 @@
 ## Overview
 The `auth` schema is managed by Supabase and contains all authentication-related tables for user management, sessions, and security. This schema is primarily maintained by the Supabase Auth service and should not be directly modified.
 
+**Current Status (2025-01-08)**:
+- **Total Tables**: 16 tables (Supabase Auth managed)
+- **🔥 Highly Active**: 4 core tables (users, sessions, identities, audit_log_entries)
+- **✅ Active**: 5 supporting tables (refresh_tokens, mfa_factors, etc.)
+- **⚠️ Enterprise Features**: 7 SSO/SAML tables (minimal usage in current setup)
+- **Security Status**: EXCELLENT - Comprehensive audit trail and MFA support
+- **Management**: Fully managed by Supabase - no direct modifications allowed
+
 ## Key Tables
 
-### 1. **users**
+### 1. **users** 🔥 CRITICAL ACTIVE
 Core user authentication records.
+
+**Activity**: High-volume daily authentication operations
+**Status**: CRITICAL - Core authentication system
+**Security**: Excellent - Password hashing, email verification
+**Integration**: Links to public.profiles for application data
 
 **Purpose**: Stores primary user authentication data
 
@@ -29,8 +42,13 @@ Core user authentication records.
 
 ---
 
-### 2. **identities**
+### 2. **identities** 🔥 HIGHLY ACTIVE
 OAuth provider identities linked to users.
+
+**Activity**: OAuth provider linking, social login operations
+**Status**: CRITICAL - Social authentication dependency
+**Providers**: Google OAuth primary, LINE login support
+**Security**: Provider-specific identity data isolation
 
 **Purpose**: Manages OAuth connections (Google, Apple, etc.)
 
@@ -49,8 +67,13 @@ OAuth provider identities linked to users.
 
 ---
 
-### 3. **sessions**
+### 3. **sessions** 🔥 HIGHLY ACTIVE
 Active user sessions.
+
+**Activity**: Continuous session validation and management
+**Status**: CRITICAL - Session security and validation
+**Features**: Multi-device support, automatic cleanup
+**Performance**: Optimized by Supabase for high throughput
 
 **Purpose**: Tracks active authentication sessions
 
@@ -70,8 +93,13 @@ Active user sessions.
 
 ---
 
-### 4. **refresh_tokens**
+### 4. **refresh_tokens** ✅ ACTIVE
 JWT refresh token storage.
+
+**Activity**: Token refresh operations, security rotation
+**Status**: ACTIVE - JWT token management
+**Security**: Token rotation, expiration handling
+**Features**: Revocation support, family tracking
 
 **Purpose**: Manages JWT token refresh mechanism
 
@@ -83,8 +111,14 @@ JWT refresh token storage.
 
 ---
 
-### 5. **audit_log_entries**
+### 5. **audit_log_entries** 🔥 HIGHLY ACTIVE
 Authentication audit trail.
+
+**Activity**: Comprehensive logging of all auth events
+**Status**: CRITICAL - Security and compliance
+**Features**: Login attempts, IP tracking, device info
+**Security**: Complete audit trail for forensic analysis
+**Compliance**: Supports security compliance requirements
 
 **Purpose**: Logs all authentication events for security
 
@@ -99,8 +133,13 @@ Authentication audit trail.
 
 ## Multi-Factor Authentication Tables
 
-### 6. **mfa_factors**
+### 6. **mfa_factors** ✅ ACTIVE
 MFA method configurations.
+
+**Activity**: MFA setup and validation operations
+**Status**: ACTIVE - Security enhancement feature
+**Features**: TOTP support, factor verification
+**Security**: Enhanced authentication security
 
 **Purpose**: Stores user MFA settings
 
@@ -109,13 +148,21 @@ MFA method configurations.
 - `factor_type`: Type of MFA (totp, phone, etc.)
 - `status`: Factor status (verified, unverified)
 
-### 7. **mfa_challenges**
+### 7. **mfa_challenges** ✅ ACTIVE
 Active MFA challenges.
+
+**Activity**: Real-time MFA challenge processing
+**Status**: ACTIVE - MFA workflow management
+**Security**: Challenge-response validation
 
 **Purpose**: Tracks ongoing MFA verification attempts
 
-### 8. **mfa_amr_claims**
+### 8. **mfa_amr_claims** ✅ ACTIVE
 Authentication method reference claims.
+
+**Activity**: MFA method tracking and claims
+**Status**: ACTIVE - Authentication context
+**Security**: Method verification history
 
 **Purpose**: Records which MFA methods were used
 
@@ -123,41 +170,74 @@ Authentication method reference claims.
 
 ## SSO/SAML Tables
 
-### 9. **sso_providers**
+### 9. **sso_providers** ⚠️ ENTERPRISE FEATURE
 SSO identity provider configurations.
+
+**Activity**: Minimal usage - enterprise feature
+**Status**: AVAILABLE - Not actively used
+**Usage**: Enterprise SSO capability available
 
 **Purpose**: Manages enterprise SSO setups
 
-### 10. **sso_domains**
+### 10. **sso_domains** ⚠️ ENTERPRISE FEATURE
 Domain-to-provider mappings.
+
+**Activity**: Minimal usage - enterprise feature
+**Status**: AVAILABLE - Not actively used
+**Usage**: Domain-based SSO routing
 
 **Purpose**: Maps email domains to SSO providers
 
-### 11. **saml_providers**
+### 11. **saml_providers** ⚠️ ENTERPRISE FEATURE
 SAML-specific provider configurations.
 
-### 12. **saml_relay_states**
+**Activity**: Minimal usage - enterprise feature
+**Status**: AVAILABLE - Not actively used
+**Usage**: SAML SSO capability
+
+### 12. **saml_relay_states** ⚠️ ENTERPRISE FEATURE
 SAML relay state management.
+
+**Activity**: Minimal usage - enterprise feature
+**Status**: AVAILABLE - Not actively used
+**Usage**: SAML flow state management
 
 ---
 
 ## System Tables
 
-### 13. **schema_migrations**
+### 13. **schema_migrations** ✅ SYSTEM TABLE
 Auth system migration tracking.
+
+**Activity**: System maintenance operations
+**Status**: SYSTEM - Supabase managed
+**Management**: Automatic migration tracking
 
 **Purpose**: Tracks applied auth schema updates
 
-### 14. **flow_state**
+### 14. **flow_state** ✅ ACTIVE
 PKCE flow state storage.
+
+**Activity**: OAuth flow state management
+**Status**: ACTIVE - OAuth security enhancement
+**Security**: PKCE flow protection
 
 **Purpose**: Manages OAuth PKCE flow states
 
-### 15. **instances**
+### 15. **instances** ✅ SYSTEM TABLE
 Multi-tenancy instance management.
 
-### 16. **one_time_tokens**
+**Activity**: Single-tenant configuration
+**Status**: SYSTEM - Supabase managed
+**Management**: Instance configuration
+
+### 16. **one_time_tokens** ✅ ACTIVE
 Temporary tokens for various auth flows.
+
+**Activity**: Password reset, email verification
+**Status**: ACTIVE - Essential auth workflows
+**Security**: Time-limited token management
+**Features**: Email verification, password reset
 
 **Purpose**: Password reset, email verification tokens
 

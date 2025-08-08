@@ -4,10 +4,10 @@
 
 The Lengolf Forms database consists of four main schemas:
 
-- **`public`** - Core application data (bookings, customers, inventory)
-- **`backoffice`** - Administrative operations (staff, packages, invoicing)  
-- **`pos`** - Point of sale transactions and table management
-- **`auth`** - Supabase-managed authentication (users, sessions, MFA)
+- **`public`** - Core application data (35 tables, 182 functions) - Bookings, customers, inventory, coaching, referral analytics
+- **`backoffice`** - Administrative operations (22 tables, 27 functions) - Staff, packages, invoicing, payroll, scheduling  
+- **`pos`** - Point of sale transactions (29 tables, 32 functions) - Sales data, table management, product mapping
+- **`auth`** - Supabase-managed authentication (16 tables, 4 functions) - Users, sessions, MFA, SSO
 
 ## Cross-Schema Relationships
 

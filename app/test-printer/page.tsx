@@ -444,7 +444,7 @@ export default function UnifiedPrinterTestPage() {
         
         // Show item discount if applicable
         if (item.itemDiscount && item.itemDiscountAmount > 0) {
-          const discountLabel = `     ${item.itemDiscount.title} -${item.itemDiscount.type === 'percentage' ? item.itemDiscount.value + '%' : ''}`;
+          const discountLabel = `     ${item.itemDiscount.title}`;
           const discountAmount = `-${item.itemDiscountAmount.toFixed(2)}`;
           const discountSpacing = ' '.repeat(Math.max(1, width - discountLabel.length - discountAmount.length));
           lines.push(`${discountLabel}${discountSpacing}${discountAmount}`);
