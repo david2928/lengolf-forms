@@ -85,7 +85,9 @@
       "Bash(del test-receipt-fix.js test-exact-receipt.js)",
       "mcp__playwright__browser_install",
       "Bash(tree:*)",
-      "mcp__supabase__get_advisors"
+      "mcp__supabase__get_advisors",
+      "Bash(git merge:*)",
+      "Bash(git branch:*)"
     ],
     "deny": []
   },
