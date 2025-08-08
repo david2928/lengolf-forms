@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Archive, Filter, RefreshCw, CheckCircle, DollarSign, TrendingUp, Percent } from 'lucide-react';
+import { Package, Archive, Filter, RefreshCw, CheckCircle, DollarSign, TrendingUp, Percent, GripVertical } from 'lucide-react';
 
 // Product Management Components
 import {
@@ -41,7 +41,6 @@ export default function ProductManagementPage() {
   
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const [showInactiveCategories, setShowInactiveCategories] = useState(false);
 
   // Hooks
@@ -118,6 +117,22 @@ export default function ProductManagementPage() {
     }
   };
 
+  // Product reorder handler
+  const handleProductReorder = async (productId: string, targetDisplayOrder: number) => {
+    try {
+      await fetch(`/api/admin/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_order: targetDisplayOrder })
+      });
+
+      // Refresh products to show new order
+      refreshProducts();
+    } catch (error) {
+      console.error('Error reordering product:', error);
+    }
+  };
+
   // Handlers
   const handleCreateProduct = async (data: ProductFormData) => {
     await createProduct(data);
@@ -167,8 +182,8 @@ export default function ProductManagementPage() {
         throw new Error(result.error || 'Failed to create category');
       }
 
-      // Success - CategoryForm will handle closing and refresh
-      // Don't refresh here to avoid state conflicts
+      // Success - refresh categories to reflect changes
+      refreshCategories();
     } catch (error) {
       // Re-throw error so CategoryForm can handle it and show error toast
       throw error;
@@ -192,8 +207,8 @@ export default function ProductManagementPage() {
           throw new Error(result.error || 'Failed to update category');
         }
 
-        // Success - CategoryForm will handle closing and refresh
-        // Don't refresh here to avoid state conflicts
+        // Success - refresh categories to reflect changes
+        refreshCategories();
       } catch (error) {
         // Re-throw error so CategoryForm can handle it and show error toast
         throw error;
@@ -299,29 +314,17 @@ export default function ProductManagementPage() {
             placeholder="Search products..."
             className="w-full sm:w-auto sm:mr-4"
           />
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex-1 sm:flex-initial sm:mr-2"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Filters</span>
-              <span className="sm:hidden">Filter</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="flex-1 sm:flex-initial"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-              <span className="sm:hidden">Sync</span>
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+            <span className="sm:hidden">Sync</span>
+          </Button>
         </div>
       </ActionBar>
 
@@ -449,22 +452,17 @@ export default function ProductManagementPage() {
             </div>
           )}
 
-          {/* Filters */}
-          {showFilters && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Filters</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ProductFiltersComponent
-                  filters={filters}
-                  categories={categories}
-                  onFiltersChange={updateFilters}
-                  onClearFilters={() => updateFilters({ search: '', category_id: '', is_active: true })}
-                />
-              </CardContent>
-            </Card>
-          )}
+          {/* Filters - Always Visible */}
+          <Card>
+            <CardContent className="pt-6">
+              <ProductFiltersComponent
+                filters={filters}
+                categories={categories}
+                onFiltersChange={updateFilters}
+                onClearFilters={() => updateFilters({ search: '', category_id: '', is_active: true })}
+              />
+            </CardContent>
+          </Card>
 
           {/* Bulk Actions */}
           {selectedProducts.length > 0 && (
@@ -501,6 +499,7 @@ export default function ProductManagementPage() {
                 onSortChange={updateSort}
                 onProductEdit={handleEditProduct}
                 onProductView={handleEditProduct}
+                onProductReorder={handleProductReorder}
                 isLoading={productsLoading}
               />
             </CardContent>
@@ -560,7 +559,10 @@ export default function ProductManagementPage() {
                   <div className="space-y-4 sm:space-y-6">
                     {/* Group categories by parent */}
                     {(() => {
-                      const parentCategories = categories.filter(c => !c.parent_id);
+                      const parentCategories = categories
+                        .filter(c => !c.parent_id)
+                        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+                      
                       const childCategoriesByParent = categories.reduce((acc, cat) => {
                         if (cat.parent_id) {
                           if (!acc[cat.parent_id]) acc[cat.parent_id] = [];
@@ -569,12 +571,59 @@ export default function ProductManagementPage() {
                         return acc;
                       }, {} as Record<string, typeof categories>);
 
+                      // Sort child categories by display_order as well
+                      Object.keys(childCategoriesByParent).forEach(parentId => {
+                        childCategoriesByParent[parentId].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+                      });
+
+                      // Handler for drag and drop reordering
+                      const handleDragStart = (e: React.DragEvent, category: Category) => {
+                        e.dataTransfer.setData('text/plain', JSON.stringify({
+                          id: category.id,
+                          name: category.name,
+                          display_order: category.display_order
+                        }));
+                      };
+
+                      const handleDragOver = (e: React.DragEvent) => {
+                        e.preventDefault();
+                      };
+
+                      const handleDrop = async (e: React.DragEvent, targetCategory: Category) => {
+                        e.preventDefault();
+                        const draggedData = JSON.parse(e.dataTransfer.getData('text/plain'));
+                        
+                        if (draggedData.id === targetCategory.id) return;
+
+                        // Update display orders
+                        try {
+                          // Update the dragged category's display order
+                          await fetch(`/api/admin/products/categories/${draggedData.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ display_order: targetCategory.display_order })
+                          });
+
+                          // Refresh categories to show new order
+                          refreshCategories();
+                        } catch (error) {
+                          console.error('Error reordering categories:', error);
+                        }
+                      };
+
                       return parentCategories.map((parent) => (
                         <div key={parent.id} className="space-y-2">
                           {/* Parent Category */}
-                          <Card className={`p-3 sm:p-4 ${parent.is_active ? 'bg-gray-50' : 'bg-red-50 border-red-200'}`}>
+                          <Card 
+                            className={`p-3 sm:p-4 cursor-move hover:shadow-md transition-shadow ${parent.is_active ? 'bg-gray-50' : 'bg-red-50 border-red-200'}`}
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, parent)}
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleDrop(e, parent)}
+                          >
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                               <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                                <GripVertical className="h-5 w-5 text-gray-400 cursor-move mt-0.5 sm:mt-0" />
                                 {parent.color_code && (
                                   <div
                                     className="w-4 h-4 rounded flex-shrink-0 mt-0.5 sm:mt-0"
@@ -634,10 +683,18 @@ export default function ProductManagementPage() {
                           {childCategoriesByParent[parent.id] && (
                             <div className="ml-4 sm:ml-8 space-y-2">
                               {childCategoriesByParent[parent.id].map((child) => (
-                                <Card key={child.id} className={`p-3 sm:p-4 ${child.is_active ? '' : 'bg-red-50 border-red-200'}`}>
+                                <Card 
+                                  key={child.id} 
+                                  className={`p-3 sm:p-4 cursor-move hover:shadow-md transition-shadow ${child.is_active ? '' : 'bg-red-50 border-red-200'}`}
+                                  draggable={true}
+                                  onDragStart={(e) => handleDragStart(e, child)}
+                                  onDragOver={handleDragOver}
+                                  onDrop={(e) => handleDrop(e, child)}
+                                >
                                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                     <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                                       <div className="w-1 h-6 sm:h-8 bg-gray-300 -ml-2 sm:-ml-4 mt-1 sm:mt-0 flex-shrink-0" />
+                                      <GripVertical className="h-4 w-4 text-gray-400 cursor-move mt-0.5 sm:mt-0" />
                                       {child.color_code && (
                                         <div
                                           className="w-4 h-4 rounded flex-shrink-0 mt-0.5 sm:mt-0"

@@ -24,49 +24,40 @@ export function CoachingKPICards({
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Package Hours</CardTitle>
-              <div className="text-xl sm:text-2xl font-bold text-blue-600">{packageHoursRemaining.toFixed(1)}h</div>
-            </div>
-            <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
+    <div className="grid grid-cols-3 gap-2 tablet:gap-4 mb-3 tablet:mb-4">
+      <Card className="p-2 tablet:p-3">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-4 w-4 tablet:h-5 tablet:w-5 text-blue-600 flex-shrink-0" />
+          <div className="min-w-0">
+            <div className="text-sm tablet:text-lg font-bold text-blue-600">{packageHoursRemaining.toFixed(1)}h</div>
+            <div className="text-xs text-gray-600 hidden tablet:block">Package Hours</div>
           </div>
-          <CardDescription className="text-xs sm:text-sm">Total hours in active packages</CardDescription>
-        </CardHeader>
+        </div>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Available Slots</CardTitle>
-              <div className="text-xl sm:text-2xl font-bold text-green-600">{totalAvailableSlots}</div>
-            </div>
-            <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
+      <Card className="p-2 tablet:p-3">
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 tablet:h-5 tablet:w-5 text-green-600 flex-shrink-0" />
+          <div className="min-w-0">
+            <div className="text-sm tablet:text-lg font-bold text-green-600">{totalAvailableSlots}</div>
+            <div className="text-xs text-gray-600 hidden tablet:block">Available Slots</div>
           </div>
-          <CardDescription className="text-xs sm:text-sm">Available slots in the next 21 days across all coaches</CardDescription>
-        </CardHeader>
+        </div>
       </Card>
 
-      <div className="relative sm:col-span-2 lg:col-span-1">
+      <div className="relative">
         <Card 
-          className="cursor-help hover:bg-gray-50 transition-colors"
+          className="p-2 tablet:p-3 cursor-help hover:bg-gray-50 transition-colors"
           onMouseEnter={() => setHoveredCard('missing-schedule')}
           onMouseLeave={() => setHoveredCard(null)}
         >
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Missing Schedule</CardTitle>
-                <div className="text-xl sm:text-2xl font-bold text-red-600">{coachesWithoutSchedule}</div>
-              </div>
-              <UserX className="h-6 w-6 sm:h-8 sm:w-8 text-red-600" />
+          <div className="flex items-center gap-2">
+            <UserX className="h-4 w-4 tablet:h-5 tablet:w-5 text-red-600 flex-shrink-0" />
+            <div className="min-w-0">
+              <div className="text-sm tablet:text-lg font-bold text-red-600">{coachesWithoutSchedule}</div>
+              <div className="text-xs text-gray-600 hidden tablet:block">Missing Schedule</div>
             </div>
-            <CardDescription className="text-xs sm:text-sm">Coaches need availability setup</CardDescription>
-          </CardHeader>
+          </div>
         </Card>
         
         {/* Custom Tooltip */}

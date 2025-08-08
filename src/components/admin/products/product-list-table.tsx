@@ -27,7 +27,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  ExternalLink
+  ExternalLink,
+  GripVertical
 } from 'lucide-react';
 import { ProductWithCategory, ProductSort } from '@/types/product-management';
 import { cn } from '@/lib/utils';
@@ -44,6 +45,7 @@ interface ProductListTableProps {
   onProductEdit?: (product: ProductWithCategory) => void;
   onProductView?: (product: ProductWithCategory) => void;
   onProductDelete?: (product: ProductWithCategory) => void;
+  onProductReorder?: (productId: string, targetDisplayOrder: number) => void;
   isLoading?: boolean;
   className?: string;
 }
@@ -126,10 +128,36 @@ export function ProductListTable({
   onProductEdit,
   onProductView,
   onProductDelete,
+  onProductReorder,
   isLoading = false,
   className
 }: ProductListTableProps) {
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, product: ProductWithCategory) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({
+      id: product.id,
+      name: product.name,
+      display_order: product.display_order
+    }));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, targetProduct: ProductWithCategory) => {
+    e.preventDefault();
+    const draggedData = JSON.parse(e.dataTransfer.getData('text/plain'));
+    
+    if (draggedData.id === targetProduct.id) return;
+
+    // Call the reorder function if provided
+    if (onProductReorder) {
+      onProductReorder(draggedData.id, targetProduct.display_order);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -181,6 +209,7 @@ export function ProductListTable({
                   className={isPartiallySelected ? "data-[state=checked]:bg-gray-400" : ""}
                 />
               </TableHead>
+              <TableHead className="w-12 py-4 px-2 font-semibold text-gray-700">Order</TableHead>
               <SortableHeader 
                 label="Product" 
                 field="name" 
@@ -213,12 +242,16 @@ export function ProductListTable({
               <TableRow
                 key={product.id}
                 className={cn(
-                  'border-b border-gray-100 transition-colors hover:bg-gray-50/50',
+                  'border-b border-gray-100 transition-colors hover:bg-gray-50/50 cursor-move',
                   selectedProducts.includes(product.id) && 'bg-blue-50/50',
                   hoveredRow === product.id && 'bg-gray-50'
                 )}
                 onMouseEnter={() => setHoveredRow(product.id)}
                 onMouseLeave={() => setHoveredRow(null)}
+                draggable={onProductReorder ? true : false}
+                onDragStart={(e) => onProductReorder && handleDragStart(e, product)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => onProductReorder && handleDrop(e, product)}
               >
                 <TableCell className="py-4 px-6">
                   <Checkbox
@@ -226,6 +259,13 @@ export function ProductListTable({
                     onCheckedChange={() => onProductSelect(product.id)}
                     aria-label={`Select ${product.name}`}
                   />
+                </TableCell>
+
+                <TableCell className="py-4 px-2 text-center">
+                  <div className="flex items-center justify-center">
+                    <GripVertical className="h-4 w-4 text-gray-400" />
+                    <span className="ml-1 text-sm text-gray-500">{product.display_order || 0}</span>
+                  </div>
                 </TableCell>
                     
                 <TableCell className="py-4 px-6">

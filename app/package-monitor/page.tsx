@@ -99,7 +99,7 @@ export default function PackageMonitorPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="container mx-auto px-4 py-8 space-y-8">
       <header>
         <h1 className="text-3xl font-bold">Package Monitor</h1>
         <p className="text-muted-foreground mt-2">

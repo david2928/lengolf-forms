@@ -411,178 +411,260 @@ export function TimeClockInterface() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 
-  const renderNumericKeypad = () => {
-    const digits = [
-      ['1', '2', '3'],
-      ['4', '5', '6'],
-      ['7', '8', '9'],
-      ['Clear', '0', '⌫']
-    ]
-
-    return (
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 max-w-xs mx-auto mb-4">
-        {digits.flat().map((value, index) => {
-          const isSpecial = value === 'Clear' || value === '⌫'
-          const disabled = state.loading || !!state.lockoutInfo?.isLocked
-          
-          return (
-            <Button
-              key={index}
-              onClick={() => {
-                if (value === '⌫') {
-                  handleBackspace()
-                } else if (value === 'Clear') {
-                  handleClear()
-                } else {
-                  handlePinDigit(value)
-                }
-              }}
-              disabled={disabled}
-              variant={isSpecial ? "outline" : "default"}
-              size="lg"
-              className={`
-                text-lg font-semibold
-                ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-                hover:scale-105 active:scale-95 transition-transform
-              `}
-            >
-              {value === '⌫' ? (
-                <Delete className="h-5 w-5" />
-              ) : (
-                value
-              )}
-            </Button>
-          )
-        })}
-      </div>
-    )
-  }
 
   return (
     <ErrorBoundary showTechnicalDetails={process.env.NODE_ENV === 'development'}>
-      <div className="w-full min-h-full flex flex-col">
-        <Card className="border-0 shadow-none rounded-none flex-1 flex flex-col">
-        <CardHeader className="text-center bg-primary text-primary-foreground">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Clock className="h-6 w-6" />
-            <CardTitle className="text-xl">Staff Time Clock</CardTitle>
-          </div>
-          {/* HYDRATION FIX: Only show time after client-side render */}
-          <p className="text-sm opacity-90">{isClient ? currentTime : 'Loading...'}</p>
-        </CardHeader>
-
-        <CardContent className="flex-1 flex flex-col space-y-4 sm:space-y-6 p-4 sm:p-6">
-          {/* Camera Section */}
-          <div className="space-y-4 flex-1 flex flex-col">
-            <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden max-h-48 sm:max-h-60">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
-              <canvas
-                ref={canvasRef}
-                className="hidden"
-              />
-              {!state.cameraStream && (
-                <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                  <Skeleton className="w-full h-full" />
+      <>
+        <style jsx>{`
+          @media (min-width: 686px) and (max-width: 991px) {
+            .tablet-modal-container {
+              max-width: 36rem !important;
+            }
+            .tablet-logo-outer {
+              width: 6rem !important;
+              height: 6rem !important;
+            }
+            .tablet-logo-inner {
+              width: 5rem !important;
+              height: 5rem !important;
+            }
+            .tablet-logo-icon {
+              width: 2.5rem !important;
+              height: 2.5rem !important;
+            }
+            .tablet-title {
+              font-size: 1.875rem !important;
+            }
+            .tablet-subtitle {
+              font-size: 1rem !important;
+            }
+            .tablet-pin-circle {
+              width: 1.25rem !important;
+              height: 1.25rem !important;
+            }
+            .tablet-pin-gap {
+              gap: 0.75rem !important;
+            }
+            .tablet-keypad-container {
+              max-width: 24rem !important;
+            }
+            .tablet-keypad-gap {
+              gap: 1rem !important;
+              margin-bottom: 1rem !important;
+            }
+            .tablet-keypad-button {
+              width: 4rem !important;
+              height: 4rem !important;
+              font-size: 1.25rem !important;
+            }
+            .tablet-camera-container {
+              max-width: 20rem !important;
+            }
+          }
+          
+          @media (max-width: 685px) {
+            .mobile-modal-container {
+              max-width: 20rem !important;
+            }
+            .mobile-logo-outer {
+              width: 4rem !important;
+              height: 4rem !important;
+            }
+            .mobile-logo-inner {
+              width: 3.5rem !important;
+              height: 3.5rem !important;
+            }
+            .mobile-logo-icon {
+              width: 2rem !important;
+              height: 2rem !important;
+            }
+            .mobile-title {
+              font-size: 1.5rem !important;
+            }
+            .mobile-subtitle {
+              font-size: 0.875rem !important;
+            }
+            .mobile-pin-circle {
+              width: 1rem !important;
+              height: 1rem !important;
+            }
+            .mobile-pin-gap {
+              gap: 0.5rem !important;
+            }
+            .mobile-keypad-container {
+              max-width: 18rem !important;
+            }
+            .mobile-keypad-gap {
+              gap: 0.75rem !important;
+              margin-bottom: 0.75rem !important;
+            }
+            .mobile-keypad-button {
+              width: 3.5rem !important;
+              height: 3.5rem !important;
+              font-size: 1.125rem !important;
+            }
+            .mobile-camera-container {
+              max-width: 16rem !important;
+            }
+          }
+        `}</style>
+        <div className="fixed inset-0 z-50 bg-gradient-to-br from-[#265020] via-green-800 to-[#265020]">
+          <div className="h-full flex items-center justify-center p-2 sm:p-4">
+            <div className="tablet-modal-container mobile-modal-container max-w-md w-full text-center">
+              {/* Logo */}
+              <div className="tablet-logo-outer mobile-logo-outer inline-flex items-center justify-center w-16 sm:w-20 md:w-24 h-16 sm:h-20 md:h-24 rounded-full bg-white shadow-2xl mb-3 sm:mb-4 md:mb-6">
+                <div className="tablet-logo-inner mobile-logo-inner w-14 sm:w-16 md:w-20 h-14 sm:h-16 md:h-20 rounded-full bg-gradient-to-br from-[#265020] to-green-700 flex items-center justify-center">
+                  <Clock className="tablet-logo-icon mobile-logo-icon h-8 sm:h-10 md:h-12 w-8 sm:w-10 md:w-12 text-white" />
                 </div>
-              )}
-            </div>
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground">Position your face in the frame</p>
-              <p className="text-xs text-muted-foreground">Make sure you&apos;re well lit and looking at the camera</p>
-            </div>
-          </div>
-
-          {/* Error/Success Messages */}
-          {state.error && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{state.error}</AlertDescription>
-            </Alert>
-          )}
-
-          {state.success && (
-            <Alert className="border-green-500/20 bg-green-50/50 text-green-800">
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>{state.success}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Lockout Info */}
-          {state.lockoutInfo?.isLocked && (
-            <Alert variant="destructive">
-              <Lock className="h-4 w-4" />
-              <AlertDescription>
-                Account locked due to failed attempts. Please wait {formatLockoutTime(state.lockoutInfo.timeRemaining)} before trying again.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* PIN Entry Section */}
-          <div className="space-y-3 sm:space-y-4">
-            <div className="text-center">
-              <label className="text-sm font-medium mb-3 block">Enter Your 6-Digit PIN</label>
+              </div>
               
-              {/* Custom PIN Display with 6 separate boxes */}
-              <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6 ml-4">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className={`
-                      w-8 h-10 border-2 rounded-md flex items-center justify-center
-                      text-lg font-mono font-bold
-                      transition-all duration-200
-                      ${index < state.pin.length 
-                        ? 'border-primary bg-primary/5 text-primary' 
-                        : 'border-gray-300 bg-gray-50'
-                      }
-                      ${state.lockoutInfo?.isLocked ? 'opacity-50' : ''}
-                    `}
-                  >
-                    {index < state.pin.length ? (
-                      state.showPin ? state.pin[index] : '●'
-                    ) : (
-                      <div className="w-4 h-0.5 bg-gray-400 rounded"></div>
+              <h1 className="tablet-title mobile-title text-xl sm:text-2xl font-bold text-white mb-1 sm:mb-2">Staff Time Clock</h1>
+              {/* HYDRATION FIX: Only show time after client-side render */}
+              <p className="tablet-subtitle mobile-subtitle text-green-100 mb-4 sm:mb-6 md:mb-8 text-sm sm:text-base">{isClient ? currentTime : 'Loading...'}</p>
+
+              {/* Camera Section */}
+              <div className="mb-3 sm:mb-4 md:mb-6 flex flex-col items-center">
+                <div className="relative tablet-camera-container mobile-camera-container w-full max-w-sm mx-auto">
+                  <div className="aspect-video bg-white/10 rounded-lg overflow-hidden border-2 border-white/20 mb-2 sm:mb-3 md:mb-4">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                    <canvas
+                      ref={canvasRef}
+                      className="hidden"
+                    />
+                    {!state.cameraStream && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/5">
+                        <Camera className="h-8 sm:h-10 md:h-12 w-8 sm:w-10 md:w-12 text-white/40" />
+                      </div>
                     )}
                   </div>
-                ))}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setState(prev => ({ ...prev, showPin: !prev.showPin }))}
-                  disabled={state.loading}
-                  className="ml-2"
+                </div>
+                <div className="text-center">
+                  <p className="text-xs sm:text-sm text-green-100">Position your face in the frame</p>
+                  <p className="text-xs text-green-200/80">Make sure you&apos;re well lit and looking at the camera</p>
+                </div>
+              </div>
+
+              {/* Error/Success Messages */}
+              {state.error && (
+                <div className="mb-3 sm:mb-4 md:mb-6 bg-red-500/20 border border-red-300/30 rounded-lg p-2 sm:p-3">
+                  <p className="text-red-100 text-xs sm:text-sm flex items-center gap-2">
+                    <AlertTriangle className="h-3 sm:h-4 w-3 sm:w-4" />
+                    {state.error}
+                  </p>
+                </div>
+              )}
+
+              {state.success && (
+                <div className="mb-3 sm:mb-4 md:mb-6 bg-green-500/20 border border-green-300/30 rounded-lg p-2 sm:p-3">
+                  <p className="text-green-100 text-xs sm:text-sm flex items-center gap-2">
+                    <CheckCircle className="h-3 sm:h-4 w-3 sm:w-4" />
+                    {state.success}
+                  </p>
+                </div>
+              )}
+
+              {/* Lockout Info */}
+              {state.lockoutInfo?.isLocked && (
+                <div className="mb-3 sm:mb-4 md:mb-6 bg-red-500/20 border border-red-300/30 rounded-lg p-2 sm:p-3">
+                  <p className="text-red-100 text-xs sm:text-sm flex items-center gap-2">
+                    <Lock className="h-3 sm:h-4 w-3 sm:w-4" />
+                    Account locked due to failed attempts. Please wait {formatLockoutTime(state.lockoutInfo.timeRemaining)} before trying again.
+                  </p>
+                </div>
+              )}
+
+              {/* PIN Entry Section */}
+              <div className="mb-3 sm:mb-4 md:mb-6">
+                <div className="text-center">
+                  <label className="text-xs sm:text-sm font-medium mb-2 sm:mb-3 block text-green-100">Enter Your 6-Digit PIN</label>
+                  
+                  {/* Custom PIN Display with 6 circles like POS */}
+                  <div className="tablet-pin-gap mobile-pin-gap flex items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6 md:mb-8">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`tablet-pin-circle mobile-pin-circle w-3 sm:w-4 h-3 sm:h-4 rounded-full border-2 transition-all ${
+                          i < state.pin.length ? 'bg-white border-white' : 'border-white/40'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Keypad */}
+                <div className="tablet-keypad-container mobile-keypad-container max-w-xs mx-auto">
+                  {/* Rows 1-3 */}
+                  {[
+                    [1, 2, 3],
+                    [4, 5, 6], 
+                    [7, 8, 9]
+                  ].map((row, i) => (
+                    <div key={i} className="tablet-keypad-gap mobile-keypad-gap flex gap-3 sm:gap-4 mb-3 sm:mb-4 justify-center">
+                      {row.map(digit => (
+                        <button
+                          key={digit}
+                          onClick={() => handlePinDigit(digit.toString())}
+                          disabled={state.loading || !!state.lockoutInfo?.isLocked}
+                          className="tablet-keypad-button mobile-keypad-button w-12 sm:w-14 md:w-16 h-12 sm:h-14 md:h-16 rounded-full bg-white/90 hover:bg-white text-[#265020] text-lg sm:text-xl font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                        >
+                          {digit}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                  
+                  {/* Row 4: Clear, 0, Backspace */}
+                  <div className="tablet-keypad-gap mobile-keypad-gap flex gap-3 sm:gap-4 mb-3 sm:mb-4 justify-center">
+                    <button
+                      onClick={handleClear}
+                      disabled={state.loading || !!state.lockoutInfo?.isLocked}
+                      className="tablet-keypad-button mobile-keypad-button w-12 sm:w-14 md:w-16 h-12 sm:h-14 md:h-16 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs sm:text-sm font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      onClick={() => handlePinDigit('0')}
+                      disabled={state.loading || !!state.lockoutInfo?.isLocked}
+                      className="tablet-keypad-button mobile-keypad-button w-12 sm:w-14 md:w-16 h-12 sm:h-14 md:h-16 rounded-full bg-white/90 hover:bg-white text-[#265020] text-lg sm:text-xl font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      0
+                    </button>
+                    <button
+                      onClick={handleBackspace}
+                      disabled={state.loading || !!state.lockoutInfo?.isLocked}
+                      className="tablet-keypad-button mobile-keypad-button w-12 sm:w-14 md:w-16 h-12 sm:h-14 md:h-16 rounded-full bg-white/20 hover:bg-white/30 text-white font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center"
+                    >
+                      <Delete className="h-4 sm:h-5 w-4 sm:w-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Clock In/Out Button */}
+                <button
+                  onClick={handleClockInOut}
+                  disabled={state.loading || !state.pin || state.pin.length !== 6 || !!state.lockoutInfo?.isLocked}
+                  className="w-full mt-3 sm:mt-4 md:mt-6 py-2 sm:py-3 px-4 sm:px-6 rounded-full bg-white/90 hover:bg-white text-[#265020] font-bold text-sm sm:text-base md:text-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {state.showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
+                  {state.loading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 sm:h-5 w-4 sm:w-5 border-2 border-[#265020] border-t-transparent"></div>
+                      <span className="text-xs sm:text-sm md:text-base">Processing...</span>
+                    </div>
+                  ) : (
+                    'Clock In / Clock Out'
+                  )}
+                </button>
               </div>
             </div>
-
-            {/* Numeric Keypad */}
-            {renderNumericKeypad()}
-
-            {/* Clock In/Out Button */}
-            <Button
-              onClick={handleClockInOut}
-              disabled={state.loading || !state.pin || state.pin.length !== 6 || !!state.lockoutInfo?.isLocked}
-              className="w-full"
-              size="lg"
-            >
-              {state.loading ? (
-                <LoadingSpinner variant="inline" size="sm" text="Processing..." />
-              ) : (
-                'Clock In / Clock Out'
-              )}
-            </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </>
     </ErrorBoundary>
   )
 } 

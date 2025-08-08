@@ -46,7 +46,7 @@ export function useProducts(initialFilters?: Partial<ProductFilters>) {
   });
   
   const [sort, setSort] = useState<ProductSort>({
-    field: 'name',
+    field: 'display_order',
     direction: 'asc'
   });
   

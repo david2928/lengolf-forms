@@ -130,7 +130,7 @@ export interface ProductFormData {
   cost?: number;
   sku?: string;
   external_code?: string;
-  unit?: string;
+  unit?: string | null;
   is_sim_usage: boolean;
   is_active: boolean;
   show_in_staff_ui?: boolean;

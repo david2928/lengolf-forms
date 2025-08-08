@@ -18,6 +18,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Search, 
@@ -27,7 +35,9 @@ import {
   DollarSign,
   Package,
   Eye,
-  TrendingUp
+  TrendingUp,
+  Check,
+  ChevronDown
 } from 'lucide-react';
 import { 
   ProductFilters, 
@@ -85,6 +95,121 @@ function SearchBar({ value, onChange, placeholder = "Search products...", classN
         className="pl-10"
       />
     </div>
+  );
+}
+
+interface CategoryFilterSelectorProps {
+  categories: Category[];
+  value?: string;
+  onValueChange: (value: string | undefined) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+function CategoryFilterSelector({
+  categories,
+  value,
+  onValueChange,
+  placeholder = "Select a category",
+  className
+}: CategoryFilterSelectorProps) {
+  const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+
+  // Get subcategories only (categories with parent_id)
+  const subCategories = categories.filter(c => c.parent_id);
+  
+  // Get parent categories for grouping
+  const parentCategories = categories.filter(c => !c.parent_id);
+  
+  // Group subcategories by parent
+  const groupedCategories = parentCategories.map(parent => ({
+    parent,
+    children: subCategories.filter(sub => sub.parent_id === parent.id)
+  })).filter(group => group.children.length > 0);
+
+  // Get selected category name
+  const selectedCategory = subCategories.find(c => c.id === value);
+
+  // Filter categories based on search
+  const filteredGroups = groupedCategories.map(group => ({
+    ...group,
+    children: group.children.filter(child => 
+      child.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+      group.parent.name.toLowerCase().includes(searchValue.toLowerCase())
+    )
+  })).filter(group => group.children.length > 0);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn(
+            "w-full justify-between",
+            className
+          )}
+        >
+          {selectedCategory ? selectedCategory.name : placeholder}
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0" align="start">
+        <Command>
+          <CommandInput 
+            placeholder="Search categories..." 
+            value={searchValue}
+            onValueChange={setSearchValue}
+          />
+          <CommandList>
+            <CommandEmpty>No category found.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="all-categories"
+                onSelect={() => {
+                  onValueChange(undefined);
+                  setOpen(false);
+                  setSearchValue('');
+                }}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    !value ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                All Categories
+              </CommandItem>
+            </CommandGroup>
+            {filteredGroups.map((group) => (
+              <CommandGroup key={group.parent.id} heading={group.parent.name}>
+                {group.children.map((category) => (
+                  <CommandItem
+                    key={category.id}
+                    value={category.name}
+                    onSelect={() => {
+                      onValueChange(category.id);
+                      setOpen(false);
+                      setSearchValue('');
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === category.id ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {category.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -205,36 +330,13 @@ export function ProductFiltersComponent({
         
         {/* Quick Filters - Mobile Responsive */}
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-          <Select
-            value={filters.category_id || 'all'}
-            onValueChange={(value) => onFiltersChange({ 
-              category_id: value === 'all' ? undefined : value 
-            })}
-          >
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="All Categories" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {topLevelCategories
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((parentCategory) => {
-                const children = getCategoryWithChildren(parentCategory.id);
-                return [
-                  <SelectItem key={parentCategory.id} value={parentCategory.id}>
-                    {parentCategory.name}
-                  </SelectItem>,
-                  ...children
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((childCategory) => (
-                    <SelectItem key={childCategory.id} value={childCategory.id}>
-                      ├─ {childCategory.name}
-                    </SelectItem>
-                  ))
-                ];
-              }).flat()}
-            </SelectContent>
-          </Select>
+          <CategoryFilterSelector
+            categories={categories}
+            value={filters.category_id}
+            onValueChange={(value) => onFiltersChange({ category_id: value })}
+            placeholder="All Categories"
+            className="w-full sm:w-48"
+          />
 
           <Select
             value={filters.is_active === undefined ? 'all' : filters.is_active ? 'active' : 'inactive'}

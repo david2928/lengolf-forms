@@ -79,7 +79,7 @@ export default function CoachingDashboard() {
 
   return (
     <div className="min-h-full bg-gray-50">
-      <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+      <div className="container mx-auto px-2 tablet:px-4 py-2 tablet:py-3">
         <CoachingDashboardHeader onNewBooking={handleNewBooking} />
 
         {error && (
@@ -104,43 +104,52 @@ export default function CoachingDashboard() {
           onCoachChange={setSelectedCoach}
         />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto">
-            <TabsTrigger value="next-available" className="text-xs sm:text-sm px-2 py-2">
-              <span className="hidden sm:inline">Next Available</span>
-              <span className="sm:hidden">Available</span>
-            </TabsTrigger>
-            <TabsTrigger value="weekly-schedule" className="text-xs sm:text-sm px-2 py-2">
-              <span className="hidden sm:inline">Weekly Schedule</span>
-              <span className="sm:hidden">Schedule</span>
-            </TabsTrigger>
-            <TabsTrigger value="all-bookings" className="text-xs sm:text-sm px-2 py-2">
-              <span className="hidden sm:inline">All Bookings</span>
-              <span className="sm:hidden">Bookings</span>
-            </TabsTrigger>
-            <TabsTrigger value="student-management" className="text-xs sm:text-sm px-2 py-2 hidden sm:block">
-              Student Management
-            </TabsTrigger>
-            <TabsTrigger value="inactive-students" className="text-xs sm:text-sm px-2 py-2 hidden sm:block">
-              Inactive Students
-            </TabsTrigger>
-          </TabsList>
-          
-          {/* Mobile-only dropdown for student management tabs */}
-          <div className="sm:hidden">
-            <select 
-              className="w-full p-2 border rounded-lg bg-white text-sm"
-              value={['student-management', 'inactive-students'].includes(activeTab) ? activeTab : ''}
-              onChange={(e) => {
-                if (e.target.value) {
-                  setActiveTab(e.target.value);
-                }
-              }}
-            >
-              <option value="">More Options...</option>
-              <option value="student-management">Student Management</option>
-              <option value="inactive-students">Inactive Students</option>
-            </select>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-2 tablet:space-y-4">
+          <div className="space-y-2">
+            <TabsList className="grid w-full grid-cols-3 tablet:grid-cols-3 lg:grid-cols-5 h-auto gap-1 tablet:gap-2">
+              <TabsTrigger value="next-available" className="text-xs tablet:text-sm lg:text-sm px-1 tablet:px-2 lg:px-3 py-2">
+                <span className="hidden tablet:inline lg:inline">Next Available</span>
+                <span className="tablet:hidden lg:hidden">Available</span>
+              </TabsTrigger>
+              <TabsTrigger value="weekly-schedule" className="text-xs tablet:text-sm lg:text-sm px-1 tablet:px-2 lg:px-3 py-2">
+                <span className="hidden tablet:inline lg:inline">Weekly Schedule</span>
+                <span className="tablet:hidden lg:hidden">Schedule</span>
+              </TabsTrigger>
+              <TabsTrigger value="all-bookings" className="text-xs tablet:text-sm lg:text-sm px-1 tablet:px-2 lg:px-3 py-2">
+                <span className="hidden tablet:inline lg:inline">All Bookings</span>
+                <span className="tablet:hidden lg:hidden">Bookings</span>
+              </TabsTrigger>
+              <TabsTrigger value="student-management" className="text-xs tablet:text-sm lg:text-sm px-1 tablet:px-2 lg:px-3 py-2 hidden lg:block">
+                Student Management
+              </TabsTrigger>
+              <TabsTrigger value="inactive-students" className="text-xs tablet:text-sm lg:text-sm px-1 tablet:px-2 lg:px-3 py-2 hidden lg:block">
+                Inactive Students
+              </TabsTrigger>
+            </TabsList>
+            
+            {/* Additional navigation for tablet/mobile - styled as connected buttons */}
+            <div className="lg:hidden flex gap-1 tablet:gap-2">
+              <button
+                onClick={() => setActiveTab('student-management')}
+                className={`flex-1 px-2 tablet:px-3 py-2 text-xs tablet:text-sm font-medium rounded-lg transition-colors ${
+                  activeTab === 'student-management' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Student Management
+              </button>
+              <button
+                onClick={() => setActiveTab('inactive-students')}
+                className={`flex-1 px-2 tablet:px-3 py-2 text-xs tablet:text-sm font-medium rounded-lg transition-colors ${
+                  activeTab === 'inactive-students' 
+                    ? 'bg-orange-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Inactive Students
+              </button>
+            </div>
           </div>
 
           <TabsContent value="next-available" className="space-y-4">

@@ -92,15 +92,20 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           const categoriesData = await categoriesResponse.json();
           const categories = categoriesData.categories || [];
           
-          // Set categories immediately for fast rendering
-          setRootCategories(categories.map((cat: any) => ({
-            id: cat.id,
-            name: cat.name,
-            posTabCategory: cat.name.toUpperCase(),
-            productCount: cat.totalProductCount || 0,
-            displayOrder: cat.display_order || 0,
-            children: cat.children || []
-          })));
+          // Set categories immediately for fast rendering, sorted by display_order
+          setRootCategories(categories
+            .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
+            .map((cat: any) => ({
+              id: cat.id,
+              name: cat.name,
+              posTabCategory: cat.name.toUpperCase(),
+              productCount: cat.totalProductCount || 0,
+              displayOrder: cat.display_order || 0,
+              children: (cat.children || []).map((child: any) => ({
+                ...child,
+                display_order: child.display_order || 0
+              }))
+            })));
           
           setCategoryData(categories);
           
@@ -228,12 +233,84 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   }, [rootCategories, activeTab, rememberLastCategory]);
 
 
+  // Helper function to get default subcategory based on category type
+  const getDefaultSubcategory = useCallback((categoryId: string) => {
+    // Find the category and its children
+    const findCategory = (cats: any[], id: string): any => {
+      for (const cat of cats) {
+        if (cat.id === id) return cat;
+        if (cat.children && cat.children.length > 0) {
+          const found = findCategory(cat.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const category = findCategory(categoryData, categoryId);
+    if (!category || !category.children || category.children.length === 0) {
+      return null;
+    }
+
+    const categoryNameLower = category.name.toLowerCase();
+
+    // Golf category - time-based selection
+    if (categoryNameLower.includes('golf') || categoryNameLower.includes('sport')) {
+      const currentHour = new Date().getHours();
+      let targetSubcategoryName = '';
+
+      if (currentHour < 14) { // Before 2 PM
+        targetSubcategoryName = 'morning';
+      } else if (currentHour < 17) { // Before 5 PM  
+        targetSubcategoryName = 'afternoon';
+      } else { // After 5 PM
+        targetSubcategoryName = 'evening';
+      }
+
+      // Find matching subcategory
+      const matchingSubcategory = category.children.find((child: any) => 
+        child.name.toLowerCase().includes(targetSubcategoryName)
+      );
+
+      return matchingSubcategory?.id || null;
+    }
+
+    // Packages category - default to Monthly Packages
+    if (categoryNameLower.includes('package')) {
+      const monthlyPackages = category.children.find((child: any) => 
+        child.name.toLowerCase().includes('monthly')
+      );
+      return monthlyPackages?.id || null;
+    }
+
+    // Drinks category - default to Non Alcohol
+    if (categoryNameLower.includes('drink')) {
+      const nonAlcohol = category.children.find((child: any) => 
+        child.name.toLowerCase().includes('non alcohol') || 
+        child.name.toLowerCase().includes('non-alcohol') ||
+        child.name.toLowerCase().includes('nonalcohol')
+      );
+      return nonAlcohol?.id || null;
+    }
+
+    // Food category - default to Appetizers
+    if (categoryNameLower.includes('food')) {
+      const appetizers = category.children.find((child: any) => 
+        child.name.toLowerCase().includes('appetizer')
+      );
+      return appetizers?.id || null;
+    }
+
+    return null;
+  }, [categoryData]);
+
   // Handle tab change - always ensure a category is selected
   const handleTabChange = useCallback((tabId: string) => {
     setActiveTab(tabId);
     
-    // Always clear subcategory when switching main categories 
-    setActiveSubCategory(null);
+    // Auto-select default subcategory based on category type
+    const defaultSubcategory = getDefaultSubcategory(tabId);
+    setActiveSubCategory(defaultSubcategory);
     
     // Remember this category selection
     onCategoryChange?.(tabId);
@@ -242,7 +319,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     if (isMobile) {
       setMobileView('products');
     }
-  }, [isMobile, onCategoryChange]);
+  }, [isMobile, onCategoryChange, getDefaultSubcategory]);
 
   // Handle subcategory change
   const handleSubCategoryChange = useCallback((categoryId: string | null) => {
@@ -415,10 +492,11 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     allowedTime: 600 // Give more time for tablet swipes
   });
 
-  // Get current subcategories for the active tab
+  // Get current subcategories for the active tab, sorted by display_order
   const getCurrentSubCategories = () => {
     const activeCategory = rootCategories.find(cat => cat.id === activeTab);
-    return activeCategory?.children || [];
+    const children = activeCategory?.children || [];
+    return children.sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
   };
 
   const currentSubCategories = getCurrentSubCategories();

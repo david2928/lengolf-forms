@@ -212,18 +212,38 @@ export function ProductModifierManager({
           setFormState({ isOpen: false, mode: 'create' });
         }
       } else if (formState.modifier) {
-        // Update using local state (simpler and more reliable)
+        // Make API call to update modifier
+        if (!productId) {
+          throw new Error('Product ID is required to update modifiers');
+        }
+
+        const response = await fetch(`/api/admin/products/${productId}/modifiers/${formState.modifier.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: data.name,
+            price: data.price,
+            cost_multiplier: data.cost_multiplier,
+            modifier_type: data.modifier_type,
+            is_default: data.is_default || false,
+            display_order: data.display_order || formState.modifier.display_order
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update modifier');
+        }
+
+        const result = await response.json();
+        const updatedModifier = result.data;
+
+        // Update local state with API response
         const updatedModifiers = modifiers.map(m => 
           m.id === formState.modifier!.id 
-            ? {
-                ...m,
-                name: data.name,
-                price: data.price,
-                cost_multiplier: data.cost_multiplier,
-                is_default: data.is_default || false,
-                display_order: data.display_order || m.display_order,
-                updated_at: new Date().toISOString()
-              }
+            ? updatedModifier
             : data.is_default ? { ...m, is_default: false } : m // Remove default from others if this is set as default
         );
 

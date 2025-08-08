@@ -202,29 +202,25 @@ export function NextAvailableSlots({
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <CardTitle className="text-lg sm:text-xl">Next Available Coaching Slots</CardTitle>
-            <CardDescription className="text-xs sm:text-sm mt-1">
-              Upcoming available time slots for all coaches within the selected date range (default: next 21 days)
-            </CardDescription>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-base tablet:text-lg leading-tight">Next Available Coaching Slots</CardTitle>
           </div>
           <Button
             variant="outline"
-            size="sm"
             onClick={() => handleCopyToClipboard()}
-            className="flex items-center gap-2 w-full sm:w-auto"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium border-2 hover:border-blue-300 transition-colors"
           >
             {copiedStates['all'] ? (
               <>
                 <Check className="h-4 w-4 text-green-600" />
-                Copied!
+                <span className="text-green-600">Copied!</span>
               </>
             ) : (
               <>
-                <Copy className="h-4 w-4" />
-                <span className="hidden sm:inline">Copy Availability</span>
-                <span className="sm:hidden">Copy All</span>
+                <Copy className="h-4 w-4 text-gray-600" />
+                <span className="hidden tablet:inline">Copy All</span>
+                <span className="tablet:hidden">Copy</span>
               </>
             )}
           </Button>

@@ -14,6 +14,7 @@ interface DatabaseProduct {
   category_id: string;
   sku: string;
   description: string;
+  display_order: number;
   is_active: boolean;
   show_in_staff_ui: boolean;
   pos_display_color: string;
@@ -37,6 +38,7 @@ interface DatabaseCategory {
   id: string;
   name: string;
   parent_id: string | null;
+  display_order?: number;
 }
 
 interface TransformedProduct {
@@ -48,6 +50,7 @@ interface TransformedProduct {
   categoryName?: string;
   sku: string;
   description: string;
+  displayOrder: number;
   posDisplayColor: string;
   imageUrl: null;
   hasModifiers: boolean;
@@ -90,7 +93,7 @@ export async function GET(request: NextRequest) {
     
     const category = searchParams.get('category');
     const search = searchParams.get('search');
-    const sortBy = searchParams.get('sortBy') || 'name';
+    const sortBy = searchParams.get('sortBy') || 'display_order';
     const sortOrder = searchParams.get('sortOrder') || 'asc';
 
     const offset = (page - 1) * limit;
@@ -107,6 +110,7 @@ export async function GET(request: NextRequest) {
         category_id,
         sku,
         description,
+        display_order,
         is_active,
         show_in_staff_ui,
         pos_display_color,
@@ -176,6 +180,7 @@ export async function GET(request: NextRequest) {
     const buildCategoryTree = (parentId: string | null): DatabaseCategory[] => {
       return categories
         ?.filter((cat: DatabaseCategory) => cat.parent_id === parentId)
+        .sort((a: DatabaseCategory, b: DatabaseCategory) => (a.display_order || 0) - (b.display_order || 0))
         .map((cat: DatabaseCategory) => ({
           ...cat,
           children: buildCategoryTree(cat.id)
@@ -210,6 +215,7 @@ export async function GET(request: NextRequest) {
         categoryName: category?.name,
         sku: product.sku,
         description: product.description,
+        displayOrder: product.display_order,
         posDisplayColor: product.pos_display_color,
         imageUrl: null, // No image_url in database
         hasModifiers: product.has_modifiers || false,

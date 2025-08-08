@@ -100,24 +100,26 @@ export function WeeklySchedule({
         </div>
       </CardHeader>
       <CardContent>
-        {/* Desktop View - Table */}
+        {/* Desktop/Tablet View - Table */}
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
               <tr>
-                <th className="text-left p-3 font-medium text-gray-900 w-32">Coach</th>
+                <th className="text-left p-1 tablet:p-2 font-medium text-gray-900 w-12 tablet:w-20 lg:w-32">Coach</th>
                 {weekDates.map((date, index) => (
-                  <th key={date.toISOString()} className="text-center p-3 font-medium text-gray-900 min-w-32">
-                    <div className="space-y-1">
-                      <div className={`text-sm ${isToday(date) ? 'text-blue-600 font-semibold' : ''}`}>
-                        {dayNames[index]}
+                  <th key={date.toISOString()} className="text-center p-0.5 tablet:p-1 font-medium text-gray-900 w-14 tablet:w-16 lg:min-w-32">
+                    <div className="flex flex-col min-h-[3rem] justify-start space-y-0.5">
+                      <div className="h-3 flex items-center justify-center">
+                        {isToday(date) && (
+                          <Badge variant="secondary" className="text-[8px] px-1 py-0 leading-none">Today</Badge>
+                        )}
                       </div>
-                      <div className={`text-xs ${isToday(date) ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
-                        {formatDate(date)}
+                      <div className={`text-xs font-medium ${isToday(date) ? 'text-blue-600' : 'text-gray-900'}`}>
+                        {dayNames[index].slice(0, 3)}
                       </div>
-                      {isToday(date) && (
-                        <Badge variant="secondary" className="text-xs">Today</Badge>
-                      )}
+                      <div className={`text-[10px] ${isToday(date) ? 'text-blue-600' : 'text-gray-500'}`}>
+                        {date.getDate()}/{date.getMonth() + 1}
+                      </div>
                     </div>
                   </th>
                 ))}
@@ -126,10 +128,10 @@ export function WeeklySchedule({
             <tbody>
               {filteredCoaches.map(coach => (
                 <tr key={coach.coach_id} className="border-t">
-                  <td className="p-3 font-medium bg-gray-50">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-gray-500" />
-                      {coach.coach_display_name}
+                  <td className="p-0.5 tablet:p-2 font-medium bg-gray-50">
+                    <div className="flex items-center gap-1">
+                      <User className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                      <span className="text-[10px] tablet:text-xs truncate">{coach.coach_display_name}</span>
                     </div>
                   </td>
                   {weekDates.map(date => {
@@ -141,13 +143,14 @@ export function WeeklySchedule({
                       return (
                         <td 
                           key={dateString} 
-                          className="p-3 text-center relative"
+                          className="p-0.5 tablet:p-2 text-center relative"
                           onMouseEnter={() => onSlotHover(slotId)}
                           onMouseLeave={() => onSlotHover(null)}
                           onMouseMove={handleMouseMove}
                         >
-                          <div className="bg-gray-100 rounded-lg p-2 border border-gray-200">
-                            <div className="text-xs text-gray-500">No Data</div>
+                          <div className="bg-gray-100 rounded p-0.5 tablet:p-1 border border-gray-200">
+                            <div className="sm:flex tablet:flex lg:hidden items-center justify-center">{getStatusIcon('unavailable')}</div>
+                            <div className="text-xs text-gray-500 hidden lg:block">No Data</div>
                           </div>
                           {/* Hover Details for No Data */}
                           {hoveredSlot === slotId && (
@@ -175,46 +178,57 @@ export function WeeklySchedule({
                     return (
                       <td 
                         key={dateString} 
-                        className="p-3 text-center relative"
+                        className="p-0.5 tablet:p-2 text-center relative"
                         onMouseEnter={() => onSlotHover(slotId)}
                         onMouseLeave={() => onSlotHover(null)}
                         onMouseMove={handleMouseMove}
                       >
-                        <div className={`rounded-lg p-3 border transition-all duration-200 cursor-pointer ${getAvailabilityStatusColor(dayData.status)}`}>
-                          <div className="flex items-center justify-center gap-1 mb-2">
+                        <div className={`rounded p-0.5 tablet:p-1 lg:p-3 border transition-all duration-200 cursor-pointer ${getAvailabilityStatusColor(dayData.status)}`}>
+                          {/* Tablet: Icons only */}
+                          <div className="sm:flex tablet:flex lg:hidden items-center justify-center">
                             {getStatusIcon(dayData.status)}
-                            <span className="text-xs font-medium capitalize">
-                              {dayData.status.replace('_', ' ')}
-                            </span>
                           </div>
                           
-                          {dayData.total_hours > 0 && (
-                            <div className="space-y-1">
-                              <div className="text-xs text-gray-600">
-                                {dayData.total_hours - dayData.booked_hours}/{dayData.total_hours} slots
-                              </div>
-                              {dayData.next_available && (
-                                <div className="text-xs font-medium text-green-600">
-                                  Next: {dayData.next_available}
-                                </div>
-                              )}
+                          {/* Desktop: Full details */}
+                          <div className="hidden lg:block">
+                            <div className="flex items-center justify-center gap-1 mb-2">
+                              {getStatusIcon(dayData.status)}
+                              <span className="text-xs font-medium capitalize">
+                                {dayData.status.replace('_', ' ')}
+                              </span>
                             </div>
-                          )}
+                            
+                            {dayData.total_hours > 0 && (
+                              <div className="space-y-1">
+                                <div className="text-xs text-gray-600">
+                                  {dayData.total_hours - dayData.booked_hours}/{dayData.total_hours} slots
+                                </div>
+                                {dayData.next_available && (
+                                  <div className="text-xs font-medium text-green-600">
+                                    Next: {dayData.next_available}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
 
                           {/* Hover Details */}
                           {hoveredSlot === slotId && (
-                            <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-48 max-w-64 pointer-events-none"
+                            <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-56 max-w-80 pointer-events-none"
                                  style={{
-                                   left: Math.min(mousePosition.x, window.innerWidth - 256) + 'px',
-                                   top: Math.max(mousePosition.y - 120, 10) + 'px',
+                                   left: Math.min(mousePosition.x, window.innerWidth - 320) + 'px',
+                                   top: Math.max(mousePosition.y - 200, 10) + 'px',
                                    transform: 'translateX(-50%)'
                                  }}>
                               <div className="text-sm font-medium mb-2">
                                 {coach.coach_display_name} - {formatDate(date)}
                               </div>
                               {dayData.slots && dayData.slots.length > 0 ? (
-                                <div className="space-y-1">
-                                  {dayData.slots.slice(0, 4).map(slot => (
+                                <div className="space-y-1 max-h-60 overflow-y-auto">
+                                  <div className="text-xs text-gray-600 mb-1 font-medium">
+                                    All {dayData.slots.length} time slots:
+                                  </div>
+                                  {dayData.slots.map(slot => (
                                     <div 
                                       key={slot.start_time}
                                       className={`flex justify-between text-xs p-1 rounded ${
@@ -225,11 +239,6 @@ export function WeeklySchedule({
                                       <span>{slot.is_booked ? 'Booked' : 'Available'}</span>
                                     </div>
                                   ))}
-                                  {dayData.slots.length > 4 && (
-                                    <div className="text-xs text-gray-500 text-center">
-                                      +{dayData.slots.length - 4} more slots
-                                    </div>
-                                  )}
                                 </div>
                               ) : (
                                 <div className="text-xs text-gray-500">
@@ -374,23 +383,28 @@ export function WeeklySchedule({
           </div>
         )}
 
-        {/* Legend */}
-        <div className="flex flex-wrap justify-center gap-3 sm:gap-6 mt-6 p-3 sm:p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
-            <span className="text-xs sm:text-sm">Available</span>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-600" />
-            <span className="text-xs sm:text-sm">Partially</span>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <XCircle className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
-            <span className="text-xs sm:text-sm">Fully Booked</span>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <XCircle className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
-            <span className="text-xs sm:text-sm">Unavailable</span>
+        {/* Legend - Prominently displayed for tablet icon-only view */}
+        <div className="flex flex-wrap justify-center gap-3 tablet:gap-6 mt-6 p-4 tablet:p-6 bg-gray-50 rounded-lg border-2 border-gray-200">
+          <div className="text-center tablet:text-left">
+            <div className="text-xs tablet:text-sm font-semibold text-gray-700 mb-2 tablet:hidden">Schedule Legend</div>
+            <div className="grid grid-cols-2 tablet:flex tablet:flex-wrap gap-3 tablet:gap-6">
+              <div className="flex items-center gap-1 tablet:gap-2">
+                <CheckCircle className="h-4 w-4 tablet:h-5 tablet:w-5 text-green-600" />
+                <span className="text-xs tablet:text-sm font-medium">Available</span>
+              </div>
+              <div className="flex items-center gap-1 tablet:gap-2">
+                <AlertCircle className="h-4 w-4 tablet:h-5 tablet:w-5 text-yellow-600" />
+                <span className="text-xs tablet:text-sm font-medium">Partially Booked</span>
+              </div>
+              <div className="flex items-center gap-1 tablet:gap-2">
+                <XCircle className="h-4 w-4 tablet:h-5 tablet:w-5 text-red-600" />
+                <span className="text-xs tablet:text-sm font-medium">Fully Booked</span>
+              </div>
+              <div className="flex items-center gap-1 tablet:gap-2">
+                <XCircle className="h-4 w-4 tablet:h-5 tablet:w-5 text-gray-400" />
+                <span className="text-xs tablet:text-sm font-medium">Unavailable</span>
+              </div>
+            </div>
           </div>
         </div>
       </CardContent>

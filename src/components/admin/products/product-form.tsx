@@ -199,6 +199,7 @@ export function ProductForm({
         price: parseFloat(data.price.toString()),
         cost: data.cost ? parseFloat(data.cost.toString()) : undefined,
         display_order: data.display_order ? parseInt(data.display_order.toString()) : undefined,
+        unit: data.unit === undefined ? null : data.unit,
         has_modifiers: hasModifiers
       };
 
