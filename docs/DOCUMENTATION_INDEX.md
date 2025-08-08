@@ -1,163 +1,226 @@
 # Lengolf Forms Documentation Index
 
-Welcome to the comprehensive documentation for the Lengolf Forms golf academy management system. This index organizes all documentation into logical sections to help developers, administrators, and users understand and work with the complete system.
+Welcome to the comprehensive documentation for the Lengolf Forms golf academy management system. This index organizes all documentation to match the application's logical structure, helping developers, administrators, and users quickly find relevant information.
 
 ## 📋 Documentation Overview
 
-This documentation covers the entire Lengolf Forms ecosystem, including:
-- **Core Business Features**: Booking, packages, customer management, analytics
-- **Technical Architecture**: Frontend, backend, database, and integrations
-- **Administrative Systems**: Role-based access, business intelligence, system management
-- **External Integrations**: Google Calendar, LINE Messaging, CRM systems
-- **Operational Workflows**: User processes, business rules, and procedures
+This documentation covers the entire Lengolf Forms ecosystem, organized by user access patterns:
+- **Public Features**: Staff-accessible features for daily operations
+- **Admin Features**: Administrative systems requiring elevated permissions
+- **Technical Architecture**: Developer-focused implementation details
+- **System Integration**: External APIs and services
 
 ## 🗂️ Complete Documentation Index
 
-### Core System Documentation
+### 🏗️ System Architecture
 - **[Project Structure](./PROJECT_STRUCTURE.md)** - Complete codebase structure and organization
 - **[Backend Documentation](./BACKEND_DOCUMENTATION.md)** - API endpoints, database, and server-side architecture
 - **[Frontend Documentation](./frontend/FRONTEND_OVERVIEW.md)** - Component architecture, hooks, and UI patterns
-- **[Component Styling Guides](./frontend/STYLING_GUIDES.md)** - Comprehensive styling patterns, component guides, and design system documentation with inconsistency analysis
-- **[Database Schema](./technical/DATABASE_SCHEMA.md)** - Complete database structure and relationships
+- **[Component Styling Guides](./frontend/STYLING_GUIDES.md)** - Styling patterns, component guides, and design system
+- **[Database Documentation](./database/DATABASE_DOCUMENTATION_INDEX.md)** - Complete database schemas, relationships, and functions
 
-### Core Features Documentation (Implemented)
-- **[Booking System](./features/BOOKING_SYSTEM.md)** - Complete booking management workflow with multi-step creation, calendar integration, and audit trails
-- **[Booking Management](./features/BOOKING_MANAGEMENT.md)** - Comprehensive booking interface with search, filtering, visual indicators, and responsive design
-- **[Booking Editing](./features/BOOKING_EDITING.md)** - Advanced booking edit system with tabbed interface, conditional permissions, and real-time validation
-- **[Package Management](./features/PACKAGE_MANAGEMENT.md)** - Customer packages, usage tracking, expiration monitoring, and unlimited package support
-- **[Admin Panel](./features/ADMIN_PANEL.md)** - Administrative interface with role-based access and business intelligence tools
-- **[Sales Dashboard](./features/SALES_DASHBOARD.md)** - Comprehensive analytics with KPIs, charts, and flexible date filtering
-- **[Inventory Dashboard](./features/INVENTORY_DASHBOARD.md)** - Stock level monitoring, reorder alerts, and product management with real-time tracking
-- **[Transaction Management](./features/TRANSACTION_MANAGEMENT.md)** - Professional POS transaction management with TanStack Table, advanced filtering, sorting, Thailand timezone handling, and modern UI design
-- **[POS Data Pipeline](./features/POS_DATA_PIPELINE.md)** - Complete data flow from external POS systems through staging to production tables, ETL functions, and BigQuery compatibility
-- **[Product Mapping System](./features/PRODUCT_MAPPING_SYSTEM.md)** - Administrative tool for mapping unmapped POS products to catalog products with bulk operations, statistics dashboard, and ETL integration
-- **[POS Tablet Enhancements](./features/pos/POS_TABLET_ENHANCEMENTS.md)** - Touch-friendly discount tooltips and swipe navigation optimized for 686x991 tablet resolution
-- **[Product Modifier System](./features/pos/PRODUCT_MODIFIER_SYSTEM.md)** - Complete variable pricing system with time-based and quantity-based modifiers, tablet-optimized POS integration, and admin management interface
-- **[Referral Analytics System](./features/REFERRAL_ANALYTICS_SYSTEM.md)** - Comprehensive referral tracking system with weekly/monthly analytics, multi-source data integration, booking source tracking, and real-time dashboard visualization
-- **[Native Availability System](./features/NATIVE_AVAILABILITY_SYSTEM.md)** - Supabase-native availability checking with real-time updates, 10-40x performance improvement, and zero external dependencies
-- **[Coaching System](./features/COACHING_SYSTEM.md)** - Comprehensive golf coaching management with coach dashboards, admin booking assistant, availability management, student tracking, and earnings analytics
-- **[Time Clock System](./features/TIME_CLOCK_SYSTEM.md)** - Complete staff time tracking system with PIN authentication, camera verification, admin management, payroll integration, and performance optimization
-- **[Staff Management System](./features/STAFF_MANAGEMENT_SYSTEM.md)** - Comprehensive staff administration including employee records, time tracking integration, payroll processing, performance analytics, and administrative controls
-- **[Staff Scheduling System](./features/STAFF_SCHEDULING_SYSTEM.md)** - Complete staff scheduling solution with dual interfaces for staff viewing and admin management, featuring visual calendar displays, recurring schedules, conflict detection, and coverage optimization
-- **[B2C Lead Feedback System](./features/B2C_LEAD_FEEDBACK_SYSTEM.md)** - Comprehensive B2C lead tracking system replacing Google Forms with integrated Supabase storage, smart filtering, follow-up management, and mobile-optimized interface
-- **[Cash Check System](./features/CASH_CHECK_SYSTEM.md)** - Simple and efficient cash recording system for staff to log opening and closing cash amounts with historical data integration and mobile-optimized interface
+---
 
-### Feature Documentation (Implemented)
-- **[Customer Management System](./features/CUSTOMER_MANAGEMENT_SYSTEM.md)** - Complete customer management with stable IDs, phone normalization, profile integration, full-text search, real-time analytics, and 95%+ data migration success
-- **[Calendar Integration](./features/CALENDAR_INTEGRATION.md)** - Google Calendar API integration with multi-bay synchronization, event management, and availability checking
-- **[Inventory Management](./features/INVENTORY_MANAGEMENT.md)** - Daily inventory submissions, automated reporting, stock level monitoring, and LINE integration
-- **[Special Events](./features/SPECIAL_EVENTS.md)** - US Open scoring system with screenshot verification, leaderboards, and tournament management
+## 🌟 Public Features (Staff Access)
 
-### Technical Documentation (Implemented)
-- **[API Reference](./api/API_REFERENCE.md)** - Complete API endpoint documentation with request/response examples, error handling, and rate limiting
-- **[Coaching API Reference](./api/COACHING_API_REFERENCE.md)** - Detailed documentation for all coaching-related API endpoints with examples and response structures
-- **[Authentication System](./technical/AUTHENTICATION_SYSTEM.md)** - NextAuth.js v5 implementation with Google OAuth, multi-role access control (admin/coach), automatic redirects, and session management
-- **[Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md)** - Comprehensive development authentication bypass system with Bearer tokens, frontend bypass, and production safety
-- **[Coaching System Technical](./technical/COACHING_SYSTEM_TECHNICAL.md)** - Technical implementation details, architecture, performance optimizations, and development setup for the coaching system
+### Booking & Scheduling
+- **[Booking System](./features/public/booking-scheduling/BOOKING_SYSTEM.md)** - Multi-step booking creation, calendar integration, and audit trails
+- **[Booking Management](./features/public/booking-scheduling/BOOKING_MANAGEMENT.md)** - Search, filtering, visual indicators, and responsive interface
+- **[Booking Editing](./features/public/booking-scheduling/BOOKING_EDITING.md)** - Tabbed interface, permissions, and real-time validation
+- **[Calendar Integration](./features/public/booking-scheduling/CALENDAR_INTEGRATION.md)** - Google Calendar sync and availability checking
+- **[Native Availability System](./features/public/booking-scheduling/NATIVE_AVAILABILITY_SYSTEM.md)** - Real-time availability with 10-40x performance improvement
 
-### Integration Documentation (Implemented)
-- **[LINE Messaging Integration](./integrations/LINE_MESSAGING_INTEGRATION.md)** - Complete LINE API integration with multi-group messaging, automated notifications, error handling, and webhook management
+### Customer & Package Management  
+- **[Customer Management System](./features/public/customer-packages/CUSTOMER_MANAGEMENT_SYSTEM.md)** - Complete customer management with search and CRM integration
+- **[Package Management](./features/public/customer-packages/PACKAGE_MANAGEMENT.md)** - Creation, usage tracking, expiration monitoring, and unlimited packages
 
-### Documentation Needed for Current System
-- **[Development Setup](./development/SETUP.md)** - Local development environment and dependencies
-- **[Deployment Guide](./development/DEPLOYMENT.md)** - Production deployment and environment variables
-- **[Staff User Manual](./user/STAFF_MANUAL.md)** - Daily operations guide for staff members
-- **[Admin User Guide](./user/ADMIN_GUIDE.md)** - Administrative features and system management
-- **[Troubleshooting Guide](./user/TROUBLESHOOTING.md)** - Common issues and solutions
+### Coaching Services
+- **[Coaching System](./features/public/coaching/COACHING_SYSTEM.md)** - Coach dashboards, booking assistant, student tracking, and earnings
 
-### System Procedures
-- **[Adding New Coach](./procedures/ADDING_NEW_COACH.md)** - Complete process for adding new coaches/pros to the system
+### Point of Sale System
+- **[POS System Implementation](./features/public/pos/POS_SYSTEM_IMPLEMENTATION.md)** - Complete POS system architecture
+- **[POS Product Catalog](./features/public/pos/POS_PRODUCT_CATALOG.md)** - Product browsing and custom products
+- **[POS Order Management](./features/public/pos/POS_ORDER_MANAGEMENT.md)** - Order processing and table management
+- **[POS Payment Processing](./features/public/pos/POS_PAYMENT_PROCESSING.md)** - Payment methods and transaction handling
+- **[POS Receipt System](./features/public/pos/POS_RECEIPT_SYSTEM.md)** - Receipt generation and printing
+- **[POS Tablet Enhancements](./features/public/pos/POS_TABLET_ENHANCEMENTS.md)** - Touch-optimized interface improvements
+- **[Product Modifier System](./features/public/pos/PRODUCT_MODIFIER_SYSTEM.md)** - Variable pricing with modifiers
 
-## 🎯 Explored System Areas
+### Staff Operations
+- **[Time Clock System](./features/public/staff-operations/TIME_CLOCK_SYSTEM.md)** - PIN authentication, camera verification, and time tracking
+- **[Staff Scheduling System](./features/public/staff-operations/STAFF_SCHEDULING_SYSTEM.md)** - Staff schedules with conflict detection
+- **[Cash Check System](./features/public/staff-operations/CASH_CHECK_SYSTEM.md)** - Daily cash recording with historical tracking
 
-During the comprehensive system analysis, the following areas were thoroughly explored:
+### Inventory & Events
+- **[Inventory Management](./features/public/staff-operations/INVENTORY_MANAGEMENT.md)** - Daily submissions, reporting, and LINE integration
+- **[Special Events](./features/public/staff-operations/SPECIAL_EVENTS.md)** - US Open scoring and tournament management
 
-### Core Application Features
-- **Main Navigation System**: Multi-level navigation with responsive design and role-based menus
-- **Booking Management**: 3-step booking creation, management interface, and calendar view
-- **Package System**: Creation, monitoring, usage tracking, and expiration management
-- **Customer Management**: Search, creation, CRM integration, and data synchronization
-- **Admin Framework**: Role-based access, sales analytics, and business intelligence
+---
 
-### Technical Architecture
-- **Frontend Stack**: Next.js 14, TypeScript, Tailwind CSS, Radix UI components
-- **Backend Infrastructure**: Next.js API routes, Supabase PostgreSQL, service functions
-- **Authentication**: NextAuth.js with Google OAuth and role-based access control
-- **Database Design**: Multi-schema organization, RLS policies, and stored procedures
-- **External Integrations**: Google Calendar API, LINE Messaging API, CRM automation
+## 🔧 Admin Features (Administrative Access)
 
-### Business Logic Systems
-- **Multi-Bay Coordination**: Bay scheduling, availability checking, and conflict resolution
-- **Package Lifecycle**: Creation, activation, usage tracking, and expiration monitoring
-- **Booking Workflows**: Validation, calendar sync, notifications, and audit trails
-- **Analytics Framework**: KPI calculation, trend analysis, and performance metrics
+### Sales & Analytics
+- **[Sales Dashboard](./features/admin/analytics/SALES_DASHBOARD.md)** - KPIs, charts, and business analytics
+- **[Referral Analytics System](./features/admin/analytics/REFERRAL_ANALYTICS_SYSTEM.md)** - Customer acquisition tracking and trend analysis
+- **[B2C Lead Feedback System](./features/admin/analytics/B2C_LEAD_FEEDBACK_SYSTEM.md)** - Lead tracking and follow-up management
+
+### Customer Management
+- **[Customer Management System](./features/public/customer-packages/CUSTOMER_MANAGEMENT_SYSTEM.md)** - Unified customer profiles with stable IDs and analytics
+- **[POS Customer Management](./features/public/pos/POS_CUSTOMER_MANAGEMENT.md)** - Customer integration in POS system
+
+### Product & Inventory
+- **[Product Management System](./features/public/pos/PRODUCT_MANAGEMENT_SYSTEM.md)** - Catalog management, pricing, and categories
+- **[Product Mapping System](./features/admin/data-management/PRODUCT_MAPPING_SYSTEM.md)** - Map POS products with bulk operations
+- **[Product Modifier System](./features/public/pos/PRODUCT_MODIFIER_SYSTEM.md)** - Variable pricing with time-based modifiers
+- **[Inventory Dashboard](./features/admin/system-management/INVENTORY_DASHBOARD.md)** - Stock monitoring, alerts, and product tracking
+- **[POS Discount System](./features/public/pos/POS_DISCOUNT_SYSTEM.md)** - Create and manage POS discounts
+
+### Staff & Payroll
+- **[Staff Management System](./features/admin/system-management/STAFF_MANAGEMENT_SYSTEM.md)** - Employee records, permissions, and analytics
+- **[Staff Scheduling System](./features/public/staff-operations/STAFF_SCHEDULING_SYSTEM.md)** - Schedule management with conflict detection
+- **[Time Clock System](./features/public/staff-operations/TIME_CLOCK_SYSTEM.md)** - Time tracking with PIN authentication
+
+### Financial & Operations
+- **[Invoice Management](./features/admin/system-management/INVOICE_MANAGEMENT.md)** - Supplier invoice generation and management
+- **[Transaction Management](./features/admin/system-management/TRANSACTION_MANAGEMENT.md)** - POS transaction management
+- **[Reconciliation System](./features/admin/data-management/RECONCILIATION_SYSTEM.md)** - Transaction and payment reconciliation
+- **[Admin Panel](./features/admin/system-management/ADMIN_PANEL.md)** - Central administrative interface
 
 ### Data Management
-- **Customer Data**: CRM integration, automated synchronization, and data validation
-- **Booking History**: Complete audit trails, change tracking, and compliance logging
-- **Package Tracking**: Usage monitoring, expiration alerts, and status management
-- **Analytics Data**: Real-time KPIs, historical trends, and business intelligence
+- **[POS Data Pipeline](./features/admin/data-management/POS_DATA_PIPELINE.md)** - ETL processes and BigQuery integration
 
-## 📖 Documentation Priorities
+---
 
-### Phase 1 (High Priority) ✅ COMPLETED
-1. **[Customer Management System](./features/CUSTOMER_MANAGEMENT_SYSTEM.md)** - ✅ Complete customer management system documentation
-2. **[Calendar Integration](./features/CALENDAR_INTEGRATION.md)** - ✅ Google Calendar API integration documented
-3. **[API Reference](./api/API_REFERENCE.md)** - ✅ Comprehensive API documentation created
-4. **[Authentication System](./technical/AUTHENTICATION_SYSTEM.md)** - ✅ Complete auth system documentation
-5. **[LINE Messaging Integration](./integrations/LINE_MESSAGING_INTEGRATION.md)** - ✅ Full integration documentation
-6. **[Inventory Management](./features/INVENTORY_MANAGEMENT.md)** - ✅ Complete inventory system documentation
-7. **[Special Events](./features/SPECIAL_EVENTS.md)** - ✅ US Open scoring system documented
+## 🔌 Technical Documentation
 
-### Next Priority (Practical Documentation)
-1. **[Development Setup](./development/SETUP.md)** - Essential for new developers
-2. **[Staff User Manual](./user/STAFF_MANUAL.md)** - Critical for end-user training and adoption
-3. **[Deployment Guide](./development/DEPLOYMENT.md)** - Essential for production management
-4. **[Admin User Guide](./user/ADMIN_GUIDE.md)** - Administrative features and system management
-5. **[Troubleshooting Guide](./user/TROUBLESHOOTING.md)** - Common issues and solutions
+### API & Authentication
+- **[API Reference](./api/API_REFERENCE.md)** - Complete endpoint documentation with examples
+- **[Coaching API Reference](./api/COACHING_API_REFERENCE.md)** - Coaching-specific API endpoints
+- **[Authentication System](./technical/AUTHENTICATION_SYSTEM.md)** - NextAuth.js with multi-role access control
+- **[Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md)** - Development bypass system
+
+### System Integration
+- **[Calendar Integration](./features/public/booking-scheduling/CALENDAR_INTEGRATION.md)** - Google Calendar API with multi-bay sync
+- **[LINE Messaging Integration](./integrations/LINE_MESSAGING_INTEGRATION.md)** - Complete LINE API integration
+- **[Coaching System Technical](./technical/COACHING_SYSTEM_TECHNICAL.md)** - Technical architecture and optimization
+
+---
+
+## 📚 Operational Documentation
+
+### Setup & Deployment
+- **[Development Setup](./development/SETUP.md)** - Local environment configuration
+- **[Deployment Guide](./development/DEPLOYMENT.md)** - Production deployment procedures
+
+### User Guides
+- **[Staff User Manual](./user/STAFF_MANUAL.md)** - Daily operations guide
+- **[Admin User Guide](./user/ADMIN_GUIDE.md)** - Administrative features guide
+- **[Troubleshooting Guide](./user/TROUBLESHOOTING.md)** - Common issues and solutions
+
+### Procedures
+- **[Adding New Coach](./procedures/ADDING_NEW_COACH.md)** - Coach onboarding process
+
+### Maintenance
+- **[Unused Code Analysis](./maintenance/UNUSED_CODE_ANALYSIS.md)** - Code cleanup and optimization procedures
+
+---
+
+## 📋 Redundant Files Analysis
+
+### Files That Should Be Merged
+
+The following documentation files contain overlapping content and should be consolidated:
+
+#### Customer Management Redundancy
+- **PRIMARY**: `CUSTOMER_MANAGEMENT_SYSTEM.md` (Complete implementation documentation)
+- **REDUNDANT**: `CUSTOMER_MANAGEMENT.md` (Legacy documentation, overlaps 80% with primary)
+- **RECOMMENDATION**: Merge unique content from CUSTOMER_MANAGEMENT.md into CUSTOMER_MANAGEMENT_SYSTEM.md
+
+#### POS System Redundancy  
+- **PRIMARY**: `pos/POS_PRODUCT_CATALOG.md` (Current implementation with custom products)
+- **REDUNDANT**: `pos/POS_PRODUCT_MANAGEMENT.md` (Legacy product management, 60% overlap)
+- **PRIMARY**: `pos/POS_RECEIPT_SYSTEM.md` (Complete receipt documentation)
+- **REDUNDANT**: `pos/POS_RECEIPT_PRINTING.md` (Subset of receipt system, 90% overlap)
+- **RECOMMENDATION**: Consolidate POS product documentation and merge receipt printing into receipt system
+
+#### ETL and Data Pipeline Redundancy
+- **PRIMARY**: `POS_DATA_PIPELINE.md` (Complete ETL documentation)
+- **REDUNDANT**: `COMPLETE_ETL_PROCESS.md` (Earlier version, 70% overlap)
+- **RECOMMENDATION**: Review unique ETL content and merge into main pipeline documentation
+
+#### Calendar Integration Redundancy
+- **PRIMARY**: `CALENDAR_INTEGRATION.md` (Complete Google Calendar integration)
+- **REDUNDANT**: `CALENDAR_SYNC_SERVICE.md` (Technical implementation subset, 80% overlap)  
+- **RECOMMENDATION**: Merge technical details into main calendar integration doc
+
+---
 
 ## 🚀 Quick Start Navigation
 
-- **New Developers**: [Project Structure](./PROJECT_STRUCTURE.md) → [Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md) → [Backend Documentation](./BACKEND_DOCUMENTATION.md) → [Component Styling Guides](./frontend/STYLING_GUIDES.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
-- **System Administrators**: [Admin Panel](./features/ADMIN_PANEL.md) → [Database Schema](./technical/DATABASE_SCHEMA.md) → [Customer Management System](./features/CUSTOMER_MANAGEMENT_SYSTEM.md)
-- **Business Users**: [Booking System](./features/BOOKING_SYSTEM.md) → [Package Management](./features/PACKAGE_MANAGEMENT.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md) → [Referral Analytics System](./features/REFERRAL_ANALYTICS_SYSTEM.md)
-- **Coaches**: [Coaching System](./features/COACHING_SYSTEM.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md) → [Authentication System](./technical/AUTHENTICATION_SYSTEM.md)
-- **Operations Managers**: [Staff Scheduling System](./features/STAFF_SCHEDULING_SYSTEM.md) → [Inventory Dashboard](./features/INVENTORY_DASHBOARD.md) → [Transaction Management](./features/TRANSACTION_MANAGEMENT.md) → [Time Clock System](./features/TIME_CLOCK_SYSTEM.md) → [Staff Management System](./features/STAFF_MANAGEMENT_SYSTEM.md) → [B2C Lead Feedback System](./features/B2C_LEAD_FEEDBACK_SYSTEM.md) → [Cash Check System](./features/CASH_CHECK_SYSTEM.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md) → [Referral Analytics System](./features/REFERRAL_ANALYTICS_SYSTEM.md)
-- **Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [Calendar Integration](./features/CALENDAR_INTEGRATION.md)
+### By Role
+- **🆕 New Developers**: [Project Structure](./PROJECT_STRUCTURE.md) → [Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md) → [API Reference](./api/API_REFERENCE.md)
+- **🔧 System Administrators**: [Admin Panel](./features/ADMIN_PANEL.md) → [Database Schema](./database/DATABASE_DOCUMENTATION_INDEX.md) → [Customer Management System](./features/CUSTOMER_MANAGEMENT_SYSTEM.md)
+- **👥 Business Users**: [Booking System](./features/BOOKING_SYSTEM.md) → [Package Management](./features/PACKAGE_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
+- **🏌️ Coaches**: [Coaching System](./features/COACHING_SYSTEM.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md)
+- **⚙️ Operations Managers**: [Staff Management System](./features/STAFF_MANAGEMENT_SYSTEM.md) → [Staff Scheduling System](./features/STAFF_SCHEDULING_SYSTEM.md) → [Time Clock System](./features/TIME_CLOCK_SYSTEM.md)
+- **🔗 Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [Calendar Integration](./features/CALENDAR_INTEGRATION.md)
+
+### By Feature Category
+- **📅 Booking & Scheduling**: All booking-related documentation under Public Features > Booking & Scheduling
+- **🛒 POS System**: Complete POS documentation under Public Features > Point of Sale System  
+- **👤 Customer Management**: All customer features under Admin Features > Customer Management
+- **📊 Analytics & Reporting**: Sales and analytics under Admin Features > Sales & Analytics
+- **👨‍💼 Staff Management**: All staff features under Admin Features > Staff & Payroll
+
+---
 
 ## 📝 Documentation Standards
 
-- **Format**: All documentation uses Markdown with consistent formatting
-- **Code Examples**: Include TypeScript/JavaScript examples with proper syntax highlighting
-- **Screenshots**: Visual aids stored in `docs/assets/` directory
-- **Cross-References**: Extensive linking between related documentation sections
-- **Versioning**: Documentation updated with each major feature release
-- **Review Process**: Technical review for accuracy and completeness
+- **Format**: Markdown with consistent heading hierarchy and structure
+- **Code Examples**: TypeScript/JavaScript with proper syntax highlighting  
+- **Cross-References**: Extensive internal linking between related sections
+- **Versioning**: Updated with major feature releases
+- **Review Process**: Technical accuracy validation required
+- **File Naming**: kebab-case with descriptive names matching feature structure
+- **Organization**: Grouped by user access level and functional area
 
 ---
 
 ## 📊 Current Documentation Status
 
-**Last Updated**: July 2025  
-**Version**: 2.2  
-**Focus**: Current system state documentation  
+**Last Updated**: January 2025  
+**Version**: 3.0 - Reorganized Structure  
+**Focus**: User-centric organization matching application structure  
 
-### ✅ What's Fully Documented
-- **Core Features**: Booking, packages, admin panel, sales dashboard, customer management system, invoice management, transaction management, coaching system, time clock system, staff management system, staff scheduling system, product mapping system, product modifier system, referral analytics system, B2C lead feedback system, cash check system
-- **Technical Systems**: Authentication, database schema, API endpoints, POS data pipeline, coaching system technical architecture, referral data processing
-- **Frontend Systems**: Component architecture, styling guides, design system patterns, UI consistency analysis, referral analytics dashboard components
-- **Integrations**: LINE messaging, Google Calendar, CRM synchronization  
-- **Special Features**: Inventory management, US Open scoring system, professional invoicing, TanStack Table implementation, coaching availability management, product mapping and cataloging, multi-source referral tracking
-- **Architecture**: Project structure, backend/frontend organization, coaching system component architecture, referral analytics data flow
+### ✅ Fully Documented Features (95%+ Complete)
+- **Booking & Scheduling**: Complete workflow from creation to management
+- **Customer Management**: Unified system with stable IDs and analytics  
+- **POS System**: Full point-of-sale documentation with mobile optimization
+- **Staff Management**: Time tracking, scheduling, and payroll systems
+- **Admin Analytics**: Sales dashboards, referral tracking, and business intelligence
+- **Technical Systems**: APIs, authentication, database, and integrations
 
-### 📝 Practical Documentation Needed
-1. **Development Setup** - Environment configuration and dependencies
-2. **Staff User Manual** - Daily operations and common tasks
-3. **Admin User Guide** - Administrative features and management
+### 🔄 Consolidation Needed
+1. **Customer Management Files**: Merge `CUSTOMER_MANAGEMENT.md` into `CUSTOMER_MANAGEMENT_SYSTEM.md`
+2. **POS Product Documentation**: Consolidate `pos/POS_PRODUCT_MANAGEMENT.md` into `pos/POS_PRODUCT_CATALOG.md`
+3. **POS Receipt Documentation**: Merge `pos/POS_RECEIPT_PRINTING.md` into `pos/POS_RECEIPT_SYSTEM.md`  
+4. **ETL Process Documentation**: Merge `COMPLETE_ETL_PROCESS.md` into `POS_DATA_PIPELINE.md`
+5. **Calendar Integration**: Combine `CALENDAR_SYNC_SERVICE.md` into `CALENDAR_INTEGRATION.md`
+
+### 📝 Files Referenced But Missing (Need Creation or Path Updates)
+1. **BOOKING_CALENDAR.md** - Visual calendar documentation (may exist in BOOKING_SYSTEM.md)
+2. **COACHING_ASSISTANT.md** - Help customers find coaching slots (may be in COACHING_SYSTEM.md) 
+3. **PACKAGE_MONITOR.md** - Package status tracking (may be in PACKAGE_MANAGEMENT.md)
+4. **POS_SYSTEM_OVERVIEW.md** - Consolidated POS system documentation (create from existing POS docs)
+5. **CUSTOMER_MAPPING.md**, **META_LEADS.md** - Admin-specific features (verify admin interface docs)
+6. **DISCOUNT_MANAGEMENT.md**, **PAYROLL_CALCULATIONS.md** - Map to existing `pos/POS_DISCOUNT_SYSTEM.md`
+7. **Staff-related docs** - Verify mapping to existing STAFF_MANAGEMENT_SYSTEM.md and STAFF_SCHEDULING_SYSTEM.md
+
+### 📝 Missing Operational Documentation
+1. **Development Setup** - Local environment configuration
+2. **Staff User Manual** - Daily operations guide
+3. **Admin User Guide** - Administrative feature guide  
 4. **Deployment Guide** - Production deployment procedures
 5. **Troubleshooting Guide** - Common issues and solutions
 
-### Maintenance Documentation
-- **[Unused Code Analysis](./maintenance/UNUSED_CODE_ANALYSIS.md)** - Comprehensive analysis of unused components, hooks, services, and NPM packages with safe removal procedures and manual verification requirements
-
-**Purpose**: This documentation supports current operations, system maintenance, developer onboarding, and knowledge transfer for the Lengolf Forms golf academy management system. 
+**Purpose**: This reorganized documentation structure provides intuitive navigation matching the application's user interface, making it easier for different user types to find relevant information quickly. 

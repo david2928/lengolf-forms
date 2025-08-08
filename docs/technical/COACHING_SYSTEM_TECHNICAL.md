@@ -1284,4 +1284,4 @@ const apiClient = {
 **Related Documentation**:
 - [Coaching System Overview](../features/COACHING_SYSTEM.md)
 - [Coaching API Reference](../api/COACHING_API_REFERENCE.md)
-- [Database Schema](../technical/DATABASE_SCHEMA.md)
+- [Database Schema](../database/DATABASE_DOCUMENTATION_INDEX.md)

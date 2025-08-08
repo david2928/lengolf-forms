@@ -3,6 +3,14 @@
 ## Overview
 The `public` schema contains core application tables for managing bookings, customer data, inventory, competitive analytics, and system operations. This is the primary schema for user-facing functionality.
 
+**Current Status (2025-01-08)**:
+- **Total Tables**: 35 (+ 2 views)
+- **🔥 Highly Active**: 2 tables (customers: 26.9M ops, processed_leads: 7.2K ops)
+- **✅ Active**: 8 tables with regular operations (bookings, crm_packages, etc.)
+- **⚠️ Low Activity**: 3 tables with minimal usage
+- **❌ Unused**: 12 tables with zero/minimal activity (cleanup candidates)
+- **Database Operations**: 26.9M+ total operations, heavily concentrated in customer management
+
 ## Table Relationships Diagram
 
 ```mermaid
@@ -64,8 +72,12 @@ Core table for all booking records.
 
 ---
 
-### 2. **customers**
+### 2. **customers** 🔥 HIGHLY ACTIVE
 Unified customer master data table.
+
+**Activity**: **26.9M+ operations** - Most active table in entire database
+**Status**: CRITICAL - Core business entity
+**Performance Note**: High update volume suggests optimization needed
 
 **Purpose**: Central repository for all customer information across systems
 
@@ -137,14 +149,18 @@ User authentication profiles from NextAuth.
 
 ---
 
-### 4. **bay_availability_cache**
+### 4. **bay_availability_cache** ❌ UNUSED - CLEANUP CANDIDATE
 Performance optimization for bay availability checks.
+
+**Activity**: **0 operations** - Never used
+**Status**: UNUSED - Feature never implemented
+**Action**: Safe to drop
 
 **Purpose**: Caches Google Calendar API results to reduce API calls
 
-**Population**: Auto-populated on availability checks
+**Population**: Auto-populated on availability checks (never activated)
 
-**Usage**: First-check for booking availability before hitting external APIs
+**Usage**: Intended for booking availability caching (not implemented)
 
 **Columns**:
 | Column | Type | Nullable | Default | Description |
@@ -162,8 +178,11 @@ Performance optimization for bay availability checks.
 
 ---
 
-### 5. **booking_history**
+### 5. **booking_history** ✅ ACTIVE
 Audit trail for all booking changes.
+
+**Activity**: Regular operations tracking booking modifications
+**Status**: ACTIVE - Critical audit functionality
 
 **Purpose**: Tracks all modifications to bookings for audit and customer service
 
@@ -193,8 +212,11 @@ Audit trail for all booking changes.
 
 ---
 
-### 6. **crm_packages**
+### 6. **crm_packages** ✅ ACTIVE
 Customer package holdings from CRM system.
+
+**Activity**: Regular sync operations from CRM
+**Status**: ACTIVE - Core package management
 
 **Purpose**: Stores package information synced from external CRM
 
@@ -227,20 +249,21 @@ Customer package holdings from CRM system.
 
 ---
 
-### 7. **inventory_categories**
+### 7. **inventory_categories** ❌ UNUSED - CLEANUP CANDIDATE
 Categories for inventory management.
+
+**Activity**: **0 operations** - Never used
+**Status**: UNUSED - Inventory feature not implemented
+**Action**: Consider removal with inventory_products
 
 **Purpose**: Organizes inventory items into logical groups
 
 **Key Relationships**:
 - Referenced by `inventory_products`
 
-**Population**: Admin-managed through inventory settings
+**Population**: Admin-managed through inventory settings (never used)
 
-**Usage**:
-- Inventory organization
-- Submission forms
-- Reporting grouping
+**Usage**: Feature not implemented
 
 **Columns**:
 | Column | Type | Nullable | Default | Description |
@@ -254,20 +277,21 @@ Categories for inventory management.
 
 ---
 
-### 8. **inventory_products**
+### 8. **inventory_products** ❌ UNUSED - CLEANUP CANDIDATE
 Product definitions for inventory tracking.
+
+**Activity**: **3 operations** - Minimal test data only
+**Status**: UNUSED - Inventory feature not fully implemented
+**Action**: Consider removal with inventory_categories
 
 **Purpose**: Defines trackable inventory items
 
 **Key Relationships**:
 - `category_id` → `inventory_categories.id`
 
-**Population**: Admin-managed through inventory settings
+**Population**: Admin-managed through inventory settings (minimal use)
 
-**Usage**:
-- Inventory submission forms
-- Stock level tracking
-- Reorder management
+**Usage**: Feature not fully implemented
 
 **Columns**:
 | Column | Type | Nullable | Default | Description |
@@ -288,8 +312,11 @@ Product definitions for inventory tracking.
 
 ---
 
-### 9. **inventory_submission**
+### 9. **inventory_submission** ⚠️ LOW ACTIVITY
 Daily inventory count submissions.
+
+**Activity**: **1,862 operations** - Some usage but low volume
+**Status**: PARTIALLY ACTIVE - Consider if still needed
 
 **Purpose**: Records staff inventory counts
 
@@ -319,8 +346,12 @@ Daily inventory count submissions.
 
 ---
 
-### 10. **vip_customer_data**
+### 10. **vip_customer_data** ❌ UNUSED - CLEANUP CANDIDATE
 VIP customer profile information.
+
+**Activity**: **0 operations** - Never used
+**Status**: UNUSED - VIP feature never launched
+**Action**: Safe to drop with vip_tiers
 
 **Purpose**: Stores VIP-specific customer data and preferences
 
@@ -328,12 +359,9 @@ VIP customer profile information.
 - `customer_id` → `customers.id`
 - `vip_tier_id` → `vip_tiers.id`
 
-**Population**: Created when customers join VIP program
+**Population**: Never implemented
 
-**Usage**:
-- VIP member portal
-- Tier management
-- Benefit tracking
+**Usage**: VIP feature was planned but never launched
 
 **Columns**:
 | Column | Type | Nullable | Default | Description |
@@ -349,17 +377,18 @@ VIP customer profile information.
 
 ---
 
-### 11. **vip_tiers**
+### 11. **vip_tiers** ❌ UNUSED - CLEANUP CANDIDATE
 VIP membership tier definitions.
+
+**Activity**: **0 operations** - Never used
+**Status**: UNUSED - VIP feature never launched
+**Action**: Safe to drop with vip_customer_data
 
 **Purpose**: Defines VIP program tiers and benefits
 
-**Population**: Admin-managed, rarely changes
+**Population**: Never implemented
 
-**Usage**:
-- Tier assignment
-- Benefit determination
-- Display in VIP portal
+**Usage**: VIP feature was planned but never launched
 
 **Columns**:
 | Column | Type | Nullable | Default | Description |
@@ -372,8 +401,12 @@ VIP membership tier definitions.
 
 ---
 
-### 12. **processed_leads**
+### 12. **processed_leads** 🔥 HIGHLY ACTIVE
 Facebook/Meta lead form submissions.
+
+**Activity**: **7,256 operations** including frequent deletions
+**Status**: CRITICAL - Active lead management
+**Performance Note**: High deletion rate suggests archival needed
 
 **Purpose**: Stores and tracks marketing leads from social media
 
@@ -401,17 +434,18 @@ Facebook/Meta lead form submissions.
 
 ---
 
-### 13. **google_ads_spend**
+### 13. **google_ads_spend** ❌ UNUSED - CLEANUP CANDIDATE
 Google Ads campaign spending data.
+
+**Activity**: **0 operations** - Never used
+**Status**: UNUSED - Ad tracking not implemented
+**Action**: Safe to drop
 
 **Purpose**: Tracks advertising spend for ROI analysis
 
-**Population**: Manual import or API sync
+**Population**: Never implemented
 
-**Usage**:
-- Marketing ROI analysis
-- Budget tracking
-- Campaign performance
+**Usage**: Ad spend tracking feature not activated
 
 **Columns**:
 | Column | Type | Nullable | Default | Description |
@@ -424,8 +458,11 @@ Google Ads campaign spending data.
 
 ---
 
-### 14. **unified_referral_records**
+### 14. **unified_referral_records** ✅ ACTIVE
 Consolidated referral source tracking.
+
+**Activity**: Regular ETL operations from multiple sources
+**Status**: ACTIVE - Important for analytics
 
 **Purpose**: Unified view of all referral sources across systems
 
@@ -451,16 +488,266 @@ Consolidated referral source tracking.
 
 ---
 
+### 15. **cash_checks**
+Daily cash recording system for staff operations.
+
+**Purpose**: Staff cash recording for opening/closing amounts
+
+**Population**: Staff UI submissions via `/cash-check` page
+
+**Code Usage**:
+- **API**: `/api/cash-check/route.ts` - Handles submissions with validation
+- **Frontend**: `/cash-check/page.tsx` - Mobile-optimized staff interface
+- **Validation**: Restricts to specific staff members (Dolly, Net, May)
+- **Security**: Requires authentication and validates positive amounts
+
+**Usage**:
+- Daily cash reconciliation
+- Staff accountability tracking
+- Financial audit trail
+- Operational compliance
+
+**Business Logic**:
+- Enforces staff member validation (hardcoded allowlist)
+- Requires positive numeric amounts
+- Auto-generates UUID and timestamps
+- Provides immediate success/error feedback
+
+**Columns**:
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| id | uuid | NO | gen_random_uuid() | Primary key |
+| timestamp | timestamptz | NO | now() | Check time |
+| staff | varchar | NO | - | Staff member |
+| amount | numeric | NO | - | Cash amount |
+| created_at | timestamptz | YES | now() | Creation time |
+
+---
+
+### 16. **lead_feedback**
+B2C lead contact and follow-up management.
+
+**Purpose**: Track lead contact attempts and responses for B2C lead management
+
+**Population**: Staff UI for lead management via B2C lead feedback system
+
+**Code Usage**:
+- **API Endpoints**: 
+  - `/api/leads/feedback/route.ts` - Creates feedback records
+  - `/api/leads/feedback-stats/route.ts` - Analytics on feedback data
+  - `/api/leads/unfeedback/route.ts` - Removes feedback records
+- **Integration**: Links to `processed_leads` table via `lead_id`
+- **Validation**: Enforces enum types for response categories
+- **Workflow**: Tracks complete lead lifecycle from contact to conversion
+
+**Usage**:
+- Lead conversion tracking and analytics
+- Follow-up scheduling and management
+- Sales pipeline progression monitoring
+- Staff performance evaluation
+- Lead quality assessment
+
+**Business Logic**:
+- Tracks reachability success/failure
+- Categorizes responses (very_interested, interested_need_time, not_interested, no_clear_answer)
+- Defines visit timelines (within_1_week, within_month, no_plan)
+- Flags leads requiring follow-up
+- Tracks booking conversion success
+- Maintains staff notes and comments
+
+**Columns**:
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| id | uuid | NO | gen_random_uuid() | Primary key |
+| lead_id | uuid | NO | - | References processed_leads |
+| call_date | date | NO | - | Contact date |
+| was_reachable | boolean | NO | - | Contact success |
+| response_type | enum | YES | - | Response category |
+| visit_timeline | enum | YES | - | Visit interest |
+| requires_followup | boolean | NO | false | Needs follow-up |
+| booking_submitted | boolean | NO | false | Converted to booking |
+| comments | text | YES | - | Notes |
+
+---
+
+### 17. **coach_weekly_schedules**
+Coach availability and scheduling system.
+
+**Purpose**: Define coach weekly availability patterns for coaching system
+
+**Population**: Admin scheduling interface and coaching system
+
+**Code Usage**:
+- **API Endpoints**: 
+  - `/api/coaching/availability/weekly-schedule/route.ts` - Manages coach schedules
+  - `/api/coaching-assist/availability/route.ts` - Provides availability for booking
+- **Integration**: Used by coaching system for availability validation
+- **Access Control**: Coaches can view own schedules, admins can view all
+- **Functions**: Integrated with `get_coach_availability()` Supabase function
+
+**Usage**:
+- Coach availability lookup and management
+- Booking slot validation for coaching sessions
+- Schedule conflict detection and prevention
+- Coaching resource planning
+- Staff schedule coordination
+
+**Business Logic**:
+- Stores weekly recurring availability patterns
+- Uses day_of_week (0-6, Sunday-Saturday) for standardization
+- Supports time-based availability windows
+- Allows availability toggling (is_available flag)
+- Enables per-coach customization
+- Provides foundation for coaching booking system
+
+**Columns**:
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| id | uuid | NO | gen_random_uuid() | Primary key |
+| coach_id | uuid | YES | - | Coach identifier |
+| day_of_week | integer | NO | - | Day (0-6, Sun-Sat) |
+| start_time | time | NO | - | Availability start |
+| end_time | time | NO | - | Availability end |
+| is_available | boolean | YES | true | Currently available |
+
+---
+
+### 18. **system_logs**
+Application system logging and error tracking.
+
+**Purpose**: Centralized application logging
+
+**Population**: Application error handlers and system events
+
+**Usage**:
+- Error monitoring
+- System diagnostics
+- Performance tracking
+
+---
+
+### 19. **translation_keys**, **translations**, **translation_namespaces**, **translation_history** ⚠️ LOW ACTIVITY
+Internationalization system for multi-language support.
+
+**Activity**: Minimal operations across all tables
+**Status**: PARTIALLY IMPLEMENTED - i18n system present but unused
+**Action**: Consider removal if not planning multi-language support
+
+**Purpose**: Support multiple languages in the application
+
+**Population**: Translation management system (minimally used)
+
+**Usage**: i18n infrastructure exists but not actively used
+
+---
+
+### 20. **guest_profiles** ❌ UNUSED - CLEANUP CANDIDATE
+Guest user profile management for non-authenticated users.
+
+**Activity**: **0 operations** - Never used
+**Status**: UNUSED - Guest booking feature not implemented
+**Action**: Safe to drop
+
+**Purpose**: Track guest user information and preferences
+
+**Population**: Never implemented
+
+**Usage**: Guest booking feature was planned but not built
+
+---
+
+### 21. **crm_customer_mapping** ❌ UNUSED - CLEANUP CANDIDATE
+CRM to internal customer ID mapping.
+
+**Activity**: **1 operation** - Test data only
+**Status**: UNUSED - CRM integration abandoned
+**Action**: Safe to drop with other CRM tables
+
+**Purpose**: Maps CRM customer IDs to internal customer records
+
+**Usage**: CRM integration feature abandoned
+
+---
+
+### 22. **crm_matching_logs** ❌ UNUSED - CLEANUP CANDIDATE
+Logs for CRM customer matching process.
+
+**Activity**: **0 operations** - Never used
+**Status**: UNUSED - CRM integration abandoned
+**Action**: Safe to drop
+
+**Purpose**: Audit trail for CRM customer matching
+
+**Usage**: CRM matching feature never implemented
+
+---
+
+### 23. **crm_profile_links** ❌ UNUSED - CLEANUP CANDIDATE
+Links between profiles and CRM records.
+
+**Activity**: **2 operations** - Test data only
+**Status**: UNUSED - CRM integration abandoned
+**Action**: Safe to drop
+
+**Purpose**: Links user profiles to CRM customer records
+
+**Usage**: CRM profile linking feature abandoned
+
+---
+
+### 24. **customer_migration_log** ❌ UNUSED - CLEANUP CANDIDATE
+Historical migration tracking.
+
+**Activity**: **0 operations** - Migration completed
+**Status**: HISTORICAL - No longer needed
+**Action**: Archive then drop
+
+**Purpose**: Tracked customer data migration
+
+**Usage**: Migration completed, logs no longer needed
+
+---
+
+### 25. **profile_migration_log** ❌ UNUSED - CLEANUP CANDIDATE
+Historical profile migration tracking.
+
+**Activity**: **0 operations** - Migration completed
+**Status**: HISTORICAL - No longer needed
+**Action**: Archive then drop
+
+**Purpose**: Tracked profile data migration
+
+**Usage**: Migration completed, logs no longer needed
+
+---
+
+### 26. **us_open_scores** ❌ UNUSED - CLEANUP CANDIDATE
+Tournament scoring feature.
+
+**Activity**: **0 operations** - Never used
+**Status**: UNUSED - Tournament feature not implemented
+**Action**: Safe to drop
+
+**Purpose**: Store US Open tournament scores
+
+**Usage**: Tournament feature was planned but never built
+
+---
+
 ## Views and Materialized Views
 
-### customer_analytics
+### customer_analytics ✅ ACTIVE
 Aggregated customer metrics view combining data from multiple tables.
+**Usage**: Dashboard analytics, customer insights
 
-### customer_login_providers
+### customer_login_providers ❌ UNUSED - CLEANUP CANDIDATE
 Shows authentication methods used by customers.
+**Activity**: **0 operations** - Authentication view not used
+**Action**: Safe to drop with other unused auth features
 
-### referral_data
+### referral_data ✅ ACTIVE  
 Daily aggregated referral counts.
+**Usage**: Marketing analytics, referral tracking
 
 ## Key Stored Procedures & Functions
 

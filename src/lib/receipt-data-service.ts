@@ -154,20 +154,26 @@ export class ReceiptDataService {
     // Prepare receipt data
     const receiptData: ReceiptData = {
       receiptNumber: transaction.receipt_number,
-      items: allOrderItems.map((item: any) => ({
-        name: productMap.get(item.product_id) || 'Unknown Item',
-        price: item.total_price || (item.unit_price * item.quantity), // Final price after item discount
-        qty: item.quantity || 1,
-        notes: item.notes,
-        // Item discount fields
-        originalPrice: item.unit_price || 0,
-        itemDiscount: item.applied_discount ? {
-          title: item.applied_discount.title,
-          type: item.applied_discount.discount_type,
-          value: item.applied_discount.discount_value
-        } : undefined,
-        itemDiscountAmount: item.discount_amount || 0
-      })),
+      items: allOrderItems.map((item: any) => {
+        const finalPrice = item.total_price || (item.unit_price * item.quantity);
+        const discountAmount = item.discount_amount || 0;
+        const originalPrice = finalPrice + discountAmount; // Calculate correct original price
+        
+        return {
+          name: productMap.get(item.product_id) || 'Unknown Item',
+          price: finalPrice, // Final price after item discount
+          qty: item.quantity || 1,
+          notes: item.notes,
+          // Item discount fields
+          originalPrice: originalPrice,
+          itemDiscount: item.applied_discount ? {
+            title: item.applied_discount.title,
+            type: item.applied_discount.discount_type,
+            value: item.applied_discount.discount_value
+          } : undefined,
+          itemDiscountAmount: discountAmount
+        };
+      }),
       subtotal: transaction.subtotal,
       tax: transaction.vat_amount,
       total: transaction.total_amount,

@@ -1,9 +1,32 @@
-# Database Documentation Index
+# 🗄️ Database Documentation Index
 
 ## Overview
-This directory contains comprehensive documentation for the Lengolf Forms database, covering all schemas, tables, relationships, and dependencies.
+This directory contains comprehensive documentation for the Lengolf Forms database, covering all schemas, tables, relationships, and dependencies. The database uses PostgreSQL 15+ hosted on Supabase with multi-schema organization for operational efficiency.
 
-## Documentation Files
+## 📁 Documentation Structure
+
+### Active Documentation
+Current, maintained documentation reflecting the live database state:
+
+### 📋 **[DATABASE_CLEANUP_OPPORTUNITIES.md](./DATABASE_CLEANUP_OPPORTUNITIES.md)** - **NEW**
+**Action Required** - Comprehensive cleanup plan for 12+ unused tables and 15MB+ storage optimization.
+
+**Key Findings**:
+- 12 unused public schema tables (safe to drop)
+- 76K+ historical POS backup records (archive candidates)
+- Multiple empty migration tables (immediate cleanup)
+- Performance optimization opportunities
+
+**Estimated Impact**: 15MB+ storage savings, improved query performance, simplified maintenance
+
+### Archived Documentation 
+📂 **[archived/](./archived/)** - Legacy and migration documents:
+- `LEGACY_DATABASE_SCHEMA.md` - Original schema documentation (superseded)
+- `APPLICATION_CODE_UPDATES_NEEDED.md` - Completed migration guide (archived)
+
+## 📊 Schema Documentation
+
+**Quick Reference**: 4 schemas, 102 tables, 245+ functions, 10+ scheduled jobs
 
 ### 1. [Database Overview and Relationships](./DATABASE_OVERVIEW_AND_RELATIONSHIPS.md)
 **Start here** - High-level architecture, cross-schema relationships, and integration points.
@@ -20,29 +43,48 @@ This directory contains comprehensive documentation for the Lengolf Forms databa
 ### 2. [Public Schema Documentation](./PUBLIC_SCHEMA_DOCUMENTATION.md)
 Core application tables for bookings, customers, and user-facing features.
 
-**Key Tables**:
-- `bookings` - Customer bookings and reservations
-- `customers` - Unified customer master data
-- `profiles` - User authentication profiles
-- `crm_packages` - Customer package holdings
-- `vip_customer_data` - VIP member information
-- `inventory_*` - Inventory management
-- `processed_leads` - Marketing leads
+**Status**: **Mixed** - 10 active tables, 12 cleanup candidates
 
-**Usage**: Customer-facing features, booking system, VIP portal
+**🔥 Highly Active Tables**:
+- `customers` - **26.9M+ operations** - Core business entity
+- `processed_leads` - **7.2K operations** - Active lead management
+
+**✅ Active Tables**:
+- `bookings` - Customer bookings and reservations
+- `profiles` - User authentication profiles  
+- `crm_packages` - Customer package holdings
+- `cash_checks` - Staff cash recording system
+- `lead_feedback` - B2C lead management
+- `coach_weekly_schedules` - Coach availability
+
+**❌ Cleanup Candidates (12 tables)**:
+- VIP system tables (never implemented)
+- CRM integration tables (abandoned)
+- Migration logs (completed)
+- Unused features (bay cache, ads spend, tournaments)
+
+**Usage**: Customer-facing features, booking system, staff operations
 
 ---
 
 ### 3. [Backoffice Schema Documentation](./BACKOFFICE_SCHEMA_DOCUMENTATION.md)  
 Administrative and operational tables for staff, payroll, and business management.
 
-**Key Tables**:
-- `staff` - Staff member records
-- `packages` - Package sales and tracking
-- `time_entries` - Staff time tracking
-- `invoices` - Supplier invoice management
-- `reconciliation_*` - Financial reconciliation
-- `audit_logs` - Admin action audit trail
+**Status**: **EXCELLENT** - All 22 tables active and well-utilized
+
+**🔥 Highly Active Tables**:
+- `staff` - Daily time-clock operations, PIN validations
+- `packages` - Package creation, usage tracking, expiration monitoring
+- `package_usage` - High-volume usage tracking with signatures
+- `time_entries` - Multiple daily entries per staff member
+- `audit_logs` - Comprehensive admin action logging
+
+**✅ All Tables Active**:
+- Complete staff management system
+- Full package lifecycle tracking
+- Comprehensive financial management
+- Real-time payroll calculations
+- Complete audit trail
 
 **Usage**: Admin operations, staff management, payroll, financial tracking
 
@@ -51,13 +93,25 @@ Administrative and operational tables for staff, payroll, and business managemen
 ### 4. [POS Schema Documentation](./POS_SCHEMA_DOCUMENTATION.md)
 Point of sale transactions, table management, and sales analytics.
 
-**Key Tables**:
-- `lengolf_sales` - Main sales transaction data
-- `table_sessions` - Active table/bay sessions
-- `orders` - F&B orders within sessions
-- `transactions` - Payment processing
-- `dim_product` - Product master data
-- `zones` & `tables` - Physical layout management
+**Status**: **High Activity** with significant cleanup opportunities
+
+**🔥 Massively Active Tables**:
+- `lengolf_sales` - **1.2M+ records** - Largest table in database
+- `orders` - **13K+ records** - High-volume F&B operations  
+- `transactions` - **48K+ records** - Major transaction volume
+
+**✅ Active Operational Tables**:
+- `table_sessions` - Live table operations
+- `order_items` - Line item management
+- `transaction_items` - Transaction details
+- `zones` & `tables` - Table management
+- ETL pipeline tables (staging, mappings, sync logs)
+
+**⚠️ Archive Candidates**:
+- `lengolf_sales_backup_pre_bigquery_fix` - **62,511 records, ~13MB**
+- `lengolf_sales_backup` - **13,400 records, ~2.7MB**
+
+**❌ Empty Migration Tables (8 tables)**: All safe to drop
 
 **Usage**: POS system integration, sales analytics, table management
 
@@ -66,12 +120,24 @@ Point of sale transactions, table management, and sales analytics.
 ### 5. [Auth Schema Documentation](./AUTH_SCHEMA_DOCUMENTATION.md)
 Supabase-managed authentication tables (reference only).
 
-**Key Tables**:
-- `users` - Core authentication records
-- `sessions` - Active user sessions  
-- `identities` - OAuth provider links
-- `mfa_*` - Multi-factor authentication
-- `audit_log_entries` - Auth audit trail
+**Status**: **EXCELLENT** - Comprehensive security with full feature utilization
+
+**🔥 Highly Active Tables**:
+- `users` - Core authentication system
+- `sessions` - Continuous session validation
+- `identities` - OAuth provider linking (Google, LINE)
+- `audit_log_entries` - Complete auth audit trail
+
+**✅ Active Security Features**:
+- MFA support (`mfa_factors`, `mfa_challenges`, `mfa_amr_claims`)
+- JWT token management (`refresh_tokens`, `one_time_tokens`)
+- OAuth PKCE flow (`flow_state`)
+
+**⚠️ Enterprise Features Available**:
+- SSO/SAML tables (minimal current usage)
+- Available for future enterprise needs
+
+**Security Status**: Comprehensive audit trail, MFA support, OAuth integration
 
 **Usage**: User authentication, session management, security
 
@@ -92,19 +158,21 @@ Comprehensive coverage of database functions, triggers, and scheduled jobs.
 ---
 
 ### 7. [POS Core Tables Documentation](./POS_CORE_TABLES_DOCUMENTATION.md)
-Existing documentation focusing on core POS tables and relationships.
+Legacy POS system transition documentation (AS-IS state).
+
+**Focus**: Migration from old POS staging to normalized POS tables
 
 ---
 
 ## Quick Reference
 
 ### Schema Summary
-| Schema | Purpose | Tables | Functions | Key Features |
-|--------|---------|--------|-----------|--------------|
-| `public` | Core application data | 25+ | 100+ | Bookings, customers, CRM integration |
-| `backoffice` | Administrative operations | 20+ | 25+ | Staff, packages, invoicing, payroll |
-| `pos` | Point of sale system | 15+ | 20+ | Sales, transactions, table management |
-| `auth` | Authentication (Supabase) | 16 | 0 | Users, sessions, MFA, OAuth |
+| Schema | Purpose | Tables | Functions | Status | Activity Level | Cleanup Opportunities |
+|--------|---------|--------|-----------|--------|----------------|----------------------|
+| `public` | Core application data | 35 | 182 | Mixed | 2 highly active, 8 active, 12 unused | 12 tables for cleanup |
+| `backoffice` | Administrative operations | 22 | 27 | Excellent | All 22 tables active | No cleanup needed |
+| `pos` | Point of sale system | 29 | 32 | High activity | 15 active, 14 archive/cleanup | 15MB+ storage savings |
+| `auth` | Authentication (Supabase) | 16 | 4 | Excellent | 9 active, 7 enterprise features | Fully utilized |
 
 ### Critical Relationships
 - `auth.users.id` ↔ `public.profiles.id` (1:1)
@@ -217,6 +285,79 @@ GROUP BY p.id, pt.display_name, pt.hours;
 - Review and optimize slow-performing queries
 - Analyze function usage patterns and optimize
 
+## 🔧 Database Management
+
+### Migration Files
+📂 **[migrations/](./migrations/)** - SQL migration scripts:
+- `01_normalize_pos_tables_phase1.sql` - POS table normalization (Phase 1)
+- `02_normalize_pos_tables_phase2.sql` - POS relationships (Phase 2) 
+- `03_normalize_pos_tables_phase3.sql` - Data migration (Phase 3)
+- `04_normalize_pos_tables_phase4.sql` - Cleanup (Phase 4)
+- `clean_pos_normalization.sql` - Cleanup utilities
+
+### Best Practices
+1. **Schema Changes**: Always update relevant documentation files
+2. **Cross-Schema Queries**: Use indexed foreign keys and avoid deep joins
+3. **Data Integrity**: Implement application-level consistency checks
+4. **Performance**: Monitor function execution and optimize slow queries
+
 ---
 
-**Note**: This documentation is maintained alongside code changes. When modifying database schema, please update the relevant documentation files.
+## 📈 Database Statistics & Analysis
+
+### Current State (2025-01-08)
+- **Total Tables**: 102 (35 public, 22 backoffice, 29 pos, 16 auth)
+- **Database Functions**: 245+ (182 public, 27 backoffice, 32 pos, 4 auth)
+- **Scheduled Jobs**: 10+ (ETL, sync, monitoring, calendar, package sync)
+- **Daily Transactions**: 1000+ (bookings + POS + coaching)
+- **Data Volume**: 1.2M+ POS records, 26.9M+ customer operations
+
+### Activity Analysis
+- **🔥 Highly Active**: 9 tables with massive daily operations
+- **✅ Active**: 54 tables with regular operational use
+- **⚠️ Archive Candidates**: 6 large backup tables (76K+ records)
+- **❌ Unused**: 20+ tables with zero activity (safe cleanup)
+
+### Cleanup Opportunities
+- **Storage Optimization**: 15MB+ potential savings from backup tables
+- **Table Reduction**: 20+ unused tables identified for removal
+- **Performance**: Customer table needs optimization (26.9M+ operations)
+- **Implementation Status**: 5-week phased cleanup plan ready
+
+### New Features (Recently Added)
+- **Cash Checks**: Staff cash recording system
+- **Lead Feedback**: B2C lead management workflow
+- **Coach Schedules**: Weekly availability patterns
+- **System Logs**: Centralized application logging
+- **Translation System**: i18n infrastructure (unused)
+
+---
+
+## 🚨 Action Items
+
+### Immediate (Week 1)
+- [ ] Review DATABASE_CLEANUP_OPPORTUNITIES.md
+- [ ] Execute cleanup verification queries
+- [ ] Create full database backup before cleanup
+- [ ] Begin Phase 1: Empty table cleanup
+
+### Short-term (Month 1)
+- [ ] Implement customer table performance optimization
+- [ ] Archive large POS backup tables
+- [ ] Execute unused table cleanup plan
+- [ ] Monitor performance improvements
+
+### Ongoing
+- [ ] Monthly cleanup opportunity assessment
+- [ ] Quarterly performance optimization review
+- [ ] Maintain activity monitoring
+
+**📝 Maintenance Note**: This documentation is maintained alongside code changes. When modifying database schema, please update the relevant documentation files and notify the development team.
+
+**🔗 Related Documentation**:
+- [DATABASE_CLEANUP_OPPORTUNITIES.md](./DATABASE_CLEANUP_OPPORTUNITIES.md) - **Action required** cleanup plan
+- [API Reference](../api/API_REFERENCE.md) - Database integration patterns
+- [Backend Documentation](../BACKEND_DOCUMENTATION.md) - Application data layer
+- [Technical Documentation](../technical/) - System architecture
+
+**📊 Analysis Methodology**: This comprehensive analysis used pg_stat_user_tables for activity metrics, code analysis for feature usage, and storage analysis for optimization opportunities. All findings verified against live production data as of 2025-01-08.

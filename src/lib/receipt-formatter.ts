@@ -150,10 +150,27 @@ export class ReceiptFormatter {
       
       // Show item discount if applicable
       if (item.itemDiscount && item.itemDiscountAmount && item.itemDiscountAmount > 0) {
-        const discountLabel = `     ${item.itemDiscount.title} (${item.itemDiscount.value}${item.itemDiscount.type === 'percentage' ? '%' : ''})`;
+        // Debug logging
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 Discount debug:', {
+            title: item.itemDiscount.title,
+            type: item.itemDiscount.type,
+            value: item.itemDiscount.value,
+            amount: item.itemDiscountAmount
+          });
+        }
+        
+        const discountLabel = `     ${item.itemDiscount.title}`;
         const discountAmount = `-${item.itemDiscountAmount.toFixed(2)}`;
         const discountSpacing = ' '.repeat(Math.max(1, 48 - discountLabel.length - discountAmount.length));
-        this.addText(commands, `${discountLabel}${discountSpacing}${discountAmount}`);
+        const finalLine = `${discountLabel}${discountSpacing}${discountAmount}`;
+        
+        // Debug final output
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 Final discount line:', JSON.stringify(finalLine));
+        }
+        
+        this.addText(commands, finalLine);
         commands.push(0x0A);
       }
       

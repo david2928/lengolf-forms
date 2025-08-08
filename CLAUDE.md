@@ -2,6 +2,23 @@
 
 Essential instructions for working with the Lengolf Forms codebase.
 
+## 📖 Documentation-First Development
+
+**IMPORTANT:** This project has comprehensive, organized documentation. Always check the documentation before implementing features or making changes.
+
+### Documentation Structure
+The documentation is now organized by user access patterns:
+- **📋 [Main Index](docs/DOCUMENTATION_INDEX.md)** - Start here for everything
+- **🌟 Public Features** - Staff-accessible features (`docs/features/public/`)
+- **🔧 Admin Features** - Administrative features (`docs/features/admin/`)
+- **🗄️ Database** - Complete database documentation (`docs/database/`)
+- **⚙️ Technical** - System architecture and integration (`docs/technical/`)
+
+### Before Any Development Work
+1. **Read the relevant documentation** - Find your feature area in the organized structure
+2. **Validate current implementation** - Check if code matches documented patterns
+3. **Update docs if needed** - Keep documentation current with changes
+
 ## Quick Start
 
 ### Setup
@@ -42,10 +59,11 @@ src/
 └── types/          # TypeScript definitions
 ```
 
-**Database Schemas:**
-- `public`: Core booking tables
-- `backoffice`: Customer, package, admin tables
-- `pos`: POS transaction data
+**Database Schemas:** (4 total - see [Database Documentation](docs/database/DATABASE_DOCUMENTATION_INDEX.md))
+- `public`: Core booking tables (25+ tables, 100+ functions)
+- `backoffice`: Customer, package, admin tables (20+ tables, 25+ functions)
+- `pos`: POS transaction data (15+ tables, 20+ functions)
+- `auth`: Supabase authentication (16 tables, managed)
 
 ## Development Authentication Bypass
 
@@ -359,13 +377,59 @@ if (process.env.NODE_ENV === 'development') {
 
 Use `apply_migration` for DDL, `execute_sql` for DML operations.
 
-## Resources
+## 📚 Documentation Resources
 
-- **Docs:** `/docs/DOCUMENTATION_INDEX.md`
-- **API Reference:** `/docs/api/API_REFERENCE.md`
-- **Database Schema:** `/docs/technical/DATABASE_SCHEMA.md`
+### Primary Entry Points
+- **📋 Main Documentation Index:** `/docs/DOCUMENTATION_INDEX.md` - Start here for all documentation
+- **🔧 API Reference:** `/docs/api/API_REFERENCE.md` - Complete API endpoint documentation
+- **🗄️ Database Documentation:** `/docs/database/DATABASE_DOCUMENTATION_INDEX.md` - Complete database schemas and functions
+- **🏗️ Project Structure:** `/docs/PROJECT_STRUCTURE.md` - Codebase organization
+- **🎨 Frontend Documentation:** `/docs/frontend/FRONTEND_OVERVIEW.md` - Component architecture
+
+### Feature Documentation (Organized Structure)
+- **🌟 Public/Staff Features:** `/docs/features/public/` - Features accessible to staff
+  - `booking-scheduling/` - Booking system, calendar integration
+  - `customer-packages/` - Customer management, packages
+  - `coaching/` - Coaching system
+  - `pos/` - Point of sale system (13 detailed docs)
+  - `staff-operations/` - Time clock, scheduling, inventory
+- **🔧 Admin Features:** `/docs/features/admin/` - Administrative features
+  - `analytics/` - Sales dashboard, referral analytics
+  - `system-management/` - Admin panel, staff management
+  - `data-management/` - ETL pipeline, product mapping
+
+### Technical Documentation
+- **🔐 Authentication:** `/docs/technical/AUTHENTICATION_SYSTEM.md`
+- **⚡ Development Auth Bypass:** `/docs/technical/DEVELOPMENT_AUTHENTICATION.md`
+- **🔗 Integrations:** `/docs/integrations/LINE_MESSAGING_INTEGRATION.md`
+
+### External Resources
 - **Supabase Dashboard:** [Project link]
 - **Vercel Dashboard:** [Deployment monitoring]
+
+## 📖 Documentation Usage Guidelines
+
+### Before Working on Any Task
+1. **Always check the documentation first** - Use `/docs/DOCUMENTATION_INDEX.md` as your starting point
+2. **Read relevant feature documentation** - Find the appropriate section in the organized structure
+3. **Validate implementation against docs** - Ensure your changes align with documented patterns
+4. **Update documentation if needed** - Keep docs current with any changes made
+
+### Finding Information Quickly
+- **By Role:** Use the role-based navigation in the main documentation index
+- **By Feature:** Navigate to appropriate subfolder in `/docs/features/`
+- **Database Questions:** Start with `/docs/database/DATABASE_DOCUMENTATION_INDEX.md`
+- **API Integration:** Check `/docs/api/API_REFERENCE.md` and `/docs/api/COACHING_API_REFERENCE.md`
+
+### Documentation Validation
+When implementing features:
+1. **Read the existing documentation** for the feature area
+2. **Verify current implementation** matches documented patterns
+3. **Check database schema** if working with data
+4. **Review API patterns** if creating endpoints
+5. **Update docs** if implementation differs from documentation
+
+**Important:** The codebase is the source of truth. If documentation conflicts with implementation, validate against the code and update docs accordingly.
 
 ---
 

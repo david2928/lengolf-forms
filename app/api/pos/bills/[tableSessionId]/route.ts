@@ -163,7 +163,7 @@ function generateHTMLBill(receiptData: any): string {
             </div>
             ${item.itemDiscount && item.itemDiscountAmount > 0 ? `
                 <div class="item-row" style="margin-left: 20px;">
-                    <span style="color: #666;">${item.itemDiscount.title} -${item.itemDiscount.type === 'percentage' ? item.itemDiscount.value + '%' : ''}</span>
+                    <span style="color: #666;">${item.itemDiscount.title}</span>
                     <span style="color: #666;">-${formatAmount(item.itemDiscountAmount)}</span>
                 </div>
             ` : ''}

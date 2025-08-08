@@ -5,7 +5,7 @@ This document covers all database functions, triggers, and scheduled jobs (pg_cr
 
 ## Database Functions by Schema
 
-### Public Schema Functions (100+ functions)
+### Public Schema Functions (182 functions)
 
 #### **Core Business Functions**
 
@@ -61,6 +61,17 @@ This document covers all database functions, triggers, and scheduled jobs (pg_cr
 - `refresh_customer_kpis_cache()` - Refreshes KPI cache
 - `get_customer_kpis_cached()` - Gets cached KPI data
 
+**Analytics & Reporting**:
+- `get_monthly_referral_analytics_view()` - Monthly referral analytics with data source tracking
+- `get_monthly_referral_analytics_cutoff()` - Referral analytics with date cutoffs
+- `get_combined_referral_data()` - Unified referral data across all sources
+- `get_dashboard_summary_enhanced_with_time()` - Enhanced dashboard with time processing
+- `get_dashboard_charts()` - Chart data for dashboard visualizations
+- `get_dashboard_calculations_documentation()` - Documentation of dashboard calculations
+- `get_customer_kpis()` - Customer analytics and metrics
+- `get_latest_data_timestamp()` - Latest data timestamps across systems
+- `get_dashboard_new_customers_for_month()` - New customer count for month
+
 #### **System Utilities**
 
 **HTTP Integration**:
@@ -76,7 +87,7 @@ This document covers all database functions, triggers, and scheduled jobs (pg_cr
 
 ---
 
-### Backoffice Schema Functions (25+ functions)
+### Backoffice Schema Functions (27 functions)
 
 #### **Package Management**
 
@@ -107,7 +118,7 @@ This document covers all database functions, triggers, and scheduled jobs (pg_cr
 
 ---
 
-### POS Schema Functions (20+ functions)
+### POS Schema Functions (32 functions)
 
 #### **Sales Data Processing**
 
