@@ -33,6 +33,7 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 ### Customer & Package Management  
 - **[Customer Management System](./features/public/customer-packages/CUSTOMER_MANAGEMENT_SYSTEM.md)** - Complete customer management with search and CRM integration
 - **[Package Management](./features/public/customer-packages/PACKAGE_MANAGEMENT.md)** - Creation, usage tracking, expiration monitoring, and unlimited packages
+- **[Package Management Admin](./features/admin/system-management/PACKAGE_MANAGEMENT_ADMIN.md)** - Advanced admin package operations, transfers, and audit trails
 
 ### Coaching Services
 - **[Coaching System](./features/public/coaching/COACHING_SYSTEM.md)** - Coach dashboards, booking assistant, student tracking, and earnings

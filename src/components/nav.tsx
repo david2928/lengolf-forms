@@ -93,7 +93,7 @@ export function Nav() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant={pathname.startsWith('/create-package') || pathname.startsWith('/update-package') || pathname.startsWith('/package-monitor') ? 'secondary' : 'ghost'}
+              variant={pathname.startsWith('/create-package') || pathname.startsWith('/update-package') || pathname.startsWith('/package-monitor') || pathname.startsWith('/admin/packages') ? 'secondary' : 'ghost'}
               size="sm"
               className="flex items-center gap-2"
             >
@@ -121,6 +121,17 @@ export function Nav() {
                 Package Monitor
               </Link>
             </DropdownMenuItem>
+            {isAdmin && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/packages" className="flex items-center gap-2 w-full">
+                    <Settings className="h-4 w-4" />
+                    Package Management
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -272,6 +283,12 @@ export function Nav() {
                 <Link href="/admin/customers" className="flex items-center gap-2 w-full">
                   <Users className="h-4 w-4" />
                   Customer Management
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/packages" className="flex items-center gap-2 w-full">
+                  <Package className="h-4 w-4" />
+                  Package Management
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

@@ -22,7 +22,8 @@ import {
   Target,
   Settings,
   Cog,
-  Camera
+  Camera,
+  Package
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -81,6 +82,12 @@ const customerManagementItems = [
     title: "Customer Mapping",
     description: "Link unmapped bookings and sales to customers",
     path: "/admin/customers/mapping"
+  },
+  {
+    icon: Package,
+    title: "Package Management",
+    description: "Advanced package administration and transfers",
+    path: "/admin/packages"
   },
   {
     icon: Mail,
