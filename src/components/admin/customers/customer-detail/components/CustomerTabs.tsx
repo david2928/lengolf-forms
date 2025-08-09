@@ -202,7 +202,7 @@ export const CustomerTabs: React.FC<CustomerTabsProps> = ({
         <TabsContent value="overview" className="h-full m-0">
           <CustomerOverviewTab 
             customer={customer}
-            analytics={tabData.analytics.data}
+            analytics={tabData.analytics.data || undefined}
           />
         </TabsContent>
 
@@ -263,8 +263,8 @@ export const CustomerTabs: React.FC<CustomerTabsProps> = ({
 export const useTabAnalytics = (customerId: string) => {
   const trackTabView = React.useCallback((tabName: string) => {
     // Track tab views for analytics
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', 'customer_detail_tab_view', {
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('event', 'customer_detail_tab_view', {
         tab_name: tabName,
         customer_id: customerId
       });

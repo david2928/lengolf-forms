@@ -55,10 +55,10 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
   const [bookingsTotalPages, setBookingsTotalPages] = useState(1);
   
   // Track which tabs have been loaded
-  const [loadedTabs, setLoadedTabs] = useState<Set<CustomerTab>>(new Set(['overview']));
+  const [loadedTabs, setLoadedTabs] = useState<Set<CustomerTab>>(new Set(['overview'] as CustomerTab[]));
   
   // Main customer data from existing hook
-  const { customer, loading: customerLoading, error: customerError, refreshCustomer } = useCustomer(customerId);
+  const { customer, loading: customerLoading, error: customerError, refetch: refreshCustomer } = useCustomer(customerId);
   
   // Helper to update loading state for specific tab
   const setTabLoading = useCallback((tab: keyof LoadingStates, loading: boolean) => {
@@ -85,7 +85,7 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
       
       const data = await response.json();
       setTransactions(data.transactions || []);
-      setLoadedTabs(prev => new Set([...prev, 'transactions']));
+      setLoadedTabs(prev => new Set([...Array.from(prev), 'transactions' as CustomerTab]));
     } catch (error) {
       console.error('Error fetching transactions:', error);
       setTabError('transactions', error instanceof Error ? error.message : 'Failed to load transactions');
@@ -110,7 +110,7 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
       
       const data = await response.json();
       setPackages(data.packages || []);
-      setLoadedTabs(prev => new Set([...prev, 'packages']));
+      setLoadedTabs(prev => new Set([...Array.from(prev), 'packages' as CustomerTab]));
     } catch (error) {
       console.error('Error fetching packages:', error);
       setTabError('packages', error instanceof Error ? error.message : 'Failed to load packages');
@@ -137,7 +137,7 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
       setBookings(data.bookings || []);
       setBookingsPage(page);
       setBookingsTotalPages(data.totalPages || 1);
-      setLoadedTabs(prev => new Set([...prev, 'bookings']));
+      setLoadedTabs(prev => new Set([...Array.from(prev), 'bookings' as CustomerTab]));
     } catch (error) {
       console.error('Error fetching bookings:', error);
       setTabError('bookings', error instanceof Error ? error.message : 'Failed to load bookings');
@@ -167,7 +167,7 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
       };
       
       setAnalytics(analyticsData);
-      setLoadedTabs(prev => new Set([...prev, 'analytics']));
+      setLoadedTabs(prev => new Set([...Array.from(prev), 'analytics' as CustomerTab]));
     } catch (error) {
       console.error('Error computing analytics:', error);
       setTabError('analytics', error instanceof Error ? error.message : 'Failed to compute analytics');
@@ -236,6 +236,16 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
   const handleBookingsPageChange = useCallback((page: number) => {
     fetchBookings(page);
   }, [fetchBookings]);
+
+  // Create wrapper for setActiveTab to match interface
+  const handleActiveTabChange = useCallback((tab: string) => {
+    setActiveTab(tab as CustomerTab);
+  }, []);
+
+  // Create wrapper for refreshTab to match interface
+  const handleRefreshTab = useCallback((tab: string) => {
+    refreshTab(tab as CustomerTab);
+  }, [refreshTab]);
   
   return {
     // Main customer data
@@ -258,7 +268,7 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
     
     // Tab state
     activeTab,
-    setActiveTab,
+    setActiveTab: handleActiveTabChange,
     
     // Pagination
     bookingsPage,
@@ -272,7 +282,7 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
     
     // Actions
     refreshCustomer,
-    refreshTab
+    refreshTab: handleRefreshTab
   };
 };
 

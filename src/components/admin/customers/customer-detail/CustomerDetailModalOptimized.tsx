@@ -82,8 +82,8 @@ export function CustomerDetailModalOptimized({
     setActiveTab(tab as any);
     
     // Optional: Track tab usage analytics
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', 'customer_detail_tab_change', {
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('event', 'customer_detail_tab_change', {
         tab_name: tab,
         customer_id: customerId
       });
@@ -139,7 +139,7 @@ export function CustomerDetailModalOptimized({
             {/* Customer Header with basic info and actions */}
             <CustomerHeader
               customer={customer}
-              analytics={analytics}
+              analytics={analytics || undefined}
               onEdit={() => setEditModalOpen(true)}
               onRefresh={refreshCustomer}
             />
@@ -188,10 +188,10 @@ export function CustomerDetailModalOptimized({
 
       {/* Edit Customer Modal */}
       <CustomerFormModal
-        customer={customer}
+        customerId={customerId}
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
-        onSave={handleCustomerUpdated}
+        onCustomerCreated={handleCustomerUpdated}
       />
     </>
   );

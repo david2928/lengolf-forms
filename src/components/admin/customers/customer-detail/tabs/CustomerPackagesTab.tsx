@@ -49,7 +49,7 @@ const PackageCard: React.FC<{ package: PackageRecord }> = ({ package: pkg }) => 
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
                 <span>Usage</span>
-                <span>{pkg.original_uses - pkg.uses_remaining}/{pkg.original_uses}</span>
+                <span>{pkg.original_uses - (pkg.uses_remaining || 0)}/{pkg.original_uses}</span>
               </div>
               <Progress 
                 value={pkg.usage_percentage || 0} 
@@ -111,7 +111,7 @@ const PackagesTable: React.FC<{ packages: PackageRecord[] }> = ({ packages }) =>
               {pkg.original_uses && pkg.uses_remaining !== null ? (
                 <div className="space-y-1">
                   <div className="text-sm">
-                    {pkg.original_uses - pkg.uses_remaining}/{pkg.original_uses}
+                    {pkg.original_uses - (pkg.uses_remaining || 0)}/{pkg.original_uses}
                   </div>
                   <Progress 
                     value={pkg.usage_percentage || 0} 
