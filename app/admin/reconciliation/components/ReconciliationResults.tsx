@@ -181,6 +181,16 @@ export default function ReconciliationResults({
     }
   };
 
+  const getSkuMatchTypeLabel = (matchType: string) => {
+    switch (matchType) {
+      case 'exact': return 'Count Match';
+      case 'fuzzy_name': return 'Count Variance'; // Quantity differences
+      case 'fuzzy_amount': return 'Amount Variance';
+      case 'fuzzy_both': return 'Partial Match';
+      default: return 'Unknown';
+    }
+  };
+
   const getVarianceIcon = (amount: number) => {
     if (amount > 0) return <TrendingUp className="h-4 w-4 text-red-500" />;
     if (amount < 0) return <TrendingDown className="h-4 w-4 text-green-500" />;
@@ -316,7 +326,10 @@ export default function ReconciliationResults({
                             : item.invoiceItem.customerName}
                         </div>
                         <Badge className={getMatchTypeColor(item.matchType)}>
-                          {item.matchType.replace('_', ' ')}
+                          {reconciliationType === 'smith_and_co_restaurant' 
+                            ? getSkuMatchTypeLabel(item.matchType)
+                            : item.matchType.replace('_', ' ')
+                          }
                         </Badge>
                       </div>
                       <div className="text-sm text-gray-600 mt-1">
@@ -338,15 +351,19 @@ export default function ReconciliationResults({
                           <div>Amt: ฿{item.posRecord.totalAmount.toFixed(2)}</div>
                         </div>
                         <div>
-                          <div className="font-medium text-gray-700">Variance</div>
+                          <div className="font-medium text-gray-700">
+                            {reconciliationType === 'smith_and_co_restaurant' ? 'Count Diff' : 'Variance'}
+                          </div>
                           <div className="flex items-center gap-1">
                             {getVarianceIcon(item.variance.quantityDiff)}
-                            Qty: {item.variance.quantityDiff}
+                            {item.variance.quantityDiff === 0 ? '✓' : `±${item.variance.quantityDiff}`}
                           </div>
-                          <div className="flex items-center gap-1">
-                            {getVarianceIcon(item.variance.amountDiff)}
-                            Amt: ฿{item.variance.amountDiff.toFixed(2)}
-                          </div>
+                          {reconciliationType !== 'smith_and_co_restaurant' && (
+                            <div className="flex items-center gap-1">
+                              {getVarianceIcon(item.variance.amountDiff)}
+                              Amt: ฿{item.variance.amountDiff.toFixed(2)}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -81,20 +81,32 @@ export async function POST(
       throw error;
     }
 
-    // Get updated package details
+    // Get updated package details with customer from public schema
     const { data: updatedPackage, error: fetchError } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('packages')
       .select(`
         *,
-        package_types:package_type_id (name, display_name),
-        customers:customer_id (name)
+        package_types:package_type_id (name, display_name)
       `)
       .eq('id', packageId)
       .single();
 
     if (fetchError) {
       throw fetchError;
+    }
+    
+    // Fetch customer details separately from public schema
+    if (updatedPackage?.customer_id) {
+      const { data: customerData } = await refacSupabaseAdmin
+        .from('customers')
+        .select('customer_name')
+        .eq('id', updatedPackage.customer_id)
+        .single();
+      
+      if (customerData) {
+        updatedPackage.customers = customerData;
+      }
     }
 
     return NextResponse.json({

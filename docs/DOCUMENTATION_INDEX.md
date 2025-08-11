@@ -62,6 +62,7 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 
 ### Sales & Analytics
 - **[Sales Dashboard](./features/admin/analytics/SALES_DASHBOARD.md)** - KPIs, charts, and business analytics
+- **[Google Ads Analytics](./features/admin/analytics/GOOGLE_ADS_ANALYTICS.md)** - Google Ads campaign tracking and ROI analysis
 - **[Referral Analytics System](./features/admin/analytics/REFERRAL_ANALYTICS_SYSTEM.md)** - Customer acquisition tracking and trend analysis
 - **[B2C Lead Feedback System](./features/admin/analytics/B2C_LEAD_FEEDBACK_SYSTEM.md)** - Lead tracking and follow-up management
 
@@ -198,7 +199,7 @@ The following documentation files contain overlapping content and should be cons
 - **Customer Management**: Unified system with stable IDs and analytics  
 - **POS System**: Full point-of-sale documentation with mobile optimization
 - **Staff Management**: Time tracking, scheduling, and payroll systems
-- **Admin Analytics**: Sales dashboards, referral tracking, and business intelligence
+- **Admin Analytics**: Sales dashboards, Google Ads analytics, referral tracking, and business intelligence
 - **Technical Systems**: APIs, authentication, database, and integrations
 
 ### 🔄 Consolidation Needed

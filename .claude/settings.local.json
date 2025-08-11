@@ -87,7 +87,8 @@
       "Bash(tree:*)",
       "mcp__supabase__get_advisors",
       "Bash(git merge:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "WebFetch(domain:booking.len.golf)"
     ],
     "deny": []
   },

@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -140,5 +140,17 @@ export const menuItems: MenuItem[] = [
     title: "Cash Check",
     path: '/cash-check',
     description: "Record opening and closing cash amounts"
+  },
+  {
+    icon: Search,
+    title: "Google Ads Analytics",
+    path: '/admin/google-ads',
+    description: "View Google Ads campaign and keyword performance data"
+  },
+  {
+    icon: BarChart3,
+    title: "Google Ads Strategic",
+    path: '/admin/google-ads-strategic',
+    description: "Strategic dashboard for offline business attribution and optimization"
   }
 ] 

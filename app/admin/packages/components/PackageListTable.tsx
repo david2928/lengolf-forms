@@ -27,8 +27,8 @@ interface Package {
   customer_id?: string;
   package_type_name: string;
   purchase_date: string;
-  expiration_date: string;
-  first_use_date?: string;
+  expiration_date?: string | null;
+  first_use_date?: string | null;
   total_hours?: number;
   total_used_hours: number;
   remaining_hours?: number;
@@ -50,6 +50,16 @@ type SortKey = 'customer_name' | 'package_type_name' | 'remaining_hours' | 'expi
 type SortOrder = 'asc' | 'desc';
 
 const getStatusBadge = (pkg: Package) => {
+  // Check if package is not activated yet (no first_use_date)
+  if (!pkg.first_use_date) {
+    return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-700">Not Activated</Badge>;
+  }
+
+  // Check if package has no expiration date (shouldn't happen for activated packages, but safety check)
+  if (!pkg.expiration_date) {
+    return <Badge variant="secondary" className="text-xs">No Expiration</Badge>;
+  }
+  
   const expiry = new Date(pkg.expiration_date);
   const today = new Date();
   const daysToExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -94,8 +104,9 @@ export const PackageListTable: React.FC<PackageListTableProps> = ({
         aValue = a.is_unlimited ? Infinity : (a.remaining_hours || 0);
         bValue = b.is_unlimited ? Infinity : (b.remaining_hours || 0);
       } else if (sortKey === 'expiration_date') {
-        aValue = new Date(a.expiration_date).getTime();
-        bValue = new Date(b.expiration_date).getTime();
+        // Handle null expiration dates (not activated packages)
+        aValue = a.expiration_date ? new Date(a.expiration_date).getTime() : -Infinity;
+        bValue = b.expiration_date ? new Date(b.expiration_date).getTime() : -Infinity;
       }
 
       // Compare values
@@ -191,8 +202,8 @@ export const PackageListTable: React.FC<PackageListTableProps> = ({
       </TableHeader>
       <TableBody>
         {sortedPackages.map((pkg) => {
-          const expiry = new Date(pkg.expiration_date);
-          const daysToExpiry = Math.ceil((expiry.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+          const expiry = pkg.expiration_date ? new Date(pkg.expiration_date) : null;
+          const daysToExpiry = expiry ? Math.ceil((expiry.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
           
           return (
             <TableRow key={pkg.id} className="hover:bg-gray-50/50 transition-colors">
@@ -242,19 +253,36 @@ export const PackageListTable: React.FC<PackageListTableProps> = ({
               </TableCell>
               
               <TableCell className="px-4 py-4 text-center">
-                <div>
-                  <div className="font-medium text-gray-900">
-                    {format(expiry, 'MMM dd, yyyy')}
+                {!pkg.first_use_date ? (
+                  <div>
+                    <div className="font-medium text-gray-500">
+                      Not Set
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      Awaiting activation
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {daysToExpiry < 0 
-                      ? `${Math.abs(daysToExpiry)}d ago` 
-                      : daysToExpiry === 0 
-                      ? 'Today'
-                      : `${daysToExpiry}d left`
-                    }
+                ) : !pkg.expiration_date || !expiry ? (
+                  <div className="font-medium text-gray-500">
+                    No Expiration
                   </div>
-                </div>
+                ) : (
+                  <div>
+                    <div className="font-medium text-gray-900">
+                      {format(expiry, 'MMM dd, yyyy')}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {daysToExpiry !== null && daysToExpiry < 0 
+                        ? `${Math.abs(daysToExpiry)}d ago` 
+                        : daysToExpiry === 0 
+                        ? 'Today'
+                        : daysToExpiry !== null
+                        ? `${daysToExpiry}d left`
+                        : ''
+                      }
+                    </div>
+                  </div>
+                )}
               </TableCell>
               
               <TableCell className="px-4 py-4 text-center">

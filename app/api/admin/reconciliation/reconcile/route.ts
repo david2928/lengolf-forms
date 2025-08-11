@@ -252,15 +252,24 @@ async function performReconciliation(
 
   if (reconciliationType === 'smith_and_co_restaurant') {
     // SKU-based matching for Smith & Co
+    console.log(`🔍 Processing ${invoiceData.length} invoice items for SKU matching...`);
+    
     for (const invoiceItem of invoiceData) {
+      console.log(`\n📋 Processing invoice item: SKU="${invoiceItem.sku}", Date="${invoiceItem.date}", Qty=${invoiceItem.quantity}, Amount=฿${invoiceItem.totalAmount}`);
+      
       const match = findSkuMatch(invoiceItem, posOnly, optionsWithType);
       if (match) {
+        console.log(`✅ Match found! Type: ${match.matchType}, Confidence: ${match.confidence}`);
+        console.log(`   POS: SKU="${match.posRecord.skuNumber}", Qty=${match.posRecord.quantity}, Amount=฿${match.posRecord.totalAmount}`);
+        console.log(`   Variance: Qty diff=${match.variance.quantityDiff}, Amount diff=฿${match.variance.amountDiff}`);
+        
         matched.push(match);
         const index = posOnly.findIndex(pos => pos.skuNumber === match.posRecord.skuNumber && pos.date === match.posRecord.date);
         if (index > -1) {
           posOnly.splice(index, 1);
         }
       } else {
+        console.log(`❌ No match found for invoice item`);
         invoiceOnly.push(invoiceItem);
       }
     }
@@ -353,22 +362,31 @@ function findSkuMatch(invoiceItem: InvoiceItem, posRecords: POSSalesRecord[], op
   const quantityDiff = Math.abs(invoiceItem.quantity - potentialMatch.quantity);
   const amountDiff = Math.abs(invoiceItem.totalAmount - potentialMatch.totalAmount);
 
-  // Consider it a match if SKU and date are the same, and quantity is exact.
+  // SKU and date match - focus on quantity matching since counts are most relevant
+  let matchType: 'exact' | 'fuzzy_name' | 'fuzzy_amount' | 'fuzzy_both';
+  let confidence: number;
+
   if (quantityDiff === 0) {
-    return {
-      invoiceItem,
-      posRecord: potentialMatch,
-      matchType: 'exact',
-      confidence: 1.0,
-      variance: {
-        amountDiff,
-        quantityDiff,
-        nameSimilarity: 1.0 // N/A for SKU match
-      }
-    };
+    // Quantity matches exactly - this is what we care about most
+    matchType = 'exact';
+    confidence = 1.0;
+  } else {
+    // Quantity differs - this is a partial match (counts don't align)
+    matchType = 'fuzzy_name'; // Using this to represent "quantity variance"
+    confidence = Math.max(0.5, 1.0 - (quantityDiff / Math.max(invoiceItem.quantity, potentialMatch.quantity)));
   }
 
-  return null;
+  return {
+    invoiceItem,
+    posRecord: potentialMatch,
+    matchType,
+    confidence,
+    variance: {
+      amountDiff,
+      quantityDiff,
+      nameSimilarity: 1.0 // Perfect SKU match
+    }
+  };
 }
 
 function findMatches(invoiceItem: InvoiceItem, posRecords: POSSalesRecord[], options: any): MatchedItem[] {

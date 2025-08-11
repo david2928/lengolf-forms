@@ -18,6 +18,7 @@ The Package Management Admin system provides advanced administrative capabilitie
   - Remaining Hours (numerical)
   - Expiration Date (chronological)
 - **Visual Status Indicators**: Color-coded badges showing:
+  - Not Activated (gray outline) - Packages not yet used (no first_use_date)
   - Active (green) - Valid packages with remaining hours
   - Expiring (yellow) - Packages expiring within 7 days
   - Expired (red) - Past expiration date
@@ -28,8 +29,8 @@ The Package Management Admin system provides advanced administrative capabilitie
 - **Editable Fields**:
   - Package Type
   - Purchase Date
-  - Expiration Date
-  - First Use Date
+  - Expiration Date (auto-calculated when package is first used)
+  - First Use Date (triggers expiration date calculation)
   - Employee Name
 - **Non-Editable Fields**:
   - Customer Name (maintains data integrity with customer management system)
@@ -182,6 +183,22 @@ All operations tracked with:
 - Success/error toast notifications
 - Color-coded status badges
 - Sortable column indicators (arrows)
+
+## Package Activation
+
+### How Package Activation Works
+1. **Purchase**: Package is created with a purchase date but no expiration date
+2. **Not Activated Status**: Package shows "Not Activated" status until first use
+3. **First Use**: When customer first uses the package, `first_use_date` is recorded
+4. **Expiration Calculation**: System automatically calculates `expiration_date` based on:
+   - `first_use_date` + package type's `validity_period`
+5. **Active Status**: Package becomes "Active" with countdown to expiration
+
+### Important Notes
+- Packages remain valid indefinitely until first activated
+- Expiration countdown only starts from first use, not purchase
+- "Not Activated" packages appear with "Not Set" in expiration column
+- Sorting by expiration date places unactivated packages at the beginning
 
 ## Common Use Cases
 

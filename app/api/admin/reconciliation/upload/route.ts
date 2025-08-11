@@ -415,7 +415,7 @@ function parseRecord(record: any, config: any, rowNumber: number, reconciliation
     throw new Error('Missing required customer or SKU identifier');
   }
 
-  const parsedDateComponents = parseDate(dateValue, config.dateFormats);
+  const parsedDateComponents = parseDate(dateValue, config.dateFormats, reconciliationType);
   if (!parsedDateComponents) {
     throw new Error(`Invalid date format: ${dateValue}`);
   }
@@ -463,7 +463,7 @@ function findColumnValue(record: any, possibleColumns: string[]): any {
   return null;
 }
 
-function parseDate(dateStr: string, formats: string[]): { year: number; month: number; day: number } | null {
+function parseDate(dateStr: string, formats: string[], reconciliationType?: string): { year: number; month: number; day: number } | null {
   const str = dateStr.toString().trim();
   
   console.log(`🔍 Parsing date: "${str}"`);
@@ -509,10 +509,18 @@ function parseDate(dateStr: string, formats: string[]): { year: number; month: n
       return result;
     }
     
-    // Ambiguous case - assume MM/DD/YYYY based on US format preference
-    const result = { year: parseInt(year), month: firstInt, day: secondInt };
-    console.log(`📅 Parsed as MM/DD/YYYY (assumed): ${result.year}-${result.month}-${result.day}`);
-    return result;
+    // Ambiguous case - check reconciliation type for format preference
+    if (reconciliationType === 'smith_and_co_restaurant' || reconciliationType === 'restaurant') {
+      // Thai data uses DD/MM/YYYY format
+      const result = { year: parseInt(year), month: secondInt, day: firstInt };
+      console.log(`📅 Parsed as DD/MM/YYYY (Thai format for ${reconciliationType}): ${result.year}-${result.month}-${result.day}`);
+      return result;
+    } else {
+      // Default to MM/DD/YYYY for other types
+      const result = { year: parseInt(year), month: firstInt, day: secondInt };
+      console.log(`📅 Parsed as MM/DD/YYYY (default for ${reconciliationType}): ${result.year}-${result.month}-${result.day}`);
+      return result;
+    }
   }
   
   // YYYY-MM-DD format
