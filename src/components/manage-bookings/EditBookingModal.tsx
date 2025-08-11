@@ -64,6 +64,7 @@ interface EditBookingFormData {
   employee_name: string;
   // New fields for Phase 3 enhancements
   package_id: string | null;
+  package_name: string | null; // Track package name for notifications
   booking_type: string;
   referral_source: string | null;
 }
@@ -142,6 +143,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
         employee_name: booking?.updated_by_identifier || '',
         // New fields for Phase 3 enhancements
         package_id: booking.package_id || null,
+        package_name: booking.package_name || null,
         booking_type: booking.booking_type || '',
         referral_source: booking.referral_source || null,
       };
@@ -533,9 +535,16 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           if (payload.booking_type && booking.booking_type !== payload.booking_type) changesSummary.push(`Type: ${booking.booking_type || 'None'} -> ${payload.booking_type}`);
           if (payload.package_id !== undefined && booking.package_id !== payload.package_id) {
             const oldPackage = booking.package_name || 'None';
-            const newPackage = payload.package_id === null ? 'Keep Current' : 
-                              (payload.package_id === '' ? 'None' : 
-                              (updatedBookingData.package_name || 'Changed'));
+            let newPackage = 'None';
+            if (payload.package_id === null) {
+              newPackage = 'Keep Current';
+            } else if (payload.package_id === '') {
+              newPackage = 'None';
+            } else {
+              // Use the updated package name, or try to get it from the current formData if available
+              newPackage = updatedBookingData.package_name || 
+                          (formData.package_name && formData.package_name !== '' ? formData.package_name : 'Package Selected');
+            }
             changesSummary.push(`Package: ${oldPackage} -> ${newPackage}`);
           }
           if (payload.referral_source && booking.referral_source !== payload.referral_source) changesSummary.push(`Referral: ${booking.referral_source || 'None'} -> ${payload.referral_source}`);
@@ -945,8 +954,11 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
             </div>
           </div>
 
-          {/* Package Selection - Only show if booking type contains "package" */}
-          {formData.booking_type && formData.booking_type.toLowerCase().includes('package') && (
+          {/* Package Selection - Show for package bookings and coaching bookings */}
+          {formData.booking_type && (
+            formData.booking_type.toLowerCase().includes('package') || 
+            formData.booking_type.toLowerCase().includes('coaching')
+          ) && (
             <div className="grid grid-cols-4 items-start gap-4">
               <Label className="text-right pt-2">Package</Label>
               <div className="col-span-3">
@@ -957,10 +969,11 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
                   customerId={booking?.customer_id || null}
                   currentPackageName={booking?.package_name}
                   bookingDate={formData.date ? format(formData.date, 'yyyy-MM-dd') : booking?.date}
-                  onChange={(packageId) => {
+                  onChange={(packageId, packageName) => {
                     setFormData(prev => ({ 
                       ...prev, 
                       package_id: packageId,
+                      package_name: packageName,
                     }));
                   }}
                 />

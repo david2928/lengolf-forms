@@ -47,6 +47,7 @@ export function validateStep2(formData: FormData, phoneError?: string) {
         errors.packageId = 'Please enter package name'
       }
     }
+    // Note: Package selection is optional for coaching bookings - no validation required
   } else {
     if (!formData.customerName) {
       errors.customerName = 'Please enter customer name'

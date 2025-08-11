@@ -13,7 +13,7 @@ interface EditPackageSelectorProps {
   customerId?: string | null
   currentPackageName?: string | null
   bookingDate?: string // New prop for booking date
-  onChange: (packageId: string | null) => void
+  onChange: (packageId: string | null, packageName?: string | null) => void
   disabled?: boolean
 }
 
@@ -140,11 +140,13 @@ export function EditPackageSelector({
           value={value || 'current'}
           onValueChange={(selectedValue) => {
             if (selectedValue === 'current') {
-              onChange(null) // Keep current package
+              onChange(null, currentPackageName) // Keep current package
             } else if (selectedValue === 'none') {
-              onChange('') // No package
+              onChange('', null) // No package
             } else {
-              onChange(selectedValue) // New package ID
+              // Find the selected package to get its name
+              const selectedPackage = activePackages.find(pkg => pkg.id === selectedValue)
+              onChange(selectedValue, selectedPackage?.name || null) // New package ID and name
             }
           }}
           disabled={disabled}
