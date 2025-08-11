@@ -45,6 +45,12 @@ const salesAnalyticsItems = [
     path: "/admin/sales-dashboard"
   },
   {
+    icon: FileText,
+    title: "Sales Report",
+    description: "Comprehensive sales reporting with daily breakdown and export",
+    path: "/admin/sales-report"
+  },
+  {
     icon: Receipt,
     title: "Transaction History",
     description: "View and manage POS transactions",

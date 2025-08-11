@@ -251,6 +251,12 @@ export function Nav() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
+                <Link href="/admin/sales-report" className="flex items-center gap-2 w-full">
+                  <FileText className="h-4 w-4" />
+                  Sales Report
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link href="/admin/transactions" className="flex items-center gap-2 w-full">
                   <Receipt className="h-4 w-4" />
                   Transaction History
