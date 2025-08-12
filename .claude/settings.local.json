@@ -88,7 +88,8 @@
       "mcp__supabase__get_advisors",
       "Bash(git merge:*)",
       "Bash(git branch:*)",
-      "WebFetch(domain:booking.len.golf)"
+      "WebFetch(domain:booking.len.golf)",
+      "WebFetch(domain:developers.facebook.com)"
     ],
     "deny": []
   },

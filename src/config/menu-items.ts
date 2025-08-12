@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3 } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -152,5 +152,29 @@ export const menuItems: MenuItem[] = [
     title: "Google Ads Strategic",
     path: '/admin/google-ads-strategic',
     description: "Strategic dashboard for offline business attribution and optimization"
+  },
+  {
+    icon: Facebook,
+    title: "Meta Leads Analytics",
+    path: '/admin/meta-leads',
+    description: "Analyze Meta lead forms and spam filtering performance"
+  },
+  {
+    icon: Share2,
+    title: "Meta Ads Analytics",
+    path: '/admin/meta-ads',
+    description: "View Meta Ads campaign performance and booking correlation data"
+  },
+  {
+    icon: BarChart3,
+    title: "Meta Ads Strategic",
+    path: '/admin/meta-ads-strategic',
+    description: "Strategic Meta Ads dashboard for offline business attribution and optimization"
+  },
+  {
+    icon: Facebook,
+    title: "Meta Ads Simple",
+    path: '/admin/meta-ads-simple',
+    description: "Simple Meta Ads dashboard with key metrics and trends"
   }
 ] 
