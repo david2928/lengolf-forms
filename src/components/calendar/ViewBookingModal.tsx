@@ -29,7 +29,7 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
   const [isLoadingBooking, setIsLoadingBooking] = useState(false);
   const { toast } = useToast();
 
-  // Fetch fresh booking data when modal opens
+  // Fetch fresh booking data when modal opens or booking ID changes
   useEffect(() => {
     const fetchFreshBookingData = async () => {
       if (!booking?.id || !isOpen) {
@@ -64,7 +64,7 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
     };
 
     fetchFreshBookingData();
-  }, [booking, isOpen]);
+  }, [booking?.id, isOpen]); // Use booking.id instead of booking object to detect changes
 
   if (!currentBooking) return null;
 
@@ -188,12 +188,39 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
     }
   };
 
-  const handleEditSuccess = (updatedBooking: Booking) => {
+  const handleEditSuccess = async (updatedBooking: Booking) => {
     toast({
       title: "Booking Updated",
       description: `Booking for ${updatedBooking.name} has been updated.`,
     });
-    setCurrentBooking(updatedBooking); // Update local state with new currentBooking data
+    
+    // Fetch fresh data from server to ensure consistency
+    if (booking?.id) {
+      try {
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/api/bookings/${booking.id}?t=${timestamp}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentBooking(data.booking);
+        } else {
+          // Fallback to the updated booking from edit modal
+          setCurrentBooking(updatedBooking);
+        }
+      } catch (error) {
+        console.error('Error fetching updated booking data:', error);
+        // Fallback to the updated booking from edit modal
+        setCurrentBooking(updatedBooking);
+      }
+    } else {
+      setCurrentBooking(updatedBooking);
+    }
+    
     setIsEditModalOpen(false);
     // Don't close the modal - keep it open with fresh data
     if (onBookingUpdated) {
