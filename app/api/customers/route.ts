@@ -29,7 +29,11 @@ interface CustomerFilters {
   lastVisitFrom?: string;
   lastVisitTo?: string;
   preferredContactMethod?: 'Phone' | 'LINE' | 'Email' | 'all';
-  sortBy?: 'fullName' | 'customerCode' | 'registrationDate' | 'lastVisit' | 'lifetimeValue';
+  // Quick filter: include customers who have not visited in the last N days (includes null last_visit_date)
+  notVisitedDays?: number;
+  // Package history filter: active_packages >=1 (yes) or =0 (no)
+  hasPackage?: 'yes' | 'no' | boolean;
+  sortBy?: 'fullName' | 'customerCode' | 'registrationDate' | 'lastVisit' | 'lifetimeValue' | 'totalBookings';
   sortOrder?: 'asc' | 'desc';
   page?: number;
   limit?: number;
@@ -54,6 +58,8 @@ export async function GET(request: NextRequest) {
       lastVisitFrom: searchParams.get('lastVisitFrom') || undefined,
       lastVisitTo: searchParams.get('lastVisitTo') || undefined,
       preferredContactMethod: (searchParams.get('preferredContactMethod') as any) || undefined,
+      notVisitedDays: searchParams.get('notVisitedDays') ? parseInt(searchParams.get('notVisitedDays') as string) : undefined,
+      hasPackage: searchParams.get('hasPackage') === 'true' ? 'yes' : searchParams.get('hasPackage') === 'false' ? 'no' : (searchParams.get('hasPackage') as any) || undefined,
       sortBy: (searchParams.get('sortBy') as any) || 'fullName',
       sortOrder: (searchParams.get('sortOrder') as any) || 'asc',
       page: parseInt(searchParams.get('page') || '1'),
@@ -79,15 +85,45 @@ export async function GET(request: NextRequest) {
       if (filters.registrationDateTo) {
         searchQuery = searchQuery.lte('customer_create_date', filters.registrationDateTo);
       }
+      // Last visit filters and quick periods in search branch
+      if (filters.notVisitedDays && filters.notVisitedDays > 0) {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - filters.notVisitedDays);
+        const cutoffStr = cutoff.toISOString().split('T')[0];
+        
+        // For "not visited" filters, only include customers who have visited before
+        searchQuery = searchQuery.lte('last_visit_date', cutoffStr).not('last_visit_date', 'is', null as any);
+      } else {
+        if (filters.lastVisitFrom) {
+          searchQuery = searchQuery.gte('last_visit_date', filters.lastVisitFrom);
+        }
+        if (filters.lastVisitTo) {
+          searchQuery = searchQuery.lte('last_visit_date', filters.lastVisitTo);
+        }
+        if (filters.lastVisitFrom || filters.lastVisitTo) {
+          searchQuery = searchQuery.not('last_visit_date', 'is', null as any).neq('last_visit_date', '');
+        }
+      }
       if (filters.preferredContactMethod && filters.preferredContactMethod !== 'all') {
         searchQuery = searchQuery.eq('preferred_contact_method', filters.preferredContactMethod);
+      }
+      if (filters.hasPackage === 'yes') {
+        searchQuery = searchQuery.gte('active_packages', 1);
+      } else if (filters.hasPackage === 'no') {
+        searchQuery = searchQuery.eq('active_packages', 0);
       }
 
       // Only active customers
       searchQuery = searchQuery.eq('is_active', true);
 
-      // Order by relevance (exact matches first, then alphabetical)
-      searchQuery = searchQuery.order('customer_name', { ascending: true });
+      // Sorting
+      const sortColumnSearch = filters.sortBy === 'fullName' ? 'customer_name' : 
+                               filters.sortBy === 'customerCode' ? 'customer_code' :
+                               filters.sortBy === 'registrationDate' ? 'customer_create_date' :
+                               filters.sortBy === 'lastVisit' ? 'last_visit_date' :
+                               filters.sortBy === 'lifetimeValue' ? 'lifetime_spending' :
+                               filters.sortBy === 'totalBookings' ? 'total_bookings' : 'customer_name';
+      searchQuery = searchQuery.order(sortColumnSearch, { ascending: filters.sortOrder === 'asc' });
 
       // Apply pagination
       const offset = (filters.page! - 1) * filters.limit!;
@@ -140,14 +176,32 @@ export async function GET(request: NextRequest) {
       countQuery = countQuery.lte('customer_create_date', filters.registrationDateTo);
     }
 
-    if (filters.lastVisitFrom) {
-      query = query.gte('last_visit_date', filters.lastVisitFrom);
-      countQuery = countQuery.gte('last_visit_date', filters.lastVisitFrom);
-    }
-
-    if (filters.lastVisitTo) {
-      query = query.lte('last_visit_date', filters.lastVisitTo);
-      countQuery = countQuery.lte('last_visit_date', filters.lastVisitTo);
+    if (filters.notVisitedDays && filters.notVisitedDays > 0) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - filters.notVisitedDays);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+      
+      // For "not visited" filters, we want customers who:
+      // 1. Have visited before (last_visit_date is not null)
+      // 2. But haven't visited recently (last_visit_date <= cutoff)
+      // This excludes customers who never visited at all
+      query = query.lte('last_visit_date', cutoffStr).not('last_visit_date', 'is', null as any);
+      countQuery = countQuery.lte('last_visit_date', cutoffStr).not('last_visit_date', 'is', null as any);
+    } else {
+      if (filters.lastVisitFrom) {
+        query = query.gte('last_visit_date', filters.lastVisitFrom);
+        countQuery = countQuery.gte('last_visit_date', filters.lastVisitFrom);
+      }
+      if (filters.lastVisitTo) {
+        query = query.lte('last_visit_date', filters.lastVisitTo);
+        countQuery = countQuery.lte('last_visit_date', filters.lastVisitTo);
+      }
+      // When explicit date range is used, exclude null last_visit_date
+      if (filters.lastVisitFrom || filters.lastVisitTo) {
+        // supabase-js: not('col','is',null) -> NOT IS NULL
+        query = query.not('last_visit_date', 'is', null as any).neq('last_visit_date', '');
+        countQuery = countQuery.not('last_visit_date', 'is', null as any).neq('last_visit_date', '');
+      }
     }
 
     if (filters.preferredContactMethod && filters.preferredContactMethod !== 'all') {
@@ -155,12 +209,21 @@ export async function GET(request: NextRequest) {
       countQuery = countQuery.eq('preferred_contact_method', filters.preferredContactMethod);
     }
 
+    if (filters.hasPackage === 'yes') {
+      query = query.gte('active_packages', 1);
+      countQuery = countQuery.gte('active_packages', 1);
+    } else if (filters.hasPackage === 'no') {
+      query = query.eq('active_packages', 0);
+      countQuery = countQuery.eq('active_packages', 0);
+    }
+
     // Apply sorting
     const sortColumn = filters.sortBy === 'fullName' ? 'customer_name' : 
                       filters.sortBy === 'customerCode' ? 'customer_code' :
                       filters.sortBy === 'registrationDate' ? 'customer_create_date' :
                       filters.sortBy === 'lastVisit' ? 'last_visit_date' :
-                      filters.sortBy === 'lifetimeValue' ? 'lifetime_spending' : 'customer_name';
+                      filters.sortBy === 'lifetimeValue' ? 'lifetime_spending' :
+                      filters.sortBy === 'totalBookings' ? 'total_bookings' : 'customer_name';
 
     query = query.order(sortColumn, { ascending: filters.sortOrder === 'asc' });
 

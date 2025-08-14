@@ -194,5 +194,11 @@ export const menuItems: MenuItem[] = [
     title: "Operating Expenses",
     path: '/admin/finance-dashboard/operating-expenses',
     description: "Manage recurring expenses like rent, utilities, and staff costs"
+  },
+  {
+    icon: Share2,
+    title: "Marketing",
+    path: '/admin/marketing',
+    description: "Build audiences and run call workflows"
   }
 ] 
