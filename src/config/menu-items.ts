@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2 } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -176,5 +176,11 @@ export const menuItems: MenuItem[] = [
     title: "Meta Ads Simple",
     path: '/admin/meta-ads-simple',
     description: "Simple Meta Ads dashboard with key metrics and trends"
+  },
+  {
+    icon: Activity,
+    title: "Marketing Dashboard",
+    path: '/admin/marketing-dashboard',
+    description: "Unified Google + Meta Ads performance dashboard with KPIs and trends"
   }
 ] 

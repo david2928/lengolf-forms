@@ -77,16 +77,6 @@ const RevenueTooltip: React.FC<RevenueTooltipProps> = ({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-              <span className="text-sm text-gray-600">Total Revenue</span>
-            </div>
-            <span className="text-sm font-semibold text-blue-600">
-              {formatCurrency(data.total_revenue)}
-            </span>
-          </div>
-          
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
               <span className="text-sm text-gray-600">Gross Profit</span>
             </div>
@@ -94,8 +84,25 @@ const RevenueTooltip: React.FC<RevenueTooltipProps> = ({
               {formatCurrency(data.gross_profit)}
             </span>
           </div>
+          
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#8b5cf6' }}></div>
+              <span className="text-sm text-gray-600">Sim Utilization</span>
+            </div>
+            <span className="text-sm font-semibold" style={{ color: '#8b5cf6' }}>
+              {data.sim_utilization ? `${data.sim_utilization.toFixed(1)}%` : '0.0%'}
+            </span>
+          </div>
 
           <div className="border-t pt-2 mt-2">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-xs text-gray-500">Total Revenue</span>
+              <span className="text-xs font-medium">
+                {formatCurrency(data.total_revenue)}
+              </span>
+            </div>
+            
             <div className="flex items-center justify-between gap-4">
               <span className="text-xs text-gray-500">Profit Margin</span>
               <span className="text-xs font-medium">

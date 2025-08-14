@@ -289,6 +289,14 @@ SCRAPER_API_KEY=your_api_key
 - **Integration**: Custom products work identically to regular products in orders/transactions
 - **Note**: `profit_margin` is a generated column - don't try to insert values into it
 
+### Marketing Analytics (Aug 2025)
+- **ETL Architecture**: Data populated by external Cloud Run service, not this application
+- **Dashboard**: Read-only marketing dashboard at `/admin/marketing-dashboard`
+- **Data Sources**: `marketing.google_ads_campaign_performance`, `marketing.meta_ads_campaign_performance`
+- **API Endpoints**: `/api/marketing/overview`, `/api/marketing/performance`, `/api/marketing/charts`
+- **⚠️ Critical**: All Supabase queries MUST use `.schema('marketing')` before `.from()` calls
+- **Schema Tables**: All marketing data is in the `marketing` schema, not the default `public` schema
+
 ## Key Features
 
 ### Booking System

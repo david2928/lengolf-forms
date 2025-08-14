@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
         gross_profit: item.profit,
         transaction_count: item.transactions,
         avg_transaction_value: item.transactions > 0 ? item.revenue / item.transactions : 0,
-        unique_customers: Math.round(item.transactions / 3) // Rough estimate
+        unique_customers: item.unique_customers || 0 // Use actual unique customers from database
       })),
       sim_utilization: (data.sim_utilization_trends ?? []).map((item: any) => ({
         date: item.date,
