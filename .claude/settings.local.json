@@ -89,12 +89,14 @@
       "Bash(git merge:*)",
       "Bash(git branch:*)",
       "WebFetch(domain:booking.len.golf)",
-      "WebFetch(domain:developers.facebook.com)"
+      "WebFetch(domain:developers.facebook.com)",
+      "Bash(move lib/selected-audience-store.ts src/lib/)"
     ],
     "deny": []
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "supabase"
+    "supabase",
+    "playwright"
   ]
 }

@@ -176,5 +176,11 @@ export const menuItems: MenuItem[] = [
     title: "Meta Ads Simple",
     path: '/admin/meta-ads-simple',
     description: "Simple Meta Ads dashboard with key metrics and trends"
+  },
+  {
+    icon: Share2,
+    title: "Marketing",
+    path: '/admin/marketing',
+    description: "Build audiences and run call workflows"
   }
 ] 

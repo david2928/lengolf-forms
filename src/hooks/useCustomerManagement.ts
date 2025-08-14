@@ -42,7 +42,11 @@ export interface CustomerFilters {
   lastVisitFrom?: string;
   lastVisitTo?: string;
   preferredContactMethod?: 'Phone' | 'LINE' | 'Email' | 'all';
-  sortBy?: 'fullName' | 'customerCode' | 'registrationDate' | 'lastVisit' | 'lifetimeValue';
+  // Quick filter: include customers who have not visited in the last N days (includes null last_visit_date)
+  notVisitedDays?: number;
+  // Package history filter: active_packages >=1 (yes) or =0 (no)
+  hasPackage?: 'yes' | 'no';
+  sortBy?: 'fullName' | 'customerCode' | 'registrationDate' | 'lastVisit' | 'lifetimeValue' | 'totalBookings';
   sortOrder?: 'asc' | 'desc';
   page?: number;
   limit?: number;
@@ -91,7 +95,7 @@ export interface CustomerMatchRequest {
 }
 
 // Main hook for customer list with filtering and pagination
-export function useCustomers(filters: CustomerFilters = {}) {
+export function useCustomers(filters: CustomerFilters = {}, options?: { enabled?: boolean }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [pagination, setPagination] = useState({
     total: 0,
@@ -104,6 +108,11 @@ export function useCustomers(filters: CustomerFilters = {}) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchCustomers = useCallback(async () => {
+    if (options && options.enabled === false) {
+      // Skip fetching when explicitly disabled
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -132,15 +141,21 @@ export function useCustomers(filters: CustomerFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, options?.enabled]);
 
   useEffect(() => {
+    if (options && options.enabled === false) {
+      // Ensure loading is false when disabled
+      setLoading(false);
+      return;
+    }
     fetchCustomers();
-  }, [fetchCustomers]);
+  }, [fetchCustomers, options?.enabled]);
 
   const refetch = useCallback(() => {
+    if (options && options.enabled === false) return;
     fetchCustomers();
-  }, [fetchCustomers]);
+  }, [fetchCustomers, options?.enabled]);
 
   return {
     customers,

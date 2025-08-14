@@ -77,13 +77,13 @@ export const authOptions: NextAuthOptions = {
       });
     },
     async session({ session, token }) {
-      // Log admin session activity
-      if (token.isAdmin) {
-        console.log('Admin session activity:', {
-          email: session.user?.email,
-          timestamp: new Date().toISOString()
-        });
-      }
+      // Admin session activity logging disabled to reduce console noise
+      // if (token.isAdmin) {
+      //   console.log('Admin session activity:', {
+      //     email: session.user?.email,
+      //     timestamp: new Date().toISOString()
+      //   });
+      // }
     }
   },
   debug: process.env.NODE_ENV === 'development',

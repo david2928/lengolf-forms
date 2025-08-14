@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       .eq('is_likely_spam', false)
       .gte('meta_submitted_at', april28th.toISOString())
       .not('email', 'like', '%yandex%')
-      .order('meta_submitted_at', { ascending: false });
+      .order('meta_submitted_at', { ascending: true });
 
     if (error) {
       console.error('Error fetching leads:', error);
@@ -73,9 +73,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Get leads that have been opened
+    const { data: openedLeads, error: openedError } = await supabase
+      .from('lead_opens')
+      .select('lead_id, opened_at, speed_to_lead_seconds') as { 
+        data: Array<{ lead_id: string; opened_at: string; speed_to_lead_seconds: number }> | null; 
+        error: any 
+      };
+
+    if (openedError) {
+      console.error('Error fetching opened leads:', openedError);
+      return NextResponse.json(
+        { error: 'Failed to fetch opened leads data' },
+        { status: 500 }
+      );
+    }
+
     // Filter leads: include those without feedback OR those requiring follow-up
     const feedbackLeadIdSet = new Set(feedbackLeadIds?.map((f: any) => f.lead_id) || []);
     const followUpLeadIdSet = new Set(followUpNeeded?.map((f: any) => f.lead_id) || []);
+    const openedLeadMap = new Map(openedLeads?.map((o: any) => [o.lead_id, o]) || []);
     
     const filteredLeads = (allLeads || []).filter((lead: any) => {
       const hasNoFeedback = !feedbackLeadIdSet.has(lead.id);
@@ -83,12 +100,92 @@ export async function GET(request: NextRequest) {
       return hasNoFeedback || needsFollowUp;
     });
 
-    // Add display name with phone and follow-up status for easier identification
-    const leadsWithDisplayName = filteredLeads.map((lead: any) => ({
-      ...lead,
-      display_name: `${lead.full_name} (${lead.phone_number})`,
-      needs_followup: followUpLeadIdSet.has(lead.id)
-    }));
+    // Helper function to calculate waiting time
+    const calculateWaitingTime = (submittedAt: string, isOpened: boolean): number => {
+      if (isOpened) return 0;
+      const now = new Date();
+      const submitted = new Date(submittedAt);
+      const diffMs = now.getTime() - submitted.getTime();
+      return Math.floor(diffMs / (1000 * 60)); // Return minutes
+    };
+
+    // Helper function to format speed to lead
+    const formatSpeedToLead = (seconds: number): string => {
+      const hours = seconds / 3600;
+      if (hours < 1) {
+        const minutes = Math.round(seconds / 60);
+        return `${minutes}m`;
+      } else if (hours < 24) {
+        return `${hours.toFixed(1)}h`;
+      } else {
+        const days = Math.floor(hours / 24);
+        const remainingHours = Math.round(hours % 24);
+        return `${days}d ${remainingHours}h`;
+      }
+    };
+
+    // Process leads with concealment logic
+    const leadsWithDisplayName = filteredLeads.map((lead: any) => {
+      const isFollowUp = followUpLeadIdSet.has(lead.id);
+      const openData = openedLeadMap.get(lead.id);
+      const isOpened = !!openData;
+      const waitingMinutes = calculateWaitingTime(lead.meta_submitted_at, isOpened);
+
+      // For follow-up leads, always show full details (no concealment)
+      if (isFollowUp) {
+        return {
+          id: lead.id,
+          full_name: lead.full_name,
+          phone_number: lead.phone_number,
+          email: lead.email,
+          meta_submitted_at: lead.meta_submitted_at,
+          display_name: `${lead.full_name} (${lead.phone_number})`,
+          needs_followup: true,
+          is_opened: true, // Follow-ups are always "opened"
+          is_followup: true,
+          source: lead.form_type || 'Unknown',
+          group_size: lead.group_size,
+          preferred_time: lead.preferred_time,
+          planned_visit: lead.planned_visit,
+          additional_inquiries: lead.additional_inquiries,
+          time_waiting_minutes: 0 // Follow-ups don't count as waiting
+        };
+      }
+
+      // For new leads, show full details only if opened
+      if (isOpened) {
+        return {
+          id: lead.id,
+          full_name: lead.full_name,
+          phone_number: lead.phone_number,
+          email: lead.email,
+          meta_submitted_at: lead.meta_submitted_at,
+          display_name: `${lead.full_name} (${lead.phone_number})`,
+          needs_followup: false,
+          is_opened: true,
+          is_followup: false,
+          source: lead.form_type || 'Unknown',
+          group_size: lead.group_size,
+          preferred_time: lead.preferred_time,
+          planned_visit: lead.planned_visit,
+          additional_inquiries: lead.additional_inquiries,
+          time_waiting_minutes: waitingMinutes,
+          speed_to_lead_formatted: formatSpeedToLead(openData.speed_to_lead_seconds)
+        };
+      }
+
+      // For concealed leads, only show basic info
+      return {
+        id: lead.id,
+        meta_submitted_at: lead.meta_submitted_at,
+        needs_followup: false,
+        is_opened: false,
+        is_followup: false,
+        source: lead.form_type || 'Unknown',
+        time_waiting_minutes: waitingMinutes
+        // All personal details are concealed
+      };
+    });
 
     return NextResponse.json({
       success: true,
