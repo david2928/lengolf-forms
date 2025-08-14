@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     // Get customer counts for each audience
     const audiencesWithCounts = await Promise.all(
-      (audiences || []).map(async (audience) => {
+      (audiences || []).map(async (audience: any) => {
         const { count: memberCount } = await refacSupabaseAdmin
           .schema('marketing')
           .from('audience_members')
