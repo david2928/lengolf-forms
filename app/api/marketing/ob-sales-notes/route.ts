@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
         .eq('audience_id', audience_id);
       
       if (members && members.length > 0) {
-        const customerIds = members.map(m => m.customer_id);
+        const customerIds = members.map((m: any) => m.customer_id);
         query = query.in('customer_id', customerIds);
       }
     }

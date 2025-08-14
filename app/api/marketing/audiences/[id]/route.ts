@@ -48,7 +48,7 @@ export async function GET(
     // Get customer details from the analytics view
     let customers = [];
     if (members && members.length > 0) {
-      const customerIds = members.map(m => m.customer_id);
+      const customerIds = members.map((m: any) => m.customer_id);
       const { data: customerData, error: customerError } = await refacSupabaseAdmin
         .from('customer_analytics')
         .select('*')

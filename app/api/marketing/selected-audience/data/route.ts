@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     // For OB Sales, we only need a manageable number of customers (limit to 100)
     let customers = [];
     if (members && members.length > 0) {
-      const customerIds = members.map(m => m.customer_id);
+      const customerIds = members.map((m: any) => m.customer_id);
       console.log('Total audience members:', customerIds.length);
       console.log('Looking up customer IDs (first 3):', customerIds.slice(0, 3)); // Log first 3 IDs
       
