@@ -307,11 +307,11 @@ FROM (
             ELSE NULL 
         END) AS hour_cnt
     FROM pos.lengolf_sales a1
-    LEFT JOIN backoffice.customers b ON (
+    LEFT JOIN public.customers b ON (
         regexp_replace(ltrim(a1.customer_phone_number, '0'), '^0+', '') = 
         regexp_replace(ltrim(b.contact_number::text, '0'), '^0+', '')
     )
-    LEFT JOIN backoffice.packages c ON (b.stable_hash_id::text = c.stable_hash_id::text)
+    LEFT JOIN backoffice.packages c ON (b.id = c.customer_id)
     LEFT JOIN backoffice.package_types d ON (c.package_type_id = d.id)
     LEFT JOIN backoffice.package_usage e ON (
         c.id = e.package_id AND a1.date = e.used_date

@@ -100,13 +100,19 @@ bookings (
   stable_hash_id TEXT
 )
 
--- Customers table (backoffice schema)
-backoffice.customers (
-  id SERIAL PRIMARY KEY,
-  customer_name TEXT NOT NULL,
-  contact_number TEXT,
-  email TEXT,
-  stable_hash_id TEXT
+-- Customers table (public schema)
+public.customers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_code VARCHAR,
+  customer_name VARCHAR NOT NULL,
+  contact_number VARCHAR,
+  email VARCHAR,
+  address TEXT,
+  date_of_birth DATE,
+  notes TEXT,
+  total_lifetime_value NUMERIC,
+  total_visits INTEGER,
+  stable_hash_id VARCHAR
 )
 
 -- Package types table (backoffice schema)

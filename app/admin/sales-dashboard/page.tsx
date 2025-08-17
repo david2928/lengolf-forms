@@ -55,13 +55,16 @@ import { formatDisplayDate, getDateRangeForPreset } from '@/lib/dashboard-utils'
 import WeeklyReportsTable from '@/components/sales-dashboard/WeeklyReportsTable';
 import MonthlyReportsTable from '@/components/sales-dashboard/MonthlyReportsTable';
 import ReferralAnalyticsReport from '@/components/admin/sales/referral-analytics-report';
+import ProductPerformanceTab from '@/components/sales-dashboard/ProductPerformanceTab';
 
 interface DashboardFilters {
   datePreset: DatePreset;
   comparisonPeriod: 'previousPeriod' | 'previousMonth' | 'previousYear';
+  customStartDate?: string;
+  customEndDate?: string;
 }
 
-type DashboardTab = 'overview' | 'reports' | 'referrals';
+type DashboardTab = 'overview' | 'reports' | 'referrals' | 'products';
 
 // Client-side timestamp component to avoid hydration errors
 const ClientTimestamp: React.FC = () => {
@@ -127,6 +130,8 @@ export default function SalesDashboardPage() {
     comparisonPeriod: 'previousPeriod'
   });
 
+  const [showCustomDateModal, setShowCustomDateModal] = useState(false);
+
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
 
@@ -171,7 +176,21 @@ export default function SalesDashboardPage() {
 
   // Handle filter changes
   const handleDatePresetChange = (preset: DatePreset) => {
-    setFilters(prev => ({ ...prev, datePreset: preset }));
+    if (preset === 'custom') {
+      setShowCustomDateModal(true);
+      return;
+    }
+    setFilters(prev => ({ ...prev, datePreset: preset, customStartDate: undefined, customEndDate: undefined }));
+  };
+
+  const handleCustomDateApply = (startDate: string, endDate: string) => {
+    setFilters(prev => ({ 
+      ...prev, 
+      datePreset: 'custom',
+      customStartDate: startDate,
+      customEndDate: endDate
+    }));
+    setShowCustomDateModal(false);
   };
 
   const handleComparisonChange = (comparison: 'previousPeriod' | 'previousMonth' | 'previousYear') => {
@@ -194,7 +213,12 @@ export default function SalesDashboardPage() {
     });
   };
 
-  const dateRange = getDateRangeForPreset(filters.datePreset);
+  const dateRange = filters.datePreset === 'custom' && filters.customStartDate && filters.customEndDate
+    ? {
+        start: new Date(filters.customStartDate),
+        end: new Date(filters.customEndDate)
+      }
+    : getDateRangeForPreset(filters.datePreset);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
@@ -207,7 +231,7 @@ export default function SalesDashboardPage() {
           </h1>
           <div className="flex items-center gap-2 mt-3">
             <Badge variant="outline" className="text-xs">
-              {formatDisplayDate(dateRange.start)} - {formatDisplayDate(dateRange.end)}
+              {filters.datePreset === 'custom' ? 'Custom: ' : ''}{formatDisplayDate(dateRange.start)} - {formatDisplayDate(dateRange.end)}
             </Badge>
             {isValidating && (
               <Badge variant="secondary" className="text-xs flex items-center gap-1">
@@ -239,6 +263,7 @@ export default function SalesDashboardPage() {
               <SelectItem value="last3months">Last 3 Months</SelectItem>
               <SelectItem value="monthToDate">Month to Date</SelectItem>
               <SelectItem value="yearToDate">Year to Date</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
             </SelectContent>
           </Select>
 
@@ -301,6 +326,16 @@ export default function SalesDashboardPage() {
             }`}
           >
             Referral Analytics
+          </button>
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'products'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Product Performance
           </button>
         </nav>
       </div>
@@ -443,11 +478,76 @@ export default function SalesDashboardPage() {
             <WeeklyReportsTable />
             <MonthlyReportsTable />
           </div>
-        ) : (
+        ) : activeTab === 'referrals' ? (
           // Referral Analytics Tab Content
           <ReferralAnalyticsReport />
+        ) : (
+          // Product Performance Tab Content
+          <ProductPerformanceTab dateRange={{
+            start: dateRange.start.toISOString().split('T')[0],
+            end: dateRange.end.toISOString().split('T')[0]
+          }} />
         )}
       </DashboardErrorBoundary>
+
+      {/* Custom Date Range Modal */}
+      {showCustomDateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-90vw">
+            <h3 className="text-lg font-semibold mb-4">Select Custom Date Range</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  id="customStartDate"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  max={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  id="customEndDate"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  max={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowCustomDateModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const startDate = (document.getElementById('customStartDate') as HTMLInputElement)?.value;
+                  const endDate = (document.getElementById('customEndDate') as HTMLInputElement)?.value;
+                  
+                  if (startDate && endDate) {
+                    if (new Date(startDate) <= new Date(endDate)) {
+                      handleCustomDateApply(startDate, endDate);
+                    } else {
+                      alert('Start date must be before or equal to end date');
+                    }
+                  } else {
+                    alert('Please select both start and end dates');
+                  }
+                }}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

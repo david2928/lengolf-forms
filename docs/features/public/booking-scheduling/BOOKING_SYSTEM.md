@@ -372,7 +372,7 @@ CREATE TABLE booking_history (
 ```
 
 ### Related Tables
-- `backoffice.customers`: Customer information
+- `public.customers`: Customer information
 - `backoffice.packages`: Customer packages
 - `backoffice.package_types`: Package definitions
 

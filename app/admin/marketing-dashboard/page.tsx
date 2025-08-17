@@ -40,7 +40,7 @@ export default function MarketingDashboardPage() {
   
   // Use the marketing dashboard hook with caching
   const {
-    data: { kpis: kpiData, performance: performanceData, charts: chartData },
+    data: { kpis: kpiData, performance: performanceData, monthlyPerformance: monthlyData, charts: chartData },
     isLoading,
     isValidating: isRefreshing,
     isError,
@@ -376,6 +376,7 @@ export default function MarketingDashboardPage() {
       {activeTab === 'performance' && (
         <MarketingPerformanceTable 
           data={performanceData}
+          monthlyData={monthlyData}
           isLoading={isLoading}
           onExport={handleExport}
         />

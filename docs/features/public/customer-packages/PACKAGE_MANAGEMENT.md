@@ -263,7 +263,7 @@ CREATE TABLE backoffice.package_types (
 ```sql
 CREATE TABLE backoffice.packages (
   id SERIAL PRIMARY KEY,
-  customer_id INTEGER NOT NULL REFERENCES backoffice.customers(id),
+  customer_id UUID NOT NULL REFERENCES public.customers(id),
   package_type_id INTEGER NOT NULL REFERENCES backoffice.package_types(id),
   purchase_date DATE NOT NULL,
   activation_date DATE,

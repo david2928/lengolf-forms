@@ -60,9 +60,33 @@ interface ChartData {
   roasByPlatform: any[];
 }
 
+interface MonthlyPerformance {
+  period: string;
+  monthStart: string;
+  monthEnd: string;
+  googleSpend: number;
+  metaSpend: number;
+  totalSpend: number;
+  googleImpressions: number;
+  metaImpressions: number;
+  totalImpressions: number;
+  googleClicks: number;
+  metaClicks: number;
+  totalClicks: number;
+  googleCtr: number;
+  metaCtr: number;
+  averageCtr: number;
+  googleNewCustomers: number;
+  metaNewCustomers: number;
+  totalNewCustomers: number;
+  cac: number;
+  roas: number;
+}
+
 interface MarketingDashboardData {
   kpis: MarketingKPIs | null;
   performance: WeeklyPerformance[];
+  monthlyPerformance: MonthlyPerformance[];
   charts: ChartData | null;
 }
 
@@ -138,6 +162,7 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
   const [data, setData] = useState<MarketingDashboardData>({
     kpis: null,
     performance: [],
+    monthlyPerformance: [],
     charts: null
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -149,6 +174,7 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
   const getCacheKeys = useCallback(() => ({
     kpis: `marketing-kpis-${timeRange}`,
     performance: `marketing-performance-${timeRange}`,
+    monthlyPerformance: `marketing-monthly-performance-${timeRange}`,
     charts: `marketing-charts-${timeRange}`
   }), [timeRange]);
 
@@ -210,6 +236,35 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
     }
   }, [timeRange, getCacheKeys]);
 
+  // Fetch monthly performance data
+  const fetchMonthlyPerformance = useCallback(async (): Promise<MonthlyPerformance[]> => {
+    const cacheKey = getCacheKeys().monthlyPerformance;
+    
+    // Check cache first
+    const cached = marketingCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const response = await fetch(`/api/marketing/performance?format=monthly`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch monthly performance: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const monthlyPerformance = result.data || [];
+      
+      // Cache for 5 minutes
+      marketingCache.set(cacheKey, monthlyPerformance, 5 * 60 * 1000);
+      
+      return monthlyPerformance;
+    } catch (err) {
+      console.error('Error fetching monthly performance:', err);
+      throw err;
+    }
+  }, [timeRange, getCacheKeys]);
+
   // Fetch chart data
   const fetchCharts = useCallback(async (): Promise<ChartData | null> => {
     const cacheKey = getCacheKeys().charts;
@@ -257,17 +312,20 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
       const hasAllCached = 
         marketingCache.has(cacheKeys.kpis) &&
         marketingCache.has(cacheKeys.performance) &&
+        marketingCache.has(cacheKeys.monthlyPerformance) &&
         marketingCache.has(cacheKeys.charts);
 
       if (hasAllCached && !showValidating) {
         // Load from cache immediately
         const cachedKpis = marketingCache.get(cacheKeys.kpis);
         const cachedPerformance = marketingCache.get(cacheKeys.performance);
+        const cachedMonthlyPerformance = marketingCache.get(cacheKeys.monthlyPerformance);
         const cachedCharts = marketingCache.get(cacheKeys.charts);
 
         setData({
           kpis: cachedKpis,
           performance: cachedPerformance,
+          monthlyPerformance: cachedMonthlyPerformance,
           charts: cachedCharts
         });
 
@@ -277,13 +335,14 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
       }
 
       // Fetch all data in parallel
-      const [kpis, performance, charts] = await Promise.all([
+      const [kpis, performance, monthlyPerformance, charts] = await Promise.all([
         fetchKPIs(),
         fetchPerformance(),
+        fetchMonthlyPerformance(),
         fetchCharts()
       ]);
 
-      setData({ kpis, performance, charts });
+      setData({ kpis, performance, monthlyPerformance, charts });
     } catch (err) {
       console.error('Error loading marketing dashboard data:', err);
       setIsError(true);
@@ -292,7 +351,7 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
       setIsLoading(false);
       setIsValidating(false);
     }
-  }, [enabled, getCacheKeys, fetchKPIs, fetchPerformance, fetchCharts]);
+  }, [enabled, getCacheKeys, fetchKPIs, fetchPerformance, fetchMonthlyPerformance, fetchCharts]);
 
   // Refresh function (bypasses cache)
   const refresh = useCallback(async () => {

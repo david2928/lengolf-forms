@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -21,10 +22,10 @@ import {
   Download, 
   TrendingUp, 
   TrendingDown, 
-  ArrowUpDown,
   Filter
 } from 'lucide-react';
 
+// Import the interface from the hook
 interface WeeklyPerformance {
   period: string;
   weekStart: string;
@@ -44,31 +45,175 @@ interface WeeklyPerformance {
   googleConversions: number;
   metaConversions: number;
   totalConversions: number;
+  googleNewCustomers: number;
+  metaNewCustomers: number;
+  totalNewCustomers: number;
   cac: number;
   roas: number;
   weekOverWeekSpendChange: number;
   weekOverWeekConversionsChange: number;
+  weekOverWeekNewCustomersChange: number;
+}
+
+interface PerformanceData {
+  currentWeek: WeekData;
+  previousWeek: WeekData;
+  fourWeekAverage: WeekData;
+  threeWeeksAgo: WeekData;
+  fourWeeksAgo: WeekData;
+  fiveWeeksAgo: WeekData;
+  mtd: MonthData;
+  monthMinus1: MonthData;
+  monthMinus2: MonthData;
+}
+
+interface WeekData {
+  period: string;
+  weekStart: string;
+  weekEnd: string;
+  googleSpend: number;
+  metaSpend: number;
+  totalSpend: number;
+  googleImpressions: number;
+  metaImpressions: number;
+  totalImpressions: number;
+  googleClicks: number;
+  metaClicks: number;
+  totalClicks: number;
+  googleCtr: number;
+  metaCtr: number;
+  averageCtr: number;
+  googleNewCustomers: number;
+  metaNewCustomers: number;
+  totalNewCustomers: number;
+  cac: number;
+  roas: number;
+  weekOverWeekSpendChange?: number;
+  weekOverWeekNewCustomersChange?: number;
+}
+
+interface MonthData {
+  period: string;
+  monthStart: string;
+  monthEnd: string;
+  googleSpend: number;
+  metaSpend: number;
+  totalSpend: number;
+  googleImpressions: number;
+  metaImpressions: number;
+  totalImpressions: number;
+  googleClicks: number;
+  metaClicks: number;
+  totalClicks: number;
+  googleCtr: number;
+  metaCtr: number;
+  averageCtr: number;
+  googleNewCustomers: number;
+  metaNewCustomers: number;
+  totalNewCustomers: number;
+  cac: number;
+  roas: number;
+}
+
+interface MonthlyPerformance {
+  period: string;
+  monthStart: string;
+  monthEnd: string;
+  googleSpend: number;
+  metaSpend: number;
+  totalSpend: number;
+  googleImpressions: number;
+  metaImpressions: number;
+  totalImpressions: number;
+  googleClicks: number;
+  metaClicks: number;
+  totalClicks: number;
+  googleCtr: number;
+  metaCtr: number;
+  averageCtr: number;
+  googleNewCustomers: number;
+  metaNewCustomers: number;
+  totalNewCustomers: number;
+  cac: number;
+  roas: number;
 }
 
 interface MarketingPerformanceTableProps {
   data: WeeklyPerformance[];
+  monthlyData?: MonthlyPerformance[];
   isLoading?: boolean;
   onExport?: () => void;
 }
 
-type SortField = keyof WeeklyPerformance;
-type SortDirection = 'asc' | 'desc';
 
 const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
   data,
+  monthlyData,
   isLoading = false,
   onExport
 }) => {
-  const [sortField, setSortField] = useState<SortField>('period');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
+  
+  // Transform the WeeklyPerformance[] data into the required structure
+  const transformedData = React.useMemo(() => {
+    if (!data || data.length === 0) return null;
+    
+    // Sort data by period (most recent first)
+    const sortedData = [...data].sort((a, b) => new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime());
+    
+    // Calculate 4-week average for the current period
+    const recentFourWeeks = sortedData.slice(0, 4);
+    const fourWeekAverage = recentFourWeeks.reduce((acc, week) => ({
+      totalSpend: acc.totalSpend + week.totalSpend,
+      googleSpend: acc.googleSpend + week.googleSpend,
+      metaSpend: acc.metaSpend + week.metaSpend,
+      totalImpressions: acc.totalImpressions + week.totalImpressions,
+      googleImpressions: acc.googleImpressions + week.googleImpressions,
+      metaImpressions: acc.metaImpressions + week.metaImpressions,
+      totalClicks: acc.totalClicks + week.totalClicks,
+      googleClicks: acc.googleClicks + week.googleClicks,
+      metaClicks: acc.metaClicks + week.metaClicks,
+      totalNewCustomers: acc.totalNewCustomers + week.totalNewCustomers,
+      googleNewCustomers: acc.googleNewCustomers + week.googleNewCustomers,
+      metaNewCustomers: acc.metaNewCustomers + week.metaNewCustomers,
+      cac: acc.cac + week.cac,
+      roas: acc.roas + week.roas,
+    }), {
+      totalSpend: 0, googleSpend: 0, metaSpend: 0,
+      totalImpressions: 0, googleImpressions: 0, metaImpressions: 0,
+      totalClicks: 0, googleClicks: 0, metaClicks: 0,
+      totalNewCustomers: 0, googleNewCustomers: 0, metaNewCustomers: 0,
+      cac: 0, roas: 0
+    });
+    
+    // Average the 4-week totals
+    const avgDivisor = recentFourWeeks.length;
+    Object.keys(fourWeekAverage).forEach(key => {
+      fourWeekAverage[key as keyof typeof fourWeekAverage] = fourWeekAverage[key as keyof typeof fourWeekAverage] / avgDivisor;
+    });
+    
+    // Note: Monthly data will be fetched separately from the monthly API
+    // For now, we'll use placeholder monthly data that will be replaced
+    // when the component is enhanced to support both weekly and monthly views
 
-  const formatCurrency = (value: number) => {
+    return {
+      currentWeek: sortedData[0] || null,
+      previousWeek: sortedData[1] || null,
+      fourWeekAverage,
+      threeWeeksAgo: sortedData[2] || null,
+      fourWeeksAgo: sortedData[3] || null,
+      fiveWeeksAgo: sortedData[4] || null,
+      // Use actual monthly data if available
+      mtd: monthlyData && monthlyData[0] ? monthlyData[0] : null,
+      monthMinus1: monthlyData && monthlyData[1] ? monthlyData[1] : null,
+      monthMinus2: monthlyData && monthlyData[2] ? monthlyData[2] : null,
+    };
+  }, [data, monthlyData]);
+
+  const formatCurrency = (value: number | undefined | null) => {
+    if (value == null || isNaN(value)) {
+      return '฿0';
+    }
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'THB',
@@ -77,7 +222,10 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
     }).format(value);
   };
 
-  const formatNumber = (value: number, decimals: number = 0) => {
+  const formatNumber = (value: number | undefined | null, decimals: number = 0) => {
+    if (value == null || isNaN(value)) {
+      return '0';
+    }
     if (value >= 1000000) {
       return `${(value / 1000000).toFixed(1)}M`;
     } else if (value >= 1000) {
@@ -86,7 +234,10 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
     return value.toFixed(decimals);
   };
 
-  const formatPercentage = (value: number, decimals: number = 2) => {
+  const formatPercentage = (value: number | undefined | null, decimals: number = 2) => {
+    if (value == null || isNaN(value)) {
+      return '0%';
+    }
     return `${value.toFixed(decimals)}%`;
   };
 
@@ -117,78 +268,116 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
     return 'text-gray-500';
   };
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
-    }
+  const calculatePercentageChange = (current: number | undefined, average: number | undefined) => {
+    if (!current || !average || average === 0) return 0;
+    return ((current - average) / average) * 100;
   };
 
-  const sortedData = [...data].sort((a, b) => {
-    const aValue = a[sortField];
-    const bValue = b[sortField];
-    
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      return sortDirection === 'asc' 
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
-    }
-    
-    if (typeof aValue === 'number' && typeof bValue === 'number') {
-      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-    }
-    
-    return 0;
-  });
-
-  const SortableHeader: React.FC<{ field: SortField; children: React.ReactNode }> = ({ field, children }) => (
-    <TableHead 
-      className="cursor-pointer hover:bg-gray-50 select-none"
-      onClick={() => handleSort(field)}
-    >
-      <div className="flex items-center gap-1">
-        {children}
-        <ArrowUpDown className="h-3 w-3 text-gray-400" />
-      </div>
-    </TableHead>
-  );
+  const formatPercentageChange = (current: number | undefined, average: number | undefined) => {
+    const change = calculatePercentageChange(current, average);
+    const sign = change > 0 ? '+' : '';
+    return `${sign}${change.toFixed(1)}%`;
+  };
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
+      <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="border-b border-gray-200 bg-gray-50/50 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="h-6 bg-gray-200 rounded w-48 animate-pulse"></div>
-            <div className="h-8 bg-gray-200 rounded w-24 animate-pulse"></div>
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <div className="flex gap-3">
+              <Skeleton className="h-9 w-32" />
+              <Skeleton className="h-9 w-24" />
+            </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="h-12 bg-gray-100 rounded animate-pulse"></div>
-            ))}
+        </div>
+        <div className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+                  <TableHead className="font-semibold text-gray-700 py-4 px-6 text-left w-[200px]">
+                    <Skeleton className="h-4 w-20" />
+                  </TableHead>
+                  {Array.from({ length: 9 }).map((_, index) => (
+                    <TableHead key={index} className="font-semibold text-gray-700 py-4 px-2 text-center min-w-20">
+                      <div className="space-y-1">
+                        <Skeleton className="h-4 w-16 mx-auto" />
+                        <Skeleton className="h-3 w-20 mx-auto" />
+                      </div>
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {/* Create skeleton rows for each metric group */}
+                {['Spend', 'Impressions', 'Clicks', 'New Customers', 'CAC', 'ROAS'].map((metric, metricIndex) => (
+                  <React.Fragment key={metric}>
+                    {/* Main metric row */}
+                    <TableRow className="border-b border-gray-100">
+                      <TableCell className="py-4 px-6 bg-gray-50/30">
+                        <Skeleton className="h-4 w-20" />
+                      </TableCell>
+                      {Array.from({ length: 9 }).map((_, weekIndex) => (
+                        <TableCell key={weekIndex} className="py-4 px-2 text-center">
+                          <Skeleton className="h-4 w-16 mx-auto" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    {/* Platform rows for metrics that have them */}
+                    {['Spend', 'Impressions', 'Clicks', 'New Customers'].includes(metric) && (
+                      <>
+                        <TableRow className="border-b border-gray-100">
+                          <TableCell className="py-3 px-6 pl-12">
+                            <Skeleton className="h-3 w-12" />
+                          </TableCell>
+                          {Array.from({ length: 9 }).map((_, weekIndex) => (
+                            <TableCell key={weekIndex} className="py-3 px-2 text-center">
+                              <Skeleton className="h-3 w-12 mx-auto" />
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                        {metric !== 'Impressions' && (
+                          <TableRow className="border-b border-gray-100">
+                            <TableCell className="py-3 px-6 pl-12">
+                              <Skeleton className="h-3 w-8" />
+                            </TableCell>
+                            {Array.from({ length: 9 }).map((_, weekIndex) => (
+                              <TableCell key={weekIndex} className="py-3 px-2 text-center">
+                                <Skeleton className="h-3 w-12 mx-auto" />
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        )}
+                      </>
+                    )}
+                  </React.Fragment>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className="border-b border-gray-200 bg-gray-50/50 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-xl text-gray-900">Performance Breakdown</CardTitle>
+            <h3 className="text-lg font-semibold text-gray-900">Performance Breakdown</h3>
             <p className="text-sm text-gray-600 mt-1">
               Weekly performance comparison across platforms
             </p>
           </div>
           <div className="flex items-center gap-3">
             <Select value={viewMode} onValueChange={(value: 'weekly' | 'monthly') => setViewMode(value)}>
-              <SelectTrigger className="w-32">
-                <Filter className="h-4 w-4 mr-2" />
+              <SelectTrigger className="w-32 border-gray-200">
+                <Filter className="h-4 w-4 mr-2 text-gray-500" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -201,7 +390,7 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                 onClick={onExport}
                 variant="outline"
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border-gray-200 hover:bg-gray-50"
               >
                 <Download className="h-4 w-4" />
                 Export CSV
@@ -209,145 +398,312 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
             )}
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div className="p-0">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
-                <SortableHeader field="period">Period</SortableHeader>
-                <SortableHeader field="totalSpend">Total Spend</SortableHeader>
-                <TableHead>Google Spend</TableHead>
-                <TableHead>Meta Spend</TableHead>
-                <SortableHeader field="totalImpressions">Impressions</SortableHeader>
-                <SortableHeader field="totalClicks">Clicks</SortableHeader>
-                <SortableHeader field="averageCtr">CTR</SortableHeader>
-                <SortableHeader field="totalConversions">Conversions</SortableHeader>
-                <SortableHeader field="cac">CAC</SortableHeader>
-                <SortableHeader field="roas">ROAS</SortableHeader>
-                <TableHead>WoW Change</TableHead>
+              <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+                <TableHead className="font-semibold text-gray-700 py-3 px-4 text-left w-[180px]">Metric</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[130px]">
+                  <div className="text-xs">Current</div>
+                  <div className="text-[10px] text-gray-500 font-normal">This Week</div>
+                </TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[130px]">
+                  <div className="text-xs">Previous</div>
+                  <div className="text-[10px] text-gray-500 font-normal">Last Week</div>
+                </TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
+                  <div className="text-xs">vs 4W Avg</div>
+                  <div className="text-[10px] text-gray-500 font-normal">% Change</div>
+                </TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
+                  <div className="text-xs">3W Ago</div>
+                  <div className="text-[10px] text-gray-500 font-normal">3 Weeks</div>
+                </TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
+                  <div className="text-xs">4W Ago</div>
+                  <div className="text-[10px] text-gray-500 font-normal">4 Weeks</div>
+                </TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
+                  <div className="text-xs">5W Ago</div>
+                  <div className="text-[10px] text-gray-500 font-normal">5 Weeks</div>
+                </TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[140px]">
+                  <div className="text-xs">MTD</div>
+                  <div className="text-[10px] text-gray-500 font-normal">Current Month</div>
+                </TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[140px]">
+                  <div className="text-xs">M-1</div>
+                  <div className="text-[10px] text-gray-500 font-normal">Last Month</div>
+                </TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[140px]">
+                  <div className="text-xs">M-2</div>
+                  <div className="text-[10px] text-gray-500 font-normal">2 Months Ago</div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedData.map((week, index) => (
-                <TableRow key={week.period} className="hover:bg-gray-50">
-                  <TableCell className="font-medium">
-                    <div>
-                      <div className="font-semibold text-gray-900">{week.period}</div>
-                      <div className="text-xs text-gray-500">
-                        {formatDate(week.weekStart)} - {formatDate(week.weekEnd)}
+              {transformedData && (
+                <>
+                  {/* Spend Section */}
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-3 px-4 font-semibold text-gray-900 bg-gray-50/30 text-sm">Spend</TableCell>
+                    <TableCell className="py-3 px-2 text-center">
+                      <div className="font-medium text-gray-900 text-xs">{formatCurrency(transformedData.currentWeek?.totalSpend)}</div>
+                      {(transformedData.currentWeek?.weekOverWeekSpendChange || 0) !== 0 && (
+                        <div className={`flex items-center justify-center gap-1 text-[10px] mt-1 ${getTrendColor(transformedData.currentWeek?.weekOverWeekSpendChange || 0)}`}>
+                          {getTrendIcon(transformedData.currentWeek?.weekOverWeekSpendChange || 0)}
+                          {(transformedData.currentWeek?.weekOverWeekSpendChange || 0) > 0 ? '+' : ''}{formatPercentage(transformedData.currentWeek?.weekOverWeekSpendChange, 1)}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.previousWeek?.totalSpend)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.totalSpend, transformedData.fourWeekAverage?.totalSpend))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.totalSpend, transformedData.fourWeekAverage?.totalSpend)}
                       </div>
-                    </div>
-                  </TableCell>
+                    </TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.threeWeeksAgo?.totalSpend)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.fourWeeksAgo?.totalSpend)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.fiveWeeksAgo?.totalSpend)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.mtd?.totalSpend)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.monthMinus1?.totalSpend)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.monthMinus2?.totalSpend)}</TableCell>
+                  </TableRow>
                   
-                  <TableCell>
-                    <div className="font-semibold text-gray-900">
-                      {formatCurrency(week.totalSpend)}
-                    </div>
-                    {week.weekOverWeekSpendChange !== 0 && (
-                      <div className={`flex items-center gap-1 text-xs ${getTrendColor(week.weekOverWeekSpendChange)}`}>
-                        {getTrendIcon(week.weekOverWeekSpendChange)}
-                        {week.weekOverWeekSpendChange > 0 ? '+' : ''}{formatPercentage(week.weekOverWeekSpendChange, 1)}
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-2 px-4 pl-8 text-blue-700 font-medium text-xs">Google</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatCurrency(transformedData.currentWeek?.googleSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatCurrency(transformedData.previousWeek?.googleSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.googleSpend, transformedData.fourWeekAverage?.googleSpend))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.googleSpend, transformedData.fourWeekAverage?.googleSpend)}
                       </div>
-                    )}
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="text-blue-700 font-medium">
-                      {formatCurrency(week.googleSpend)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {week.totalSpend > 0 ? formatPercentage((week.googleSpend / week.totalSpend) * 100, 0) : '0%'}
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="text-purple-700 font-medium">
-                      {formatCurrency(week.metaSpend)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {week.totalSpend > 0 ? formatPercentage((week.metaSpend / week.totalSpend) * 100, 0) : '0%'}
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="font-medium">{formatNumber(week.totalImpressions)}</div>
-                    <div className="text-xs text-gray-500">
-                      G: {formatNumber(week.googleImpressions)} | M: {formatNumber(week.metaImpressions)}
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="font-medium">{formatNumber(week.totalClicks)}</div>
-                    <div className="text-xs text-gray-500">
-                      G: {formatNumber(week.googleClicks)} | M: {formatNumber(week.metaClicks)}
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="font-medium">{formatPercentage(week.averageCtr)}</div>
-                    <div className="text-xs text-gray-500">
-                      G: {formatPercentage(week.googleCtr)} | M: {formatPercentage(week.metaCtr)}
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="font-medium">{week.totalConversions}</div>
-                    <div className="text-xs text-gray-500">
-                      G: {week.googleConversions} | M: {week.metaConversions}
-                    </div>
-                    {week.weekOverWeekConversionsChange !== 0 && (
-                      <div className={`flex items-center gap-1 text-xs ${getTrendColor(week.weekOverWeekConversionsChange)}`}>
-                        {getTrendIcon(week.weekOverWeekConversionsChange)}
-                        {week.weekOverWeekConversionsChange > 0 ? '+' : ''}{formatPercentage(week.weekOverWeekConversionsChange, 1)}
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatCurrency(transformedData.threeWeeksAgo?.googleSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatCurrency(transformedData.fourWeeksAgo?.googleSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatCurrency(transformedData.fiveWeeksAgo?.googleSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatCurrency(transformedData.mtd?.googleSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatCurrency(transformedData.monthMinus1?.googleSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatCurrency(transformedData.monthMinus2?.googleSpend)}</TableCell>
+                  </TableRow>
+                  
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-2 px-4 pl-8 text-purple-700 font-medium text-xs">Meta</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatCurrency(transformedData.currentWeek?.metaSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatCurrency(transformedData.previousWeek?.metaSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.metaSpend, transformedData.fourWeekAverage?.metaSpend))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.metaSpend, transformedData.fourWeekAverage?.metaSpend)}
                       </div>
-                    )}
-                  </TableCell>
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatCurrency(transformedData.threeWeeksAgo?.metaSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatCurrency(transformedData.fourWeeksAgo?.metaSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatCurrency(transformedData.fiveWeeksAgo?.metaSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatCurrency(transformedData.mtd?.metaSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatCurrency(transformedData.monthMinus1?.metaSpend)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatCurrency(transformedData.monthMinus2?.metaSpend)}</TableCell>
+                  </TableRow>
 
-                  <TableCell>
-                    <div className="font-medium">{formatCurrency(week.cac)}</div>
-                    <Badge variant="outline" className="text-xs mt-1">
-                      {week.cac < 50 ? 'Good' : week.cac < 100 ? 'Fair' : 'High'}
-                    </Badge>
-                  </TableCell>
+                  {/* Impressions Section */}
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-3 px-4 font-semibold text-gray-900 bg-gray-50/30 text-sm">Impressions</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.currentWeek?.totalImpressions)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.previousWeek?.totalImpressions)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.totalImpressions, transformedData.fourWeekAverage?.totalImpressions))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.totalImpressions, transformedData.fourWeekAverage?.totalImpressions)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.threeWeeksAgo?.totalImpressions)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.fourWeeksAgo?.totalImpressions)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.fiveWeeksAgo?.totalImpressions)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.mtd?.totalImpressions)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.monthMinus1?.totalImpressions)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.monthMinus2?.totalImpressions)}</TableCell>
+                  </TableRow>
+                  
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-2 px-4 pl-8 text-purple-700 font-medium text-xs">Meta</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.currentWeek?.metaImpressions)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.previousWeek?.metaImpressions)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.metaImpressions, transformedData.fourWeekAverage?.metaImpressions))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.metaImpressions, transformedData.fourWeekAverage?.metaImpressions)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.threeWeeksAgo?.metaImpressions)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.fourWeeksAgo?.metaImpressions)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.fiveWeeksAgo?.metaImpressions)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.mtd?.metaImpressions)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.monthMinus1?.metaImpressions)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.monthMinus2?.metaImpressions)}</TableCell>
+                  </TableRow>
 
-                  <TableCell>
-                    <div className="font-medium">{week.roas.toFixed(1)}x</div>
-                    <Badge variant={week.roas >= 2.5 ? 'default' : week.roas >= 2.0 ? 'secondary' : 'destructive'} className="text-xs mt-1">
-                      {week.roas >= 2.5 ? 'Good' : week.roas >= 2.0 ? 'Fair' : 'Poor'}
-                    </Badge>
-                  </TableCell>
+                  {/* Clicks Section */}
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-3 px-4 font-semibold text-gray-900 bg-gray-50/30 text-sm">Clicks</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.currentWeek?.totalClicks)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.previousWeek?.totalClicks)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.totalClicks, transformedData.fourWeekAverage?.totalClicks))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.totalClicks, transformedData.fourWeekAverage?.totalClicks)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.threeWeeksAgo?.totalClicks)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.fourWeeksAgo?.totalClicks)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.fiveWeeksAgo?.totalClicks)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.mtd?.totalClicks)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.monthMinus1?.totalClicks)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatNumber(transformedData.monthMinus2?.totalClicks)}</TableCell>
+                  </TableRow>
+                  
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-2 px-4 pl-8 text-blue-700 font-medium text-xs">Google</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatNumber(transformedData.currentWeek?.googleClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatNumber(transformedData.previousWeek?.googleClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.googleClicks, transformedData.fourWeekAverage?.googleClicks))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.googleClicks, transformedData.fourWeekAverage?.googleClicks)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatNumber(transformedData.threeWeeksAgo?.googleClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatNumber(transformedData.fourWeeksAgo?.googleClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatNumber(transformedData.fiveWeeksAgo?.googleClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatNumber(transformedData.mtd?.googleClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatNumber(transformedData.monthMinus1?.googleClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatNumber(transformedData.monthMinus2?.googleClicks)}</TableCell>
+                  </TableRow>
+                  
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-2 px-4 pl-8 text-purple-700 font-medium text-xs">Meta</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.currentWeek?.metaClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.previousWeek?.metaClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.metaClicks, transformedData.fourWeekAverage?.metaClicks))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.metaClicks, transformedData.fourWeekAverage?.metaClicks)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.threeWeeksAgo?.metaClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.fourWeeksAgo?.metaClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.fiveWeeksAgo?.metaClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.mtd?.metaClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.monthMinus1?.metaClicks)}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatNumber(transformedData.monthMinus2?.metaClicks)}</TableCell>
+                  </TableRow>
 
-                  <TableCell>
-                    <div className="space-y-1">
-                      {week.weekOverWeekSpendChange !== 0 && (
-                        <div className={`flex items-center gap-1 text-xs ${getTrendColor(week.weekOverWeekSpendChange)}`}>
-                          Spend: {week.weekOverWeekSpendChange > 0 ? '+' : ''}{formatPercentage(week.weekOverWeekSpendChange, 1)}
+                  {/* New Customers Section */}
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-3 px-4 font-semibold text-gray-900 bg-gray-50/30 text-sm">New Customers</TableCell>
+                    <TableCell className="py-3 px-2 text-center">
+                      <div className="font-medium text-gray-900 text-xs">{transformedData.currentWeek?.totalNewCustomers || 0}</div>
+                      {(transformedData.currentWeek?.weekOverWeekNewCustomersChange || 0) !== 0 && (
+                        <div className={`flex items-center justify-center gap-1 text-[10px] mt-1 ${getTrendColor(transformedData.currentWeek?.weekOverWeekNewCustomersChange || 0)}`}>
+                          {getTrendIcon(transformedData.currentWeek?.weekOverWeekNewCustomersChange || 0)}
+                          {(transformedData.currentWeek?.weekOverWeekNewCustomersChange || 0) > 0 ? '+' : ''}{formatPercentage(transformedData.currentWeek?.weekOverWeekNewCustomersChange, 1)}
                         </div>
                       )}
-                      {week.weekOverWeekConversionsChange !== 0 && (
-                        <div className={`flex items-center gap-1 text-xs ${getTrendColor(week.weekOverWeekConversionsChange)}`}>
-                          Conv: {week.weekOverWeekConversionsChange > 0 ? '+' : ''}{formatPercentage(week.weekOverWeekConversionsChange, 1)}
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.previousWeek?.totalNewCustomers || 0}</TableCell>
+                    <TableCell className="py-3 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.totalNewCustomers, transformedData.fourWeekAverage?.totalNewCustomers))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.totalNewCustomers, transformedData.fourWeekAverage?.totalNewCustomers)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.threeWeeksAgo?.totalNewCustomers || 0}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.fourWeeksAgo?.totalNewCustomers || 0}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.fiveWeeksAgo?.totalNewCustomers || 0}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.mtd?.totalNewCustomers || 0}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.monthMinus1?.totalNewCustomers || 0}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.monthMinus2?.totalNewCustomers || 0}</TableCell>
+                  </TableRow>
+                  
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-2 px-4 pl-8 text-blue-700 font-medium text-xs">Google</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{transformedData.currentWeek?.googleNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{transformedData.previousWeek?.googleNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.googleNewCustomers, transformedData.fourWeekAverage?.googleNewCustomers))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.googleNewCustomers, transformedData.fourWeekAverage?.googleNewCustomers)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{transformedData.threeWeeksAgo?.googleNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{transformedData.fourWeeksAgo?.googleNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{transformedData.fiveWeeksAgo?.googleNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{transformedData.mtd?.googleNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{transformedData.monthMinus1?.googleNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{transformedData.monthMinus2?.googleNewCustomers || 0}</TableCell>
+                  </TableRow>
+                  
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-2 px-4 pl-8 text-purple-700 font-medium text-xs">Meta</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{transformedData.currentWeek?.metaNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{transformedData.previousWeek?.metaNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.metaNewCustomers, transformedData.fourWeekAverage?.metaNewCustomers))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.metaNewCustomers, transformedData.fourWeekAverage?.metaNewCustomers)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{transformedData.threeWeeksAgo?.metaNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{transformedData.fourWeeksAgo?.metaNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{transformedData.fiveWeeksAgo?.metaNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{transformedData.mtd?.metaNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{transformedData.monthMinus1?.metaNewCustomers || 0}</TableCell>
+                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{transformedData.monthMinus2?.metaNewCustomers || 0}</TableCell>
+                  </TableRow>
+
+                  {/* CAC Section */}
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-3 px-4 font-semibold text-gray-900 bg-gray-50/30 text-sm">CAC</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.currentWeek?.cac)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.previousWeek?.cac)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.cac, transformedData.fourWeekAverage?.cac), true)}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.cac, transformedData.fourWeekAverage?.cac)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.threeWeeksAgo?.cac)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.fourWeeksAgo?.cac)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.fiveWeeksAgo?.cac)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.mtd?.cac)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.monthMinus1?.cac)}</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.monthMinus2?.cac)}</TableCell>
+                  </TableRow>
+
+                  {/* ROAS Section */}
+                  <TableRow className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100">
+                    <TableCell className="py-3 px-4 font-semibold text-gray-900 bg-gray-50/30 text-sm">ROAS</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.currentWeek?.roas != null && !isNaN(transformedData.currentWeek?.roas) ? transformedData.currentWeek.roas.toFixed(1) : '0.0'}x</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.previousWeek?.roas != null && !isNaN(transformedData.previousWeek?.roas) ? transformedData.previousWeek.roas.toFixed(1) : '0.0'}x</TableCell>
+                    <TableCell className="py-3 px-2 text-center">
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.currentWeek?.roas, transformedData.fourWeekAverage?.roas))}`}>
+                        {formatPercentageChange(transformedData.currentWeek?.roas, transformedData.fourWeekAverage?.roas)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.threeWeeksAgo?.roas != null && !isNaN(transformedData.threeWeeksAgo?.roas) ? transformedData.threeWeeksAgo.roas.toFixed(1) : '0.0'}x</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.fourWeeksAgo?.roas != null && !isNaN(transformedData.fourWeeksAgo?.roas) ? transformedData.fourWeeksAgo.roas.toFixed(1) : '0.0'}x</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.fiveWeeksAgo?.roas != null && !isNaN(transformedData.fiveWeeksAgo?.roas) ? transformedData.fiveWeeksAgo.roas.toFixed(1) : '0.0'}x</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.mtd?.roas != null && !isNaN(transformedData.mtd?.roas) ? transformedData.mtd.roas.toFixed(1) : '0.0'}x</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.monthMinus1?.roas != null && !isNaN(transformedData.monthMinus1?.roas) ? transformedData.monthMinus1.roas.toFixed(1) : '0.0'}x</TableCell>
+                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.monthMinus2?.roas != null && !isNaN(transformedData.monthMinus2?.roas) ? transformedData.monthMinus2.roas.toFixed(1) : '0.0'}x</TableCell>
+                  </TableRow>
+                </>
+              )}
             </TableBody>
           </Table>
         </div>
 
-        {data.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-500 mb-2">No performance data available</div>
+        {!data && !isLoading && (
+          <div className="text-center py-12 px-6">
+            <div className="text-gray-500 mb-2 font-medium">No performance data available</div>
             <div className="text-sm text-gray-400">
               Performance data will appear here once campaigns are running
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

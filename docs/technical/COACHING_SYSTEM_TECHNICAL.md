@@ -422,7 +422,7 @@ BEGIN
           'remaining_sessions', cp.remaining_sessions
         )
       ) as packages
-    FROM backoffice.customers c
+    FROM public.customers c
     LEFT JOIN backoffice.customer_packages cp ON c.customer_name = cp.customer_name
     LEFT JOIN backoffice.packages p ON cp.package_id = p.id
     WHERE cp.package_id IS NOT NULL

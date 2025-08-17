@@ -113,7 +113,7 @@ CREATE TABLE public.customers (
   is_active BOOLEAN DEFAULT true,
   
   -- Legacy Integration
-  current_pos_customer_id BIGINT, -- Link to backoffice.customers
+  current_pos_customer_id UUID, -- Link to public.customers (deprecated, customers are now unified)
   stable_hash_id VARCHAR(255),   -- CRM integration identifier
   
   -- Search Optimization
@@ -493,11 +493,12 @@ interface CustomerKPIsResponse {
 
 The system successfully migrated data from multiple sources:
 
-#### Primary Migration: `backoffice.customers`
-- **Source**: 2,122 POS system customers
+#### Primary Migration: `public.customers`
+- **Source**: 2,122 POS system customers (originally from legacy backoffice system)
 - **Result**: 100% migration success
 - **Method**: Direct migration with phone normalization
 - **Fields**: All customer fields with generated customer codes
+- **Note**: Customers are now unified in the public schema
 
 #### Profile Integration: `public.profiles`
 - **Source**: 3,046 website user profiles
