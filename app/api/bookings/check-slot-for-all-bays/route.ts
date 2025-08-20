@@ -3,11 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 
 const TIMEZONE = 'Asia/Bangkok';
 
-// Define the 3 actual bays
+// Define all 4 bays
 const ALL_BAYS = [
   "Bay 1",
   "Bay 2",
-  "Bay 3"
+  "Bay 3",
+  "Bay 4"
 ];
 
 export async function POST(request: Request) {
