@@ -154,11 +154,12 @@ export function BigCalendarView({
     const bookingEnd = new Date(event.end);
     const isPast = bookingEnd < now;
     
-    // Updated bay-based color scheme: Bay 1 blue, Bay 2 red, Bay 3 green
+    // Updated bay-based color scheme: Bay 1 blue, Bay 2 red, Bay 3 green, Bay 4 purple
     const bayColors = {
       "Bay 1 (Bar)": "#3b82f6", // blue-500
       "Bay 2": "#ef4444", // red-500  
       "Bay 3 (Entrance)": "#10b981", // emerald-500
+      "Bay 4": "#9333ea", // purple-600
     };
 
     let backgroundColor = bayColors[booking.bay as keyof typeof bayColors] || "#6b7280";
@@ -251,7 +252,7 @@ export function BigCalendarView({
 
   // Resource list for bay columns
   const resources = useMemo(() => {
-    const bays = ["Bay 1 (Bar)", "Bay 2", "Bay 3 (Entrance)"];
+    const bays = ["Bay 1 (Bar)", "Bay 2", "Bay 3 (Entrance)", "Bay 4"];
     return bays.map((bay) => ({
       resourceId: bay,
       resourceTitle: bay.replace(' (Bar)', '').replace(' (Entrance)', ''),

@@ -294,6 +294,8 @@ export default function BookingsCalendarPage() {
   const handleCloseViewModal = () => {
     setIsViewModalOpen(false);
     setSelectedBookingForView(null);
+    // Refresh calendar data when modal closes to ensure latest state
+    refreshBookingsData();
   };
 
   const refreshBookingsData = () => {

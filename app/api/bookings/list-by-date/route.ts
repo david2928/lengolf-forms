@@ -26,7 +26,6 @@ interface FetchedBookingData {
     customer_code: string;
     customer_name: string;
   } | null; // Customer information from join
-  // Add other fields that are selected if they are directly used before mapping to Booking
 }
 
 export async function GET(request: NextRequest) {

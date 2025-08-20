@@ -10,7 +10,7 @@ import { formatLineModificationMessage } from '@/lib/line-formatting';
 
 // Define the expected payload structure for validation
 interface UpdateBookingPayload {
-  bay?: 'Bay 1' | 'Bay 2' | 'Bay 3' | null;
+  bay?: 'Bay 1' | 'Bay 2' | 'Bay 3' | 'Bay 4' | null;
   date?: string; // YYYY-MM-DD
   start_time?: string; // HH:mm
   end_time?: string; // HH:mm
@@ -27,10 +27,11 @@ interface UpdateBookingPayload {
 }
 
 // Helper to map simple bay names to the format expected by Google Calendar API (for event creation only)
-function mapSimpleBayToApiBayName(simpleBay: 'Bay 1' | 'Bay 2' | 'Bay 3' | null): string | null {
+function mapSimpleBayToApiBayName(simpleBay: 'Bay 1' | 'Bay 2' | 'Bay 3' | 'Bay 4' | null): string | null {
   if (simpleBay === 'Bay 1') return 'Bay 1 (Bar)';
   if (simpleBay === 'Bay 2') return 'Bay 2';
   if (simpleBay === 'Bay 3') return 'Bay 3 (Entrance)';
+  if (simpleBay === 'Bay 4') return 'Bay 4';
   return null;
 }
 
@@ -141,7 +142,7 @@ export async function GET(
   }
 
   try {
-    // Fetch booking from Supabase with complete customer information
+    // Fetch booking from Supabase with complete customer information and package details
     const { data: booking, error: fetchError } = await refacSupabaseAdmin
       .from('bookings')
       .select(`
@@ -174,12 +175,17 @@ export async function GET(
       return NextResponse.json({ error: `Booking with ID ${bookingId} not found.` }, { status: 404 });
     }
 
-    // Structure response with booking data and customer information
+    // Structure response with booking data, customer information, and package details
     const bookingWithCustomerInfo = {
       ...booking,
       // Keep customer information as nested object for proper data structure
       customer: booking.customers || null,
-      customers: undefined // Remove the nested customers object
+      customers: undefined, // Remove the nested customers object
+      // Add resolved package information
+      package: booking.packages || null,
+      packages: undefined, // Remove the nested packages object
+      // Override package_name with actual package display name if package exists
+      package_name: booking.packages?.package_types?.display_name || booking.package_name
     };
 
     return NextResponse.json(
@@ -234,8 +240,8 @@ export async function PUT(
   if (payload.end_time && !/^\d{2}:\d{2}$/.test(payload.end_time)) {
     return NextResponse.json({ error: 'Invalid end_time format. Expected HH:mm' }, { status: 400 });
   }
-  if (payload.bay && !['Bay 1', 'Bay 2', 'Bay 3'].includes(payload.bay)) {
-    return NextResponse.json({ error: 'Invalid bay value. Must be one of Bay 1, Bay 2, Bay 3 or null.'}, {status: 400});
+  if (payload.bay && !['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4'].includes(payload.bay)) {
+    return NextResponse.json({ error: 'Invalid bay value. Must be one of Bay 1, Bay 2, Bay 3, Bay 4 or null.'}, {status: 400});
   }
   if (payload.number_of_people !== undefined && (typeof payload.number_of_people !== 'number' || payload.number_of_people <= 0)) {
     return NextResponse.json({ error: 'number_of_people must be a positive number'}, {status: 400});
@@ -479,7 +485,7 @@ export async function PUT(
         duration: updatedBookingUntyped.duration, 
         number_of_people: updatedBookingUntyped.number_of_people,
         bay: updatedBookingUntyped.bay, 
-        bayDisplayName: mapSimpleBayToApiBayName(updatedBookingUntyped.bay as 'Bay 1' | 'Bay 2' | 'Bay 3' | null), 
+        bayDisplayName: mapSimpleBayToApiBayName(updatedBookingUntyped.bay as 'Bay 1' | 'Bay 2' | 'Bay 3' | 'Bay 4' | null), 
         customer_notes: updatedBookingUntyped.customer_notes,
         employeeName: payload.employee_name, // Staff member making the change
         bookingType: updatedBookingUntyped.booking_type || 'Unknown Type', // Use from DB

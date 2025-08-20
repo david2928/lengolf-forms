@@ -21,7 +21,6 @@ export function SimpleBookingTypeSelector({
     'Coaching (Noon)',
     'Normal Bay Rate',
     'ClassPass',
-    'VR',
     'Others (e.g. Events)'
   ]
 

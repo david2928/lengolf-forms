@@ -4,7 +4,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
-import { Package, Users, Gamepad2, Calendar, PenSquare } from "lucide-react"
+import { Package, Users, Calendar, PenSquare } from "lucide-react"
 
 interface BookingTypeSelectorProps {
   value: string | null
@@ -28,7 +28,6 @@ export function BookingTypeSelector({
     { value: 'Coaching (Noon)', label: 'Coaching (Noon)', icon: Users },
     { value: 'Normal Bay Rate', label: 'Normal Bay Rate', icon: Calendar },
     { value: 'ClassPass', label: 'ClassPass', icon: Calendar },
-    { value: 'VR', label: 'VR', icon: Gamepad2 },
     { value: 'Others (e.g. Events)', label: 'Others (e.g. Events)', icon: PenSquare },
   ]
 

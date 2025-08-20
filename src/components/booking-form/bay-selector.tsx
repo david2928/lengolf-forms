@@ -12,7 +12,8 @@ import { useAllBaysAvailability } from '@/hooks/useAvailability'
 const BAYS = [
   { id: 'Bay 1', name: 'Bay 1' },
   { id: 'Bay 2', name: 'Bay 2' },
-  { id: 'Bay 3', name: 'Bay 3' }
+  { id: 'Bay 3', name: 'Bay 3' },
+  { id: 'Bay 4', name: 'Bay 4' }
 ];
 
 interface BusyTime {
@@ -224,7 +225,7 @@ export function BaySelector({
             <span className="ml-2 text-sm text-gray-500">Loading bay availability...</span>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {BAYS.map((bay) => {
               const isAvailable = isBayAvailable(bay.id);
               const showAvailability = selectedStartTime && availability[bay.id] !== undefined;

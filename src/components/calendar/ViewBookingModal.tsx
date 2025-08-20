@@ -13,6 +13,7 @@ import { CancelBookingModal } from '@/components/manage-bookings/CancelBookingMo
 import { EditBookingModal } from '@/components/manage-bookings/EditBookingModal';
 import { BookingConfirmationDialog } from '@/components/booking/BookingConfirmationDialog';
 import { useToast } from '@/components/ui/use-toast';
+import { getDisplayPackageName } from '@/lib/client-package-utils';
 
 interface ViewBookingModalProps {
   isOpen: boolean;
@@ -27,9 +28,11 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
   const [isConfirmationDialogOpen, setIsConfirmationDialogOpen] = useState(false);
   const [currentBooking, setCurrentBooking] = useState<Booking | null>(booking);
   const [isLoadingBooking, setIsLoadingBooking] = useState(false);
+  const [displayPackageName, setDisplayPackageName] = useState<string | null>(null);
+  const [isLoadingPackage, setIsLoadingPackage] = useState(false);
   const { toast } = useToast();
 
-  // Fetch fresh booking data when modal opens or booking ID changes
+  // Fetch fresh booking data when modal opens
   useEffect(() => {
     const fetchFreshBookingData = async () => {
       if (!booking?.id || !isOpen) {
@@ -64,7 +67,38 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
     };
 
     fetchFreshBookingData();
-  }, [booking?.id, isOpen]); // Use booking.id instead of booking object to detect changes
+  }, [isOpen, booking?.id]); // Trigger fresh fetch every time modal opens
+
+  // Fetch the real package name when booking data is available
+  useEffect(() => {
+    const fetchPackageName = async () => {
+      if (!currentBooking?.package_id && !currentBooking?.package_name) {
+        setDisplayPackageName(null);
+        return;
+      }
+
+      setIsLoadingPackage(true);
+      try {
+        const realPackageName = await getDisplayPackageName(
+          currentBooking?.package_id || null,
+          currentBooking?.package_name || null
+        );
+        setDisplayPackageName(realPackageName);
+      } catch (error) {
+        console.error('Error fetching package name:', error);
+        // Fallback to cleaning up the stored name
+        setDisplayPackageName(
+          currentBooking?.package_name?.startsWith('Will buy ') 
+            ? currentBooking.package_name.replace('Will buy ', '')
+            : currentBooking?.package_name || null
+        );
+      } finally {
+        setIsLoadingPackage(false);
+      }
+    };
+
+    fetchPackageName();
+  }, [currentBooking?.package_id, currentBooking?.package_name]);
 
   if (!currentBooking) return null;
 
@@ -417,11 +451,13 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
                       </div>
                     )}
                     
-                    {currentBooking.package_name && (
+                    {(displayPackageName || currentBooking.package_name) && (
                       <div className="flex items-center gap-2 text-sm">
                         <Package className="h-4 w-4 text-gray-500" />
                         <span className="text-gray-600">Package:</span>
-                        <span className="text-gray-900 font-medium">{currentBooking.package_name}</span>
+                        <span className="text-gray-900 font-medium">
+                          {isLoadingPackage ? 'Loading...' : (displayPackageName || currentBooking.package_name)}
+                        </span>
                       </div>
                     )}
                   </div>

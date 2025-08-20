@@ -12,6 +12,7 @@ interface EditPackageSelectorProps {
   customerPhone?: string
   customerId?: string | null
   currentPackageName?: string | null
+  currentPackageId?: string | null // Add current package ID
   bookingDate?: string // New prop for booking date
   onChange: (packageId: string | null, packageName?: string | null) => void
   disabled?: boolean
@@ -33,6 +34,7 @@ export function EditPackageSelector({
   customerPhone,
   customerId,
   currentPackageName,
+  currentPackageId,
   bookingDate,
   onChange,
   disabled = false
@@ -112,15 +114,19 @@ export function EditPackageSelector({
 
   const activePackages = packages.filter(pkg => pkg.is_active || pkg.status === 'not_activated')
 
+  // Since the parent components now handle fetching the real package name,
+  // we can use the currentPackageName directly (it should already be clean)
+  const displayPackageName = currentPackageName
+
   return (
     <div className="space-y-3">
       {/* Current Package Display */}
-      {currentPackageName && (
+      {displayPackageName && (
         <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <Package className="w-4 h-4 text-blue-600" />
           <div className="flex-1">
             <Label className="text-sm font-medium text-blue-900">Current Package</Label>
-            <p className="text-sm text-blue-700">{currentPackageName}</p>
+            <p className="text-sm text-blue-700">{displayPackageName}</p>
           </div>
           {value === null && (
             <Badge variant="outline" className="text-blue-700 border-blue-300">
@@ -133,14 +139,14 @@ export function EditPackageSelector({
       {/* Package Selection */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">
-          {currentPackageName ? 'Change to Different Package' : 'Select Package'}
+          {displayPackageName ? 'Change to Different Package' : 'Select Package'}
         </Label>
         
         <Select
           value={value || 'current'}
           onValueChange={(selectedValue) => {
             if (selectedValue === 'current') {
-              onChange(null, currentPackageName) // Keep current package
+              onChange(null, displayPackageName) // Keep current package (use display name)
             } else if (selectedValue === 'none') {
               onChange('', null) // No package
             } else {
@@ -155,9 +161,9 @@ export function EditPackageSelector({
             <SelectValue placeholder="Select package" />
           </SelectTrigger>
           <SelectContent>
-            {currentPackageName && (
+            {displayPackageName && (
               <SelectItem value="current">
-                Keep Current: {currentPackageName}
+                Keep Current: {displayPackageName}
               </SelectItem>
             )}
             
@@ -187,7 +193,7 @@ export function EditPackageSelector({
               </>
             )}
             
-            {activePackages.length === 0 && !currentPackageName && (
+            {activePackages.length === 0 && !displayPackageName && (
               <SelectItem value="none" disabled>
                 No active packages available
               </SelectItem>

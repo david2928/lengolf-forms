@@ -27,7 +27,7 @@ interface BayAvailability {
 }
 
 // Updated to use simplified bay names from Phase 2
-const BAYS = ['Bay 1', 'Bay 2', 'Bay 3'] as const;
+const BAYS = ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4'] as const;
 
 export function BookingTimeSelector({ 
   selectedDate, 

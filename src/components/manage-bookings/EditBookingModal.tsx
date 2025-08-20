@@ -22,12 +22,14 @@ import { PackageSelector } from '@/components/booking-form/package-selector';
 import { EditPackageSelector } from '@/components/booking-form/selectors/edit-package-selector';
 import { SimpleBookingTypeSelector } from '@/components/booking-form/selectors/simple-booking-type-selector';
 import { SimpleReferralSourceSelector } from '@/components/booking-form/selectors/simple-referral-source-selector';
+import { getDisplayPackageName } from '@/lib/client-package-utils';
 
 // Bay mapping to match API expectations
 const BAY_NAME_TO_API_BAY_NAME: { [key: string]: string } = {
   'Bay 1': 'Bay 1 (Bar)',
   'Bay 2': 'Bay 2',
   'Bay 3': 'Bay 3 (Entrance)',
+  'Bay 4': 'Bay 4',
 };
 
 const BAY_OPTIONS = Object.keys(BAY_NAME_TO_API_BAY_NAME);
@@ -106,6 +108,8 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const [allowOverwrite, setAllowOverwrite] = useState(false);
+  const [displayPackageName, setDisplayPackageName] = useState<string | null>(null);
+  const [isLoadingPackage, setIsLoadingPackage] = useState(false);
 
   // State for individual slot availability (currently selected bay)
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable' | 'error' | 'not_applicable' | 'overridden'>('idle');
@@ -222,6 +226,41 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       setLastAvailabilityCheck(null);
     }
   }, [booking, isOpen]);
+
+  // Fetch the real package name when booking data is available
+  useEffect(() => {
+    const fetchPackageName = async () => {
+      if (!booking?.package_id && !booking?.package_name) {
+        setDisplayPackageName(null);
+        return;
+      }
+
+      setIsLoadingPackage(true);
+      try {
+        const realPackageName = await getDisplayPackageName(
+          booking?.package_id || null,
+          booking?.package_name || null
+        );
+        setDisplayPackageName(realPackageName);
+      } catch (error) {
+        console.error('Error fetching package name:', error);
+        // Fallback to cleaning up the stored name
+        setDisplayPackageName(
+          booking?.package_name?.startsWith('Will buy ') 
+            ? booking.package_name.replace('Will buy ', '')
+            : booking?.package_name || null
+        );
+      } finally {
+        setIsLoadingPackage(false);
+      }
+    };
+
+    if (isOpen && booking) {
+      fetchPackageName();
+    } else {
+      setDisplayPackageName(null);
+    }
+  }, [booking?.package_id, booking?.package_name, isOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -784,10 +823,12 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
             )}
           </div>
 
-          {booking.package_name && (
+          {(displayPackageName || booking.package_name) && (
             <div className="flex items-center gap-2 text-sm">
               <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <span className="text-muted-foreground">{booking.package_name}</span>
+              <span className="text-muted-foreground">
+                {isLoadingPackage ? 'Loading package...' : (displayPackageName || booking.package_name)}
+              </span>
             </div>
           )}
 
@@ -870,9 +911,9 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           {/* Bay Selection Buttons */}
           <div className="grid grid-cols-4 items-start gap-4">
             <Label className="text-right pt-2">Bay</Label>
-            <div className="col-span-3 grid grid-cols-3 gap-2">
+            <div className="col-span-3 grid grid-cols-4 gap-2">
               {isCheckingAllBays ? (
-                <p className="col-span-3 text-sm text-gray-500">Loading bay availability...</p>
+                <p className="col-span-4 text-sm text-gray-500">Loading bay availability...</p>
               ) : bayAvailabilityData.length > 0 ? (
                 bayAvailabilityData.map((bayInfo) => (
                   <Button
@@ -890,7 +931,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
                   </Button>
                 ))
               ) : (
-                <p className="col-span-3 text-sm text-gray-500">No bay data. Select date/time/duration.</p>
+                <p className="col-span-4 text-sm text-gray-500">No bay data. Select date/time/duration.</p>
               )}
             </div>
           </div>
@@ -967,7 +1008,8 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
                   customerName={booking?.name || ''}
                   customerPhone={booking?.phone_number || ''}
                   customerId={booking?.customer_id || null}
-                  currentPackageName={booking?.package_name}
+                  currentPackageName={displayPackageName || booking?.package_name}
+                  currentPackageId={booking?.package_id}
                   bookingDate={formData.date ? format(formData.date, 'yyyy-MM-dd') : booking?.date}
                   onChange={(packageId, packageName) => {
                     setFormData(prev => ({ 

@@ -59,6 +59,14 @@ export class ReceiptFormatter {
    * Works for both normal receipts and tax invoices
    */
   static generateESCPOSData(data: ReceiptData): Uint8Array {
+    // Ensure required arrays are defined to prevent forEach errors
+    if (!data.items) {
+      data.items = [];
+    }
+    if (!data.paymentMethods) {
+      data.paymentMethods = [{ method: 'Cash', amount: data.total }];
+    }
+    
     const commands: number[] = [];
     
     // ESC/POS Commands
@@ -134,7 +142,8 @@ export class ReceiptFormatter {
     commands.push(0x0A);
     
     // Items
-    data.items.forEach(item => {
+    const items = data.items || [];
+    items.forEach(item => {
       const qty = item.qty || 1;
       const originalPrice = item.originalPrice || item.price;
       const originalTotal = originalPrice * qty;
@@ -255,7 +264,8 @@ export class ReceiptFormatter {
       commands.push(0x0A);
     } else {
       // For receipts, show actual payment methods used
-      data.paymentMethods.forEach(payment => {
+      const paymentMethods = data.paymentMethods || [{ method: 'Cash', amount: data.total }];
+      paymentMethods.forEach(payment => {
         const methodText = payment.method;
         const amountText = payment.amount.toFixed(2);
         const spacing = ' '.repeat(Math.max(1, 48 - methodText.length - amountText.length));

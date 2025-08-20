@@ -22,6 +22,7 @@ const BAY_COLORS = {
   'Bay 1 (Bar)': 'bg-blue-100 border-blue-300',
   'Bay 2': 'bg-green-100 border-green-300', 
   'Bay 3 (Entrance)': 'bg-purple-100 border-purple-300',
+  'Bay 4': 'bg-violet-100 border-violet-300',
 } as const;
 
 // Convert simple bay names to API bay names (matching Google Calendar format)
@@ -29,6 +30,7 @@ const BAY_NAME_MAPPING = {
   'Bay 1': 'Bay 1 (Bar)',
   'Bay 2': 'Bay 2',
   'Bay 3': 'Bay 3 (Entrance)',
+  'Bay 4': 'Bay 4',
 } as const;
 
 /**
@@ -95,7 +97,7 @@ export function formatBookingsForCalendar(bookings: Booking[]): Record<string, C
   const eventsByBay: Record<string, CalendarEvent[]> = {};
   
   // Initialize bay arrays
-  const bayNames = ['Bay 1 (Bar)', 'Bay 2', 'Bay 3 (Entrance)'];
+  const bayNames = ['Bay 1 (Bar)', 'Bay 2', 'Bay 3 (Entrance)', 'Bay 4'];
   bayNames.forEach(bay => {
     eventsByBay[bay] = [];
   });

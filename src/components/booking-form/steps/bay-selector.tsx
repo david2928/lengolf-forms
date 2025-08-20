@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 const bayOptions = [
   { id: '1', label: 'Bay 1', sublabel: '(Bar)' },
   { id: '2', label: 'Bay 2', sublabel: '' },
-  { id: '3', label: 'Bay 3', sublabel: '(Entrance)' }
+  { id: '3', label: 'Bay 3', sublabel: '(Entrance)' },
+  { id: '4', label: 'Bay 4', sublabel: '' }
 ];
 
 interface BaySelectorProps {
@@ -19,7 +20,7 @@ export function BaySelector({ value, onChange, error }: BaySelectorProps) {
   return (
     <div className="space-y-2">
       <Label>Select Bay</Label>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         {bayOptions.map((bay) => (
           <Button
             key={bay.id}
