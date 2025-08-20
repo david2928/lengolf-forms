@@ -110,6 +110,9 @@ function formatBookingData(formData: FormData): Booking {
       case 'Bay 3':
           bayId = 'Bay 3';
           break;
+      case 'Bay 4':
+          bayId = 'Bay 4';
+          break;
       default:
           console.warn(`Unknown bay display name: ${formData.bayNumber}. Setting bay to null.`);
           bayId = null;
