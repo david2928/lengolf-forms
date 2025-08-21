@@ -323,12 +323,29 @@ export async function PUT(
     const proposedBay = payload.bay !== undefined ? payload.bay : currentBooking.bay;
     const currentEndTime = calculateEndTime(currentBooking.date, currentBooking.start_time, currentBooking.duration * 60); // currentBooking.duration is in hours
 
-    const slotChanged = 
-      proposedDate !== currentBooking.date ||
-      proposedStartTime !== currentBooking.start_time ||
-      // Compare based on proposedDurationInMinutes to avoid floating point issues with proposedEndTime comparison
-      (payload.duration ? proposedDurationInMinutes !== (currentBooking.duration * 60) : proposedEndTime !== currentEndTime) ||
-      proposedBay !== currentBooking.bay;
+    // Check what exactly is changing to determine if slot availability check is needed
+    const dateChanged = proposedDate !== currentBooking.date;
+    const timeChanged = proposedStartTime !== currentBooking.start_time;
+    const durationChanged = payload.duration ? proposedDurationInMinutes !== (currentBooking.duration * 60) : proposedEndTime !== currentEndTime;
+    const bayChanged = proposedBay !== currentBooking.bay;
+    
+    console.log('Change detection debug:', {
+      dateChanged,
+      timeChanged, 
+      durationChanged,
+      bayChanged,
+      proposedDate,
+      currentDate: currentBooking.date,
+      proposedStartTime,
+      currentStartTime: currentBooking.start_time,
+      proposedBay,
+      currentBay: currentBooking.bay,
+      proposedDurationInMinutes,
+      currentDurationInMinutes: currentBooking.duration * 60
+    });
+    
+    // Only check for actual slot/time changes, not package or booking type changes
+    const slotChanged = dateChanged || timeChanged || durationChanged || bayChanged;
 
     let isProposedSlotActuallyAvailable = true; // Assume available if not checking or overridden
 
@@ -361,6 +378,14 @@ export async function PUT(
         // Use native database availability checking instead of Google Calendar
         const proposedDurationInHours = proposedDurationInMinutes / 60;
         
+        console.log('Calling check_availability with params:', {
+          p_date: proposedDate,
+          p_bay: proposedBay,
+          p_start_time: proposedStartTime,
+          p_duration: proposedDurationInHours,
+          p_exclude_booking_id: bookingId
+        });
+
         const { data: isAvailable, error: availabilityError } = await refacSupabaseAdmin.rpc('check_availability', {
           p_date: proposedDate,
           p_bay: proposedBay,
@@ -370,7 +395,16 @@ export async function PUT(
         });
 
         if (availabilityError) {
-          console.error('Database error checking slot availability:', availabilityError);
+          console.error('Database error checking slot availability:', {
+            error: availabilityError,
+            params: {
+              p_date: proposedDate,
+              p_bay: proposedBay,
+              p_start_time: proposedStartTime,
+              p_duration: proposedDurationInHours,
+              p_exclude_booking_id: bookingId
+            }
+          });
           return NextResponse.json({ error: 'Failed to check slot availability', details: availabilityError.message }, { status: 500 });
         }
 
