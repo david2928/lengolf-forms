@@ -402,14 +402,14 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
       }
       
       // VAT (calculated from final amount)
-      const vatAmount = transactionData.vat_amount.toFixed(2);
+      const vatAmount = (transactionData.vat_amount || 0).toFixed(2);
       lines.push(`${' '.repeat(leftAlign)}VAT(7%) incl.:${' '.repeat(width - leftAlign - 14 - vatAmount.length)}${vatAmount}`);
       
       // Double line under VAT (before Total)
       lines.push(`${' '.repeat(leftAlign)}============================`);
       
       // Total
-      const totalAmount = transactionData.total_amount.toFixed(2);
+      const totalAmount = (transactionData.total_amount || 0).toFixed(2);
       lines.push(`${' '.repeat(leftAlign)}Total:${' '.repeat(width - leftAlign - 6 - totalAmount.length)}${totalAmount}`);
     }
     
@@ -420,7 +420,7 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
     const paymentMethod = transactionData?.payment_method || 'Cash';
     const paymentAmount = transactionData?.total_amount || 0;
     const methodText = paymentMethod;
-    const amountText = paymentAmount.toFixed(2);
+    const amountText = (paymentAmount || 0).toFixed(2);
     const paymentSpacing = ' '.repeat(Math.max(1, width - methodText.length - amountText.length));
     lines.push(`${methodText}${paymentSpacing}${amountText}`);
     
