@@ -287,28 +287,26 @@ export class ReceiptFormatter {
         
         if (data.taxInvoiceData.customerAddress) {
           this.addText(commands, `Address: ${data.taxInvoiceData.customerAddress}`);
-          commands.push(0x0A);
         } else {
-          this.addText(commands, `Address: [To be filled by customer]`);
-          commands.push(0x0A);
+          this.addText(commands, `Address:`);
         }
+        commands.push(0x0A);
         commands.push(0x0A); // Empty row between Address and TAX ID
         
         if (data.taxInvoiceData.customerTaxId) {
           this.addText(commands, `TAX ID: ${data.taxInvoiceData.customerTaxId}`);
-          commands.push(0x0A);
         } else {
-          this.addText(commands, `TAX ID: [To be filled by customer]`);
-          commands.push(0x0A);
+          this.addText(commands, `TAX ID:`);
         }
-      } else {
-        // Fallback to basic customer name or placeholders
-        this.addText(commands, `Customer Name: ${data.customerName || '[To be filled by customer]'}`);
         commands.push(0x0A);
-        this.addText(commands, `Address: [To be filled by customer]`);
+      } else {
+        // Fallback when no tax invoice data
+        this.addText(commands, `Customer Name:`);
+        commands.push(0x0A);
+        this.addText(commands, `Address:`);
         commands.push(0x0A);
         commands.push(0x0A); // Empty row
-        this.addText(commands, `TAX ID: [To be filled by customer]`);
+        this.addText(commands, `TAX ID:`);
         commands.push(0x0A);
       }
       commands.push(0x0A); // Empty row after customer info

@@ -430,19 +430,23 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
     
     // Customer Information Section for Tax Invoice
     if (taxInvoiceData.customerName) {
-      lines.push('Customer Information:');
-      lines.push(`Name: ${taxInvoiceData.customerName}`);
+      lines.push(`Customer Name: ${taxInvoiceData.customerName}`);
       if (taxInvoiceData.customerAddress) {
-        // Split long addresses into multiple lines
-        const addressLines = taxInvoiceData.customerAddress.match(/.{1,46}/g) || [taxInvoiceData.customerAddress];
-        addressLines.forEach((line, index) => {
-          lines.push(index === 0 ? `Address: ${line}` : `         ${line}`);
-        });
-      }
-      if (taxInvoiceData.customerTaxId) {
-        lines.push(`Tax ID: ${taxInvoiceData.customerTaxId}`);
+        lines.push(`Address: ${taxInvoiceData.customerAddress}`);
+      } else {
+        lines.push('Address:');
       }
       lines.push('');
+      if (taxInvoiceData.customerTaxId) {
+        lines.push(`TAX ID: ${taxInvoiceData.customerTaxId}`);
+      } else {
+        lines.push('TAX ID:');
+      }
+    } else {
+      lines.push('Customer Name:');
+      lines.push('Address:');
+      lines.push('');
+      lines.push('TAX ID:');
     }
     
     // Signature section
