@@ -304,7 +304,7 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
     lines.push('');
     
     // Receipt type
-    lines.push(centerText('TAX INVOICE (ORIGINAL)', width));
+    lines.push(centerText('Receipt / TAX Invoice (Original)', width));
     lines.push('------------------------------------------------');
     
     // Receipt details - left aligned

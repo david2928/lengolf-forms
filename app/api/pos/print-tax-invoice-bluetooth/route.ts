@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Tax invoice data ready for Bluetooth printing',
-      taxInvoiceData: taxInvoiceReceiptData,
+      data: taxInvoiceReceiptData,  // Use 'data' field for consistency with unified API
+      taxInvoiceData: taxInvoiceReceiptData,  // Keep old field for backward compatibility
       method: 'Web Bluetooth API',
       itemCount: summary.itemCount,
       total: summary.total
