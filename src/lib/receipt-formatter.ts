@@ -99,7 +99,9 @@ export class ReceiptFormatter {
     // Receipt type header
     commands.push(ESC, 0x21, 0x20); // Double height
     if (data.isTaxInvoice) {
-      this.addText(commands, 'Receipt / TAX Invoice (Original)');
+      this.addText(commands, 'Receipt / TAX Invoice');
+      commands.push(0x0A);
+      this.addText(commands, '(Original)');
     } else if (data.isBill) {
       this.addText(commands, 'BILL');
     } else {
@@ -316,10 +318,12 @@ export class ReceiptFormatter {
     if (data.isTaxInvoice) {
       // Signature section
       commands.push(0x0A);
+      commands.push(ESC, 0x61, 0x01); // Center alignment
       this.addText(commands, '________________________');
       commands.push(0x0A);
       this.addText(commands, 'Signature Cashier');
       commands.push(0x0A, 0x0A);
+      commands.push(ESC, 0x61, 0x00); // Reset to left alignment
       
       // ABB reference with lines around it
       this.addText(commands, '------------------------------------------------');

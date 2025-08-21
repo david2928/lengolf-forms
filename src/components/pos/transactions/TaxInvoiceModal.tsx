@@ -303,8 +303,9 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
     lines.push(centerText('TAX ID: 0105566207013', width));
     lines.push('');
     
-    // Receipt type
-    lines.push(centerText('Receipt / TAX Invoice (Original)', width));
+    // Receipt type - split into two lines
+    lines.push(centerText('Receipt / TAX Invoice', width));
+    lines.push(centerText('(Original)', width));
     lines.push('------------------------------------------------');
     
     // Receipt details - left aligned
@@ -444,24 +445,25 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
       lines.push('');
     }
     
-    // Footer
-    lines.push(centerText('You\'re tee-rific. Come back soon!', width));
-    lines.push(centerText('Tel: 096-668-2335 | @lengolf', width));
-    lines.push(centerText('www.len.golf', width));
-    lines.push('');
-    
-    lines.push(centerText(`Generated: ${transactionDate.toLocaleString('th-TH')}`, width));
-    lines.push(centerText('Powered by Lengolf POS System', width));
-    
     // Signature section
     lines.push('');
     lines.push(centerText('________________________', width));
     lines.push(centerText('Signature Cashier', width));
     lines.push('');
     
-    // ABB reference
-    lines.push(`Issued to replace the TAX Invoice (ABB)`);
+    // ABB reference with lines around it
+    lines.push('------------------------------------------------');
+    lines.push(`Issued to replace the TAX invoice (ABB)`);
     lines.push(`number: ${receiptNumber}`);
+    lines.push('------------------------------------------------');
+    lines.push('');
+    
+    // Footer - moved to the very end
+    lines.push(centerText('You\'re tee-rific. Come back soon!', width));
+    lines.push('');
+    lines.push(centerText('LENGOLF', width));
+    lines.push(centerText('@lengolf | www.len.golf', width));
+    lines.push(centerText('Tel: 096-668-2335', width));
     
     return lines.join('\n');
   };
