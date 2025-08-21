@@ -170,7 +170,7 @@ export class ReceiptFormatter {
         }
         
         const discountLabel = `     ${item.itemDiscount.title}`;
-        const discountAmount = `-${item.itemDiscountAmount.toFixed(2)}`;
+        const discountAmount = `-${(item.itemDiscountAmount || 0).toFixed(2)}`;
         const discountSpacing = ' '.repeat(Math.max(1, 48 - discountLabel.length - discountAmount.length));
         const finalLine = `${discountLabel}${discountSpacing}${discountAmount}`;
         
@@ -218,10 +218,10 @@ export class ReceiptFormatter {
         const correctDiscountAmount = data.orderItemsTotal ? 
           (data.orderItemsTotal * discount.value / 100) : discountAmount;
         discountLabel = `Discount (${discount.value}%):`;
-        discountAmountStr = `-${correctDiscountAmount.toFixed(2)}`;
+        discountAmountStr = `-${(correctDiscountAmount || 0).toFixed(2)}`;
       } else {
         discountLabel = 'Discount:';
-        discountAmountStr = `-${discountAmount.toFixed(2)}`;
+        discountAmountStr = `-${(discountAmount || 0).toFixed(2)}`;
       }
       
       const discountSpacing = ' '.repeat(Math.max(1, width - leftAlign - discountLabel.length - discountAmountStr.length));
@@ -230,14 +230,14 @@ export class ReceiptFormatter {
     }
     
     // VAT (calculated from final amount)
-    const vatAmount = data.tax.toFixed(2);
+    const vatAmount = (data.tax || 0).toFixed(2);
     this.addText(commands, `${' '.repeat(leftAlign)}VAT(7%) incl.:${' '.repeat(width - leftAlign - 14 - vatAmount.length)}${vatAmount}`);
     commands.push(0x0A);
     
     this.addText(commands, `${' '.repeat(leftAlign)}============================`);
     commands.push(0x0A);
     
-    const totalAmount = data.total.toFixed(2);
+    const totalAmount = (data.total || 0).toFixed(2);
     this.addText(commands, `${' '.repeat(leftAlign)}Total:${' '.repeat(width - leftAlign - 6 - totalAmount.length)}${totalAmount}`);
     commands.push(0x0A, 0x0A);
     
@@ -248,7 +248,7 @@ export class ReceiptFormatter {
     if (data.isBill) {
       // For bills, show amount due and available payment options
       commands.push(ESC, 0x21, 0x10); // Bold
-      this.addText(commands, `AMOUNT DUE: THB ${data.total.toFixed(2)}`);
+      this.addText(commands, `AMOUNT DUE: THB ${(data.total || 0).toFixed(2)}`);
       commands.push(ESC, 0x21, 0x00); // Reset
       commands.push(0x0A, 0x0A);
       
@@ -267,7 +267,7 @@ export class ReceiptFormatter {
       const paymentMethods = data.paymentMethods || [{ method: 'Cash', amount: data.total }];
       paymentMethods.forEach(payment => {
         const methodText = payment.method;
-        const amountText = payment.amount.toFixed(2);
+        const amountText = (payment.amount || 0).toFixed(2);
         const spacing = ' '.repeat(Math.max(1, 48 - methodText.length - amountText.length));
         this.addText(commands, `${methodText}${spacing}${amountText}`);
         commands.push(0x0A);
