@@ -141,7 +141,9 @@ function PLLineItem({
           )}>
             {formatCurrency(displayValue)}
             {viewMode === 'runrate' && runRateValue !== undefined && (
-              <div className="text-xs text-blue-600">Projected</div>
+              <div className="text-xs text-blue-600">
+                {dataSource === 'calculated' ? 'Calculated' : 'Projected'}
+              </div>
             )}
           </div>
 
@@ -234,7 +236,9 @@ function PLSection({
         <div className="text-right">
           <div className="font-semibold text-lg">{formatCurrency(displayValue)}</div>
           {viewMode === 'runrate' && runRateValue !== undefined && (
-            <div className="text-xs text-blue-600">Projected</div>
+            <div className="text-xs text-blue-600">
+              Calculated
+            </div>
           )}
         </div>
       </div>
@@ -422,15 +426,15 @@ export default function PLStatement({
             sectionId="revenue"
             isCollapsed={collapsedSections.has('revenue')}
             onToggle={() => onToggleSection('revenue')}
-            totalValue={data.revenue.combined_total}
-            runRateValue={data.run_rate_projections?.combined_total}
+            totalValue={data?.revenue?.combined_net || 0}
+            runRateValue={data?.run_rate_projections?.combined_net}
             viewMode={viewMode}
           >
             <PLLineItem
               label="Total Sales"
-              value={data.revenue.total_sales}
-              historicalValue={data.historical_data?.['Total Sales'] || 0}
-              runRateValue={data.run_rate_projections?.total_sales}
+              value={data?.revenue?.total_sales || 0}
+              historicalValue={data?.historical_data?.['Total Sales'] || 0}
+              runRateValue={data?.run_rate_projections?.total_sales}
               level={1}
               dataSource="pos"
               viewMode={viewMode}
@@ -438,16 +442,16 @@ export default function PLStatement({
             />
             <PLLineItem
               label="Net Sales"
-              value={data.revenue.net_sales}
-              historicalValue={data.historical_data?.['Net Sales'] || 0}
-              runRateValue={data.run_rate_projections?.net_sales}
+              value={data?.revenue?.net_sales || 0}
+              historicalValue={data?.historical_data?.['Net Sales'] || 0}
+              runRateValue={data?.run_rate_projections?.net_sales}
               level={1}
               dataSource="pos"
               viewMode={viewMode}
             />
             <PLLineItem
               label="Net Sales (Events)"
-              value={data.revenue.manual_revenue}
+              value={manualEntries?.['revenue-Events']?.amount || 0}
               historicalValue={data.historical_data?.['Net Sales (Events)'] || 0}
               level={1}
               dataSource="manual"
@@ -460,7 +464,7 @@ export default function PLStatement({
             />
             <PLLineItem
               label="Net Sales (ClassPass)"
-              value={0} // Will come from manual entries
+              value={manualEntries?.['revenue-ClassPass']?.amount || 0}
               historicalValue={data.historical_data?.['Net Sales (ClassPass)'] || 0}
               level={1}
               dataSource="manual"
@@ -473,7 +477,7 @@ export default function PLStatement({
             />
             <PLLineItem
               label="Net Sales (Gowabi)"
-              value={0} // Will come from manual entries
+              value={manualEntries?.['revenue-Gowabi']?.amount || 0}
               historicalValue={data.historical_data?.['Net Sales (Gowabi)'] || 0}
               level={1}
               dataSource="manual"
@@ -486,9 +490,9 @@ export default function PLStatement({
             />
             <PLLineItem
               label="Total Net Sales"
-              value={data.revenue.combined_net}
-              historicalValue={data.historical_data?.['Total Net Sales'] || 0}
-              runRateValue={data.run_rate_projections?.combined_net}
+              value={data?.revenue?.combined_net || 0}
+              historicalValue={data?.historical_data?.['Total Net Sales'] || 0}
+              runRateValue={data?.run_rate_projections?.combined_net}
               level={1}
               dataSource="calculated"
               viewMode={viewMode}
@@ -496,8 +500,8 @@ export default function PLStatement({
             />
             <PLLineItem
               label="Net Sales/Day"
-              value={data.revenue.combined_net / data.days_elapsed}
-              historicalValue={((data.historical_data?.['Total Net Sales'] || 0) / data.days_in_month)}
+              value={(data?.revenue?.combined_net || 0) / (data?.days_elapsed || 1)}
+              historicalValue={((data?.historical_data?.['Total Net Sales'] || 0) / (data?.days_in_month || 1))}
               level={1}
               dataSource="calculated"
               viewMode={viewMode}
@@ -510,21 +514,21 @@ export default function PLStatement({
             sectionId="cogs"
             isCollapsed={collapsedSections.has('cogs')}
             onToggle={() => onToggleSection('cogs')}
-            totalValue={data.cogs.total_cogs}
-            runRateValue={data.run_rate_projections?.total_cogs}
+            totalValue={data?.cogs?.total_cogs || 0}
+            runRateValue={data?.run_rate_projections?.total_cogs}
             viewMode={viewMode}
           >
             <PLLineItem
               label="Combined (Food/Drinks/Coaching)"
-              value={data.cogs.pos_cogs}
-              historicalValue={data.historical_data?.['COGS'] || 0}
+              value={data?.cogs?.pos_cogs || 0}
+              historicalValue={data?.historical_data?.['COGS'] || 0}
               level={1}
               dataSource="pos"
               viewMode={viewMode}
             />
             <PLLineItem
               label="Catering"
-              value={0} // Will come from manual entries
+              value={manualEntries?.['expense-Catering']?.amount || 0}
               level={1}
               dataSource="manual"
               viewMode={viewMode}
@@ -536,7 +540,7 @@ export default function PLStatement({
             />
             <PLLineItem
               label="Drinks"
-              value={0} // Will come from manual entries
+              value={manualEntries?.['expense-Drinks']?.amount || 0}
               level={1}
               dataSource="manual"
               viewMode={viewMode}
@@ -551,13 +555,9 @@ export default function PLStatement({
           {/* Gross Profit */}
           <PLLineItem
             label="GROSS PROFIT"
-            value={data.gross_profit.calculated}
-            historicalValue={data.gross_profit.historical_gross_profit}
-            runRateValue={
-              data.run_rate_projections 
-                ? data.run_rate_projections.total_sales - data.run_rate_projections.total_cogs
-                : undefined
-            }
+            value={data?.gross_profit?.calculated || 0}
+            historicalValue={data?.gross_profit?.historical_gross_profit || 0}
+            runRateValue={data?.run_rate_projections?.gross_profit}
             level={0}
             dataSource="calculated"
             viewMode={viewMode}
@@ -570,36 +570,52 @@ export default function PLStatement({
             sectionId="operating"
             isCollapsed={collapsedSections.has('operating')}
             onToggle={() => onToggleSection('operating')}
-            totalValue={data.operating_expenses.calculated_total}
+            totalValue={data?.operating_expenses?.calculated_total || 0}
+            runRateValue={data?.run_rate_projections?.operating_expenses}
             viewMode={viewMode}
           >
-            {/* Dynamic Operating Expense Categories */}
-            {data.operating_expenses.by_category && Object.entries(data.operating_expenses.by_category).map(([categoryName, expenses]) => (
-              <div key={categoryName} className="ml-4 border-l-2 border-gray-200 pl-4 mb-3">
-                <h4 className="font-medium text-sm text-gray-700 mb-2 py-2">{categoryName}</h4>
-                {(expenses as any[]).map((expense: any) => (
-                  <PLLineItem
-                    key={expense.expense_category}
-                    label={expense.expense_category}
-                    value={expense.amount}
-                    historicalValue={data.historical_data?.[expense.expense_category] || 0}
-                    runRateValue={viewMode === 'runrate' ? 
-                      data.run_rate_projections?.operating_expenses_by_category?.[categoryName]?.find((e: any) => e.expense_category === expense.expense_category)?.amount : 
-                      undefined
-                    }
-                    level={2}
-                    dataSource="calculated"
-                    viewMode={viewMode}
-                  />
-                ))}
-              </div>
-            ))}
+            {/* Dynamic Operating Expense Categories - Exclude Marketing Expenses and group by subcategories */}
+            {data?.operating_expenses?.by_category && 
+              Object.entries(data.operating_expenses.by_category)
+                .filter(([categoryName]) => categoryName !== "Marketing Expenses") // Exclude Marketing Expenses
+                .map(([categoryName, expenses]) => {
+                  // Group expenses by subcategory within this category
+                  const expensesBySubcategory = (expenses as any[]).reduce((acc: any, expense: any) => {
+                    const subcat = expense.subcategory_name || 'Other';
+                    if (!acc[subcat]) acc[subcat] = [];
+                    acc[subcat].push(expense);
+                    return acc;
+                  }, {});
+
+                  return Object.entries(expensesBySubcategory).map(([subcategoryName, subcategoryExpenses]) => (
+                    <div key={`${categoryName}-${subcategoryName}`} className="ml-4 border-l-2 border-gray-200 pl-4 mb-3">
+                      <h4 className="font-medium text-sm text-gray-700 mb-2 py-2">{subcategoryName}</h4>
+                      {(subcategoryExpenses as any[]).map((expense: any) => (
+                        <PLLineItem
+                          key={expense.expense_type_name || expense.expense_category}
+                          label={expense.expense_type_name || expense.expense_category || 'Unknown Expense'}
+                          value={expense.amount}
+                          historicalValue={data?.historical_data?.[expense.expense_type_name || expense.expense_category] || 0}
+                          runRateValue={viewMode === 'runrate' ? 
+                            data?.run_rate_projections?.operating_expenses_by_category?.[categoryName]?.find((e: any) => 
+                              (e.expense_type_name || e.expense_category) === (expense.expense_type_name || expense.expense_category))?.amount : 
+                            undefined
+                          }
+                          level={2}
+                          dataSource="calculated"
+                          viewMode={viewMode}
+                        />
+                      ))}
+                    </div>
+                  ));
+                }).flat()
+            }
             
             {/* Fallback if no categorized data available */}
-            {!data.operating_expenses.by_category && (
+            {!data?.operating_expenses?.by_category && (
               <div className="ml-4 border-l-2 border-gray-200 pl-4 mb-3">
                 <h4 className="font-medium text-sm text-gray-700 mb-2 py-2">Operating Expenses</h4>
-                {Object.entries(data.operating_expenses.detail || {}).map(([expenseName, amount]) => (
+                {Object.entries(data?.operating_expenses?.detail || {}).map(([expenseName, amount]) => (
                   <PLLineItem
                     key={expenseName}
                     label={expenseName}
@@ -616,9 +632,12 @@ export default function PLStatement({
             
             <PLLineItem
               label="Total Operating Expenses"
-              value={data.operating_expenses.calculated_total}
-              historicalValue={data.historical_data?.['Total Operating Expenses'] || 0}
-              runRateValue={data.run_rate_projections?.operating_expenses}
+              value={
+                (data?.operating_expenses?.calculated_total || 0) - 
+                (data?.operating_expenses?.by_category?.["Marketing Expenses"]?.reduce((sum, expense) => sum + expense.amount, 0) || 0)
+              }
+              historicalValue={data?.historical_data?.['Total Operating Expenses'] || 0}
+              runRateValue={data?.run_rate_projections?.operating_expenses}
               level={1}
               dataSource="calculated"
               viewMode={viewMode}
@@ -632,10 +651,15 @@ export default function PLStatement({
             sectionId="marketing"
             isCollapsed={collapsedSections.has('marketing')}
             onToggle={() => onToggleSection('marketing')}
-            totalValue={data.marketing_expenses.calculated_total}
+            totalValue={
+              (data?.marketing_expenses?.calculated_total || 0) + 
+              (data?.operating_expenses?.by_category?.["Marketing Expenses"]?.reduce((sum, expense) => sum + expense.amount, 0) || 0)
+            }
             runRateValue={
-              data.run_rate_projections 
-                ? data.run_rate_projections.google_ads + data.run_rate_projections.meta_ads
+              data?.run_rate_projections 
+                ? (data.run_rate_projections.google_ads || 0) + 
+                  (data.run_rate_projections.meta_ads || 0) +
+                  (data?.run_rate_projections?.operating_expenses_by_category?.["Marketing Expenses"]?.reduce((sum, expense) => sum + expense.amount, 0) || 0)
                 : undefined
             }
             viewMode={viewMode}
@@ -645,144 +669,76 @@ export default function PLStatement({
               <h4 className="font-medium text-sm text-gray-700 mb-2 py-2">Online Marketing</h4>
               <PLLineItem
                 label="Google"
-                value={data.marketing_expenses.google_ads}
-                historicalValue={data.historical_data?.['Google Ads'] || 0}
+                value={data?.marketing_expenses?.google_ads || 0}
+                historicalValue={data?.historical_data?.['Google Ads'] || 0}
                 level={2}
                 dataSource="marketing"
                 viewMode={viewMode}
-                runRateValue={data.run_rate_projections?.google_ads}
+                runRateValue={data?.run_rate_projections?.google_ads}
               />
               <PLLineItem
                 label="Meta"
-                value={data.marketing_expenses.meta_ads}
-                historicalValue={data.historical_data?.['Meta Ads'] || 0}
+                value={data?.marketing_expenses?.meta_ads || 0}
+                historicalValue={data?.historical_data?.['Meta Ads'] || 0}
                 level={2}
                 dataSource="marketing"
                 viewMode={viewMode}
-                runRateValue={data.run_rate_projections?.meta_ads}
+                runRateValue={data?.run_rate_projections?.meta_ads}
               />
-              <PLLineItem
-                label="TikTok"
-                value={0}
-                level={2}
-                dataSource="manual"
-                viewMode={viewMode}
-                showAddButton
-                hasManualEntry={!!manualEntries?.['expense-TikTok']}
-                onAdd={() => handleAddEntry('expense', 'TikTok')}
-                onEdit={() => handleEditEntry('expense', 'TikTok')}
-                onDelete={() => handleDeleteEntry('expense', 'TikTok')}
-              />
-              <PLLineItem
-                label="LINE"
-                value={0}
-                historicalValue={data.historical_data?.['LINE'] || 0}
-                level={2}
-                dataSource="manual"
-                viewMode={viewMode}
-                showAddButton
-                hasManualEntry={!!manualEntries?.['expense-LINE']}
-                onAdd={() => handleAddEntry('expense', 'LINE')}
-                onEdit={() => handleEditEntry('expense', 'LINE')}
-                onDelete={() => handleDeleteEntry('expense', 'LINE')}
-              />
+              {/* Operating expenses from Online Marketing subcategory */}
+              {data?.operating_expenses?.by_category?.["Marketing Expenses"]
+                ?.filter(expense => expense.subcategory_name === "Online Marketing")
+                .map(expense => (
+                <PLLineItem
+                  key={`marketing-${expense.expense_type_name}`}
+                  label={expense.expense_type_name}
+                  value={expense.amount}
+                  historicalValue={data?.historical_data?.[expense.expense_type_name] || 0}
+                  level={2}
+                  dataSource="calculated"
+                  viewMode={viewMode}
+                />
+              ))}
             </div>
             
-            {/* Offline Marketing Subsection */}
-            <div className="ml-4 border-l-2 border-gray-200 pl-4 mb-3">
-              <h4 className="font-medium text-sm text-gray-700 mb-2 py-2">Offline Marketing</h4>
-              <PLLineItem
-                label="KOL+Video"
-                value={0}
-                level={2}
-                dataSource="manual"
-                viewMode={viewMode}
-                showAddButton
-                hasManualEntry={!!manualEntries?.['expense-KOL+Video']}
-                onAdd={() => handleAddEntry('expense', 'KOL+Video')}
-                onEdit={() => handleEditEntry('expense', 'KOL+Video')}
-                onDelete={() => handleDeleteEntry('expense', 'KOL+Video')}
-              />
-              <PLLineItem
-                label="Pre-Order Food"
-                value={0}
-                level={2}
-                dataSource="manual"
-                viewMode={viewMode}
-                showAddButton
-                hasManualEntry={!!manualEntries?.['expense-Pre-Order Food']}
-                onAdd={() => handleAddEntry('expense', 'Pre-Order Food')}
-                onEdit={() => handleEditEntry('expense', 'Pre-Order Food')}
-                onDelete={() => handleDeleteEntry('expense', 'Pre-Order Food')}
-              />
-              <PLLineItem
-                label="Marketing Agency"
-                value={0}
-                level={2}
-                dataSource="manual"
-                viewMode={viewMode}
-                showAddButton
-                hasManualEntry={!!manualEntries?.['expense-Marketing Agency']}
-                onAdd={() => handleAddEntry('expense', 'Marketing Agency')}
-                onEdit={() => handleEditEntry('expense', 'Marketing Agency')}
-                onDelete={() => handleDeleteEntry('expense', 'Marketing Agency')}
-              />
-              <PLLineItem
-                label="Coaching"
-                value={0}
-                level={2}
-                dataSource="manual"
-                viewMode={viewMode}
-                showAddButton
-                hasManualEntry={!!manualEntries?.['expense-Coaching']}
-                onAdd={() => handleAddEntry('expense', 'Coaching')}
-                onEdit={() => handleEditEntry('expense', 'Coaching')}
-                onDelete={() => handleDeleteEntry('expense', 'Coaching')}
-              />
-              <PLLineItem
-                label="Mind"
-                value={0}
-                historicalValue={data.historical_data?.['Mind'] || 0}
-                level={2}
-                dataSource="manual"
-                viewMode={viewMode}
-                showAddButton
-                hasManualEntry={!!manualEntries?.['expense-Mind']}
-                onAdd={() => handleAddEntry('expense', 'Mind')}
-                onEdit={() => handleEditEntry('expense', 'Mind')}
-                onDelete={() => handleDeleteEntry('expense', 'Mind')}
-              />
-              <PLLineItem
-                label="Graphic Designer"
-                value={0}
-                level={2}
-                dataSource="manual"
-                viewMode={viewMode}
-                showAddButton
-                hasManualEntry={!!manualEntries?.['expense-Graphic Designer']}
-                onAdd={() => handleAddEntry('expense', 'Graphic Designer')}
-                onEdit={() => handleEditEntry('expense', 'Graphic Designer')}
-                onDelete={() => handleDeleteEntry('expense', 'Graphic Designer')}
-              />
-              <PLLineItem
-                label="Graphics (Zac)"
-                value={0}
-                historicalValue={data.historical_data?.['Graphics (Zac)'] || 0}
-                level={2}
-                dataSource="manual"
-                viewMode={viewMode}
-                showAddButton
-                hasManualEntry={!!manualEntries?.['expense-Graphics (Zac)']}
-                onAdd={() => handleAddEntry('expense', 'Graphics (Zac)')}
-                onEdit={() => handleEditEntry('expense', 'Graphics (Zac)')}
-                onDelete={() => handleDeleteEntry('expense', 'Graphics (Zac)')}
-              />
-            </div>
+            {/* Offline Marketing - Show operating expenses from Offline Marketing subcategory */}
+            {(data?.operating_expenses?.by_category?.["Marketing Expenses"]
+              ?.filter(expense => expense.subcategory_name === "Offline Marketing")
+              ?.length || 0) > 0 && (
+              <div className="ml-4 border-l-2 border-gray-200 pl-4 mb-3">
+                <h4 className="font-medium text-sm text-gray-700 mb-2 py-2">Offline Marketing</h4>
+                
+                {data?.operating_expenses?.by_category?.["Marketing Expenses"]
+                  ?.filter(expense => expense.subcategory_name === "Offline Marketing")
+                  .map(expense => (
+                    <PLLineItem
+                      key={`offline-marketing-${expense.expense_type_name}`}
+                      label={expense.expense_type_name}
+                      value={expense.amount}
+                      historicalValue={data?.historical_data?.[expense.expense_type_name] || 0}
+                      level={2}
+                      dataSource="calculated"
+                      viewMode={viewMode}
+                    />
+                  ))}
+              </div>
+            )}
             
             <PLLineItem
               label="Total Marketing Expenses"
-              value={data.marketing_expenses.calculated_total}
-              historicalValue={data.historical_data?.['Total Marketing Expenses'] || 0}
+              value={
+                (data?.marketing_expenses?.google_ads || 0) + 
+                (data?.marketing_expenses?.meta_ads || 0) + 
+                (data?.operating_expenses?.by_category?.["Marketing Expenses"]?.reduce((sum, expense) => sum + expense.amount, 0) || 0)
+              }
+              historicalValue={data?.historical_data?.['Total Marketing Expenses'] || 0}
+              runRateValue={
+                viewMode === 'runrate' && data?.run_rate_projections ?
+                  (data.run_rate_projections.google_ads || 0) + 
+                  (data.run_rate_projections.meta_ads || 0) + 
+                  (data?.run_rate_projections?.operating_expenses_by_category?.["Marketing Expenses"]?.reduce((sum: any, expense: any) => sum + expense.amount, 0) || 0)
+                  : undefined
+              }
               level={1}
               dataSource="calculated"
               viewMode={viewMode}
@@ -793,9 +749,23 @@ export default function PLStatement({
           {/* EBITDA */}
           <PLLineItem
             label="EBITDA"
-            value={data.ebitda.calculated}
-            historicalValue={data.ebitda.historical_ebitda}
-            runRateValue={data.run_rate_projections?.ebitda}
+            value={
+              (data?.gross_profit?.calculated || 0) - 
+              (data?.operating_expenses?.calculated_total || 0) - 
+              ((data?.marketing_expenses?.google_ads || 0) + 
+               (data?.marketing_expenses?.meta_ads || 0) + 
+               (data?.operating_expenses?.by_category?.["Marketing Expenses"]?.reduce((sum, expense) => sum + expense.amount, 0) || 0))
+            }
+            historicalValue={data?.ebitda?.historical_ebitda || 0}
+            runRateValue={
+              viewMode === 'runrate' && data?.run_rate_projections ? 
+                (data.run_rate_projections.gross_profit || 0) - 
+                (data.run_rate_projections.operating_expenses || 0) - 
+                ((data.run_rate_projections.google_ads || 0) + 
+                 (data.run_rate_projections.meta_ads || 0) +
+                 (data?.run_rate_projections?.operating_expenses_by_category?.["Marketing Expenses"]?.reduce((sum: any, expense: any) => sum + expense.amount, 0) || 0))
+                : undefined
+            }
             level={0}
             dataSource="calculated"
             viewMode={viewMode}

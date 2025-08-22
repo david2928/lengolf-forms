@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { 
   Select, 
   SelectContent, 
@@ -12,7 +13,7 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, DollarSign, Receipt } from 'lucide-react';
+import { Loader2, DollarSign, Receipt, Calendar, Repeat } from 'lucide-react';
 import { useManualEntries } from '@/hooks/useFinanceDashboard';
 
 interface ManualEntryModalProps {
@@ -25,6 +26,25 @@ interface ManualEntryModalProps {
   onSuccess?: () => void;
 }
 
+// P&L Category Structure based on existing data
+const P_AND_L_STRUCTURE = {
+  'Fixed Cost': {
+    'Facilities': ['Rent', 'Insurance', 'Building Tax'],
+    'Equipment': ['Golf Balls', 'Bay Material & Maintenance'],
+    'Other': ['Other Fixed Cost']
+  },
+  'Variable Cost': {
+    'Marketing': ['Google Ads', 'Meta Ads', 'TikTok', 'KOL+Video', 'Graphics (Zac)', 'Mind', 'Marketing Agency', 'Graphic Designer'],
+    'Operations': ['Utilities', 'Pre-Order Food', 'Coaching'],
+    'Other': ['Other Variable Cost']
+  },
+  'Salaries': {
+    'Base Salaries': ['Staff Salaries'],
+    'Support & Tax': ['Operational Support (Bank)', 'Service Tax (Staff Payout)'],
+    'Other': ['Other Personnel Cost']
+  }
+};
+
 const REVENUE_CATEGORIES = [
   'Events',
   'ClassPass', 
@@ -32,29 +52,6 @@ const REVENUE_CATEGORIES = [
   'Coaching',
   'Special Promotions',
   'Other Revenue'
-];
-
-const EXPENSE_CATEGORIES = [
-  'Catering',
-  'Drinks', 
-  'TikTok',
-  'LINE',
-  'KOL+Video',
-  'Pre-Order Food',
-  'Marketing Agency',
-  'Coaching',
-  'Mind',
-  'Graphic Designer',
-  'Graphics (Zac)',
-  'Rent',
-  'Building Tax',
-  'Insurance',
-  'Golf Balls',
-  'Bay Material & Maintenance',
-  'Utilities',
-  'Staff Salaries',
-  'Operational Support (Bank)',
-  'Service Tax (Staff Payout)'
 ];
 
 export default function ManualEntryModal({
@@ -70,7 +67,12 @@ export default function ManualEntryModal({
     amount: '',
     description: '',
     category: category || '',
-    subcategory: ''
+    subcategory: '',
+    isRecurring: false,
+    startDate: month + '-01',
+    endDate: '',
+    targetMonth: month,
+    notes: ''
   });
 
   // Update form data when existingEntry changes
@@ -80,17 +82,27 @@ export default function ManualEntryModal({
         amount: existingEntry.amount?.toString() || '',
         description: existingEntry.description || '',
         category: existingEntry.category || category || '',
-        subcategory: existingEntry.subcategory || ''
+        subcategory: existingEntry.subcategory || '',
+        isRecurring: existingEntry.isRecurring || false,
+        startDate: existingEntry.startDate || (month + '-01'),
+        endDate: existingEntry.endDate || '',
+        targetMonth: month,
+        notes: existingEntry.notes || ''
       });
     } else {
       setFormData({
         amount: '',
         description: '',
         category: category || '',
-        subcategory: ''
+        subcategory: '',
+        isRecurring: false,
+        startDate: month + '-01',
+        endDate: '',
+        targetMonth: month,
+        notes: ''
       });
     }
-  }, [existingEntry, category]);
+  }, [existingEntry, category, month]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,8 +131,11 @@ export default function ManualEntryModal({
         amount: amount,
         description: formData.description,
         category: formData.category,
-        date: `${month}-01`, // Always use first day of the month
-        subcategory: type === 'expense' ? formData.subcategory : undefined
+        subcategory: type === 'expense' ? formData.subcategory : undefined,
+        isRecurring: formData.isRecurring,
+        date: formData.isRecurring ? formData.startDate : `${formData.targetMonth}-01`,
+        startDate: formData.isRecurring ? formData.startDate : undefined,
+        endDate: formData.isRecurring && formData.endDate ? formData.endDate : undefined
       };
 
       await addEntry(entryData);
@@ -129,7 +144,12 @@ export default function ManualEntryModal({
         amount: '',
         description: '',
         category: category || '',
-        subcategory: ''
+        subcategory: '',
+        isRecurring: false,
+        startDate: month + '-01',
+        endDate: '',
+        targetMonth: month,
+        notes: ''
       });
 
       onSuccess?.();
@@ -149,14 +169,24 @@ export default function ManualEntryModal({
         amount: existingEntry.amount?.toString() || '',
         description: existingEntry.description || '',
         category: existingEntry.category || category || '',
-        subcategory: existingEntry.subcategory || ''
+        subcategory: existingEntry.subcategory || '',
+        isRecurring: existingEntry.isRecurring || false,
+        startDate: existingEntry.startDate || (month + '-01'),
+        endDate: existingEntry.endDate || '',
+        targetMonth: month,
+        notes: existingEntry.notes || ''
       });
     } else {
       setFormData({
         amount: '',
         description: '',
         category: category || '',
-        subcategory: ''
+        subcategory: '',
+        isRecurring: false,
+        startDate: month + '-01',
+        endDate: '',
+        targetMonth: month,
+        notes: ''
       });
     }
     onClose();
@@ -189,7 +219,20 @@ export default function ManualEntryModal({
   };
 
   const getAvailableCategories = () => {
-    return type === 'revenue' ? REVENUE_CATEGORIES : EXPENSE_CATEGORIES;
+    if (type === 'revenue') return REVENUE_CATEGORIES;
+    return Object.keys(P_AND_L_STRUCTURE);
+  };
+
+  const getAvailableSubcategories = () => {
+    if (type === 'revenue' || !formData.category) return [];
+    const categoryData = P_AND_L_STRUCTURE[formData.category as keyof typeof P_AND_L_STRUCTURE];
+    return categoryData ? Object.keys(categoryData) : [];
+  };
+
+  const getAvailableDescriptions = () => {
+    if (type === 'revenue' || !formData.category || !formData.subcategory) return [];
+    const categoryData = P_AND_L_STRUCTURE[formData.category as keyof typeof P_AND_L_STRUCTURE];
+    return categoryData?.[formData.subcategory as keyof typeof categoryData] || [];
   };
 
   return (
@@ -213,25 +256,78 @@ export default function ManualEntryModal({
             </Alert>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="month">Month</Label>
-            <Input
-              id="month"
-              type="text"
-              value={new Date(month + '-01').toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'long' 
-              })}
-              disabled
-              className="bg-gray-50"
-            />
+          {/* Cost Type Toggle */}
+          <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-4 w-4 text-gray-600" />
+                <Label htmlFor="cost-type" className="font-medium">Cost Type</Label>
+              </div>
+              <div className="flex items-center space-x-3">
+                <span className={`text-sm ${!formData.isRecurring ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
+                  One-time
+                </span>
+                <Switch
+                  id="cost-type"
+                  checked={formData.isRecurring}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isRecurring: checked }))}
+                />
+                <Repeat className="h-4 w-4 text-gray-600" />
+                <span className={`text-sm ${formData.isRecurring ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
+                  Recurring
+                </span>
+              </div>
+            </div>
           </div>
 
+          {/* Date Selection */}
+          {formData.isRecurring ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="start-date">Start Date *</Label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="end-date">End Date</Label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={formData.endDate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="target-month">Target Month *</Label>
+              <Input
+                id="target-month"
+                type="month"
+                value={formData.targetMonth}
+                onChange={(e) => setFormData(prev => ({ ...prev, targetMonth: e.target.value }))}
+                required
+              />
+            </div>
+          )}
+
+          {/* Category Selection */}
           <div className="space-y-2">
             <Label htmlFor="category">Category *</Label>
             <Select
               value={formData.category}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+              onValueChange={(value) => setFormData(prev => ({ 
+                ...prev, 
+                category: value, 
+                subcategory: '', // Reset subcategory when category changes
+                description: '' // Reset description when category changes
+              }))}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select category" />
@@ -244,15 +340,47 @@ export default function ManualEntryModal({
             </Select>
           </div>
 
-          {type === 'expense' && (
+          {/* Subcategory Selection (for expenses only) */}
+          {type === 'expense' && formData.category && (
             <div className="space-y-2">
-              <Label htmlFor="subcategory">Subcategory</Label>
-              <Input
-                id="subcategory"
+              <Label htmlFor="subcategory">Subcategory *</Label>
+              <Select
                 value={formData.subcategory}
-                onChange={(e) => setFormData(prev => ({ ...prev, subcategory: e.target.value }))}
-                placeholder="Optional subcategory"
-              />
+                onValueChange={(value) => setFormData(prev => ({ 
+                  ...prev, 
+                  subcategory: value,
+                  description: '' // Reset description when subcategory changes
+                }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select subcategory" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailableSubcategories().map((subcat) => (
+                    <SelectItem key={subcat} value={subcat}>{subcat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Description Selection (for expenses with subcategory) */}
+          {type === 'expense' && formData.category && formData.subcategory && (
+            <div className="space-y-2">
+              <Label htmlFor="description-select">Description *</Label>
+              <Select
+                value={formData.description}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, description: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select description" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailableDescriptions().map((desc: string) => (
+                    <SelectItem key={desc} value={desc}>{desc}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
@@ -274,14 +402,15 @@ export default function ManualEntryModal({
             </div>
           </div>
 
+          {/* Notes/Additional Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="notes">Additional Notes</Label>
             <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder={`Describe this ${type} entry...`}
-              className="min-h-[80px]"
+              id="notes"
+              value={formData.notes || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder={`Optional additional notes about this ${type}...`}
+              className="min-h-[60px]"
             />
           </div>
 

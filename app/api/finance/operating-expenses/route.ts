@@ -21,9 +21,22 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .schema('finance')
       .from('operating_expenses')
-      .select('*')
-      .order('expense_category', { ascending: true })
-      .order('expense_subcategory', { ascending: true });
+      .select(`
+        *,
+        expense_type:expense_types!expense_type_id(
+          id,
+          name,
+          sort_order,
+          expense_subcategory:expense_subcategories!subcategory_id(
+            id,
+            name,
+            expense_category:expense_categories!category_id(
+              id,
+              name
+            )
+          )
+        )
+      `);
 
     if (effectiveDate) {
       query = query
@@ -54,21 +67,49 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { 
-      expense_category, 
-      expense_subcategory, 
+      expense_type_id, 
+      expense_type_name,
+      subcategory_id,
+      sort_order,
       amount, 
       effective_date, 
       end_date, 
-      is_fixed, 
       notes,
-      display_category,
-      display_order,
-      show_in_pl
+      cost_type
     } = body;
 
-    if (!expense_category || !amount || !effective_date) {
+    if (!amount || !effective_date) {
       return NextResponse.json({ 
-        error: "Expense category, amount, and effective date are required" 
+        error: "Amount and effective date are required" 
+      }, { status: 400 });
+    }
+
+    let finalExpenseTypeId = expense_type_id;
+
+    // If creating a new expense type (no expense_type_id provided)
+    if (!expense_type_id && expense_type_name && subcategory_id) {
+      // Create new expense type
+      const { data: newExpenseType, error: expenseTypeError } = await supabase
+        .schema('finance')
+        .from('expense_types')
+        .insert({
+          name: expense_type_name,
+          subcategory_id: parseInt(subcategory_id),
+          sort_order: sort_order || 0,
+          is_active: true
+        })
+        .select('id')
+        .single();
+
+      if (expenseTypeError) {
+        console.error('Error creating expense type:', expenseTypeError);
+        return NextResponse.json({ error: "Failed to create expense type" }, { status: 500 });
+      }
+
+      finalExpenseTypeId = newExpenseType.id;
+    } else if (!expense_type_id) {
+      return NextResponse.json({ 
+        error: "Either expense_type_id or (expense_type_name and subcategory_id) must be provided" 
       }, { status: 400 });
     }
 
@@ -76,18 +117,29 @@ export async function POST(request: NextRequest) {
       .schema('finance')
       .from('operating_expenses')
       .insert({
-        expense_category,
-        expense_subcategory,
+        expense_type_id: parseInt(finalExpenseTypeId),
         amount: parseFloat(amount),
         effective_date,
         end_date,
-        is_fixed: is_fixed !== undefined ? is_fixed : true,
         notes,
-        display_category: display_category || 'Fixed Cost',
-        display_order: display_order || 999,
-        show_in_pl: show_in_pl !== undefined ? show_in_pl : true
+        cost_type
       })
-      .select()
+      .select(`
+        *,
+        expense_type:expense_types!expense_type_id(
+          id,
+          name,
+          sort_order,
+          expense_subcategory:expense_subcategories!subcategory_id(
+            id,
+            name,
+            expense_category:expense_categories!category_id(
+              id,
+              name
+            )
+          )
+        )
+      `)
       .single();
 
     if (error) {
@@ -112,21 +164,17 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { 
       id,
-      expense_category, 
-      expense_subcategory, 
+      expense_type_id, 
       amount, 
       effective_date, 
       end_date, 
-      is_fixed, 
       notes,
-      display_category,
-      display_order,
-      show_in_pl
+      cost_type
     } = body;
 
-    if (!id || !expense_category || !amount || !effective_date) {
+    if (!id || !expense_type_id || !amount || !effective_date) {
       return NextResponse.json({ 
-        error: "ID, expense category, amount, and effective date are required" 
+        error: "ID, expense type ID, amount, and effective date are required" 
       }, { status: 400 });
     }
 
@@ -134,19 +182,30 @@ export async function PUT(request: NextRequest) {
       .schema('finance')
       .from('operating_expenses')
       .update({
-        expense_category,
-        expense_subcategory,
+        expense_type_id: parseInt(expense_type_id),
         amount: parseFloat(amount),
         effective_date,
         end_date,
-        is_fixed: is_fixed !== undefined ? is_fixed : true,
         notes,
-        display_category: display_category || 'Fixed Cost',
-        display_order: display_order || 999,
-        show_in_pl: show_in_pl !== undefined ? show_in_pl : true
+        cost_type
       })
       .eq('id', id)
-      .select()
+      .select(`
+        *,
+        expense_type:expense_types!expense_type_id(
+          id,
+          name,
+          sort_order,
+          expense_subcategory:expense_subcategories!subcategory_id(
+            id,
+            name,
+            expense_category:expense_categories!category_id(
+              id,
+              name
+            )
+          )
+        )
+      `)
       .single();
 
     if (error) {

@@ -135,6 +135,33 @@ export default function FinanceDashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Finance Dashboard</h1>
           <p className="text-sm text-gray-600">Monthly P&L Statement and Financial Analytics</p>
+          {plData && (
+            <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+              <span>
+                Data as of: {new Date().toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'short', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+              {plData.days_elapsed && plData.days_in_month && (
+                <span>
+                  • Period: {plData.days_elapsed} of {plData.days_in_month} days 
+                  ({Math.round((plData.days_elapsed / plData.days_in_month) * 100)}% complete)
+                </span>
+              )}
+              {plData.data_sources && (
+                <span>
+                  • Sources: {Object.entries(plData.data_sources)
+                    .filter(([_, active]) => active)
+                    .map(([source, _]) => source.replace('has_', '').replace('_data', ''))
+                    .join(', ')}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         
         <div className="flex items-center gap-3">

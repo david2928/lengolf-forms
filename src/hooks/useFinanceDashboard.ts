@@ -38,6 +38,8 @@ export interface PLData {
     by_category?: Record<string, Array<{
       expense_category: string;
       expense_subcategory: string;
+      expense_type_name: string;
+      subcategory_name: string;
       amount: number;
       full_monthly_amount: number;
       display_order: number;
@@ -61,6 +63,7 @@ export interface PLData {
     combined_total: number;
     combined_net: number;
     total_cogs: number;
+    gross_profit: number;
     google_ads: number;
     meta_ads: number;
     operating_expenses: number;
@@ -68,6 +71,8 @@ export interface PLData {
     operating_expenses_by_category?: Record<string, Array<{
       expense_category: string;
       expense_subcategory: string;
+      expense_type_name: string;
+      subcategory_name: string;
       amount: number;
       full_monthly_amount: number;
       display_order: number;
@@ -117,7 +122,7 @@ const fetchPLStatement = async (url: string): Promise<PLData> => {
   if (!response.ok) {
     throw new Error(`Failed to fetch P&L data: ${response.statusText}`);
   }
-  return response.json();
+  return await response.json();
 };
 
 const fetchTrends = async (url: string): Promise<TrendsData> => {
@@ -125,7 +130,7 @@ const fetchTrends = async (url: string): Promise<TrendsData> => {
   if (!response.ok) {
     throw new Error(`Failed to fetch trends data: ${response.statusText}`);
   }
-  return response.json();
+  return await response.json();
 };
 
 const fetchComparison = async (url: string): Promise<any> => {
@@ -133,7 +138,7 @@ const fetchComparison = async (url: string): Promise<any> => {
   if (!response.ok) {
     throw new Error(`Failed to fetch comparison data: ${response.statusText}`);
   }
-  return response.json();
+  return await response.json();
 };
 
 export function useFinanceDashboard(options: FinanceDashboardOptions) {
@@ -189,7 +194,7 @@ export function useFinanceDashboard(options: FinanceDashboardOptions) {
       if (!response.ok) {
         throw new Error(`Failed to fetch KPI data: ${response.statusText}`);
       }
-      return response.json();
+      return await response.json();
     },
     {
       refreshInterval,
@@ -241,7 +246,7 @@ export function useManualEntries(type: 'revenue' | 'expense', month?: string) {
       if (!response.ok) {
         throw new Error(`Failed to fetch ${type} entries`);
       }
-      return response.json();
+      return await response.json();
     }
   );
 
@@ -311,7 +316,7 @@ export function useOperatingExpenses(effectiveDate?: string) {
       if (!response.ok) {
         throw new Error('Failed to fetch operating expenses');
       }
-      return response.json();
+      return await response.json();
     }
   );
 

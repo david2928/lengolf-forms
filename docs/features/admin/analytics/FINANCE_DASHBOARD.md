@@ -2,220 +2,303 @@
 
 **Category**: Admin Features > Analytics  
 **Access Level**: Administrative  
-**Version**: 1.0  
+**Version**: 2.0  
 **Last Updated**: August 2025
 
 ## Overview
 
-The Finance Dashboard provides comprehensive financial reporting and P&L statement management, integrating data from multiple sources including POS transactions, marketing campaigns, and manual entries. Built from historical CSV data spanning April 2024 to August 2025, it offers both historical analysis and real-time run-rate projections.
+The Finance Dashboard provides comprehensive financial reporting with automated P&L statement generation, integrating real-time data from POS transactions, marketing campaigns, and manual entries. The system features a sophisticated expense management framework with hierarchical categorization and supports both historical analysis and run-rate projections.
 
 ### Key Features
 
-- **Monthly P&L Statements**: Detailed profit & loss reporting with automated calculations
-- **Multi-Source Integration**: POS sales, Google/Meta Ads, manual entries
-- **Historical Data**: 17+ months of imported financial history  
-- **Run-Rate Projections**: Real-time projections based on current month performance
-- **Operating Expenses Management**: Dynamic expense categorization and tracking
-- **Manual Entry System**: Single editable value per category per month
-- **Thai Baht Currency**: Native THB formatting throughout the system
+- **Automated P&L Generation**: Real-time profit & loss statements with intelligent data sourcing
+- **Hierarchical Expense Management**: Three-tier categorization (Category → Subcategory → Expense Type)
+- **Multi-Source Integration**: POS sales, Google/Meta Ads API, manual revenue/expense entries
+- **Historical Data Integration**: 17+ months of imported financial history from CSV
+- **Run-Rate Projections**: Intelligent extrapolation based on current month performance
+- **Dynamic Calculations**: Real-time EBITDA, gross profit, and margin calculations
+- **Sort Order Management**: Customizable display ordering for expense presentation
+- **Cost Type Classification**: One-time vs recurring expense categorization
+- **Thai Baht Native**: Native THB formatting and calculations throughout
 
 ## System Architecture
 
 ### Database Schema
 
-The Finance Dashboard uses a dedicated `finance` schema with the following core tables:
+The Finance Dashboard uses a dedicated `finance` schema with the following tables:
+
+#### Core Expense Management Tables
 
 ```sql
--- Historical data imported from CSV
-finance.historical_data (
+-- Expense Categories (Top Level: Operating Expenses, Marketing Expenses)
+finance.expense_categories (
   id SERIAL PRIMARY KEY,
-  month INTEGER,
-  year INTEGER,
-  category TEXT,
-  value NUMERIC(12,2),
-  created_at TIMESTAMP DEFAULT NOW()
-)
-
--- Manual monthly entries (one per category per month)
-finance.manual_entries (
-  id SERIAL PRIMARY KEY,
-  month INTEGER,
-  year INTEGER,
-  category TEXT,
-  value NUMERIC(12,2),
+  name VARCHAR NOT NULL,
   description TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(month, year, category)
+  sort_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
 )
 
--- Operating expenses with date ranges
+-- Expense Subcategories (Fixed Cost, Variable Cost, Salaries, Online Marketing, etc.)
+finance.expense_subcategories (
+  id SERIAL PRIMARY KEY,
+  category_id INTEGER REFERENCES finance.expense_categories(id),
+  name VARCHAR NOT NULL,
+  description TEXT,
+  sort_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+)
+
+-- Expense Types (Specific expense names: Rent, LINE, Video Content, etc.)
+finance.expense_types (
+  id SERIAL PRIMARY KEY,
+  subcategory_id INTEGER REFERENCES finance.expense_subcategories(id),
+  name VARCHAR NOT NULL,
+  description TEXT,
+  default_cost_type VARCHAR,
+  sort_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+)
+
+-- Operating Expenses (Actual expense instances with amounts and date ranges)
 finance.operating_expenses (
   id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  monthly_amount NUMERIC(12,2) NOT NULL,
+  expense_type_id INTEGER REFERENCES finance.expense_types(id),
+  amount NUMERIC(12,2) NOT NULL,
   effective_date DATE NOT NULL,
   end_date DATE,
-  display_category TEXT,
-  display_order INTEGER,
-  show_in_pl BOOLEAN DEFAULT true,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  cost_type VARCHAR CHECK (cost_type IN ('one_time', 'recurring')) DEFAULT 'recurring',
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
 )
 ```
 
-### Core Database Function
+#### Manual Entry Tables
 
-The main P&L calculation is handled by `finance.get_monthly_pl()`:
+```sql
+-- Manual Revenue Entries (Events, ClassPass, etc.)
+finance.manual_revenue_entries (
+  id SERIAL PRIMARY KEY,
+  date DATE NOT NULL,
+  month DATE,
+  category VARCHAR NOT NULL,
+  description TEXT,
+  amount NUMERIC(12,2) NOT NULL,
+  created_by VARCHAR,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+)
+
+-- Manual Expense Entries (One-off expenses not in operating expenses)
+finance.manual_expense_entries (
+  id SERIAL PRIMARY KEY,
+  date DATE NOT NULL,
+  month DATE,
+  category VARCHAR NOT NULL,
+  subcategory VARCHAR,
+  description TEXT,
+  amount NUMERIC(12,2) NOT NULL,
+  created_by VARCHAR,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+)
+```
+
+#### Historical and Snapshot Tables
+
+```sql
+-- Historical P&L Data (Imported from CSV files)
+finance.historical_pl_data (
+  id SERIAL PRIMARY KEY,
+  month DATE NOT NULL,
+  line_item VARCHAR NOT NULL,
+  amount NUMERIC(12,2),
+  is_actual BOOLEAN DEFAULT true,
+  data_source VARCHAR DEFAULT 'csv_import',
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+)
+
+-- Monthly P&L Snapshots (Saved monthly calculations)
+finance.pl_monthly_snapshots (
+  id SERIAL PRIMARY KEY,
+  month DATE NOT NULL UNIQUE,
+  data JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+)
+```
+
+#### Database Views
+
+```sql
+-- Operating Expenses Detailed View
+CREATE VIEW finance.operating_expenses_detailed AS 
+SELECT 
+  oe.id,
+  oe.amount,
+  oe.effective_date,
+  oe.end_date,
+  oe.notes,
+  oe.created_at,
+  oe.updated_at,
+  oe.expense_type_id,
+  oe.cost_type,
+  et.name as expense_type_name,
+  et.description as expense_type_description,
+  et.default_cost_type,
+  et.sort_order as expense_type_sort_order,
+  esc.name as subcategory_name,
+  esc.description as subcategory_description,
+  ec.name as category_name,
+  ec.description as category_description
+FROM finance.operating_expenses oe
+JOIN finance.expense_types et ON (oe.expense_type_id = et.id)
+JOIN finance.expense_subcategories esc ON (et.subcategory_id = esc.id)
+JOIN finance.expense_category ec ON (esc.category_id = ec.id);
+```
+
+### Core Database Functions
+
+#### Primary P&L Calculation Function
 
 ```sql
 CREATE OR REPLACE FUNCTION finance.get_monthly_pl(
-  p_month INTEGER,
-  p_year INTEGER,
-  p_calculation_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day')::DATE
+  p_month TEXT,
+  p_include_runrate BOOLEAN DEFAULT false,
+  p_calculation_date DATE DEFAULT NULL
 ) RETURNS JSON
 ```
 
 **Features:**
 - Integrates POS sales data from `pos.lengolf_sales`
-- Includes marketing spend from Google Ads and Meta Ads campaigns
-- Calculates run-rate projections based on elapsed days
-- Provides detailed operating expense breakdowns
-- Returns structured JSON for frontend consumption
+- Includes marketing spend from Google Ads and Meta Ads API data
+- Calculates prorated operating expenses for current month
+- Provides detailed expense breakdowns by category and subcategory
+- Returns structured JSON with run-rate projections when enabled
+- Handles manual revenue and expense entries
+- Processes historical data integration
 
-## Data Integration
+**Key Calculations:**
+- **Revenue**: Total Sales, Net Sales (excluding Events), Manual Revenue additions
+- **COGS**: Calculated from POS data and historical imports
+- **Operating Expenses**: Prorated for current month, full amount for past months
+- **Marketing Expenses**: Google Ads + Meta Ads API + Marketing category operating expenses
+- **EBITDA**: Gross Profit - Operating Expenses - Marketing Expenses
 
-### POS Sales Integration
-
-Sales data is automatically pulled from the existing POS system:
-
-```sql
--- Total Sales (all transactions)
-SELECT COALESCE(SUM(total_amount), 0) as sales_total
-FROM pos.lengolf_sales 
-WHERE EXTRACT(YEAR FROM order_date) = p_year 
-  AND EXTRACT(MONTH FROM order_date) = p_month;
-
--- Net Sales (excluding events/special categories) 
-SELECT COALESCE(SUM(total_amount), 0) as sales_net
-FROM pos.lengolf_sales s
-LEFT JOIN pos.products p ON s.product_id = p.id
-WHERE EXTRACT(YEAR FROM s.order_date) = p_year 
-  AND EXTRACT(MONTH FROM s.order_date) = p_month
-  AND (p.category_name != 'Events' OR p.category_name IS NULL);
-```
-
-### Marketing Campaign Integration
-
-Marketing spend is integrated from the existing marketing analytics system:
+#### Supporting Functions
 
 ```sql
--- Google Ads spend
-SELECT COALESCE(SUM(cost_micros / 1000000.0), 0) as google_ads_spend
-FROM marketing.google_ads_campaign_performance
-WHERE EXTRACT(YEAR FROM date) = p_year 
-  AND EXTRACT(MONTH FROM date) = p_month;
+-- P&L Comparison (Current vs Previous Month)
+CREATE OR REPLACE FUNCTION finance.get_pl_comparison(
+  p_current_month TEXT,
+  p_previous_month TEXT
+) RETURNS JSON
 
--- Meta Ads spend  
-SELECT COALESCE(SUM(spend_cents / 100.0), 0) as meta_ads_spend
-FROM marketing.meta_ads_campaign_performance
-WHERE EXTRACT(YEAR FROM date_start) = p_year 
-  AND EXTRACT(MONTH FROM date_start) = p_month;
-```
+-- Financial Trends (Multi-month analysis)
+CREATE OR REPLACE FUNCTION finance.get_finance_trends() RETURNS JSON
 
-### Operating Expenses Calculation
-
-Operating expenses are prorated based on days elapsed in the current month:
-
-```sql
-SELECT 
-  name,
-  CASE 
-    WHEN p_month = EXTRACT(MONTH FROM CURRENT_DATE) 
-     AND p_year = EXTRACT(YEAR FROM CURRENT_DATE) THEN
-      monthly_amount * (EXTRACT(DAY FROM p_calculation_date)::NUMERIC / 
-                       EXTRACT(DAY FROM (DATE_TRUNC('MONTH', p_calculation_date::DATE) 
-                                       + INTERVAL '1 MONTH - 1 DAY'))::NUMERIC)
-    ELSE monthly_amount
-  END as amount,
-  display_category,
-  display_order
-FROM finance.operating_expenses
-WHERE show_in_pl = true
-  AND effective_date <= DATE_TRUNC('MONTH', MAKE_DATE(p_year, p_month, 1))::DATE
-  AND (end_date IS NULL OR end_date >= DATE_TRUNC('MONTH', MAKE_DATE(p_year, p_month, 1))::DATE)
-ORDER BY display_order, name;
+-- Monthly Snapshot Saving
+CREATE OR REPLACE FUNCTION finance.save_monthly_snapshot(
+  p_month TEXT
+) RETURNS JSON
 ```
 
 ## API Endpoints
 
-### Core P&L Endpoint
+### Core P&L API
 
 **`GET /api/finance/pl-statement`**
 
-Query Parameters:
-- `month` (optional): Month to display (1-12, defaults to current)
-- `year` (optional): Year to display (defaults to current) 
-- `runRate` (optional): Enable run-rate projections (boolean)
-- `calculationDate` (optional): Specific date for run-rate calculations (YYYY-MM-DD)
+Primary endpoint for P&L data retrieval.
 
+**Query Parameters:**
+- `month` (required): Month in YYYY-MM-DD or YYYY-MM format
+- `includeRunRate` (optional): Enable run-rate projections (boolean)
+- `comparison` (optional): Set to 'previous' for month-over-month comparison
+- `calculationDate` (optional): Custom calculation cutoff date (YYYY-MM-DD)
+
+**Response Structure:**
 ```typescript
-// Example Response
 {
-  "month": 8,
-  "year": 2025,
-  "revenue": {
-    "combined_total": 381499,
-    "combined_net": 356541,
-    "manual_entries": {
-      "Net Sales (Events)": 24958
-    }
+  "month": "2025-08-01",
+  "is_current_month": true,
+  "days_elapsed": 21,
+  "days_in_month": 31,
+  "data_sources": {
+    "has_historical_data": true,
+    "has_pos_data": true,
+    "has_marketing_data": true
   },
-  "expenses": {
-    "cost_of_goods_sold": 165230,
-    "marketing": {
-      "google_ads": 45230,
-      "meta_ads": 28940,
-      "manual_entries": {
-        "Offline Marketing KOL+Video Manual": 0
-      }
-    },
-    "operating": {
-      "total": 83673,
-      "breakdown": [
+  "revenue": {
+    "total_sales": 462077.99,
+    "net_sales": 431848.92,
+    "manual_revenue": 19700,
+    "combined_total": 481777.99,
+    "combined_net": 451548.92,
+    "historical_total_sales": 130197,
+    "historical_net_sales": 121679
+  },
+  "cogs": {
+    "pos_cogs": 82801.23,
+    "total_cogs": 82801.23,
+    "historical_cogs": 17675
+  },
+  "gross_profit": {
+    "calculated": 368747.69,
+    "pos_gross_profit": 314003.72,
+    "historical_gross_profit": 116004
+  },
+  "operating_expenses": {
+    "calculated_total": 149182.65,
+    "historical_total": 48044,
+    "by_category": {
+      "Operating Expenses": [
         {
-          "name": "Rent",
-          "amount": 68548,
-          "category": "Fixed Costs",
-          "order": 1
+          "expense_type_name": "Rent",
+          "subcategory_name": "Fixed Cost",
+          "amount": 84677.42,
+          "full_monthly_amount": 125000,
+          "display_order": 1
+        }
+      ],
+      "Marketing Expenses": [
+        {
+          "expense_type_name": "LINE",
+          "subcategory_name": "Online Marketing",
+          "amount": 1205.81,
+          "full_monthly_amount": 1780,
+          "display_order": 0
         }
       ]
     }
   },
-  "calculations": {
-    "gross_profit": 191311,
-    "gross_margin": 50.15,
-    "net_profit": 33365,
-    "net_margin": 8.75,
-    "days_elapsed": 17,
-    "total_days": 31,
-    "run_rate_enabled": true
+  "marketing_expenses": {
+    "google_ads": 12736.93,
+    "meta_ads": 13623.38,
+    "manual_expenses": 0,
+    "calculated_total": 26360.31,
+    "historical_total": 9369
+  },
+  "ebitda": {
+    "calculated": 193204.73,
+    "historical_ebitda": 58591
+  },
+  "run_rate_projections": {
+    "total_sales": 682115.13,
+    "net_sales": 637491.26,
+    "combined_total": 701815.13,
+    "combined_net": 657191.26,
+    "gross_profit": 534960.88,
+    "operating_expenses": 220222,
+    "ebitda": 275826.04
   }
-}
-```
-
-### Manual Entries Management
-
-**`GET/POST/PUT/DELETE /api/finance/manual-entries`**
-
-```typescript
-// POST/PUT Request Body
-{
-  "month": 8,
-  "year": 2025,
-  "category": "Net Sales (Events)",
-  "value": 24958.50,
-  "description": "Corporate event bookings" // Optional
 }
 ```
 
@@ -223,164 +306,365 @@ Query Parameters:
 
 **`GET/POST/PUT/DELETE /api/finance/operating-expenses`**
 
+Full CRUD operations for operating expense management.
+
+**GET Query Parameters:**
+- `effectiveDate` (optional): Filter expenses active on specific date
+
+**POST/PUT Request Body:**
 ```typescript
-// POST Request Body
 {
-  "name": "Office Rent",
-  "monthly_amount": 125000,
+  "expense_type_id": 123,
+  "amount": 125000,
   "effective_date": "2025-01-01",
   "end_date": null, // Optional
-  "display_category": "Fixed Costs",
-  "display_order": 1,
-  "show_in_pl": true
+  "cost_type": "recurring", // or "one_time"
+  "notes": "Monthly office rent"
 }
 ```
+
+**Creating New Expense Types (POST only):**
+```typescript
+{
+  "expense_type_name": "New Expense",
+  "subcategory_id": 5,
+  "sort_order": 10,
+  "amount": 5000,
+  "effective_date": "2025-08-01",
+  "cost_type": "recurring"
+}
+```
+
+### Expense Type Management
+
+**`GET /api/finance/expense-types`**
+Returns all expense types with full hierarchy.
+
+**`POST /api/finance/expense-types/reorder`**
+Updates sort order for expense types.
+
+```typescript
+{
+  "expense1": { "id": 123, "sort_order": 5 },
+  "expense2": { "id": 124, "sort_order": 10 }
+}
+```
+
+### Manual Entries Management
+
+**`GET/POST/PUT/DELETE /api/finance/manual-entries`**
+
+**POST/PUT Request Body:**
+```typescript
+{
+  "type": "revenue", // or "expense"
+  "date": "2025-08-15",
+  "month": "2025-08-01",
+  "category": "Net Sales (Events)",
+  "description": "Corporate event bookings",
+  "amount": 24958.50
+}
+```
+
+### Additional Endpoints
+
+**`GET /api/finance/trends`** - Multi-month financial trends
+**`GET /api/finance/kpis`** - Key performance indicators for specified month
+**`GET /api/finance/expense-categories`** - Expense category hierarchy
 
 ## Frontend Components
 
-### PLStatement Component
+### Main Dashboard Components
 
+#### PLStatement Component
 **Location**: `src/components/finance-dashboard/PLStatement.tsx`
 
-Main P&L display component featuring:
+The primary P&L display component featuring:
 
-- **Monthly Navigation**: Switch between different months/years
-- **Run-Rate Toggle**: Enable/disable projections for current month
-- **Interactive Line Items**: Edit/delete buttons for existing manual entries
-- **Dynamic Categories**: Loads expense categories from database
-- **Currency Formatting**: Native THB display throughout
+- **Intelligent Data Source Labels**: Shows "API", "Calc", or "Projected" based on data source
+- **Run-Rate Toggle**: Switch between actual and projected values for current month
+- **Hierarchical Expense Display**: 
+  - Marketing Expenses → Online/Offline Marketing → Individual expenses (LINE, Video Content)
+  - Operating Expenses → Fixed Cost/Variable Cost/Salaries → Individual expenses (Rent, Utilities, etc.)
+- **Interactive Manual Entries**: Edit/delete buttons for manual revenue and expense entries
+- **Real-time Calculations**: EBITDA = Gross Profit - Operating Expenses - Marketing Expenses
+- **Currency Formatting**: Native Thai Baht display with proper number formatting
 
-**Key Features:**
+**Key Calculation Logic:**
 ```typescript
-interface PLData {
-  month: number;
-  year: number;
-  revenue: {
-    combined_total: number;
-    combined_net: number;
-    manual_entries: Record<string, number>;
-  };
-  expenses: {
-    cost_of_goods_sold: number;
-    marketing: {
-      google_ads: number;
-      meta_ads: number;
-      manual_entries: Record<string, number>;
-    };
-    operating: {
-      total: number;
-      breakdown: Array<{
+// Current values (non-runrate)
+const marketingTotal = 
+  (data.marketing_expenses.google_ads || 0) + 
+  (data.marketing_expenses.meta_ads || 0) + 
+  (data.operating_expenses.by_category["Marketing Expenses"]?.reduce(sum) || 0);
+
+const ebitda = 
+  (data.gross_profit.calculated || 0) - 
+  (data.operating_expenses.calculated_total || 0) - 
+  marketingTotal;
+
+// Run-rate values
+const runRateMarketing = 
+  (projections.google_ads || 0) + 
+  (projections.meta_ads || 0) + 
+  (projections.operating_expenses_by_category["Marketing Expenses"]?.reduce(sum) || 0);
+```
+
+#### OperatingExpensesManager Component
+**Location**: `src/components/finance-dashboard/OperatingExpensesManager.tsx`
+
+Comprehensive expense management interface featuring:
+
+- **Hierarchical Filtering**: Single dropdown with category/subcategory tree structure
+- **Period-Based Filtering**: View expenses active during specific months
+- **Cost Type Filtering**: Filter by one-time vs recurring expenses
+- **Sort Order Management**: Drag-and-drop reordering with real-time updates
+- **Quick Actions**: Create increase (10% bump), edit, delete operations
+- **Professional Styling**: Matches admin panel design standards
+
+**Component Structure:**
+```typescript
+interface OperatingExpense {
+  id: number;
+  amount: number;
+  effective_date: string;
+  end_date: string | null;
+  cost_type: 'one_time' | 'recurring';
+  expense_type: {
+    id: number;
+    name: string;
+    sort_order: number;
+    expense_subcategory: {
+      name: string;
+      expense_category: {
         name: string;
-        amount: number;
-        category: string;
-        order: number;
-      }>;
+      };
     };
-  };
-  calculations: {
-    gross_profit: number;
-    gross_margin: number;
-    net_profit: number;
-    net_margin: number;
-    days_elapsed: number;
-    total_days: number;
-    run_rate_enabled: boolean;
   };
 }
 ```
 
-### ManualEntryModal Component
+#### Supporting Components
 
-**Location**: `src/components/finance-dashboard/ManualEntryModal.tsx`
+**ExpenseModal** (`components/ExpenseModal.tsx`):
+- Create/edit individual operating expenses
+- Dynamic expense type creation with category/subcategory selection
+- Sort order suggestion based on existing expenses in subcategory
+- Validation and error handling
 
-Modal interface for adding/editing manual entries:
+**ExpenseTable** (`components/ExpenseTable.tsx`):
+- Tabular display of operating expenses with sorting
+- Inline actions (edit, delete, create increase)
+- Sort order display and reorder buttons
+- Responsive design for various screen sizes
 
-- **Upsert Logic**: Single value per category per month
-- **Optional Description**: Description field not required
-- **THB Currency**: Native Thai Baht formatting
-- **Validation**: Prevents duplicate entries per month/category
+**ManualEntryModal** (`src/components/finance-dashboard/ManualEntryModal.tsx`):
+- Add/edit manual revenue and expense entries
+- Category-based entry system
+- Date and month-based organization
+- Upsert logic (one entry per category per month)
 
-### OperatingExpensesManager Component
+### Custom Hooks
 
-**Location**: `src/components/finance-dashboard/OperatingExpensesManager.tsx`
+#### useFinanceDashboard Hook
+**Location**: `src/hooks/useFinanceDashboard.ts`
 
-Administrative interface for managing recurring expenses:
+Primary data management hook with comprehensive TypeScript interfaces:
 
-- **Professional Styling**: Matches staff management page design
-- **Categorization**: Group expenses by display category
-- **Date Ranges**: Effective and end date management
-- **Quick Actions**: Toggle show/hide in P&L statements
-- **Historical Support**: Import and manage historical expenses
-
-## Data Import Process
-
-### Historical CSV Import
-
-The system was populated with 17 months of historical data from "Budget Planning - P&L.csv":
-
-```sql
--- Example import for April 2024 - August 2025
-INSERT INTO finance.historical_data (month, year, category, value)
-VALUES 
-  (4, 2024, 'Total Sales', 287450.00),
-  (4, 2024, 'Net Sales', 268200.00),
-  (4, 2024, 'Cost of Goods Sold', 156800.00),
-  -- ... 17 months of data
+```typescript
+export interface PLData {
+  month: string;
+  is_current_month: boolean;
+  days_elapsed: number;
+  days_in_month: number;
+  data_sources: {
+    has_historical_data: boolean;
+    has_pos_data: boolean;
+    has_marketing_data: boolean;
+  };
+  revenue: {
+    total_sales: number;
+    net_sales: number;
+    manual_revenue: number;
+    combined_total: number;
+    combined_net: number;
+    historical_total_sales: number;
+    historical_net_sales: number;
+  };
+  // ... complete interface definition
+  run_rate_projections?: {
+    total_sales: number;
+    net_sales: number;
+    combined_total: number;
+    combined_net: number;
+    total_cogs: number;
+    gross_profit: number;
+    google_ads: number;
+    meta_ads: number;
+    operating_expenses: number;
+    operating_expenses_by_category?: Record<string, Array<ExpenseItem>>;
+    ebitda: number;
+  };
+}
 ```
 
-### Operating Expenses Import
+**Features:**
+- SWR-based data fetching with automatic revalidation
+- Error handling and retry logic
+- Refresh functionality for manual data updates
+- TypeScript-first design with comprehensive interfaces
 
-Historical operating expenses were imported with appropriate date ranges:
+## Data Integration
+
+### POS Sales Integration
+
+Real-time sales data integration from the existing POS system:
 
 ```sql
-INSERT INTO finance.operating_expenses 
-  (name, monthly_amount, effective_date, display_category, display_order)
-VALUES
-  ('Rent', 125000.00, '2024-04-01', 'Fixed Costs', 1),
-  ('Utilities', 8500.00, '2024-04-01', 'Fixed Costs', 2),
-  ('Staff Salaries', 180000.00, '2024-04-01', 'Personnel', 3);
+-- Total Sales (all transactions)
+SELECT COALESCE(SUM(total_amount), 0) as total_sales
+FROM pos.lengolf_sales 
+WHERE DATE_TRUNC('month', order_date) = p_month_date;
+
+-- Net Sales (excluding Events category)
+SELECT COALESCE(SUM(s.total_amount), 0) as net_sales
+FROM pos.lengolf_sales s
+LEFT JOIN pos.products p ON s.product_id = p.id
+WHERE DATE_TRUNC('month', s.order_date) = p_month_date
+  AND (p.category_name != 'Events' OR p.category_name IS NULL);
+```
+
+### Marketing Campaign Integration
+
+Direct API integration with marketing analytics system:
+
+```sql
+-- Google Ads spend from marketing schema
+SELECT COALESCE(SUM(cost_micros / 1000000.0), 0) as google_ads_spend
+FROM marketing.google_ads_campaign_performance
+WHERE DATE_TRUNC('month', date) = p_month_date;
+
+-- Meta Ads spend from marketing schema
+SELECT COALESCE(SUM(spend_cents / 100.0), 0) as meta_ads_spend
+FROM marketing.meta_ads_campaign_performance
+WHERE DATE_TRUNC('month', date_start) = p_month_date;
+```
+
+### Operating Expenses Calculation
+
+Sophisticated proration logic for current month expenses:
+
+```sql
+-- Current month proration example
+SELECT 
+  et.name,
+  CASE 
+    WHEN p_month_date = DATE_TRUNC('month', CURRENT_DATE) THEN
+      -- Prorate for current month based on days elapsed
+      oe.amount * (p_days_elapsed::NUMERIC / p_days_in_month::NUMERIC)
+    ELSE 
+      -- Full amount for historical months
+      oe.amount
+  END as calculated_amount,
+  oe.amount as full_monthly_amount,
+  ec.name as category_name,
+  esc.name as subcategory_name
+FROM finance.operating_expenses oe
+JOIN finance.expense_types et ON oe.expense_type_id = et.id
+JOIN finance.expense_subcategories esc ON et.subcategory_id = esc.id
+JOIN finance.expense_categories ec ON esc.category_id = ec.id
+WHERE oe.effective_date <= p_month_date
+  AND (oe.end_date IS NULL OR oe.end_date >= p_month_date)
+ORDER BY et.sort_order, et.name;
 ```
 
 ## Business Logic
 
-### Run-Rate Calculations
+### Calculation Methodologies
 
-Run-rate projections are calculated based on performance through yesterday (not today):
+#### Run-Rate Projections
+
+Run-rate calculations use "days elapsed through yesterday" logic:
 
 ```typescript
-// Frontend calculation example
-const daysElapsed = Math.min(currentDay - 1, totalDaysInMonth);
+// Frontend calculation logic
+const today = new Date();
+const cutoffDate = new Date(today);
+cutoffDate.setDate(today.getDate() - 1); // Yesterday
+
+const daysElapsed = Math.min(cutoffDate.getDate(), totalDaysInMonth);
 const runRateMultiplier = totalDaysInMonth / Math.max(daysElapsed, 1);
 
+// Variable expenses (sales-based)
 const projectedRevenue = currentRevenue * runRateMultiplier;
-const projectedExpenses = variableExpenses * runRateMultiplier + fixedExpenses;
+
+// Fixed expenses (no proration)
+const projectedFixedExpenses = currentFixedExpenses * runRateMultiplier;
+
+// Mixed calculation for combined values
+const projectedCombinedRevenue = 
+  (currentVariableRevenue * runRateMultiplier) + currentManualRevenue;
 ```
 
-### Unique Entry Constraint
+#### EBITDA Calculation
 
-The system enforces one manual entry per category per month:
-
-```sql
--- Database constraint
-ALTER TABLE finance.manual_entries 
-ADD CONSTRAINT unique_category_month 
-UNIQUE(month, year, category);
-```
-
-**Frontend Behavior:**
-- **Add Mode**: Shows plus (+) button when no entry exists
-- **Edit Mode**: Shows edit/delete buttons when entry exists
-- **Upsert Logic**: PUT requests update existing entries instead of creating duplicates
-
-### Operating Expense Proration
-
-For the current month, operating expenses are prorated based on days elapsed:
+EBITDA uses direct subtraction methodology:
 
 ```typescript
-// Example: August 2025, Rent ฿125,000
-// Days elapsed: 17, Total days: 31
-const proratedRent = 125000 * (17 / 31) = ฿68,548
+// Current month EBITDA
+const ebitda = grossProfit - operatingExpenses - marketingExpenses;
+
+// Where:
+const grossProfit = combinedNetRevenue - totalCOGS;
+const operatingExpenses = expenses.by_category["Operating Expenses"].total;
+const marketingExpenses = 
+  googleAds + metaAds + 
+  expenses.by_category["Marketing Expenses"].total;
 ```
+
+#### Expense Categorization Logic
+
+Three-tier hierarchical system:
+
+1. **Categories**: Operating Expenses, Marketing Expenses
+2. **Subcategories**: Fixed Cost, Variable Cost, Salaries, Online Marketing, Offline Marketing
+3. **Expense Types**: Rent, LINE, Video Content, Staff Salaries, etc.
+
+**Display Logic:**
+```typescript
+// Hierarchical display rendering
+{data.operating_expenses.by_category["Marketing Expenses"]
+  ?.filter(expense => expense.subcategory_name === "Online Marketing")
+  .map(expense => (
+    <PLLineItem
+      key={expense.expense_type_name}
+      label={expense.expense_type_name}
+      value={expense.amount}
+      runRateValue={expense.full_monthly_amount}
+      level={2}
+      dataSource="calculated"
+    />
+  ))
+}
+```
+
+### Data Source Intelligence
+
+The system intelligently labels data sources:
+
+- **"API"**: Google Ads, Meta Ads from marketing schema
+- **"POS"**: Sales data from pos.lengolf_sales  
+- **"Calc"**: Calculated values (EBITDA, totals, prorated expenses)
+- **"Projected"**: Run-rate extrapolations for current month
+
+### Manual Entry Integration
+
+Manual entries supplement automated data:
+
+- **Revenue**: Events, ClassPass, special bookings
+- **Expenses**: One-off costs not in operating expenses system
+- **Upsert Logic**: One entry per category per month
+- **Month-Based**: Entries organized by calendar month
 
 ## Security & Access Control
 
@@ -389,46 +673,163 @@ const proratedRent = 125000 * (17 / 31) = ฿68,548
 Finance Dashboard requires administrative privileges:
 
 ```typescript
-// Middleware protection
-if (!session?.user?.email || !session.user.isAdmin) {
-  return NextResponse.redirect('/unauthorized');
+// API Route Protection
+export async function GET(request: NextRequest) {
+  const session = await getDevSession(authOptions, request);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  // Finance dashboard access typically requires admin role
+  // (specific role checking implementation varies)
 }
 ```
 
 ### Development Authentication Bypass
 
-When `SKIP_AUTH=true` in development:
+Complete bypass available for development testing:
 
 ```typescript
-// Development bypass
-const session = await getDevSession(authOptions, request);
+// Development bypass in .env.local
+SKIP_AUTH=true
+
+// Middleware bypass
 if (process.env.NODE_ENV === 'development' && process.env.SKIP_AUTH === 'true') {
-  // Full access granted for development testing
+  // Full access granted without authentication checks
 }
+```
+
+### Data Protection
+
+- **SQL Injection Prevention**: All queries use parameterized statements
+- **Input Validation**: Comprehensive validation on all API endpoints
+- **Schema Isolation**: Finance data isolated in dedicated schema
+- **Audit Trail**: Created/updated timestamps on all tables
+
+## Performance Optimization
+
+### Database Optimization
+
+- **Indexed Queries**: All date-based and ID-based queries use proper indexes
+- **Materialized Views**: `operating_expenses_detailed` for complex joins
+- **Function Performance**: `get_monthly_pl()` optimized for single-month queries
+- **Schema-Qualified Queries**: All queries specify schema to avoid conflicts
+
+### Frontend Optimization
+
+- **SWR Caching**: Automatic request caching with intelligent revalidation
+- **Component Memoization**: Heavy calculations memoized using useMemo
+- **Lazy Loading**: Modal components loaded on demand
+- **Error Boundaries**: Comprehensive error handling prevents cascading failures
+
+```typescript
+// Memoized calculations example
+const calculations = useMemo(() => {
+  if (!data) return null;
+  
+  return {
+    grossProfit: data.gross_profit.calculated,
+    grossMargin: (data.gross_profit.calculated / data.revenue.combined_total) * 100,
+    operatingMargin: ((data.gross_profit.calculated - data.operating_expenses.calculated_total) / data.revenue.combined_total) * 100,
+    // ... other calculations
+  };
+}, [data]);
+```
+
+## Testing Strategy
+
+### API Testing with Development Authentication
+
+```bash
+# Get development token (when SKIP_AUTH=true)
+TOKEN=$(curl -s http://localhost:3000/api/dev-token | jq -r '.token')
+
+# Test P&L endpoint
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:3000/api/finance/pl-statement?month=2025-08&includeRunRate=true"
+
+# Test operating expenses
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:3000/api/finance/operating-expenses?effectiveDate=2025-08-22"
+
+# Create new operating expense
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"expense_type_id":123,"amount":5000,"effective_date":"2025-08-01","cost_type":"recurring"}' \
+  http://localhost:3000/api/finance/operating-expenses
+```
+
+### Frontend Testing
+
+```bash
+# Access finance dashboard (with auth bypass)
+http://localhost:3000/admin/finance-dashboard
+
+# Operating expenses management
+http://localhost:3000/admin/finance-dashboard/operating-expenses
+```
+
+### Database Testing
+
+```sql
+-- Test P&L function directly
+SELECT finance.get_monthly_pl('2025-08-01', true, '2025-08-21');
+
+-- Verify operating expenses calculation
+SELECT 
+  et.name,
+  oe.amount,
+  oe.amount * (21::numeric / 31::numeric) as prorated_amount,
+  ec.name as category,
+  esc.name as subcategory
+FROM finance.operating_expenses oe
+JOIN finance.expense_types et ON oe.expense_type_id = et.id
+JOIN finance.expense_subcategories esc ON et.subcategory_id = esc.id
+JOIN finance.expense_categories ec ON esc.category_id = ec.id
+WHERE oe.effective_date <= '2025-08-01'
+  AND (oe.end_date IS NULL OR oe.end_date >= '2025-08-01');
+
+-- Check expense hierarchy
+SELECT 
+  ec.name as category,
+  esc.name as subcategory,
+  et.name as expense_type,
+  et.sort_order
+FROM finance.expense_categories ec
+JOIN finance.expense_subcategories esc ON ec.id = esc.category_id
+JOIN finance.expense_types et ON esc.id = et.subcategory_id
+ORDER BY ec.sort_order, esc.sort_order, et.sort_order;
 ```
 
 ## Error Handling
 
-### Database Error Recovery
+### API Error Handling
 
 ```typescript
-// API error handling pattern
+// Standard API error pattern
 try {
-  const { data, error } = await supabase.rpc('finance.get_monthly_pl', params);
-  
+  const { data, error } = await supabase
+    .schema('finance')
+    .rpc('get_monthly_pl', {
+      p_month: monthDate,
+      p_include_runrate: includeRunRate,
+      p_calculation_date: calculationDate
+    });
+
   if (error) {
-    console.error('P&L calculation error:', error);
+    console.error('Database error:', error);
     return NextResponse.json(
-      { error: 'Failed to calculate P&L statement' }, 
+      { error: "Failed to fetch P&L data" }, 
       { status: 500 }
     );
   }
-  
+
   return NextResponse.json(data);
 } catch (error) {
-  console.error('Unexpected error:', error);
+  console.error('API error:', error);
   return NextResponse.json(
-    { error: 'Internal server error' }, 
+    { error: "Internal server error" }, 
     { status: 500 }
   );
 }
@@ -437,172 +838,181 @@ try {
 ### Frontend Error Handling
 
 ```typescript
-// SWR error handling
+// SWR error handling with user feedback
 const { data, error, isLoading } = useSWR(
-  `/api/finance/pl-statement?month=${month}&year=${year}`,
-  fetcher,
+  enabled ? plUrl : null,
+  fetchPLStatement,
   {
+    refreshInterval,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+    errorRetryCount: 3,
+    errorRetryInterval: 1000,
     onError: (error) => {
       console.error('Failed to load P&L data:', error);
-      // Show user-friendly error message
+      toast.error('Failed to load financial data');
     }
   }
 );
 
 if (error) {
-  return <div className="text-red-600">Failed to load financial data</div>;
+  return (
+    <Alert>
+      <AlertTriangle className="h-4 w-4" />
+      <AlertDescription>
+        Failed to load financial data. Please try again.
+      </AlertDescription>
+    </Alert>
+  );
 }
-```
-
-## Performance Considerations
-
-### Database Optimization
-
-- **Indexed Queries**: All date-based queries use indexed columns
-- **Materialized Views**: Consider for frequently accessed historical data
-- **Function Performance**: `get_monthly_pl()` optimized for single-month queries
-
-### Frontend Optimization
-
-- **SWR Caching**: Automatic caching with revalidation
-- **Lazy Loading**: Components loaded on demand
-- **Memo Optimization**: Heavy calculations memoized
-
-```typescript
-// Memoized calculations
-const calculations = useMemo(() => {
-  if (!data) return null;
-  
-  return {
-    grossProfit: data.revenue.combined_total - data.expenses.cost_of_goods_sold,
-    grossMargin: (grossProfit / data.revenue.combined_total) * 100,
-    // ... other calculations
-  };
-}, [data]);
-```
-
-## Testing Strategy
-
-### API Testing
-
-```bash
-# Get development token
-TOKEN=$(curl -s http://localhost:3000/api/dev-token | jq -r '.token')
-
-# Test P&L endpoint
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:3000/api/finance/pl-statement?month=8&year=2025&runRate=true"
-
-# Test manual entries
-curl -X POST \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"month":8,"year":2025,"category":"Test Category","value":1000}' \
-  http://localhost:3000/api/finance/manual-entries
-```
-
-### Frontend Testing
-
-```bash
-# Navigate to finance dashboard (with auth bypass)
-http://localhost:3000/admin/finance-dashboard
-
-# Operating expenses management  
-http://localhost:3000/admin/finance-dashboard/operating-expenses
 ```
 
 ## Maintenance & Updates
 
-### Monthly Maintenance
+### Monthly Maintenance Tasks
 
-1. **Verify Data Integration**: Check POS and marketing data accuracy
-2. **Update Operating Expenses**: Add/modify recurring expenses
-3. **Historical Data Validation**: Ensure imported data remains accurate
+1. **Data Verification**: Verify POS and marketing data accuracy
+2. **Operating Expenses Review**: Update recurring expenses for rate changes
+3. **Historical Data Validation**: Ensure imported data integrity
+4. **Performance Monitoring**: Check database query performance
+5. **Manual Entry Cleanup**: Review and organize manual entries
 
-### Schema Updates
+### Database Schema Updates
 
 ```sql
--- Add new expense categories
-ALTER TABLE finance.operating_expenses 
-ADD COLUMN subcategory TEXT;
+-- Adding new expense categories
+INSERT INTO finance.expense_categories (name, description, sort_order) 
+VALUES ('New Category', 'Description', 100);
 
--- Update display ordering
-UPDATE finance.operating_expenses 
-SET display_order = display_order + 10 
-WHERE display_category = 'Marketing';
+-- Updating sort orders
+UPDATE finance.expense_types 
+SET sort_order = sort_order + 10 
+WHERE subcategory_id = (
+  SELECT id FROM finance.expense_subcategories 
+  WHERE name = 'Fixed Cost'
+);
+
+-- Adding new expense subcategories
+INSERT INTO finance.expense_subcategories (category_id, name, sort_order)
+VALUES (
+  (SELECT id FROM finance.expense_categories WHERE name = 'Operating Expenses'),
+  'New Subcategory',
+  50
+);
 ```
 
-### Code Deployment
+### Code Deployment Checklist
 
 Always run validation before deployment:
 
 ```bash
-npm run typecheck  # Verify TypeScript
-npm run lint      # Check code quality  
-npm run build     # Test production build
+# TypeScript validation
+npm run typecheck
+
+# Code quality check
+npm run lint
+
+# Production build test
+npm run build
+
+# Database migration verification (if applicable)
+# Check stored procedure syntax
+# Verify view definitions
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-**Q: Manual entries not showing edit/delete buttons**
-A: Check that `manual_entries` data includes the category in the response. Verify database constraint allows upserts.
+**Q: Marketing expenses showing wrong total**
+A: Verify that the calculation includes Google Ads + Meta Ads + operating expenses from "Marketing Expenses" category. Check that marketing schema tables have current month data.
 
-**Q: Operating expenses showing ฿0 in P&L**  
-A: Ensure `show_in_pl = true` and effective/end dates are configured correctly. Check proration calculation for current month.
+**Q: Operating expenses not appearing in P&L**
+A: Check that `effective_date` <= month date and `end_date` >= month date (or is NULL). Verify expense type is linked to correct subcategory and category.
 
-**Q: Run-rate calculations incorrect**
-A: Verify `calculationDate` parameter uses yesterday's date, not today. Check `days_elapsed` calculation in database function.
+**Q: Run-rate calculations seem incorrect**
+A: Confirm `calculationDate` parameter uses yesterday's date, not today. Check `days_elapsed` calculation in stored procedure.
 
-**Q: Currency showing USD instead of THB**
-A: All currency formatting should use Thai Baht. Check `formatCurrency()` utility function configuration.
+**Q: Sort order changes not reflecting in P&L**
+A: Ensure sort order updates are applied to `expense_types` table and component is refreshing data. Check that expense hierarchical display uses correct sort order field.
+
+**Q: Manual entries not saving**
+A: Verify unique constraint on (month, category) for manual entries. Check that date formats are correct and category names match expected values.
 
 ### Database Debugging
 
 ```sql
--- Check manual entries for specific month
-SELECT * FROM finance.manual_entries 
-WHERE month = 8 AND year = 2025;
+-- Check monthly data sources
+SELECT 
+  'POS Sales' as source,
+  COUNT(*) as records,
+  SUM(total_amount) as total
+FROM pos.lengolf_sales 
+WHERE DATE_TRUNC('month', order_date) = '2025-08-01'
+UNION ALL
+SELECT 
+  'Google Ads' as source,
+  COUNT(*) as records,
+  SUM(cost_micros / 1000000.0) as total
+FROM marketing.google_ads_campaign_performance
+WHERE DATE_TRUNC('month', date) = '2025-08-01'
+UNION ALL
+SELECT 
+  'Meta Ads' as source,
+  COUNT(*) as records,
+  SUM(spend_cents / 100.0) as total
+FROM marketing.meta_ads_campaign_performance
+WHERE DATE_TRUNC('month', date_start) = '2025-08-01';
 
--- Verify operating expenses calculation
-SELECT name, monthly_amount, 
-       monthly_amount * (17::numeric / 31::numeric) as prorated_amount
-FROM finance.operating_expenses 
-WHERE show_in_pl = true;
-
--- Test P&L function directly
-SELECT finance.get_monthly_pl(8, 2025, '2025-08-17');
+-- Verify operating expenses hierarchy
+SELECT 
+  ec.name as category,
+  esc.name as subcategory,
+  et.name as expense_type,
+  COUNT(oe.id) as active_expenses,
+  SUM(oe.amount) as total_amount
+FROM finance.expense_categories ec
+LEFT JOIN finance.expense_subcategories esc ON ec.id = esc.category_id
+LEFT JOIN finance.expense_types et ON esc.id = et.subcategory_id
+LEFT JOIN finance.operating_expenses oe ON et.id = oe.expense_type_id
+  AND oe.effective_date <= '2025-08-01'
+  AND (oe.end_date IS NULL OR oe.end_date >= '2025-08-01')
+GROUP BY ec.name, esc.name, et.name
+ORDER BY ec.sort_order, esc.sort_order, et.sort_order;
 ```
 
 ## Future Enhancements
 
 ### Planned Features
 
-1. **Budget vs Actual**: Compare actual performance against budgets
-2. **Year-over-Year Analysis**: Historical trend comparisons  
-3. **Automated Alerts**: Notifications for significant variances
+1. **Budget vs Actual Analysis**: Compare performance against monthly budgets
+2. **Advanced Forecasting**: Machine learning-based projections
+3. **Multi-Currency Support**: Handle international transactions
 4. **Excel Export**: Generate downloadable P&L reports
-5. **Multi-Currency Support**: Handle international transactions
+5. **Automated Alerts**: Notifications for significant variances
+6. **Expense Approval Workflow**: Multi-step approval for large expenses
 
 ### Technical Improvements
 
-1. **Real-time Updates**: WebSocket integration for live data
+1. **Real-time Updates**: WebSocket integration for live data refresh
 2. **Advanced Caching**: Redis caching for complex calculations
-3. **Audit Trail**: Track all manual entry changes
-4. **Backup Integration**: Automated financial data backups
+3. **Audit Trail**: Complete change tracking for all financial data
+4. **API Rate Limiting**: Protect against excessive API usage
+5. **Backup Integration**: Automated financial data backups
+6. **Performance Monitoring**: APM integration for query optimization
 
 ## Related Documentation
 
 - **[Sales Dashboard](./SALES_DASHBOARD.md)** - Revenue analytics and KPIs
-- **[Database Documentation](../../../database/DATABASE_DOCUMENTATION_INDEX.md)** - Complete schema reference
+- **[Database Documentation](../../../database/DATABASE_DOCUMENTATION_INDEX.md)** - Complete schema reference  
 - **[API Reference](../../../api/API_REFERENCE.md)** - All API endpoint documentation
 - **[POS System Implementation](../../public/pos/POS_SYSTEM_IMPLEMENTATION.md)** - POS data source details
+- **[Marketing Analytics](./MARKETING_ANALYTICS.md)** - Marketing data integration
 - **[Admin Panel](../system-management/ADMIN_PANEL.md)** - Administrative interface overview
 
 ---
 
 **Last Updated**: August 2025  
-**Document Version**: 1.0  
+**Document Version**: 2.0  
 **Maintainer**: Development Team  
-**Review Cycle**: Quarterly
+**Review Cycle**: Monthly
