@@ -106,23 +106,79 @@ function PLRow({
 
   return (
     <>
-      {/* Mobile: Simple metric card with horizontal month trend */}
+      {/* Mobile: Simple metric card with section color indicators */}
       <div className="block sm:hidden mb-4">
-        <Card className="shadow-sm">
+        <Card className={cn(
+          "shadow-sm border-l-4",
+          // Revenue section - Blue
+          (label.includes('Net Sales') || label.includes('Revenue')) && "border-l-blue-500",
+          // COGS section - Red  
+          label.includes('COGS') && "border-l-red-500",
+          // Gross Profit section - Green
+          label.includes('Gross Profit') && "border-l-green-500",
+          // Operating Expenses section - Orange
+          (label.includes('Operating Expenses') || (level === 1 && !label.includes('Marketing'))) && "border-l-orange-500",
+          // Marketing Expenses section - Purple
+          label.includes('Marketing') && "border-l-purple-500",
+          // EBITDA - Dark green
+          label.includes('EBITDA') && "border-l-emerald-600",
+          // Default for other items
+          !label.includes('Net Sales') && !label.includes('Revenue') && !label.includes('COGS') && 
+          !label.includes('Gross Profit') && !label.includes('Operating Expenses') && 
+          !label.includes('Marketing') && !label.includes('EBITDA') && "border-l-gray-300"
+        )}>
           <CardContent className="p-4">
-            {/* Metric name */}
+            {/* Metric name with color indicator */}
             <div className="flex items-center gap-2 mb-3">
+              {/* Color dot indicator */}
               <div className={cn(
-                "font-semibold text-base text-gray-800",
+                "w-3 h-3 rounded-full flex-shrink-0",
+                // Revenue section - Blue
+                (label.includes('Net Sales') || label.includes('Revenue')) && "bg-blue-500",
+                // COGS section - Red
+                label.includes('COGS') && "bg-red-500",
+                // Gross Profit section - Green
+                label.includes('Gross Profit') && "bg-green-500",
+                // Operating Expenses section - Orange
+                (label.includes('Operating Expenses') || (level === 1 && !label.includes('Marketing'))) && "bg-orange-500",
+                // Marketing Expenses section - Purple
+                label.includes('Marketing') && "bg-purple-500",
+                // EBITDA - Dark green
+                label.includes('EBITDA') && "bg-emerald-600",
+                // Default
+                !label.includes('Net Sales') && !label.includes('Revenue') && !label.includes('COGS') && 
+                !label.includes('Gross Profit') && !label.includes('Operating Expenses') && 
+                !label.includes('Marketing') && !label.includes('EBITDA') && "bg-gray-400"
+              )}></div>
+              
+              <div className={cn(
+                "font-semibold text-base flex-1",
+                // Revenue section - Blue text
+                (label.includes('Net Sales') || label.includes('Revenue')) && "text-blue-800",
+                // COGS section - Red text
+                label.includes('COGS') && "text-red-800",
+                // Gross Profit section - Green text
+                label.includes('Gross Profit') && "text-green-800",
+                // Operating Expenses section - Orange text
+                (label.includes('Operating Expenses') || (level === 1 && !label.includes('Marketing'))) && "text-orange-800",
+                // Marketing Expenses section - Purple text
+                label.includes('Marketing') && "text-purple-800",
+                // EBITDA - Dark green text
+                label.includes('EBITDA') && "text-emerald-800",
+                // Default
+                !label.includes('Net Sales') && !label.includes('Revenue') && !label.includes('COGS') && 
+                !label.includes('Gross Profit') && !label.includes('Operating Expenses') && 
+                !label.includes('Marketing') && !label.includes('EBITDA') && "text-gray-800",
                 isTotal && "font-bold"
               )}>
                 {label}
               </div>
+              
               {isExpandable && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="h-6 w-6 p-0 ml-auto"
+                  className="h-6 w-6 p-0 flex-shrink-0"
                   onClick={onToggle}
                 >
                   {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
