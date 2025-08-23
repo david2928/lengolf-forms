@@ -159,6 +159,12 @@ const staffPayrollItems = [
 
 const financialOperationsItems = [
   {
+    icon: TrendingUp,
+    title: "Finance Dashboard",
+    description: "Comprehensive P&L analysis and financial KPIs",
+    path: "/admin/finance-dashboard"
+  },
+  {
     icon: FileText,
     title: "Invoice Management",
     description: "Generate and manage supplier invoices",

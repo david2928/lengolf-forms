@@ -373,6 +373,12 @@ export function Nav() {
               {/* Financial & Operations */}
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Financial & Operations</div>
               <DropdownMenuItem asChild>
+                <Link href="/admin/finance-dashboard" className="flex items-center gap-2 w-full">
+                  <TrendingUp className="h-4 w-4" />
+                  Finance Dashboard
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link href="/admin/invoices" className="flex items-center gap-2 w-full">
                   <FileText className="h-4 w-4" />
                   Invoice Management

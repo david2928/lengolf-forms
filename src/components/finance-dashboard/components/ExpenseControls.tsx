@@ -39,16 +39,19 @@ export default function ExpenseControls({
   onSearchChange,
   onAddExpense
 }: ExpenseControlsProps) {
-  // Generate month options
+  // Generate month options from April 2024 to current month
   const generateMonthOptions = () => {
     const options = [];
     const now = new Date();
+    const startDate = new Date(2024, 3, 1); // April 2024 (month is 0-based)
+    const currentDate = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    for (let i = 0; i < 24; i++) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const date = new Date(currentDate);
+    while (date >= startDate) {
       const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
       options.push({ value, label });
+      date.setMonth(date.getMonth() - 1);
     }
     
     return options;
@@ -70,19 +73,41 @@ export default function ExpenseControls({
                 <SelectTrigger className="w-48 h-10 bg-white border-2 border-gray-200 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="w-48">
-                  {generateMonthOptions().slice(0, 12).map(option => (
-                    <SelectItem key={option.value} value={option.value} className="hover:bg-primary/5">
-                      <div className="flex items-center gap-2">
-                        <div className={`h-2 w-2 rounded-full ${
-                          option.value === new Date().toISOString().slice(0, 7) 
-                            ? 'bg-primary' 
-                            : 'bg-gray-300'
-                        }`} />
-                        {option.label}
-                      </div>
-                    </SelectItem>
-                  ))}
+                <SelectContent className="w-48 max-h-80">
+                  {/* Group months by year for easier navigation */}
+                  {(() => {
+                    const monthOptions = generateMonthOptions();
+                    const groupedOptions = monthOptions.reduce((acc, option) => {
+                      const year = option.value.split('-')[0];
+                      if (!acc[year]) acc[year] = [];
+                      acc[year].push(option);
+                      return acc;
+                    }, {} as Record<string, typeof monthOptions>);
+                    
+                    return Object.entries(groupedOptions)
+                      .sort(([a], [b]) => parseInt(b) - parseInt(a)) // Most recent year first
+                      .map(([year, options]) => (
+                        <div key={year}>
+                          {Object.keys(groupedOptions).length > 1 && (
+                            <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">
+                              {year}
+                            </div>
+                          )}
+                          {options.map(option => (
+                            <SelectItem key={option.value} value={option.value} className="hover:bg-primary/5">
+                              <div className="flex items-center gap-2">
+                                <div className={`h-2 w-2 rounded-full ${
+                                  option.value === new Date().toISOString().slice(0, 7) 
+                                    ? 'bg-primary' 
+                                    : 'bg-gray-300'
+                                }`} />
+                                {option.label.replace(` ${year}`, '')}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </div>
+                      ));
+                  })()}
                 </SelectContent>
               </Select>
             </div>

@@ -95,10 +95,18 @@ export interface TrendsData {
 }
 
 export interface KPIData {
-  total_revenue: number;
-  gross_margin_pct: number;
+  net_sales: number;
+  gross_profit: number;
+  marketing_expenses: number;
   ebitda: number;
-  mom_growth_pct: number;
+  net_sales_mom_pct: number;
+  gross_profit_mom_pct: number;
+  marketing_expenses_mom_pct: number;
+  ebitda_mom_pct: number;
+  net_sales_yoy_pct?: number | null;
+  gross_profit_yoy_pct?: number | null;
+  marketing_expenses_yoy_pct?: number | null;
+  ebitda_yoy_pct?: number | null; // Can be percentage or absolute value when previous year was negative
   revenue_runrate?: number;
   ebitda_runrate?: number;
 }
@@ -236,8 +244,10 @@ export function useFinanceDashboard(options: FinanceDashboardOptions) {
 }
 
 // Hook for manual entries management
-export function useManualEntries(type: 'revenue' | 'expense', month?: string) {
-  const url = `/api/finance/manual-entries?type=${type}${month ? `&month=${month}` : ''}`;
+export function useManualEntries(type: 'revenue' | 'cogs', month?: string) {
+  // COGS entries are stored as 'expense' type in the database
+  const apiType = type === 'cogs' ? 'expense' : type;
+  const url = `/api/finance/manual-entries?type=${apiType}${month ? `&month=${month}` : ''}`;
 
   const { data, error, isLoading, mutate: refreshEntries } = useSWR(
     url,
@@ -254,7 +264,7 @@ export function useManualEntries(type: 'revenue' | 'expense', month?: string) {
     const response = await fetch('/api/finance/manual-entries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, ...entryData })
+      body: JSON.stringify(entryData) // entryData already has the correct type set
     });
 
     if (!response.ok) {
@@ -264,13 +274,13 @@ export function useManualEntries(type: 'revenue' | 'expense', month?: string) {
     const result = await response.json();
     refreshEntries(); // Refresh the list
     return result;
-  }, [type, refreshEntries]);
+  }, [apiType, refreshEntries]);
 
   const updateEntry = useCallback(async (id: string, entryData: any) => {
     const response = await fetch(`/api/finance/manual-entries/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, ...entryData })
+      body: JSON.stringify(entryData) // entryData already has the correct type set
     });
 
     if (!response.ok) {
@@ -280,10 +290,10 @@ export function useManualEntries(type: 'revenue' | 'expense', month?: string) {
     const result = await response.json();
     refreshEntries(); // Refresh the list
     return result;
-  }, [type, refreshEntries]);
+  }, [apiType, refreshEntries]);
 
   const deleteEntry = useCallback(async (id: string) => {
-    const response = await fetch(`/api/finance/manual-entries/${id}?type=${type}`, {
+    const response = await fetch(`/api/finance/manual-entries/${id}?type=${apiType}`, {
       method: 'DELETE'
     });
 
@@ -292,7 +302,7 @@ export function useManualEntries(type: 'revenue' | 'expense', month?: string) {
     }
 
     refreshEntries(); // Refresh the list
-  }, [type, refreshEntries]);
+  }, [apiType, refreshEntries]);
 
   return {
     entries: data || [],

@@ -13,25 +13,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body: TransferTableRequest = await request.json();
-    const { fromTableId, toTableId, staffPin, orderIds, transferAll = true } = body;
+    const { fromTableId, toTableId, orderIds, transferAll = true } = body;
 
     // Validate required fields
     if (!fromTableId || !toTableId) {
       return NextResponse.json({ error: "Both fromTableId and toTableId are required" }, { status: 400 });
     }
 
-    if (!staffPin) {
-      return NextResponse.json({ error: "Staff PIN is required" }, { status: 400 });
-    }
-
     if (fromTableId === toTableId) {
       return NextResponse.json({ error: "Cannot transfer to the same table" }, { status: 400 });
-    }
-
-    // Validate staff PIN
-    const staffId = await getStaffIdFromPin(staffPin);
-    if (!staffId) {
-      return NextResponse.json({ error: "Invalid staff PIN or inactive staff" }, { status: 400 });
     }
 
     // Validate both tables exist
@@ -99,12 +89,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Perform transfer in a transaction
-    const { data: transferResult, error: transferError } = await supabase.rpc('transfer_table_session', {
-      p_from_table_id: fromTableId,
-      p_to_table_id: toTableId,
-      p_transfer_all: transferAll,
-      p_order_ids: transferAll ? null : orderIds
-    });
+    const { data: transferResult, error: transferError } = await supabase
+      .schema('pos')
+      .rpc('transfer_table_session', {
+        p_from_table_id: fromTableId,
+        p_to_table_id: toTableId,
+        p_transfer_all: transferAll,
+        p_order_ids: transferAll ? null : orderIds
+      });
 
     if (transferError) {
       console.error('Error in table transfer:', transferError);
@@ -132,7 +124,7 @@ export async function POST(request: NextRequest) {
       status: sessionData.status || 'free',
       paxCount: sessionData.pax_count || 0,
       bookingId: sessionData.booking_id,
-      staffPin: sessionData.staff_pin,
+      staffId: sessionData.staff_id,
       sessionStart: sessionData.session_start ? new Date(sessionData.session_start) : undefined,
       sessionEnd: sessionData.session_end ? new Date(sessionData.session_end) : undefined,
       totalAmount: parseFloat(sessionData.total_amount || '0'),

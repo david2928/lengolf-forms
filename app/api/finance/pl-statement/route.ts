@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Validate month format (YYYY-MM-DD or YYYY-MM)
-    const monthDate = month.includes('-01') ? month : `${month}-01`;
+    const monthDate = month.length > 7 ? month : `${month}-01`;
     const parsedDate = new Date(monthDate);
     if (isNaN(parsedDate.getTime())) {
       return NextResponse.json({ error: "Invalid month format" }, { status: 400 });

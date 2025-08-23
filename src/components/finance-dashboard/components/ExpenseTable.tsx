@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { DollarSign, Edit, MoreVertical, TrendingUp, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { DollarSign, Edit, MoreVertical, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,20 +41,20 @@ interface OperatingExpense {
 interface ExpenseTableProps {
   expenses: OperatingExpense[];
   totalExpenses: number;
+  selectedPeriod?: string; // Add selected period for context-aware status
   isLoading?: boolean;
   onEdit: (expense: OperatingExpense) => void;
   onDelete: (id: number) => void;
-  onCreateIncrease: (expense: OperatingExpense) => void;
   onReorder?: (expenseId: number, direction: 'up' | 'down') => void;
 }
 
 export default function ExpenseTable({ 
   expenses, 
-  totalExpenses, 
+  totalExpenses,
+  selectedPeriod,
   isLoading = false,
   onEdit, 
   onDelete, 
-  onCreateIncrease,
   onReorder
 }: ExpenseTableProps) {
   // Helper functions
@@ -134,9 +134,15 @@ export default function ExpenseTable({
     return expense.expense_type?.expense_subcategory?.name || '';
   };
 
-  const isActive = (expense: OperatingExpense) => {
-    const today = new Date().toISOString().split('T')[0];
-    return expense.effective_date <= today && (!expense.end_date || expense.end_date >= today);
+  const isActiveForPeriod = (expense: OperatingExpense, period?: string) => {
+    // If no period specified, use today's date for "currently active" logic
+    const referenceDate = period ? `${period}-15` : new Date().toISOString().split('T')[0];
+    return expense.effective_date <= referenceDate && (!expense.end_date || expense.end_date >= referenceDate);
+  };
+
+  const getStatusText = (expense: OperatingExpense) => {
+    // Just show "Active" or "Inactive" - much cleaner
+    return isActiveForPeriod(expense, selectedPeriod) ? 'Active' : 'Inactive';
   };
 
   const formatPeriod = (expense: OperatingExpense) => {
@@ -340,14 +346,14 @@ export default function ExpenseTable({
                   {/* Status */}
                   <TableCell className="px-4 py-4">
                     <Badge 
-                      variant={isActive(expense) ? 'default' : 'secondary'}
+                      variant={isActiveForPeriod(expense, selectedPeriod) ? 'default' : 'secondary'}
                       className={`px-2 py-1 text-xs font-medium ${
-                        isActive(expense) 
+                        isActiveForPeriod(expense, selectedPeriod) 
                           ? 'bg-green-100 text-green-800 hover:bg-green-200' 
                           : 'bg-gray-100 text-gray-600'
                       }`}
                     >
-                      {isActive(expense) ? 'Active' : 'Inactive'}
+                      {getStatusText(expense)}
                     </Badge>
                   </TableCell>
                   
@@ -371,13 +377,6 @@ export default function ExpenseTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem 
-                            onClick={() => onCreateIncrease(expense)}
-                            className="text-green-600 hover:bg-green-50"
-                          >
-                            <TrendingUp className="mr-2 h-4 w-4" />
-                            Create Rate Increase
-                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => onDelete(expense.id)}
                             className="text-red-600 hover:bg-red-50"

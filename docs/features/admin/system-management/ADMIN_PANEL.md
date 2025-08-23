@@ -61,6 +61,8 @@ The central hub for administrative tools and system overview, designed as a comp
 - Inventory & Operations
   - Inventory Dashboard (Active)
   - Product Management (Active)
+- Financial & Operations
+  - Finance Dashboard (Active)
 ```
 
 #### Features
@@ -86,6 +88,7 @@ The admin panel integrates seamlessly with the main navigation, providing differ
       <DropdownMenuItem href="/admin/inventory">Inventory</DropdownMenuItem>
       <DropdownMenuItem href="/admin/products">Product Management</DropdownMenuItem>
       <DropdownMenuItem href="/admin/competitors">Competitor Tracking</DropdownMenuItem>
+      <DropdownMenuItem href="/admin/finance-dashboard">Finance Dashboard</DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
 )}
@@ -184,7 +187,22 @@ The Sales Dashboard is the first fully implemented admin feature, providing comp
   - PgCron automated scheduling (3 AM Bangkok time daily)
   - API integration with scraper service authentication
 
-### 7. Navigation Integration
+### 7. Finance Dashboard (`/admin/finance-dashboard`)
+- **Status**: Fully implemented and active
+- **Purpose**: Comprehensive P&L analysis and financial KPIs
+- **Features**: 
+  - Monthly P&L statement with revenue, COGS, and expenses breakdown
+  - Real-time KPI cards (Net Sales, Gross Profit, Marketing Expenses, EBITDA)
+  - Month-over-Month and Year-over-Year comparison indicators
+  - Run-rate projections for current month analysis
+  - Monthly comparison view with side-by-side P&L analysis
+  - Operating expenses management with categorized expense tracking
+  - Visual section headers for clear P&L structure (Revenue → COGS → Gross Profit → OpEx → Marketing → EBITDA)
+  - Data export capabilities for reporting
+  - Integration with POS data, marketing costs, and manual entries
+  - Mobile-responsive design for tablet and desktop use
+
+### 8. Navigation Integration
 - **Status**: Implemented
 - **Purpose**: Seamless access to admin features
 - **Features**: 
@@ -192,7 +210,7 @@ The Sales Dashboard is the first fully implemented admin feature, providing comp
   - Mobile button linking to admin landing page
   - Conditional display based on admin privileges
 
-### 8. Access Control
+### 9. Access Control
 - **Status**: Implemented
 - **Purpose**: Secure admin-only access
 - **Features**: Route protection, session verification, middleware enforcement
@@ -287,6 +305,7 @@ admin/
 /admin/inventory           # Inventory management
 /admin/products            # Product management system
 /admin/competitors         # Competitor tracking system
+/admin/finance-dashboard   # Finance dashboard and P&L analysis
 /admin/settings            # System settings (planned)
 ```
 
@@ -327,6 +346,11 @@ export function middleware(request: NextRequest) {
 /api/admin/competitors              # Competitor management
 /api/admin/competitors/[id]/manual-metrics  # Manual metrics submission
 /api/competitors/sync               # Trigger scraper sync
+/api/finance/pl                     # P&L statement data
+/api/finance/kpis                   # Finance KPI metrics
+/api/finance/pl-comparison          # Multi-month P&L comparison
+/api/finance/operating-expenses     # Operating expenses management
+/api/finance/manual-entries         # Manual revenue/COGS entries
 ```
 
 ## Security

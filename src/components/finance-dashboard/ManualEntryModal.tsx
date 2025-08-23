@@ -19,7 +19,7 @@ import { useManualEntries } from '@/hooks/useFinanceDashboard';
 interface ManualEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'revenue' | 'expense';
+  type: 'revenue' | 'cogs';
   category: string;
   month: string;
   existingEntry?: any;
@@ -52,6 +52,12 @@ const REVENUE_CATEGORIES = [
   'Coaching',
   'Special Promotions',
   'Other Revenue'
+];
+
+const COGS_CATEGORIES = [
+  'Catering',
+  'Drinks',
+  'Others'
 ];
 
 export default function ManualEntryModal({
@@ -122,16 +128,16 @@ export default function ManualEntryModal({
       }
 
       const amount = parseFloat(formData.amount);
-      if (isNaN(amount) || amount <= 0) {
-        throw new Error('Please enter a valid amount greater than 0');
+      if (isNaN(amount) || amount === 0) {
+        throw new Error('Please enter a valid non-zero amount');
       }
 
       const entryData = {
-        type,
+        type: type === 'cogs' ? 'expense' : type, // COGS entries are stored as expenses in the database
         amount: amount,
         description: formData.description,
         category: formData.category,
-        subcategory: type === 'expense' ? formData.subcategory : undefined,
+        subcategory: (type as string) === 'expense' ? formData.subcategory : undefined,
         isRecurring: formData.isRecurring,
         date: formData.isRecurring ? formData.startDate : `${formData.targetMonth}-01`,
         startDate: formData.isRecurring ? formData.startDate : undefined,
@@ -199,7 +205,8 @@ export default function ManualEntryModal({
     setError(null);
 
     try {
-      const response = await fetch(`/api/finance/manual-entries?type=${type}&month=${month}&category=${encodeURIComponent(formData.category)}`, {
+      const apiType = type === 'cogs' ? 'expense' : type; // COGS entries are stored as expenses
+      const response = await fetch(`/api/finance/manual-entries?type=${apiType}&month=${month}&category=${encodeURIComponent(formData.category)}`, {
         method: 'DELETE'
       });
 
@@ -220,17 +227,18 @@ export default function ManualEntryModal({
 
   const getAvailableCategories = () => {
     if (type === 'revenue') return REVENUE_CATEGORIES;
+    if (type === 'cogs') return COGS_CATEGORIES;
     return Object.keys(P_AND_L_STRUCTURE);
   };
 
   const getAvailableSubcategories = () => {
-    if (type === 'revenue' || !formData.category) return [];
+    if (type === 'revenue' || type === 'cogs' || !formData.category) return [];
     const categoryData = P_AND_L_STRUCTURE[formData.category as keyof typeof P_AND_L_STRUCTURE];
     return categoryData ? Object.keys(categoryData) : [];
   };
 
   const getAvailableDescriptions = () => {
-    if (type === 'revenue' || !formData.category || !formData.subcategory) return [];
+    if (type === 'revenue' || type === 'cogs' || !formData.category || !formData.subcategory) return [];
     const categoryData = P_AND_L_STRUCTURE[formData.category as keyof typeof P_AND_L_STRUCTURE];
     return categoryData?.[formData.subcategory as keyof typeof categoryData] || [];
   };
@@ -245,7 +253,7 @@ export default function ManualEntryModal({
             ) : (
               <Receipt className="h-5 w-5 text-red-600" />
             )}
-{isEditMode ? 'Edit' : 'Add'} {type === 'revenue' ? 'Revenue' : 'Expense'} Entry
+{isEditMode ? 'Edit' : 'Add'} {type === 'revenue' ? 'Revenue' : 'COGS'} Entry
           </DialogTitle>
         </DialogHeader>
 
@@ -340,8 +348,8 @@ export default function ManualEntryModal({
             </Select>
           </div>
 
-          {/* Subcategory Selection (for expenses only) */}
-          {type === 'expense' && formData.category && (
+          {/* Subcategory Selection (for expenses only - not for revenue or cogs) */}
+          {type !== 'revenue' && type !== 'cogs' && formData.category && (
             <div className="space-y-2">
               <Label htmlFor="subcategory">Subcategory *</Label>
               <Select
@@ -365,7 +373,7 @@ export default function ManualEntryModal({
           )}
 
           {/* Description Selection (for expenses with subcategory) */}
-          {type === 'expense' && formData.category && formData.subcategory && (
+          {type !== 'revenue' && type !== 'cogs' && formData.category && formData.subcategory && (
             <div className="space-y-2">
               <Label htmlFor="description-select">Description *</Label>
               <Select
@@ -392,7 +400,6 @@ export default function ManualEntryModal({
                 id="amount"
                 type="number"
                 step="0.01"
-                min="0"
                 value={formData.amount}
                 onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
                 className="pl-8"
@@ -400,6 +407,11 @@ export default function ManualEntryModal({
                 required
               />
             </div>
+            {type === 'cogs' && (
+              <p className="text-xs text-muted-foreground">
+                Use negative values for cost reductions, refunds, or credits.
+              </p>
+            )}
           </div>
 
           {/* Notes/Additional Description */}
@@ -409,7 +421,7 @@ export default function ManualEntryModal({
               id="notes"
               value={formData.notes || ''}
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder={`Optional additional notes about this ${type}...`}
+              placeholder={`Optional additional notes about this ${type === 'revenue' ? 'revenue' : 'COGS'}...`}
               className="min-h-[60px]"
             />
           </div>
@@ -452,7 +464,7 @@ export default function ManualEntryModal({
                   {isEditMode ? 'Updating...' : 'Adding...'}
                 </>
               ) : (
-                <>{isEditMode ? 'Update' : 'Add'} {type === 'revenue' ? 'Revenue' : 'Expense'}</>
+                <>{isEditMode ? 'Update' : 'Add'} {type === 'revenue' ? 'Revenue' : 'COGS'}</>
               )}
             </Button>
           </div>

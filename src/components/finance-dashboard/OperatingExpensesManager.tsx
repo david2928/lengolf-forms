@@ -89,12 +89,16 @@ export default function OperatingExpensesManager() {
     }
   };
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = async (period?: string) => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const url = '/api/finance/operating-expenses?effectiveDate=' + new Date().toISOString().split('T')[0];
+      // Use the selected period for filtering, or current period if not specified
+      const filterPeriod = period || selectedPeriod;
+      const periodDate = `${filterPeriod}-15`; // Use middle of month for filtering
+      
+      const url = '/api/finance/operating-expenses?effectiveDate=' + periodDate;
       const response = await fetch(url);
       
       if (!response.ok) throw new Error('Failed to fetch operating expenses');
@@ -125,7 +129,14 @@ export default function OperatingExpensesManager() {
   useEffect(() => {
     fetchExpenseTypes();
     fetchExpenses();
-  }, []);
+  }, [fetchExpenseTypes, fetchExpenses]);
+
+  // Refetch expenses when selected period changes
+  useEffect(() => {
+    if (selectedPeriod) {
+      fetchExpenses(selectedPeriod);
+    }
+  }, [selectedPeriod, fetchExpenses]);
 
   // Helper functions
   const getBusinessCategory = (expense: OperatingExpense): string => {
@@ -229,17 +240,6 @@ export default function OperatingExpensesManager() {
 
   // Filter expenses
   const filteredExpenses = expenses.filter(expense => {
-    // Debug logging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Filtering expense:', {
-        name: getExpenseName(expense),
-        effectiveDate: expense.effective_date,
-        endDate: expense.end_date,
-        selectedPeriod,
-        isActive: isActiveInPeriod(expense, selectedPeriod)
-      });
-    }
-    
     // Period filter
     if (!isActiveInPeriod(expense, selectedPeriod)) return false;
     
@@ -284,7 +284,7 @@ export default function OperatingExpensesManager() {
 
       if (response.ok) {
         toast.success('Expense deleted successfully');
-        fetchExpenses();
+        fetchExpenses(selectedPeriod);
       } else {
         throw new Error('Failed to delete expense');
       }
@@ -294,24 +294,6 @@ export default function OperatingExpensesManager() {
     }
   };
 
-  const handleCreateIncrease = (expense: OperatingExpense) => {
-    const nextMonth = new Date();
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-
-    // Create a new expense based on the existing one with 10% increase
-    const increasedExpense = {
-      ...expense,
-      id: 0, // Will be set by backend
-      amount: expense.amount * 1.1,
-      effective_date: nextMonth.toISOString().split('T')[0],
-      end_date: null,
-      notes: `Rate increase from ฿${expense.amount.toLocaleString()}`,
-      cost_type: 'recurring'
-    };
-
-    setEditingExpense(increasedExpense as OperatingExpense);
-    setIsModalOpen(true);
-  };
 
   const handleSubmitExpense = async (data: any) => {
     try {
@@ -325,7 +307,7 @@ export default function OperatingExpensesManager() {
 
       if (response.ok) {
         toast.success(editingExpense && editingExpense.id > 0 ? 'Expense updated successfully' : 'Expense created successfully');
-        fetchExpenses();
+        fetchExpenses(selectedPeriod);
       } else {
         throw new Error('Failed to save expense');
       }
@@ -365,7 +347,7 @@ export default function OperatingExpensesManager() {
 
       if (response.ok) {
         toast.success('Order updated successfully');
-        fetchExpenses(); // Refresh to show new order
+        fetchExpenses(selectedPeriod); // Refresh to show new order
       } else {
         throw new Error('Failed to update order');
       }
@@ -448,9 +430,9 @@ export default function OperatingExpensesManager() {
       <ExpenseTable
         expenses={filteredExpenses}
         totalExpenses={totalExpenses}
+        selectedPeriod={selectedPeriod}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        onCreateIncrease={handleCreateIncrease}
         onReorder={handleReorder}
       />
 

@@ -38,7 +38,7 @@ export interface TableSession {
   status: TableStatus;
   paxCount: number;
   bookingId?: string; // Optional for walk-ins initially
-  staffPin?: string; // Staff who opened via PIN login
+  staffId?: string; // Staff who opened the session
   sessionStart?: Date;
   sessionEnd?: Date;
   totalAmount: number;
@@ -286,7 +286,6 @@ export interface CloseTableResponse {
 export interface TransferTableRequest {
   fromTableId: string;
   toTableId: string;
-  staffPin: string; // Required for staff validation
   orderIds?: string[]; // Optional: specific orders to transfer
   transferAll?: boolean;
 }

@@ -4,12 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, Plus, CreditCard, XCircle, FileText } from 'lucide-react';
+import { X, Plus, CreditCard, XCircle, FileText, ArrowRightLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/pos-utils';
 import type { Table, OrderItem } from '@/types/pos';
 import { ReceiptDiscountButton } from '../discount/ReceiptDiscountButton';
 import { TouchFriendlyDiscountTooltip } from '../discount/TouchFriendlyDiscountTooltip';
+import { TableTransferModal } from './TableTransferModal';
 
 export interface OccupiedTableDetailsPanelProps {
   table: Table | null;
@@ -40,6 +41,11 @@ export function OccupiedTableDetailsPanel({
   const [appliedReceiptDiscount, setAppliedReceiptDiscount] = useState<any>(null);
   const [localTableData, setLocalTableData] = useState<Table | null>(table);
   const [ordersApiTotalAmount, setOrdersApiTotalAmount] = useState<number>(0);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferNotification, setTransferNotification] = useState<{
+    show: boolean;
+    message: string;
+  }>({ show: false, message: '' });
 
   // Format session duration
   const formatDuration = (start?: Date | string) => {
@@ -114,6 +120,53 @@ export function OccupiedTableDetailsPanel({
     } finally {
       setIsPrintingBill(false);
     }
+  };
+
+  // Handle table transfer functionality
+  const handleMoveTable = () => {
+    setShowTransferModal(true);
+  };
+
+  const handleTransferComplete = async (toTableId: string) => {
+    // Get destination table name for success message
+    try {
+      const response = await fetch('/api/pos/tables');
+      if (response.ok) {
+        const data = await response.json();
+        const toTable = data.tables.find((t: Table) => t.id === toTableId);
+        const fromTableName = table?.displayName || 'table';
+        const toTableName = toTable?.displayName || 'new table';
+        
+        // Show success notification
+        setTransferNotification({
+          show: true,
+          message: `Moved from ${fromTableName} to ${toTableName}`
+        });
+      } else {
+        // Fallback if we can't get table names
+        setTransferNotification({
+          show: true,
+          message: 'Table transfer completed'
+        });
+      }
+    } catch (error) {
+      console.error('Error showing transfer success:', error);
+      setTransferNotification({
+        show: true,
+        message: 'Table transfer completed'
+      });
+    }
+
+    // Hide notification after 3 seconds and close panel
+    setTimeout(() => {
+      setTransferNotification({ show: false, message: '' });
+      onClose();
+      
+      // Refresh table data after successful transfer
+      if (onRefreshTable) {
+        onRefreshTable();
+      }
+    }, 3000);
   };
 
   // Receipt discount handlers
@@ -272,20 +325,21 @@ export function OccupiedTableDetailsPanel({
   const totalDiscountAmount = itemLevelDiscounts + receiptLevelDiscounts;
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
-            onClick={onClose}
-          />
-          
-          {/* Bottom Sheet Panel */}
-          <motion.div
+    <>
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+              onClick={onClose}
+            />
+            
+            {/* Bottom Sheet Panel */}
+            <motion.div
             initial={{ y: 300, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 300, opacity: 0, scale: 0.95 }}
@@ -324,9 +378,24 @@ export function OccupiedTableDetailsPanel({
                     
                     {/* Table Info - Cleaner Layout */}
                     <div className="space-y-1">
-                      <h2 className="text-2xl font-bold text-blue-900">
-                        {table.displayName}
-                      </h2>
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-2xl font-bold text-blue-900">
+                          {table.displayName}
+                        </h2>
+                        {/* Move Table Button in Header */}
+                        {orderItems.length > 0 && (
+                          <Button
+                            data-testid="move-table-button"
+                            onClick={handleMoveTable}
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-3 text-blue-600 hover:text-blue-800 hover:bg-blue-100 font-medium text-sm transition-all duration-150 active:scale-[0.98] touch-manipulation"
+                          >
+                            <ArrowRightLeft className="w-4 h-4 mr-1.5" />
+                            Move
+                          </Button>
+                        )}
+                      </div>
                       {customer && (
                         <div className="text-base text-blue-700 font-medium">
                           {customer.name}
@@ -470,6 +539,7 @@ export function OccupiedTableDetailsPanel({
                     </Button>
                   )}
 
+
                   {/* Payment Button */}
                   <Button
                     onClick={onPayment}
@@ -494,8 +564,57 @@ export function OccupiedTableDetailsPanel({
                 </div>
               </motion.div>
           </motion.div>
-        </>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Transfer Success Notification - Top Right */}
+      <AnimatePresence>
+        {transferNotification.show && (
+          <div className="fixed top-4 right-4 z-[70]">
+            <motion.div
+              initial={{ opacity: 0, x: 300 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 300 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="bg-white border border-green-200 shadow-lg rounded-lg overflow-hidden max-w-xs"
+            >
+              <div className="border-l-4 bg-green-50 border-green-400 p-3">
+                <div className="flex items-center">
+                  <motion.div
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ delay: 0.1, duration: 0.3 }}
+                    className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mr-3 bg-green-400"
+                  >
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </motion.div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate text-green-800">
+                      Table Moved
+                    </p>
+                    <p className="text-xs truncate text-green-600">
+                      {transferNotification.message}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Table Transfer Modal */}
+      {table && (
+        <TableTransferModal
+          isOpen={showTransferModal}
+          currentTable={table}
+          onClose={() => setShowTransferModal(false)}
+          onTransferComplete={handleTransferComplete}
+        />
       )}
-    </AnimatePresence>
+    </>
   );
 }

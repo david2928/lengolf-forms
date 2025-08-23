@@ -66,7 +66,7 @@ export async function GET(
         status: tableData.current_session.status,
         paxCount: tableData.current_session.pax_count,
         bookingId: tableData.current_session.booking_id,
-        staffPin: tableData.current_session.staff_pin,
+        staffId: tableData.current_session.staff_pin,
         sessionStart: tableData.current_session.session_start ? new Date(tableData.current_session.session_start) : undefined,
         sessionEnd: tableData.current_session.session_end ? new Date(tableData.current_session.session_end) : undefined,
         totalAmount: parseFloat(tableData.current_session.total_amount || '0'),

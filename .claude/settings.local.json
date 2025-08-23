@@ -90,9 +90,13 @@
       "Bash(git branch:*)",
       "WebFetch(domain:booking.len.golf)",
       "WebFetch(domain:developers.facebook.com)",
-      "WebSearch"
+      "WebSearch",
+      "mcp__playwright__browser_tab_select"
     ],
-    "deny": []
+    "deny": [],
+    "additionalDirectories": [
+      "C:\\c\\vs_code\\lengolf-forms-feature\\lengolf-forms"
+    ]
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [

@@ -12,10 +12,12 @@ The Finance Dashboard provides comprehensive financial reporting with automated 
 ### Key Features
 
 - **Automated P&L Generation**: Real-time profit & loss statements with intelligent data sourcing
+- **Comprehensive POS Data Integration**: Complete historical POS data from March 2024 onwards (16,000+ transactions)
 - **Hierarchical Expense Management**: Three-tier categorization (Category → Subcategory → Expense Type)
 - **Multi-Source Integration**: POS sales, Google/Meta Ads API, manual revenue/expense entries
-- **Historical Data Integration**: 17+ months of imported financial history from CSV
+- **Historical Data Fallback**: Imported CSV data for months with missing POS/API data
 - **Run-Rate Projections**: Intelligent extrapolation based on current month performance
+- **Fixed EBITDA Calculations**: Corrected run-rate EBITDA calculation using proper component alignment
 - **Dynamic Calculations**: Real-time EBITDA, gross profit, and margin calculations
 - **Sort Order Management**: Customizable display ordering for expense presentation
 - **Cost Type Classification**: One-time vs recurring expense categorization
@@ -177,20 +179,107 @@ CREATE OR REPLACE FUNCTION finance.get_monthly_pl(
 ```
 
 **Features:**
-- Integrates POS sales data from `pos.lengolf_sales`
-- Includes marketing spend from Google Ads and Meta Ads API data
-- Calculates prorated operating expenses for current month
-- Provides detailed expense breakdowns by category and subcategory
-- Returns structured JSON with run-rate projections when enabled
-- Handles manual revenue and expense entries
-- Processes historical data integration
+- **Fixed POS Data Integration**: Queries POS sales data from `pos.lengolf_sales` for ALL months (removed August 2025+ restriction)
+- **Comprehensive Data Coverage**: Handles 16,000+ POS transactions from March 2024 onwards
+- **Intelligent Historical Fallback**: Uses `finance.historical_pl_data` only when POS data is genuinely unavailable
+- **Fixed COGS Calculation**: Properly uses `pos.lengolf_sales.sales_cost` for all available months
+- **Marketing API Integration**: Includes Google Ads and Meta Ads spend from marketing schema
+- **Prorated Operating Expenses**: Accurate current month proration based on days elapsed
+- **Hierarchical Expense Organization**: Detailed breakdown by category and subcategory with proper sort ordering
+- **Run-Rate Projections**: Intelligent extrapolation with component-aligned calculations
+- **Manual Entry Integration**: Handles manual revenue and expense entries
+- **Data Source Indicators**: Returns flags showing which data sources are available for each month
 
-**Key Calculations:**
-- **Revenue**: Total Sales, Net Sales (excluding Events), Manual Revenue additions
-- **COGS**: Calculated from POS data and historical imports
-- **Operating Expenses**: Prorated for current month, full amount for past months
-- **Marketing Expenses**: Google Ads + Meta Ads API + Marketing category operating expenses
-- **EBITDA**: Gross Profit - Operating Expenses - Marketing Expenses
+## Critical Data Availability Update (August 2025)
+
+**IMPORTANT CORRECTION**: POS data is available from **March 2024 onwards**, not August 2025+ as previously documented. The `pos.lengolf_sales` table contains comprehensive historical data with 16,000+ transactions dating back to March 16, 2024.
+
+### Data Source Priority by Month
+
+**March 2024 - Present**: Primary POS data from `pos.lengolf_sales` 
+**Pre-March 2024**: Historical CSV data fallback from `finance.historical_pl_data`
+**All Months**: Marketing API data and manual entries supplement POS data
+
+### Key P&L Line Items and Data Sources (Based on Actual Database Implementation)
+
+| P&L Line Item | Primary Data Source | Exact Calculation Method | Historical Fallback | Run-Rate Logic |
+|---------------|-------------|-------------------------|-------------------|----------------|
+| **Total Sales** | POS (Mar 2024+) | `SUM(pos.lengolf_sales.sales_total)` - gross before discounts | `historical_data."Total Sales"` | `actual × (days_in_month ÷ days_elapsed)` |
+| **Net Sales** | POS (Mar 2024+) | `SUM(pos.lengolf_sales.sales_net)` - after discounts, before VAT | `historical_data."Net Sales"` | `actual × (days_in_month ÷ days_elapsed)` |
+| **Manual Revenue** | Manual Entries | `SUM(finance.manual_revenue_entries.amount)` by month | N/A | **No run-rate scaling** (fixed amounts) |
+| **Combined Total Sales** | Calculated | `total_sales + manual_revenue` | `historical_total_sales + manual_revenue` | `(total_sales × run-rate) + manual_revenue` |
+| **Combined Net Sales** | Calculated | `net_sales + manual_revenue` | `historical_net_sales + manual_revenue` | `(net_sales × run-rate) + manual_revenue` |
+| **Total COGS** | POS (Mar 2024+) | `SUM(pos.lengolf_sales.sales_cost)` | `historical_data."COGS"` | `actual × (days_in_month ÷ days_elapsed)` |
+| **Gross Profit** | Calculated | `combined_net_sales - total_cogs` | `historical_gross_profit` | `run_rate_combined_net - run_rate_total_cogs` |
+| **Operating Expenses** | Finance DB | Complex hierarchical system (detailed below) | `historical_data."Total Operating Expenses"` | Mixed logic by cost_type |
+| **Google Ads** | Marketing API | `SUM(marketing.google_ads_campaign_performance.cost_micros ÷ 1,000,000)` | `historical_data."Total Marketing Expenses"` (partial) | `actual × (days_in_month ÷ days_elapsed)` |
+| **Meta Ads** | Marketing API | `SUM(marketing.meta_ads_campaign_performance.spend_cents ÷ 100)` | `historical_data."Total Marketing Expenses"` (partial) | `actual × (days_in_month ÷ days_elapsed)` |
+| **Manual Marketing** | Manual Entries | `SUM(finance.manual_expense_entries.amount)` for Marketing category | N/A | **No run-rate scaling** (fixed amounts) |
+| **Total Marketing** | Calculated | `google_ads + meta_ads + manual_marketing_expenses` | `historical_marketing_expenses` | Sum of individual run-rates |
+| **EBITDA** | Calculated | `gross_profit - operating_expenses - marketing_expenses` | `historical_ebitda` | Uses run-rate values for ALL components |
+
+**Operating Expenses Calculation Logic (Exact Database Implementation):**
+```sql
+-- Source: finance.operating_expenses_detailed view
+-- Filters: effective_date <= calculation_cutoff AND (end_date IS NULL OR end_date >= month_start)
+-- Category Filter: ONLY category_name = 'Operating Expenses' (excludes Marketing Expenses)
+
+-- Current Month Calculation (Actual Values):
+SELECT SUM(
+  CASE 
+    WHEN cost_type = 'one_time' THEN amount  -- One-time: full amount regardless of timing
+    ELSE amount * days_elapsed / days_in_month  -- Recurring: prorated by days elapsed
+  END
+) FROM finance.operating_expenses_detailed
+WHERE effective_date <= calculation_cutoff
+  AND (end_date IS NULL OR end_date >= month_start)
+  AND category_name = 'Operating Expenses';  -- CRITICAL: Only Operating Expenses
+
+-- Run-Rate Calculation (Full Monthly Projections):
+SELECT SUM(amount)  -- Always use full monthly amounts for run-rate
+FROM finance.operating_expenses_detailed
+WHERE effective_date <= calculation_cutoff
+  AND (end_date IS NULL OR end_date >= month_start)
+  AND category_name = 'Operating Expenses';
+
+-- Hierarchical Structure:
+-- Category: "Operating Expenses" 
+--   ├── Subcategory: "Fixed Cost" → Rent, Insurance, Building Tax, Golf Balls, Bay Material
+--   ├── Subcategory: "Variable Cost" → Utilities
+--   └── Subcategory: "Salaries" → Staff Salaries, Operational Support, Service Tax
+
+-- Marketing expenses in Operating system (category_name = 'Marketing Expenses'):
+--   ├── Subcategory: "Online Marketing" → LINE
+--   └── Subcategory: "Offline Marketing" → Video Content
+```
+
+**Marketing Expenses Components (Total = Google + Meta + Manual):**
+```sql
+-- Component 1: Google Ads (API Source)
+SELECT SUM(cost_micros / 1000000.0) as google_ads_spend
+FROM marketing.google_ads_campaign_performance
+WHERE date >= month_start AND date <= calculation_cutoff;
+
+-- Component 2: Meta Ads (API Source)  
+SELECT SUM(spend_cents / 100.0) as meta_ads_spend
+FROM marketing.meta_ads_campaign_performance  
+WHERE date >= month_start AND date <= calculation_cutoff;
+
+-- Component 3: Manual Marketing Expenses (Manual Entry Source)
+SELECT SUM(amount) as manual_marketing_expenses
+FROM finance.manual_expense_entries
+WHERE DATE_TRUNC('month', date) = month_start;
+
+-- Total Marketing Expenses:
+total_marketing = google_ads + meta_ads + manual_marketing_expenses
+
+-- Run-Rate Logic:
+-- Google/Meta Ads: actual × (days_in_month ÷ days_elapsed)
+-- Manual Marketing: No scaling (fixed amounts)
+```
+
+**Important Note on Marketing Expenses in Operating System:**
+The database function does NOT include Operating Expenses with category = 'Marketing Expenses' (like LINE, Video Content) in the main marketing_expenses calculation. These appear separately in the operating_expenses.by_category structure and are handled by the frontend for display purposes only.
 
 #### Supporting Functions
 
@@ -444,6 +533,52 @@ interface OperatingExpense {
 }
 ```
 
+#### PLComparisonView Component
+**Location**: `src/components/finance-dashboard/PLComparisonView.tsx`
+
+The monthly P&L comparison component featuring:
+
+- **Side-by-side Monthly Comparison**: Shows up to 6 months of P&L data in tabular format
+- **Unified Run-Rate Control**: Controlled by header toggle, no duplicate controls
+- **Historical Data Integration**: Automatically falls back to historical data when POS/API data is unavailable
+- **Expandable Sections**: Net Sales, Operating Expenses, and Marketing Expenses can be expanded to show detail
+- **Manual Revenue Integration**: Events, ClassPass, and Gowabi revenue displayed as expandable subsections under Net Sales
+- **Intelligent COGS Handling**: Uses `cogs.total_cogs` with fallback to `cogs.historical_cogs` for historical months
+- **Variance Calculations**: Month-over-month percentage changes with color-coded indicators
+
+**Key Implementation Features:**
+```typescript
+// Historical Data Fallback Logic
+const getValue = (data: PLData, path: string, historicalPath?: string): number => {
+  // Try regular path first
+  const value = getNestedValue(data, path);
+  
+  // If value is 0 or null and historical path exists, use historical
+  if ((typeof value !== 'number' || value === 0) && historicalPath) {
+    const historicalValue = getNestedValue(data, historicalPath);
+    if (typeof historicalValue === 'number') {
+      return historicalValue; // Use historical data
+    }
+  }
+  
+  return typeof value === 'number' ? value : 0;
+};
+
+// Run-Rate EBITDA Calculation (in comparison view)
+if (monthData.is_current_month && showRunRate && monthData.run_rate_projections?.gross_profit) {
+  grossProfit = monthData.run_rate_projections.gross_profit; // Use run-rate gross profit
+} else {
+  grossProfit = monthData.gross_profit?.calculated || monthData.gross_profit?.historical_gross_profit || 0;
+}
+const ebitda = grossProfit - operatingExpenses - marketingExpenses;
+```
+
+**Data Source Integration in Comparison:**
+- **Current Month**: Uses live POS + API data with run-rate projections
+- **Historical Months**: Falls back to imported historical data when POS shows ฿0
+- **Mixed Data Sources**: Combines POS, API, manual entries, and historical data seamlessly
+- **Variance Indicators**: Shows month-over-month changes with trending arrows
+
 #### Supporting Components
 
 **ExpenseModal** (`components/ExpenseModal.tsx`):
@@ -518,21 +653,37 @@ export interface PLData {
 
 ### POS Sales Integration
 
-Real-time sales data integration from the existing POS system:
+**Complete Historical Coverage**: POS data available from March 16, 2024 onwards with 16,000+ transactions.
 
 ```sql
--- Total Sales (all transactions)
-SELECT COALESCE(SUM(total_amount), 0) as total_sales
+-- CORRECTED: POS data queries work for ALL months from March 2024+
+-- Total Sales (gross before discounts)
+SELECT COALESCE(SUM(sales_total), 0) as total_sales
 FROM pos.lengolf_sales 
-WHERE DATE_TRUNC('month', order_date) = p_month_date;
+WHERE date >= v_month_start 
+  AND date <= v_calculation_cutoff
+  AND is_voided = false;
 
--- Net Sales (excluding Events category)
-SELECT COALESCE(SUM(s.total_amount), 0) as net_sales
-FROM pos.lengolf_sales s
-LEFT JOIN pos.products p ON s.product_id = p.id
-WHERE DATE_TRUNC('month', s.order_date) = p_month_date
-  AND (p.category_name != 'Events' OR p.category_name IS NULL);
+-- Net Sales (after discounts, before VAT)
+SELECT COALESCE(SUM(sales_net), 0) as net_sales
+FROM pos.lengolf_sales
+WHERE date >= v_month_start 
+  AND date <= v_calculation_cutoff
+  AND is_voided = false;
+
+-- COGS (Cost of Goods Sold)
+SELECT COALESCE(SUM(sales_cost), 0) as pos_cogs
+FROM pos.lengolf_sales
+WHERE date >= v_month_start 
+  AND date <= v_calculation_cutoff
+  AND is_voided = false;
 ```
+
+**Key Database Function Fixes (August 2025):**
+- **Removed August 2025+ restriction**: POS queries now work for all months with available data
+- **Fixed column references**: Uses correct `date` column instead of `order_date`
+- **Proper sales categorization**: Separates `sales_total` (gross) and `sales_net` (after discounts)
+- **Complete COGS integration**: Uses `sales_cost` from POS data for accurate gross profit calculations
 
 ### Marketing Campaign Integration
 
@@ -584,43 +735,165 @@ ORDER BY et.sort_order, et.name;
 
 #### Run-Rate Projections
 
-Run-rate calculations use "days elapsed through yesterday" logic:
+Run-rate calculations use "days elapsed through yesterday" logic with different approaches per line item:
 
 ```typescript
-// Frontend calculation logic
-const today = new Date();
-const cutoffDate = new Date(today);
-cutoffDate.setDate(today.getDate() - 1); // Yesterday
-
-const daysElapsed = Math.min(cutoffDate.getDate(), totalDaysInMonth);
-const runRateMultiplier = totalDaysInMonth / Math.max(daysElapsed, 1);
-
-// Variable expenses (sales-based)
-const projectedRevenue = currentRevenue * runRateMultiplier;
-
-// Fixed expenses (no proration)
-const projectedFixedExpenses = currentFixedExpenses * runRateMultiplier;
-
-// Mixed calculation for combined values
-const projectedCombinedRevenue = 
-  (currentVariableRevenue * runRateMultiplier) + currentManualRevenue;
+// Base calculation date (database-side)
+const calculationDate = new Date();
+calculationDate.setDate(calculationDate.getDate() - 1); // Yesterday
+const daysElapsed = calculationDate.getDate();
+const daysInMonth = new Date(year, month, 0).getDate();
+const runRateMultiplier = daysInMonth / Math.max(daysElapsed, 1);
 ```
+
+**Run-Rate Calculation by Line Item (Exact Database Implementation):**
+
+**Revenue Items:**
+```sql
+-- POS Sales (Variable - scale with time)
+'total_sales': v_total_sales * v_days_in_month / v_days_elapsed,
+'net_sales': v_net_sales * v_days_in_month / v_days_elapsed,
+
+-- Manual Revenue (Fixed - no scaling)
+-- Manual revenue is added to run-rate sales WITHOUT scaling
+'combined_total': (v_total_sales * v_days_in_month / v_days_elapsed) + v_manual_revenue,
+'combined_net': (v_net_sales * v_days_in_month / v_days_elapsed) + v_manual_revenue,
+```
+
+**Cost Items:**
+```sql
+-- COGS (Variable - scales with sales)
+'total_cogs': v_pos_cogs * v_days_in_month / v_days_elapsed,
+
+-- Gross Profit
+'gross_profit': ((v_net_sales * v_days_in_month / v_days_elapsed) + v_manual_revenue) - 
+                (v_pos_cogs * v_days_in_month / v_days_elapsed),
+
+-- Operating Expenses (Always full monthly amounts for run-rate)
+'operating_expenses': (SELECT SUM(amount) FROM finance.operating_expenses_detailed 
+                      WHERE effective_date <= calculation_cutoff 
+                      AND (end_date IS NULL OR end_date >= month_start)
+                      AND category_name = 'Operating Expenses'),
+
+-- Marketing API Expenses (Variable - scale with time)
+'google_ads': v_google_spend * v_days_in_month / v_days_elapsed,
+'meta_ads': v_meta_spend * v_days_in_month / v_days_elapsed,
+```
+
+**Final EBITDA Calculation (Database vs Frontend Implementation):**
+
+**Database Implementation:**
+```sql
+-- Database calculates run-rate EBITDA as:
+'ebitda': (
+    ((v_net_sales * v_days_in_month / v_days_elapsed) + v_manual_revenue) - 
+    (v_pos_cogs * v_days_in_month / v_days_elapsed) - 
+    (SELECT SUM(amount) FROM finance.operating_expenses_detailed 
+     WHERE effective_date <= calculation_cutoff 
+     AND (end_date IS NULL OR end_date >= month_start)
+     AND category_name = 'Operating Expenses') - 
+    ((v_google_spend + v_meta_spend) * v_days_in_month / v_days_elapsed + v_manual_expenses)
+)
+```
+
+**Frontend Implementation (OVERRIDES Database EBITDA):**
+```typescript
+// Frontend recalculates EBITDA for component alignment
+// CRITICAL FIX: Always uses run-rate gross profit when run-rate is enabled
+let grossProfit;
+if (monthData.is_current_month && showRunRate && monthData.run_rate_projections?.gross_profit) {
+  grossProfit = monthData.run_rate_projections.gross_profit; // ฿534,961 for run-rate
+} else {
+  grossProfit = monthData.gross_profit?.calculated || monthData.gross_profit?.historical_gross_profit || 0;
+}
+
+const ebitda = grossProfit - operatingExpenses - marketingExpenses;
+```
+
+**Critical Fix Result (August 2025):**
+- **Before Fix**: EBITDA showed ฿101,833 (using actual gross profit ฿368,748)
+- **After Fix**: EBITDA shows ฿268,046 (using run-rate gross profit ฿534,961)
+- **Formula Validation**: ฿534,961 - ฿220,222 - ฿46,693 = ฿268,046 ✅
+
+**Data Source Labels in Frontend:**
+- **"POS"**: Direct from pos.lengolf_sales table
+- **"API"**: Google Ads/Meta Ads from marketing schema tables
+- **"Manual"**: User-entered manual revenue/expense entries
+- **"Calc"**: Calculated values (EBITDA, Gross Profit, totals)
+- **"Projected"**: Run-rate extrapolations (only current month)
 
 #### EBITDA Calculation
 
-EBITDA uses direct subtraction methodology:
+EBITDA uses direct subtraction methodology with intelligent component selection:
 
 ```typescript
-// Current month EBITDA
-const ebitda = grossProfit - operatingExpenses - marketingExpenses;
+// EBITDA Formula (Always):
+// EBITDA = Gross Profit - Operating Expenses - Marketing Expenses
 
-// Where:
-const grossProfit = combinedNetRevenue - totalCOGS;
-const operatingExpenses = expenses.by_category["Operating Expenses"].total;
-const marketingExpenses = 
-  googleAds + metaAds + 
-  expenses.by_category["Marketing Expenses"].total;
+// Component Selection Logic:
+// 1. Historical Months: Use historical values
+// 2. Current Month (Actual): Use actual/calculated values  
+// 3. Current Month (Run-Rate): Use run-rate projections
+
+// Gross Profit Selection:
+let grossProfit;
+if (monthData.is_current_month && showRunRate && monthData.run_rate_projections?.gross_profit) {
+  grossProfit = monthData.run_rate_projections.gross_profit; // Run-rate value
+} else {
+  grossProfit = monthData.gross_profit?.calculated || monthData.gross_profit?.historical_gross_profit || 0;
+}
+
+// Operating Expenses:
+const operatingExpenses = getOperatingExpensesTotalByMonth(month, showRunRate);
+// This function returns:
+// - showRunRate=false: Prorated amounts for current month
+// - showRunRate=true: Full monthly amounts (run-rate)
+// - Historical months: Full historical amounts
+
+// Marketing Expenses:
+const marketingExpenses = getMarketingExpensesTotalByMonth(month, showRunRate);  
+// Components: googleAds + metaAds + operatingMarketingExpenses
+// - Google/Meta Ads: API projections when run-rate enabled
+// - Operating Marketing: Full monthly amounts when run-rate enabled
+
+// Final Calculation:
+const ebitda = grossProfit - operatingExpenses - marketingExpenses;
 ```
+
+**Critical EBITDA Implementation Details (Frontend vs Database):**
+
+**Frontend Implementation (PLComparisonView.tsx) - CRITICAL FIX:**
+- **Always recalculates EBITDA**: Never uses database run-rate EBITDA projection
+- **Fixed Component Alignment**: Ensures all components use matching run-rate/actual states
+- **Run-Rate Logic Fix**: 
+  ```typescript
+  // FIXED: Now correctly uses run-rate gross profit when run-rate enabled
+  if (monthData.is_current_month && showRunRate && monthData.run_rate_projections?.gross_profit) {
+    grossProfit = monthData.run_rate_projections.gross_profit; // ฿534,961 for Aug 2025 run-rate
+  } else {
+    grossProfit = monthData.gross_profit?.calculated || monthData.gross_profit?.historical_gross_profit || 0;
+  }
+  
+  const ebitda = grossProfit - operatingExpenses - marketingExpenses;
+  ```
+- **Historical Fallback**: Uses `historical_ebitda` only for months with no POS/API data
+- **Universal Application**: Same calculation method in both P&L statement and comparison views
+
+**Database Implementation (get_monthly_pl function):**
+- **Still calculates run-rate EBITDA**: Database returns calculated run-rate EBITDA in API response
+- **Frontend override necessary**: Frontend recalculates to ensure component alignment consistency
+- **Reason for override**: Prevents component state mismatches between actual/run-rate modes
+
+**August 2025 EBITDA Fix Results:**
+- **Before Fix**: ฿101,833 (incorrectly used actual gross profit ฿368,748 in run-rate mode)
+- **After Fix**: ฿268,046 (correctly uses run-rate gross profit ฿534,961 in run-rate mode)
+- **Component Alignment**: All components (Gross Profit, Operating, Marketing) now consistently use run-rate values
+- **Formula Verification**: ฿534,961 - ฿220,222 - ฿46,693 = ฿268,046 ✅
+
+**Impact on User Experience:**
+- **Accurate Projections**: Run-rate EBITDA now provides realistic monthly projection
+- **Consistent UI**: No more component state mismatches between P&L views
+- **Reliable Decision Making**: Management can trust run-rate figures for planning
 
 #### Expense Categorization Logic
 
@@ -918,6 +1191,128 @@ npm run build
 # Database migration verification (if applicable)
 # Check stored procedure syntax
 # Verify view definitions
+```
+
+## Recent Critical Fixes (August 2025)
+
+### Major Database Function Corrections
+
+**1. POS Data Availability Correction (CRITICAL):**
+- **Issue**: Database function incorrectly assumed POS data only available from August 2025+
+- **Reality**: POS data available from March 16, 2024 with 16,000+ transactions
+- **Fix**: Removed conditional logic restricting POS queries to August 2025+
+- **Impact**: Historical months now show actual POS sales instead of ฿0
+
+**2. EBITDA Run-Rate Calculation Fix:**
+- **Issue**: EBITDA showing ฿101,833 instead of expected ~฿268,000 for run-rate
+- **Root Cause**: Frontend using actual gross profit (฿368,748) instead of run-rate gross profit (฿534,961)
+- **Fix**: Component alignment ensures all EBITDA components use matching run-rate/actual states
+- **Result**: Run-rate EBITDA now correctly shows ฿268,046
+
+**3. Historical Data Fallback Implementation:**
+- **Issue**: Historical months showing ฿0 for COGS, marketing expenses
+- **Fix**: Added `getValue()` function with intelligent historical fallback logic
+- **Implementation**: Uses POS/API data when available, falls back to historical CSV data when needed
+
+### P&L Comparison View Improvements
+
+**Issues Resolved:**
+1. **Duplicate Run-Rate Toggles**: Removed duplicate toggle, now controlled by single header toggle
+2. **Manual Revenue Integration**: Added Events, ClassPass, Gowabi as expandable subsections under Net Sales
+3. **Component State Consistency**: Fixed EBITDA component alignment between actual and run-rate modes
+4. **Historical Data Integration**: Seamless combination of live POS/API data with historical CSV fallbacks
+5. **Marketing Expense Calculation**: Proper aggregation of Google Ads + Meta Ads + manual entries
+
+**Key Implementation Logic (Current Working Code):**
+
+```typescript
+// Historical Data Fallback Pattern (PLComparisonView.tsx)
+const getValue = (data: PLData, path: string, historicalPath?: string): number => {
+  if (!path) return 0;
+  
+  // First try to get the regular value
+  const keys = path.split('.');
+  let value: any = data;
+  for (const key of keys) {
+    value = value?.[key];
+  }
+  
+  // If the value is 0 or null and we have a historical path, try historical
+  if ((typeof value !== 'number' || value === 0) && historicalPath) {
+    const historicalKeys = historicalPath.split('.');
+    let historicalValue: any = data;
+    for (const key of historicalKeys) {
+      historicalValue = historicalValue?.[key];
+    }
+    
+    if (typeof historicalValue === 'number') {
+      return historicalValue; // Use historical when POS/API data is unavailable
+    }
+  }
+  
+  return typeof value === 'number' ? value : 0;
+};
+
+// FIXED EBITDA Calculation (Component Alignment)
+const hasLiveData = monthData.data_sources?.has_pos_data || monthData.data_sources?.has_marketing_data;
+
+if (hasLiveData || monthData.is_current_month) {
+  // Calculate EBITDA = Gross Profit - Operating Expenses - Marketing Expenses
+  
+  // CRITICAL FIX: Use run-rate gross profit when run-rate enabled
+  let grossProfit;
+  if (monthData.is_current_month && showRunRate && monthData.run_rate_projections?.gross_profit) {
+    grossProfit = monthData.run_rate_projections.gross_profit; // ฿534,961 for run-rate
+  } else {
+    grossProfit = monthData.gross_profit?.calculated || monthData.gross_profit?.historical_gross_profit || 0;
+  }
+  
+  const operatingExpenses = getOperatingExpensesTotalByMonth(month, showRunRate);
+  const marketingExpenses = getMarketingExpensesTotalByMonth(month, showRunRate);  
+  
+  const ebitda = grossProfit - operatingExpenses - marketingExpenses; // ฿268,046
+  acc[month] = ebitda;
+} else {
+  // Use historical EBITDA for months with no live data
+  acc[month] = monthData.ebitda?.historical_ebitda || 0;
+}
+```
+
+**Database Function Corrections (get_monthly_pl):**
+```sql
+-- FIXED: POS data query works for ALL months (removed August 2025+ restriction)
+SELECT 
+  COALESCE(SUM(sales_total), 0),    -- Total Sales (gross)
+  COALESCE(SUM(sales_net), 0),      -- Net Sales (after discounts)
+  COALESCE(SUM(sales_cost), 0),     -- COGS
+  COALESCE(SUM(gross_profit), 0)    -- POS calculated gross profit
+INTO v_total_sales, v_net_sales, v_pos_cogs, v_pos_gross_profit
+FROM pos.lengolf_sales
+WHERE date >= v_month_start 
+  AND date <= v_calculation_cutoff
+  AND is_voided = false;
+-- NOTE: No longer restricts to August 2025+ - works for all months with POS data
+```
+
+**Data Integration Architecture (Post-Fix):**
+- **March 2024 - Present**: Primary POS data (16,000+ transactions) + Marketing API + Manual entries + Operating expenses
+- **Pre-March 2024**: Historical CSV data from `finance.historical_pl_data`
+- **Current Month**: Full feature set with run-rate projections and component-aligned EBITDA calculations
+- **Historical Months**: Intelligent fallback system uses historical data only when POS/API data is genuinely unavailable
+- **Mixed Sources**: Seamlessly combines live POS data, API data, manual entries, and historical fallback for complete P&L coverage
+
+**Data Source Decision Matrix:**
+```typescript
+// For each P&L line item, system decides:
+if (has_pos_data_for_month && line_item_available_in_pos) {
+  return pos_data; // Primary: Use POS data (Mar 2024+)
+} else if (has_api_data_for_month && line_item_available_in_api) {
+  return api_data; // Secondary: Use Marketing API data
+} else if (has_historical_data_for_month) {
+  return historical_data; // Fallback: Use imported CSV data
+} else {
+  return 0; // No data available
+}
 ```
 
 ## Troubleshooting

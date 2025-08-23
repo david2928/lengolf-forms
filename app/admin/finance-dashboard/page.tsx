@@ -26,13 +26,14 @@ import {
 // Import our finance dashboard components (we'll create these next)
 import FinanceKPICards from '@/components/finance-dashboard/FinanceKPICards';
 import PLStatement from '@/components/finance-dashboard/PLStatement';
-import FinanceCharts from '@/components/finance-dashboard/FinanceCharts';
+import PLComparisonView from '@/components/finance-dashboard/PLComparisonView';
 
 // Import finance dashboard hooks
 import { useFinanceDashboard } from '@/hooks/useFinanceDashboard';
+import { usePLComparison, useDefaultComparisonMonths, getCurrentMonth } from '@/hooks/usePLComparison';
 
 type ViewMode = 'actual' | 'runrate';
-type DashboardTab = 'pl-statement' | 'trends';
+type DashboardTab = 'pl-statement' | 'comparison';
 
 export default function FinanceDashboardPage() {
   // Dashboard state
@@ -44,13 +45,17 @@ export default function FinanceDashboardPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('actual');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   
+  // Comparison view state
+  const defaultComparisonMonths = useDefaultComparisonMonths();
+  const [comparisonMonths, setComparisonMonths] = useState<string[]>(defaultComparisonMonths);
+  
   // Check if current month is selected for run-rate toggle
   const currentMonth = new Date().toISOString().slice(0, 7);
   const isCurrentMonth = selectedMonth === currentMonth;
   
   // Use the finance dashboard hook with caching
   const {
-    data: { plData, trendsData, kpiData },
+    data: { plData, kpiData },
     isLoading,
     isValidating: isRefreshing,
     isError,
@@ -60,7 +65,18 @@ export default function FinanceDashboardPage() {
     month: selectedMonth,
     includeRunRate: isCurrentMonth && viewMode === 'runrate',
     refreshInterval: 0, // No auto-refresh, manual only
-    enabled: true
+    enabled: activeTab !== 'comparison'
+  });
+
+  // Use comparison hook for comparison tab
+  const {
+    data: comparisonData,
+    isLoading: comparisonLoading,
+    error: comparisonError
+  } = usePLComparison({
+    months: comparisonMonths,
+    includeRunRate: true,
+    enabled: activeTab === 'comparison'
   });
 
   // Handle refresh
@@ -100,16 +116,19 @@ export default function FinanceDashboardPage() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Generate month options (last 24 months)
+  // Generate month options from April 2024 to current month
   const generateMonthOptions = () => {
     const options = [];
     const now = new Date();
+    const startDate = new Date(2024, 3, 1); // April 2024 (month is 0-based)
+    const currentDate = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    for (let i = 0; i < 24; i++) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const date = new Date(currentDate);
+    while (date >= startDate) {
       const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
       options.push({ value, label });
+      date.setMonth(date.getMonth() - 1);
     }
     
     return options;
@@ -207,12 +226,33 @@ export default function FinanceDashboardPage() {
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Select month" />
                 </SelectTrigger>
-                <SelectContent>
-                  {monthOptions.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-80">
+                  {/* Group months by year for easier navigation */}
+                  {(() => {
+                    const groupedOptions = monthOptions.reduce((acc, option) => {
+                      const year = option.value.split('-')[0];
+                      if (!acc[year]) acc[year] = [];
+                      acc[year].push(option);
+                      return acc;
+                    }, {} as Record<string, typeof monthOptions>);
+                    
+                    return Object.entries(groupedOptions)
+                      .sort(([a], [b]) => parseInt(b) - parseInt(a)) // Most recent year first
+                      .map(([year, options]) => (
+                        <div key={year}>
+                          {Object.keys(groupedOptions).length > 1 && (
+                            <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">
+                              {year}
+                            </div>
+                          )}
+                          {options.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label.replace(` ${year}`, '')} {/* Remove year from label since it's in header */}
+                            </SelectItem>
+                          ))}
+                        </div>
+                      ));
+                  })()}
                 </SelectContent>
               </Select>
             </div>
@@ -278,27 +318,27 @@ export default function FinanceDashboardPage() {
             P&L Statement
           </button>
           <button
-            onClick={() => setActiveTab('trends')}
+            onClick={() => setActiveTab('comparison')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'trends'
+              activeTab === 'comparison'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            <TrendingUp className="h-4 w-4 inline mr-2" />
-            Trends & Analytics
+            <PieChart className="h-4 w-4 inline mr-2" />
+            Monthly Comparison
           </button>
         </nav>
       </div>
 
       {/* Error State */}
-      {isError && (
+      {(isError || comparisonError) && (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-red-600">
               <TrendingDown className="h-5 w-5" />
               <span className="font-medium">Error loading data:</span>
-              <span>{error?.message || 'Unknown error occurred'}</span>
+              <span>{error?.message || comparisonError?.message || 'Unknown error occurred'}</span>
             </div>
           </CardContent>
         </Card>
@@ -328,16 +368,20 @@ export default function FinanceDashboardPage() {
         </div>
       )}
 
-      {activeTab === 'trends' && (
+      {activeTab === 'comparison' && (
         <div className="space-y-6">
-          {/* Trends Charts */}
-          <FinanceCharts 
-            data={trendsData}
-            loading={isLoading}
-            selectedMonth={selectedMonth}
+          {/* P&L Comparison */}
+          <PLComparisonView
+            data={comparisonData}
+            loading={comparisonLoading}
+            selectedMonths={comparisonMonths}
+            onMonthsChange={setComparisonMonths}
+            currentMonth={currentMonth}
+            showRunRate={viewMode === 'runrate'}
           />
         </div>
       )}
+
     </div>
   );
 }

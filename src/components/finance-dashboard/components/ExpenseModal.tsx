@@ -99,7 +99,7 @@ export default function ExpenseModal({
     effective_date: new Date().toISOString().split('T')[0],
     end_date: '',
     notes: '',
-    cost_type: 'recurring',
+    cost_type: 'one_time', // Default to one-time for new expenses
     target_month: new Date().toISOString().slice(0, 7)
   });
 
@@ -145,6 +145,8 @@ export default function ExpenseModal({
     }
   }, [formData.subcategory_id, expenseTypes, expense]);
 
+  // REMOVED: Auto-suggest cost type logic that was overriding user selection
+
   // Fetch categories when modal opens for new expenses
   useEffect(() => {
     if (isOpen && !expense) {
@@ -163,7 +165,7 @@ export default function ExpenseModal({
         
         setFormData({
           expense_type_id: expense.expense_type_id.toString(),
-          expense_type_name: '',
+          expense_type_name: expense.expense_type?.name || '',
           category_id: '',
           subcategory_id: '',
           sort_order: '',
@@ -186,7 +188,7 @@ export default function ExpenseModal({
           effective_date: new Date().toISOString().split('T')[0],
           end_date: '',
           notes: '',
-          cost_type: 'recurring',
+          cost_type: 'one_time', // Default to one-time for new expenses
           target_month: new Date().toISOString().slice(0, 7)
         });
       }
@@ -198,9 +200,9 @@ export default function ExpenseModal({
     
     // Validation for new vs editing expense
     if (expense) {
-      // Editing: only require amount (expense_type_id is already set)
-      if (!formData.amount) {
-        toast.error('Please enter an amount');
+      // Editing: require amount and expense name
+      if (!formData.amount || !formData.expense_type_name) {
+        toast.error('Please enter an amount and expense name');
         return;
       }
     } else {
@@ -219,14 +221,19 @@ export default function ExpenseModal({
         ? `${formData.target_month}-01` 
         : formData.effective_date;
 
-      // For one-time expenses, set end_date to same month
-      const endDate = formData.cost_type === 'one_time'
-        ? `${formData.target_month}-31`
-        : formData.end_date || null;
+      // For one-time expenses, set end_date to last day of target month
+      let endDate = formData.end_date || null;
+      if (formData.cost_type === 'one_time') {
+        const year = parseInt(formData.target_month.split('-')[0]);
+        const month = parseInt(formData.target_month.split('-')[1]);
+        const lastDay = new Date(year, month, 0).getDate();
+        endDate = `${formData.target_month}-${lastDay.toString().padStart(2, '0')}`;
+      }
 
       const payload = expense ? {
-        // Editing existing expense - use existing expense_type_id
+        // Editing existing expense - allow updating expense type name
         expense_type_id: expense.expense_type_id,
+        expense_type_name: formData.expense_type_name, // Allow name changes
         amount: parseFloat(formData.amount),
         effective_date: effectiveDate,
         end_date: endDate,
@@ -295,24 +302,42 @@ export default function ExpenseModal({
           {formData.cost_type === 'recurring' ? (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="effective_date">Start Date *</Label>
+                <Label htmlFor="start_month">Start Month *</Label>
                 <Input
-                  id="effective_date"
-                  type="date"
-                  value={formData.effective_date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, effective_date: e.target.value }))}
+                  id="start_month"
+                  type="month"
+                  value={formData.effective_date.slice(0, 7)}
+                  onChange={(e) => setFormData(prev => ({ ...prev, effective_date: `${e.target.value}-01` }))}
+                  min="2024-04"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="end_date">End Date</Label>
+                <Label htmlFor="end_month">End Month</Label>
                 <Input
-                  id="end_date"
-                  type="date"
-                  value={formData.end_date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                  id="end_month"
+                  type="month"
+                  value={formData.end_date ? formData.end_date.slice(0, 7) : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      // Get the last day of the selected month
+                      const year = parseInt(e.target.value.split('-')[0]);
+                      const month = parseInt(e.target.value.split('-')[1]);
+                      const lastDay = new Date(year, month, 0).getDate();
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        end_date: `${e.target.value}-${lastDay.toString().padStart(2, '0')}`
+                      }));
+                    } else {
+                      setFormData(prev => ({ ...prev, end_date: '' }));
+                    }
+                  }}
+                  min="2024-04"
                   placeholder="Optional"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Leave empty for ongoing expenses
+                </p>
               </div>
             </div>
           ) : (
@@ -323,6 +348,7 @@ export default function ExpenseModal({
                 type="month"
                 value={formData.target_month}
                 onChange={(e) => setFormData(prev => ({ ...prev, target_month: e.target.value }))}
+                min="2024-04"
                 required
               />
             </div>
@@ -330,20 +356,26 @@ export default function ExpenseModal({
 
           {/* Expense Type Selection - Different UI for new vs editing */}
           {expense ? (
-            /* Editing existing expense - show expense type as read-only */
-            <div className="space-y-2">
-              <Label htmlFor="expense_type_display">Expense Type</Label>
-              <div className="space-y-3 p-4 bg-gray-50 rounded-lg border">
-                <div className="text-sm">
-                  <div className="font-medium text-gray-900">
-                    {expense.expense_type?.name || 'Unknown Expense Type'}
-                  </div>
-                  <div className="text-gray-600">
-                    {expense.expense_type?.expense_subcategory?.expense_category?.name} {' > '} {expense.expense_type?.expense_subcategory?.name}
-                  </div>
+            /* Editing existing expense - allow name editing */
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="expense_type_name">Expense Name *</Label>
+                <Input
+                  id="expense_type_name"
+                  type="text"
+                  value={formData.expense_type_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, expense_type_name: e.target.value }))}
+                  placeholder={expense.expense_type?.name || 'Enter expense name'}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Category & Subcategory</Label>
+                <div className="text-sm text-gray-600 p-3 bg-gray-50 rounded-lg">
+                  {expense.expense_type?.expense_subcategory?.expense_category?.name} {' > '} {expense.expense_type?.expense_subcategory?.name}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Expense type cannot be changed when editing. Create a new expense to use a different type.
+                  Category and subcategory cannot be changed when editing.
                 </p>
               </div>
             </div>

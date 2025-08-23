@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
           id,
           name,
           sort_order,
+          default_cost_type,
           expense_subcategory:expense_subcategories!subcategory_id(
             id,
             name,
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     // If creating a new expense type (no expense_type_id provided)
     if (!expense_type_id && expense_type_name && subcategory_id) {
-      // Create new expense type
+      // Create new expense type with default_cost_type set from the current expense
       const { data: newExpenseType, error: expenseTypeError } = await supabase
         .schema('finance')
         .from('expense_types')
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
           name: expense_type_name,
           subcategory_id: parseInt(subcategory_id),
           sort_order: sort_order || 0,
+          default_cost_type: cost_type || 'recurring', // Set default cost type based on current expense
           is_active: true
         })
         .select('id')
@@ -130,6 +132,7 @@ export async function POST(request: NextRequest) {
           id,
           name,
           sort_order,
+          default_cost_type,
           expense_subcategory:expense_subcategories!subcategory_id(
             id,
             name,
@@ -164,7 +167,8 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { 
       id,
-      expense_type_id, 
+      expense_type_id,
+      expense_type_name, // NEW: Allow updating expense type name
       amount, 
       effective_date, 
       end_date, 
@@ -176,6 +180,20 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ 
         error: "ID, expense type ID, amount, and effective date are required" 
       }, { status: 400 });
+    }
+
+    // Update expense type name if provided
+    if (expense_type_name) {
+      const { error: expenseTypeError } = await supabase
+        .schema('finance')
+        .from('expense_types')
+        .update({ name: expense_type_name })
+        .eq('id', parseInt(expense_type_id));
+
+      if (expenseTypeError) {
+        console.error('Error updating expense type name:', expenseTypeError);
+        return NextResponse.json({ error: "Failed to update expense type name" }, { status: 500 });
+      }
     }
 
     const { data, error } = await supabase
@@ -196,6 +214,7 @@ export async function PUT(request: NextRequest) {
           id,
           name,
           sort_order,
+          default_cost_type,
           expense_subcategory:expense_subcategories!subcategory_id(
             id,
             name,

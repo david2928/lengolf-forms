@@ -208,7 +208,7 @@ export async function POST(
       status: newSession.status,
       paxCount: newSession.pax_count,
       bookingId: newSession.booking_id,
-      staffPin: staffPin || undefined,
+      staffId: staffPin || undefined,
       sessionStart: newSession.session_start ? new Date(newSession.session_start) : undefined,
       sessionEnd: newSession.session_end ? new Date(newSession.session_end) : undefined,
       totalAmount: parseFloat(newSession.total_amount || '0'),

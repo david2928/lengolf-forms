@@ -73,8 +73,9 @@ function PLLineItem({
   };
 
   const displayValue = viewMode === 'runrate' && runRateValue !== undefined ? runRateValue : value;
-  const showComparison = historicalValue !== undefined && historicalValue !== 0;
-  const variance = showComparison ? ((value - historicalValue) / Math.abs(historicalValue)) * 100 : 0;
+  // Remove historical comparison display as requested
+  const showComparison = false; // historicalValue !== undefined && historicalValue !== 0;
+  const variance = showComparison && historicalValue !== undefined ? ((value - historicalValue) / Math.abs(historicalValue)) * 100 : 0;
 
   const getDataSourceBadge = () => {
     if (!dataSource) return null;
@@ -126,13 +127,6 @@ function PLLineItem({
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Historical comparison */}
-          {showComparison && (
-            <div className="text-xs text-gray-500 text-right">
-              <div>Historical: {formatCurrency(historicalValue)}</div>
-            </div>
-          )}
-
           {/* Main value */}
           <div className={cn(
             "text-right",
@@ -262,7 +256,7 @@ export default function PLStatement({
   onDataChange
 }: PLStatementProps) {
   const [showManualEntryModal, setShowManualEntryModal] = useState(false);
-  const [entryType, setEntryType] = useState<'revenue' | 'expense'>('revenue');
+  const [entryType, setEntryType] = useState<'revenue' | 'cogs'>('revenue');
   const [entryCategory, setEntryCategory] = useState<string>('');
   const [existingEntry, setExistingEntry] = useState<any>(null);
   const [manualEntries, setManualEntries] = useState<Record<string, any>>({});
@@ -280,16 +274,22 @@ export default function PLStatement({
             revenueEntries[`revenue-${entry.category}`] = entry;
           });
           
-          // Fetch expense entries
-          const expenseResponse = await fetch(`/api/finance/manual-entries?type=expense&month=${month}`);
-          if (expenseResponse.ok) {
-            const expenseData = await expenseResponse.json();
-            const expenseEntries: Record<string, any> = {};
-            expenseData.forEach((entry: any) => {
-              expenseEntries[`expense-${entry.category}`] = entry;
+          // Fetch COGS entries (stored as expenses but with different categories)
+          const cogsResponse = await fetch(`/api/finance/manual-entries?type=expense&month=${month}`);
+          if (cogsResponse.ok) {
+            const cogsData = await cogsResponse.json();
+            const cogsEntries: Record<string, any> = {};
+            cogsData.forEach((entry: any) => {
+              // Map COGS categories (Catering, Drinks, Others) to cogs- prefix
+              if (['Catering', 'Drinks', 'Others'].includes(entry.category)) {
+                cogsEntries[`cogs-${entry.category}`] = entry;
+              } else {
+                // Non-COGS expenses keep the expense- prefix  
+                cogsEntries[`expense-${entry.category}`] = entry;
+              }
             });
             
-            setManualEntries({...revenueEntries, ...expenseEntries});
+            setManualEntries({...revenueEntries, ...cogsEntries});
           }
         }
       } catch (error) {
@@ -335,14 +335,14 @@ export default function PLStatement({
     );
   }
 
-  const handleAddEntry = async (type: 'revenue' | 'expense', category: string) => {
+  const handleAddEntry = async (type: 'revenue' | 'cogs', category: string) => {
     setEntryType(type);
     setEntryCategory(category);
     setExistingEntry(null);
     setShowManualEntryModal(true);
   };
 
-  const handleEditEntry = async (type: 'revenue' | 'expense', category: string) => {
+  const handleEditEntry = async (type: 'revenue' | 'cogs', category: string) => {
     setEntryType(type);
     setEntryCategory(category);
     
@@ -352,9 +352,11 @@ export default function PLStatement({
     setShowManualEntryModal(true);
   };
 
-  const handleDeleteEntry = async (type: 'revenue' | 'expense', category: string) => {
+  const handleDeleteEntry = async (type: 'revenue' | 'cogs', category: string) => {
     try {
-      const response = await fetch(`/api/finance/manual-entries?type=${type}&month=${month}&category=${encodeURIComponent(category)}`, {
+      // COGS entries are stored as 'expense' type in database
+      const apiType = type === 'cogs' ? 'expense' : type;
+      const response = await fetch(`/api/finance/manual-entries?type=${apiType}&month=${month}&category=${encodeURIComponent(category)}`, {
         method: 'DELETE'
       });
 
@@ -392,7 +394,12 @@ export default function PLStatement({
             const expenseData = await expenseResponse.json();
             const expenseEntries: Record<string, any> = {};
             expenseData.forEach((entry: any) => {
-              expenseEntries[`expense-${entry.category}`] = entry;
+              // Map COGS categories to cogs- prefix, others to expense- prefix
+              if (['Catering', 'Drinks', 'Others'].includes(entry.category)) {
+                expenseEntries[`cogs-${entry.category}`] = entry;
+              } else {
+                expenseEntries[`expense-${entry.category}`] = entry;
+              }
             });
             
             setManualEntries({...revenueEntries, ...expenseEntries});
@@ -404,8 +411,12 @@ export default function PLStatement({
     };
 
     fetchManualEntries();
+    // CRITICAL FIX: Force refresh the main P&L data to reflect manual entry changes
     onDataChange?.();
   };
+
+  // Note: Manual COGS calculations are now handled by the API
+  // The API returns total_cogs which includes both POS COGS and manual COGS entries
 
   return (
     <div className="space-y-4">
@@ -528,27 +539,39 @@ export default function PLStatement({
             />
             <PLLineItem
               label="Catering"
-              value={manualEntries?.['expense-Catering']?.amount || 0}
+              value={manualEntries?.['cogs-Catering']?.amount || 0}
               level={1}
               dataSource="manual"
               viewMode={viewMode}
               showAddButton
-              hasManualEntry={!!manualEntries?.['expense-Catering']}
-              onAdd={() => handleAddEntry('expense', 'Catering')}
-              onEdit={() => handleEditEntry('expense', 'Catering')}
-              onDelete={() => handleDeleteEntry('expense', 'Catering')}
+              hasManualEntry={!!manualEntries?.['cogs-Catering']}
+              onAdd={() => handleAddEntry('cogs', 'Catering')}
+              onEdit={() => handleEditEntry('cogs', 'Catering')}
+              onDelete={() => handleDeleteEntry('cogs', 'Catering')}
             />
             <PLLineItem
               label="Drinks"
-              value={manualEntries?.['expense-Drinks']?.amount || 0}
+              value={manualEntries?.['cogs-Drinks']?.amount || 0}
               level={1}
               dataSource="manual"
               viewMode={viewMode}
               showAddButton
-              hasManualEntry={!!manualEntries?.['expense-Drinks']}
-              onAdd={() => handleAddEntry('expense', 'Drinks')}
-              onEdit={() => handleEditEntry('expense', 'Drinks')}
-              onDelete={() => handleDeleteEntry('expense', 'Drinks')}
+              hasManualEntry={!!manualEntries?.['cogs-Drinks']}
+              onAdd={() => handleAddEntry('cogs', 'Drinks')}
+              onEdit={() => handleEditEntry('cogs', 'Drinks')}
+              onDelete={() => handleDeleteEntry('cogs', 'Drinks')}
+            />
+            <PLLineItem
+              label="Others"
+              value={manualEntries?.['cogs-Others']?.amount || 0}
+              level={1}
+              dataSource="manual"
+              viewMode={viewMode}
+              showAddButton
+              hasManualEntry={!!manualEntries?.['cogs-Others']}
+              onAdd={() => handleAddEntry('cogs', 'Others')}
+              onEdit={() => handleEditEntry('cogs', 'Others')}
+              onDelete={() => handleDeleteEntry('cogs', 'Others')}
             />
           </PLSection>
 
@@ -632,10 +655,7 @@ export default function PLStatement({
             
             <PLLineItem
               label="Total Operating Expenses"
-              value={
-                (data?.operating_expenses?.calculated_total || 0) - 
-                (data?.operating_expenses?.by_category?.["Marketing Expenses"]?.reduce((sum, expense) => sum + expense.amount, 0) || 0)
-              }
+              value={data?.operating_expenses?.calculated_total || 0}
               historicalValue={data?.historical_data?.['Total Operating Expenses'] || 0}
               runRateValue={data?.run_rate_projections?.operating_expenses}
               level={1}
@@ -651,10 +671,7 @@ export default function PLStatement({
             sectionId="marketing"
             isCollapsed={collapsedSections.has('marketing')}
             onToggle={() => onToggleSection('marketing')}
-            totalValue={
-              (data?.marketing_expenses?.calculated_total || 0) + 
-              (data?.operating_expenses?.by_category?.["Marketing Expenses"]?.reduce((sum, expense) => sum + expense.amount, 0) || 0)
-            }
+            totalValue={data?.marketing_expenses?.calculated_total || 0}
             runRateValue={
               data?.run_rate_projections 
                 ? (data.run_rate_projections.google_ads || 0) + 
@@ -749,13 +766,7 @@ export default function PLStatement({
           {/* EBITDA */}
           <PLLineItem
             label="EBITDA"
-            value={
-              (data?.gross_profit?.calculated || 0) - 
-              (data?.operating_expenses?.calculated_total || 0) - 
-              ((data?.marketing_expenses?.google_ads || 0) + 
-               (data?.marketing_expenses?.meta_ads || 0) + 
-               (data?.operating_expenses?.by_category?.["Marketing Expenses"]?.reduce((sum, expense) => sum + expense.amount, 0) || 0))
-            }
+            value={data?.ebitda?.calculated || 0}
             historicalValue={data?.ebitda?.historical_ebitda || 0}
             runRateValue={
               viewMode === 'runrate' && data?.run_rate_projections ? 
@@ -808,7 +819,7 @@ export default function PLStatement({
         month={month}
         existingEntry={existingEntry}
         onSuccess={() => {
-          onDataChange?.();
+          refreshManualEntries();
         }}
       />
     </div>

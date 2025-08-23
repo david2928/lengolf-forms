@@ -142,7 +142,7 @@ export async function POST(
       status: closedSession.status, // Use actual status (paid or closed)
       paxCount: 0, // Reset pax count
       bookingId: closedSession.booking_id,
-      staffPin: closedSession.staff_pin,
+      staffId: closedSession.staff_pin,
       sessionStart: closedSession.session_start ? new Date(closedSession.session_start) : undefined,
       sessionEnd: closedSession.session_end ? new Date(closedSession.session_end) : undefined,
       totalAmount: parseFloat(closedSession.total_amount || '0'),
