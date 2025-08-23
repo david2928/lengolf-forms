@@ -106,117 +106,114 @@ function PLRow({
 
   return (
     <>
-      {/* Mobile Card Layout - Each month gets its own card */}
-      <div className="block sm:hidden">
-        {selectedMonths.map((month, monthIndex) => {
-          const data = monthData[month];
-          const isCurrentMonth = month === currentMonth;
-          const date = new Date(month + '-01');
-          const monthLabel = date.toLocaleDateString('en-US', { 
-            month: 'short',
-            year: 'numeric'
-          });
-          
-          if (!data) return null;
-
-          // Use custom values if provided, otherwise get from data path
-          const actualValue = customValues?.[month] ?? (dataPath ? getValue(data, dataPath, historicalPath) : 0);
-          const runRateValue = runRatePath ? getValue(data, runRatePath) : undefined;
-          
-          // Determine display value
-          const displayValue = isCurrentMonth && showRunRate && runRateValue !== undefined 
-            ? runRateValue 
-            : actualValue;
-
-          // Calculate variance from previous month
-          const previousMonth = selectedMonths[monthIndex - 1];
-          const previousData = previousMonth ? monthData[previousMonth] : null;
-          let previousValue = previousData ? (customValues?.[previousMonth] ?? (dataPath ? getValue(previousData, dataPath, historicalPath) : 0)) : 0;
-          
-          // For MoM calculations, always use run-rate values for current month
-          const currentValueForVariance = isCurrentMonth && runRateValue !== undefined ? runRateValue : actualValue;
-          const isPreviousCurrentMonth = previousMonth === currentMonth;
-          if (isPreviousCurrentMonth && previousData && runRatePath) {
-            const previousRunRateValue = getValue(previousData, runRatePath);
-            if (previousRunRateValue !== undefined) {
-              previousValue = previousRunRateValue;
-            }
-          }
-          
-          const variance = previousValue !== 0 ? getVariance(currentValueForVariance, previousValue) : 0;
-
-          return (
-            <div key={month} className={cn(
-              "bg-white border border-gray-200 rounded-lg p-4 mb-3 shadow-sm",
-              isSection && "border-blue-200 bg-blue-50",
-              isTotal && "border-green-200 bg-green-50"
-            )}>
-              {/* Month Header */}
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
-                <div className="font-semibold text-gray-900">{monthLabel}</div>
-                {isCurrentMonth && showRunRate && (
-                  <Badge variant="secondary" className="text-xs">Run-rate</Badge>
-                )}
+      {/* Mobile: Simple metric card with horizontal month trend */}
+      <div className="block sm:hidden mb-4">
+        <Card className="shadow-sm">
+          <CardContent className="p-4">
+            {/* Metric name */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className={cn(
+                "font-semibold text-base text-gray-800",
+                isTotal && "font-bold"
+              )}>
+                {label}
               </div>
-              
-              {/* Metric Row */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className={cn(
-                    "flex items-center font-medium",
-                    isSection && "font-semibold text-blue-800",
-                    isTotal && "font-bold text-green-800",
-                    level > 0 && "text-gray-700 text-sm pl-4"
-                  )}>
-                    {isExpandable && (
-                      <span className="mr-2">
-                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      </span>
-                    )}
-                    {label}
-                  </div>
-                  {isExpandable && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-6 w-6 p-0"
-                      onClick={onToggle}
-                    >
-                      {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                    </Button>
-                  )}
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className={cn(
-                    "font-bold text-lg",
-                    isTotal && "text-xl text-green-700",
-                    isSection && "text-lg text-blue-700"
-                  )}>
-                    {formatter(displayValue)}
-                  </div>
-                  
-                  {/* Variance indicator */}
-                  {showVariance && monthIndex > 0 && previousValue !== 0 && Math.abs(variance) > 1 && (
-                    <div className={cn(
-                      "flex items-center text-sm px-2 py-1 rounded", 
-                      getVarianceColor(variance),
-                      variance > 5 ? "bg-green-100" : variance < -5 ? "bg-red-100" : "bg-gray-100"
-                    )}>
-                      {variance > 5 ? <TrendingUp className="h-3 w-3" /> : 
-                       variance < -5 ? <TrendingDown className="h-3 w-3" /> : null}
-                      <span className="ml-1 font-medium">{Math.abs(variance).toFixed(1)}%</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              {isExpandable && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 w-6 p-0 ml-auto"
+                  onClick={onToggle}
+                >
+                  {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                </Button>
+              )}
             </div>
-          );
-        })}
+            
+            {/* Month values as rows */}
+            <div className="space-y-2">
+              {selectedMonths.map((month, monthIndex) => {
+                const data = monthData[month];
+                const isCurrentMonth = month === currentMonth;
+                const date = new Date(month + '-01');
+                const monthLabel = date.toLocaleDateString('en-US', { 
+                  month: 'short',
+                  year: '2-digit'
+                });
+                
+                if (!data) {
+                  return (
+                    <div key={month} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                      <div className="text-sm font-medium text-gray-400">{monthLabel}</div>
+                      <div className="text-sm text-gray-400">--</div>
+                    </div>
+                  );
+                }
+
+                // Use custom values if provided, otherwise get from data path
+                const actualValue = customValues?.[month] ?? (dataPath ? getValue(data, dataPath, historicalPath) : 0);
+                const runRateValue = runRatePath ? getValue(data, runRatePath) : undefined;
+                
+                // Determine display value
+                const displayValue = isCurrentMonth && showRunRate && runRateValue !== undefined 
+                  ? runRateValue 
+                  : actualValue;
+
+                // Calculate variance from previous month
+                const previousMonth = selectedMonths[monthIndex - 1];
+                const previousData = previousMonth ? monthData[previousMonth] : null;
+                let previousValue = previousData ? (customValues?.[previousMonth] ?? (dataPath ? getValue(previousData, dataPath, historicalPath) : 0)) : 0;
+                
+                const variance = previousValue !== 0 ? getVariance(displayValue, previousValue) : 0;
+
+                return (
+                  <div key={month} className={cn(
+                    "flex items-center justify-between p-3 rounded-lg border",
+                    isCurrentMonth ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-200",
+                    isTotal && "bg-green-50 border-green-200"
+                  )}>
+                    {/* Month */}
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-medium text-gray-700">{monthLabel}</div>
+                      {isCurrentMonth && showRunRate && (
+                        <Badge variant="secondary" className="text-xs px-1 py-0">Run-rate</Badge>
+                      )}
+                    </div>
+                    
+                    {/* Value and change */}
+                    <div className="text-right">
+                      <div className={cn(
+                        "font-semibold text-sm",
+                        isTotal && "text-base font-bold"
+                      )}>
+                        {displayValue >= 1000000 ? 
+                          `${(displayValue / 1000000).toFixed(1)}M` : 
+                          displayValue >= 1000 ? 
+                            `${(displayValue / 1000).toFixed(0)}K` : 
+                            formatter(displayValue)
+                        }
+                      </div>
+                      
+                      {/* Variance */}
+                      {showVariance && monthIndex > 0 && previousValue !== 0 && Math.abs(variance) > 1 && (
+                        <div className={cn(
+                          "text-xs font-medium",
+                          getVarianceColor(variance)
+                        )}>
+                          {variance > 0 ? '+' : ''}{variance.toFixed(0)}%
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
         
         {/* Children for mobile (expanded content) */}
         {isExpandable && isExpanded && (
-          <div className="ml-4 mb-4">
+          <div className="ml-1 mb-4">
             {children}
           </div>
         )}
@@ -518,10 +515,11 @@ export default function PLComparisonView({
             })}
           </div>
           
-          {/* Mobile Header */}
-          <div className="block sm:hidden mb-4">
-            <div className="text-center text-sm font-medium text-gray-600 mb-2">
-              Comparing {selectedMonths.length} months • Scroll down to compare
+          {/* Mobile: Simple metric-by-metric comparison */}
+          <div className="block sm:hidden space-y-4">
+            {/* Simple header */}
+            <div className="text-center text-sm text-gray-600 mb-4">
+              {selectedMonths.length} months comparison
             </div>
           </div>
 
@@ -530,9 +528,7 @@ export default function PLComparisonView({
             <div className="font-bold text-blue-800 text-sm uppercase tracking-wide">Revenue</div>
             {selectedMonths.map(month => <div key={month}></div>)}
           </div>
-          <div className="block sm:hidden mb-4">
-            <h3 className="font-bold text-blue-800 text-lg uppercase tracking-wide text-center py-2 bg-blue-50 border-l-4 border-blue-400 rounded">Revenue</h3>
-          </div>
+          {/* Mobile: No section headers - just clean metric cards */}
           
           <PLRow
             label="Total Net Sales"
@@ -644,9 +640,7 @@ export default function PLComparisonView({
             <div className="font-bold text-red-800 text-sm uppercase tracking-wide">Cost of Goods Sold</div>
             {selectedMonths.map(month => <div key={month}></div>)}
           </div>
-          <div className="block sm:hidden mb-4 mt-6">
-            <h3 className="font-bold text-red-800 text-lg uppercase tracking-wide text-center py-2 bg-red-50 border-l-4 border-red-400 rounded">Cost of Goods Sold</h3>
-          </div>
+          {/* Mobile: Clean separation */}
           
           <PLRow
             label="Cost of Goods Sold (COGS)"
@@ -666,9 +660,7 @@ export default function PLComparisonView({
             <div className="font-bold text-green-800 text-sm uppercase tracking-wide">Gross Profit</div>
             {selectedMonths.map(month => <div key={month}></div>)}
           </div>
-          <div className="block sm:hidden mb-4 mt-6">
-            <h3 className="font-bold text-green-800 text-lg uppercase tracking-wide text-center py-2 bg-green-50 border-l-4 border-green-400 rounded">Gross Profit</h3>
-          </div>
+          {/* Mobile: Clean separation */}
 
           <PLRow
             label="Gross Profit"
@@ -688,9 +680,7 @@ export default function PLComparisonView({
             <div className="font-bold text-orange-800 text-sm uppercase tracking-wide">Operating Expenses</div>
             {selectedMonths.map(month => <div key={month}></div>)}
           </div>
-          <div className="block sm:hidden mb-4 mt-6">
-            <h3 className="font-bold text-orange-800 text-lg uppercase tracking-wide text-center py-2 bg-orange-50 border-l-4 border-orange-400 rounded">Operating Expenses</h3>
-          </div>
+          {/* Mobile: Clean separation */}
 
           <PLRow
             label="Operating Expenses"
@@ -806,9 +796,7 @@ export default function PLComparisonView({
             <div className="font-bold text-purple-800 text-sm uppercase tracking-wide">Marketing Expenses</div>
             {selectedMonths.map(month => <div key={month}></div>)}
           </div>
-          <div className="block sm:hidden mb-4 mt-6">
-            <h3 className="font-bold text-purple-800 text-lg uppercase tracking-wide text-center py-2 bg-purple-50 border-l-4 border-purple-400 rounded">Marketing Expenses</h3>
-          </div>
+          {/* Mobile: Clean separation */}
 
           <PLRow
             label="Marketing Expenses"

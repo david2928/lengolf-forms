@@ -148,82 +148,135 @@ export default function FinanceDashboardPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Finance Dashboard</h1>
-          <p className="text-sm text-gray-600">Monthly P&L Statement and Financial Analytics</p>
-          {plData && (
-            <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
-              <span>
-                Data as of: {new Date().toLocaleDateString('en-US', { 
-                  year: 'numeric', 
-                  month: 'short', 
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </span>
-              {plData.days_elapsed && plData.days_in_month && (
-                <span>
-                  • Period: {plData.days_elapsed} of {plData.days_in_month} days 
-                  ({Math.round((plData.days_elapsed / plData.days_in_month) * 100)}% complete)
-                </span>
-              )}
-              {plData.data_sources && (
-                <span>
-                  • Sources: {Object.entries(plData.data_sources)
-                    .filter(([_, active]) => active)
-                    .map(([source, _]) => source.replace('has_', '').replace('_data', ''))
-                    .join(', ')}
-                </span>
+    <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-6 space-y-4 sm:space-y-6 min-h-screen">
+      {/* Mobile-Optimized Header */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Finance Dashboard</h1>
+            <p className="text-sm text-gray-600">Monthly P&L Statement and Financial Analytics</p>
+            {/* Mobile: Simplified status */}
+            <div className="mt-2 sm:hidden">
+              {plData?.days_elapsed && plData?.days_in_month && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
+                    {Math.round((plData.days_elapsed / plData.days_in_month) * 100)}% complete
+                  </span>
+                  <span>{plData.days_elapsed}/{plData.days_in_month} days</span>
+                </div>
               )}
             </div>
-          )}
-        </div>
+            {/* Desktop: Full status */}
+            {plData && (
+              <div className="mt-2 hidden sm:flex items-center gap-4 text-xs text-gray-500">
+                <span>
+                  Data as of: {new Date().toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+                {plData.days_elapsed && plData.days_in_month && (
+                  <span>
+                    • Period: {plData.days_elapsed} of {plData.days_in_month} days 
+                    ({Math.round((plData.days_elapsed / plData.days_in_month) * 100)}% complete)
+                  </span>
+                )}
+                {plData.data_sources && (
+                  <span>
+                    • Sources: {Object.entries(plData.data_sources)
+                      .filter(([_, active]) => active)
+                      .map(([source, _]) => source.replace('has_', '').replace('_data', ''))
+                      .join(', ')}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => window.open('/admin/finance-dashboard/operating-expenses', '_blank')}
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Manage Expenses
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleExport}
-            disabled={!plData}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
+          {/* Mobile: Compact action buttons */}
+          <div className="flex items-center justify-between sm:justify-end gap-2">
+            {/* Mobile: Icon-only buttons */}
+            <div className="flex items-center gap-2 sm:hidden">
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="h-9 w-9 p-0"
+                onClick={() => window.open('/admin/finance-dashboard/operating-expenses', '_blank')}
+                title="Manage Expenses"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="h-9 w-9 p-0"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                title="Refresh Data"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="h-9 w-9 p-0"
+                onClick={handleExport}
+                disabled={!plData}
+                title="Export CSV"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Desktop: Full buttons with text */}
+            <div className="hidden sm:flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => window.open('/admin/finance-dashboard/operating-expenses', '_blank')}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Manage Expenses
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleExport}
+                disabled={!plData}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Controls */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row md:items-center gap-4">
+      {/* Mobile-Optimized Controls */}
+      <Card className="shadow-sm">
+        <CardContent className="p-4 sm:pt-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             {/* Month Selector */}
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-gray-400" />
+            <div className="flex items-center gap-2 sm:min-w-0">
+              <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="Select month" />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
@@ -303,32 +356,65 @@ export default function FinanceDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+      {/* Mobile-Optimized Tab Navigation */}
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        {/* Mobile: Bottom-style tabs with full-width buttons */}
+        <div className="sm:hidden grid grid-cols-2 gap-0">
           <button
             onClick={() => setActiveTab('pl-statement')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`flex flex-col items-center justify-center py-4 px-3 rounded-l-lg border-r border-gray-200 min-h-[60px] transition-all ${
               activeTab === 'pl-statement'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'bg-blue-50 text-blue-600 border-blue-200'
+                : 'bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100'
             }`}
           >
-            <BarChart3 className="h-4 w-4 inline mr-2" />
-            P&L Statement
+            <BarChart3 className={`h-5 w-5 mb-1 ${
+              activeTab === 'pl-statement' ? 'text-blue-600' : 'text-gray-400'
+            }`} />
+            <span className="text-xs font-medium">P&L Statement</span>
           </button>
           <button
             onClick={() => setActiveTab('comparison')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`flex flex-col items-center justify-center py-4 px-3 rounded-r-lg min-h-[60px] transition-all ${
               activeTab === 'comparison'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'bg-blue-50 text-blue-600 border-blue-200'
+                : 'bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100'
             }`}
           >
-            <PieChart className="h-4 w-4 inline mr-2" />
-            Monthly Comparison
+            <PieChart className={`h-5 w-5 mb-1 ${
+              activeTab === 'comparison' ? 'text-blue-600' : 'text-gray-400'
+            }`} />
+            <span className="text-xs font-medium">Comparison</span>
           </button>
-        </nav>
+        </div>
+        
+        {/* Desktop: Traditional horizontal tabs */}
+        <div className="hidden sm:block border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8 px-4">
+            <button
+              onClick={() => setActiveTab('pl-statement')}
+              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'pl-statement'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <BarChart3 className="h-4 w-4 inline mr-2" />
+              P&L Statement
+            </button>
+            <button
+              onClick={() => setActiveTab('comparison')}
+              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'comparison'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <PieChart className="h-4 w-4 inline mr-2" />
+              Monthly Comparison
+            </button>
+          </nav>
+        </div>
       </div>
 
       {/* Error State */}
@@ -381,6 +467,8 @@ export default function FinanceDashboardPage() {
           />
         </div>
       )}
+
+      {/* Mobile: No footer - clean end */}
 
     </div>
   );
