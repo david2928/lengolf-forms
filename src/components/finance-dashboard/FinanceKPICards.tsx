@@ -52,17 +52,19 @@ function KPICard({
 }: KPICardProps) {
   if (loading) {
     return (
-      <Card className="h-[220px]">
+      <Card className="h-auto min-h-[180px] sm:min-h-[200px] animate-pulse">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-gray-600">
-            <Skeleton className="h-4 w-24" />
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-20 sm:w-24" />
+          </div>
           <Skeleton className="h-4 w-4" />
         </CardHeader>
-        <CardContent>
-          <Skeleton className="h-8 w-20 mb-3" />
-          <Skeleton className="h-8 w-full mb-2" />
-          <Skeleton className="h-8 w-full" />
+        <CardContent className="space-y-3">
+          <Skeleton className="h-6 sm:h-8 w-16 sm:w-20" />
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
         </CardContent>
       </Card>
     );
@@ -101,39 +103,39 @@ function KPICard({
   };
 
   return (
-    <Card className="h-[220px] transition-all duration-200 hover:shadow-md">
+    <Card className="h-auto min-h-[200px] sm:h-[220px] transition-all duration-200 hover:shadow-md">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex items-center gap-2">
-          <CardTitle className="text-sm font-medium text-gray-600">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <CardTitle className="text-sm font-medium text-gray-600 truncate">
             {title}
           </CardTitle>
-          {badge && <Badge variant="secondary" className="text-xs">{badge}</Badge>}
+          {badge && <Badge variant="secondary" className="text-xs shrink-0">{badge}</Badge>}
         </div>
-        <div className="text-gray-400">
+        <div className="text-gray-400 shrink-0">
           {icon}
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold mb-1">
+      <CardContent className="space-y-3">
+        <div className="text-xl sm:text-2xl font-bold leading-tight">
           {formatValue(displayValue, format)}
         </div>
         
         {viewMode === 'runrate' && runRateValue !== undefined && (
-          <div className="text-xs text-blue-600 mb-1">
+          <div className="text-xs text-blue-600">
             Run-rate projection
           </div>
         )}
         
-        {/* Enhanced MoM and YoY Display */}
-        <div className="grid grid-cols-1 gap-2 mt-2">
-          {/* MoM Change - More Prominent */}
+        {/* Enhanced MoM and YoY Display - Mobile Optimized */}
+        <div className="grid grid-cols-1 gap-2">
+          {/* MoM Change - Mobile Optimized */}
           {momChange !== undefined && (
-            <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${
+            <div className={`flex items-center justify-between px-2 sm:px-3 py-2 rounded-lg border ${
               momChange === 0 ? 'border-gray-200 bg-gray-50' :
               getChangeColor(momChange) === 'text-green-600' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
             }`}>
-              <div className="flex items-center gap-2">
-                <div className={`p-1 rounded-full ${
+              <div className="flex items-center gap-1 sm:gap-2">
+                <div className={`p-0.5 sm:p-1 rounded-full ${
                   momChange === 0 ? 'bg-gray-200' :
                   getChangeColor(momChange) === 'text-green-600' ? 'bg-green-200' : 'bg-red-200'
                 }`}>
@@ -141,20 +143,20 @@ function KPICard({
                 </div>
                 <span className="text-xs font-medium text-gray-600">MoM</span>
               </div>
-              <span className={`text-sm font-semibold ${getChangeColor(momChange)}`}>
+              <span className={`text-xs sm:text-sm font-semibold ${getChangeColor(momChange)}`}>
                 {momChange > 0 ? '+' : ''}{momChange.toFixed(1)}%
               </span>
             </div>
           )}
           
-          {/* YoY Change - More Prominent */}
+          {/* YoY Change - Mobile Optimized */}
           {yoyChange !== undefined && yoyChange !== null && (
-            <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${
+            <div className={`flex items-center justify-between px-2 sm:px-3 py-2 rounded-lg border ${
               yoyChange === 0 ? 'border-gray-200 bg-gray-50' :
               getChangeColor(yoyChange) === 'text-green-600' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
             }`}>
-              <div className="flex items-center gap-2">
-                <div className={`p-1 rounded-full ${
+              <div className="flex items-center gap-1 sm:gap-2">
+                <div className={`p-0.5 sm:p-1 rounded-full ${
                   yoyChange === 0 ? 'bg-gray-200' :
                   getChangeColor(yoyChange) === 'text-green-600' ? 'bg-green-200' : 'bg-red-200'
                 }`}>
@@ -162,7 +164,7 @@ function KPICard({
                 </div>
                 <span className="text-xs font-medium text-gray-600">YoY</span>
               </div>
-              <span className={`text-sm font-semibold ${getChangeColor(yoyChange)}`}>
+              <span className={`text-xs sm:text-sm font-semibold ${getChangeColor(yoyChange)} text-right`}>
                 {yoyIsAbsolute ? (
                   // Display absolute difference with currency formatting
                   <>
@@ -197,7 +199,7 @@ export default function FinanceKPICards({ data, loading, month, viewMode }: Fina
   const ebitdaYoyIsAbsolute = data?.ebitda_yoy_pct !== null && data?.ebitda_yoy_pct !== undefined && Math.abs(data.ebitda_yoy_pct) > 1000;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       {/* Net Sales */}
       <KPICard
         title="Net Sales"
