@@ -109,11 +109,92 @@ function PLLineItem({
 
   return (
     <div className={cn(
-      "border-b border-gray-100 last:border-b-0",
-      isTotal && "bg-gray-50 font-semibold",
-      level > 0 && "pl-4"
+      // Mobile: Card layout with spacing
+      "mb-3 sm:mb-0 sm:border-b sm:border-gray-100 sm:last:border-b-0",
+      "bg-white border border-gray-200 rounded-lg sm:border-0 sm:rounded-none sm:bg-transparent",
+      "shadow-sm sm:shadow-none",
+      isTotal && "sm:bg-gray-50 font-semibold",
+      level > 0 && "sm:pl-4"
     )}>
-      <div className="flex items-center justify-between py-3 px-4">
+      {/* Mobile Card Layout */}
+      <div className="block sm:hidden p-4">
+        <div className="space-y-3">
+          {/* Label and badges row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className={cn(
+                "text-gray-900 font-medium",
+                isTotal && "font-semibold text-lg",
+                level > 0 && "text-gray-700 text-base"
+              )}>
+                {label}
+              </span>
+              {getDataSourceBadge()}
+            </div>
+            {/* Action buttons on mobile */}
+            {showAddButton && (
+              <div className="flex gap-1 ml-2">
+                {hasManualEntry ? (
+                  // Show edit/delete buttons when entry exists
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={onEdit}
+                      title="Edit entry"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                      onClick={onDelete}
+                      title="Delete entry"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </>
+                ) : (
+                  // Show add button when no entry exists
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={onAdd}
+                    title="Add entry"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {/* Value row */}
+          <div className="flex items-center justify-between">
+            <div className={cn(
+              "text-right",
+              isTotal ? "font-bold text-xl text-gray-900" : "font-semibold text-lg text-gray-800"
+            )}>
+              {formatCurrency(displayValue)}
+            </div>
+            <div className="flex items-center gap-2">
+              {getVarianceIndicator()}
+              {viewMode === 'runrate' && runRateValue !== undefined && (
+                <div className="text-xs text-blue-600 font-medium px-2 py-1 bg-blue-50 rounded">
+                  {dataSource === 'calculated' ? 'Calculated' : 'Projected'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        {children}
+      </div>
+
+      {/* Desktop Table Layout (preserved exactly) */}
+      <div className="hidden sm:flex items-center justify-between py-3 px-4">
         <div className="flex items-center flex-1">
           <span className={cn(
             "text-gray-900",
@@ -180,7 +261,9 @@ function PLLineItem({
           )}
         </div>
       </div>
-      {children}
+      <div className="hidden sm:block">
+        {children}
+      </div>
     </div>
   );
 }
@@ -220,15 +303,15 @@ function PLSection({
   return (
     <div className="border border-gray-200 rounded-lg">
       <div 
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+        className="flex items-center justify-between p-3 sm:p-4 cursor-pointer hover:bg-gray-50 transition-colors"
         onClick={onToggle}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          <h3 className="font-semibold text-gray-900">{title}</h3>
+          <h3 className="font-semibold text-gray-900 text-sm sm:text-base">{title}</h3>
         </div>
         <div className="text-right">
-          <div className="font-semibold text-lg">{formatCurrency(displayValue)}</div>
+          <div className="font-semibold text-base sm:text-lg">{formatCurrency(displayValue)}</div>
           {viewMode === 'runrate' && runRateValue !== undefined && (
             <div className="text-xs text-blue-600">
               Calculated
@@ -238,8 +321,10 @@ function PLSection({
       </div>
       
       {!isCollapsed && (
-        <div className="border-t border-gray-200">
-          {children}
+        <div className="border-t border-gray-200 p-2 sm:p-0">
+          <div className="space-y-0 sm:space-y-0">
+            {children}
+          </div>
         </div>
       )}
     </div>

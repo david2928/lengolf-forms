@@ -106,42 +106,18 @@ function PLRow({
 
   return (
     <>
-      <div className={cn(
-        "grid gap-2 py-2 px-4 border-b border-gray-100",
-        isSection && "bg-gray-50 font-semibold",
-        isTotal && "bg-gray-100 font-semibold",
-        level > 0 && "pl-8",
-        isExpandable && "hover:bg-gray-25 cursor-pointer"
-      )} 
-      style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}
-      onClick={isExpandable ? onToggle : undefined}>
-        {/* Label Column */}
-        <div className={cn(
-          "flex items-center",
-          isSection && "font-semibold text-gray-900",
-          isTotal && "font-semibold",
-          level > 0 && "text-gray-700 text-sm"
-        )}>
-          {isExpandable && (
-            <span className="mr-2">
-              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </span>
-          )}
-          {label}
-        </div>
-
-        {/* Value Columns */}
-        {selectedMonths.map((month, index) => {
+      {/* Mobile Card Layout - Each month gets its own card */}
+      <div className="block sm:hidden">
+        {selectedMonths.map((month, monthIndex) => {
           const data = monthData[month];
           const isCurrentMonth = month === currentMonth;
+          const date = new Date(month + '-01');
+          const monthLabel = date.toLocaleDateString('en-US', { 
+            month: 'short',
+            year: 'numeric'
+          });
           
-          if (!data) {
-            return (
-              <div key={month} className="text-center text-gray-400">
-                --
-              </div>
-            );
-          }
+          if (!data) return null;
 
           // Use custom values if provided, otherwise get from data path
           const actualValue = customValues?.[month] ?? (dataPath ? getValue(data, dataPath, historicalPath) : 0);
@@ -153,7 +129,7 @@ function PLRow({
             : actualValue;
 
           // Calculate variance from previous month
-          const previousMonth = selectedMonths[index - 1];
+          const previousMonth = selectedMonths[monthIndex - 1];
           const previousData = previousMonth ? monthData[previousMonth] : null;
           let previousValue = previousData ? (customValues?.[previousMonth] ?? (dataPath ? getValue(previousData, dataPath, historicalPath) : 0)) : 0;
           
@@ -170,30 +146,171 @@ function PLRow({
           const variance = previousValue !== 0 ? getVariance(currentValueForVariance, previousValue) : 0;
 
           return (
-            <div key={month} className="text-right">
-              <div className={cn(
-                "font-medium",
-                isTotal && "text-lg",
-                isSection && "text-lg"
-              )}>
-                {formatter(displayValue)}
+            <div key={month} className={cn(
+              "bg-white border border-gray-200 rounded-lg p-4 mb-3 shadow-sm",
+              isSection && "border-blue-200 bg-blue-50",
+              isTotal && "border-green-200 bg-green-50"
+            )}>
+              {/* Month Header */}
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+                <div className="font-semibold text-gray-900">{monthLabel}</div>
+                {isCurrentMonth && showRunRate && (
+                  <Badge variant="secondary" className="text-xs">Run-rate</Badge>
+                )}
               </div>
               
-              
-              
-              {/* Variance indicator */}
-              {showVariance && index > 0 && previousValue !== 0 && Math.abs(variance) > 1 && (
-                <div className={cn("flex items-center justify-end text-xs mt-1", getVarianceColor(variance))}>
-                  {variance > 5 ? <TrendingUp className="h-3 w-3" /> : 
-                   variance < -5 ? <TrendingDown className="h-3 w-3" /> : null}
-                  <span className="ml-1">{Math.abs(variance).toFixed(1)}%</span>
+              {/* Metric Row */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className={cn(
+                    "flex items-center font-medium",
+                    isSection && "font-semibold text-blue-800",
+                    isTotal && "font-bold text-green-800",
+                    level > 0 && "text-gray-700 text-sm pl-4"
+                  )}>
+                    {isExpandable && (
+                      <span className="mr-2">
+                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </span>
+                    )}
+                    {label}
+                  </div>
+                  {isExpandable && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 w-6 p-0"
+                      onClick={onToggle}
+                    >
+                      {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    </Button>
+                  )}
                 </div>
-              )}
+                
+                <div className="flex items-center justify-between">
+                  <div className={cn(
+                    "font-bold text-lg",
+                    isTotal && "text-xl text-green-700",
+                    isSection && "text-lg text-blue-700"
+                  )}>
+                    {formatter(displayValue)}
+                  </div>
+                  
+                  {/* Variance indicator */}
+                  {showVariance && monthIndex > 0 && previousValue !== 0 && Math.abs(variance) > 1 && (
+                    <div className={cn(
+                      "flex items-center text-sm px-2 py-1 rounded", 
+                      getVarianceColor(variance),
+                      variance > 5 ? "bg-green-100" : variance < -5 ? "bg-red-100" : "bg-gray-100"
+                    )}>
+                      {variance > 5 ? <TrendingUp className="h-3 w-3" /> : 
+                       variance < -5 ? <TrendingDown className="h-3 w-3" /> : null}
+                      <span className="ml-1 font-medium">{Math.abs(variance).toFixed(1)}%</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           );
         })}
+        
+        {/* Children for mobile (expanded content) */}
+        {isExpandable && isExpanded && (
+          <div className="ml-4 mb-4">
+            {children}
+          </div>
+        )}
       </div>
-      {isExpandable && isExpanded && children}
+
+      {/* Desktop Table Layout (preserved exactly) */}
+      <div className="hidden sm:block">
+        <div className={cn(
+          "grid gap-2 py-2 px-4 border-b border-gray-100",
+          isSection && "bg-gray-50 font-semibold",
+          isTotal && "bg-gray-100 font-semibold",
+          level > 0 && "pl-8",
+          isExpandable && "hover:bg-gray-25 cursor-pointer"
+        )} 
+        style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}
+        onClick={isExpandable ? onToggle : undefined}>
+          {/* Label Column */}
+          <div className={cn(
+            "flex items-center",
+            isSection && "font-semibold text-gray-900",
+            isTotal && "font-semibold",
+            level > 0 && "text-gray-700 text-sm"
+          )}>
+            {isExpandable && (
+              <span className="mr-2">
+                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </span>
+            )}
+            {label}
+          </div>
+
+          {/* Value Columns */}
+          {selectedMonths.map((month, index) => {
+            const data = monthData[month];
+            const isCurrentMonth = month === currentMonth;
+            
+            if (!data) {
+              return (
+                <div key={month} className="text-center text-gray-400">
+                  --
+                </div>
+              );
+            }
+
+            // Use custom values if provided, otherwise get from data path
+            const actualValue = customValues?.[month] ?? (dataPath ? getValue(data, dataPath, historicalPath) : 0);
+            const runRateValue = runRatePath ? getValue(data, runRatePath) : undefined;
+            
+            // Determine display value
+            const displayValue = isCurrentMonth && showRunRate && runRateValue !== undefined 
+              ? runRateValue 
+              : actualValue;
+
+            // Calculate variance from previous month
+            const previousMonth = selectedMonths[index - 1];
+            const previousData = previousMonth ? monthData[previousMonth] : null;
+            let previousValue = previousData ? (customValues?.[previousMonth] ?? (dataPath ? getValue(previousData, dataPath, historicalPath) : 0)) : 0;
+            
+            // For MoM calculations, always use run-rate values for current month
+            const currentValueForVariance = isCurrentMonth && runRateValue !== undefined ? runRateValue : actualValue;
+            const isPreviousCurrentMonth = previousMonth === currentMonth;
+            if (isPreviousCurrentMonth && previousData && runRatePath) {
+              const previousRunRateValue = getValue(previousData, runRatePath);
+              if (previousRunRateValue !== undefined) {
+                previousValue = previousRunRateValue;
+              }
+            }
+            
+            const variance = previousValue !== 0 ? getVariance(currentValueForVariance, previousValue) : 0;
+
+            return (
+              <div key={month} className="text-right">
+                <div className={cn(
+                  "font-medium",
+                  isTotal && "text-lg",
+                  isSection && "text-lg"
+                )}>
+                  {formatter(displayValue)}
+                </div>
+                
+                {/* Variance indicator */}
+                {showVariance && index > 0 && previousValue !== 0 && Math.abs(variance) > 1 && (
+                  <div className={cn("flex items-center justify-end text-xs mt-1", getVarianceColor(variance))}>
+                    {variance > 5 ? <TrendingUp className="h-3 w-3" /> : 
+                     variance < -5 ? <TrendingDown className="h-3 w-3" /> : null}
+                    <span className="ml-1">{Math.abs(variance).toFixed(1)}%</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {isExpandable && isExpanded && children}
+      </div>
     </>
   );
 }
@@ -375,12 +492,12 @@ export default function PLComparisonView({
         </CardHeader>
 
         <CardContent>
-          {/* Header Row */}
+          {/* Desktop Header Row */}
           <div 
-            className="grid gap-2 py-3 px-4 bg-gray-100 font-semibold border-b-2 border-gray-300"
+            className="hidden sm:grid gap-2 py-3 px-4 bg-gray-100 font-semibold border-b-2 border-gray-300"
             style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}
           >
-            <div>Day</div>
+            <div>Metric</div>
             {selectedMonths.map(month => {
               const monthData = data[month];
               const date = new Date(month + '-01');
@@ -395,16 +512,26 @@ export default function PLComparisonView({
               return (
                 <div key={month} className="text-center">
                   <div>{monthLabel}</div>
-                  <div className="text-xs font-normal text-gray-600">{dayInfo}</div>
+                  <div className="text-xs font-normal text-gray-600">{dayInfo} days</div>
                 </div>
               );
             })}
           </div>
+          
+          {/* Mobile Header */}
+          <div className="block sm:hidden mb-4">
+            <div className="text-center text-sm font-medium text-gray-600 mb-2">
+              Comparing {selectedMonths.length} months • Scroll down to compare
+            </div>
+          </div>
 
           {/* === REVENUE SECTION === */}
-          <div className="grid gap-2 py-3 px-4 bg-blue-50 border-b-2 border-blue-200" style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}>
+          <div className="hidden sm:grid gap-2 py-3 px-4 bg-blue-50 border-b-2 border-blue-200" style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}>
             <div className="font-bold text-blue-800 text-sm uppercase tracking-wide">Revenue</div>
             {selectedMonths.map(month => <div key={month}></div>)}
+          </div>
+          <div className="block sm:hidden mb-4">
+            <h3 className="font-bold text-blue-800 text-lg uppercase tracking-wide text-center py-2 bg-blue-50 border-l-4 border-blue-400 rounded">Revenue</h3>
           </div>
           
           <PLRow
@@ -513,9 +640,12 @@ export default function PLComparisonView({
           />
 
           {/* === COST OF GOODS SOLD === */}
-          <div className="grid gap-2 py-3 px-4 bg-red-50 border-b-2 border-red-200 mt-4" style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}>
+          <div className="hidden sm:grid gap-2 py-3 px-4 bg-red-50 border-b-2 border-red-200 mt-4" style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}>
             <div className="font-bold text-red-800 text-sm uppercase tracking-wide">Cost of Goods Sold</div>
             {selectedMonths.map(month => <div key={month}></div>)}
+          </div>
+          <div className="block sm:hidden mb-4 mt-6">
+            <h3 className="font-bold text-red-800 text-lg uppercase tracking-wide text-center py-2 bg-red-50 border-l-4 border-red-400 rounded">Cost of Goods Sold</h3>
           </div>
           
           <PLRow
@@ -532,9 +662,12 @@ export default function PLComparisonView({
           />
 
           {/* === GROSS PROFIT === */}
-          <div className="grid gap-2 py-3 px-4 bg-green-50 border-b-2 border-green-200 mt-4" style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}>
+          <div className="hidden sm:grid gap-2 py-3 px-4 bg-green-50 border-b-2 border-green-200 mt-4" style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}>
             <div className="font-bold text-green-800 text-sm uppercase tracking-wide">Gross Profit</div>
             {selectedMonths.map(month => <div key={month}></div>)}
+          </div>
+          <div className="block sm:hidden mb-4 mt-6">
+            <h3 className="font-bold text-green-800 text-lg uppercase tracking-wide text-center py-2 bg-green-50 border-l-4 border-green-400 rounded">Gross Profit</h3>
           </div>
 
           <PLRow
@@ -551,9 +684,12 @@ export default function PLComparisonView({
           />
 
           {/* === OPERATING EXPENSES === */}
-          <div className="grid gap-2 py-3 px-4 bg-orange-50 border-b-2 border-orange-200 mt-4" style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}>
+          <div className="hidden sm:grid gap-2 py-3 px-4 bg-orange-50 border-b-2 border-orange-200 mt-4" style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}>
             <div className="font-bold text-orange-800 text-sm uppercase tracking-wide">Operating Expenses</div>
             {selectedMonths.map(month => <div key={month}></div>)}
+          </div>
+          <div className="block sm:hidden mb-4 mt-6">
+            <h3 className="font-bold text-orange-800 text-lg uppercase tracking-wide text-center py-2 bg-orange-50 border-l-4 border-orange-400 rounded">Operating Expenses</h3>
           </div>
 
           <PLRow
@@ -666,9 +802,12 @@ export default function PLComparisonView({
           </PLRow>
 
           {/* === MARKETING EXPENSES === */}
-          <div className="grid gap-2 py-3 px-4 bg-purple-50 border-b-2 border-purple-200 mt-4" style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}>
+          <div className="hidden sm:grid gap-2 py-3 px-4 bg-purple-50 border-b-2 border-purple-200 mt-4" style={{ gridTemplateColumns: `300px repeat(${selectedMonths.length}, 1fr)` }}>
             <div className="font-bold text-purple-800 text-sm uppercase tracking-wide">Marketing Expenses</div>
             {selectedMonths.map(month => <div key={month}></div>)}
+          </div>
+          <div className="block sm:hidden mb-4 mt-6">
+            <h3 className="font-bold text-purple-800 text-lg uppercase tracking-wide text-center py-2 bg-purple-50 border-l-4 border-purple-400 rounded">Marketing Expenses</h3>
           </div>
 
           <PLRow
