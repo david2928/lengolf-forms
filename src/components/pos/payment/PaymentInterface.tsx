@@ -108,46 +108,47 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
     return `฿${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const paymentMethods = [
-    {
-      id: PaymentMethod.CASH,
-      name: 'Cash',
-      description: 'Cash payment',
-      icon: (
-        <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
-          <svg className="w-6 h-6 text-slate-600" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M2 6h20v2H2zm0 5v6h20v-6H2zm2 2h4v2H4v-2z"/>
-          </svg>
-        </div>
-      )
-    },
-    {
-      id: PaymentMethod.VISA_MANUAL,
-      name: 'Visa',
-      description: 'Credit card payment',
-      icon: (
-        <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
-          <div className="text-slate-700 font-bold text-sm">VISA</div>
-        </div>
-      )
-    },
-    {
-      id: PaymentMethod.MASTERCARD_MANUAL,
-      name: 'Mastercard',
-      description: 'Credit card payment',
-      icon: (
-        <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
-          <div className="text-slate-700 font-bold text-xs">MC</div>
-        </div>
-      )
-    },
-    {
-      id: PaymentMethod.PROMPTPAY_MANUAL,
-      name: 'PromptPay',
-      description: 'QR code payment',
-      icon: (
-        <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
-          <svg className="w-6 h-6 text-slate-600" fill="currentColor" viewBox="0 0 24 24">
+  const paymentMethods = useMemo(() => {
+    const allMethods = [
+      {
+        id: PaymentMethod.CASH,
+        name: 'Cash',
+        description: 'Cash payment',
+        icon: (
+          <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+            <svg className="w-6 h-6 text-slate-600" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M2 6h20v2H2zm0 5v6h20v-6H2zm2 2h4v2H4v-2z"/>
+            </svg>
+          </div>
+        )
+      },
+      {
+        id: PaymentMethod.VISA_MANUAL,
+        name: 'Visa',
+        description: 'Credit card payment',
+        icon: (
+          <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+            <div className="text-slate-700 font-bold text-sm">VISA</div>
+          </div>
+        )
+      },
+      {
+        id: PaymentMethod.MASTERCARD_MANUAL,
+        name: 'Mastercard',
+        description: 'Credit card payment',
+        icon: (
+          <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+            <div className="text-slate-700 font-bold text-xs">MC</div>
+          </div>
+        )
+      },
+      {
+        id: PaymentMethod.PROMPTPAY_MANUAL,
+        name: 'PromptPay',
+        description: 'QR code payment',
+        icon: (
+          <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+            <svg className="w-6 h-6 text-slate-600" fill="currentColor" viewBox="0 0 24 24">
             <path d="M3 3h6v6H3zm2 2v2h2V5zm10-2h6v6h-6zm2 2v2h2V5zM3 15h6v6H3zm2 2v2h2v-2zm13 0h3v3h-3z"/>
           </svg>
         </div>
@@ -164,6 +165,14 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
       )
     }
   ];
+
+  // For 0 baht transactions, only show Cash payment method
+  if (totalAmount === 0) {
+    return allMethods.filter(method => method.id === PaymentMethod.CASH);
+  }
+
+  return allMethods;
+}, [totalAmount]);
 
   const handleMethodSelect = async (method: PaymentMethod) => {
     setSelectedMethod(method);
@@ -487,16 +496,18 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
         ))}
       </div>
 
-      {/* Split Payment Action Button */}
-      <div className="p-4 bg-white border-t border-slate-200">
-        <Button
-          variant="outline"
-          className="w-full h-12 text-base font-semibold border-2 border-dashed border-slate-300 hover:border-slate-400"
-          onClick={handleSplitPayment}
-        >
-          Split Payment
-        </Button>
-      </div>
+      {/* Split Payment Action Button - Only show for non-zero amounts */}
+      {totalAmount > 0 && (
+        <div className="p-4 bg-white border-t border-slate-200">
+          <Button
+            variant="outline"
+            className="w-full h-12 text-base font-semibold border-2 border-dashed border-slate-300 hover:border-slate-400"
+            onClick={handleSplitPayment}
+          >
+            Split Payment
+          </Button>
+        </div>
+      )}
     </>
   );
 

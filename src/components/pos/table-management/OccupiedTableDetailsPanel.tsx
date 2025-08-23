@@ -529,7 +529,7 @@ export function OccupiedTableDetailsPanel({
                     <Button
                       data-testid="print-bill-button"
                       onClick={handlePrintBill}
-                      disabled={isPrintingBill || totalInclVat <= 0}
+                      disabled={isPrintingBill || totalInclVat < 0}
                       size="lg"
                       variant="outline"
                       className="h-12 border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400 active:bg-purple-100 active:border-purple-500 font-semibold shadow-sm hover:shadow-md active:shadow-sm transition-all duration-150 active:scale-[0.98] touch-manipulation"
@@ -545,7 +545,7 @@ export function OccupiedTableDetailsPanel({
                     onClick={onPayment}
                     size="lg"
                     className="h-12 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold shadow-md hover:shadow-lg active:shadow-sm transition-all duration-150 active:scale-[0.98] touch-manipulation sm:col-span-1"
-                    disabled={session.totalAmount <= 0}
+                    disabled={session.totalAmount < 0}
                   >
                     <CreditCard className="w-5 h-5 mr-2" />
                     Payment

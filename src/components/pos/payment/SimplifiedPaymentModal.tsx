@@ -321,40 +321,45 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
           💵 Cash
         </Button>
         
-        <Button
-          className="w-full h-20 text-xl font-semibold bg-blue-600 hover:bg-blue-700"
-          onClick={() => handleMethodSelect(PaymentMethod.VISA_MANUAL)}
-        >
-          💳 Visa
-        </Button>
-        
-        <Button
-          className="w-full h-20 text-xl font-semibold bg-orange-600 hover:bg-orange-700"
-          onClick={() => handleMethodSelect(PaymentMethod.MASTERCARD_MANUAL)}
-        >
-          💳 Mastercard
-        </Button>
-        
-        <Button
-          className="w-full h-20 text-xl font-semibold bg-purple-600 hover:bg-purple-700"
-          onClick={() => handleMethodSelect(PaymentMethod.PROMPTPAY_MANUAL)}
-        >
-          📱 PromptPay
-        </Button>
-        
-        <Button
-          className="w-full h-20 text-xl font-semibold bg-cyan-600 hover:bg-cyan-700"
-          onClick={() => handleMethodSelect(PaymentMethod.ALIPAY)}
-        >
-          💰 Alipay
-        </Button>
-        
-        <Button
-          className="w-full h-20 text-xl font-semibold bg-gray-600 hover:bg-gray-700 border-2 border-dashed"
-          onClick={handleSplitPayment}
-        >
-          🔀 Split Payment
-        </Button>
+        {/* Only show other payment methods for non-zero amounts */}
+        {order.totalAmount > 0 && (
+          <>
+            <Button
+              className="w-full h-20 text-xl font-semibold bg-blue-600 hover:bg-blue-700"
+              onClick={() => handleMethodSelect(PaymentMethod.VISA_MANUAL)}
+            >
+              💳 Visa
+            </Button>
+            
+            <Button
+              className="w-full h-20 text-xl font-semibold bg-orange-600 hover:bg-orange-700"
+              onClick={() => handleMethodSelect(PaymentMethod.MASTERCARD_MANUAL)}
+            >
+              💳 Mastercard
+            </Button>
+            
+            <Button
+              className="w-full h-20 text-xl font-semibold bg-purple-600 hover:bg-purple-700"
+              onClick={() => handleMethodSelect(PaymentMethod.PROMPTPAY_MANUAL)}
+            >
+              📱 PromptPay
+            </Button>
+            
+            <Button
+              className="w-full h-20 text-xl font-semibold bg-cyan-600 hover:bg-cyan-700"
+              onClick={() => handleMethodSelect(PaymentMethod.ALIPAY)}
+            >
+              💰 Alipay
+            </Button>
+            
+            <Button
+              className="w-full h-20 text-xl font-semibold bg-gray-600 hover:bg-gray-700 border-2 border-dashed"
+              onClick={handleSplitPayment}
+            >
+              🔀 Split Payment
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
