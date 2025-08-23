@@ -335,19 +335,25 @@ export default function FinanceDashboardPage() {
               </div>
             )}
 
-            {/* Data Source Indicator */}
+            {/* Enhanced Data Source Indicators */}
             {plData?.data_sources && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-500">Data:</span>
                 <div className="flex gap-1">
-                  {plData.data_sources.has_historical_data && (
-                    <Badge variant="secondary" className="text-xs">CSV</Badge>
-                  )}
                   {plData.data_sources.has_pos_data && (
-                    <Badge variant="secondary" className="text-xs">POS</Badge>
+                    <Badge className="text-xs bg-green-100 text-green-800 border-green-200 hover:bg-green-200">
+                      POS
+                    </Badge>
                   )}
                   {plData.data_sources.has_marketing_data && (
-                    <Badge variant="secondary" className="text-xs">Marketing</Badge>
+                    <Badge className="text-xs bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200">
+                      API
+                    </Badge>
+                  )}
+                  {plData.data_sources.has_historical_data && (
+                    <Badge className="text-xs bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200">
+                      CSV
+                    </Badge>
                   )}
                 </div>
               </div>
@@ -468,7 +474,44 @@ export default function FinanceDashboardPage() {
         </div>
       )}
 
-      {/* Mobile: No footer - clean end */}
+      {/* Enhanced Mobile Footer with Data Sources */}
+      <div className="block sm:hidden">
+        {plData?.data_sources && (
+          <Card className="mt-4 bg-gray-50 border-gray-200">
+            <CardContent className="p-4">
+              <div className="text-center">
+                <div className="text-xs font-medium text-gray-600 mb-3">Data Sources</div>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {plData.data_sources.has_pos_data && (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span>Live POS data</span>
+                    </div>
+                  )}
+                  {plData.data_sources.has_marketing_data && (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      <span>Marketing APIs</span>
+                    </div>
+                  )}
+                  {plData.data_sources.has_historical_data && (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span>Historical data</span>
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  Updated: {new Date().toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
     </div>
   );

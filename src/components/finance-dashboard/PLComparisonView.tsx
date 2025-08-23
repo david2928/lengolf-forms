@@ -1095,30 +1095,70 @@ export default function PLComparisonView({
         </CardContent>
       </Card>
 
-      {/* Data Sources Legend */}
-      <Card>
+      {/* Data Sources Legend - Enhanced with Colors */}
+      <Card className="shadow-sm">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-4 text-sm text-gray-600">
+          {/* Desktop: Horizontal layout */}
+          <div className="hidden sm:flex items-center gap-4 text-sm text-gray-600">
             <span className="font-medium">Data Sources:</span>
             <div className="flex items-center gap-1">
-              <Badge variant="default" className="text-xs">POS</Badge>
+              <Badge className="text-xs bg-green-100 text-green-800 border-green-200">POS</Badge>
               <span>Live POS data</span>
             </div>
             <div className="flex items-center gap-1">
-              <Badge variant="secondary" className="text-xs">API</Badge>
+              <Badge className="text-xs bg-purple-100 text-purple-800 border-purple-200">API</Badge>
               <span>Marketing APIs</span>
             </div>
             <div className="flex items-center gap-1">
-              <Badge variant="outline" className="text-xs">Manual</Badge>
+              <Badge className="text-xs bg-orange-100 text-orange-800 border-orange-200">Manual</Badge>
               <span>Manual entries</span>
             </div>
             <div className="flex items-center gap-1">
-              <Badge variant="secondary" className="text-xs">CSV</Badge>
+              <Badge className="text-xs bg-blue-100 text-blue-800 border-blue-200">CSV</Badge>
               <span>Historical data</span>
             </div>
             <div className="flex items-center gap-1">
-              <Calculator className="h-3 w-3" />
+              <Calculator className="h-3 w-3 text-indigo-500" />
               <span>Run-rate projections (current month only)</span>
+            </div>
+          </div>
+          
+          {/* Mobile: Vertical layout with color dots */}
+          <div className="block sm:hidden">
+            <div className="text-center text-sm font-medium text-gray-700 mb-3">Data Sources</div>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <div>
+                  <div className="font-medium text-green-800">POS</div>
+                  <div className="text-gray-600">Live data</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                <div>
+                  <div className="font-medium text-purple-800">API</div>
+                  <div className="text-gray-600">Marketing</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                <div>
+                  <div className="font-medium text-orange-800">Manual</div>
+                  <div className="text-gray-600">Entries</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <div>
+                  <div className="font-medium text-blue-800">CSV</div>
+                  <div className="text-gray-600">Historical</div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-center gap-2 mt-3 pt-3 border-t border-gray-200">
+              <Calculator className="h-3 w-3 text-indigo-500" />
+              <span className="text-xs text-gray-600">Run-rate: Current month projections</span>
             </div>
           </div>
         </CardContent>
