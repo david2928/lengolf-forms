@@ -27,29 +27,21 @@ export async function getPackageNameById(packageId: string): Promise<string | nu
 }
 
 /**
- * Gets the display package name for a booking, preferring the real package name over the stored name
+ * Gets the display package name for a booking, ONLY if there's a valid package_id
  * @param packageId - The package ID from the booking
- * @param storedPackageName - The package_name stored in the booking
- * @returns Promise<string | null> - The best package name to display
+ * @param storedPackageName - The package_name stored in the booking (ignored)
+ * @returns Promise<string | null> - The package name if packageId exists, null otherwise
  */
 export async function getDisplayPackageName(
   packageId: string | null, 
   storedPackageName: string | null
 ): Promise<string | null> {
-  // If we have a package ID, fetch the real name
+  // Only show package if we have a valid package ID
   if (packageId) {
     const realPackageName = await getPackageNameById(packageId);
-    if (realPackageName) {
-      return realPackageName;
-    }
+    return realPackageName;
   }
 
-  // Fallback to stored name, but clean up "Will buy " prefix
-  if (storedPackageName) {
-    return storedPackageName.startsWith('Will buy ') 
-      ? storedPackageName.replace('Will buy ', '')
-      : storedPackageName;
-  }
-
+  // No package_id means no package should be displayed
   return null;
 }

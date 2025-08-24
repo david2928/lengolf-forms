@@ -72,7 +72,8 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
   // Fetch the real package name when booking data is available
   useEffect(() => {
     const fetchPackageName = async () => {
-      if (!currentBooking?.package_id && !currentBooking?.package_name) {
+      // Only fetch package name if there's a valid package_id
+      if (!currentBooking?.package_id) {
         setDisplayPackageName(null);
         return;
       }
@@ -80,25 +81,20 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
       setIsLoadingPackage(true);
       try {
         const realPackageName = await getDisplayPackageName(
-          currentBooking?.package_id || null,
+          currentBooking.package_id,
           currentBooking?.package_name || null
         );
         setDisplayPackageName(realPackageName);
       } catch (error) {
         console.error('Error fetching package name:', error);
-        // Fallback to cleaning up the stored name
-        setDisplayPackageName(
-          currentBooking?.package_name?.startsWith('Will buy ') 
-            ? currentBooking.package_name.replace('Will buy ', '')
-            : currentBooking?.package_name || null
-        );
+        setDisplayPackageName(null);
       } finally {
         setIsLoadingPackage(false);
       }
     };
 
     fetchPackageName();
-  }, [currentBooking?.package_id, currentBooking?.package_name]);
+  }, [currentBooking?.package_id]);
 
   if (!currentBooking) return null;
 
@@ -451,12 +447,12 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
                       </div>
                     )}
                     
-                    {(displayPackageName || currentBooking.package_name) && (
+                    {currentBooking.package_id && displayPackageName && (
                       <div className="flex items-center gap-2 text-sm">
                         <Package className="h-4 w-4 text-gray-500" />
                         <span className="text-gray-600">Package:</span>
                         <span className="text-gray-900 font-medium">
-                          {isLoadingPackage ? 'Loading...' : (displayPackageName || currentBooking.package_name)}
+                          {isLoadingPackage ? 'Loading...' : displayPackageName}
                         </span>
                       </div>
                     )}
