@@ -92,7 +92,8 @@
       "WebFetch(domain:developers.facebook.com)",
       "WebSearch",
       "mcp__playwright__browser_tab_select",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "additionalDirectories": [

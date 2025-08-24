@@ -14,7 +14,14 @@ export async function GET() {
       console.error('Error fetching available packages:', error)
       return NextResponse.json(
         { error: 'Failed to fetch available packages' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       )
     }
 
@@ -45,12 +52,26 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json(formattedPackages)
+    return NextResponse.json(formattedPackages, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store',
+      }
+    })
   } catch (error) {
     console.error('Error in GET /api/packages/available:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     )
   }
 }

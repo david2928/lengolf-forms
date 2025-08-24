@@ -24,7 +24,14 @@ export function usePackages() {
   useEffect(() => {
     async function fetchPackages() {
       try {
-        const response = await fetch('/api/packages/available')
+        // Add timestamp to prevent caching
+        const timestamp = Date.now()
+        const response = await fetch(`/api/packages/available?t=${timestamp}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+          }
+        })
         if (!response.ok) throw new Error('Failed to fetch packages')
         const data = await response.json()
         setPackages(data)

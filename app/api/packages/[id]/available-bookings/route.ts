@@ -115,9 +115,10 @@ export async function GET(
     }))
     .filter((booking: any) => includeUsed || !booking.already_linked)
     .sort((a: any, b: any) => {
-      // Sort by date descending (most recent first)
-      return new Date(b.date + ' ' + b.start_time).getTime() - 
-             new Date(a.date + ' ' + a.start_time).getTime();
+      // Sort by date and time descending (most recent first, closest to today at top)
+      const dateTimeA = new Date(a.date + 'T' + a.start_time);
+      const dateTimeB = new Date(b.date + 'T' + b.start_time);
+      return dateTimeB.getTime() - dateTimeA.getTime();
     });
 
     return NextResponse.json({

@@ -159,6 +159,72 @@ export function ProductModifierManager({
     }
   };
 
+  // Drag and drop handlers for reordering modifiers
+  const handleDragStart = (e: React.DragEvent, modifier: ProductModifier) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({
+      id: modifier.id,
+      name: modifier.name,
+      display_order: modifier.display_order
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetModifier: ProductModifier) => {
+    e.preventDefault();
+    
+    try {
+      const draggedData = JSON.parse(e.dataTransfer.getData('text/plain'));
+      
+      if (draggedData.id === targetModifier.id) return;
+
+      if (!productId) {
+        throw new Error('Product ID is required to reorder modifiers');
+      }
+
+      setIsLoading(true);
+
+      const response = await fetch(`/api/admin/products/${productId}/modifiers/reorder`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          modifierId: draggedData.id,
+          targetDisplayOrder: targetModifier.display_order
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reorder modifiers');
+      }
+
+      const result = await response.json();
+      
+      // Update local state with the reordered modifiers
+      onModifiersChange(result.data, modifierType);
+      
+      toast({
+        title: "Modifiers reordered",
+        description: `Moved "${draggedData.name}" to new position`
+      });
+    } catch (error) {
+      console.error('Error reordering modifiers:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to reorder modifiers",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmitModifier = async (data: ModifierFormData, keepOpen = false) => {
     try {
       setIsLoading(true);
@@ -349,10 +415,17 @@ export function ProductModifierManager({
                       const actualCost = productCost * modifier.cost_multiplier;
                       
                       return (
-                        <Card key={modifier.id} className={cn(
-                          "relative",
-                          modifier.is_default && "border-blue-200 bg-blue-50"
-                        )}>
+                        <Card 
+                          key={modifier.id} 
+                          className={cn(
+                            "relative cursor-move hover:shadow-md transition-shadow",
+                            modifier.is_default && "border-blue-200 bg-blue-50"
+                          )}
+                          draggable={true}
+                          onDragStart={(e) => handleDragStart(e, modifier)}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, modifier)}
+                        >
                           <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
