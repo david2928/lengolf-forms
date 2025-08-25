@@ -202,7 +202,20 @@ The Sales Dashboard is the first fully implemented admin feature, providing comp
   - Integration with POS data, marketing costs, and manual entries
   - Mobile-responsive design for tablet and desktop use
 
-### 8. Navigation Integration
+### 8. Customer Outreach (`/admin/customer-outreach`)
+- **Status**: Fully implemented and active
+- **Purpose**: Customer audience building and OB sales call list management
+- **Features**: 
+  - Advanced audience filtering by last visit, packages, LINE status, and customer value
+  - Live customer preview with pagination and ranking
+  - Saved audience snapshots for reuse
+  - OB Sales integration for lead feedback workflow
+  - Customer data export capabilities
+  - Mobile-responsive interface optimized for call center operations
+  - Integration with Lead Feedback system for outbound sales tracking
+  - Audience selection for targeted outreach campaigns
+
+### 9. Navigation Integration
 - **Status**: Implemented
 - **Purpose**: Seamless access to admin features
 - **Features**: 
@@ -292,6 +305,8 @@ admin/
 │   └── page.tsx
 ├── competitors/           # Competitor tracking system
 │   └── page.tsx
+├── customer-outreach/     # Customer audience building and OB sales
+│   └── page.tsx
 └── [future-features]/      # Planned admin features
 ```
 
@@ -305,6 +320,7 @@ admin/
 /admin/inventory           # Inventory management
 /admin/products            # Product management system
 /admin/competitors         # Competitor tracking system
+/admin/customer-outreach   # Customer audience building and OB sales
 /admin/finance-dashboard   # Finance dashboard and P&L analysis
 /admin/settings            # System settings (planned)
 ```

@@ -93,7 +93,9 @@
       "WebSearch",
       "mcp__playwright__browser_tab_select",
       "Bash(git restore:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(git rebase:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "additionalDirectories": [

@@ -35,7 +35,7 @@ function formatNumber(num: number) {
   return new Intl.NumberFormat('th-TH').format(num)
 }
 
-export default function MarketingPage() {
+export default function CustomerOutreachPage() {
   const [activeTab, setActiveTab] = useState<'builder' | 'line'>('builder')
   const [audienceFilters, setAudienceFilters] = useState<AudienceFilters>({ page: 1, previewLimit: 10 })
   const [previewRequested, setPreviewRequested] = useState(false)
@@ -222,7 +222,7 @@ export default function MarketingPage() {
   if (!mounted) {
     return (
       <div className="container mx-auto py-3 sm:py-6 space-y-4 sm:space-y-6 px-3 sm:px-4">
-        <ActionBar title="Marketing" subtitle="Build audiences, send LINE messages, and log calls."><div /></ActionBar>
+        <ActionBar title="Customer Outreach" subtitle="Build customer audiences and manage OB sales call lists."><div /></ActionBar>
         <Card>
           <CardHeader>
             <CardTitle>Loading…</CardTitle>
@@ -249,8 +249,8 @@ export default function MarketingPage() {
       )}
       
       <ActionBar
-        title="Marketing"
-        subtitle="Build audiences, send LINE messages, and log calls."
+        title="Customer Outreach"
+        subtitle="Build customer audiences and manage OB sales call lists."
       >
         <div />
       </ActionBar>

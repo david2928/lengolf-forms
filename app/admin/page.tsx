@@ -23,7 +23,8 @@ import {
   Settings,
   Cog,
   Camera,
-  Package
+  Package,
+  Phone
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -94,6 +95,12 @@ const customerManagementItems = [
     title: "Package Management",
     description: "Advanced package administration and transfers",
     path: "/admin/packages"
+  },
+  {
+    icon: Phone,
+    title: "Customer Outreach",
+    description: "Build customer audiences and manage OB sales call lists",
+    path: "/admin/customer-outreach"
   },
   {
     icon: Mail,

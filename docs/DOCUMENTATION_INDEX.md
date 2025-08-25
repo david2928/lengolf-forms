@@ -62,12 +62,13 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 
 ### Sales & Analytics
 - **[Sales Dashboard](./features/admin/analytics/SALES_DASHBOARD.md)** - KPIs, charts, and business analytics
+- **[Lead Feedback System](./features/admin/analytics/LEAD_FEEDBACK_SYSTEM.md)** - Comprehensive lead processing and OB sales management with Customer Outreach integration
 - **[Google Ads Analytics](./features/admin/analytics/GOOGLE_ADS_ANALYTICS.md)** - Google Ads campaign tracking and ROI analysis
 - **[Referral Analytics System](./features/admin/analytics/REFERRAL_ANALYTICS_SYSTEM.md)** - Customer acquisition tracking and trend analysis
-- **[B2C Lead Feedback System](./features/admin/analytics/B2C_LEAD_FEEDBACK_SYSTEM.md)** - Lead tracking and follow-up management
 
 ### Customer Management
 - **[Customer Management System](./features/public/customer-packages/CUSTOMER_MANAGEMENT_SYSTEM.md)** - Unified customer profiles with stable IDs and analytics
+- **[Customer Outreach](./features/admin/customer-management/CUSTOMER_OUTREACH.md)** - Audience building and OB sales call list management
 - **[POS Customer Management](./features/public/pos/POS_CUSTOMER_MANAGEMENT.md)** - Customer integration in POS system
 
 ### Product & Inventory

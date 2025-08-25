@@ -197,8 +197,8 @@ export const menuItems: MenuItem[] = [
   },
   {
     icon: Share2,
-    title: "Marketing",
-    path: '/admin/marketing',
-    description: "Build audiences and run call workflows"
+    title: "Customer Outreach",
+    path: '/admin/customer-outreach',
+    description: "Build customer audiences and manage OB sales call lists"
   }
 ] 
