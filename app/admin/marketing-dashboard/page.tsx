@@ -11,16 +11,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { 
   TrendingUp, 
   RefreshCw, 
   Calendar,
+  CalendarDays,
   Download,
   BarChart3,
   Target,
   Eye,
   EyeOff
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 
 // Import our marketing dashboard components
 import MarketingKPICards from '@/components/marketing-dashboard/MarketingKPICards';
@@ -36,6 +45,8 @@ export default function MarketingDashboardPage() {
   // Dashboard state
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [timeRange, setTimeRange] = useState<string>('30');
+  const [usePeriodType, setUsePeriodType] = useState<'rolling' | 'weekly'>('rolling');
+  const [referenceDate, setReferenceDate] = useState<Date>(new Date());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   
   // Use the marketing dashboard hook with caching
@@ -48,6 +59,8 @@ export default function MarketingDashboardPage() {
     refresh
   } = useMarketingDashboard({
     timeRange,
+    usePeriodType,
+    referenceDate: referenceDate.toISOString().split('T')[0],
     refreshInterval: 0, // No auto-refresh, manual only
     enabled: true
   });
@@ -61,30 +74,37 @@ export default function MarketingDashboardPage() {
   const handleExport = () => {
     if (!performanceData.length) return;
 
-    const csvData = performanceData.map(row => ({
-      Period: row.period,
-      'Week Start': row.weekStart,
-      'Week End': row.weekEnd,
-      'Google Spend': row.googleSpend,
-      'Meta Spend': row.metaSpend,
-      'Total Spend': row.totalSpend,
-      'Google Impressions': row.googleImpressions,
-      'Meta Impressions': row.metaImpressions,
-      'Total Impressions': row.totalImpressions,
-      'Google Clicks': row.googleClicks,
-      'Meta Clicks': row.metaClicks,
-      'Total Clicks': row.totalClicks,
-      'Google CTR': row.googleCtr,
-      'Meta CTR': row.metaCtr,
-      'Average CTR': row.averageCtr,
-      'Google Conversions': row.googleConversions,
-      'Meta Conversions': row.metaConversions,
-      'Total Conversions': row.totalConversions,
-      'CAC': row.cac,
-      'ROAS': row.roas,
-      'WoW Spend Change': row.weekOverWeekSpendChange,
-      'WoW Conversions Change': row.weekOverWeekConversionsChange
-    }));
+    const csvData = performanceData.map(row => {
+      const startDate = 'weekStart' in row ? row.weekStart : row.periodStart;
+      const endDate = 'weekEnd' in row ? row.weekEnd : row.periodEnd;
+      const spendChange = 'weekOverWeekSpendChange' in row ? row.weekOverWeekSpendChange : row.periodOverPeriodSpendChange;
+      const newCustomersChange = 'weekOverWeekNewCustomersChange' in row ? row.weekOverWeekNewCustomersChange : row.periodOverPeriodNewCustomersChange;
+
+      return {
+        Period: row.period,
+        'Start Date': startDate,
+        'End Date': endDate,
+        'Google Spend': row.googleSpend,
+        'Meta Spend': row.metaSpend,
+        'Total Spend': row.totalSpend,
+        'Google Impressions': row.googleImpressions,
+        'Meta Impressions': row.metaImpressions,
+        'Total Impressions': row.totalImpressions,
+        'Google Clicks': row.googleClicks,
+        'Meta Clicks': row.metaClicks,
+        'Total Clicks': row.totalClicks,
+        'Google CTR': row.googleCtr,
+        'Meta CTR': row.metaCtr,
+        'Average CTR': row.averageCtr,
+        'Google New Customers': row.googleNewCustomers,
+        'Meta New Customers': row.metaNewCustomers,
+        'Total New Customers': row.totalNewCustomers,
+        'CAC': row.cac,
+        'ROAS': row.roas,
+        'Spend Change': spendChange,
+        'New Customers Change': newCustomersChange
+      };
+    });
 
     const csvContent = [
       Object.keys(csvData[0]).join(','),
@@ -114,9 +134,9 @@ export default function MarketingDashboardPage() {
 
   const getDateRangeText = () => {
     const days = parseInt(timeRange);
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - days);
+    const endDate = referenceDate;
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - days + 1);
     
     // Use consistent date formatting to avoid hydration errors
     const formatDate = (date: Date) => {
@@ -127,7 +147,8 @@ export default function MarketingDashboardPage() {
       });
     };
     
-    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+    const periodType = usePeriodType === 'rolling' ? 'Rolling' : 'Weekly';
+    return `${periodType} ${days} Days: ${formatDate(startDate)} - ${formatDate(endDate)}`;
   };
 
   return (
@@ -157,19 +178,58 @@ export default function MarketingDashboardPage() {
 
         {/* Dashboard Controls */}
         <div className="flex flex-wrap items-center gap-3">
+          {/* Period Type Selector */}
+          <Select value={usePeriodType} onValueChange={(value: 'rolling' | 'weekly') => setUsePeriodType(value)}>
+            <SelectTrigger className="w-32">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="rolling">Rolling</SelectItem>
+              <SelectItem value="weekly">Weekly</SelectItem>
+            </SelectContent>
+          </Select>
+
           {/* Time Range Selector */}
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-32">
               <Calendar className="h-4 w-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7">Last 7 Days</SelectItem>
-              <SelectItem value="30">Last 30 Days</SelectItem>
-              <SelectItem value="60">Last 60 Days</SelectItem>
-              <SelectItem value="90">Last 90 Days</SelectItem>
+              <SelectItem value="7">7 Days</SelectItem>
+              <SelectItem value="30">30 Days</SelectItem>
+              <SelectItem value="60">60 Days</SelectItem>
+              <SelectItem value="90">90 Days</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Date Picker */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-48 justify-start text-left font-normal",
+                  !referenceDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarDays className="mr-2 h-4 w-4" />
+                {referenceDate ? format(referenceDate, "PPP") : <span>Pick end date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={referenceDate}
+                onSelect={(date) => date && setReferenceDate(date)}
+                disabled={(date) =>
+                  date > new Date() || date < new Date("1900-01-01")
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
 
           {/* Export Button */}
           <Button
@@ -280,7 +340,7 @@ export default function MarketingDashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">This Week</CardTitle>
+                    <CardTitle className="text-lg">{usePeriodType === 'rolling' ? 'Current Period' : 'This Week'}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {performanceData[0] && (
@@ -308,7 +368,7 @@ export default function MarketingDashboardPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Last Week</CardTitle>
+                    <CardTitle className="text-lg">{usePeriodType === 'rolling' ? 'Previous Period' : 'Last Week'}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {performanceData[1] && (
@@ -341,7 +401,7 @@ export default function MarketingDashboardPage() {
                   <CardContent>
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Avg Weekly Spend:</span>
+                        <span className="text-sm text-gray-600">{usePeriodType === 'rolling' ? 'Avg Period Spend:' : 'Avg Weekly Spend:'}</span>
                         <span className="font-semibold">
                           ฿{((performanceData.reduce((sum, week) => sum + week.totalSpend, 0) / performanceData.length)).toLocaleString('th-TH')}
                         </span>

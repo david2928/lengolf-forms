@@ -33,6 +33,31 @@ interface WeeklyPerformance {
   weekOverWeekNewCustomersChange: number;
 }
 
+interface Rolling7DayPerformance {
+  period: string;
+  periodStart: string;
+  periodEnd: string;
+  googleSpend: number;
+  metaSpend: number;
+  totalSpend: number;
+  googleImpressions: number;
+  metaImpressions: number;
+  totalImpressions: number;
+  googleClicks: number;
+  metaClicks: number;
+  totalClicks: number;
+  googleCtr: number;
+  metaCtr: number;
+  averageCtr: number;
+  googleNewCustomers: number;
+  metaNewCustomers: number;
+  totalNewCustomers: number;
+  cac: number;
+  roas: number;
+  periodOverPeriodSpendChange: number;
+  periodOverPeriodNewCustomersChange: number;
+}
+
 interface MonthlyPerformance {
   period: string;
   monthStart: string;
@@ -65,9 +90,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const weeks = parseInt(searchParams.get('weeks') || '12');
-    const format = searchParams.get('format') || 'weekly'; // weekly, monthly
+    const format = searchParams.get('format') || 'weekly'; // weekly, monthly, rolling7day
     const includeMonthly = searchParams.get('includeMonthly') === 'true';
     const referenceDateParam = searchParams.get('referenceDate');
+    const periods = parseInt(searchParams.get('periods') || '12'); // For rolling periods
 
     // Calculate date range relative to reference date (defaults to yesterday)
     const today = new Date();
@@ -76,12 +102,15 @@ export async function GET(request: NextRequest) {
     // For API calls, default end date to yesterday unless a specific reference date is provided
     const endDate = referenceDateParam ? referenceDate : new Date(today.setDate(today.getDate() - 1));
     
-    const startDate = new Date(endDate);
-    startDate.setDate(endDate.getDate() - (weeks * 7) + 1);
-
-    if (format === 'monthly' || includeMonthly) {
+    if (format === 'rolling7day') {
+      return await getRolling7DayPerformance(endDate, periods);
+    } else if (format === 'monthly' || includeMonthly) {
+      const startDate = new Date(endDate);
+      startDate.setDate(endDate.getDate() - (weeks * 7) + 1);
       return await getMonthlyPerformance(startDate, endDate);
     } else {
+      const startDate = new Date(endDate);
+      startDate.setDate(endDate.getDate() - (weeks * 7) + 1);
       return await getWeeklyPerformance(startDate, endDate, weeks);
     }
 
@@ -376,6 +405,127 @@ async function getMonthlyPerformance(startDate: Date, endDate: Date) {
       avgMonthlyNewCustomers: performance.reduce((sum, month) => sum + month.totalNewCustomers, 0) / performance.length,
       avgCac: performance.reduce((sum, month) => sum + month.cac, 0) / performance.length,
       avgRoas: performance.reduce((sum, month) => sum + month.roas, 0) / performance.length
+    }
+  });
+}
+
+async function getRolling7DayPerformance(endDate: Date, periods: number) {
+  // Get daily data from our view
+  const { data: dailyData, error } = await supabase
+    .schema('marketing')
+    .from('daily_marketing_metrics')
+    .select('*')
+    .gte('date', new Date(endDate.getTime() - (periods * 7 + 6) * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+    .lte('date', endDate.toISOString().split('T')[0])
+    .order('date', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching daily metrics:', error);
+    throw new Error('Failed to fetch daily metrics');
+  }
+
+  const performance: Rolling7DayPerformance[] = [];
+
+  // Create rolling 7-day periods
+  for (let i = 0; i < periods; i++) {
+    const periodEnd = new Date(endDate.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
+    const periodStart = new Date(periodEnd.getTime() - (6 * 24 * 60 * 60 * 1000));
+
+    // Filter daily data for this 7-day period
+    const periodData = dailyData?.filter(day => {
+      const dayDate = new Date(day.date);
+      return dayDate >= periodStart && dayDate <= periodEnd;
+    }) || [];
+
+    // Aggregate the daily data for this period
+    const periodTotals = periodData.reduce((acc, day) => ({
+      googleSpend: acc.googleSpend + Number(day.google_spend),
+      metaSpend: acc.metaSpend + Number(day.meta_spend),
+      totalSpend: acc.totalSpend + Number(day.total_spend),
+      googleImpressions: acc.googleImpressions + Number(day.google_impressions),
+      metaImpressions: acc.metaImpressions + Number(day.meta_impressions),
+      totalImpressions: acc.totalImpressions + Number(day.total_impressions),
+      googleClicks: acc.googleClicks + Number(day.google_clicks),
+      metaClicks: acc.metaClicks + Number(day.meta_clicks),
+      totalClicks: acc.totalClicks + Number(day.total_clicks),
+      googleNewCustomers: acc.googleNewCustomers + Number(day.google_new_customers),
+      metaNewCustomers: acc.metaNewCustomers + Number(day.meta_new_customers),
+      totalNewCustomers: acc.totalNewCustomers + Number(day.total_new_customers),
+      totalRevenue: acc.totalRevenue + Number(day.daily_revenue),
+    }), {
+      googleSpend: 0, metaSpend: 0, totalSpend: 0,
+      googleImpressions: 0, metaImpressions: 0, totalImpressions: 0,
+      googleClicks: 0, metaClicks: 0, totalClicks: 0,
+      googleNewCustomers: 0, metaNewCustomers: 0, totalNewCustomers: 0,
+      totalRevenue: 0
+    });
+
+    // Calculate derived metrics
+    const googleCtr = periodTotals.googleImpressions > 0 ? 
+      (periodTotals.googleClicks / periodTotals.googleImpressions) * 100 : 0;
+    const metaCtr = periodTotals.metaImpressions > 0 ? 
+      (periodTotals.metaClicks / periodTotals.metaImpressions) * 100 : 0;
+    const averageCtr = periodTotals.totalImpressions > 0 ? 
+      (periodTotals.totalClicks / periodTotals.totalImpressions) * 100 : 0;
+
+    const cac = periodTotals.totalNewCustomers > 0 ? 
+      periodTotals.totalSpend / periodTotals.totalNewCustomers : 0;
+    const roas = periodTotals.totalSpend > 0 ? 
+      periodTotals.totalRevenue / periodTotals.totalSpend : 0;
+
+    // Calculate period-over-period changes
+    let periodOverPeriodSpendChange = 0;
+    let periodOverPeriodNewCustomersChange = 0;
+    
+    if (performance.length > 0) {
+      const prevPeriod = performance[performance.length - 1];
+      periodOverPeriodSpendChange = prevPeriod.totalSpend > 0 ? 
+        ((periodTotals.totalSpend - prevPeriod.totalSpend) / prevPeriod.totalSpend) * 100 : 0;
+      periodOverPeriodNewCustomersChange = prevPeriod.totalNewCustomers > 0 ? 
+        ((periodTotals.totalNewCustomers - prevPeriod.totalNewCustomers) / prevPeriod.totalNewCustomers) * 100 : 0;
+    }
+
+    const periodKey = `${periodStart.toISOString().split('T')[0]} to ${periodEnd.toISOString().split('T')[0]}`;
+
+    const periodPerformance: Rolling7DayPerformance = {
+      period: periodKey,
+      periodStart: periodStart.toISOString().split('T')[0],
+      periodEnd: periodEnd.toISOString().split('T')[0],
+      googleSpend: periodTotals.googleSpend,
+      metaSpend: periodTotals.metaSpend,
+      totalSpend: periodTotals.totalSpend,
+      googleImpressions: periodTotals.googleImpressions,
+      metaImpressions: periodTotals.metaImpressions,
+      totalImpressions: periodTotals.totalImpressions,
+      googleClicks: periodTotals.googleClicks,
+      metaClicks: periodTotals.metaClicks,
+      totalClicks: periodTotals.totalClicks,
+      googleCtr,
+      metaCtr,
+      averageCtr,
+      googleNewCustomers: periodTotals.googleNewCustomers,
+      metaNewCustomers: periodTotals.metaNewCustomers,
+      totalNewCustomers: periodTotals.totalNewCustomers,
+      cac,
+      roas,
+      periodOverPeriodSpendChange,
+      periodOverPeriodNewCustomersChange
+    };
+
+    performance.push(periodPerformance);
+  }
+
+  // Reverse to have most recent first
+  performance.reverse();
+
+  return NextResponse.json({
+    data: performance,
+    summary: {
+      totalPeriods: performance.length,
+      avgPeriodSpend: performance.reduce((sum, period) => sum + period.totalSpend, 0) / performance.length,
+      avgPeriodNewCustomers: performance.reduce((sum, period) => sum + period.totalNewCustomers, 0) / performance.length,
+      avgCac: performance.reduce((sum, period) => sum + period.cac, 0) / performance.length,
+      avgRoas: performance.reduce((sum, period) => sum + period.roas, 0) / performance.length
     }
   });
 }

@@ -55,6 +55,31 @@ interface WeeklyPerformance {
   weekOverWeekNewCustomersChange: number;
 }
 
+interface Rolling7DayPerformance {
+  period: string;
+  periodStart: string;
+  periodEnd: string;
+  googleSpend: number;
+  metaSpend: number;
+  totalSpend: number;
+  googleImpressions: number;
+  metaImpressions: number;
+  totalImpressions: number;
+  googleClicks: number;
+  metaClicks: number;
+  totalClicks: number;
+  googleCtr: number;
+  metaCtr: number;
+  averageCtr: number;
+  googleNewCustomers: number;
+  metaNewCustomers: number;
+  totalNewCustomers: number;
+  cac: number;
+  roas: number;
+  periodOverPeriodSpendChange: number;
+  periodOverPeriodNewCustomersChange: number;
+}
+
 interface PerformanceData {
   currentWeek: WeekData;
   previousWeek: WeekData;
@@ -139,7 +164,7 @@ interface MonthlyPerformance {
 }
 
 interface MarketingPerformanceTableProps {
-  data: WeeklyPerformance[];
+  data: (WeeklyPerformance | Rolling7DayPerformance)[];
   monthlyData?: MonthlyPerformance[];
   isLoading?: boolean;
   onExport?: () => void;
@@ -153,13 +178,39 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
   onExport
 }) => {
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
+
+  // Helper functions to handle both data types
+  const getStartDate = (item: WeeklyPerformance | Rolling7DayPerformance): string => {
+    return 'weekStart' in item ? item.weekStart : item.periodStart;
+  };
+
+  const getEndDate = (item: WeeklyPerformance | Rolling7DayPerformance): string => {
+    return 'weekEnd' in item ? item.weekEnd : item.periodEnd;
+  };
+
+  const getChangeValues = (item: WeeklyPerformance | Rolling7DayPerformance) => {
+    if ('weekOverWeekSpendChange' in item) {
+      return {
+        spendChange: item.weekOverWeekSpendChange,
+        newCustomersChange: item.weekOverWeekNewCustomersChange
+      };
+    } else {
+      return {
+        spendChange: item.periodOverPeriodSpendChange,
+        newCustomersChange: item.periodOverPeriodNewCustomersChange
+      };
+    }
+  };
   
+  // Determine if we're using rolling periods or weekly periods
+  const isRollingPeriods = data && data.length > 0 && 'periodStart' in data[0];
+
   // Transform the WeeklyPerformance[] data into the required structure
   const transformedData = React.useMemo(() => {
     if (!data || data.length === 0) return null;
     
     // Sort data by period (most recent first)
-    const sortedData = [...data].sort((a, b) => new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime());
+    const sortedData = [...data].sort((a, b) => new Date(getEndDate(b)).getTime() - new Date(getEndDate(a)).getTime());
     
     // Calculate 4-week average for the current period
     const recentFourWeeks = sortedData.slice(0, 4);
@@ -407,27 +458,27 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                 <TableHead className="font-semibold text-gray-700 py-3 px-4 text-left w-[180px]">Metric</TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[130px]">
                   <div className="text-xs">Current</div>
-                  <div className="text-[10px] text-gray-500 font-normal">This Week</div>
+                  <div className="text-[10px] text-gray-500 font-normal">{isRollingPeriods ? 'This Period' : 'This Week'}</div>
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[130px]">
                   <div className="text-xs">Previous</div>
-                  <div className="text-[10px] text-gray-500 font-normal">Last Week</div>
+                  <div className="text-[10px] text-gray-500 font-normal">{isRollingPeriods ? 'Last Period' : 'Last Week'}</div>
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
-                  <div className="text-xs">vs 4W Avg</div>
+                  <div className="text-xs">{isRollingPeriods ? 'vs 4P Avg' : 'vs 4W Avg'}</div>
                   <div className="text-[10px] text-gray-500 font-normal">% Change</div>
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
-                  <div className="text-xs">3W Ago</div>
-                  <div className="text-[10px] text-gray-500 font-normal">3 Weeks</div>
+                  <div className="text-xs">{isRollingPeriods ? '3P Ago' : '3W Ago'}</div>
+                  <div className="text-[10px] text-gray-500 font-normal">{isRollingPeriods ? '3 Periods' : '3 Weeks'}</div>
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
-                  <div className="text-xs">4W Ago</div>
-                  <div className="text-[10px] text-gray-500 font-normal">4 Weeks</div>
+                  <div className="text-xs">{isRollingPeriods ? '4P Ago' : '4W Ago'}</div>
+                  <div className="text-[10px] text-gray-500 font-normal">{isRollingPeriods ? '4 Periods' : '4 Weeks'}</div>
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
-                  <div className="text-xs">5W Ago</div>
-                  <div className="text-[10px] text-gray-500 font-normal">5 Weeks</div>
+                  <div className="text-xs">{isRollingPeriods ? '5P Ago' : '5W Ago'}</div>
+                  <div className="text-[10px] text-gray-500 font-normal">{isRollingPeriods ? '5 Periods' : '5 Weeks'}</div>
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[140px]">
                   <div className="text-xs">MTD</div>
@@ -451,12 +502,15 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-3 px-4 font-semibold text-gray-900 bg-gray-50/30 text-sm">Spend</TableCell>
                     <TableCell className="py-3 px-2 text-center">
                       <div className="font-medium text-gray-900 text-xs">{formatCurrency(transformedData.currentWeek?.totalSpend)}</div>
-                      {(transformedData.currentWeek?.weekOverWeekSpendChange || 0) !== 0 && (
-                        <div className={`flex items-center justify-center gap-1 text-[10px] mt-1 ${getTrendColor(transformedData.currentWeek?.weekOverWeekSpendChange || 0)}`}>
-                          {getTrendIcon(transformedData.currentWeek?.weekOverWeekSpendChange || 0)}
-                          {(transformedData.currentWeek?.weekOverWeekSpendChange || 0) > 0 ? '+' : ''}{formatPercentage(transformedData.currentWeek?.weekOverWeekSpendChange, 1)}
-                        </div>
-                      )}
+                      {transformedData.currentWeek && (() => {
+                        const changes = getChangeValues(transformedData.currentWeek);
+                        return (changes.spendChange || 0) !== 0 && (
+                          <div className={`flex items-center justify-center gap-1 text-[10px] mt-1 ${getTrendColor(changes.spendChange || 0)}`}>
+                            {getTrendIcon(changes.spendChange || 0)}
+                            {(changes.spendChange || 0) > 0 ? '+' : ''}{formatPercentage(changes.spendChange, 1)}
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatCurrency(transformedData.previousWeek?.totalSpend)}</TableCell>
                     <TableCell className="py-3 px-2 text-center">
@@ -598,12 +652,15 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-3 px-4 font-semibold text-gray-900 bg-gray-50/30 text-sm">New Customers</TableCell>
                     <TableCell className="py-3 px-2 text-center">
                       <div className="font-medium text-gray-900 text-xs">{transformedData.currentWeek?.totalNewCustomers || 0}</div>
-                      {(transformedData.currentWeek?.weekOverWeekNewCustomersChange || 0) !== 0 && (
-                        <div className={`flex items-center justify-center gap-1 text-[10px] mt-1 ${getTrendColor(transformedData.currentWeek?.weekOverWeekNewCustomersChange || 0)}`}>
-                          {getTrendIcon(transformedData.currentWeek?.weekOverWeekNewCustomersChange || 0)}
-                          {(transformedData.currentWeek?.weekOverWeekNewCustomersChange || 0) > 0 ? '+' : ''}{formatPercentage(transformedData.currentWeek?.weekOverWeekNewCustomersChange, 1)}
-                        </div>
-                      )}
+                      {transformedData.currentWeek && (() => {
+                        const changes = getChangeValues(transformedData.currentWeek);
+                        return (changes.newCustomersChange || 0) !== 0 && (
+                          <div className={`flex items-center justify-center gap-1 text-[10px] mt-1 ${getTrendColor(changes.newCustomersChange || 0)}`}>
+                            {getTrendIcon(changes.newCustomersChange || 0)}
+                            {(changes.newCustomersChange || 0) > 0 ? '+' : ''}{formatPercentage(changes.newCustomersChange, 1)}
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{transformedData.previousWeek?.totalNewCustomers || 0}</TableCell>
                     <TableCell className="py-3 px-2 text-center">

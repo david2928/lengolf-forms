@@ -52,6 +52,31 @@ interface WeeklyPerformance {
   weekOverWeekNewCustomersChange: number;
 }
 
+interface Rolling7DayPerformance {
+  period: string;
+  periodStart: string;
+  periodEnd: string;
+  googleSpend: number;
+  metaSpend: number;
+  totalSpend: number;
+  googleImpressions: number;
+  metaImpressions: number;
+  totalImpressions: number;
+  googleClicks: number;
+  metaClicks: number;
+  totalClicks: number;
+  googleCtr: number;
+  metaCtr: number;
+  averageCtr: number;
+  googleNewCustomers: number;
+  metaNewCustomers: number;
+  totalNewCustomers: number;
+  cac: number;
+  roas: number;
+  periodOverPeriodSpendChange: number;
+  periodOverPeriodNewCustomersChange: number;
+}
+
 interface ChartData {
   spendTrend: any[];
   platformComparison: any[];
@@ -85,13 +110,15 @@ interface MonthlyPerformance {
 
 interface MarketingDashboardData {
   kpis: MarketingKPIs | null;
-  performance: WeeklyPerformance[];
+  performance: (WeeklyPerformance | Rolling7DayPerformance)[];
   monthlyPerformance: MonthlyPerformance[];
   charts: ChartData | null;
 }
 
 interface UseMarketingDashboardOptions {
   timeRange?: string;
+  usePeriodType?: 'rolling' | 'weekly';
+  referenceDate?: string;
   refreshInterval?: number;
   enabled?: boolean;
 }
@@ -155,6 +182,8 @@ const marketingCache = new SimpleCache();
 export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}): UseMarketingDashboardReturn => {
   const {
     timeRange = '30',
+    usePeriodType = 'rolling',
+    referenceDate,
     refreshInterval = 0,
     enabled = true
   } = options;
@@ -170,13 +199,13 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Generate cache keys based on timeRange
+  // Generate cache keys based on timeRange, periodType, and referenceDate
   const getCacheKeys = useCallback(() => ({
-    kpis: `marketing-kpis-${timeRange}`,
-    performance: `marketing-performance-${timeRange}`,
-    monthlyPerformance: `marketing-monthly-performance-${timeRange}`,
-    charts: `marketing-charts-${timeRange}`
-  }), [timeRange]);
+    kpis: `marketing-kpis-${timeRange}-${usePeriodType}-${referenceDate}`,
+    performance: `marketing-performance-${timeRange}-${usePeriodType}-${referenceDate}`,
+    monthlyPerformance: `marketing-monthly-performance-${timeRange}-${usePeriodType}-${referenceDate}`,
+    charts: `marketing-charts-${timeRange}-${usePeriodType}-${referenceDate}`
+  }), [timeRange, usePeriodType, referenceDate]);
 
   // Fetch KPI data
   const fetchKPIs = useCallback(async (): Promise<MarketingKPIs | null> => {
@@ -189,7 +218,8 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
     }
 
     try {
-      const response = await fetch(`/api/marketing/overview?days=${timeRange}&comparisonDays=${timeRange}`);
+      const referenceDateParam = referenceDate ? `&referenceDate=${referenceDate}` : '';
+      const response = await fetch(`/api/marketing/overview?days=${timeRange}&comparisonDays=${timeRange}${referenceDateParam}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch KPIs: ${response.statusText}`);
       }
@@ -204,10 +234,10 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
       console.error('Error fetching KPIs:', err);
       throw err;
     }
-  }, [timeRange, getCacheKeys]);
+  }, [timeRange, referenceDate, getCacheKeys]);
 
   // Fetch performance data
-  const fetchPerformance = useCallback(async (): Promise<WeeklyPerformance[]> => {
+  const fetchPerformance = useCallback(async (): Promise<(WeeklyPerformance | Rolling7DayPerformance)[]> => {
     const cacheKey = getCacheKeys().performance;
     
     // Check cache first
@@ -217,8 +247,18 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
     }
 
     try {
-      const weeks = Math.ceil(parseInt(timeRange) / 7);
-      const response = await fetch(`/api/marketing/performance?weeks=${weeks}`);
+      const referenceDateParam = referenceDate ? `&referenceDate=${referenceDate}` : '';
+      let apiUrl;
+      
+      if (usePeriodType === 'rolling') {
+        const periods = Math.ceil(parseInt(timeRange) / 7);
+        apiUrl = `/api/marketing/performance?format=rolling7day&periods=${periods}${referenceDateParam}`;
+      } else {
+        const weeks = Math.ceil(parseInt(timeRange) / 7);
+        apiUrl = `/api/marketing/performance?weeks=${weeks}${referenceDateParam}`;
+      }
+      
+      const response = await fetch(apiUrl);
       if (!response.ok) {
         throw new Error(`Failed to fetch performance: ${response.statusText}`);
       }
@@ -234,7 +274,7 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
       console.error('Error fetching performance:', err);
       throw err;
     }
-  }, [timeRange, getCacheKeys]);
+  }, [timeRange, usePeriodType, referenceDate, getCacheKeys]);
 
   // Fetch monthly performance data
   const fetchMonthlyPerformance = useCallback(async (): Promise<MonthlyPerformance[]> => {
@@ -276,7 +316,8 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
     }
 
     try {
-      const response = await fetch(`/api/marketing/charts?days=${timeRange}`);
+      const referenceDateParam = referenceDate ? `&referenceDate=${referenceDate}` : '';
+      const response = await fetch(`/api/marketing/charts?days=${timeRange}${referenceDateParam}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch charts: ${response.statusText}`);
       }
@@ -291,7 +332,7 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
       console.error('Error fetching charts:', err);
       throw err;
     }
-  }, [timeRange, getCacheKeys]);
+  }, [timeRange, referenceDate, getCacheKeys]);
 
   // Load all data
   const loadData = useCallback(async (showValidating = false) => {

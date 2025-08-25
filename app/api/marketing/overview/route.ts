@@ -41,11 +41,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const days = parseInt(searchParams.get('days') || '30');
     const comparisonDays = parseInt(searchParams.get('comparisonDays') || '30');
+    const referenceDateParam = searchParams.get('referenceDate');
 
-    // Get current period data (exclude today)
+    // Get current period data (exclude today unless specific reference date provided)
     const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
+    const referenceDate = referenceDateParam ? new Date(referenceDateParam) : new Date(today);
+    const yesterday = referenceDateParam ? referenceDate : new Date(today.setDate(today.getDate() - 1));
     
     const currentPeriodStart = new Date(yesterday);
     currentPeriodStart.setDate(yesterday.getDate() - days + 1);
