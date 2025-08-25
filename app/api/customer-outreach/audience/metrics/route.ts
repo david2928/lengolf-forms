@@ -11,11 +11,20 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 // GET /api/customer-outreach/audience/metrics - Get fast aggregate metrics
 export async function GET(request: NextRequest) {
   const session = await getDevSession(authOptions, request);
+  console.log('Session in metrics API:', { 
+    hasSession: !!session, 
+    hasUser: !!session?.user, 
+    email: session?.user?.email,
+    env: process.env.NODE_ENV 
+  });
+  
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
+    console.log(`Getting audience metrics for user: ${session.user.email}`);
+    
     // Get the selected audience ID from database
     const { data: selectedData, error: selectedError } = await refacSupabaseAdmin
       .schema('marketing')
@@ -25,10 +34,12 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (selectedError && selectedError.code !== 'PGRST116') {
+      console.error('Error fetching selected audience:', selectedError);
       throw selectedError;
     }
 
     const selectedAudienceId = selectedData?.audience_id || null;
+    console.log(`Found selected audience ID: ${selectedAudienceId}`);
     
     if (!selectedAudienceId) {
       return NextResponse.json({
