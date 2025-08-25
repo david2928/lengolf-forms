@@ -2,8 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Search, Phone, CheckCircle, XCircle, AlertCircle, ChevronLeft, ChevronRight, Clock, Target, Users } from 'lucide-react';
+import { Search, Phone, CheckCircle, XCircle, AlertCircle, ChevronLeft, ChevronRight, Clock, Target, Users, Check, X, TrendingUp, TrendingDown, Minus, CalendarClock, CalendarOff, Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// Utility function to format currency
+const formatCurrency = (amount: number | null | undefined): string => {
+  if (amount === null || amount === undefined) return '-';
+  return new Intl.NumberFormat('th-TH', { 
+    style: 'currency', 
+    currency: 'THB', 
+    maximumFractionDigits: 0 
+  }).format(amount);
+};
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -55,6 +65,12 @@ export default function LeadFeedbackPage() {
   const [obAudienceInfo, setObAudienceInfo] = useState<any>(null);
   const [currentCustomerIndex, setCurrentCustomerIndex] = useState(0);
   const [obLoading, setObLoading] = useState(false);
+  
+  // OB Sales view management
+  type OBSalesView = 'dashboard' | 'calling' | 'followups';
+  const [obView, setObView] = useState<OBSalesView>('dashboard');
+  const [followUpCustomers, setFollowUpCustomers] = useState<any[]>([]);
+  const [followUpLoading, setFollowUpLoading] = useState(false);
   
   // Dashboard stats state
   const [dashboardStats, setDashboardStats] = useState({
@@ -186,6 +202,27 @@ export default function LeadFeedbackPage() {
     }
   };
 
+  const loadFollowUpCustomers = async () => {
+    if (!obAudienceInfo?.audienceId) return;
+    
+    setFollowUpLoading(true);
+    try {
+      const response = await fetch(`/api/marketing/ob-sales-notes?follow_up_required=true&audience_id=${obAudienceInfo.audienceId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setFollowUpCustomers(data.data || []);
+      } else {
+        console.error('Failed to load follow-up customers:', response.status);
+        setFollowUpCustomers([]);
+      }
+    } catch (error) {
+      console.error('Error loading follow-up customers:', error);
+      setFollowUpCustomers([]);
+    } finally {
+      setFollowUpLoading(false);
+    }
+  };
+
   const handleOpenLead = async (leadId: string) => {
     setOpeningLead(leadId);
     setErrorMessage('');
@@ -293,21 +330,11 @@ export default function LeadFeedbackPage() {
   useEffect(() => {
     if (activeTab === 'ob-sales') {
       loadSelectedAudience();
+      loadFollowUpCustomers();
     }
-  }, [activeTab]);
+  }, [activeTab, obAudienceInfo?.audienceId]);
 
-  // Poll for audience changes when on OB Sales tab
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (activeTab === 'ob-sales') {
-      interval = setInterval(() => {
-        loadSelectedAudience();
-      }, 15000); // Check every 15 seconds
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [activeTab]); // Remove loadSelectedAudience from dependencies to prevent excessive calls
+  // Removed auto-reload functionality - users can manually refresh if needed
 
   if (loading) {
     return (
@@ -321,56 +348,17 @@ export default function LeadFeedbackPage() {
   }
 
   return (
-    <div className="container mx-auto px-3 py-3 md:py-6 max-w-7xl">
-      <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">B2C Lead Feedback</h1>
-      
-      {/* Key Metrics - Consolidated */}
-      <Card className="mb-4">
-        <CardContent className="p-3 md:p-4">
-          <div className="grid grid-cols-3 lg:grid-cols-5 gap-3 text-center">
-            {/* Speed to Lead */}
-            <div>
-              <Clock className="h-4 w-4 text-blue-600 mx-auto mb-1" />
-              <p className="text-sm font-bold text-blue-600">{dashboardStats.speedToLead}</p>
-              <p className="text-xs text-gray-600">Speed</p>
-            </div>
-            
-            {/* This Week */}
-            <div>
-              <Clock className="h-4 w-4 text-blue-500 mx-auto mb-1" />
-              <p className="text-sm font-bold text-blue-500">{dashboardStats.weekAverage}</p>
-              <p className="text-xs text-gray-600">Week Avg</p>
-            </div>
-            
-            {/* This Month */}
-            <div>
-              <Clock className="h-4 w-4 text-blue-400 mx-auto mb-1" />
-              <p className="text-sm font-bold text-blue-400">{dashboardStats.monthAverage}</p>
-              <p className="text-xs text-gray-600">Month Avg</p>
-            </div>
-            
-            {/* OB Calls */}
-            <div>
-              <Users className="h-4 w-4 text-purple-600 mx-auto mb-1" />
-              <p className="text-sm font-bold text-purple-600">{dashboardStats.obCalls}</p>
-              <p className="text-xs text-gray-600">OB Calls</p>
-            </div>
-            
-            {/* Sales */}
-            <div>
-              <Target className="h-4 w-4 text-green-600 mx-auto mb-1" />
-              <p className="text-sm font-bold text-green-600">{dashboardStats.sales}</p>
-              <p className="text-xs text-gray-600">Sales</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 h-12">
-          <TabsTrigger value="new-leads" className="text-sm md:text-base">New Leads</TabsTrigger>
-          <TabsTrigger value="ob-sales" className="text-sm md:text-base">OB Sales</TabsTrigger>
-        </TabsList>
+    <div className="min-h-screen bg-background">
+      <div className="p-4">
+        
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
+          {/* Only show tabs when in dashboard views */}
+          {(activeTab !== 'ob-sales' || obView === 'dashboard') && (
+            <TabsList className="grid w-full grid-cols-2 h-12">
+              <TabsTrigger value="new-leads" className="text-base font-medium">New Leads</TabsTrigger>
+              <TabsTrigger value="ob-sales" className="text-base font-medium">OB Sales</TabsTrigger>
+            </TabsList>
+          )}
 
         <TabsContent value="new-leads" className="space-y-4">
 
@@ -717,45 +705,595 @@ export default function LeadFeedbackPage() {
 
         {/* OB Sales Tab */}
         <TabsContent value="ob-sales" className="space-y-4">
-          <div className="mb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <Button 
-                onClick={loadSelectedAudience} 
-                variant="outline"
-                disabled={obLoading}
-                className="w-full sm:w-auto"
-              >
-                {obLoading ? 'Refreshing...' : 'Refresh Audience'}
-              </Button>
-              <div className="text-xs text-gray-500 text-center sm:text-right">
-                {obAudience.length > 0 ? (
-                  <div className="space-y-1">
-                    <div>Updated: {new Date().toLocaleTimeString()}</div>
-                    {obAudienceInfo?.sortBy && (
-                      <div>Sort: {obAudienceInfo.sortBy}</div>
-                    )}
-                  </div>
-                ) : (
-                  <div>Auto-refreshes every 15s</div>
-                )}
-              </div>
-            </div>
-          </div>
-          <OBSalesTab
-            audience={obAudience}
-            currentIndex={currentCustomerIndex}
-            onIndexChange={setCurrentCustomerIndex}
-            loading={obLoading}
-            onReload={loadSelectedAudience}
-            onStatsUpdate={loadDashboardStats}
-          />
+          {obView === 'dashboard' && (
+            <OBDashboard
+              stats={dashboardStats}
+              audienceCount={obAudience.length}
+              followUpCount={followUpCustomers.length}
+              onStartCalling={() => setObView('calling')}
+              onViewFollowUps={() => setObView('followups')}
+              onRefresh={loadSelectedAudience}
+              loading={obLoading}
+            />
+          )}
+          
+          {obView === 'calling' && (
+            <OBCallingInterface
+              audience={obAudience}
+              currentIndex={currentCustomerIndex}
+              onIndexChange={setCurrentCustomerIndex}
+              onBackToDashboard={() => setObView('dashboard')}
+              onStatsUpdate={loadDashboardStats}
+            />
+          )}
+          
+          {obView === 'followups' && (
+            <OBFollowUps
+              customers={followUpCustomers}
+              loading={followUpLoading}
+              onBackToDashboard={() => setObView('dashboard')}
+              onRefresh={loadFollowUpCustomers}
+            />
+          )}
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      </div>
     </div>
   );
 }
 
-// OB Sales Tab Component
+// OB Sales Dashboard Component
+interface OBDashboardProps {
+  stats: {
+    speedToLead: string;
+    weekAverage: string;
+    monthAverage: string;
+    obCalls: number;
+    sales: number;
+  };
+  audienceCount: number;
+  followUpCount: number;
+  onStartCalling: () => void;
+  onViewFollowUps: () => void;
+  onRefresh: () => void;
+  loading: boolean;
+}
+
+function OBDashboard({ stats, audienceCount, followUpCount, onStartCalling, onViewFollowUps, onRefresh, loading }: OBDashboardProps) {
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-medium text-muted-foreground">
+            Today's Performance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-3 mb-4">
+          <div className="text-center p-3 bg-secondary rounded-lg">
+            <Clock className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+            <div className="text-2xl font-bold">{stats.speedToLead}</div>
+            <div className="text-xs text-muted-foreground">Speed</div>
+          </div>
+          <div className="text-center p-3 bg-secondary rounded-lg">
+            <Clock className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+            <div className="text-2xl font-bold">{stats.weekAverage}</div>
+            <div className="text-xs text-muted-foreground">Week Avg</div>
+          </div>
+          <div className="text-center p-3 bg-secondary rounded-lg">
+            <Users className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+            <div className="text-2xl font-bold">{stats.obCalls}</div>
+            <div className="text-xs text-muted-foreground">OB Calls</div>
+          </div>
+          <div className="text-center p-3 bg-secondary rounded-lg">
+            <Target className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+            <div className="text-2xl font-bold">{stats.sales}</div>
+            <div className="text-xs text-muted-foreground">Sales</div>
+          </div>
+        </CardContent>
+        
+        {/* Mobile-optimized buttons at bottom */}
+        <CardContent className="space-y-3 pt-0">
+          <Button 
+            variant="default" 
+            size="lg" 
+            className="w-full h-14 text-base"
+            onClick={onStartCalling}
+            disabled={audienceCount === 0 || loading}
+          >
+            <Phone className="h-5 w-5 mr-3" />
+            Start Calling ({audienceCount})
+          </Button>
+          <Button 
+            variant="outline" 
+            size="lg"
+            className="w-full h-14 text-base"
+            onClick={onViewFollowUps}
+            disabled={followUpCount === 0}
+          >
+            <Users className="h-5 w-5 mr-3" />
+            Follow-ups
+            {followUpCount > 0 && (
+              <span className="ml-3 bg-primary text-primary-foreground text-sm px-3 py-1 rounded-full">
+                {followUpCount}
+              </span>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+      
+      {audienceCount === 0 && (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p className="text-muted-foreground mb-4">No audience selected</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Go to the Marketing page and select an audience to display here.
+            </p>
+            <Button onClick={onRefresh} variant="outline" className="w-full h-12">
+              {loading ? 'Checking...' : 'Check for Selected Audience'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// OB Sales Calling Interface Component
+interface OBCallingInterfaceProps {
+  audience: any[];
+  currentIndex: number;
+  onIndexChange: (index: number) => void;
+  onBackToDashboard: () => void;
+  onStatsUpdate: () => void;
+}
+
+function OBCallingInterface({ audience, currentIndex, onIndexChange, onBackToDashboard, onStatsUpdate }: OBCallingInterfaceProps) {
+  const [notesData, setNotesData] = useState<OBNotesFormData>({
+    reachable: '',
+    response: '',
+    timeline: '',
+    followUp: '',
+    notes: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const currentCustomer = audience[currentIndex];
+  const progress = ((currentIndex + 1) / audience.length) * 100;
+  
+  // Validation states
+  const isReachableSet = notesData.reachable !== '';
+  const isFollowUpSet = notesData.followUp !== '';
+  const hasNotes = notesData.notes.trim().length > 0;
+  // Response is only required if reachable is 'yes'
+  const isResponseValid = notesData.reachable === 'no' || (notesData.reachable === 'yes' && notesData.response !== '');
+  // Call notes are optional - not required for form validation
+  const isFormValid = isReachableSet && isFollowUpSet && isResponseValid;
+
+  const resetForm = () => {
+    setNotesData({
+      reachable: '',
+      response: '',
+      timeline: '',
+      followUp: '',
+      notes: ''
+    });
+  };
+
+  const handleSave = async () => {
+    if (!isFormValid || !currentCustomer) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      const response = await fetch('/api/marketing/ob-sales-notes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customer_id: currentCustomer.id,
+          reachable: notesData.reachable === 'yes',
+          response: notesData.response || null,
+          timeline: notesData.timeline || null,
+          follow_up_required: notesData.followUp === 'yes',
+          notes: notesData.notes.trim() || 'No additional notes',
+          call_date: new Date().toISOString().split('T')[0]
+        })
+      });
+
+      if (response.ok) {
+        onStatsUpdate();
+        
+        // Auto-advance to next customer or return to dashboard
+        if (currentIndex < audience.length - 1) {
+          setTimeout(() => {
+            onIndexChange(currentIndex + 1);
+            resetForm();
+          }, 1000);
+        } else {
+          setTimeout(() => {
+            onBackToDashboard();
+          }, 1500);
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to save call notes:', errorData);
+      }
+    } catch (error) {
+      console.error('Error saving call notes:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!currentCustomer) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-muted-foreground mb-4">No customers in audience</p>
+          <Button onClick={onBackToDashboard} variant="outline">
+            Back to Dashboard
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background pb-24">
+      <div className="space-y-3">
+        {/* Customer Section */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 space-y-3">
+          {/* Name & Back Button */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-2xl font-bold text-gray-800 flex-1">{currentCustomer.customer_name}</h3>
+            <Button variant="ghost" size="sm" onClick={onBackToDashboard} className="h-8 px-2 text-sm flex-shrink-0">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
+          </div>
+          
+          {/* Phone */}
+          <div>
+            {currentCustomer.contact_number ? (
+              <a 
+                href={`tel:${currentCustomer.contact_number}`}
+                className="block w-full"
+              >
+                <Button variant="default" size="lg" className="w-full h-16 text-lg bg-green-600 hover:bg-green-700 border-green-600">
+                  <Phone className="h-6 w-6 mr-3" />
+                  {currentCustomer.contact_number}
+                </Button>
+              </a>
+            ) : (
+              <div className="w-full p-4 text-center text-red-600 bg-red-50 rounded-lg border border-red-200">
+                No phone number
+              </div>
+            )}
+          </div>
+            
+          {/* Package Status */}
+          {currentCustomer.last_package_name && (
+            <div className="flex items-center justify-between p-4 bg-white rounded-lg border-l-4 border-purple-500 shadow-sm">
+              <div>
+                <span className="text-sm font-bold text-purple-800">{currentCustomer.last_package_name}</span>
+                <div className="text-xs text-gray-600">
+                  {currentCustomer.last_package_type}
+                  {currentCustomer.last_package_first_use_date ? (
+                    <span className="text-green-600 font-medium"> • Used</span>
+                  ) : (
+                    <span className="text-orange-600 font-medium"> • Not Used</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {currentCustomer.active_packages > 0 && (
+                  <div className="h-3 w-3 rounded-full bg-green-500 ring-2 ring-green-200" title="Active Package" />
+                )}
+                {!currentCustomer.last_package_first_use_date && (
+                  <div className="h-3 w-3 rounded-full bg-orange-500 ring-2 ring-orange-200" title="Not Activated" />
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Metrics Row */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+              <div className="text-xs text-emerald-600 font-medium mb-1">Value</div>
+              <div className="text-lg font-bold text-emerald-800">{formatCurrency(currentCustomer.lifetime_spending)}</div>
+            </div>
+            <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="text-xs text-blue-600 font-medium mb-1">Visits</div>
+              <div className="text-lg font-bold text-blue-800">{currentCustomer.total_bookings || 0}</div>
+            </div>
+            <div className="text-center p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="text-xs text-slate-600 font-medium mb-1">Last Visit</div>
+              <div className="text-sm font-bold text-slate-800">
+                {currentCustomer.last_visit_date ? 
+                  new Date(currentCustomer.last_visit_date).toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: '2-digit', 
+                    year: 'numeric'
+                  }).replace(/\//g, '/') : 'Never'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Form Section */}
+        <div className="space-y-4">
+          {/* Reachable */}
+          <div className="p-4 bg-white">
+            <Label className="text-base font-semibold mb-4 block text-gray-800">
+              Can you reach them?
+            </Label>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant={notesData.reachable === 'yes' ? 'default' : 'outline'}
+                size="lg"
+                className={cn(
+                  "h-14 transition-all",
+                  notesData.reachable === 'yes' ? "bg-green-600 hover:bg-green-700 text-white border-green-600" : "hover:bg-green-50 hover:border-green-300"
+                )}
+                onClick={() => setNotesData({ ...notesData, reachable: 'yes' })}
+              >
+                <Check className="h-5 w-5 mr-2" />
+                Yes
+              </Button>
+              <Button
+                variant={notesData.reachable === 'no' ? 'default' : 'outline'}
+                size="lg"
+                className={cn(
+                  "h-14 transition-all",
+                  notesData.reachable === 'no' ? "bg-red-600 hover:bg-red-700 text-white border-red-600" : "hover:bg-red-50 hover:border-red-300"
+                )}
+                onClick={() => setNotesData({ ...notesData, reachable: 'no' })}
+              >
+                <X className="h-5 w-5 mr-2" />
+                No
+              </Button>
+            </div>
+          </div>
+
+        {/* Response - Only show if reachable */}
+        {notesData.reachable === 'yes' && (
+          <div className="p-4 bg-white">
+              <Label className="text-base font-semibold mb-4 block text-gray-800">
+                How did they respond?
+              </Label>
+              <div className="grid grid-cols-3 gap-3">
+                <Button
+                  variant={notesData.response === 'positive' ? 'default' : 'outline'}
+                  size="default"
+                  className={cn(
+                    "h-14 transition-all",
+                    notesData.response === 'positive' ? "bg-green-600 hover:bg-green-700 text-white border-green-600" : "hover:bg-green-50 hover:border-green-300"
+                  )}
+                  onClick={() => setNotesData({ ...notesData, response: 'positive' })}
+                >
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Positive
+                </Button>
+                <Button
+                  variant={notesData.response === 'neutral' ? 'default' : 'outline'}
+                  size="default"
+                  className={cn(
+                    "h-14 transition-all",
+                    notesData.response === 'neutral' ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600" : "hover:bg-blue-50 hover:border-blue-300"
+                  )}
+                  onClick={() => setNotesData({ ...notesData, response: 'neutral' })}
+                >
+                  <Minus className="h-4 w-4 mr-2" />
+                  Neutral
+                </Button>
+                <Button
+                  variant={notesData.response === 'negative' ? 'default' : 'outline'}
+                  size="default"
+                  className={cn(
+                    "h-14 transition-all",
+                    notesData.response === 'negative' ? "bg-orange-600 hover:bg-orange-700 text-white border-orange-600" : "hover:bg-orange-50 hover:border-orange-300"
+                  )}
+                  onClick={() => setNotesData({ ...notesData, response: 'negative' })}
+                >
+                  <TrendingDown className="h-4 w-4 mr-2" />
+                  Negative
+                </Button>
+              </div>
+            </div>
+        )}
+
+        {/* Follow-up Required */}
+        <div className="p-4 bg-white">
+            <Label className="text-base font-semibold mb-4 block text-gray-800">
+              Do they need a follow-up?
+            </Label>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant={notesData.followUp === 'yes' ? 'default' : 'outline'}
+                size="lg"
+                className={cn(
+                  "h-14 transition-all",
+                  notesData.followUp === 'yes' ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600" : "hover:bg-amber-50 hover:border-amber-300"
+                )}
+                onClick={() => setNotesData({ ...notesData, followUp: 'yes' })}
+              >
+                <CalendarClock className="h-5 w-5 mr-2" />
+                Yes
+              </Button>
+              <Button
+                variant={notesData.followUp === 'no' ? 'default' : 'outline'}
+                size="lg"
+                className={cn(
+                  "h-14 transition-all",
+                  notesData.followUp === 'no' ? "bg-gray-600 hover:bg-gray-700 text-white border-gray-600" : "hover:bg-gray-50 hover:border-gray-300"
+                )}
+                onClick={() => setNotesData({ ...notesData, followUp: 'no' })}
+              >
+                <CalendarOff className="h-5 w-5 mr-2" />
+                No
+              </Button>
+            </div>
+          </div>
+
+        {/* Notes */}
+        <div className="p-4 bg-white">
+            <Label className="text-base font-semibold mb-2 block text-gray-800">
+              Call notes (optional)
+              <span className="text-sm text-gray-500 ml-2 font-normal">
+                {notesData.notes.length}/500 characters
+              </span>
+            </Label>
+            <textarea
+              className="w-full p-4 text-base border-2 border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
+              rows={4}
+              placeholder="What happened during the call?"
+              value={notesData.notes}
+              onChange={(e) => setNotesData({ ...notesData, notes: e.target.value })}
+              maxLength={500}
+              style={{ fontSize: '16px' }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Fixed Bottom Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4">
+        <div className="max-w-sm mx-auto">
+          {/* Validation Indicators - Only show required fields */}
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <div className="flex items-center gap-1">
+              <div className={cn(
+                "h-2 w-2 rounded-full",
+                isReachableSet ? "bg-green-500" : "bg-gray-300"
+              )} />
+              <span className="text-xs text-muted-foreground">Reached</span>
+            </div>
+            {/* Only show response indicator if reachable is 'yes' */}
+            {notesData.reachable === 'yes' && (
+              <div className="flex items-center gap-1">
+                <div className={cn(
+                  "h-2 w-2 rounded-full",
+                  notesData.response ? "bg-green-500" : "bg-gray-300"
+                )} />
+                <span className="text-xs text-muted-foreground">Response</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1">
+              <div className={cn(
+                "h-2 w-2 rounded-full",
+                isFollowUpSet ? "bg-green-500" : "bg-gray-300"
+              )} />
+              <span className="text-xs text-muted-foreground">Follow-up</span>
+            </div>
+          </div>
+          
+          {/* Save Button */}
+          <Button
+            variant={isFormValid ? "default" : "secondary"}
+            size="lg"
+            className="w-full h-12"
+            disabled={!isFormValid || isSubmitting}
+            onClick={handleSave}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <ArrowRight className="h-4 w-4 mr-2" />
+                Save & Continue
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// OB Sales Follow-ups Component
+interface OBFollowUpsProps {
+  customers: any[];
+  loading: boolean;
+  onBackToDashboard: () => void;
+  onRefresh: () => void;
+}
+
+function OBFollowUps({ customers, loading, onBackToDashboard, onRefresh }: OBFollowUpsProps) {
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading follow-ups...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={onBackToDashboard}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <CardTitle className="text-lg">
+              Follow-ups
+              {customers.length > 0 && (
+                <span className="ml-2 bg-secondary text-secondary-foreground text-xs px-2 py-1 rounded-full">
+                  {customers.length}
+                </span>
+              )}
+            </CardTitle>
+          </div>
+        </CardHeader>
+        
+        {customers.length === 0 ? (
+          <CardContent className="p-6 text-center">
+            <p className="text-muted-foreground mb-4">No follow-ups scheduled</p>
+            <Button onClick={onRefresh} variant="outline">
+              Refresh
+            </Button>
+          </CardContent>
+        ) : (
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {customers.map((item, index) => (
+                <div key={index} className="p-4 hover:bg-accent transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="font-medium">{item.customer_name || 'Unknown Customer'}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Last call: {new Date(item.created_at).toLocaleDateString()} • {item.response || 'No response recorded'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        "{item.notes}"
+                      </p>
+                    </div>
+                    {item.customer_phone && (
+                      <a href={`tel:${item.customer_phone}`}>
+                        <Button variant="outline" size="sm">
+                          <Phone className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// Original OB Sales Tab Component (Legacy - will be replaced)
 interface OBSalesTabProps {
   audience: any[];
   currentIndex: number;
@@ -767,10 +1305,9 @@ interface OBSalesTabProps {
 
 interface OBNotesFormData {
   reachable: 'yes' | 'no' | '';
-  response: string;
+  response: 'positive' | 'neutral' | 'negative' | '';
   timeline: string;
   followUp: 'yes' | 'no' | '';
-  bookingSubmitted: 'yes' | 'no' | '';
   notes: string;
 }
 
@@ -780,7 +1317,6 @@ function OBSalesTab({ audience, currentIndex, onIndexChange, loading, onReload, 
     response: '',
     timeline: '',
     followUp: '',
-    bookingSubmitted: '',
     notes: ''
   });
   const [logs, setLogs] = useState<Array<{
@@ -791,26 +1327,25 @@ function OBSalesTab({ audience, currentIndex, onIndexChange, loading, onReload, 
   }>>([]);
   const [hasUnsavedNotes, setHasUnsavedNotes] = useState(false);
   const [customerNotesStatus, setCustomerNotesStatus] = useState<Record<string, boolean>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const currentCustomer = audience[currentIndex];
   const canLog = notesData.notes.trim().length > 0;
   const hasNotesForCurrentCustomer = currentCustomer ? customerNotesStatus[currentCustomer.id] || false : false;
+  
+  // Validation states
+  const isReachableSet = notesData.reachable !== '';
+  const isFollowUpSet = notesData.followUp !== '';
+  const hasNotes = notesData.notes.trim().length > 0;
+  const isFormValid = isReachableSet && isFollowUpSet && hasNotes;
 
-  const handleNext = () => {
-    // Only allow navigation if notes have been saved for current customer
-    if (currentIndex < audience.length - 1 && hasNotesForCurrentCustomer) {
-      onIndexChange(currentIndex + 1);
-      resetForm();
-      setHasUnsavedNotes(false);
-    }
-  };
-
-  const handlePrevious = () => {
-    // Only allow navigation if notes have been saved for current customer  
-    if (currentIndex > 0 && hasNotesForCurrentCustomer) {
-      onIndexChange(currentIndex - 1);
-      resetForm();
-      setHasUnsavedNotes(false);
+  const autoAdvanceToNext = () => {
+    if (currentIndex < audience.length - 1) {
+      setTimeout(() => {
+        onIndexChange(currentIndex + 1);
+        resetForm();
+        setHasUnsavedNotes(false);
+      }, 1000); // 1 second delay to show success
     }
   };
 
@@ -820,13 +1355,14 @@ function OBSalesTab({ audience, currentIndex, onIndexChange, loading, onReload, 
       response: '',
       timeline: '',
       followUp: '',
-      bookingSubmitted: '',
       notes: ''
     });
   };
 
   const handleLog = async (createBooking: boolean) => {
-    if (!canLog || !currentCustomer) return;
+    if (!isFormValid || !currentCustomer) return;
+    
+    setIsSubmitting(true);
     
     try {
       // Save to database
@@ -841,7 +1377,6 @@ function OBSalesTab({ audience, currentIndex, onIndexChange, loading, onReload, 
           response: notesData.response || null,
           timeline: notesData.timeline || null,
           follow_up_required: notesData.followUp === 'yes',
-          booking_submitted: notesData.bookingSubmitted === 'yes',
           notes: notesData.notes.trim(),
           call_date: new Date().toISOString().split('T')[0]
         })
@@ -865,10 +1400,12 @@ function OBSalesTab({ audience, currentIndex, onIndexChange, loading, onReload, 
         ]);
         
         setHasUnsavedNotes(false);
-        resetForm();
         
         // Update dashboard statistics
         onStatsUpdate();
+        
+        // Auto-advance to next customer
+        autoAdvanceToNext();
         
         if (createBooking) {
           // Future: Implement booking navigation
@@ -879,6 +1416,8 @@ function OBSalesTab({ audience, currentIndex, onIndexChange, loading, onReload, 
       }
     } catch (error) {
       console.error('Error saving call notes:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -910,247 +1449,332 @@ function OBSalesTab({ audience, currentIndex, onIndexChange, loading, onReload, 
   }
 
   return (
-    <div className="space-y-4">
-      {/* Customer Display */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <CardTitle className="text-lg">
-                  Customer {currentIndex + 1} of {audience.length}
-                </CardTitle>
-                {!hasNotesForCurrentCustomer && (
-                  <p className="text-xs text-orange-600 mt-1">
-                    ⚠ Save call notes to navigate to next customer
-                  </p>
-                )}
-                {hasNotesForCurrentCustomer && (
-                  <p className="text-xs text-green-600 mt-1">
-                    ✓ Notes saved for this customer
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-2 sm:flex-shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentIndex <= 0 || !hasNotesForCurrentCustomer}
-                  onClick={handlePrevious}
-                  title={!hasNotesForCurrentCustomer ? "Save notes first" : ""}
-                  className="flex-1 sm:flex-none"
-                >
-                  <ChevronLeft className="h-4 w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Previous</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentIndex >= audience.length - 1 || !hasNotesForCurrentCustomer}
-                  onClick={handleNext}
-                  title={!hasNotesForCurrentCustomer ? "Save notes first" : ""}
-                  className="flex-1 sm:flex-none"
-                >
-                  <span className="hidden sm:inline">Next</span>
-                  <ChevronRight className="h-4 w-4 sm:ml-1" />
-                </Button>
-              </div>
-            </div>
+    <div className="space-y-4 pb-24"> {/* Added bottom padding for sticky bar */}
+      {/* Progress Header - Compact */}
+      <div className="bg-white sticky top-0 z-10 border-b border-gray-200 p-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">
+            Customer {currentIndex + 1} of {audience.length}
+          </h2>
+          <div className="text-sm text-gray-500">
+            {Math.round(((currentIndex + 1) / audience.length) * 100)}% complete
           </div>
-        </CardHeader>
-        <CardContent className="pt-3">
+        </div>
+        {/* Progress Bar */}
+        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+          <div 
+            className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+            style={{ width: `${((currentIndex + 1) / audience.length) * 100}%` }}
+          ></div>
+        </div>
+      </div>
+
+      {/* Customer Display - Optimized */}
+      <Card>
+        <CardContent className="p-4">
           {currentCustomer ? (
-            <div className="space-y-3">
-              {/* Name and Phone - Priority info */}
-              <div className="space-y-2">
-                <div>
-                  <Label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Customer</Label>
-                  <p className="text-lg font-medium">{currentCustomer.customer_name}</p>
-                </div>
-                <div>
-                  {currentCustomer.contact_number ? (
-                    <a 
-                      href={`tel:${currentCustomer.contact_number}`}
-                      className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-lg font-medium bg-blue-50 px-3 py-2 rounded-lg"
-                    >
-                      <Phone className="h-4 w-4" />
-                      {currentCustomer.contact_number}
-                    </a>
-                  ) : (
-                    <p className="text-gray-500">No phone number</p>
-                  )}
-                </div>
+            <div className="space-y-4">
+              {/* Primary Info - Name & Phone */}
+              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{currentCustomer.customer_name}</h3>
+                {currentCustomer.contact_number ? (
+                  <a 
+                    href={`tel:${currentCustomer.contact_number}`}
+                    className="inline-flex items-center gap-2 w-full justify-center px-4 py-3 bg-green-500 text-white rounded-lg font-medium text-base hover:bg-green-600 active:bg-green-700 transition-colors"
+                  >
+                    <Phone className="h-5 w-5" />
+                    {currentCustomer.contact_number}
+                  </a>
+                ) : (
+                  <p className="text-gray-500 text-center py-3">No phone number</p>
+                )}
               </div>
-              
-              {/* Compact secondary info */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
-                <div className="text-center">
-                  <p className="text-xs text-gray-500">Lifetime Value</p>
-                  <p className="text-sm font-medium">{currentCustomer.lifetime_spending ? new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }).format(currentCustomer.lifetime_spending) : '-'}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-500">Last Visit</p>
-                  <p className="text-sm font-medium">{currentCustomer.last_visit_date || 'Never'}</p>
-                </div>
-              </div>
-              
-              {/* Last contacted - only if available */}
-              {currentCustomer.last_contacted && (
-                <div className="text-center pt-1">
-                  <p className="text-xs text-gray-500">Last Contacted: {new Date(currentCustomer.last_contacted).toLocaleDateString()}</p>
+
+              {/* Package Info - Enhanced with activation status */}
+              {currentCustomer.last_package_name && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-purple-700 uppercase tracking-wide">Last Package</span>
+                    <div className="flex gap-1">
+                      {currentCustomer.active_packages > 0 && (
+                        <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                          Active
+                        </span>
+                      )}
+                      {/* Add activation status */}
+                      {currentCustomer.last_package_first_use_date ? (
+                        <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                          Used
+                        </span>
+                      ) : (
+                        <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                          Not Used
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="font-medium text-sm text-gray-900">{currentCustomer.last_package_name}</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {currentCustomer.last_package_type}
+                    {currentCustomer.last_package_expiration_date && 
+                      ` • Expires ${new Date(currentCustomer.last_package_expiration_date).toLocaleDateString()}`}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Purchased: {new Date(currentCustomer.last_package_purchase_date).toLocaleDateString()}
+                    {currentCustomer.last_package_first_use_date && 
+                      ` • First used: ${new Date(currentCustomer.last_package_first_use_date).toLocaleDateString()}`}
+                  </p>
                 </div>
               )}
+
+              {/* Quick Stats Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-gray-50 rounded-lg p-3 text-center border">
+                  <p className="text-xs text-gray-600 mb-1">Lifetime Value</p>
+                  <p className="text-sm font-bold text-gray-900">{formatCurrency(currentCustomer.lifetime_spending)}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 text-center border">
+                  <p className="text-xs text-gray-600 mb-1">Last Visit</p>
+                  <p className="text-sm font-bold text-gray-900">{currentCustomer.last_visit_date || 'Never'}</p>
+                </div>
+              </div>
+
+              {/* Status Badges */}
+              <div className="flex flex-wrap gap-2">
+                {currentCustomer.has_coaching && (
+                  <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full font-medium">
+                    🏌️ Had Coaching
+                  </span>
+                )}
+                {currentCustomer.active_packages === 0 && currentCustomer.last_package_name && (
+                  <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full font-medium">
+                    📦 Previous Package User
+                  </span>
+                )}
+                {currentCustomer.last_contacted && (
+                  <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-1 rounded-full font-medium">
+                    📞 Previously Contacted
+                  </span>
+                )}
+              </div>
             </div>
           ) : (
-            <p className="text-gray-500">No customer data available</p>
+            <p className="text-gray-500 text-center py-8">No customer data available</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Notes Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Call Notes</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Quick Status - Reachable and Follow-up in one row */}
-          <div className="space-y-3">
+      {/* Notes Form - Mobile Optimized */}
+      <Card className="shadow-md">
+        <CardContent className="p-4 space-y-5">
+          {/* Quick Status - Mobile Optimized */}
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-medium mb-2 block">Reachable?</Label>
-                <div className="flex gap-2">
+                <Label className="text-sm font-semibold mb-3 block text-gray-800 flex items-center gap-1">
+                  Reachable? 
+                  <span className="text-red-500">*</span>
+                  {isReachableSet && <span className="text-green-500 text-xs">✓</span>}
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant={notesData.reachable === 'yes' ? 'default' : 'outline'}
-                    size="sm"
+                    size="lg"
                     onClick={() => setNotesData({ ...notesData, reachable: 'yes' })}
-                    className="flex-1"
+                    className={cn(
+                      "text-sm py-4 font-medium transition-all",
+                      notesData.reachable === 'yes' && "bg-green-500 hover:bg-green-600"
+                    )}
                   >
-                    Yes
+                    ✓ Yes
                   </Button>
                   <Button
                     variant={notesData.reachable === 'no' ? 'default' : 'outline'}
-                    size="sm"
+                    size="lg"
                     onClick={() => setNotesData({ ...notesData, reachable: 'no' })}
-                    className="flex-1"
+                    className={cn(
+                      "text-sm py-4 font-medium transition-all",
+                      notesData.reachable === 'no' && "bg-red-500 hover:bg-red-600"
+                    )}
                   >
-                    No
+                    ✗ No
                   </Button>
                 </div>
               </div>
               
               <div>
-                <Label className="text-sm font-medium mb-2 block">Follow-up?</Label>
-                <div className="flex gap-2">
+                <Label className="text-sm font-semibold mb-3 block text-gray-800 flex items-center gap-1">
+                  Follow-up? 
+                  <span className="text-red-500">*</span>
+                  {isFollowUpSet && <span className="text-green-500 text-xs">✓</span>}
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant={notesData.followUp === 'yes' ? 'default' : 'outline'}
-                    size="sm"
+                    size="lg"
                     onClick={() => setNotesData({ ...notesData, followUp: 'yes' })}
-                    className="flex-1"
+                    className={cn(
+                      "text-sm py-4 font-medium transition-all",
+                      notesData.followUp === 'yes' && "bg-orange-500 hover:bg-orange-600"
+                    )}
                   >
-                    Yes
+                    ✓ Yes
                   </Button>
                   <Button
                     variant={notesData.followUp === 'no' ? 'default' : 'outline'}
-                    size="sm"
+                    size="lg"
                     onClick={() => setNotesData({ ...notesData, followUp: 'no' })}
-                    className="flex-1"
+                    className={cn(
+                      "text-sm py-4 font-medium transition-all",
+                      notesData.followUp === 'no' && "bg-gray-500 hover:bg-gray-600"
+                    )}
                   >
-                    No
+                    ✗ No
                   </Button>
                 </div>
               </div>
             </div>
 
-            {/* Conditional fields - only show if reachable */}
+            {/* Response Field - Simple Button Selection */}
+            <div>
+              <Label className="text-sm font-semibold mb-3 block text-gray-800">Customer Response</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  variant={notesData.response === 'positive' ? 'default' : 'outline'}
+                  size="lg"
+                  onClick={() => setNotesData({ ...notesData, response: 'positive' })}
+                  className={cn(
+                    "text-sm py-4 font-medium transition-all",
+                    notesData.response === 'positive' && "bg-primary hover:bg-primary/90"
+                  )}
+                >
+                  👍 Positive
+                </Button>
+                <Button
+                  variant={notesData.response === 'neutral' ? 'default' : 'outline'}
+                  size="lg"
+                  onClick={() => setNotesData({ ...notesData, response: 'neutral' })}
+                  className={cn(
+                    "text-sm py-4 font-medium transition-all",
+                    notesData.response === 'neutral' && "bg-muted-foreground hover:bg-muted-foreground/90"
+                  )}
+                >
+                  😐 Neutral
+                </Button>
+                <Button
+                  variant={notesData.response === 'negative' ? 'default' : 'outline'}
+                  size="lg"
+                  onClick={() => setNotesData({ ...notesData, response: 'negative' })}
+                  className={cn(
+                    "text-sm py-4 font-medium transition-all",
+                    notesData.response === 'negative' && "bg-secondary hover:bg-secondary/80"
+                  )}
+                >
+                  👎 Negative
+                </Button>
+              </div>
+            </div>
+
+            {/* Timeline - only show if reachable */}
             {notesData.reachable === 'yes' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Response */}
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Response</Label>
-                  <input
-                    type="text"
-                    placeholder="Interested/Not interested"
-                    value={notesData.response}
-                    onChange={(e) => setNotesData({ ...notesData, response: e.target.value })}
-                    className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                {/* Visit timeline */}
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Timeline</Label>
-                  <input
-                    type="text"
-                    placeholder="This week/Next month"
-                    value={notesData.timeline}
-                    onChange={(e) => setNotesData({ ...notesData, timeline: e.target.value })}
-                    className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                {/* Booking submitted - full width */}
-                <div className="sm:col-span-2">
-                  <Label className="text-sm font-medium mb-2 block">Booking submitted?</Label>
-                  <div className="flex gap-3">
-                    <Button
-                      variant={notesData.bookingSubmitted === 'yes' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setNotesData({ ...notesData, bookingSubmitted: 'yes' })}
-                      className="flex-1"
-                    >
-                      Yes
-                    </Button>
-                    <Button
-                      variant={notesData.bookingSubmitted === 'no' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setNotesData({ ...notesData, bookingSubmitted: 'no' })}
-                      className="flex-1"
-                    >
-                      No
-                    </Button>
-                  </div>
-                </div>
+              <div>
+                <Label className="text-sm font-semibold mb-3 block text-gray-800">Visit Timeline</Label>
+                <Select 
+                  value={notesData.timeline} 
+                  onValueChange={(value) => setNotesData({ ...notesData, timeline: value })}
+                >
+                  <SelectTrigger className="w-full h-14 text-base border-2">
+                    <SelectValue placeholder="When will they visit?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="this_week">📅 This week</SelectItem>
+                    <SelectItem value="next_week">📅 Next week</SelectItem>
+                    <SelectItem value="this_month">📅 This month</SelectItem>
+                    <SelectItem value="next_month">📅 Next month</SelectItem>
+                    <SelectItem value="no_timeline">❓ No timeline</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>
 
-          {/* Notes - always visible */}
+          {/* Notes - Mobile Optimized */}
           <div>
-            <Label className="text-sm font-medium mb-2 block">Call notes (required)</Label>
+            <Label className="text-sm font-semibold mb-3 block text-gray-800 flex items-center gap-1">
+              Call Notes 
+              <span className="text-red-500">*</span>
+              {hasNotes && <span className="text-green-500 text-xs">✓</span>}
+            </Label>
             <textarea
-              placeholder="Add your call notes here..."
+              placeholder="What happened during the call? Include key details..."
               value={notesData.notes}
               onChange={(e) => {
                 setNotesData({ ...notesData, notes: e.target.value });
                 setHasUnsavedNotes(true);
               }}
-              className="w-full p-3 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-              rows={3}
+              className={cn(
+                "w-full p-4 text-base border-2 rounded-lg resize-none transition-colors",
+                hasNotes ? "border-green-300 focus:border-green-500" : "border-gray-300 focus:border-blue-500",
+                "focus:ring-2 focus:ring-blue-200"
+              )}
+              rows={4}
+              style={{ fontSize: '16px' }} // Prevent zoom on iOS
             />
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex flex-col sm:flex-row gap-2 pt-2">
-            <Button
-              size="sm"
-              onClick={() => handleLog(false)}
-              disabled={!canLog}
-              className="flex-1 sm:flex-none"
-            >
-              Log
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => handleLog(true)}
-              disabled={!canLog}
-              className="flex-1 sm:flex-none"
-            >
-              Log and create booking
-            </Button>
+            <p className="text-xs text-gray-500 mt-1">
+              {notesData.notes.length}/500 characters
+            </p>
           </div>
         </CardContent>
       </Card>
+      
+      {/* Sticky Bottom Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-20">
+        <div className="max-w-md mx-auto">
+          {/* Validation Status */}
+          <div className="flex items-center justify-center gap-4 mb-3 text-xs">
+            <div className={cn(
+              "flex items-center gap-1",
+              isReachableSet ? "text-green-600" : "text-red-500"
+            )}>
+              {isReachableSet ? "✓" : "○"} Reachable
+            </div>
+            <div className={cn(
+              "flex items-center gap-1",
+              isFollowUpSet ? "text-green-600" : "text-red-500"
+            )}>
+              {isFollowUpSet ? "✓" : "○"} Follow-up
+            </div>
+            <div className={cn(
+              "flex items-center gap-1",
+              hasNotes ? "text-green-600" : "text-red-500"
+            )}>
+              {hasNotes ? "✓" : "○"} Notes
+            </div>
+          </div>
+          
+          {/* Action Button */}
+          <Button
+            size="lg"
+            onClick={() => handleLog(false)}
+            disabled={!isFormValid || isSubmitting}
+            className={cn(
+              "w-full py-4 text-base font-semibold transition-all",
+              isFormValid ? "bg-green-500 hover:bg-green-600" : "bg-gray-300"
+            )}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                Saving...
+              </div>
+            ) : isFormValid ? (
+              `Save & Continue (${currentIndex + 1}/${audience.length})`
+            ) : (
+              'Complete all fields to save'
+            )}
+          </Button>
+        </div>
+      </div>
 
       {/* Logged Calls */}
       {logs.length > 0 && (

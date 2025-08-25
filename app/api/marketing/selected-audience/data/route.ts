@@ -77,10 +77,15 @@ export async function GET(request: NextRequest) {
       console.log('Total audience members:', customerIds.length);
       console.log('Looking up customer IDs (first 3):', customerIds.slice(0, 3)); // Log first 3 IDs
       
-      // Batch the customer lookup to avoid URI too large errors
-      // For OB sales workflow, limit to top 100 customers by lifetime value
-      const batchSize = 100;
-      const limitedCustomerIds = customerIds.slice(0, batchSize);
+      // Batch customer lookups to avoid URI too large errors
+      const batchSize = 200; // Process in batches of 200 customer IDs
+      const customerBatches = [];
+      
+      for (let i = 0; i < customerIds.length; i += batchSize) {
+        customerBatches.push(customerIds.slice(i, i + batchSize));
+      }
+      
+      console.log(`Processing ${customerIds.length} customers in ${customerBatches.length} batches of ${batchSize}`);
       
       // Map sortBy to database column names
       const sortColumnMap: Record<string, string> = {
@@ -96,21 +101,67 @@ export async function GET(request: NextRequest) {
       
       console.log('Applying sort:', { sortBy, sortOrder, dbSortColumn, ascending });
       
-      const { data: customerData, error: customerError } = await refacSupabaseAdmin
-        .schema('public')
-        .from('customer_analytics')
-        .select('*')
-        .in('id', limitedCustomerIds)
-        .order(dbSortColumn, { ascending });
+      // Fetch customers in batches
+      let allCustomerData: any[] = [];
+      
+      for (const batch of customerBatches) {
+        const { data: batchData, error: batchError } = await refacSupabaseAdmin
+          .schema('public')
+          .from('customer_marketing_analytics')
+          .select('*')
+          .in('id', batch);
 
-      if (customerError) {
-        console.error('Customer lookup error:', customerError);
-        throw customerError;
+        if (batchError) {
+          console.error('Batch customer lookup error:', batchError);
+          throw batchError;
+        }
+        
+        if (batchData) {
+          allCustomerData.push(...batchData);
+        }
       }
       
+      // Sort the combined results
+      allCustomerData.sort((a, b) => {
+        const aValue = a[dbSortColumn];
+        const bValue = b[dbSortColumn];
+        
+        if (aValue === null && bValue === null) return 0;
+        if (aValue === null) return ascending ? -1 : 1;
+        if (bValue === null) return ascending ? 1 : -1;
+        
+        if (aValue < bValue) return ascending ? -1 : 1;
+        if (aValue > bValue) return ascending ? 1 : -1;
+        return 0;
+      });
+      
+      const customerData = allCustomerData;
+      
       if (customerData) {
-        customers = customerData;
-        console.log('Found customers:', customers.length, 'out of', customerIds.length, 'total members');
+        // Filter for Thai customers only (no enrichment needed - data comes from view)
+        const thaiCustomers = customerData.filter((customer: any) => {
+          if (!customer.contact_number) return false;
+          const phone = customer.contact_number.toString().trim();
+          const cleaned = phone.replace(/\D/g, ''); // Remove all non-digits
+          
+          // Thai phone number formats
+          if (phone.startsWith('0') && cleaned.length === 10) return true; // Thai local format 0XXXXXXXXX
+          if (phone.startsWith('+66') && cleaned.length === 11) return true; // Thai international +66XXXXXXXXX
+          
+          // Thai mobile numbers without leading 0 (most common in database)
+          if (!phone.startsWith('+') && !phone.startsWith('0')) {
+            const firstDigit = cleaned.charAt(0);
+            // 9-digit numbers starting with 6, 8, 9 (Thai mobile without leading 0)
+            if (cleaned.length === 9 && ['6', '8', '9'].includes(firstDigit)) return true;
+            // 10-digit numbers starting with 6, 8, 9 (Thai mobile with country code removed)  
+            if (cleaned.length === 10 && ['6', '8', '9'].includes(firstDigit)) return true;
+          }
+          
+          return false;
+        });
+
+        customers = thaiCustomers;
+        console.log('Found customers:', customers.length, 'Thai customers out of', customerData.length, 'total customers from', customerIds.length, 'audience members');
       } else {
         console.log('No customer data returned');
       }

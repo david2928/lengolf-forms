@@ -104,6 +104,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const customer_id = searchParams.get('customer_id');
     const audience_id = searchParams.get('audience_id');
+    const follow_up_required = searchParams.get('follow_up_required');
 
     if (!customer_id && !audience_id) {
       return NextResponse.json(
@@ -115,8 +116,19 @@ export async function GET(request: NextRequest) {
     let query = refacSupabaseAdmin
       .schema('marketing')
       .from('ob_sales_notes')
-      .select('*')
+      .select(`
+        *,
+        customer:customers!ob_sales_notes_customer_id_fkey (
+          customer_name,
+          contact_number
+        )
+      `)
       .order('created_at', { ascending: false });
+
+    // Apply follow-up filter if specified
+    if (follow_up_required === 'true') {
+      query = query.eq('follow_up_required', true);
+    }
 
     if (customer_id) {
       query = query.eq('customer_id', customer_id);
@@ -144,9 +156,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Transform data for follow-up view
+    const transformedData = data?.map((note: any) => ({
+      ...note,
+      customer_name: note.customer?.customer_name || 'Unknown Customer',
+      customer_phone: note.customer?.contact_number || null
+    })) || [];
+
     return NextResponse.json({
       success: true,
-      data: data || []
+      data: transformedData
     });
 
   } catch (error: any) {
