@@ -11,43 +11,13 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 // GET /api/customer-outreach/audience/metrics - Get fast aggregate metrics
 export async function GET(request: NextRequest) {
   const session = await getDevSession(authOptions, request);
-  console.log('Session in metrics API:', { 
-    hasSession: !!session, 
-    hasUser: !!session?.user, 
-    email: session?.user?.email,
-    env: process.env.NODE_ENV 
-  });
-  
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    console.log(`Getting audience metrics for user: ${session.user.email}`);
-    
-    // Get the selected audience ID from database
-    const { data: selectedData, error: selectedError } = await refacSupabaseAdmin
-      .schema('marketing')
-      .from('selected_audience')
-      .select('audience_id')
-      .eq('user_email', session.user.email)
-      .single();
-
-    if (selectedError && selectedError.code !== 'PGRST116') {
-      console.error('Error fetching selected audience:', selectedError);
-      throw selectedError;
-    }
-
-    const selectedAudienceId = selectedData?.audience_id || null;
-    console.log(`Found selected audience ID: ${selectedAudienceId}`);
-    
-    if (!selectedAudienceId) {
-      return NextResponse.json({
-        success: false,
-        message: "No audience selected",
-        metrics: null
-      });
-    }
+    // Always use the same audience ID for all staff (Dolly List)
+    const selectedAudienceId = 57; // Dolly List audience ID
 
     // Get audience details
     const { data: audience, error: audienceError } = await refacSupabaseAdmin

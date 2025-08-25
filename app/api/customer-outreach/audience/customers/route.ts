@@ -29,30 +29,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get the selected audience ID from database
-    const { data: selectedData, error: selectedError } = await refacSupabaseAdmin
-      .schema('marketing')
-      .from('selected_audience')
-      .select('audience_id')
-      .eq('user_email', session.user.email)
-      .single();
-
-    if (selectedError && selectedError.code !== 'PGRST116') {
-      throw selectedError;
-    }
-
-    const selectedAudienceId = selectedData?.audience_id || null;
-    
-    if (!selectedAudienceId) {
-      return NextResponse.json({
-        customers: [],
-        hasMore: false,
-        total: 0,
-        offset: offset,
-        limit: limit,
-        message: "No audience selected"
-      });
-    }
+    // Always use the same audience ID for all staff (Dolly List)
+    const selectedAudienceId = 57; // Dolly List audience ID
 
     // Get audience details to determine sort order
     const { data: audience, error: audienceError } = await refacSupabaseAdmin
