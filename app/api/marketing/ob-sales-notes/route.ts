@@ -116,13 +116,7 @@ export async function GET(request: NextRequest) {
     let query = refacSupabaseAdmin
       .schema('marketing')
       .from('ob_sales_notes')
-      .select(`
-        *,
-        customer:customers!ob_sales_notes_customer_id_fkey (
-          customer_name,
-          contact_number
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     // Apply follow-up filter if specified
@@ -133,16 +127,70 @@ export async function GET(request: NextRequest) {
     if (customer_id) {
       query = query.eq('customer_id', customer_id);
     } else if (audience_id) {
-      // Get all notes for customers in this audience
-      const { data: members } = await refacSupabaseAdmin
+      // Use a more efficient approach to avoid URI too large errors
+      // Instead of IN() with potentially thousands of customer IDs,
+      // we'll use a different strategy based on the size of the audience
+      
+      // First check audience size
+      const { data: audienceInfo, error: audienceError } = await refacSupabaseAdmin
         .schema('marketing')
         .from('audience_members')
-        .select('customer_id')
-        .eq('audience_id', audience_id);
+        .select('customer_id', { count: 'exact' })
+        .eq('audience_id', audience_id)
+        .limit(1000); // Limit to get a sense of size
+
+      if (audienceError) {
+        console.error('Error checking audience size:', audienceError);
+        throw audienceError;
+      }
+
+      const audienceSize = audienceInfo?.length || 0;
+      console.log(`Audience ${audience_id} has ${audienceSize} members`);
       
-      if (members && members.length > 0) {
-        const customerIds = members.map((m: any) => m.customer_id);
-        query = query.in('customer_id', customerIds);
+      if (audienceSize > 500) {
+        // For large audiences, use a simple RPC function to avoid URI length issues
+        const { data, error } = await refacSupabaseAdmin.rpc('get_ob_sales_notes_simple', {
+          p_audience_id: audience_id,
+          p_follow_up_required: follow_up_required === 'true',
+          p_limit: 200
+        });
+        
+        if (error) {
+          console.error('Error using simple RPC for large audience:', error);
+          // Fallback: get a subset of the most recent notes using limited customer IDs
+          console.log('Falling back to limited subset...');
+          const recentCustomers = audienceInfo.slice(0, 100).map((m: any) => m.customer_id);
+          query = query.in('customer_id', recentCustomers);
+        } else {
+          // Transform the simple data to include customer details
+          const enrichedData = [];
+          for (const note of (data || [])) {
+            // Get customer details separately
+            const { data: customerData } = await refacSupabaseAdmin
+              .schema('public')
+              .from('customer_marketing_analytics')
+              .select('customer_name, contact_number')
+              .eq('id', note.customer_id)
+              .single();
+            
+            enrichedData.push({
+              ...note,
+              customer_name: customerData?.customer_name || 'Unknown Customer',
+              customer_phone: customerData?.contact_number || null
+            });
+          }
+          
+          return NextResponse.json({
+            success: true,
+            data: enrichedData
+          });
+        }
+      } else {
+        // For smaller audiences, use the original approach
+        const customerIds = audienceInfo.map((m: any) => m.customer_id);
+        if (customerIds.length > 0) {
+          query = query.in('customer_id', customerIds);
+        }
       }
     }
 
@@ -156,12 +204,35 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Transform data for follow-up view
-    const transformedData = data?.map((note: any) => ({
-      ...note,
-      customer_name: note.customer?.customer_name || 'Unknown Customer',
-      customer_phone: note.customer?.contact_number || null
-    })) || [];
+    // Transform data for follow-up view - get customer details separately
+    const transformedData = [];
+    if (data && data.length > 0) {
+      // Get customer details in batch
+      const customerIds = data.map((note: any) => note.customer_id);
+      const { data: customers } = await refacSupabaseAdmin
+        .schema('public')
+        .from('customer_marketing_analytics')
+        .select('id, customer_name, contact_number')
+        .in('id', customerIds);
+
+      // Create a customer lookup map
+      const customerMap = new Map();
+      if (customers) {
+        customers.forEach((customer: any) => {
+          customerMap.set(customer.id, customer);
+        });
+      }
+
+      // Transform the data with customer details
+      for (const note of data) {
+        const customer = customerMap.get(note.customer_id);
+        transformedData.push({
+          ...note,
+          customer_name: customer?.customer_name || 'Unknown Customer',
+          customer_phone: customer?.contact_number || null
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -48,6 +48,14 @@ interface FeedbackFormData {
   comments: string;
 }
 
+interface OBNotesFormData {
+  reachable: 'yes' | 'no' | '';
+  response: 'positive' | 'neutral' | 'negative' | '';
+  timeline: string;
+  followUp: 'yes' | 'no' | '';
+  notes: string;
+}
+
 export default function LeadFeedbackPage() {
   const [activeTab, setActiveTab] = useState<'new-leads' | 'ob-sales'>('new-leads');
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -60,7 +68,7 @@ export default function LeadFeedbackPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [openingLead, setOpeningLead] = useState<string | null>(null);
   
-  // OB Sales state
+  // OB Sales state  
   const [obAudience, setObAudience] = useState<any[]>([]);
   const [obAudienceInfo, setObAudienceInfo] = useState<any>(null);
   const [currentCustomerIndex, setCurrentCustomerIndex] = useState(0);
@@ -166,14 +174,19 @@ export default function LeadFeedbackPage() {
   const loadSelectedAudience = async () => {
     setObLoading(true);
     try {
-      const response = await fetch('/api/marketing/selected-audience/data');
-      if (response.ok) {
-        const data = await response.json();
-        setObAudience(data.customers || []);
-        setObAudienceInfo(data);
+      // First load fast metrics for dashboard
+      const metricsResponse = await fetch('/api/customer-outreach/audience/metrics');
+      if (metricsResponse.ok) {
+        const metricsData = await metricsResponse.json();
+        setObAudienceInfo(metricsData);
+        
+        // For backward compatibility with existing UI, create a mock audience array
+        // The actual progressive loading happens in OBCallingInterface
+        const mockAudience = Array(metricsData.metrics?.uncalledCustomers || 0).fill({});
+        setObAudience(mockAudience);
         setCurrentCustomerIndex(0);
       } else {
-        console.error('Failed to load selected audience:', response.status);
+        console.error('Failed to load audience metrics:', metricsResponse.status);
         setObAudience([]);
         setObAudienceInfo(null);
         setCurrentCustomerIndex(0);
@@ -719,9 +732,7 @@ export default function LeadFeedbackPage() {
           
           {obView === 'calling' && (
             <OBCallingInterface
-              audience={obAudience}
-              currentIndex={currentCustomerIndex}
-              onIndexChange={setCurrentCustomerIndex}
+              audienceInfo={obAudienceInfo}
               onBackToDashboard={() => setObView('dashboard')}
               onStatsUpdate={loadDashboardStats}
             />
@@ -742,7 +753,7 @@ export default function LeadFeedbackPage() {
   );
 }
 
-// OB Sales Dashboard Component
+// OB Sales Dashboard Component  
 interface OBDashboardProps {
   stats: {
     speedToLead: string;
@@ -761,7 +772,8 @@ interface OBDashboardProps {
 
 function OBDashboard({ stats, audienceCount, followUpCount, onStartCalling, onViewFollowUps, onRefresh, loading }: OBDashboardProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4">{/* Restored original UI */}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-medium text-muted-foreground">
@@ -826,7 +838,7 @@ function OBDashboard({ stats, audienceCount, followUpCount, onStartCalling, onVi
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground mb-4">No audience selected</p>
             <p className="text-sm text-muted-foreground mb-4">
-              Go to the Marketing page and select an audience to display here.
+              Go to Customer Outreach and select an audience to display here.
             </p>
             <Button onClick={onRefresh} variant="outline" className="w-full h-12">
               {loading ? 'Checking...' : 'Check for Selected Audience'}
@@ -840,14 +852,19 @@ function OBDashboard({ stats, audienceCount, followUpCount, onStartCalling, onVi
 
 // OB Sales Calling Interface Component
 interface OBCallingInterfaceProps {
-  audience: any[];
-  currentIndex: number;
-  onIndexChange: (index: number) => void;
+  audienceInfo: any;
   onBackToDashboard: () => void;
   onStatsUpdate: () => void;
 }
 
-function OBCallingInterface({ audience, currentIndex, onIndexChange, onBackToDashboard, onStatsUpdate }: OBCallingInterfaceProps) {
+function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: OBCallingInterfaceProps) {
+  // Progressive loading state
+  const [customerQueue, setCustomerQueue] = useState<any[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [totalIndex, setTotalIndex] = useState(0); // Global position in full audience
+  const [loading, setLoading] = useState(false);
+  const [hasMoreCustomers, setHasMoreCustomers] = useState(true);
+  
   const [notesData, setNotesData] = useState<OBNotesFormData>({
     reachable: '',
     response: '',
@@ -857,8 +874,68 @@ function OBCallingInterface({ audience, currentIndex, onIndexChange, onBackToDas
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const currentCustomer = audience[currentIndex];
-  const progress = ((currentIndex + 1) / audience.length) * 100;
+  const currentCustomer = customerQueue[currentIndex];
+  const totalCustomers = audienceInfo?.metrics?.uncalledCustomers || 0;
+  const progress = totalCustomers > 0 ? ((totalIndex + 1) / totalCustomers) * 100 : 0;
+
+  // Load customers from API
+  const loadCustomers = async (offset: number, limit: number = 10): Promise<{ customers: any[], hasMore: boolean }> => {
+    if (!audienceInfo?.audienceId) {
+      return { customers: [], hasMore: false };
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `/api/customer-outreach/audience/customers?offset=${offset}&limit=${limit}&excludeCalled=true`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          customers: data.customers || [],
+          hasMore: data.pagination?.hasMore || false
+        };
+      } else {
+        console.error('Failed to load customers:', response.status);
+        return { customers: [], hasMore: false };
+      }
+    } catch (error) {
+      console.error('Error loading customers:', error);
+      return { customers: [], hasMore: false };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initialize with first batch of customers
+  useEffect(() => {
+    if (audienceInfo?.audienceId && customerQueue.length === 0) {
+      loadCustomers(0, 10).then(({ customers, hasMore }) => {
+        setCustomerQueue(customers);
+        setHasMoreCustomers(hasMore);
+        setCurrentIndex(0);
+        setTotalIndex(0);
+      });
+    }
+  }, [audienceInfo?.audienceId]);
+
+  // Pre-fetch next customers when getting close to end of queue
+  useEffect(() => {
+    const shouldPreFetch = currentIndex >= customerQueue.length - 3 && hasMoreCustomers && !loading;
+    
+    if (shouldPreFetch) {
+      const nextOffset = totalIndex - currentIndex + customerQueue.length;
+      loadCustomers(nextOffset, 10).then(({ customers, hasMore }) => {
+        if (customers.length > 0) {
+          setCustomerQueue(prev => [...prev, ...customers]);
+          setHasMoreCustomers(hasMore);
+        } else {
+          setHasMoreCustomers(false);
+        }
+      });
+    }
+  }, [currentIndex, customerQueue.length, hasMoreCustomers, loading, totalIndex]);
   
   // Validation states
   const isReachableSet = notesData.reachable !== '';
@@ -877,6 +954,26 @@ function OBCallingInterface({ audience, currentIndex, onIndexChange, onBackToDas
       followUp: '',
       notes: ''
     });
+  };
+
+  const advanceToNext = () => {
+    // Move to next customer in queue
+    if (currentIndex < customerQueue.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+      setTotalIndex(prev => prev + 1);
+    } else if (hasMoreCustomers) {
+      // If we're at the end of queue but more customers available, wait for pre-fetch
+      setTotalIndex(prev => prev + 1);
+      // The useEffect will handle loading more customers
+    } else {
+      // No more customers, return to dashboard
+      setTimeout(() => {
+        onBackToDashboard();
+      }, 1500);
+      return;
+    }
+    
+    resetForm();
   };
 
   const handleSave = async () => {
@@ -904,17 +1001,10 @@ function OBCallingInterface({ audience, currentIndex, onIndexChange, onBackToDas
       if (response.ok) {
         onStatsUpdate();
         
-        // Auto-advance to next customer or return to dashboard
-        if (currentIndex < audience.length - 1) {
-          setTimeout(() => {
-            onIndexChange(currentIndex + 1);
-            resetForm();
-          }, 1000);
-        } else {
-          setTimeout(() => {
-            onBackToDashboard();
-          }, 1500);
-        }
+        // Auto-advance to next customer
+        setTimeout(() => {
+          advanceToNext();
+        }, 1000);
       } else {
         const errorData = await response.json();
         console.error('Failed to save call notes:', errorData);
@@ -1289,512 +1379,6 @@ function OBFollowUps({ customers, loading, onBackToDashboard, onRefresh }: OBFol
           </CardContent>
         )}
       </Card>
-    </div>
-  );
-}
-
-// Original OB Sales Tab Component (Legacy - will be replaced)
-interface OBSalesTabProps {
-  audience: any[];
-  currentIndex: number;
-  onIndexChange: (index: number) => void;
-  loading: boolean;
-  onReload: () => void;
-  onStatsUpdate: () => void;
-}
-
-interface OBNotesFormData {
-  reachable: 'yes' | 'no' | '';
-  response: 'positive' | 'neutral' | 'negative' | '';
-  timeline: string;
-  followUp: 'yes' | 'no' | '';
-  notes: string;
-}
-
-function OBSalesTab({ audience, currentIndex, onIndexChange, loading, onReload, onStatsUpdate }: OBSalesTabProps) {
-  const [notesData, setNotesData] = useState<OBNotesFormData>({
-    reachable: '',
-    response: '',
-    timeline: '',
-    followUp: '',
-    notes: ''
-  });
-  const [logs, setLogs] = useState<Array<{
-    id: string;
-    timestamp: string;
-    summary: string;
-    details: string;
-  }>>([]);
-  const [hasUnsavedNotes, setHasUnsavedNotes] = useState(false);
-  const [customerNotesStatus, setCustomerNotesStatus] = useState<Record<string, boolean>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const currentCustomer = audience[currentIndex];
-  const canLog = notesData.notes.trim().length > 0;
-  const hasNotesForCurrentCustomer = currentCustomer ? customerNotesStatus[currentCustomer.id] || false : false;
-  
-  // Validation states
-  const isReachableSet = notesData.reachable !== '';
-  const isFollowUpSet = notesData.followUp !== '';
-  const hasNotes = notesData.notes.trim().length > 0;
-  const isFormValid = isReachableSet && isFollowUpSet && hasNotes;
-
-  const autoAdvanceToNext = () => {
-    if (currentIndex < audience.length - 1) {
-      setTimeout(() => {
-        onIndexChange(currentIndex + 1);
-        resetForm();
-        setHasUnsavedNotes(false);
-      }, 1000); // 1 second delay to show success
-    }
-  };
-
-  const resetForm = () => {
-    setNotesData({
-      reachable: '',
-      response: '',
-      timeline: '',
-      followUp: '',
-      notes: ''
-    });
-  };
-
-  const handleLog = async (createBooking: boolean) => {
-    if (!isFormValid || !currentCustomer) return;
-    
-    setIsSubmitting(true);
-    
-    try {
-      // Save to database
-      const response = await fetch('/api/marketing/ob-sales-notes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          customer_id: currentCustomer.id,
-          reachable: notesData.reachable === 'yes',
-          response: notesData.response || null,
-          timeline: notesData.timeline || null,
-          follow_up_required: notesData.followUp === 'yes',
-          notes: notesData.notes.trim(),
-          call_date: new Date().toISOString().split('T')[0]
-        })
-      });
-
-      if (response.ok) {
-        // Mark this customer as having saved notes
-        setCustomerNotesStatus(prev => ({
-          ...prev,
-          [currentCustomer.id]: true
-        }));
-        
-        setLogs(prev => [
-          {
-            id: crypto.randomUUID(),
-            timestamp: new Date().toLocaleString(),
-            summary: `${currentCustomer.customer_name}: ${notesData.reachable === 'yes' ? 'connected' : 'not reachable'}${createBooking ? ' · booking follow-up' : ''}`,
-            details: notesData.notes.trim(),
-          },
-          ...prev,
-        ]);
-        
-        setHasUnsavedNotes(false);
-        
-        // Update dashboard statistics
-        onStatsUpdate();
-        
-        // Auto-advance to next customer
-        autoAdvanceToNext();
-        
-        if (createBooking) {
-          // Future: Implement booking navigation
-        }
-      } else {
-        const errorData = await response.json();
-        console.error('Failed to save call notes:', errorData);
-      }
-    } catch (error) {
-      console.error('Error saving call notes:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-sm text-gray-600">Loading audience...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (audience.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <p className="text-gray-600 mb-4">No audience selected</p>
-          <p className="text-sm text-gray-500 mb-4">
-            Go to the Marketing page and select an audience to display here.
-          </p>
-          <Button onClick={onReload} variant="outline">
-            Check for Selected Audience
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="space-y-4 pb-24"> {/* Added bottom padding for sticky bar */}
-      {/* Progress Header - Compact */}
-      <div className="bg-white sticky top-0 z-10 border-b border-gray-200 p-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">
-            Customer {currentIndex + 1} of {audience.length}
-          </h2>
-          <div className="text-sm text-gray-500">
-            {Math.round(((currentIndex + 1) / audience.length) * 100)}% complete
-          </div>
-        </div>
-        {/* Progress Bar */}
-        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-          <div 
-            className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-            style={{ width: `${((currentIndex + 1) / audience.length) * 100}%` }}
-          ></div>
-        </div>
-      </div>
-
-      {/* Customer Display - Optimized */}
-      <Card>
-        <CardContent className="p-4">
-          {currentCustomer ? (
-            <div className="space-y-4">
-              {/* Primary Info - Name & Phone */}
-              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                <h3 className="text-lg font-bold text-gray-900 mb-2">{currentCustomer.customer_name}</h3>
-                {currentCustomer.contact_number ? (
-                  <a 
-                    href={`tel:${currentCustomer.contact_number}`}
-                    className="inline-flex items-center gap-2 w-full justify-center px-4 py-3 bg-green-500 text-white rounded-lg font-medium text-base hover:bg-green-600 active:bg-green-700 transition-colors"
-                  >
-                    <Phone className="h-5 w-5" />
-                    {currentCustomer.contact_number}
-                  </a>
-                ) : (
-                  <p className="text-gray-500 text-center py-3">No phone number</p>
-                )}
-              </div>
-
-              {/* Package Info - Enhanced with activation status */}
-              {currentCustomer.last_package_name && (
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-purple-700 uppercase tracking-wide">Last Package</span>
-                    <div className="flex gap-1">
-                      {currentCustomer.active_packages > 0 && (
-                        <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                          Active
-                        </span>
-                      )}
-                      {/* Add activation status */}
-                      {currentCustomer.last_package_first_use_date ? (
-                        <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                          Used
-                        </span>
-                      ) : (
-                        <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                          Not Used
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <p className="font-medium text-sm text-gray-900">{currentCustomer.last_package_name}</p>
-                  <p className="text-xs text-gray-600 mt-1">
-                    {currentCustomer.last_package_type}
-                    {currentCustomer.last_package_expiration_date && 
-                      ` • Expires ${new Date(currentCustomer.last_package_expiration_date).toLocaleDateString()}`}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Purchased: {new Date(currentCustomer.last_package_purchase_date).toLocaleDateString()}
-                    {currentCustomer.last_package_first_use_date && 
-                      ` • First used: ${new Date(currentCustomer.last_package_first_use_date).toLocaleDateString()}`}
-                  </p>
-                </div>
-              )}
-
-              {/* Quick Stats Grid */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-gray-50 rounded-lg p-3 text-center border">
-                  <p className="text-xs text-gray-600 mb-1">Lifetime Value</p>
-                  <p className="text-sm font-bold text-gray-900">{formatCurrency(currentCustomer.lifetime_spending)}</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3 text-center border">
-                  <p className="text-xs text-gray-600 mb-1">Last Visit</p>
-                  <p className="text-sm font-bold text-gray-900">{currentCustomer.last_visit_date || 'Never'}</p>
-                </div>
-              </div>
-
-              {/* Status Badges */}
-              <div className="flex flex-wrap gap-2">
-                {currentCustomer.has_coaching && (
-                  <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full font-medium">
-                    🏌️ Had Coaching
-                  </span>
-                )}
-                {currentCustomer.active_packages === 0 && currentCustomer.last_package_name && (
-                  <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full font-medium">
-                    📦 Previous Package User
-                  </span>
-                )}
-                {currentCustomer.last_contacted && (
-                  <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-1 rounded-full font-medium">
-                    📞 Previously Contacted
-                  </span>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">No customer data available</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Notes Form - Mobile Optimized */}
-      <Card className="shadow-md">
-        <CardContent className="p-4 space-y-5">
-          {/* Quick Status - Mobile Optimized */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-semibold mb-3 block text-gray-800 flex items-center gap-1">
-                  Reachable? 
-                  <span className="text-red-500">*</span>
-                  {isReachableSet && <span className="text-green-500 text-xs">✓</span>}
-                </Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant={notesData.reachable === 'yes' ? 'default' : 'outline'}
-                    size="lg"
-                    onClick={() => setNotesData({ ...notesData, reachable: 'yes' })}
-                    className={cn(
-                      "text-sm py-4 font-medium transition-all",
-                      notesData.reachable === 'yes' && "bg-green-500 hover:bg-green-600"
-                    )}
-                  >
-                    ✓ Yes
-                  </Button>
-                  <Button
-                    variant={notesData.reachable === 'no' ? 'default' : 'outline'}
-                    size="lg"
-                    onClick={() => setNotesData({ ...notesData, reachable: 'no' })}
-                    className={cn(
-                      "text-sm py-4 font-medium transition-all",
-                      notesData.reachable === 'no' && "bg-red-500 hover:bg-red-600"
-                    )}
-                  >
-                    ✗ No
-                  </Button>
-                </div>
-              </div>
-              
-              <div>
-                <Label className="text-sm font-semibold mb-3 block text-gray-800 flex items-center gap-1">
-                  Follow-up? 
-                  <span className="text-red-500">*</span>
-                  {isFollowUpSet && <span className="text-green-500 text-xs">✓</span>}
-                </Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant={notesData.followUp === 'yes' ? 'default' : 'outline'}
-                    size="lg"
-                    onClick={() => setNotesData({ ...notesData, followUp: 'yes' })}
-                    className={cn(
-                      "text-sm py-4 font-medium transition-all",
-                      notesData.followUp === 'yes' && "bg-orange-500 hover:bg-orange-600"
-                    )}
-                  >
-                    ✓ Yes
-                  </Button>
-                  <Button
-                    variant={notesData.followUp === 'no' ? 'default' : 'outline'}
-                    size="lg"
-                    onClick={() => setNotesData({ ...notesData, followUp: 'no' })}
-                    className={cn(
-                      "text-sm py-4 font-medium transition-all",
-                      notesData.followUp === 'no' && "bg-gray-500 hover:bg-gray-600"
-                    )}
-                  >
-                    ✗ No
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Response Field - Simple Button Selection */}
-            <div>
-              <Label className="text-sm font-semibold mb-3 block text-gray-800">Customer Response</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  variant={notesData.response === 'positive' ? 'default' : 'outline'}
-                  size="lg"
-                  onClick={() => setNotesData({ ...notesData, response: 'positive' })}
-                  className={cn(
-                    "text-sm py-4 font-medium transition-all",
-                    notesData.response === 'positive' && "bg-primary hover:bg-primary/90"
-                  )}
-                >
-                  👍 Positive
-                </Button>
-                <Button
-                  variant={notesData.response === 'neutral' ? 'default' : 'outline'}
-                  size="lg"
-                  onClick={() => setNotesData({ ...notesData, response: 'neutral' })}
-                  className={cn(
-                    "text-sm py-4 font-medium transition-all",
-                    notesData.response === 'neutral' && "bg-muted-foreground hover:bg-muted-foreground/90"
-                  )}
-                >
-                  😐 Neutral
-                </Button>
-                <Button
-                  variant={notesData.response === 'negative' ? 'default' : 'outline'}
-                  size="lg"
-                  onClick={() => setNotesData({ ...notesData, response: 'negative' })}
-                  className={cn(
-                    "text-sm py-4 font-medium transition-all",
-                    notesData.response === 'negative' && "bg-secondary hover:bg-secondary/80"
-                  )}
-                >
-                  👎 Negative
-                </Button>
-              </div>
-            </div>
-
-            {/* Timeline - only show if reachable */}
-            {notesData.reachable === 'yes' && (
-              <div>
-                <Label className="text-sm font-semibold mb-3 block text-gray-800">Visit Timeline</Label>
-                <Select 
-                  value={notesData.timeline} 
-                  onValueChange={(value) => setNotesData({ ...notesData, timeline: value })}
-                >
-                  <SelectTrigger className="w-full h-14 text-base border-2">
-                    <SelectValue placeholder="When will they visit?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="this_week">📅 This week</SelectItem>
-                    <SelectItem value="next_week">📅 Next week</SelectItem>
-                    <SelectItem value="this_month">📅 This month</SelectItem>
-                    <SelectItem value="next_month">📅 Next month</SelectItem>
-                    <SelectItem value="no_timeline">❓ No timeline</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          {/* Notes - Mobile Optimized */}
-          <div>
-            <Label className="text-sm font-semibold mb-3 block text-gray-800 flex items-center gap-1">
-              Call Notes 
-              <span className="text-red-500">*</span>
-              {hasNotes && <span className="text-green-500 text-xs">✓</span>}
-            </Label>
-            <textarea
-              placeholder="What happened during the call? Include key details..."
-              value={notesData.notes}
-              onChange={(e) => {
-                setNotesData({ ...notesData, notes: e.target.value });
-                setHasUnsavedNotes(true);
-              }}
-              className={cn(
-                "w-full p-4 text-base border-2 rounded-lg resize-none transition-colors",
-                hasNotes ? "border-green-300 focus:border-green-500" : "border-gray-300 focus:border-blue-500",
-                "focus:ring-2 focus:ring-blue-200"
-              )}
-              rows={4}
-              style={{ fontSize: '16px' }} // Prevent zoom on iOS
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {notesData.notes.length}/500 characters
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Sticky Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-20">
-        <div className="max-w-md mx-auto">
-          {/* Validation Status */}
-          <div className="flex items-center justify-center gap-4 mb-3 text-xs">
-            <div className={cn(
-              "flex items-center gap-1",
-              isReachableSet ? "text-green-600" : "text-red-500"
-            )}>
-              {isReachableSet ? "✓" : "○"} Reachable
-            </div>
-            <div className={cn(
-              "flex items-center gap-1",
-              isFollowUpSet ? "text-green-600" : "text-red-500"
-            )}>
-              {isFollowUpSet ? "✓" : "○"} Follow-up
-            </div>
-            <div className={cn(
-              "flex items-center gap-1",
-              hasNotes ? "text-green-600" : "text-red-500"
-            )}>
-              {hasNotes ? "✓" : "○"} Notes
-            </div>
-          </div>
-          
-          {/* Action Button */}
-          <Button
-            size="lg"
-            onClick={() => handleLog(false)}
-            disabled={!isFormValid || isSubmitting}
-            className={cn(
-              "w-full py-4 text-base font-semibold transition-all",
-              isFormValid ? "bg-green-500 hover:bg-green-600" : "bg-gray-300"
-            )}
-          >
-            {isSubmitting ? (
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                Saving...
-              </div>
-            ) : isFormValid ? (
-              `Save & Continue (${currentIndex + 1}/${audience.length})`
-            ) : (
-              'Complete all fields to save'
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* Logged Calls */}
-      {logs.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Recent Logs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 text-sm max-h-60 overflow-y-auto">
-              {logs.map((log) => (
-                <div key={log.id} className="border-b border-gray-100 pb-2 last:border-b-0">
-                  <div className="font-medium text-xs text-gray-500">{log.timestamp}</div>
-                  <div className="text-gray-700 text-xs">{log.summary}</div>
-                  <div className="text-sm">{log.details}</div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
