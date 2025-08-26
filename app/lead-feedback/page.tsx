@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { KPIMetrics } from '@/components/KPIMetrics';
 
 interface Lead {
   id: string;
@@ -86,7 +87,8 @@ export default function LeadFeedbackPage() {
     weekAverage: '4.1h',
     monthAverage: '3.8h',
     obCalls: 12,
-    sales: 3
+    obSales: 3,
+    leadSales: 0
   });
   
   const [formData, setFormData] = useState<FeedbackFormData>({
@@ -363,6 +365,8 @@ export default function LeadFeedbackPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="p-4">
+        {/* KPI Metrics visible across both tabs */}
+        <KPIMetrics stats={dashboardStats} activeTab={activeTab} />
         
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
           {/* Only show tabs when in dashboard views */}
@@ -720,7 +724,6 @@ export default function LeadFeedbackPage() {
         <TabsContent value="ob-sales" className="space-y-4">
           {obView === 'dashboard' && (
             <OBDashboard
-              stats={dashboardStats}
               audienceCount={obAudience.length}
               followUpCount={followUpCustomers.length}
               onStartCalling={() => setObView('calling')}
@@ -755,13 +758,6 @@ export default function LeadFeedbackPage() {
 
 // OB Sales Dashboard Component  
 interface OBDashboardProps {
-  stats: {
-    speedToLead: string;
-    weekAverage: string;
-    monthAverage: string;
-    obCalls: number;
-    sales: number;
-  };
   audienceCount: number;
   followUpCount: number;
   onStartCalling: () => void;
@@ -770,41 +766,12 @@ interface OBDashboardProps {
   loading: boolean;
 }
 
-function OBDashboard({ stats, audienceCount, followUpCount, onStartCalling, onViewFollowUps, onRefresh, loading }: OBDashboardProps) {
+function OBDashboard({ audienceCount, followUpCount, onStartCalling, onViewFollowUps, onRefresh, loading }: OBDashboardProps) {
   return (
-    <div className="space-y-4">{/* Restored original UI */}
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg font-medium text-muted-foreground">
-            Today's Performance
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 mb-4">
-          <div className="text-center p-3 bg-secondary rounded-lg">
-            <Clock className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-            <div className="text-2xl font-bold">{stats.speedToLead}</div>
-            <div className="text-xs text-muted-foreground">Speed</div>
-          </div>
-          <div className="text-center p-3 bg-secondary rounded-lg">
-            <Clock className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-            <div className="text-2xl font-bold">{stats.weekAverage}</div>
-            <div className="text-xs text-muted-foreground">Week Avg</div>
-          </div>
-          <div className="text-center p-3 bg-secondary rounded-lg">
-            <Users className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-            <div className="text-2xl font-bold">{stats.obCalls}</div>
-            <div className="text-xs text-muted-foreground">OB Calls</div>
-          </div>
-          <div className="text-center p-3 bg-secondary rounded-lg">
-            <Target className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-            <div className="text-2xl font-bold">{stats.sales}</div>
-            <div className="text-xs text-muted-foreground">Sales</div>
-          </div>
-        </CardContent>
-        
-        {/* Mobile-optimized buttons at bottom */}
-        <CardContent className="space-y-3 pt-0">
+    <div className="space-y-4">
+      <Card>        
+        {/* Mobile-optimized buttons */}
+        <CardContent className="space-y-3 p-4">
           <Button 
             variant="default" 
             size="lg" 

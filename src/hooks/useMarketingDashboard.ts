@@ -251,10 +251,10 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
       let apiUrl;
       
       if (usePeriodType === 'rolling') {
-        const periods = Math.ceil(parseInt(timeRange) / 7);
+        const periods = Math.max(2, Math.ceil(parseInt(timeRange) / 7)); // Always request at least 2 periods for comparison
         apiUrl = `/api/marketing/performance?format=rolling7day&periods=${periods}${referenceDateParam}`;
       } else {
-        const weeks = Math.ceil(parseInt(timeRange) / 7);
+        const weeks = Math.max(2, Math.ceil(parseInt(timeRange) / 7)); // Always request at least 2 weeks for comparison
         apiUrl = `/api/marketing/performance?weeks=${weeks}${referenceDateParam}`;
       }
       

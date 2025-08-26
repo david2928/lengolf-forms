@@ -458,11 +458,25 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                 <TableHead className="font-semibold text-gray-700 py-3 px-4 text-left w-[180px]">Metric</TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[130px]">
                   <div className="text-xs">Current</div>
-                  <div className="text-[10px] text-gray-500 font-normal">{isRollingPeriods ? 'This Period' : 'This Week'}</div>
+                  <div className="text-[10px] text-gray-500 font-normal">
+                    {transformedData?.currentWeek && 'weekStart' in transformedData.currentWeek 
+                      ? `${new Date(transformedData.currentWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(transformedData.currentWeek.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                      : transformedData?.currentWeek && 'periodStart' in transformedData.currentWeek
+                        ? `${new Date(transformedData.currentWeek.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(transformedData.currentWeek.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                        : isRollingPeriods ? 'This Period' : 'This Week'
+                    }
+                  </div>
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[130px]">
                   <div className="text-xs">Previous</div>
-                  <div className="text-[10px] text-gray-500 font-normal">{isRollingPeriods ? 'Last Period' : 'Last Week'}</div>
+                  <div className="text-[10px] text-gray-500 font-normal">
+                    {transformedData?.previousWeek && 'weekStart' in transformedData.previousWeek 
+                      ? `${new Date(transformedData.previousWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(transformedData.previousWeek.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                      : transformedData?.previousWeek && 'periodStart' in transformedData.previousWeek
+                        ? `${new Date(transformedData.previousWeek.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(transformedData.previousWeek.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                        : isRollingPeriods ? 'Last Period' : 'Last Week'
+                    }
+                  </div>
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
                   <div className="text-xs">{isRollingPeriods ? 'vs 4P Avg' : 'vs 4W Avg'}</div>
@@ -470,15 +484,36 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
                   <div className="text-xs">{isRollingPeriods ? '3P Ago' : '3W Ago'}</div>
-                  <div className="text-[10px] text-gray-500 font-normal">{isRollingPeriods ? '3 Periods' : '3 Weeks'}</div>
+                  <div className="text-[10px] text-gray-500 font-normal">
+                    {transformedData?.threeWeeksAgo && 'weekStart' in transformedData.threeWeeksAgo 
+                      ? `${new Date(transformedData.threeWeeksAgo.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(transformedData.threeWeeksAgo.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                      : transformedData?.threeWeeksAgo && 'periodStart' in transformedData.threeWeeksAgo
+                        ? `${new Date(transformedData.threeWeeksAgo.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(transformedData.threeWeeksAgo.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                        : isRollingPeriods ? '3 Periods' : '3 Weeks'
+                    }
+                  </div>
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
                   <div className="text-xs">{isRollingPeriods ? '4P Ago' : '4W Ago'}</div>
-                  <div className="text-[10px] text-gray-500 font-normal">{isRollingPeriods ? '4 Periods' : '4 Weeks'}</div>
+                  <div className="text-[10px] text-gray-500 font-normal">
+                    {transformedData?.fourWeeksAgo && 'weekStart' in transformedData.fourWeeksAgo 
+                      ? `${new Date(transformedData.fourWeeksAgo.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(transformedData.fourWeeksAgo.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                      : transformedData?.fourWeeksAgo && 'periodStart' in transformedData.fourWeeksAgo
+                        ? `${new Date(transformedData.fourWeeksAgo.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(transformedData.fourWeeksAgo.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                        : isRollingPeriods ? '4 Periods' : '4 Weeks'
+                    }
+                  </div>
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[120px]">
                   <div className="text-xs">{isRollingPeriods ? '5P Ago' : '5W Ago'}</div>
-                  <div className="text-[10px] text-gray-500 font-normal">{isRollingPeriods ? '5 Periods' : '5 Weeks'}</div>
+                  <div className="text-[10px] text-gray-500 font-normal">
+                    {transformedData?.fiveWeeksAgo && 'weekStart' in transformedData.fiveWeeksAgo 
+                      ? `${new Date(transformedData.fiveWeeksAgo.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(transformedData.fiveWeeksAgo.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                      : transformedData?.fiveWeeksAgo && 'periodStart' in transformedData.fiveWeeksAgo
+                        ? `${new Date(transformedData.fiveWeeksAgo.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(transformedData.fiveWeeksAgo.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                        : isRollingPeriods ? '5 Periods' : '5 Weeks'
+                    }
+                  </div>
                 </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 px-2 text-center w-[140px]">
                   <div className="text-xs">MTD</div>

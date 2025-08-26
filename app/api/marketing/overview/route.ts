@@ -105,18 +105,30 @@ export async function GET(request: NextRequest) {
       .gte('date', comparisonPeriodStart.toISOString().split('T')[0])
       .lte('date', comparisonPeriodEnd.toISOString().split('T')[0]);
 
-    // Get revenue data for ROAS and CLV calculations
-    const { data: currentRevenue } = await supabase
-      .rpc('get_marketing_total_revenue', {
-        p_start_date: currentPeriodStart.toISOString().split('T')[0],
-        p_end_date: yesterday.toISOString().split('T')[0]
-      });
+    // Get new customer revenue data for ROAS calculations
+    const { data: currentGoogleRevenue } = await supabase.rpc('get_new_customer_revenue', {
+      start_date: currentPeriodStart.toISOString().split('T')[0],
+      end_date: yesterday.toISOString().split('T')[0],
+      referral_sources: ['Google']
+    });
 
-    const { data: comparisonRevenue } = await supabase
-      .rpc('get_marketing_total_revenue', {
-        p_start_date: comparisonPeriodStart.toISOString().split('T')[0],
-        p_end_date: comparisonPeriodEnd.toISOString().split('T')[0]
-      });
+    const { data: currentMetaRevenue } = await supabase.rpc('get_new_customer_revenue', {
+      start_date: currentPeriodStart.toISOString().split('T')[0],
+      end_date: yesterday.toISOString().split('T')[0],
+      referral_sources: ['Facebook', 'Instagram']
+    });
+
+    const { data: comparisonGoogleRevenue } = await supabase.rpc('get_new_customer_revenue', {
+      start_date: comparisonPeriodStart.toISOString().split('T')[0],
+      end_date: comparisonPeriodEnd.toISOString().split('T')[0],
+      referral_sources: ['Google']
+    });
+
+    const { data: comparisonMetaRevenue } = await supabase.rpc('get_new_customer_revenue', {
+      start_date: comparisonPeriodStart.toISOString().split('T')[0],
+      end_date: comparisonPeriodEnd.toISOString().split('T')[0],
+      referral_sources: ['Facebook', 'Instagram']
+    });
 
     // Calculate current period totals
     const googleCurrentTotals = googleCurrent?.reduce((acc, curr) => ({
@@ -190,16 +202,16 @@ export async function GET(request: NextRequest) {
     const cacCurrent = totalNewCustomersCurrent > 0 ? totalSpendCurrent / totalNewCustomersCurrent : 0;
     const cacComparison = totalNewCustomersComparison > 0 ? totalSpendComparison / totalNewCustomersComparison : 0;
     
-    // Calculate ROAS using actual revenue data
-    const currentRevenueTotal = currentRevenue?.[0]?.total_revenue || 0;
-    const comparisonRevenueTotal = comparisonRevenue?.[0]?.total_revenue || 0;
+    // Calculate ROAS using new customer revenue only
+    const currentRevenueTotal = Number(currentGoogleRevenue || 0) + Number(currentMetaRevenue || 0);
+    const comparisonRevenueTotal = Number(comparisonGoogleRevenue || 0) + Number(comparisonMetaRevenue || 0);
     
-    const roasCurrent = totalSpendCurrent > 0 ? Number(currentRevenueTotal) / totalSpendCurrent : 0;
-    const roasComparison = totalSpendComparison > 0 ? Number(comparisonRevenueTotal) / totalSpendComparison : 0;
+    const roasCurrent = totalSpendCurrent > 0 ? currentRevenueTotal / totalSpendCurrent : 0;
+    const roasComparison = totalSpendComparison > 0 ? comparisonRevenueTotal / totalSpendComparison : 0;
     
-    // Use Gross Profit instead of cost per conversion
-    const grossProfitCurrent = currentRevenue?.[0]?.total_profit || 0;
-    const grossProfitComparison = comparisonRevenue?.[0]?.total_profit || 0;
+    // Use new customer revenue as gross profit (since our function returns gross_profit)
+    const grossProfitCurrent = currentRevenueTotal;
+    const grossProfitComparison = comparisonRevenueTotal;
 
     // Calculate percentage changes
     const calculateChange = (current: number, comparison: number) => {
