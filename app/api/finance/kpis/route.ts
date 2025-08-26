@@ -3,6 +3,8 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!,
   process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -69,7 +69,7 @@ export const UsageManagementModal: React.FC<UsageManagementModalProps> = ({
     }
   }, [isOpen, selectedPackage?.id]);
 
-  const fetchUsageRecords = async () => {
+  const fetchUsageRecords = useCallback(async () => {
     if (!selectedPackage?.id) return;
     
     setIsLoading(true);
@@ -97,7 +97,7 @@ export const UsageManagementModal: React.FC<UsageManagementModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedPackage?.id]);
 
   const handleAddUsage = () => {
     setShowAddUsage(true);

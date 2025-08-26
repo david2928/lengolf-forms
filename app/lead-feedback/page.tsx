@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Search, Phone, CheckCircle, XCircle, AlertCircle, ChevronLeft, ChevronRight, Clock, Target, Users, Check, X, TrendingUp, TrendingDown, Minus, CalendarClock, CalendarOff, Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -218,7 +218,7 @@ export default function LeadFeedbackPage() {
     }
   };
 
-  const loadFollowUpCustomers = async () => {
+  const loadFollowUpCustomers = useCallback(async () => {
     if (!obAudienceInfo?.audienceId) return;
     
     setFollowUpLoading(true);
@@ -237,7 +237,7 @@ export default function LeadFeedbackPage() {
     } finally {
       setFollowUpLoading(false);
     }
-  };
+  }, [obAudienceInfo?.audienceId]);
 
   const handleOpenLead = async (leadId: string) => {
     setOpeningLead(leadId);
@@ -348,7 +348,7 @@ export default function LeadFeedbackPage() {
       loadSelectedAudience();
       loadFollowUpCustomers();
     }
-  }, [activeTab, obAudienceInfo?.audienceId]);
+  }, [activeTab, obAudienceInfo?.audienceId, loadFollowUpCustomers]);
 
   // Removed auto-reload functionality - users can manually refresh if needed
 
@@ -847,7 +847,7 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
   const progress = totalCustomers > 0 ? ((totalIndex + 1) / totalCustomers) * 100 : 0;
 
   // Load customers from API
-  const loadCustomers = async (offset: number, limit: number = 10): Promise<{ customers: any[], hasMore: boolean }> => {
+  const loadCustomers = useCallback(async (offset: number, limit: number = 10): Promise<{ customers: any[], hasMore: boolean }> => {
     if (!audienceInfo?.audienceId) {
       return { customers: [], hasMore: false };
     }
@@ -874,7 +874,7 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
     } finally {
       setLoading(false);
     }
-  };
+  }, [audienceInfo?.audienceId]);
 
   // Initialize with first batch of customers
   useEffect(() => {
@@ -886,7 +886,7 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
         setTotalIndex(0);
       });
     }
-  }, [audienceInfo?.audienceId]);
+  }, [audienceInfo?.audienceId, customerQueue.length, loadCustomers]);
 
   // Pre-fetch next customers when getting close to end of queue
   useEffect(() => {
@@ -903,7 +903,7 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
         }
       });
     }
-  }, [currentIndex, customerQueue.length, hasMoreCustomers, loading, totalIndex]);
+  }, [currentIndex, customerQueue.length, hasMoreCustomers, loading, totalIndex, loadCustomers]);
   
   // Validation states
   const isReachableSet = notesData.reachable !== '';
@@ -1330,7 +1330,7 @@ function OBFollowUps({ customers, loading, onBackToDashboard, onRefresh }: OBFol
                         Last call: {new Date(item.created_at).toLocaleDateString()} • {item.response || 'No response recorded'}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        "{item.notes}"
+                        &ldquo;{item.notes}&rdquo;
                       </p>
                     </div>
                     {item.customer_phone && (

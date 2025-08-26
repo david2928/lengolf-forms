@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -67,7 +67,7 @@ export const PackageTransferModal: React.FC<PackageTransferModalProps> = ({
   }, [isOpen]);
 
   // Search for customers
-  const searchCustomers = async (query: string) => {
+  const searchCustomers = useCallback(async (query: string) => {
     if (!query || query.length < 2) {
       setSearchResults([]);
       setShowResults(false);
@@ -93,7 +93,7 @@ export const PackageTransferModal: React.FC<PackageTransferModalProps> = ({
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [transferPackage?.customer_id]);
 
   // Debounced search
   useEffect(() => {
@@ -104,7 +104,7 @@ export const PackageTransferModal: React.FC<PackageTransferModalProps> = ({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, searchCustomers]);
 
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);

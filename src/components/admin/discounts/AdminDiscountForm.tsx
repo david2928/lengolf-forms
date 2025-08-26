@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Discount } from '@/types/discount';
 import { ProductEligibilitySelector } from './ProductEligibilitySelector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,9 +34,9 @@ export function AdminDiscountForm({ discountId }: AdminDiscountFormProps) {
     if (discountId) {
       fetchDiscount();
     }
-  }, [discountId]);
+  }, [discountId, fetchDiscount]);
 
-  const fetchDiscount = async () => {
+  const fetchDiscount = useCallback(async () => {
     try {
       const response = await fetch(`/api/admin/discounts/${discountId}`);
       const data = await response.json();
@@ -64,7 +64,7 @@ export function AdminDiscountForm({ discountId }: AdminDiscountFormProps) {
     } finally {
       setInitialLoading(false);
     }
-  };
+  }, [discountId]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

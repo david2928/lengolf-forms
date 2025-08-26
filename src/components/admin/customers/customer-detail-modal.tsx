@@ -272,7 +272,7 @@ export function CustomerDetailModal({
     }
     
     setLoadedTabs(prev => new Set(prev).add(tabKey));
-  }, [activeTab, customerId, open, fetchTransactions, fetchPackages, fetchBookings]);
+  }, [activeTab, customerId, open, fetchTransactions, fetchPackages, fetchBookings, loadedTabs]);
 
   const handleEditSuccess = () => {
     setEditModalOpen(false);
