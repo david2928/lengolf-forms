@@ -336,97 +336,218 @@ export default function MarketingDashboardPage() {
               </Button>
             </div>
 
-            {!collapsedSections.has('summary') && performanceData.length > 0 && (
+            {!collapsedSections.has('summary') && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">{usePeriodType === 'rolling' ? 'Current Period' : 'This Week'}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {performanceData[0] && (
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Total Spend:</span>
-                          <span className="font-semibold">฿{performanceData[0].totalSpend.toLocaleString('th-TH')}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">New Customers:</span>
-                          <span className="font-semibold">{performanceData[0].totalNewCustomers}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">CAC:</span>
-                          <span className="font-semibold">฿{performanceData[0].cac.toLocaleString('th-TH')}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">ROAS:</span>
-                          <span className="font-semibold">{performanceData[0].roas.toFixed(1)}x</span>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                {(() => {
+                  // Helper functions to handle both data types (same as MarketingPerformanceTable)
+                  const getStartDate = (item: any): string => {
+                    return 'weekStart' in item ? item.weekStart : item.periodStart;
+                  };
+                  const getEndDate = (item: any): string => {
+                    return 'weekEnd' in item ? item.weekEnd : item.periodEnd;
+                  };
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">{usePeriodType === 'rolling' ? 'Previous Period' : 'Last Week'}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {performanceData[1] && (
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Total Spend:</span>
-                          <span className="font-semibold">฿{performanceData[1].totalSpend.toLocaleString('th-TH')}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">New Customers:</span>
-                          <span className="font-semibold">{performanceData[1].totalNewCustomers}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">CAC:</span>
-                          <span className="font-semibold">฿{performanceData[1].cac.toLocaleString('th-TH')}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">ROAS:</span>
-                          <span className="font-semibold">{performanceData[1].roas.toFixed(1)}x</span>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                  // Sort data by period (most recent first) - same logic as MarketingPerformanceTable
+                  const sortedData = performanceData && performanceData.length > 0 
+                    ? [...performanceData].sort((a, b) => new Date(getEndDate(b)).getTime() - new Date(getEndDate(a)).getTime())
+                    : [];
+                  
+                  const currentPeriod = sortedData[0];
+                  const previousPeriod = sortedData[1];
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Period Average</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">{usePeriodType === 'rolling' ? 'Avg Period Spend:' : 'Avg Weekly Spend:'}</span>
-                        <span className="font-semibold">
-                          ฿{((performanceData.reduce((sum, week) => sum + week.totalSpend, 0) / performanceData.length)).toLocaleString('th-TH')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Avg New Customers:</span>
-                        <span className="font-semibold">
-                          {(performanceData.reduce((sum, week) => sum + week.totalNewCustomers, 0) / performanceData.length).toFixed(0)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Avg CAC:</span>
-                        <span className="font-semibold">
-                          ฿{((performanceData.reduce((sum, week) => sum + week.cac, 0) / performanceData.length)).toLocaleString('th-TH')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Avg ROAS:</span>
-                        <span className="font-semibold">
-                          {(performanceData.reduce((sum, week) => sum + week.roas, 0) / performanceData.length).toFixed(1)}x
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  return (
+                    <>
+                      {/* Current Period Card */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">
+                            {parseInt(timeRange) > 7 ? 'Current Period' : (usePeriodType === 'rolling' ? 'Current Period' : 'This Week')}
+                          </CardTitle>
+                          <p className="text-xs text-gray-500">
+                            {parseInt(timeRange) > 7 
+                              ? `Rolling ${timeRange} Days` 
+                              : currentPeriod && 'weekStart' in currentPeriod 
+                                ? `${new Date(currentPeriod.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(currentPeriod.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                                : currentPeriod && 'periodStart' in currentPeriod
+                                  ? `${new Date(currentPeriod.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(currentPeriod.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                                  : ''
+                            }
+                          </p>
+                        </CardHeader>
+                        <CardContent>
+                          {(() => {
+                            // Use KPI data for timeRange > 7 days (aggregated totals)
+                            // Use performance data for timeRange <= 7 days (individual periods)
+                            const useKpiData = parseInt(timeRange) > 7 && kpiData;
+                            const data = useKpiData ? kpiData : currentPeriod;
+                            
+                            if (!data) return null;
+                            
+                            return (
+                              <div className="space-y-2">
+                                <div className="flex justify-between">
+                                  <span className="text-sm text-gray-600">Total Spend:</span>
+                                  <span className="font-semibold">
+                                    ฿{useKpiData 
+                                      ? Math.round(data.totalSpend).toLocaleString('th-TH') 
+                                      : Math.round(data.totalSpend).toLocaleString('th-TH')}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-sm text-gray-600">New Customers:</span>
+                                  <span className="font-semibold">
+                                    {useKpiData ? data.totalNewCustomers : data.totalNewCustomers}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-sm text-gray-600">CAC:</span>
+                                  <span className="font-semibold">
+                                    ฿{useKpiData 
+                                      ? Math.round(data.cac).toLocaleString('th-TH') 
+                                      : Math.round(data.cac).toLocaleString('th-TH')}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-sm text-gray-600">ROAS:</span>
+                                  <span className="font-semibold">
+                                    {useKpiData ? data.roas.toFixed(1) : data.roas.toFixed(1)}x
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </CardContent>
+                      </Card>
+
+                      {/* Previous Period Card */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Previous Period</CardTitle>
+                          <p className="text-xs text-gray-500">
+                            {parseInt(timeRange) > 7 
+                              ? `Previous ${timeRange} Days` 
+                              : previousPeriod && 'weekStart' in previousPeriod 
+                                ? `${new Date(previousPeriod.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(previousPeriod.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                                : previousPeriod && 'periodStart' in previousPeriod
+                                  ? `${new Date(previousPeriod.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(previousPeriod.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                                  : ''
+                            }
+                          </p>
+                        </CardHeader>
+                        <CardContent>
+                          {(() => {
+                            // For > 7 days, calculate previous period values from current values and change percentages
+                            // For <= 7 days, use performance data directly
+                            const useKpiData = parseInt(timeRange) > 7 && kpiData;
+                            
+                            if (useKpiData) {
+                              // Calculate previous period values from current values and percentage changes
+                              const calculatePreviousValue = (current: number, changePercent: number) => {
+                                if (changePercent === 0) return current;
+                                return current / (1 + changePercent / 100);
+                              };
+                              
+                              const prevSpend = calculatePreviousValue(kpiData.totalSpend, kpiData.totalSpendChange);
+                              const prevCustomers = calculatePreviousValue(kpiData.totalNewCustomers, kpiData.totalNewCustomersChange);
+                              const prevCac = calculatePreviousValue(kpiData.cac, kpiData.cacChange);
+                              const prevRoas = calculatePreviousValue(kpiData.roas, kpiData.roasChange);
+                              
+                              return (
+                                <div className="space-y-2">
+                                  <div className="flex justify-between">
+                                    <span className="text-sm text-gray-600">Total Spend:</span>
+                                    <span className="font-semibold">฿{Math.round(prevSpend).toLocaleString('th-TH')}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-sm text-gray-600">New Customers:</span>
+                                    <span className="font-semibold">{Math.round(prevCustomers)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-sm text-gray-600">CAC:</span>
+                                    <span className="font-semibold">฿{Math.round(prevCac).toLocaleString('th-TH')}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-sm text-gray-600">ROAS:</span>
+                                    <span className="font-semibold">{prevRoas.toFixed(1)}x</span>
+                                  </div>
+                                </div>
+                              );
+                            } else if (previousPeriod) {
+                              // Use performance data for 7-day periods
+                              return (
+                                <div className="space-y-2">
+                                  <div className="flex justify-between">
+                                    <span className="text-sm text-gray-600">Total Spend:</span>
+                                    <span className="font-semibold">฿{Math.round(previousPeriod.totalSpend).toLocaleString('th-TH')}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-sm text-gray-600">New Customers:</span>
+                                    <span className="font-semibold">{previousPeriod.totalNewCustomers}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-sm text-gray-600">CAC:</span>
+                                    <span className="font-semibold">฿{Math.round(previousPeriod.cac).toLocaleString('th-TH')}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-sm text-gray-600">ROAS:</span>
+                                    <span className="font-semibold">{previousPeriod.roas.toFixed(1)}x</span>
+                                  </div>
+                                </div>
+                              );
+                            } else {
+                              // No previous period data available
+                              return (
+                                <div className="space-y-2">
+                                  <div className="text-sm text-gray-500 text-center">
+                                    Previous period data not available
+                                  </div>
+                                  <div className="text-xs text-gray-400 text-center">
+                                    Try refreshing or check data source
+                                  </div>
+                                </div>
+                              );
+                            }
+                          })()}
+                        </CardContent>
+                      </Card>
+
+                      {/* Period Average Card */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Period Average</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">{usePeriodType === 'rolling' ? 'Avg Period Spend:' : 'Avg Weekly Spend:'}</span>
+                              <span className="font-semibold">
+                                ฿{sortedData.length > 0 ? ((sortedData.reduce((sum, week) => sum + week.totalSpend, 0) / sortedData.length)).toLocaleString('th-TH') : '0'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Avg New Customers:</span>
+                              <span className="font-semibold">
+                                {sortedData.length > 0 ? (sortedData.reduce((sum, week) => sum + week.totalNewCustomers, 0) / sortedData.length).toFixed(0) : '0'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Avg CAC:</span>
+                              <span className="font-semibold">
+                                ฿{sortedData.length > 0 ? Math.round((sortedData.reduce((sum, week) => sum + week.cac, 0) / sortedData.length)).toLocaleString('th-TH') : '0'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Avg ROAS:</span>
+                              <span className="font-semibold">
+                                {sortedData.length > 0 ? (sortedData.reduce((sum, week) => sum + week.roas, 0) / sortedData.length).toFixed(1) : '0.0'}x
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </>
+                  );
+                })()}
               </div>
             )}
           </section>

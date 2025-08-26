@@ -138,33 +138,45 @@ async function getWeeklyPerformance(startDate: Date, endDate: Date, weeks: numbe
     throw new Error('Failed to fetch daily metrics');
   }
 
-  // Helper functions for week calculations
-  const getWeekInfo = (date: Date) => {
-    const startOfYear = new Date(date.getFullYear(), 0, 1);
-    const days = Math.floor((date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
-    const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
-    return { year: date.getFullYear(), week: weekNumber };
+  // Helper functions for week calculations - using ISO week boundaries (Monday-Sunday)
+  const getWeekStart = (date: Date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+    return new Date(d.setDate(diff));
   };
 
-  const getMonday = (date: Date) => {
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(date.setDate(diff));
+  const getWeekEnd = (date: Date) => {
+    const weekStart = getWeekStart(new Date(date));
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    return weekEnd;
   };
 
-  const getSunday = (date: Date) => {
-    const monday = getMonday(new Date(date));
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    return sunday;
+  // Helper function to get new customer revenue by referral source
+  const getNewCustomerRevenue = async (startDate: Date, endDate: Date, referralSources: string | string[]): Promise<number> => {
+    const sources = Array.isArray(referralSources) ? referralSources : [referralSources];
+    
+    const { data, error } = await supabase.rpc('get_new_customer_revenue', {
+      start_date: startDate.toISOString().split('T')[0],
+      end_date: endDate.toISOString().split('T')[0],
+      referral_sources: sources
+    });
+
+    if (error) {
+      console.error('Error fetching new customer revenue:', error);
+      return 0;
+    }
+
+    return Number(data || 0);
   };
 
-  // Group daily data by week
+  // Group daily data by week using Monday-Sunday boundaries
   const weeklyData = new Map<string, any[]>();
   dailyData?.forEach(day => {
     const date = new Date(day.date);
-    const weekInfo = getWeekInfo(date);
-    const weekKey = `${weekInfo.year}-W${weekInfo.week.toString().padStart(2, '0')}`;
+    const weekStart = getWeekStart(date);
+    const weekKey = weekStart.toISOString().split('T')[0]; // Use week start date as key
     
     if (!weeklyData.has(weekKey)) {
       weeklyData.set(weekKey, []);
@@ -178,7 +190,22 @@ async function getWeeklyPerformance(startDate: Date, endDate: Date, weeks: numbe
     .sort(([a], [b]) => b.localeCompare(a)) // Sort by week descending
     .slice(0, weeks);
 
+  // Pre-calculate all revenue data to avoid async in forEach
+  const revenueData = await Promise.all(
+    sortedWeeks.map(async ([weekKey, days]) => {
+      const firstDay = new Date(Math.min(...days.map(d => new Date(d.date).getTime())));
+      const weekStart = getWeekStart(new Date(firstDay));
+      const weekEnd = getWeekEnd(new Date(firstDay));
+      
+      const googleRevenue = await getNewCustomerRevenue(weekStart, weekEnd, 'Google');
+      const metaRevenue = await getNewCustomerRevenue(weekStart, weekEnd, ['Facebook', 'Instagram']);
+      
+      return { weekKey, googleRevenue, metaRevenue, totalRevenue: googleRevenue + metaRevenue };
+    })
+  );
+
   sortedWeeks.forEach(([weekKey, days], index) => {
+    const currentRevenueData = revenueData.find(r => r.weekKey === weekKey);
     // Aggregate the daily data for this week
     const weekTotals = days.reduce((acc, day) => ({
       googleSpend: acc.googleSpend + Number(day.google_spend),
@@ -214,8 +241,10 @@ async function getWeeklyPerformance(startDate: Date, endDate: Date, weeks: numbe
 
     const cac = weekTotals.totalNewCustomers > 0 ? 
       weekTotals.totalSpend / weekTotals.totalNewCustomers : 0;
+    
+    // Use pre-calculated ROAS from actual new customer revenue
     const roas = weekTotals.totalSpend > 0 ? 
-      weekTotals.totalRevenue / weekTotals.totalSpend : 0;
+      (currentRevenueData?.totalRevenue || 0) / weekTotals.totalSpend : 0;
 
     // Calculate week-over-week changes
     let weekOverWeekSpendChange = 0;
@@ -231,11 +260,10 @@ async function getWeeklyPerformance(startDate: Date, endDate: Date, weeks: numbe
       }
     }
 
-    // Get week start and end dates
+    // Get week start and end dates using our helper functions
     const firstDay = new Date(Math.min(...days.map(d => new Date(d.date).getTime())));
-    const lastDay = new Date(Math.max(...days.map(d => new Date(d.date).getTime())));
-    const weekStart = getMonday(new Date(firstDay));
-    const weekEnd = getSunday(new Date(firstDay));
+    const weekStart = getWeekStart(new Date(firstDay));
+    const weekEnd = getWeekEnd(new Date(firstDay));
 
     const weekPerformance: WeeklyPerformance = {
       period: weekKey,
@@ -278,6 +306,23 @@ async function getWeeklyPerformance(startDate: Date, endDate: Date, weeks: numbe
 }
 
 async function getMonthlyPerformance(startDate: Date, endDate: Date) {
+  // Helper function to get new customer revenue by referral source for monthly periods
+  const getNewCustomerRevenueForMonthly = async (startDate: Date, endDate: Date, referralSources: string | string[]): Promise<number> => {
+    const sources = Array.isArray(referralSources) ? referralSources : [referralSources];
+    
+    const { data, error } = await supabase.rpc('get_new_customer_revenue', {
+      start_date: startDate.toISOString().split('T')[0],
+      end_date: endDate.toISOString().split('T')[0],
+      referral_sources: sources
+    });
+
+    if (error) {
+      console.error('Error fetching new customer revenue for monthly period:', error);
+      return 0;
+    }
+
+    return Number(data || 0);
+  };
   // For MTD calculation, get current month to date
   const currentMonth = endDate.getMonth();
   const currentYear = endDate.getFullYear();
@@ -324,10 +369,26 @@ async function getMonthlyPerformance(startDate: Date, endDate: Date) {
     }
   ];
 
+  // Pre-calculate all revenue data for periods
+  const revenueDataMonthly = await Promise.all(
+    periods.map(async period => {
+      const googleRevenue = await getNewCustomerRevenueForMonthly(period.startDate, period.endDate, 'Google');
+      const metaRevenue = await getNewCustomerRevenueForMonthly(period.startDate, period.endDate, ['Facebook', 'Instagram']);
+      
+      return { 
+        periodKey: period.key, 
+        googleRevenue, 
+        metaRevenue, 
+        totalRevenue: googleRevenue + metaRevenue 
+      };
+    })
+  );
+
   // Calculate performance for each period
   const performance: MonthlyPerformance[] = [];
 
   periods.forEach(period => {
+    const currentRevenueData = revenueDataMonthly.find(r => r.periodKey === period.key);
     // Filter daily data for this period
     const periodData = dailyData?.filter(day => {
       const dayDate = new Date(day.date);
@@ -368,8 +429,10 @@ async function getMonthlyPerformance(startDate: Date, endDate: Date) {
 
     const cac = periodTotals.totalNewCustomers > 0 ? 
       periodTotals.totalSpend / periodTotals.totalNewCustomers : 0;
+      
+    // Use pre-calculated ROAS from actual new customer revenue
     const roas = periodTotals.totalSpend > 0 ? 
-      periodTotals.totalRevenue / periodTotals.totalSpend : 0;
+      (currentRevenueData?.totalRevenue || 0) / periodTotals.totalSpend : 0;
 
     const periodPerformance: MonthlyPerformance = {
       period: period.key,
@@ -410,6 +473,23 @@ async function getMonthlyPerformance(startDate: Date, endDate: Date) {
 }
 
 async function getRolling7DayPerformance(endDate: Date, periods: number) {
+  // Helper function to get new customer revenue by referral source for rolling periods
+  const getNewCustomerRevenueForRolling = async (startDate: Date, endDate: Date, referralSources: string | string[]): Promise<number> => {
+    const sources = Array.isArray(referralSources) ? referralSources : [referralSources];
+    
+    const { data, error } = await supabase.rpc('get_new_customer_revenue', {
+      start_date: startDate.toISOString().split('T')[0],
+      end_date: endDate.toISOString().split('T')[0],
+      referral_sources: sources
+    });
+
+    if (error) {
+      console.error('Error fetching new customer revenue for rolling period:', error);
+      return 0;
+    }
+
+    return Number(data || 0);
+  };
   // Get daily data from our view
   const { data: dailyData, error } = await supabase
     .schema('marketing')
@@ -470,8 +550,14 @@ async function getRolling7DayPerformance(endDate: Date, periods: number) {
 
     const cac = periodTotals.totalNewCustomers > 0 ? 
       periodTotals.totalSpend / periodTotals.totalNewCustomers : 0;
+    
+    // Calculate ROAS using actual new customer revenue from bookings  
+    const googleNewCustomerRevenue = await getNewCustomerRevenueForRolling(periodStart, periodEnd, 'Google');
+    const metaNewCustomerRevenue = await getNewCustomerRevenueForRolling(periodStart, periodEnd, ['Facebook', 'Instagram']);
+    const totalNewCustomerRevenue = googleNewCustomerRevenue + metaNewCustomerRevenue;
+    
     const roas = periodTotals.totalSpend > 0 ? 
-      periodTotals.totalRevenue / periodTotals.totalSpend : 0;
+      totalNewCustomerRevenue / periodTotals.totalSpend : 0;
 
     // Calculate period-over-period changes
     let periodOverPeriodSpendChange = 0;

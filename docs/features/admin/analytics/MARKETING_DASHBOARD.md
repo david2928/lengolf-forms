@@ -75,7 +75,7 @@ The Marketing Dashboard is a comprehensive analytics feature that provides unifi
 - **Click-Through Rate (CTR)**: Platform-specific and average CTR calculations
 - **New Customer Acquisition**: Tracked via referral analytics integration
 - **Customer Acquisition Cost (CAC)**: Spend divided by new customers acquired
-- **Return on Ad Spend (ROAS)**: Revenue from POS sales divided by ad spend
+- **Return on Ad Spend (ROAS)**: Net sales revenue from new customers acquired through Google/Meta ads divided by ad spend
 - **Gross Profit**: Total profit generated in the period
 
 ### 2. Performance Table
@@ -147,9 +147,10 @@ The Marketing Dashboard is a comprehensive analytics feature that provides unifi
 ```
 
 #### Revenue Integration
-- **Function**: `get_marketing_total_revenue(p_start_date, p_end_date)`
-- **Source**: `pos.lengolf_sales` table
-- **Returns**: `total_revenue`, `total_profit` for ROAS calculations
+- **Function**: `get_new_customer_revenue(start_date, end_date, referral_sources)`
+- **Source**: `pos.lengolf_sales` table joined with `bookings` table
+- **Returns**: Net sales revenue from new customers acquired through specified referral sources
+- **Attribution**: Links bookings → transactions → sales via customer_id and date matching
 
 ---
 
@@ -378,8 +379,9 @@ CAC = Total Ad Spend ÷ New Customers Acquired
 
 **Return on Ad Spend (ROAS)**:
 ```
-ROAS = Total Revenue ÷ Total Ad Spend
+ROAS = Net Sales Revenue from New Customers ÷ Total Ad Spend
 ```
+*Note: Only includes revenue from customers acquired through Google/Meta advertising campaigns*
 
 **Week-over-Week Changes**:
 ```
@@ -530,19 +532,34 @@ const {
 ### 2. ROAS Integration Architecture
 
 **Revenue Data Source**: 
-- Table: `pos.lengolf_sales`
-- Function: `get_marketing_total_revenue(start_date, end_date)`
-- Returns: `total_revenue`, `total_profit`
+- Primary Function: `get_new_customer_revenue(start_date, end_date, referral_sources)`
+- Data Flow: `bookings` → `pos.lengolf_sales` (via customer_id + date matching)
+- Returns: Net sales revenue (`sales_net`) from new customers only
 
 **ROAS Calculation**:
 ```typescript
-const roas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+// Get revenue from new customers by platform
+const googleRevenue = await supabase.rpc('get_new_customer_revenue', {
+  start_date, end_date, referral_sources: ['Google']
+});
+const metaRevenue = await supabase.rpc('get_new_customer_revenue', {
+  start_date, end_date, referral_sources: ['Facebook', 'Instagram']
+});
+
+const totalNewCustomerRevenue = Number(googleRevenue || 0) + Number(metaRevenue || 0);
+const roas = totalSpend > 0 ? totalNewCustomerRevenue / totalSpend : 0;
 ```
 
+**Key Improvements Made**:
+- **Attribution-Based ROAS**: Only counts revenue from customers acquired through paid advertising
+- **Platform-Specific Tracking**: Separate Google and Meta revenue attribution
+- **Net Sales Focus**: Uses `sales_net` instead of `gross_profit` for more accurate ROI measurement
+- **Customer Journey Mapping**: Links ad spend → new customer acquisition → actual sales revenue
+
 **Integration Points**:
-- Overview API: Period-based revenue aggregation
-- Performance API: Daily revenue integration via `daily_marketing_metrics` view
-- Real-time updates: Revenue data reflects in next cache refresh
+- Overview API: Platform-specific new customer revenue aggregation
+- Performance API: Weekly/monthly new customer revenue integration
+- Database Function: Optimized PostgreSQL function for efficient revenue calculation
 
 ### 3. Error Handling
 
@@ -789,6 +806,84 @@ FROM pg_views
 WHERE schemaname = 'marketing' 
 AND viewname = 'daily_marketing_metrics';
 ```
+
+---
+
+## Recent Changes & Improvements (August 2025)
+
+### 1. ROAS Calculation Enhancement
+**Issue Fixed**: ROAS was showing inflated values (15.3x) because it used total revenue instead of revenue attributed to new customers acquired through advertising.
+
+**Solution Implemented**:
+- Created PostgreSQL function `get_new_customer_revenue()` for proper attribution
+- Updated both Overview and Performance APIs to use new customer revenue only
+- ROAS now shows realistic values (2-3x range) based on actual ad performance
+
+**Technical Changes**:
+```sql
+-- New database function
+CREATE OR REPLACE FUNCTION get_new_customer_revenue(
+  start_date DATE,
+  end_date DATE,
+  referral_sources TEXT[]
+) RETURNS NUMERIC AS $$
+BEGIN
+  RETURN COALESCE((
+    SELECT SUM(s.sales_net)
+    FROM bookings b
+    JOIN pos.lengolf_sales s ON b.customer_id = s.customer_id AND b.date = s.date
+    WHERE b.date >= start_date
+      AND b.date <= end_date
+      AND b.is_new_customer = true 
+      AND b.referral_source = ANY(referral_sources)
+      AND (s.is_voided = false OR s.is_voided IS NULL)
+  ), 0);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+### 2. Weekly Performance Data Gaps Fixed
+**Issue Fixed**: Weekly performance API was missing periods 3, 4, and 5, showing zeros instead of actual data.
+
+**Solution Implemented**:
+- Updated week grouping logic to use proper Monday-Sunday boundaries
+- Fixed period calculation to ensure all requested weeks are returned
+- Enhanced date handling for consistent week-over-week comparisons
+
+### 3. UI Display Improvements
+**Issue Fixed**: Quick Performance Summary showed excessive decimal places for spend and CAC values.
+
+**Solution Implemented**:
+- Applied `Math.round()` to Total Spend and CAC displays
+- Cleaner number formatting: ฿4,809.955 → ฿4,810
+- Improved readability across all dashboard sections
+
+**Files Modified**:
+- `app/admin/marketing-dashboard/page.tsx`: Added integer formatting to spend and CAC displays
+- `app/api/marketing/overview/route.ts`: Updated to use new customer revenue function
+- `app/api/marketing/performance/route.ts`: Fixed weekly grouping and added new ROAS calculation
+
+### 4. Data Attribution Accuracy
+**Before**: 
+- ROAS included all revenue regardless of customer acquisition source
+- No distinction between organic and paid customer revenue
+- Inflated metrics not reflecting true advertising performance
+
+**After**:
+- ROAS only includes revenue from customers acquired through Google/Meta ads
+- Platform-specific revenue attribution (Google vs Meta performance)
+- Accurate ROI measurement for marketing spend optimization
+
+### 5. Performance Optimizations
+- Pre-calculated revenue data in parallel API calls to avoid async/await issues in loops
+- Optimized database function with proper joins for faster revenue calculations
+- Enhanced caching system maintains 5-minute TTL for consistent performance
+
+### Impact Summary
+- **Accuracy**: ROAS metrics now reflect true advertising ROI (2-3x instead of inflated 15x)
+- **Completeness**: All weekly periods populate correctly with actual performance data
+- **Usability**: Cleaner number formatting improves dashboard readability
+- **Attribution**: Platform-specific revenue tracking enables better budget allocation decisions
 
 ---
 
