@@ -72,27 +72,55 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
     }
   }, [isOpen, product.id, fetchTrendData])
 
-  const getTrendDirection = () => {
-    if (!trendData?.trend_data || trendData.trend_data.length < 2) return 'stable'
+  const calculateAvgUnitsPerWeek = () => {
+    if (!trendData?.trend_data || trendData.trend_data.length < 2) return null
     
     const data = trendData.trend_data
-    const firstValue = data[0].value
-    const lastValue = data[data.length - 1].value
+    // Find values approximately 14 days apart
+    const today = data[data.length - 1].value
+    const fourteenDaysAgo = data[0].value  // Data is sorted oldest to newest
     
-    if (lastValue > firstValue * 1.1) return 'up'
-    if (lastValue < firstValue * 0.9) return 'down'
-    return 'stable'
+    // Calculate average units per week: (14 days ago level - today level) / 2
+    const avgPerWeek = (fourteenDaysAgo - today) / 2
+    return avgPerWeek
   }
 
-  const getTrendIcon = () => {
-    const direction = getTrendDirection()
-    switch (direction) {
-      case 'up':
-        return { icon: TrendingUp, color: 'text-green-600', label: 'Increasing' }
-      case 'down':
-        return { icon: TrendingDown, color: 'text-red-600', label: 'Decreasing' }
-      default:
-        return { icon: Minus, color: 'text-gray-600', label: 'Stable' }
+  const calculateAvgDailyCashCollection = () => {
+    if (!isCashProduct || !trendData?.trend_data || trendData.trend_data.length < 2) return null
+    
+    const data = trendData.trend_data
+    let totalIncrease = 0
+    let validDays = 0
+    
+    // Calculate daily increases, ignoring negative days
+    for (let i = 1; i < data.length; i++) {
+      const dailyIncrease = data[i].value - data[i-1].value
+      if (dailyIncrease > 0) {
+        totalIncrease += dailyIncrease
+        validDays++
+      }
+    }
+    
+    return validDays > 0 ? totalIncrease / validDays : 0
+  }
+
+  const getMetricInfo = () => {
+    if (isCashProduct) {
+      const avgDaily = calculateAvgDailyCashCollection()
+      return {
+        label: 'Avg daily cash collection',
+        value: avgDaily !== null ? formatCashAmount(avgDaily) : 'No data',
+        icon: TrendingUp,
+        color: 'text-blue-600'
+      }
+    } else {
+      const avgWeekly = calculateAvgUnitsPerWeek()
+      return {
+        label: 'Avg units / week',
+        value: avgWeekly !== null ? `${avgWeekly.toFixed(1)} ${product.unit || 'units'}` : 'No data',
+        icon: TrendingDown,
+        color: 'text-orange-600'
+      }
     }
   }
 
@@ -129,8 +157,8 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
     return null
   }
 
-  const trendIcon = getTrendIcon()
-  const TrendIconComponent = trendIcon.icon
+  const metricInfo = getMetricInfo()
+  const MetricIconComponent = metricInfo.icon
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -154,11 +182,11 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-muted-foreground">Trend Direction</p>
+              <p className="text-sm text-muted-foreground">{metricInfo.label}</p>
               <div className="flex items-center gap-2 mt-1">
-                <TrendIconComponent className={`h-5 w-5 ${trendIcon.color}`} />
-                <span className={`font-medium ${trendIcon.color}`}>
-                  {trendIcon.label}
+                <MetricIconComponent className={`h-5 w-5 ${metricInfo.color}`} />
+                <span className={`font-medium ${metricInfo.color}`}>
+                  {metricInfo.value}
                 </span>
               </div>
             </div>

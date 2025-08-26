@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getDevSession } from '@/lib/dev-session'
 import { authOptions } from '@/lib/auth-config'
 import { refacSupabase } from '@/lib/refac-supabase'
 import { UpdateProductMetadataRequest } from '@/types/inventory'
@@ -23,7 +23,7 @@ export async function PUT(
 ) {
   try {
     // Check admin authentication
-    const session = await getServerSession(authOptions)
+    const session = await getDevSession(authOptions, request)
     if (!session?.user?.email) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -62,7 +62,6 @@ export async function PUT(
     // Prepare update object with only the fields that were provided
     const updateObject: any = {}
     if (updateData.unit_cost !== undefined) updateObject.unit_cost = updateData.unit_cost
-    if (updateData.image_url !== undefined) updateObject.image_url = updateData.image_url
     if (updateData.purchase_link !== undefined) updateObject.purchase_link = updateData.purchase_link
     if (updateData.reorder_threshold !== undefined) updateObject.reorder_threshold = updateData.reorder_threshold
 
@@ -114,7 +113,7 @@ export async function GET(
 ) {
   try {
     // Check admin authentication
-    const session = await getServerSession(authOptions)
+    const session = await getDevSession(authOptions, request)
     if (!session?.user?.email) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -179,22 +178,9 @@ function validateUpdateData(data: UpdateProductMetadataRequest): string | null {
     }
   }
 
-  // Validate image_url
-  if (data.image_url !== undefined && data.image_url !== null && data.image_url !== '') {
-    try {
-      new URL(data.image_url)
-    } catch {
-      return 'Image URL must be a valid URL'
-    }
-  }
-
-  // Validate purchase_link
-  if (data.purchase_link !== undefined && data.purchase_link !== null && data.purchase_link !== '') {
-    try {
-      new URL(data.purchase_link)
-    } catch {
-      return 'Purchase link must be a valid URL'
-    }
+  // Validate purchase_link (now plain text, no URL validation needed)
+  if (data.purchase_link !== undefined && typeof data.purchase_link !== 'string') {
+    return 'Purchase information must be a string'
   }
 
   // Validate reorder_threshold

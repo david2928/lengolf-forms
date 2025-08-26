@@ -128,6 +128,19 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
     return Math.min((product.current_stock / product.reorder_threshold) * 100, 100)
   }
 
+  const getCashProgressBarColor = () => {
+    if (!isCashProduct) return ''
+    
+    const percentage = getStockPercentage()
+    // Handle edge cases where percentage might be NaN or undefined
+    if (isNaN(percentage) || percentage === 0) return 'bg-gray-500'
+    
+    // For cash: low percentage = green (good), high percentage = red (needs collection)
+    if (percentage <= 50) return 'bg-green-500'
+    if (percentage <= 80) return 'bg-yellow-500' 
+    return 'bg-red-500'
+  }
+
   return (
     <>
       <Card 
@@ -193,8 +206,10 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
                 <div className="w-full bg-gray-200 rounded-full h-1.5">
                   <div 
                     className={`h-1.5 rounded-full transition-all ${
-                      product.reorder_status === 'REORDER_NEEDED' ? 'bg-red-500' :
-                      product.reorder_status === 'LOW_STOCK' ? 'bg-amber-500' : 'bg-green-500'
+                      isCashProduct 
+                        ? getCashProgressBarColor()
+                        : product.reorder_status === 'REORDER_NEEDED' ? 'bg-red-500' :
+                          product.reorder_status === 'LOW_STOCK' ? 'bg-amber-500' : 'bg-green-500'
                     }`}
                     style={{ width: `${Math.min(getStockPercentage(), 100)}%` }}
                   />

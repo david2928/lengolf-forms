@@ -208,7 +208,6 @@ export interface AdminInventoryProductWithStatus {
 // Admin product update request type
 export interface UpdateProductMetadataRequest {
   unit_cost?: number;
-  image_url?: string;
   purchase_link?: string;
   reorder_threshold?: number;
 }

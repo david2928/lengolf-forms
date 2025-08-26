@@ -14,7 +14,9 @@ import {
   AlertCircle,
   RefreshCw,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react'
 import { useAdminInventoryOverview } from '@/hooks/use-admin-inventory'
 import { ProductCard } from './product-card'
@@ -35,6 +37,9 @@ export function InventoryDashboard() {
   
   // Expanded cards state for consolidated view
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
+  
+  // Collapsed categories state for sufficient stock section
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
   
   // Modal states
   const [isCostModalOpen, setIsCostModalOpen] = useState(false)
@@ -80,6 +85,31 @@ export function InventoryDashboard() {
       }
       return newSet
     })
+  }
+
+  const handleCategoryToggle = (categoryName: string) => {
+    setCollapsedCategories(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(categoryName)) {
+        newSet.delete(categoryName)
+      } else {
+        newSet.add(categoryName)
+      }
+      return newSet
+    })
+  }
+
+  // Helper function to group products by category
+  const groupProductsByCategory = (products: AdminInventoryProductWithStatus[]) => {
+    const grouped: { [key: string]: AdminInventoryProductWithStatus[] } = {}
+    products.forEach(product => {
+      const category = product.category_name || 'Uncategorized'
+      if (!grouped[category]) {
+        grouped[category] = []
+      }
+      grouped[category].push(product)
+    })
+    return grouped
   }
 
   // Extract categories and apply filtering
@@ -467,40 +497,111 @@ export function InventoryDashboard() {
               ))}
             </div>
           ) : filteredData?.products?.sufficient_stock && filteredData.products.sufficient_stock.length > 0 ? (
-            isConsolidatedView ? (
-              <div className="space-y-2">
-                {filteredData.products.sufficient_stock.map((product: any) => (
-                  expandedCards.has(product.id) ? (
-                    <div key={product.id} className="border border-green-200 rounded-lg p-1 bg-green-50/50">
-                      <ProductCard 
-                        product={product} 
-                        onUpdate={handleRefresh}
-                        showCollapseButton={true}
-                        onCollapse={() => handleCardExpand(product.id)}
-                      />
-                    </div>
-                  ) : (
-                    <CollapsedProductCard 
-                      key={product.id} 
-                      product={product} 
-                      onUpdate={handleRefresh}
-                      isExpanded={expandedCards.has(product.id)}
-                      onExpand={() => handleCardExpand(product.id)}
-                    />
-                  )
-                ))}
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredData.products.sufficient_stock.map((product: any) => (
-                  <ProductCard 
-                    key={product.id} 
-                    product={product} 
-                    onUpdate={handleRefresh}
-                  />
-                ))}
-              </div>
-            )
+            (() => {
+              const groupedProducts = groupProductsByCategory(filteredData.products.sufficient_stock)
+              const categoryNames = Object.keys(groupedProducts).sort()
+              
+              return isConsolidatedView ? (
+                <div className="space-y-4">
+                  {categoryNames.map((categoryName) => {
+                    const categoryProducts = groupedProducts[categoryName]
+                    const isCollapsed = collapsedCategories.has(categoryName)
+                    
+                    return (
+                      <div key={categoryName} className="border border-gray-200 rounded-lg bg-gray-50/30">
+                        {/* Category Header */}
+                        <div 
+                          className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-100/50 rounded-t-lg"
+                          onClick={() => handleCategoryToggle(categoryName)}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isCollapsed ? (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <h4 className="font-medium text-sm">{categoryName}</h4>
+                            <Badge variant="secondary" className="text-xs">
+                              {categoryProducts.length}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        {/* Category Products */}
+                        {!isCollapsed && (
+                          <div className="p-3 pt-0 space-y-2">
+                            {categoryProducts.map((product: any) => (
+                              expandedCards.has(product.id) ? (
+                                <div key={product.id} className="border border-green-200 rounded-lg p-1 bg-green-50/50">
+                                  <ProductCard 
+                                    product={product} 
+                                    onUpdate={handleRefresh}
+                                    showCollapseButton={true}
+                                    onCollapse={() => handleCardExpand(product.id)}
+                                  />
+                                </div>
+                              ) : (
+                                <CollapsedProductCard 
+                                  key={product.id} 
+                                  product={product} 
+                                  onUpdate={handleRefresh}
+                                  isExpanded={expandedCards.has(product.id)}
+                                  onExpand={() => handleCardExpand(product.id)}
+                                />
+                              )
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {categoryNames.map((categoryName) => {
+                    const categoryProducts = groupedProducts[categoryName]
+                    const isCollapsed = collapsedCategories.has(categoryName)
+                    
+                    return (
+                      <div key={categoryName} className="border border-gray-200 rounded-lg bg-gray-50/30">
+                        {/* Category Header */}
+                        <div 
+                          className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-100/50 rounded-t-lg"
+                          onClick={() => handleCategoryToggle(categoryName)}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isCollapsed ? (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <h4 className="font-medium text-sm">{categoryName}</h4>
+                            <Badge variant="secondary" className="text-xs">
+                              {categoryProducts.length}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        {/* Category Products */}
+                        {!isCollapsed && (
+                          <div className="p-3 pt-0">
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                              {categoryProducts.map((product: any) => (
+                                <ProductCard 
+                                  key={product.id} 
+                                  product={product} 
+                                  onUpdate={handleRefresh}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()
           ) : (
             <Card>
               <CardContent className="flex items-center justify-center py-8">
