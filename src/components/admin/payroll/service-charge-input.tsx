@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,13 +33,7 @@ export function ServiceChargeInput({ selectedMonth, onServiceChargeUpdated }: Se
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
 
-  useEffect(() => {
-    if (selectedMonth) {
-      fetchServiceChargeInfo()
-    }
-  }, [selectedMonth])
-
-  const fetchServiceChargeInfo = async () => {
+  const fetchServiceChargeInfo = useCallback(async () => {
     try {
       setLoading(true)
       // Get current service charge info from calculations endpoint
@@ -78,7 +72,13 @@ export function ServiceChargeInput({ selectedMonth, onServiceChargeUpdated }: Se
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedMonth, toast])
+
+  useEffect(() => {
+    if (selectedMonth) {
+      fetchServiceChargeInfo()
+    }
+  }, [selectedMonth, fetchServiceChargeInfo])
 
   const handleSaveServiceCharge = async () => {
     // Enhanced validation using the error handling utility

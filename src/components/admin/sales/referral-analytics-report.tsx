@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,7 +46,7 @@ export default function ReferralAnalyticsReport() {
   const [error, setError] = useState<string | null>(null);
   const [analysisType, setAnalysisType] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -74,11 +74,11 @@ export default function ReferralAnalyticsReport() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [analysisType]);
 
   useEffect(() => {
     fetchData();
-  }, [analysisType]);
+  }, [fetchData]);
 
   const formatSourceBreakdownForChart = (sourceBreakdown: Record<string, { count: number; percentage: number }>) => {
     const sortedSources = Object.entries(sourceBreakdown)

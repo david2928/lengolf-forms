@@ -36,10 +36,14 @@ export function HorizontalDatePicker({
   // Update week when selected date changes (from external source)
   useEffect(() => {
     const selectedWeekStart = getWeekStart(selectedDate)
-    if (selectedWeekStart.getTime() !== currentWeekStart.getTime()) {
-      setCurrentWeekStart(selectedWeekStart)
-    }
-  }, [selectedDate]) // Remove currentWeekStart from dependencies to avoid infinite loop
+    setCurrentWeekStart(prev => {
+      // Only update if actually different to avoid unnecessary re-renders
+      if (selectedWeekStart.getTime() !== prev.getTime()) {
+        return selectedWeekStart
+      }
+      return prev
+    })
+  }, [selectedDate, currentWeekStart]) // Include currentWeekStart dependency
 
   // Navigate to previous week
   const goToPreviousWeek = () => {

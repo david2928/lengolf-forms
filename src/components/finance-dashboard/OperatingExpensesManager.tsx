@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,7 +78,7 @@ export default function OperatingExpensesManager() {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Data fetching
-  const fetchExpenseTypes = async () => {
+  const fetchExpenseTypes = useCallback(async () => {
     try {
       const response = await fetch('/api/finance/expense-types');
       if (!response.ok) throw new Error('Failed to fetch expense types');
@@ -87,9 +87,9 @@ export default function OperatingExpensesManager() {
     } catch (err) {
       console.error('Error fetching expense types:', err);
     }
-  };
+  }, []);
 
-  const fetchExpenses = async (period?: string) => {
+  const fetchExpenses = useCallback(async (period?: string) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -123,7 +123,7 @@ export default function OperatingExpensesManager() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedPeriod]);
 
   // Initialize data
   useEffect(() => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -33,11 +33,19 @@ export function ScheduleGrid({ onScheduleClick, onCreateSchedule }: ScheduleGrid
     '18:00', '19:00', '20:00', '21:00', '22:00'
   ]
 
-  useEffect(() => {
-    fetchSchedules()
-  }, [currentWeek])
+  const getWeekStart = useCallback((date: Date) => {
+    const start = new Date(date)
+    const day = start.getDay()
+    const diff = start.getDate() - day
+    return new Date(start.setDate(diff))
+  }, [])
 
-  const fetchSchedules = async () => {
+  const getWeekEnd = useCallback((date: Date) => {
+    const end = getWeekStart(date)
+    return new Date(end.setDate(end.getDate() + 6))
+  }, [getWeekStart])
+
+  const fetchSchedules = useCallback(async () => {
     try {
       const startDate = getWeekStart(currentWeek)
       const endDate = getWeekEnd(currentWeek)
@@ -55,19 +63,11 @@ export function ScheduleGrid({ onScheduleClick, onCreateSchedule }: ScheduleGrid
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentWeek, getWeekStart, getWeekEnd])
 
-  const getWeekStart = (date: Date) => {
-    const start = new Date(date)
-    const day = start.getDay()
-    const diff = start.getDate() - day
-    return new Date(start.setDate(diff))
-  }
-
-  const getWeekEnd = (date: Date) => {
-    const end = getWeekStart(date)
-    return new Date(end.setDate(end.getDate() + 6))
-  }
+  useEffect(() => {
+    fetchSchedules()
+  }, [fetchSchedules])
 
   const getWeekDays = () => {
     const start = getWeekStart(currentWeek)

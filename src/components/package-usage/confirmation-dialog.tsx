@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
+import Image from 'next/image'
 import { format } from 'date-fns' // Ensure format is imported
 import {
   Dialog,
@@ -202,9 +203,11 @@ export function ConfirmationDialog({
                 // Show captured signature preview
                 <div className="space-y-3">
                   <div className="border-2 border-green-200 rounded-lg p-4 bg-green-50">
-                    <img 
+                    <Image 
                       src={capturedSignature} 
                       alt="Customer Signature" 
+                      width={400}
+                      height={96}
                       className="w-full h-24 object-contain bg-white rounded border"
                     />
                   </div>

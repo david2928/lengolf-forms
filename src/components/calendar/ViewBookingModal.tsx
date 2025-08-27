@@ -67,7 +67,7 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
     };
 
     fetchFreshBookingData();
-  }, [isOpen, booking?.id]); // Trigger fresh fetch every time modal opens
+  }, [isOpen, booking?.id, booking]); // Trigger fresh fetch every time modal opens
 
   // Fetch the real package name when booking data is available
   useEffect(() => {
@@ -94,7 +94,7 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
     };
 
     fetchPackageName();
-  }, [currentBooking?.package_id]);
+  }, [currentBooking?.package_id, currentBooking?.package_name]);
 
   if (!currentBooking) return null;
 

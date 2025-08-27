@@ -129,7 +129,7 @@ export default function ExpenseModal({
     if (formData.category_id && !selectedCategory?.expense_subcategories.find(sub => sub.id.toString() === formData.subcategory_id)) {
       setFormData(prev => ({ ...prev, subcategory_id: '', sort_order: '' }));
     }
-  }, [formData.category_id, categories]);
+  }, [formData.category_id, formData.subcategory_id, categories]);
 
   // Auto-suggest sort order when subcategory changes
   useEffect(() => {

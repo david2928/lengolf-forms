@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Phone, Mail, User, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,7 +93,7 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
   };
 
   // Check for duplicates - separate from form submission
-  const checkDuplicates = async (): Promise<void> => {
+  const checkDuplicates = useCallback(async (): Promise<void> => {
     if (!formData.fullName || formData.fullName.length < 2 || 
         !formData.primaryPhone || formData.primaryPhone.length < 8) {
       setDuplicates([]);
@@ -128,13 +128,13 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
     } catch (error) {
       console.error('Error checking duplicates:', error);
     }
-  };
+  }, [formData.fullName, formData.primaryPhone, formData.email]);
 
   // Auto-check for duplicates when form data changes
   useEffect(() => {
     const timeoutId = setTimeout(checkDuplicates, 500); // Debounce
     return () => clearTimeout(timeoutId);
-  }, [formData.fullName, formData.primaryPhone, formData.email]);
+  }, [checkDuplicates]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {

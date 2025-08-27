@@ -260,7 +260,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
     } else {
       setDisplayPackageName(null);
     }
-  }, [booking?.package_id, booking?.package_name, isOpen]);
+  }, [booking?.package_id, booking?.package_name, booking, isOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -377,9 +377,12 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
     } finally {
       setIsCheckingAllBays(false);
     }
-  }, [booking?.id]);
+  }, [booking?.id, formData.bay, originalSlot]);
 
-  const debouncedFetchAllBays = useCallback(debounce(fetchAllBaysAvailability, 750), [fetchAllBaysAvailability]);
+  const debouncedFetchAllBays = useCallback(() => 
+    debounce(fetchAllBaysAvailability, 750), 
+    [fetchAllBaysAvailability]
+  );
 
   // Track if this is the initial load vs user changes
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -447,7 +450,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
       
       if (needsNewAvailabilityCheck) {
         setLastAvailabilityCheck(currentCheckKey);
-        debouncedFetchAllBays(formData.date, formData.start_time, formData.duration, formData.bay, originalSlot);
+        debouncedFetchAllBays()(formData.date, formData.start_time, formData.duration, formData.bay, originalSlot);
       }
     } else if (isInitialSetupComplete) {
       setBayAvailabilityData([]);

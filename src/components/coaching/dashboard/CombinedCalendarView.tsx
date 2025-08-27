@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, MapPin } from 'lucide-react';
@@ -66,7 +66,7 @@ export function CombinedCalendarView({ coachId }: CombinedCalendarViewProps) {
   }, [currentWeekStart]);
 
   // Fetch data for the current week
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const startDate = weekDates[0].toLocaleDateString('en-CA');
@@ -106,11 +106,11 @@ export function CombinedCalendarView({ coachId }: CombinedCalendarViewProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [weekDates, coachId]);
 
   useEffect(() => {
     fetchData();
-  }, [currentWeekStart, coachId]);
+  }, [fetchData]);
 
   // Calculate combined day data
   const weekData = useMemo((): DayData[] => {

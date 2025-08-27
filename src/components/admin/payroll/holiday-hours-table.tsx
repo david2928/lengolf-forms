@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
@@ -88,11 +88,7 @@ export function HolidayHoursTable({ selectedMonth }: HolidayHoursTableProps) {
     { holiday_date: '2026-12-31', holiday_name: 'New Year\'s Eve' }
   ]
 
-  useEffect(() => {
-    fetchData()
-  }, [selectedMonth])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!selectedMonth) return
     
     setLoading(true)
@@ -174,38 +170,32 @@ export function HolidayHoursTable({ selectedMonth }: HolidayHoursTableProps) {
       })
 
       // Always use our API endpoint to get holiday hours
-      await calculateHolidayHours(currentMonthHolidays)
+      if (currentMonthHolidays.length > 0) {
+        console.log(`Fetching holiday hours for month: ${selectedMonth}`)
+        const response = await fetch(`/api/admin/payroll/${selectedMonth}/holiday-hours`)
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Holiday hours API response:', data)
+          setHolidayHours(data.holiday_hours || [])
+        } else {
+          console.error('Failed to fetch holiday hours from API:', response.status, response.statusText)
+          setHolidayHours([])
+        }
+      } else {
+        setHolidayHours([])
+      }
     } catch (err) {
       console.error('Error fetching data:', err)
       setError('Failed to load holiday data')
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedMonth])
 
-  const calculateHolidayHours = async (holidays: PublicHoliday[]) => {
-    if (holidays.length === 0) {
-      setHolidayHours([])
-      return
-    }
 
-    // Use the API endpoint we created to get holiday hours
-    try {
-      console.log(`Fetching holiday hours for month: ${selectedMonth}`)
-      const response = await fetch(`/api/admin/payroll/${selectedMonth}/holiday-hours`)
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Holiday hours API response:', data)
-        setHolidayHours(data.holiday_hours || [])
-      } else {
-        console.error('Failed to fetch holiday hours from API:', response.status, response.statusText)
-        setHolidayHours([])
-      }
-    } catch (err) {
-      console.error('Error fetching holiday hours:', err)
-      setHolidayHours([])
-    }
-  }
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   // Holiday management functions
   const fetchHolidays = async () => {

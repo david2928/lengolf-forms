@@ -79,75 +79,6 @@ export const useTimeClockData = (initialFilters: ReportFilters) => {
     }
   }, [])
 
-  // Main data fetching function - consolidates all API calls
-  const fetchAllData = useCallback(async () => {
-    try {
-      setData(prev => ({ ...prev, loading: true, error: null }))
-
-      // Parallel API calls for better performance
-      const [timeEntriesResponse, staffResponse, monthlyHoursData, monthToDateData] = await Promise.all([
-        // Time entries with filters
-        fetch(`/api/time-clock/entries?${new URLSearchParams({
-          start_date: filters.startDate,
-          end_date: filters.endDate,
-          ...(filters.staffId !== 'all' && { staff_id: filters.staffId })
-        })}`, { credentials: 'include' }),
-        
-        // Staff list
-        fetch('/api/staff?includeInactive=false', { credentials: 'include' }),
-        
-        // Monthly hours comparison
-        fetchMonthlyHours(),
-        
-        // Month to date summary
-        fetchMonthToDateSummary()
-      ])
-
-      // Process time entries response
-      if (!timeEntriesResponse.ok) {
-        throw new Error('Failed to fetch time entries')
-      }
-      const timeEntriesData = await timeEntriesResponse.json()
-      let entries = timeEntriesData.entries || []
-
-      // Apply client-side filters
-      if (filters.action !== 'all') {
-        entries = entries.filter((entry: TimeEntry) => entry.action === filters.action)
-      }
-      if (filters.photoFilter === 'with_photo') {
-        entries = entries.filter((entry: TimeEntry) => entry.photo_captured)
-      } else if (filters.photoFilter === 'without_photo') {
-        entries = entries.filter((entry: TimeEntry) => !entry.photo_captured)
-      }
-
-      // Process staff response
-      const staffData = staffResponse.ok ? await staffResponse.json() : { data: [] }
-      const mappedStaff = (staffData.data || []).map((staff: any) => ({
-        id: staff.id,
-        name: staff.staff_name
-      }))
-
-      // Update state with all data
-      setData(prev => ({
-        ...prev,
-        timeEntries: entries,
-        staffList: mappedStaff,
-        monthlyComparison: monthlyHoursData,
-        monthToDateSummary: monthToDateData,
-        loading: false,
-        error: null
-      }))
-
-    } catch (err) {
-      console.error('Error fetching time clock data:', err)
-      setData(prev => ({
-        ...prev,
-        loading: false,
-        error: err instanceof Error ? err.message : 'Failed to load data'
-      }))
-    }
-  }, [filters])
-
   // Fetch monthly hours comparison
   const fetchMonthlyHours = useCallback(async (): Promise<MonthlyComparison> => {
     try {
@@ -230,6 +161,75 @@ export const useTimeClockData = (initialFilters: ReportFilters) => {
       return { totalEntries: 0, photoCompliance: 0 }
     }
   }, [])
+
+  // Main data fetching function - consolidates all API calls
+  const fetchAllData = useCallback(async () => {
+    try {
+      setData(prev => ({ ...prev, loading: true, error: null }))
+
+      // Parallel API calls for better performance
+      const [timeEntriesResponse, staffResponse, monthlyHoursData, monthToDateData] = await Promise.all([
+        // Time entries with filters
+        fetch(`/api/time-clock/entries?${new URLSearchParams({
+          start_date: filters.startDate,
+          end_date: filters.endDate,
+          ...(filters.staffId !== 'all' && { staff_id: filters.staffId })
+        })}`, { credentials: 'include' }),
+        
+        // Staff list
+        fetch('/api/staff?includeInactive=false', { credentials: 'include' }),
+        
+        // Monthly hours comparison
+        fetchMonthlyHours(),
+        
+        // Month to date summary
+        fetchMonthToDateSummary()
+      ])
+
+      // Process time entries response
+      if (!timeEntriesResponse.ok) {
+        throw new Error('Failed to fetch time entries')
+      }
+      const timeEntriesData = await timeEntriesResponse.json()
+      let entries = timeEntriesData.entries || []
+
+      // Apply client-side filters
+      if (filters.action !== 'all') {
+        entries = entries.filter((entry: TimeEntry) => entry.action === filters.action)
+      }
+      if (filters.photoFilter === 'with_photo') {
+        entries = entries.filter((entry: TimeEntry) => entry.photo_captured)
+      } else if (filters.photoFilter === 'without_photo') {
+        entries = entries.filter((entry: TimeEntry) => !entry.photo_captured)
+      }
+
+      // Process staff response
+      const staffData = staffResponse.ok ? await staffResponse.json() : { data: [] }
+      const mappedStaff = (staffData.data || []).map((staff: any) => ({
+        id: staff.id,
+        name: staff.staff_name
+      }))
+
+      // Update state with all data
+      setData(prev => ({
+        ...prev,
+        timeEntries: entries,
+        staffList: mappedStaff,
+        monthlyComparison: monthlyHoursData,
+        monthToDateSummary: monthToDateData,
+        loading: false,
+        error: null
+      }))
+
+    } catch (err) {
+      console.error('Error fetching time clock data:', err)
+      setData(prev => ({
+        ...prev,
+        loading: false,
+        error: err instanceof Error ? err.message : 'Failed to load data'
+      }))
+    }
+  }, [filters, fetchMonthToDateSummary, fetchMonthlyHours])
 
   // Quick date filter handlers
   const handleQuickDateFilter = useCallback((days: number) => {

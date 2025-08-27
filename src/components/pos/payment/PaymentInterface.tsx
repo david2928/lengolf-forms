@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { ArrowLeft, Check, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Order } from '@/types/pos';
@@ -749,7 +750,7 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
               
               {qrCodeData && (
                 <div className="w-[28rem] h-[28rem] mx-auto bg-white p-8 rounded-lg border border-slate-200 mb-4 flex-shrink-0">
-                  <img src={qrCodeData} alt="PromptPay QR Code" className="w-full h-full" />
+                  <Image src={qrCodeData} alt="PromptPay QR Code" width={384} height={384} className="w-full h-full" />
                 </div>
               )}
               

@@ -303,7 +303,7 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
       console.error('Error fetching monthly performance:', err);
       throw err;
     }
-  }, [timeRange, getCacheKeys]);
+  }, [getCacheKeys]);
 
   // Fetch chart data
   const fetchCharts = useCallback(async (): Promise<ChartData | null> => {

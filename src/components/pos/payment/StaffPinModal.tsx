@@ -45,7 +45,7 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
     }
   }, [isOpen]);
 
-  const handleConfirm = (pinToConfirm?: string) => {
+  const handleConfirm = useCallback((pinToConfirm?: string) => {
     const finalPin = pinToConfirm || pin;
     
     // Prevent duplicate submissions
@@ -67,7 +67,7 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
 
     isSubmittingRef.current = true;
     onSuccess(finalPin);
-  };
+  }, [pin, onSuccess]);
 
   // Auto-submit when PIN reaches 6 digits
   useEffect(() => {
@@ -89,7 +89,7 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
         }
       };
     }
-  }, [pin]);
+  }, [pin, handleConfirm]);
 
   const handlePinDigit = useCallback((digit: string) => {
     if (pin.length >= 6) return;

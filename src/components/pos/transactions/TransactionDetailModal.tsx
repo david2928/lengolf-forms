@@ -151,12 +151,44 @@ export function TransactionDetailModal({
       console.error('Failed to void transaction:', error);
       alert('Failed to void transaction');
     }
-  }, [transactionDetails, onClose]);
+  }, [transactionDetails, onTransactionUpdated]);
 
   const handleVoidPinCancel = () => {
     setShowVoidPinModal(false);
     // The parent dialog will reopen automatically when showVoidPinModal becomes false
   };
+
+  const handleBluetoothPrint = useCallback(async (receiptNumber: string) => {
+    try {
+      // First get receipt data from API
+      const response = await fetch('/api/pos/print-bluetooth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiptNumber: receiptNumber
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to get receipt data');
+      }
+
+      if (result.printerConnected && result.data) {
+        // Printer found and ready - send data
+        alert('📱 Receipt sent to Bluetooth printer successfully!');
+      } else {
+        throw new Error('Bluetooth printer not connected');
+      }
+      
+    } catch (error) {
+      console.error('Bluetooth print error:', error);
+      alert(`📱 Bluetooth print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, []);
 
   const handlePrintReceipt = useCallback(async (receiptNumber: string) => {
     if (!receiptNumber) return;
@@ -178,56 +210,7 @@ export function TransactionDetailModal({
     } finally {
       setIsPrinting(false);
     }
-  }, [isBluetoothSupported, bluetoothConnected]);
-
-  const handleBluetoothPrint = async (receiptNumber: string) => {
-    try {
-      // First get receipt data from API
-      const response = await fetch('/api/pos/print-bluetooth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          receiptNumber: receiptNumber
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to get receipt data');
-      }
-      
-      // Connect to Bluetooth printer if not already connected
-      if (!bluetoothConnected) {
-        const connected = await bluetoothThermalPrinter.connect();
-        if (!connected) {
-          throw new Error('Failed to connect to Bluetooth printer');
-        }
-        setBluetoothConnected(true);
-      }
-      
-      // Print the receipt
-      await bluetoothThermalPrinter.printReceipt(result.receiptData);
-      
-      alert(`✅ Receipt printed successfully via Bluetooth!`);
-      
-    } catch (error) {
-      console.error('Bluetooth print error:', error);
-      
-      // Reset connection status on error
-      setBluetoothConnected(false);
-      
-      if (error instanceof Error && error.message.includes('User cancelled')) {
-        alert('❌ Bluetooth connection cancelled by user');
-      } else {
-        alert(`❌ Bluetooth print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-      
-      throw error;
-    }
-  };
+  }, [isBluetoothSupported, handleBluetoothPrint]);
 
   const handleUnifiedPrint = async (receiptNumber: string) => {
     try {

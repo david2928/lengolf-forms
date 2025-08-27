@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Label } from '@/components/ui/label'
 import { DateTime } from 'luxon'
 import { format } from 'date-fns'
@@ -55,6 +55,52 @@ export function BookingTimeSelector({
     autoRefresh: true
   });
 
+  const isBayAvailable = useCallback((bay: string, time: DateTime, busyTimesByBay: Record<string, BayAvailability>): boolean => {
+    const bayBusyTimes = busyTimesByBay[bay]?.busyTimes || [];
+    const slotStart = time;
+    const slotEnd = time.plus({ hours: duration });
+
+    return !bayBusyTimes.some(busy => {
+      const busyStart = DateTime.fromISO(busy.start);
+      const busyEnd = DateTime.fromISO(busy.end);
+      return (slotStart < busyEnd && slotEnd > busyStart);
+    });
+  }, [duration]);
+
+  const generateLegacySlots = useCallback((busyTimesByBay: Record<string, BayAvailability>) => {
+    const slots: Array<{time: DateTime, availableBays: string[]}> = [];
+    const now = DateTime.local().setZone('Asia/Bangkok');
+    
+    let currentTime = DateTime.fromJSDate(selectedDate)
+      .setZone('Asia/Bangkok')
+      .set({ hour: 10, minute: 0, second: 0, millisecond: 0 });
+
+    if (currentTime.hasSame(now, 'day') && now.hour >= 10) {
+      currentTime = now.set({ minute: now.minute >= 30 ? 60 : 30, second: 0, millisecond: 0 });
+    }
+
+    const endTime = currentTime.set({ hour: 22, minute: 0 });
+
+    while (currentTime <= endTime) {
+      if (!currentTime.hasSame(now, 'day') || currentTime >= now) {
+        const availableBays = BAYS.filter(bay => 
+          isBayAvailable(bay, currentTime, busyTimesByBay)
+        );
+
+        if (availableBays.length > 0) {
+          slots.push({
+            time: currentTime,
+            availableBays
+          });
+        }
+      }
+      
+      currentTime = currentTime.plus({ minutes: 30 });
+    }
+
+    setLegacySlots(slots);
+  }, [selectedDate, isBayAvailable]);
+
   // Fallback to legacy API for compatibility
   useEffect(() => {
     let mounted = true;
@@ -103,53 +149,7 @@ export function BookingTimeSelector({
     return () => {
       mounted = false;
     };
-  }, [selectedDate, availableSlots.length, availabilityLoading]);
-
-  const isBayAvailable = (bay: string, time: DateTime, busyTimesByBay: Record<string, BayAvailability>): boolean => {
-    const bayBusyTimes = busyTimesByBay[bay]?.busyTimes || [];
-    const slotStart = time;
-    const slotEnd = time.plus({ hours: duration });
-
-    return !bayBusyTimes.some(busy => {
-      const busyStart = DateTime.fromISO(busy.start);
-      const busyEnd = DateTime.fromISO(busy.end);
-      return (slotStart < busyEnd && slotEnd > busyStart);
-    });
-  };
-
-  const generateLegacySlots = (busyTimesByBay: Record<string, BayAvailability>) => {
-    const slots: Array<{time: DateTime, availableBays: string[]}> = [];
-    const now = DateTime.local().setZone('Asia/Bangkok');
-    
-    let currentTime = DateTime.fromJSDate(selectedDate)
-      .setZone('Asia/Bangkok')
-      .set({ hour: 10, minute: 0, second: 0, millisecond: 0 });
-
-    if (currentTime.hasSame(now, 'day') && now.hour >= 10) {
-      currentTime = now.set({ minute: now.minute >= 30 ? 60 : 30, second: 0, millisecond: 0 });
-    }
-
-    const endTime = currentTime.set({ hour: 22, minute: 0 });
-
-    while (currentTime <= endTime) {
-      if (!currentTime.hasSame(now, 'day') || currentTime >= now) {
-        const availableBays = BAYS.filter(bay => 
-          isBayAvailable(bay, currentTime, busyTimesByBay)
-        );
-
-        if (availableBays.length > 0) {
-          slots.push({
-            time: currentTime,
-            availableBays
-          });
-        }
-      }
-      
-      currentTime = currentTime.plus({ minutes: 30 });
-    }
-
-    setLegacySlots(slots);
-  };
+  }, [selectedDate, availableSlots.length, availabilityLoading, generateLegacySlots]);
 
   // Determine which slots to use (prefer new API)
   const slotsToRender = availableSlots.length > 0 ? 

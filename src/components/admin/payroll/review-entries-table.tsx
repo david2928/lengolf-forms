@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -46,13 +46,7 @@ export function ReviewEntriesTable({ selectedMonth, onEntryUpdated }: ReviewEntr
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (selectedMonth) {
-      fetchReviewEntries();
-    }
-  }, [selectedMonth]);
-
-  const fetchReviewEntries = async () => {
+  const fetchReviewEntries = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -91,7 +85,13 @@ export function ReviewEntriesTable({ selectedMonth, onEntryUpdated }: ReviewEntr
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedMonth, toast]);
+
+  useEffect(() => {
+    if (selectedMonth) {
+      fetchReviewEntries();
+    }
+  }, [selectedMonth, fetchReviewEntries]);
 
   const handleEditEntry = (entry: ReviewEntry) => {
     setEditingEntry(entry);

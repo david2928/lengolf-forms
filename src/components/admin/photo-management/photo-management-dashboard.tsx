@@ -121,7 +121,7 @@ export function PhotoManagementDashboard() {
   // Staff list for filtering
   const [staffList, setStaffList] = useState<{ id: number; name: string }[]>([])
 
-  const fetchStorageStats = async () => {
+  const fetchStorageStats = useCallback(async () => {
     try {
       console.log('Fetching storage stats...')
       
@@ -148,7 +148,7 @@ export function PhotoManagementDashboard() {
       console.error('Error fetching storage stats:', err)
       setError('Failed to load storage statistics')
     }
-  }
+  }, [])
 
   const fetchPhotos = useCallback(async () => {
     try {
@@ -214,7 +214,7 @@ export function PhotoManagementDashboard() {
     }
   }, [filters])
 
-  const fetchStaffList = async () => {
+  const fetchStaffList = useCallback(async () => {
     try {
       const response = await fetch('/api/staff')
       if (!response.ok) throw new Error('Failed to fetch staff')
@@ -223,13 +223,13 @@ export function PhotoManagementDashboard() {
     } catch (err) {
       console.error('Error fetching staff list:', err)
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchStaffList()
     fetchStorageStats()
     fetchPhotos()
-  }, [])
+  }, [fetchStaffList, fetchStorageStats, fetchPhotos])
 
   useEffect(() => {
     fetchPhotos()

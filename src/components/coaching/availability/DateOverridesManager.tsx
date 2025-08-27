@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -40,7 +40,7 @@ export function DateOverridesManager({ coachId }: DateOverridesManagerProps) {
   const [saving, setSaving] = useState(false);
 
   // Fetch existing date overrides
-  const fetchOverrides = async () => {
+  const fetchOverrides = useCallback(async () => {
     try {
       const response = await fetch(`/api/coaching/availability/date-overrides?coach_id=${coachId}`);
       if (response.ok) {
@@ -55,13 +55,13 @@ export function DateOverridesManager({ coachId }: DateOverridesManagerProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [coachId]);
 
   useEffect(() => {
     if (coachId) {
       fetchOverrides();
     }
-  }, [coachId]);
+  }, [coachId, fetchOverrides]);
 
   // Save new override
   const saveNewOverride = async () => {

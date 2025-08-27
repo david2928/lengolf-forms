@@ -169,7 +169,7 @@ export function useStaffSchedule(initialOptions: UseStaffScheduleOptions = {}): 
     } finally {
       setStaffLoading(false)
     }
-  }, []) // No dependencies!
+  }, [CACHE_KEYS.staff, CACHE_TTL])
 
   // Fetch schedules
   const fetchSchedules = useCallback(async (options: UseStaffScheduleOptions = {}) => {

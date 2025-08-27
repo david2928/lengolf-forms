@@ -110,7 +110,7 @@ export function useEditBookingData(booking: Booking | null, isOpen: boolean) {
       setDisplayPackageName(null);
       setIsLoadingPackage(false);
     }
-  }, [formData.package_id]);
+  }, [formData.package_id, formData.package_name]);
 
   // Availability checking logic
   const checkAvailability = useCallback(async (
@@ -144,8 +144,8 @@ export function useEditBookingData(booking: Booking | null, isOpen: boolean) {
   }, []);
 
   // Debounced availability check
-  const debouncedAvailabilityCheck = useCallback(
-    debounce(async () => {
+  const debouncedAvailabilityCheck = useCallback(() => {
+    return debounce(async () => {
       if (!formData.date || !formData.start_time || !formData.duration || !formData.bay) {
         setAvailabilityStatus('not_applicable');
         return;
@@ -163,9 +163,8 @@ export function useEditBookingData(booking: Booking | null, isOpen: boolean) {
       
       setIsSlotAvailable(isAvailable);
       setAvailabilityStatus(isAvailable ? 'available' : 'unavailable');
-    }, 500),
-    [formData.date, formData.start_time, formData.duration, formData.bay, booking?.id, checkAvailability]
-  );
+    }, 500);
+  }, [formData.date, formData.start_time, formData.duration, formData.bay, booking?.id, checkAvailability]);
 
   // Trigger availability check when relevant fields change
   useEffect(() => {
@@ -181,7 +180,7 @@ export function useEditBookingData(booking: Booking | null, isOpen: boolean) {
         setIsSlotAvailable(true);
       } else {
         // This is a different slot, check availability
-        debouncedAvailabilityCheck();
+        debouncedAvailabilityCheck()();
       }
     }
   }, [formData.date, formData.start_time, formData.duration, formData.bay, originalSlot, isOpen, debouncedAvailabilityCheck]);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -50,20 +50,7 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
   const [time, setTime] = useState('')
   const [notes, setNotes] = useState('')
 
-  // Initialize form with current date/time
-  useEffect(() => {
-    if (isOpen) {
-      const now = new Date()
-      setDate(format(now, 'yyyy-MM-dd'))
-      setTime(format(now, 'HH:mm'))
-      setStaffId('')
-      setAction('clock_in')
-      setNotes('')
-      loadStaff()
-    }
-  }, [isOpen])
-
-  const loadStaff = async () => {
+  const loadStaff = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch('/api/admin/staff')
@@ -82,7 +69,20 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  // Initialize form with current date/time
+  useEffect(() => {
+    if (isOpen) {
+      const now = new Date()
+      setDate(format(now, 'yyyy-MM-dd'))
+      setTime(format(now, 'HH:mm'))
+      setStaffId('')
+      setAction('clock_in')
+      setNotes('')
+      loadStaff()
+    }
+  }, [isOpen, loadStaff])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

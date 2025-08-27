@@ -123,9 +123,6 @@ export async function getStaffForUI(): Promise<Array<{
   profile_photo?: string
 }>> {
   try {
-    console.log('getStaffForUI: Starting staff fetch...')
-    console.log('refacSupabaseAdmin client available:', !!refacSupabaseAdmin)
-    
     // Get staff with profile photo information
     const { data: staff, error } = await refacSupabaseAdmin
       .schema('backoffice')
@@ -133,8 +130,6 @@ export async function getStaffForUI(): Promise<Array<{
       .select('id, staff_name, staff_id, is_active, created_at, updated_at')
       .eq('is_active', true)
       .order('staff_name')
-
-    console.log('Supabase query completed. Error:', error, 'Data count:', staff?.length || 0)
 
     if (error) {
       console.error('Error fetching staff for UI:', error)
@@ -146,7 +141,6 @@ export async function getStaffForUI(): Promise<Array<{
       })
       
       // Return mock data as fallback
-      console.log('Returning mock staff data as fallback')
       return getMockStaffData()
     }
 
@@ -163,11 +157,9 @@ export async function getStaffForUI(): Promise<Array<{
       position: 'Team Member' // Default since column doesn't exist
     }))
 
-    console.log('Staff formatting completed. Returning', formattedStaff.length, 'staff members')
     return formattedStaff
   } catch (error) {
     console.error('Staff UI formatting error:', error)
-    console.log('Returning mock staff data as fallback')
     return getMockStaffData()
   }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -53,13 +53,7 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
 
-  useEffect(() => {
-    if (selectedMonth) {
-      fetchPayrollData()
-    }
-  }, [selectedMonth, refreshTrigger])
-
-  const fetchPayrollData = async () => {
+  const fetchPayrollData = useCallback(async () => {
     if (!selectedMonth) return
     
     try {
@@ -93,7 +87,13 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedMonth, toast])
+
+  useEffect(() => {
+    if (selectedMonth) {
+      fetchPayrollData()
+    }
+  }, [selectedMonth, refreshTrigger, fetchPayrollData])
 
   const exportToCSV = () => {
     if (!payrollData || !payrollData.staff_payroll) return

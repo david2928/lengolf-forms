@@ -30,12 +30,6 @@ export function AdminDiscountForm({ discountId }: AdminDiscountFormProps) {
   const [initialLoading, setInitialLoading] = useState(!!discountId);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    if (discountId) {
-      fetchDiscount();
-    }
-  }, [discountId, fetchDiscount]);
-
   const fetchDiscount = useCallback(async () => {
     try {
       const response = await fetch(`/api/admin/discounts/${discountId}`);
@@ -65,6 +59,12 @@ export function AdminDiscountForm({ discountId }: AdminDiscountFormProps) {
       setInitialLoading(false);
     }
   }, [discountId]);
+
+  useEffect(() => {
+    if (discountId) {
+      fetchDiscount();
+    }
+  }, [discountId, fetchDiscount]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -510,7 +511,7 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
               <div className="text-blue-600 font-bold text-2xl mb-4">PROMPTPAY</div>
               {qrCodeData && (
                 <div className="w-64 h-64 mx-auto bg-white p-4 rounded-lg border-2 border-gray-300">
-                  <img src={qrCodeData} alt="PromptPay QR Code" className="w-full h-full" />
+                  <Image src={qrCodeData} alt="PromptPay QR Code" width={224} height={224} className="w-full h-full" />
                 </div>
               )}
             </div>

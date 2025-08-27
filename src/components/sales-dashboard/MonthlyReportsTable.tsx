@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -92,7 +92,7 @@ const MonthlyReportsTable: React.FC = () => {
     endDate: `${currentYear}-12-31`
   });
 
-  const fetchMonthlyReports = async () => {
+  const fetchMonthlyReports = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -117,11 +117,11 @@ const MonthlyReportsTable: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [dateRange]);
 
   useEffect(() => {
     fetchMonthlyReports();
-  }, []);
+  }, [fetchMonthlyReports]);
 
   const handleExportCSV = () => {
     if (data.length === 0) return;

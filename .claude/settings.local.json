@@ -96,7 +96,8 @@
       "Bash(awk:*)",
       "Bash(git rebase:*)",
       "Bash(git stash:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "additionalDirectories": [

@@ -211,7 +211,7 @@ export function useAllBaysAvailability(date: string, startTime: string, duration
     if (date && startTime) {
       checkAvailability();
     }
-  }, [date, startTime, duration]); // Check whenever params change
+  }, [date, startTime, duration, checkAvailability]); // Check whenever params change
 
   return {
     availability,

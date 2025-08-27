@@ -69,7 +69,7 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
         }
       }
     }
-  }, [isOpen]); // Removed bayUpcomingBookings and table.zone.zoneType to prevent infinite loop
+  }, [isOpen, bayUpcomingBookings, table.zone.zoneType]); // Include missing dependencies
 
   // Update pax count when booking is selected
   useEffect(() => {

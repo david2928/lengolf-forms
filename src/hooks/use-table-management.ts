@@ -40,6 +40,21 @@ export function useTableManagement() {
   const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
+  // Handle real-time table updates
+  const handleTableUpdate = useCallback((event: TableUpdateEvent) => {
+    console.log('Received table update:', event);
+    
+    switch (event.type) {
+      case 'table_updated':
+      case 'session_created':
+      case 'session_closed':
+      case 'order_added':
+        // Refresh table data to get latest state
+        mutate();
+        break;
+    }
+  }, [mutate]);
+
   // Real-time WebSocket connection
   const initializeRealtime = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -90,22 +105,7 @@ export function useTableManagement() {
     } catch (error) {
       console.error('Failed to initialize WebSocket connection:', error);
     }
-  }, [data?.tables]);
-
-  // Handle real-time table updates
-  const handleTableUpdate = useCallback((event: TableUpdateEvent) => {
-    console.log('Received table update:', event);
-    
-    switch (event.type) {
-      case 'table_updated':
-      case 'session_created':
-      case 'session_closed':
-      case 'order_added':
-        // Refresh table data to get latest state
-        mutate();
-        break;
-    }
-  }, [mutate]);
+  }, [data?.tables, handleTableUpdate]);
 
   // Initialize WebSocket when component mounts or data changes
   // NOTE: WebSocket functionality temporarily disabled until server implementation is ready

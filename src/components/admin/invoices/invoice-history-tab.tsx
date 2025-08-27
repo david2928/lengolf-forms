@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,7 +31,7 @@ export function InvoiceHistoryTab() {
   const [dateFilter, setDateFilter] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
     setIsLoading(true)
     try {
       const params = new URLSearchParams()
@@ -59,11 +59,11 @@ export function InvoiceHistoryTab() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [searchTerm, dateFilter])
 
   useEffect(() => {
     fetchInvoices()
-  }, [searchTerm, dateFilter])
+  }, [fetchInvoices])
 
   const handleDownloadPDF = async (invoice: Invoice) => {
     if (!invoice.pdf_file_path) {

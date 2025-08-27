@@ -124,7 +124,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     };
 
     loadCategoriesFirst();
-  }, []); // Remove activeTab dependency to prevent re-loading
+  }, [rememberLastCategory]); // Include rememberLastCategory as it's used inside
 
   // Load products separately, only when needed
   useEffect(() => {
@@ -163,7 +163,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   }, [activeTab, allProducts.length]);
 
   // Helper function to get all category IDs recursively (including root)
-  const getAllCategoryIds = (category: any): string[] => {
+  const getAllCategoryIds = useCallback((category: any): string[] => {
     const ids = [category.id];
     
     if (category.children && category.children.length > 0) {
@@ -173,7 +173,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     }
     
     return ids;
-  };
+  }, []);
 
   // Get products for a specific category (including all child categories)
   const getProductsForCategory = useCallback((categoryId: string): POSProduct[] => {
@@ -201,7 +201,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     const filteredProducts = allProducts.filter(product => allCategoryIds.includes(product.categoryId));
     
     return filteredProducts;
-  }, [allProducts, categoryData]);
+  }, [allProducts, categoryData, getAllCategoryIds]);
 
   // Update displayed products when tab/category changes
   useEffect(() => {
@@ -421,6 +421,24 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     setShowCustomProductModal(false);
   }, []);
 
+  // Enhanced back navigation logic - always consistent
+  const handleBackNavigation = useCallback(() => {
+    if (isMobile) {
+      if (mobileView === 'products') {
+        // Always go back to categories from products view
+        setMobileView('categories');
+        // Clear subcategory selection when going back to categories
+        setActiveSubCategory(null);
+      } else if (onBack) {
+        // If in categories view and onBack is provided, call it (go back to table management)
+        onBack();
+      }
+    } else if (onBack) {
+      // Desktop: direct back navigation
+      onBack();
+    }
+  }, [isMobile, mobileView, onBack]);
+
   // Swipe gesture handlers for mobile navigation
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isMobile) return;
@@ -449,25 +467,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     
     setSwipeStartX(null);
     setSwipeStartY(null);
-  }, [isMobile, swipeStartX, swipeStartY]);
-
-  // Enhanced back navigation logic - always consistent
-  const handleBackNavigation = useCallback(() => {
-    if (isMobile) {
-      if (mobileView === 'products') {
-        // Always go back to categories from products view
-        setMobileView('categories');
-        // Clear subcategory selection when going back to categories
-        setActiveSubCategory(null);
-      } else if (onBack) {
-        // If in categories view and onBack is provided, call it (go back to table management)
-        onBack();
-      }
-    } else if (onBack) {
-      // Desktop: direct back navigation
-      onBack();
-    }
-  }, [isMobile, mobileView, onBack]);
+  }, [isMobile, swipeStartX, swipeStartY, handleBackNavigation]);
 
   // Handle keyboard navigation (ESC key)
   useEffect(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -35,7 +35,7 @@ export function WeeklyScheduleManager({ coachId }: WeeklyScheduleManagerProps) {
   const [saving, setSaving] = useState<number | null>(null);
 
   // Fetch existing weekly schedules
-  const fetchSchedules = async () => {
+  const fetchSchedules = useCallback(async () => {
     try {
       const url = coachId 
         ? `/api/coaching/availability/weekly-schedule?coach_id=${coachId}`
@@ -54,11 +54,11 @@ export function WeeklyScheduleManager({ coachId }: WeeklyScheduleManagerProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [coachId]);
 
   useEffect(() => {
     fetchSchedules();
-  }, [coachId]);
+  }, [fetchSchedules]);
 
   // Get schedule for a specific day
   const getScheduleForDay = (dayOfWeek: number): WeeklySchedule => {
@@ -178,7 +178,7 @@ function WeeklyScheduleRow({ day, schedule, onSave, onDelete, isSaving }: Weekly
     setHasChanges(false);
   }, [schedule]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     // Validate time range (10:00 to 21:00)
     if (localSchedule.start_time < '10:00') {
       toast.error('Start time cannot be earlier than 10:00 AM');
@@ -193,7 +193,7 @@ function WeeklyScheduleRow({ day, schedule, onSave, onDelete, isSaving }: Weekly
       return;
     }
     onSave(localSchedule);
-  };
+  }, [localSchedule, onSave]);
 
   // Check if there are unsaved changes and auto-save
   useEffect(() => {

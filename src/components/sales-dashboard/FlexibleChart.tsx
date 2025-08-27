@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -113,7 +113,7 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
   }, [dimension, chartType]);
 
   // Fetch data when parameters change
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!startDate || !endDate) return;
     
     setLoading(true);
@@ -143,12 +143,12 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [startDate, endDate, selectedMetric, timePeriod, dimension, chartType]);
 
   // Auto-fetch data when parameters change
   useEffect(() => {
     fetchData();
-  }, [startDate, endDate, selectedMetric, timePeriod, dimension, chartType]);
+  }, [fetchData]);
 
   // Process data for charts
   const chartData = useMemo(() => {

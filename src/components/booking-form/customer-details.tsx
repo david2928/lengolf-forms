@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { CustomerSearch } from '@/components/package-form/customer-search'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -84,7 +84,7 @@ export function CustomerDetails({
   }
 
   // Check for phone number duplicates (simplified - just validation)
-  const checkPhoneDuplicates = async (): Promise<void> => {
+  const checkPhoneDuplicates = useCallback(async (): Promise<void> => {
     if (!phoneNumber || phoneNumber.length < 8) {
       setPhoneError('');
       return;
@@ -121,7 +121,7 @@ export function CustomerDetails({
     } catch (error) {
       console.error('Error checking phone duplicates:', error);
     }
-  };
+  }, [phoneNumber, customerName, onPhoneError]);
 
   // Auto-check for phone duplicates when phone number changes
   useEffect(() => {
@@ -129,7 +129,7 @@ export function CustomerDetails({
       const timeoutId = setTimeout(checkPhoneDuplicates, 500); // Debounce
       return () => clearTimeout(timeoutId);
     }
-  }, [phoneNumber, isNewCustomer]);
+  }, [phoneNumber, isNewCustomer, checkPhoneDuplicates]);
 
   const mappedCustomers = customers.map(customer => ({
     id: customer.id, // Keep as string UUID

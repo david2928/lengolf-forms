@@ -168,24 +168,6 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
     }
   );
   
-  // Optimistic update helper
-  const updateOrderOptimistically = useCallback(async (updater: (order: Order) => Order) => {
-    if (!currentOrder) return;
-    
-    const optimisticOrder = updater(currentOrder);
-    setCurrentOrder(optimisticOrder);
-    
-    if (autoSave) {
-      try {
-        await saveOrderToServer(optimisticOrder);
-      } catch (error) {
-        // Revert on error
-        setCurrentOrder(currentOrder);
-        throw error;
-      }
-    }
-  }, [currentOrder, autoSave]);
-  
   // Save order to server
   const saveOrderToServer = useCallback(async (order: Order): Promise<void> => {
     setIsLoading(true);
@@ -225,6 +207,24 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
       setIsLoading(false);
     }
   }, [orderId, tableSessionId, mutateOrder, mutateTableOrders]);
+  
+  // Optimistic update helper
+  const updateOrderOptimistically = useCallback(async (updater: (order: Order) => Order) => {
+    if (!currentOrder) return;
+    
+    const optimisticOrder = updater(currentOrder);
+    setCurrentOrder(optimisticOrder);
+    
+    if (autoSave) {
+      try {
+        await saveOrderToServer(optimisticOrder);
+      } catch (error) {
+        // Revert on error
+        setCurrentOrder(currentOrder);
+        throw error;
+      }
+    }
+  }, [currentOrder, autoSave, saveOrderToServer]);
   
   // Order management functions
   const createOrder = useCallback(async (tableSession?: TableSession, customer?: Customer): Promise<Order> => {
@@ -313,6 +313,23 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
     });
   }, [currentOrder, vatRate, updateOrderOptimistically]);
   
+  const removeItem = useCallback(async (itemId: string) => {
+    if (!currentOrder) return;
+    
+    await updateOrderOptimistically(order => {
+      const updatedItems = order.items.filter(item => item.id !== itemId);
+      const totals = calculateOrderTotals(updatedItems, vatRate);
+      
+      return {
+        ...order,
+        items: updatedItems,
+        totalAmount: totals.total,
+        vatAmount: totals.vatAmount,
+        updatedAt: new Date()
+      };
+    });
+  }, [currentOrder, vatRate, updateOrderOptimistically]);
+  
   const updateItemQuantity = useCallback(async (itemId: string, quantity: number) => {
     if (!currentOrder) return;
     
@@ -341,7 +358,7 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
         updatedAt: new Date()
       };
     });
-  }, [currentOrder, vatRate, updateOrderOptimistically]);
+  }, [currentOrder, vatRate, updateOrderOptimistically, removeItem]);
   
   const updateItemModifiers = useCallback(async (itemId: string, modifiers: SelectedModifier[]) => {
     if (!currentOrder) return;
@@ -379,23 +396,6 @@ export const useOrderManager = (options: UseOrderManagerOptions = {}): OrderMana
       updatedAt: new Date()
     }));
   }, [currentOrder, updateOrderOptimistically]);
-  
-  const removeItem = useCallback(async (itemId: string) => {
-    if (!currentOrder) return;
-    
-    await updateOrderOptimistically(order => {
-      const updatedItems = order.items.filter(item => item.id !== itemId);
-      const totals = calculateOrderTotals(updatedItems, vatRate);
-      
-      return {
-        ...order,
-        items: updatedItems,
-        totalAmount: totals.total,
-        vatAmount: totals.vatAmount,
-        updatedAt: new Date()
-      };
-    });
-  }, [currentOrder, vatRate, updateOrderOptimistically]);
   
   // Bulk operations
   const addMultipleItems = useCallback(async (

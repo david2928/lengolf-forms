@@ -58,17 +58,6 @@ export const UsageManagementModal: React.FC<UsageManagementModalProps> = ({
   const [showAddUsage, setShowAddUsage] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch usage records when modal opens
-  useEffect(() => {
-    if (isOpen && selectedPackage?.id) {
-      fetchUsageRecords();
-    } else if (!isOpen) {
-      // Reset state when modal closes
-      setUsageRecords([]);
-      setShowAddUsage(false);
-    }
-  }, [isOpen, selectedPackage?.id]);
-
   const fetchUsageRecords = useCallback(async () => {
     if (!selectedPackage?.id) return;
     
@@ -98,6 +87,17 @@ export const UsageManagementModal: React.FC<UsageManagementModalProps> = ({
       setIsLoading(false);
     }
   }, [selectedPackage?.id]);
+
+  // Fetch usage records when modal opens
+  useEffect(() => {
+    if (isOpen && selectedPackage?.id) {
+      fetchUsageRecords();
+    } else if (!isOpen) {
+      // Reset state when modal closes
+      setUsageRecords([]);
+      setShowAddUsage(false);
+    }
+  }, [isOpen, selectedPackage?.id, fetchUsageRecords]);
 
   const handleAddUsage = () => {
     setShowAddUsage(true);

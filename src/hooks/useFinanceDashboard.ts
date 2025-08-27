@@ -274,7 +274,7 @@ export function useManualEntries(type: 'revenue' | 'cogs', month?: string) {
     const result = await response.json();
     refreshEntries(); // Refresh the list
     return result;
-  }, [apiType, refreshEntries]);
+  }, [type, refreshEntries]);
 
   const updateEntry = useCallback(async (id: string, entryData: any) => {
     const response = await fetch(`/api/finance/manual-entries/${id}`, {
@@ -290,7 +290,7 @@ export function useManualEntries(type: 'revenue' | 'cogs', month?: string) {
     const result = await response.json();
     refreshEntries(); // Refresh the list
     return result;
-  }, [apiType, refreshEntries]);
+  }, [type, refreshEntries]);
 
   const deleteEntry = useCallback(async (id: string) => {
     const response = await fetch(`/api/finance/manual-entries/${id}?type=${apiType}`, {
@@ -302,7 +302,7 @@ export function useManualEntries(type: 'revenue' | 'cogs', month?: string) {
     }
 
     refreshEntries(); // Refresh the list
-  }, [apiType, refreshEntries]);
+  }, [type, apiType, refreshEntries]);
 
   return {
     entries: data || [],

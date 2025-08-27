@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface Product {
   id: string;
@@ -62,12 +62,12 @@ export function useProductPerformance({
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Generate cache key
-  const getCacheKey = () => {
+  const getCacheKey = useCallback(() => {
     return `${dateRange.start}-${dateRange.end}-${category}-${search}-${sortBy}-${sortOrder}`;
-  };
+  }, [dateRange.start, dateRange.end, category, search, sortBy, sortOrder]);
 
   // Check if cache is valid
-  const getCachedData = (key: string): ProductPerformanceData | null => {
+  const getCachedData = useCallback((key: string): ProductPerformanceData | null => {
     const cached = cache.get(key);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       return cached.data;
@@ -76,18 +76,18 @@ export function useProductPerformance({
       cache.delete(key); // Remove expired cache
     }
     return null;
-  };
+  }, []);
 
   // Set cache data
-  const setCacheData = (key: string, data: ProductPerformanceData) => {
+  const setCacheData = useCallback((key: string, data: ProductPerformanceData) => {
     cache.set(key, {
       data,
       timestamp: Date.now(),
       key
     });
-  };
+  }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const cacheKey = getCacheKey();
     
     // Check cache first
@@ -138,7 +138,7 @@ export function useProductPerformance({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [dateRange.start, dateRange.end, category, search, sortBy, sortOrder, getCacheKey, getCachedData, setCacheData]);
 
   useEffect(() => {
     fetchData();
@@ -148,7 +148,7 @@ export function useProductPerformance({
         abortControllerRef.current.abort();
       }
     };
-  }, [dateRange.start, dateRange.end, category, search, sortBy, sortOrder]);
+  }, [fetchData, dateRange.start, dateRange.end, category, search, sortBy, sortOrder]);
 
   const refresh = () => {
     // Clear cache for current key and refetch

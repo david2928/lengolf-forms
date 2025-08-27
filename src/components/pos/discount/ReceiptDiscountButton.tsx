@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -32,25 +32,7 @@ export function ReceiptDiscountButton({
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Fetch available receipt-level discounts
-  useEffect(() => {
-    if (dialogOpen) {
-      fetchAvailableDiscounts();
-    }
-  }, [dialogOpen]);
-
-  // Use applied discount details from props or fetch if not provided
-  useEffect(() => {
-    if (appliedDiscountDetails) {
-      setAppliedDiscount(appliedDiscountDetails);
-    } else if (appliedDiscountId && !appliedDiscount) {
-      fetchAppliedDiscountDetails(appliedDiscountId);
-    } else if (!appliedDiscountId) {
-      setAppliedDiscount(null);
-    }
-  }, [appliedDiscountId, appliedDiscountDetails]);
-
-  const fetchAvailableDiscounts = async () => {
+  const fetchAvailableDiscounts = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch('/api/pos/discounts/available?scope=receipt');
@@ -75,7 +57,25 @@ export function ReceiptDiscountButton({
     } finally {
       setLoading(false);
     }
-  };
+  }, [appliedDiscountId, appliedDiscount]);
+
+  // Fetch available receipt-level discounts
+  useEffect(() => {
+    if (dialogOpen) {
+      fetchAvailableDiscounts();
+    }
+  }, [dialogOpen, fetchAvailableDiscounts]);
+
+  // Use applied discount details from props or fetch if not provided
+  useEffect(() => {
+    if (appliedDiscountDetails) {
+      setAppliedDiscount(appliedDiscountDetails);
+    } else if (appliedDiscountId && !appliedDiscount) {
+      fetchAppliedDiscountDetails(appliedDiscountId);
+    } else if (!appliedDiscountId) {
+      setAppliedDiscount(null);
+    }
+  }, [appliedDiscountId, appliedDiscountDetails, appliedDiscount]);
 
   const fetchAppliedDiscountDetails = async (discountId: string) => {
     try {

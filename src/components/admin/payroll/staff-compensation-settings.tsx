@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
@@ -70,11 +70,7 @@ export function StaffCompensationSettings() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const { toast } = useToast()
 
-  useEffect(() => {
-    fetchCompensationData()
-  }, [])
-
-  const fetchCompensationData = async () => {
+  const fetchCompensationData = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch('/api/admin/payroll/staff-compensation')
@@ -99,7 +95,11 @@ export function StaffCompensationSettings() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    fetchCompensationData()
+  }, [fetchCompensationData])
 
   const handleEditClick = (staff: StaffCompensationData) => {
     setEditingStaff(staff)

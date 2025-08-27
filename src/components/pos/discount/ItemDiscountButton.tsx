@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -26,19 +26,7 @@ export function ItemDiscountButton({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [hasCheckedEligibility, setHasCheckedEligibility] = useState(false);
 
-  // Fetch available item-level discounts for this product on mount
-  useEffect(() => {
-    fetchAvailableDiscounts();
-  }, [orderItem.productId]);
-
-  // Refresh discounts when dialog opens (in case they changed)
-  useEffect(() => {
-    if (dialogOpen && hasCheckedEligibility) {
-      fetchAvailableDiscounts();
-    }
-  }, [dialogOpen]);
-
-  const fetchAvailableDiscounts = async () => {
+  const fetchAvailableDiscounts = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/pos/discounts/available?scope=item&product_id=${orderItem.productId}`);
@@ -56,7 +44,19 @@ export function ItemDiscountButton({
       setLoading(false);
       setHasCheckedEligibility(true);
     }
-  };
+  }, [orderItem.productId]);
+
+  // Fetch available item-level discounts for this product on mount
+  useEffect(() => {
+    fetchAvailableDiscounts();
+  }, [fetchAvailableDiscounts]);
+
+  // Refresh discounts when dialog opens (in case they changed)
+  useEffect(() => {
+    if (dialogOpen && hasCheckedEligibility) {
+      fetchAvailableDiscounts();
+    }
+  }, [dialogOpen, hasCheckedEligibility, fetchAvailableDiscounts]);
 
   const applyDiscount = async (discountId: string) => {
     try {

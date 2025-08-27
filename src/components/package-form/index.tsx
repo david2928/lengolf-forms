@@ -82,7 +82,7 @@ export default function PackageForm() {
     }
   );
 
-  const customers = customersResponse?.customers || [];
+  const customers = useMemo(() => customersResponse?.customers || [], [customersResponse?.customers]);
 
   useEffect(() => {
     mutateCustomers();

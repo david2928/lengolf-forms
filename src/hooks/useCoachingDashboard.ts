@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Coach, 
   WeeklySchedule, 
@@ -30,25 +30,7 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
   const [groupedSlots, setGroupedSlots] = useState<GroupedAvailableSlots>({});
   const [coachGroupedSlots, setCoachGroupedSlots] = useState<CoachGroupedSlots>({});
 
-  // Initial load - fetch coaches and package data
-  useEffect(() => {
-    fetchStaticData();
-  }, []);
-
-  // Fetch availability data when week/date selection changes
-  useEffect(() => {
-    if (coaches.length > 0) {
-      fetchAvailabilityData();
-    }
-  }, [selectedWeek, selectedStartDate, selectedEndDate, coaches]);
-
-  useEffect(() => {
-    if (coaches.length > 0) {
-      fetchAllStudentsData();
-    }
-  }, [coaches]);
-
-  const fetchAllStudentsData = async () => {
+  const fetchAllStudentsData = useCallback(async () => {
     try {
       setLoadingStudents(true);
       const studentsData: { [coachId: string]: StudentsData } = {};
@@ -67,71 +49,9 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
     } finally {
       setLoadingStudents(false);
     }
-  };
+  }, [coaches]);
 
-  const fetchStaticData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Fetch coaches and package data that doesn't change with week selection
-      const [coachesRes, packageHoursRes] = await Promise.all([
-        fetch('/api/coaching-assist/coaches'),
-        fetch('/api/coaching-assist/package-hours')
-      ]);
-      
-      if (coachesRes.ok) {
-        const data = await coachesRes.json();
-        setCoaches(data.coaches || []);
-      }
-
-      if (packageHoursRes.ok) {
-        const packageData = await packageHoursRes.json();
-        setPackageHoursRemaining(packageData.total_hours_remaining || 0);
-      }
-
-    } catch (error) {
-      console.error('Error fetching static data:', error);
-      setError('Failed to load coaching data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAvailabilityData = async () => {
-    try {
-      // Only show loading for initial load, not for week changes
-      if (Object.keys(weeklySchedule).length === 0) {
-        setLoading(true);
-      }
-      setError(null);
-      
-      const startDateStr = selectedStartDate.toLocaleDateString('en-CA');
-      const endDateStr = selectedEndDate.toLocaleDateString('en-CA');
-      const weekStr = selectedWeek.toLocaleDateString('en-CA');
-      
-      const availabilityUrl = (startDateStr !== weekStr || endDateStr !== weekStr) ?
-        `/api/coaching-assist/availability?fromDate=${startDateStr}&toDate=${endDateStr}` :
-        `/api/coaching-assist/availability?date=${weekStr}`;
-      
-      console.log('Fetching availability with URL:', availabilityUrl);
-      
-      const availabilityRes = await fetch(availabilityUrl);
-
-      if (availabilityRes.ok) {
-        const availabilityData = await availabilityRes.json();
-        processAvailabilityData(availabilityData, coaches);
-      }
-
-    } catch (error) {
-      console.error('Error fetching availability data:', error);
-      setError('Failed to load availability data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const processAvailabilityData = (data: any, coachesData: Coach[]) => {
+  const processAvailabilityData = useCallback((data: any, coachesData: Coach[]) => {
     const schedule: WeeklySchedule = {};
     const nextSlots: AvailableSlot[] = [];
 
@@ -260,7 +180,69 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
       });
     });
     setCoachesWithoutSchedule(coachesData.length - coachesWithSchedule.size);
+  }, []);
+
+  const fetchStaticData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch coaches and package data that doesn't change with week selection
+      const [coachesRes, packageHoursRes] = await Promise.all([
+        fetch('/api/coaching-assist/coaches'),
+        fetch('/api/coaching-assist/package-hours')
+      ]);
+      
+      if (coachesRes.ok) {
+        const data = await coachesRes.json();
+        setCoaches(data.coaches || []);
+      }
+
+      if (packageHoursRes.ok) {
+        const packageData = await packageHoursRes.json();
+        setPackageHoursRemaining(packageData.total_hours_remaining || 0);
+      }
+
+    } catch (error) {
+      console.error('Error fetching static data:', error);
+      setError('Failed to load coaching data');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const fetchAvailabilityData = useCallback(async () => {
+    try {
+      // Only show loading for initial load, not for week changes
+      if (Object.keys(weeklySchedule).length === 0) {
+        setLoading(true);
+      }
+      setError(null);
+      
+      const startDateStr = selectedStartDate.toLocaleDateString('en-CA');
+      const endDateStr = selectedEndDate.toLocaleDateString('en-CA');
+      const weekStr = selectedWeek.toLocaleDateString('en-CA');
+      
+      const availabilityUrl = (startDateStr !== weekStr || endDateStr !== weekStr) ?
+        `/api/coaching-assist/availability?fromDate=${startDateStr}&toDate=${endDateStr}` :
+        `/api/coaching-assist/availability?date=${weekStr}`;
+      
+      console.log('Fetching availability with URL:', availabilityUrl);
+      
+      const availabilityRes = await fetch(availabilityUrl);
+
+      if (availabilityRes.ok) {
+        const availabilityData = await availabilityRes.json();
+        processAvailabilityData(availabilityData, coaches);
+      }
+
+    } catch (error) {
+      console.error('Error fetching availability data:', error);
+      setError('Failed to load availability data');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedStartDate, selectedEndDate, selectedWeek, coaches, weeklySchedule, processAvailabilityData]);
 
   const generateTimeSlotsForDate = (coach: Coach, dateString: string, status: string): AvailableSlot[] => {
     const slots: AvailableSlot[] = [];
@@ -318,6 +300,24 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
 
     return slots;
   };
+
+  // Initial load - fetch coaches and package data
+  useEffect(() => {
+    fetchStaticData();
+  }, []);
+
+  // Fetch availability data when week/date selection changes
+  useEffect(() => {
+    if (coaches.length > 0) {
+      fetchAvailabilityData();
+    }
+  }, [selectedWeek, selectedStartDate, selectedEndDate, coaches, fetchAvailabilityData]);
+
+  useEffect(() => {
+    if (coaches.length > 0) {
+      fetchAllStudentsData();
+    }
+  }, [coaches, fetchAllStudentsData]);
 
   return {
     coaches,

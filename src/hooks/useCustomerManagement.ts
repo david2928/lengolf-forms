@@ -141,7 +141,7 @@ export function useCustomers(filters: CustomerFilters = {}, options?: { enabled?
     } finally {
       setLoading(false);
     }
-  }, [filters, options?.enabled]);
+  }, [filters, options]);
 
   useEffect(() => {
     if (options && options.enabled === false) {
@@ -150,12 +150,12 @@ export function useCustomers(filters: CustomerFilters = {}, options?: { enabled?
       return;
     }
     fetchCustomers();
-  }, [fetchCustomers, options?.enabled]);
+  }, [fetchCustomers, options]);
 
   const refetch = useCallback(() => {
     if (options && options.enabled === false) return;
     fetchCustomers();
-  }, [fetchCustomers, options?.enabled]);
+  }, [fetchCustomers, options]);
 
   return {
     customers,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
@@ -52,13 +52,7 @@ export function PayrollCalculationsTable({ selectedMonth, refreshTrigger }: Payr
   const [refreshing, setRefreshing] = useState(false)
   const { toast } = useToast()
 
-  useEffect(() => {
-    if (selectedMonth) {
-      fetchPayrollCalculations()
-    }
-  }, [selectedMonth, refreshTrigger])
-
-  const fetchPayrollCalculations = async () => {
+  const fetchPayrollCalculations = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(`/api/admin/payroll/${selectedMonth}/calculations`)
@@ -83,7 +77,13 @@ export function PayrollCalculationsTable({ selectedMonth, refreshTrigger }: Payr
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedMonth, toast])
+
+  useEffect(() => {
+    if (selectedMonth) {
+      fetchPayrollCalculations()
+    }
+  }, [selectedMonth, refreshTrigger, fetchPayrollCalculations])
 
   const handleRefreshCalculations = async () => {
     try {
