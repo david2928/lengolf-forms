@@ -5,7 +5,7 @@ import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { receiptNumber: string } }
+  { params }: { params: Promise<{ receiptNumber: string }> }
 ) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
@@ -13,7 +13,7 @@ export async function GET(
   }
 
   try {
-    const { receiptNumber } = params;
+    const { receiptNumber } = await params;
 
     // Use the optimized RPC function to get all transaction data in a single call
     const { data, error } = await supabase.rpc('get_pos_transaction_by_receipt', {

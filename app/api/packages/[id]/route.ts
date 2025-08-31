@@ -5,8 +5,9 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // First fetch the package details with customer information
     const { data: packageData, error: packageError } = await refacSupabaseAdmin
@@ -16,7 +17,7 @@ export async function GET(
         *, 
         package_types!inner(*)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (packageError || !packageData) {
@@ -47,7 +48,7 @@ export async function GET(
       .schema('backoffice')
       .from('package_usage')
       .select('*')
-      .eq('package_id', params.id)
+      .eq('package_id', id)
       .order('used_date', { ascending: false })
 
     if (usageError) {

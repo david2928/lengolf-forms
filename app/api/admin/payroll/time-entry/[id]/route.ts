@@ -3,19 +3,15 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
 import { updateTimeEntry, validateTimeEntryUpdate, type TimeEntryUpdate } from '@/lib/payroll-review';
 
-interface RouteParams {
-  id: string;
-}
-
 // PUT /api/admin/payroll/time-entry/[id] - Update a specific time entry
-export async function PUT(request: NextRequest, { params }: { params: RouteParams }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
+    
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const { id } = params;
     const entryId = parseInt(id);
     
     if (isNaN(entryId)) {

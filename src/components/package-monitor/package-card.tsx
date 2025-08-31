@@ -44,12 +44,9 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
                                  typeof remainingHoursNum === 'number' &&
                                  remainingHoursNum > 0;
 
-  // Update name parsing to handle multiple parentheses
-  const phoneMatch = pkg.customer_name.match(/\((\d+)\)$/);
-  const phone = phoneMatch ? phoneMatch[1] : '';
-  const nameWithNickname = phoneMatch 
-    ? pkg.customer_name.slice(0, pkg.customer_name.lastIndexOf('(')).trim() 
-    : pkg.customer_name;
+  // Use the contact_number field directly from the API instead of parsing from name
+  const phone = pkg.contact_number || '';
+  const displayName = pkg.customer_name;
 
   // Format the days remaining text - fix the calculation to match user expectations
   const formatDaysRemaining = () => {
@@ -85,7 +82,7 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
         <div className="flex justify-between items-start gap-2">
           <div className="space-y-0.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-medium leading-none truncate">{nameWithNickname}</h3>
+              <h3 className="font-medium leading-none truncate">{displayName}</h3>
               {(isInactive || isExpired || isFullyUsed || (type !== 'unlimited' && !isExpired && !isFullyUsed)) && (
                 <Badge 
                   variant={isExpired ? "destructive" : isFullyUsed ? "secondary" : isInactive ? "outline" : "default"}

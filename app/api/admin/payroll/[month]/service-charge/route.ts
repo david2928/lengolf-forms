@@ -5,16 +5,16 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { month: string } }
+  { params }: { params: Promise<{ month: string }> }
 ) {
   try {
+    const { month } = await params;
+    
     // Check admin authentication
     const session = await getServerSession(authOptions)
     if (!session?.user?.email?.includes('@lengolf') && !session?.user?.email?.includes('@gmail.com')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const { month } = params
 
     // Validate month format (YYYY-MM)
     if (!/^\d{4}-\d{2}$/.test(month)) {
@@ -58,16 +58,16 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { month: string } }
+  { params }: { params: Promise<{ month: string }> }
 ) {
   try {
+    const { month } = await params;
+    
     // Check admin authentication
     const session = await getServerSession(authOptions)
     if (!session?.user?.email?.includes('@lengolf') && !session?.user?.email?.includes('@gmail.com')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const { month } = params
     const body = await request.json()
     const { total_amount } = body
 

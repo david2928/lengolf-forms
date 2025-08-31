@@ -6,7 +6,7 @@ import { verifyStaffPin } from '@/lib/staff-utils';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
@@ -14,7 +14,7 @@ export async function POST(
   }
 
   try {
-    const { sessionId } = params;
+    const { sessionId } = await params;
     const { itemId, reason, staffPin, quantityToRemove } = await request.json();
 
     if (!itemId || !reason || !staffPin) {

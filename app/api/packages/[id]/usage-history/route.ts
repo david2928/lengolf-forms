@@ -5,13 +5,14 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { data, error } = await refacSupabaseAdmin
       .schema('backoffice')
       .rpc('get_package_usage_history', {
-        p_package_id: params.id
+        p_package_id: id
       });
 
     if (error) {

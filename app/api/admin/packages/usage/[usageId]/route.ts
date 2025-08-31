@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { usageId: string } }
+  { params }: { params: Promise<{ usageId: string }> }
 ) {
   try {
     // Verify admin access
@@ -24,7 +24,7 @@ export async function PUT(
     }
 
     const { usedHours, usedDate, employeeName, bookingId, notes, modificationReason } = await request.json();
-    const usageId = params.usageId;
+    const { usageId } = await params;
 
     // Validate inputs
     if (!usedHours || !usedDate || !employeeName) {
@@ -70,7 +70,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { usageId: string } }
+  { params }: { params: Promise<{ usageId: string }> }
 ) {
   try {
     // Verify admin access
@@ -84,7 +84,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const usageId = params.usageId;
+    const { usageId } = await params;
 
     // Delete usage record
     const { error } = await refacSupabaseAdmin

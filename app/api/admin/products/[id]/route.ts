@@ -6,8 +6,9 @@ import { refacSupabase } from '@/lib/refac-supabase';
 // GET /api/admin/products/[id] - Get product details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
@@ -42,7 +43,7 @@ export async function GET(
           created_by
         )
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) {
@@ -58,7 +59,7 @@ export async function GET(
       .schema('products')
       .from('price_history')
       .select('*')
-      .eq('product_id', params.id)
+      .eq('product_id', id)
       .order('changed_at', { ascending: false })
       .limit(10);
 
@@ -79,8 +80,9 @@ export async function GET(
 // PUT /api/admin/products/[id] - Update product
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
@@ -108,7 +110,7 @@ export async function PUT(
       .schema('products')
       .from('products')
       .select('price, cost')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (fetchError) {
@@ -162,7 +164,7 @@ export async function PUT(
       .schema('products')
       .from('products')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select(`
         *,
         category:category_id (
@@ -194,7 +196,7 @@ export async function PUT(
         (cost !== undefined && cost !== currentProduct.cost)) {
       
       const priceHistoryData = {
-        product_id: params.id,
+        product_id: id,
         old_price: currentProduct.price,
         new_price: price !== undefined ? price : currentProduct.price,
         old_cost: currentProduct.cost,
@@ -223,8 +225,9 @@ export async function PUT(
 // DELETE /api/admin/products/[id] - Delete product
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
@@ -236,7 +239,7 @@ export async function DELETE(
       .schema('products')
       .from('products')
       .select('id, name')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (fetchError) {
@@ -255,7 +258,7 @@ export async function DELETE(
         is_active: false,
         updated_by: session.user.email 
       })
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       console.error('Error deleting product:', error);

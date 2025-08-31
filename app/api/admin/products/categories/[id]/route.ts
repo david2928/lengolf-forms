@@ -6,9 +6,11 @@ import { refacSupabase } from '@/lib/refac-supabase';
 // GET /api/admin/products/categories/[id] - Get category details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -26,7 +28,7 @@ export async function GET(
         ),
         products(count)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) {
@@ -51,9 +53,11 @@ export async function GET(
 // PUT /api/admin/products/categories/[id] - Update category
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -82,7 +86,7 @@ export async function PUT(
       .schema('products')
       .from('categories')
       .select('id, name, slug')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (fetchError) {
@@ -119,7 +123,7 @@ export async function PUT(
       .schema('products')
       .from('categories')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select(`
         *,
         parent:parent_id (
@@ -156,9 +160,11 @@ export async function PUT(
 // DELETE /api/admin/products/categories/[id] - Delete category
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -169,7 +175,7 @@ export async function DELETE(
       .schema('products')
       .from('categories')
       .select('id, name')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (fetchError) {
@@ -184,7 +190,7 @@ export async function DELETE(
       .schema('products')
       .from('products')
       .select('id')
-      .eq('category_id', params.id)
+      .eq('category_id', id)
       .limit(1);
 
     if (productsError) {
@@ -203,7 +209,7 @@ export async function DELETE(
       .schema('products')
       .from('categories')
       .select('id')
-      .eq('parent_id', params.id)
+      .eq('parent_id', id)
       .limit(1);
 
     if (childrenError) {
@@ -222,7 +228,7 @@ export async function DELETE(
       .schema('products')
       .from('categories')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       console.error('Error deleting category:', error);

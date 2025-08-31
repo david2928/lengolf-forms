@@ -19,9 +19,11 @@ const supabase = refacSupabase
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
+    const { productId } = await params;
+    
     // Check admin authentication
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
@@ -38,8 +40,6 @@ export async function PUT(
         { status: 403 }
       )
     }
-
-    const productId = params.productId
     if (!productId) {
       return NextResponse.json(
         { error: 'Product ID is required' },
@@ -110,9 +110,11 @@ export async function PUT(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
+    const { productId } = await params;
+    
     // Check admin authentication
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
@@ -128,8 +130,6 @@ export async function GET(
         { status: 403 }
       )
     }
-
-    const productId = params.productId
     if (!productId) {
       return NextResponse.json(
         { error: 'Product ID is required' },

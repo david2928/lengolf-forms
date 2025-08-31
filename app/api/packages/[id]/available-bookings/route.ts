@@ -22,15 +22,16 @@ interface AvailableBooking {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const packageId = params.id;
+    const packageId = id;
     const { searchParams } = new URL(request.url);
     const includeUsed = searchParams.get('include_used') === 'true';
     const limit = parseInt(searchParams.get('limit') || '50');

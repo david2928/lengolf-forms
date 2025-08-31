@@ -6,9 +6,11 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { month: string } }
+  { params }: { params: Promise<{ month: string }> }
 ) {
   try {
+    const { month } = await params;
+    
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -18,8 +20,6 @@ export async function GET(
     if (!userIsAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-
-    const { month } = params;
     
     // Validate month format (YYYY-MM)
     const monthRegex = /^\d{4}-\d{2}$/;

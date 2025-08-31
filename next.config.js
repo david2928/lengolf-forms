@@ -82,8 +82,8 @@ const nextConfig = {
   },
   
   // Optimize builds
+  serverExternalPackages: ['@supabase/supabase-js'],
   experimental: {
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
   },
   
   // Compression

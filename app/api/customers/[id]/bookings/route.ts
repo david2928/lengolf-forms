@@ -10,7 +10,7 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
@@ -18,7 +18,8 @@ export async function GET(
   }
 
   try {
-    const customerId = params.id;
+    const { id } = await params;
+    const customerId = id;
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status'); // 'upcoming', 'past', or null for all
     const limit = parseInt(searchParams.get('limit') || '50');

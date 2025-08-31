@@ -148,7 +148,7 @@ function formatBookingData(formData: FormData): Booking {
     stable_hash_id: formData.customerStableHashId || undefined,
     package_id: formData.packageId || null,
     // New fields for customer management integration
-    isNewCustomer: formData.isNewCustomer,
+    isNewCustomer: formData.isNewCustomer ?? false,
     customer_id: formData.customerId || undefined,
   };
 

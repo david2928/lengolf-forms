@@ -3,10 +3,10 @@ import { refacSupabase as supabase } from '@/lib/refac-supabase'
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
+  const { productId } = await params;
   try {
-    const productId = params.productId
     const body = await request.json()
     
     // Validate that we have an update payload

@@ -6,7 +6,7 @@ import { ReceiptFormatter } from '@/lib/receipt-formatter';
 
 export async function GET(
   request: NextRequest, 
-  { params }: { params: { tableSessionId: string } }
+  { params }: { params: Promise<{ tableSessionId: string }> }
 ) {
   console.log('📄 Get Bill Data API: Request received');
 
@@ -17,7 +17,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { tableSessionId } = params;
+    const { tableSessionId } = await params;
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'json'; // 'json', 'thermal', 'html'
 

@@ -1,6 +1,7 @@
 export interface Package {
   id: string;
   customer_name: string;
+  contact_number: string;
   package_type_name: string;
   package_type: string;
   purchase_date?: string;

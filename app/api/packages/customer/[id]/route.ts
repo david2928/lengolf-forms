@@ -12,15 +12,16 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const customerId = params.id;
+    const customerId = id;
     const { searchParams } = new URL(request.url);
     const includeExpired = searchParams.get('include_expired') === 'true';
     const includeUsed = searchParams.get('include_used') === 'true';
@@ -94,7 +95,7 @@ export async function GET(
       const remainingHours = totalHours - usedHours;
 
       // Determine status using new business logic
-      let status: 'created' | 'active' | 'expired' | 'depleted' = 'active';
+      let status: 'created' | 'active' | 'expired' | 'fully_used' = 'active';
       
       const isUnlimited = packageType?.type === 'Unlimited';
       const isExpired = pkg.expiration_date && new Date(pkg.expiration_date) < new Date();
@@ -106,7 +107,7 @@ export async function GET(
       } else if (!isActivated) {
         status = 'created'; // Package exists but never activated
       } else if (!isUnlimited && remainingHours <= 0) {
-        status = 'depleted'; // Fully used up
+        status = 'fully_used'; // Fully used up - match frontend expectation
       } else {
         status = 'active'; // Activated and usable
       }
@@ -137,14 +138,14 @@ export async function GET(
     }
     
     if (!includeUsed) {
-      filteredPackages = filteredPackages.filter((p: any) => p.status !== 'depleted');
+      filteredPackages = filteredPackages.filter((p: any) => p.status !== 'fully_used');
     }
 
     // Calculate summary using new status categories
     const createdPackages = formattedPackages.filter((p: any) => p.status === 'created').length;
     const activePackages = formattedPackages.filter((p: any) => p.status === 'active').length;
     const expiredPackages = formattedPackages.filter((p: any) => p.status === 'expired').length;
-    const depletedPackages = formattedPackages.filter((p: any) => p.status === 'depleted').length;
+    const fullyUsedPackages = formattedPackages.filter((p: any) => p.status === 'fully_used').length;
 
     return NextResponse.json({
       packages: filteredPackages,
@@ -153,7 +154,7 @@ export async function GET(
         created: createdPackages,
         active: activePackages,
         expired: expiredPackages,
-        depleted: depletedPackages
+        depleted: fullyUsedPackages
       },
       customer: {
         id: customer.id,

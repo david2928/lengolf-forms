@@ -121,7 +121,7 @@ export function CustomerDetails({
     } catch (error) {
       console.error('Error checking phone duplicates:', error);
     }
-  }, [phoneNumber, customerName, onPhoneError]);
+  }, [phoneNumber, customerName, setPhoneError, onPhoneError]);
 
   // Auto-check for phone duplicates when phone number changes
   useEffect(() => {

@@ -6,7 +6,7 @@ import { generateInvoicePDFWithFallback, InvoiceData } from '@/lib/pdf-generator
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getDevSession(authOptions, request)
@@ -15,7 +15,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     console.log('Generating PDF for invoice:', {
       email: session.user.email,
@@ -143,7 +143,7 @@ export async function POST(
   } catch (error) {
     console.error('PDF generation API error:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      invoice_id: params?.id,
+      invoice_id: 'unknown',
       timestamp: new Date().toISOString()
     })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -5,7 +5,7 @@ import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
@@ -13,12 +13,14 @@ export async function POST(
   }
 
   try {
+    const { sessionId } = await params;
+    
     // Get session and validate it exists
     const { data: tableSession, error: sessionError } = await supabase
       .schema('pos')
       .from('table_sessions')
       .select('applied_receipt_discount_id, receipt_discount_amount')
-      .eq('id', params.sessionId)
+      .eq('id', sessionId)
       .single();
 
     if (sessionError) {
@@ -39,7 +41,7 @@ export async function POST(
         receipt_discount_amount: 0,
         updated_at: new Date().toISOString()
       })
-      .eq('id', params.sessionId);
+      .eq('id', sessionId);
 
     if (updateError) {
       console.error('Error removing receipt discount:', updateError);
@@ -53,7 +55,7 @@ export async function POST(
       .schema('pos')
       .from('orders')
       .select('total_amount')
-      .eq('table_session_id', params.sessionId);
+      .eq('table_session_id', sessionId);
 
     const newSessionTotal = orders?.reduce((sum: number, order: any) => sum + parseFloat(order.total_amount.toString()), 0) || 0;
 

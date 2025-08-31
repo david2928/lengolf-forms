@@ -21,8 +21,9 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { staffId: string } }
+  { params }: { params: Promise<{ staffId: string }> }
 ) {
+  const { staffId } = await params;
   try {
     // Verify admin access
     const session = await getDevSession(authOptions, request);
@@ -35,8 +36,8 @@ export async function GET(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const staffId = parseInt(params.staffId);
-    if (isNaN(staffId)) {
+    const staffIdNumber = parseInt(staffId);
+    if (isNaN(staffIdNumber)) {
       return NextResponse.json({ error: 'Invalid staff ID' }, { status: 400 });
     }
 
@@ -45,7 +46,7 @@ export async function GET(
       .schema('backoffice')
       .from('staff')
       .select('id, staff_name, staff_id, is_active, failed_attempts, locked_until, created_at, updated_at')
-      .eq('id', staffId)
+      .eq('id', staffIdNumber)
       .single();
 
     if (error) {
@@ -80,8 +81,9 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { staffId: string } }
+  { params }: { params: Promise<{ staffId: string }> }
 ) {
+  const { staffId } = await params;
   try {
     // Verify admin access
     const session = await getDevSession(authOptions, request);
@@ -94,8 +96,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const staffId = parseInt(params.staffId);
-    if (isNaN(staffId)) {
+    const staffIdNumber = parseInt(staffId);
+    if (isNaN(staffIdNumber)) {
       return NextResponse.json({ error: 'Invalid staff ID' }, { status: 400 });
     }
 
@@ -104,7 +106,7 @@ export async function PUT(
     const { staff_name, staff_id, is_active, new_pin } = body;
 
     // Get current staff data for audit trail
-    const currentStaff = await getStaffById(staffId);
+    const currentStaff = await getStaffById(staffIdNumber);
     if (!currentStaff) {
       return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
     }
@@ -201,7 +203,7 @@ export async function PUT(
       .schema('backoffice')
       .from('staff')
       .update(updates)
-      .eq('id', staffId)
+      .eq('id', staffIdNumber)
       .select('id, staff_name, staff_id, is_active, updated_at')
       .single();
 
@@ -220,7 +222,7 @@ export async function PUT(
 
     // Log the update in audit trail
     await logStaffAction(
-      staffId,
+      staffIdNumber,
       'updated',
       'admin',
       session.user.email,
@@ -263,8 +265,9 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { staffId: string } }
+  { params }: { params: Promise<{ staffId: string }> }
 ) {
+  const { staffId } = await params;
   try {
     // Verify admin access
     const session = await getDevSession(authOptions, request);
@@ -277,13 +280,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const staffId = parseInt(params.staffId);
-    if (isNaN(staffId)) {
+    const staffIdNumber = parseInt(staffId);
+    if (isNaN(staffIdNumber)) {
       return NextResponse.json({ error: 'Invalid staff ID' }, { status: 400 });
     }
 
     // Get current staff data
-    const currentStaff = await getStaffById(staffId);
+    const currentStaff = await getStaffById(staffIdNumber);
     if (!currentStaff) {
       return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
     }
@@ -306,7 +309,7 @@ export async function DELETE(
         failed_attempts: 0,  // Reset failed attempts
         updated_at: new Date().toISOString()
       })
-      .eq('id', staffId);
+      .eq('id', staffIdNumber);
 
     if (updateError) {
       console.error('Error deactivating staff member:', updateError);
@@ -315,7 +318,7 @@ export async function DELETE(
 
     // Log the deactivation in audit trail
     await logStaffAction(
-      staffId,
+      staffIdNumber,
       'deactivated',
       'admin',
       session.user.email,

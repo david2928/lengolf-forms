@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
-interface RouteParams {
-  params: {
-    receipt_number: string;
-  };
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(
+  request: NextRequest, 
+  { params }: { params: Promise<{ receipt_number: string }> }
+) {
   try {
-    const { receipt_number } = params;
+    const { receipt_number } = await params;
     const startTime = Date.now();
 
     if (!receipt_number) {

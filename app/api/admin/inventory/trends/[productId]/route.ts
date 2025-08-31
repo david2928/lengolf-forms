@@ -27,9 +27,11 @@ const supabase = refacSupabaseAdmin
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
+    const { productId } = await params;
+    
     // Development bypass check
     const shouldBypass = (
       process.env.NODE_ENV === 'development' &&
@@ -54,8 +56,6 @@ export async function GET(
         )
       }
     }
-
-    const productId = params.productId
     if (!productId) {
       return NextResponse.json(
         { error: 'Product ID is required' },

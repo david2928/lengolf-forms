@@ -10,7 +10,7 @@ const supabase = createClient(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getDevSession(authOptions, request);
@@ -20,7 +20,7 @@ export async function PUT(
 
     const body = await request.json();
     const { type, date, category, subcategory, description, amount } = body;
-    const id = params.id;
+    const { id } = await params;
 
     if (!type || !date || !category || !amount) {
       return NextResponse.json({ 
@@ -83,7 +83,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getDevSession(authOptions, request);
@@ -93,7 +93,7 @@ export async function DELETE(
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
-    const id = params.id;
+    const { id } = await params;
 
     if (!['revenue', 'expense'].includes(type || '')) {
       return NextResponse.json({ 

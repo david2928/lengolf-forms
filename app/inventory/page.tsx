@@ -1,3 +1,5 @@
+'use client'
+
 import { Metadata } from 'next'
 import { Suspense } from 'react'
 import dynamic from 'next/dynamic'
@@ -12,11 +14,6 @@ const InventoryForm = dynamic(() => import('@/components/inventory'), {
   ),
   ssr: false
 })
-
-export const metadata: Metadata = {
-  title: 'Inventory Management | LenGolf',
-  description: 'Submit daily inventory reports for LenGolf',
-}
 
 export default function InventoryPage() {
   return (

@@ -6,15 +6,14 @@ import type { Table } from '@/types/pos';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { tableId: string } }
+  { params }: { params: Promise<{ tableId: string }> }
 ) {
+  const { tableId } = await params;
   try {
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const { tableId } = params;
 
     // Fetch table with current session
     const { data: tableData, error: tableError } = await supabase

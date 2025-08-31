@@ -69,7 +69,10 @@ export function TableDetailModal({ table, isOpen, onClose, onOpenTable }: TableD
         }
       }
     }
-  }, [isOpen, bayUpcomingBookings, table.zone.zoneType]); // Include missing dependencies
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: bayUpcomingBookings and table.zone.zoneType are intentionally excluded from dependencies
+  // to prevent infinite loop. Including them causes the effect to run on every render due to
+  // new object references, creating an infinite setState loop.
 
   // Update pax count when booking is selected
   useEffect(() => {

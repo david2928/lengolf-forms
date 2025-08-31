@@ -6,16 +6,18 @@ import { Platform } from '@/types/competitor-tracking';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     // Check authentication
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const competitorId = parseInt(params.id);
+    const competitorId = parseInt(id);
     if (isNaN(competitorId)) {
       return NextResponse.json({ error: "Invalid competitor ID" }, { status: 400 });
     }

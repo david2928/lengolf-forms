@@ -4,14 +4,15 @@ import { authOptions } from '@/lib/auth-config';
 import { refacSupabase } from '@/lib/refac-supabase';
 
 // GET /api/admin/products/[id]/modifiers - Get modifiers for a product
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const productId = params.id;
+    const { id } = await params;
+    const productId = id;
 
     // Get product and its modifiers
     const { data: product, error: productError } = await refacSupabase
@@ -75,14 +76,15 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // POST /api/admin/products/[id]/modifiers - Create new modifier
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const productId = params.id;
+    const { id } = await params;
+    const productId = id;
     const body = await request.json();
     const {
       name,

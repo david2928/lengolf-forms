@@ -4,14 +4,14 @@ import { authOptions } from '@/lib/auth-config';
 import { refacSupabase } from '@/lib/refac-supabase';
 
 // PUT /api/admin/products/modifiers/[id] - Update modifier
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: modifierId } = await params;
+    
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const modifierId = params.id;
     const body = await request.json();
     const {
       name,
@@ -92,14 +92,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE /api/admin/products/modifiers/[id] - Delete modifier
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: modifierId } = await params;
+    
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const modifierId = params.id;
 
     // Get modifier to check if it exists and get product_id
     const { data: modifier, error: fetchError } = await refacSupabase

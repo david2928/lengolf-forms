@@ -11,10 +11,10 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { pin: string } }
+  { params }: { params: Promise<{ pin: string }> }
 ) {
+  const { pin } = await params;
   try {
-    const { pin } = params;
 
     // Validate PIN parameter
     if (!pin) {

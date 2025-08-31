@@ -25,6 +25,7 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 
 ### Booking & Scheduling
 - **[Booking System](./features/public/booking-scheduling/BOOKING_SYSTEM.md)** - Multi-step booking creation, calendar integration, and audit trails
+- **[Dual Booking Form Interfaces](./features/public/booking-scheduling/DUAL_BOOKING_FORM_INTERFACES.md)** - Original multi-step vs. new single-page booking forms with enhanced UX
 - **[Booking Management](./features/public/booking-scheduling/BOOKING_MANAGEMENT.md)** - Search, filtering, visual indicators, and responsive interface
 - **[Booking Editing](./features/public/booking-scheduling/BOOKING_EDITING.md)** - Tabbed interface, permissions, and real-time validation
 - **[Calendar Integration](./features/public/booking-scheduling/CALENDAR_INTEGRATION.md)** - Google Calendar sync and availability checking
@@ -102,10 +103,11 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 - **[Authentication System](./technical/AUTHENTICATION_SYSTEM.md)** - NextAuth.js with multi-role access control
 - **[Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md)** - Development bypass system
 
-### System Integration
+### System Integration & Migration
 - **[Calendar Integration](./features/public/booking-scheduling/CALENDAR_INTEGRATION.md)** - Google Calendar API with multi-bay sync
 - **[LINE Messaging Integration](./integrations/LINE_MESSAGING_INTEGRATION.md)** - Complete LINE API integration
 - **[Coaching System Technical](./technical/COACHING_SYSTEM_TECHNICAL.md)** - Technical architecture and optimization
+- **[Next.js 15 Migration](./technical/NEXTJS_15_MIGRATION.md)** - Complete migration guide from Next.js 14 to 15, including breaking changes and 65 API route updates
 
 ---
 

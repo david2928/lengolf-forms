@@ -75,6 +75,12 @@ export function Nav() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
+              <Link href="/create-booking-new" className="flex items-center gap-2 w-full">
+                <PlusCircle className="h-4 w-4" />
+                Create Booking (New)
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
               <Link href="/manage-bookings" className="flex items-center gap-2 w-full">
                 <Edit className="h-4 w-4" />
                 Manage Bookings

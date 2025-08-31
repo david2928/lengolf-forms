@@ -138,7 +138,9 @@ export function rateLimit(maxRequests = 100, windowMs = 60000): ValidationMiddle
   const requests = new Map<string, { count: number; resetTime: number }>()
   
   return async (request: NextRequest) => {
-    const clientId = request.ip || 'unknown'
+    const clientId = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+                     request.headers.get('x-real-ip') || 
+                     'unknown'
     const now = Date.now()
     
     const clientData = requests.get(clientId)

@@ -7,9 +7,11 @@ import { getRefacSupabaseClient } from '@/lib/refac-supabase';
 // PUT /api/admin/competitors/[id]/social-accounts - Update social accounts
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,7 +22,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
-    const competitorId = parseInt(params.id);
+    const competitorId = parseInt(id);
     if (isNaN(competitorId)) {
       return NextResponse.json({ error: 'Invalid competitor ID' }, { status: 400 });
     }

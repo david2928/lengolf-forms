@@ -100,7 +100,7 @@ function generateHTMLReceipt(receiptData: ReceiptData): string {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { receiptNumber: string } }
+  { params }: { params: Promise<{ receiptNumber: string }> }
 ) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
@@ -108,7 +108,7 @@ export async function GET(
   }
 
   try {
-    const { receiptNumber } = params;
+    const { receiptNumber } = await params;
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'json'; // json, html, thermal
     const language = searchParams.get('language') || 'en'; // en, th (for future use)

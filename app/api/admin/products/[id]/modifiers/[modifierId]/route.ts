@@ -6,7 +6,7 @@ import { refacSupabase } from '@/lib/refac-supabase';
 // PUT /api/admin/products/[id]/modifiers/[modifierId] - Update modifier
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; modifierId: string } }
+  { params }: { params: Promise<{ id: string; modifierId: string }> }
 ) {
   try {
     const session = await getDevSession(authOptions, request);
@@ -14,8 +14,8 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const productId = params.id;
-    const modifierId = params.modifierId;
+    const { id, modifierId } = await params;
+    const productId = id;
     const body = await request.json();
     const {
       name,
@@ -118,7 +118,7 @@ export async function PUT(
 // DELETE /api/admin/products/[id]/modifiers/[modifierId] - Delete modifier
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; modifierId: string } }
+  { params }: { params: Promise<{ id: string; modifierId: string }> }
 ) {
   try {
     const session = await getDevSession(authOptions, request);
@@ -126,8 +126,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const productId = params.id;
-    const modifierId = params.modifierId;
+    const { id, modifierId } = await params;
+    const productId = id;
 
     // Verify modifier exists and belongs to the product
     const { data: existingModifier, error: fetchError } = await refacSupabase

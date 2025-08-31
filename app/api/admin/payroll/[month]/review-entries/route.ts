@@ -3,19 +3,15 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { getReviewEntries } from '@/lib/payroll-review';
 
-interface RouteParams {
-  month: string;
-}
-
 // GET /api/admin/payroll/[month]/review-entries - Returns flagged time entries for review
-export async function GET(request: NextRequest, { params }: { params: RouteParams }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ month: string }> }) {
   try {
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { month } = params;
+    const { month } = await params;
     
     // Validate month format (should be YYYY-MM)
     const monthRegex = /^\d{4}-\d{2}$/;

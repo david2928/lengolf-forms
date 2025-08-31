@@ -215,14 +215,7 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
                 <button
                   key={digit}
                   onClick={() => handlePinDigit(digit.toString())}
-                  className="
-                    w-20 h-20 rounded-full text-3xl font-semibold
-                    bg-gradient-to-br from-green-50 to-green-100
-                    hover:from-[#265020] hover:to-green-700
-                    hover:text-white hover:shadow-lg
-                    active:scale-95 transform transition-all duration-150
-                    border border-green-200 hover:border-transparent
-                  "
+                  className="w-20 h-20 rounded-full text-3xl font-semibold bg-gradient-to-br from-green-50 to-green-100 hover:from-[#265020] hover:to-green-700 hover:text-white hover:shadow-lg active:scale-95 transform transition-all duration-150 border border-green-200 hover:border-transparent"
                 >
                   {digit}
                 </button>
@@ -235,14 +228,7 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
                 <button
                   key={digit}
                   onClick={() => handlePinDigit(digit.toString())}
-                  className="
-                    w-20 h-20 rounded-full text-3xl font-semibold
-                    bg-gradient-to-br from-green-50 to-green-100
-                    hover:from-[#265020] hover:to-green-700
-                    hover:text-white hover:shadow-lg
-                    active:scale-95 transform transition-all duration-150
-                    border border-green-200 hover:border-transparent
-                  "
+                  className="w-20 h-20 rounded-full text-3xl font-semibold bg-gradient-to-br from-green-50 to-green-100 hover:from-[#265020] hover:to-green-700 hover:text-white hover:shadow-lg active:scale-95 transform transition-all duration-150 border border-green-200 hover:border-transparent"
                 >
                   {digit}
                 </button>
@@ -255,14 +241,7 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
                 <button
                   key={digit}
                   onClick={() => handlePinDigit(digit.toString())}
-                  className="
-                    w-20 h-20 rounded-full text-3xl font-semibold
-                    bg-gradient-to-br from-green-50 to-green-100
-                    hover:from-[#265020] hover:to-green-700
-                    hover:text-white hover:shadow-lg
-                    active:scale-95 transform transition-all duration-150
-                    border border-green-200 hover:border-transparent
-                  "
+                  className="w-20 h-20 rounded-full text-3xl font-semibold bg-gradient-to-br from-green-50 to-green-100 hover:from-[#265020] hover:to-green-700 hover:text-white hover:shadow-lg active:scale-95 transform transition-all duration-150 border border-green-200 hover:border-transparent"
                 >
                   {digit}
                 </button>
@@ -273,14 +252,7 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
             <div className="flex justify-center">
               <button
                 onClick={() => handlePinDigit('0')}
-                className="
-                  w-20 h-20 rounded-full text-3xl font-semibold
-                  bg-gradient-to-br from-green-50 to-green-100
-                  hover:from-[#265020] hover:to-green-700
-                  hover:text-white hover:shadow-lg
-                  active:scale-95 transform transition-all duration-150
-                  border border-green-200 hover:border-transparent
-                "
+                className="w-20 h-20 rounded-full text-3xl font-semibold bg-gradient-to-br from-green-50 to-green-100 hover:from-[#265020] hover:to-green-700 hover:text-white hover:shadow-lg active:scale-95 transform transition-all duration-150 border border-green-200 hover:border-transparent"
               >
                 0
               </button>
@@ -290,12 +262,7 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
             <div className="flex justify-center mt-2">
               <button
                 onClick={onCancel}
-                className="
-                  px-6 py-2 rounded-full text-sm font-medium
-                  bg-gray-100 hover:bg-gray-200
-                  active:scale-95 transform transition-all duration-150
-                  text-gray-700
-                "
+                className="px-6 py-2 rounded-full text-sm font-medium bg-gray-100 hover:bg-gray-200 active:scale-95 transform transition-all duration-150 text-gray-700"
               >
                 Cancel
               </button>

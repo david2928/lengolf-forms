@@ -7,6 +7,7 @@ import { DateTime } from 'luxon'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { useAllBaysAvailability } from '@/hooks/useAvailability'
+import { Shield } from 'lucide-react'
 
 // Updated to use the simplified bay names from Phase 2
 const BAYS = [
@@ -19,6 +20,14 @@ const BAYS = [
 interface BusyTime {
   start: string;
   end: string;
+}
+
+interface BlockedBay {
+  bay: string;
+  reason: string;
+  startTime: string;
+  endTime: string;
+  blockedBy: string;
 }
 
 interface BaySelectorProps {
@@ -48,6 +57,7 @@ export function BaySelector({
   const [busyTimesByBay, setBusyTimesByBay] = useState<Record<string, BusyTime[]>>({});
   const [availableBaysForTime, setAvailableBaysForTime] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [blockedBays, setBlockedBays] = useState<BlockedBay[]>([]);
 
   // Calculate duration from selected times
   const duration = selectedStartTime && selectedEndTime ? (() => {
@@ -89,12 +99,34 @@ export function BaySelector({
     duration
   );
 
+  // Fetch blocked bays for a specific date
+  const fetchBlockedBays = useCallback(async (date: Date | string) => {
+    const formattedDate = typeof date === 'string' ? date : format(date, 'yyyy-MM-dd');
+    
+    try {
+      const response = await fetch(`/api/bookings/blocked-bays?date=${formattedDate}`);
+      if (response.ok) {
+        const data = await response.json();
+        setBlockedBays(data.blockedBays || []);
+      } else {
+        console.warn('Failed to fetch blocked bays');
+        setBlockedBays([]);
+      }
+    } catch (error) {
+      console.error('Error fetching blocked bays:', error);
+      setBlockedBays([]);
+    }
+  }, []);
+
   // Fetch individual bay busy times for conflict checking
   const fetchAllBaysAvailability = useCallback(async (date: Date | string | null) => {
     if (!date) return;
     setIsLoading(true);
     const formattedDate = typeof date === 'string' ? date : format(date, 'yyyy-MM-dd');
     const availabilities: Record<string, BusyTime[]> = {};
+
+    // Fetch blocked bays for this date
+    await fetchBlockedBays(formattedDate);
 
     await Promise.all(BAYS.map(async (bay) => {
       const bayId = bay.id;
@@ -125,7 +157,7 @@ export function BaySelector({
 
     setBusyTimesByBay(availabilities);
     setIsLoading(false);
-  }, []);
+  }, [fetchBlockedBays]);
 
   const updateAvailableBays = useCallback(() => {
     if (!selectedStartTime || !selectedEndTime || !selectedDate) return;
@@ -171,6 +203,41 @@ export function BaySelector({
     setAvailableBaysForTime(available.map(bay => bay.id));
   }, [selectedStartTime, selectedEndTime, busyTimesByBay, selectedDate]);
 
+  // Check if a bay is blocked for the current date and time
+  const isBayBlocked = (bayId: string): BlockedBay | null => {
+    if (!selectedStartTime || !selectedEndTime) return null;
+    
+    const selectedStart = selectedStartTime instanceof Date
+      ? DateTime.fromJSDate(selectedStartTime).toFormat('HH:mm')
+      : selectedStartTime as string;
+    
+    const selectedEnd = selectedEndTime instanceof Date
+      ? DateTime.fromJSDate(selectedEndTime).toFormat('HH:mm')
+      : selectedEndTime as string;
+
+    return blockedBays.find(blocked => {
+      if (blocked.bay !== bayId) return false;
+      
+      // Check if the selected time overlaps with blocked time
+      const blockedStart = blocked.startTime;
+      const blockedEnd = blocked.endTime;
+      
+      // Simple time overlap check (assumes same day)
+      const selectedStartMinutes = timeToMinutes(selectedStart);
+      const selectedEndMinutes = timeToMinutes(selectedEnd);
+      const blockedStartMinutes = timeToMinutes(blockedStart);
+      const blockedEndMinutes = timeToMinutes(blockedEnd);
+      
+      return (selectedStartMinutes < blockedEndMinutes && selectedEndMinutes > blockedStartMinutes);
+    }) || null;
+  };
+
+  // Helper function to convert HH:mm to minutes
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
   useEffect(() => {
     if (selectedDate && !isManualMode) {
       fetchAllBaysAvailability(selectedDate);
@@ -187,6 +254,10 @@ export function BaySelector({
 
   const isBayAvailable = (bayId: string) => {
     if (isManualMode) return true;
+    
+    // Check if bay is blocked first
+    const blockedBay = isBayBlocked(bayId);
+    if (blockedBay) return false;
     
     // If we don't have a start time selected, all bays are available
     if (!selectedStartTime) {
@@ -228,6 +299,7 @@ export function BaySelector({
           <div className="grid grid-cols-4 gap-2">
             {BAYS.map((bay) => {
               const isAvailable = isBayAvailable(bay.id);
+              const blockedBay = isBayBlocked(bay.id);
               const showAvailability = selectedStartTime && availability[bay.id] !== undefined;
               
               return (
@@ -236,16 +308,24 @@ export function BaySelector({
                   type="button"
                   variant={selectedBay === bay.id ? "default" : "outline"}
                   className={cn(
-                    "h-auto py-4 px-2 relative",
+                    "h-auto py-4 px-2 relative transition-all duration-200",
                     selectedBay === bay.id && "bg-primary text-primary-foreground",
-                    (!isAvailable && selectedStartTime) && "opacity-50 cursor-not-allowed"
+                    (!isAvailable && selectedStartTime) && "opacity-50 cursor-not-allowed",
+                    blockedBay && "bg-destructive/10 border-destructive hover:bg-destructive/20"
                   )}
                   onClick={() => onBaySelect(bay.id)}
                   disabled={!isAvailable && selectedStartTime !== null}
+                  title={blockedBay ? `Blocked: ${blockedBay.reason}` : undefined}
                 >
                   <div className="flex flex-col items-center">
                     <span className="font-medium">{bay.name}</span>
-                    {showAvailability && (
+                    {blockedBay && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <Shield className="h-3 w-3 text-destructive" />
+                        <span className="text-xs text-destructive">Blocked</span>
+                      </div>
+                    )}
+                    {showAvailability && !blockedBay && (
                       <span className={cn(
                         "text-xs mt-1",
                         isAvailable ? "text-green-600" : "text-red-600"
@@ -254,8 +334,10 @@ export function BaySelector({
                       </span>
                     )}
                   </div>
-                  {/* Real-time indicator */}
-                  {showAvailability && (
+                  {/* Status indicator */}
+                  {blockedBay ? (
+                    <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-destructive" />
+                  ) : showAvailability && (
                     <div className={cn(
                       "absolute top-1 right-1 w-2 h-2 rounded-full",
                       isAvailable ? "bg-green-500" : "bg-red-500"

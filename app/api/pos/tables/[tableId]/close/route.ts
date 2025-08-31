@@ -9,15 +9,14 @@ import type { CloseTableRequest, CloseTableResponse, TableSession } from '@/type
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { tableId: string } }
+  { params }: { params: Promise<{ tableId: string }> }
 ) {
+  const { tableId } = await params;
   try {
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const { tableId } = params;
     const body: CloseTableRequest = await request.json();
     const { reason, finalAmount, forceClose, staffPin } = body;
 

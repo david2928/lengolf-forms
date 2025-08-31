@@ -5,15 +5,15 @@ import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
+    const { sessionId } = await params;
+    
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const { sessionId } = params;
     const body = await request.json();
     const { orderItems, orderTotal } = body;
 

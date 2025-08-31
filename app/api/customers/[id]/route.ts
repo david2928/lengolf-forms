@@ -27,15 +27,16 @@ interface DeactivateCustomerRequest {
 // GET /api/customers/[id] - Get customer details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const customerId = params.id;
+    const customerId = id;
 
     // Get customer details from customer_analytics view first, then full details from customers table
     const { data: customer, error } = await refacSupabaseAdmin
@@ -189,15 +190,16 @@ export async function GET(
 // PUT /api/customers/[id] - Update customer
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const customerId = params.id;
+    const customerId = id;
     const body: UpdateCustomerRequest = await request.json();
 
     // Build update object
@@ -267,15 +269,16 @@ export async function PUT(
 // DELETE /api/customers/[id] - Deactivate customer (soft delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const customerId = params.id;
+    const customerId = id;
     const body: DeactivateCustomerRequest = await request.json();
 
     if (!body.reason) {

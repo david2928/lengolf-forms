@@ -19,7 +19,7 @@ export interface BookingFormData {
   employeeName: string | null;
   customerContactedVia: string | null;
   bookingType: string | null;
-  isNewCustomer: boolean;
+  isNewCustomer: boolean | null; // Allow null for initial state
   bookingDate: Date | null;
   startTime: string | Date | null;
   endTime: string | Date | null;
@@ -34,6 +34,8 @@ export interface BookingFormData {
   customerStableHashId?: string | null;
   packageId?: string;
   packageName?: string;
+  coach?: string | null; // Added coach field for coaching bookings
+  promotion?: string | null; // Added promotion field for special offers
   // Phase 1 booking enhancement fields
   referralSource?: ReferralSource | null;
   errors?: { [key: string]: string };
@@ -44,3 +46,33 @@ export interface BookingFormData {
     notification: boolean;
   };
 }
+
+// Bay blocking types
+export interface BayBlockingData {
+  bays: string[];           // ['Bay 1', 'Bay 2']
+  date: Date;
+  startTime: string;        // '10:00'
+  endTime: string;          // '14:00'
+  reason: string;           // 'Maintenance - Projector repair'
+  employeeName: string;     // From current form context
+}
+
+export interface BayBlockingInfo {
+  bay: string;
+  reason: string;
+  startTime: string;
+  endTime: string;
+  date: string;
+  blockedBy: string;
+  bookingId: string;
+}
+
+export const BAY_BLOCKING_TEMPLATES = [
+  'Maintenance - Equipment repair',
+  'Private Event',
+  'Deep Cleaning',
+  'Staff Training',
+  'System Update'
+] as const;
+
+export type BayBlockingTemplate = typeof BAY_BLOCKING_TEMPLATES[number];

@@ -1,14 +1,11 @@
+'use client'
+
 import { Metadata } from 'next'
 import dynamic from 'next/dynamic'
 
 const PackageForm = dynamic(() => import('@/components/package-form'), {
   ssr: false,
 })
-
-export const metadata: Metadata = {
-  title: 'Create Package | LENGOLF',
-  description: 'Create new package for customers',
-}
 
 // Using a client component to force re-fetching of data on each visit
 export default function CreatePackagePage() {

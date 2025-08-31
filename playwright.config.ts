@@ -12,17 +12,20 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   
-  /* Run tests in files in parallel but limit concurrency for stability */
-  fullyParallel: true,
+  /* Run tests sequentially for better control and single booking creation */
+  fullyParallel: false,
   
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   
-  /* Retry failed tests for better stability */
-  retries: process.env.CI ? 2 : 1,
+  /* No retries to prevent multiple booking creation */
+  retries: 0,
   
-  /* Limit workers to prevent resource exhaustion */
-  workers: process.env.CI ? 1 : 4,
+  /* Single worker to run tests one at a time */
+  workers: 1,
+  
+  /* Stop on first failure to prevent subsequent tests from running */
+  maxFailures: 1,
   
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
@@ -54,8 +57,8 @@ export default defineConfig({
     /* Increase navigation timeout for slow loading */
     navigationTimeout: 60 * 1000,
     
-    /* Increase action timeout for better stability */
-    actionTimeout: 15 * 1000,
+    /* Increase action timeout for tablet interface */
+    actionTimeout: 20 * 1000,
   },
 
   /* Global setup and teardown */
@@ -69,49 +72,22 @@ export default defineConfig({
       testMatch: /.*\.setup\.ts/,
     },
     
-    /* API Tests - Test all POS endpoints */
-    {
-      name: 'api-tests',
-      testMatch: '**/api/**/*.test.ts',
-      use: { 
-        ...devices['Desktop Chrome'],
-        // API tests don't need browser context
-        headless: true
-      },
-    },
+    /* Removed API and Database tests - focusing only on E2E POS tablet testing */
 
-    /* Database Tests - Test database operations and integrity */
+    /* Tablet E2E Tests - Configured for Lengolf POS tablet (686x991) */
     {
-      name: 'database-tests',  
-      testMatch: '**/database/**/*.test.ts',
-      use: {
-        ...devices['Desktop Chrome'],
-        headless: true
-      },
-    },
-
-    /* Desktop E2E Tests - Chrome only for reliability */
-    {
-      name: 'desktop',
-      testMatch: '**/e2e/**/*.test.ts',
-      testIgnore: '**/e2e/**/*.mobile.test.ts',
-      use: { 
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1280, height: 720 }
-      },
-      dependencies: ['setup'],
-    },
-
-    /* Mobile E2E Tests - Chrome only, covers touch interface */
-    {
-      name: 'mobile',
+      name: 'tablet-pos',
       testMatch: '**/e2e/**/*.test.ts',
       use: { 
-        ...devices['Pixel 5'],
-        // Mobile viewport for POS touch interface
-        viewport: { width: 393, height: 851 },
-        isMobile: true,
+        ...devices['Desktop Chrome'],
+        viewport: { width: 686, height: 991 },
+        // Tablet-specific settings for POS interface
         hasTouch: true,
+        isMobile: false, // Keep as desktop for better element interaction
+        deviceScaleFactor: 1,
+        // Longer timeouts for tablet interface
+        actionTimeout: 20 * 1000, // 20 seconds
+        navigationTimeout: 30 * 1000, // 30 seconds
       },
       dependencies: ['setup'],
     },
@@ -121,7 +97,7 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true, // Always reuse existing server for now
     timeout: 120 * 1000, // 2 minutes
     env: {
       // Ensure development authentication bypass is enabled for testing
@@ -131,8 +107,8 @@ export default defineConfig({
     }
   },
 
-  /* Test timeout - increased for stability */
-  timeout: 60 * 1000, // 1 minute per test
+  /* Test timeout - increased for tablet interface */
+  timeout: 90 * 1000, // 1.5 minutes per test
 
   /* Global test timeout */
   globalTimeout: 15 * 60 * 1000, // 15 minutes

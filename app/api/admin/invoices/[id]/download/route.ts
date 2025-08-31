@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth-config'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getDevSession(authOptions, request)
@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     // Get invoice with PDF path
     const { data: invoice, error: invoiceError } = await refacSupabaseAdmin
@@ -65,7 +65,7 @@ export async function GET(
   } catch (error) {
     console.error('PDF download API error:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      invoice_id: params?.id,
+      invoice_id: 'unknown',
       timestamp: new Date().toISOString()
     })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

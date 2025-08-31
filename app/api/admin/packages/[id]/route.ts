@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify admin access
@@ -23,7 +23,8 @@ export async function GET(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const packageId = params.id;
+    const { id } = await params;
+    const packageId = id;
 
     const { data: packageData, error } = await refacSupabaseAdmin
       .schema('backoffice')
@@ -91,7 +92,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify admin access
@@ -105,7 +106,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const packageId = params.id;
+    const { id } = await params;
+    const packageId = id;
     const data = await request.json();
     const {
       package_type_id,
@@ -161,7 +163,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify admin access
@@ -175,7 +177,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const packageId = params.id;
+    const { id } = await params;
+    const packageId = id;
 
     // First check if package has usage records
     const { data: usageRecords, error: usageError } = await refacSupabaseAdmin

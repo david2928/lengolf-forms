@@ -52,7 +52,7 @@ interface NewOrder {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
@@ -60,7 +60,7 @@ export async function POST(
   }
 
   try {
-    const { sessionId } = params;
+    const { sessionId } = await params;
     const { orderItems, notes } = await request.json();
 
     if (!orderItems || !Array.isArray(orderItems) || orderItems.length === 0) {
@@ -223,22 +223,9 @@ export async function POST(
       );
     }
 
-    // Update table session total amount - handle null case safely
-    const currentSessionTotal = parseFloat(tableSession.total_amount) || 0;
-    const newSessionTotal = currentSessionTotal + totalAmount;
-    const { error: updateError } = await supabase
-      .schema('pos')
-      .from('table_sessions')
-      .update({
-        total_amount: newSessionTotal,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', sessionId);
-
-    if (updateError) {
-      console.error('Failed to update table session:', updateError);
-      // Don't fail the request, but log the error
-    }
+    // The triggers will automatically update the session totals and apply discounts
+    // No manual session total update needed - let triggers handle discount recalculation
+    console.log(`🔍 ORDER CONFIRM DEBUG: Order created with total ${totalAmount}, triggers will recalculate session total including discounts`);
 
     return NextResponse.json({
       success: true,

@@ -5,15 +5,16 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(
   request: Request,
-  { params }: { params: { customerId: string } }
+  { params }: { params: Promise<{ customerId: string }> }
 ) {
+  const { customerId } = await params;
   try {
     // Get query parameters to determine if we should include inactive packages
     const { searchParams } = new URL(request.url);
     const includeInactive = searchParams.get('include_inactive') === 'true';
     
     // Check if customerId is a valid UUID (new system) or customer name (legacy)
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.customerId);
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId);
     
     let data, error;
     
@@ -22,7 +23,7 @@ export async function GET(
       ({ data, error } = await refacSupabaseAdmin
         .schema('backoffice')
         .rpc('get_customer_packages_by_id', {
-          p_customer_id: params.customerId,
+          p_customer_id: customerId,
           p_active: includeInactive ? null : true
         }));
     } else {
@@ -30,7 +31,7 @@ export async function GET(
       ({ data, error } = await refacSupabaseAdmin
         .schema('backoffice')
         .rpc('get_customer_packages', {
-          p_customer_name: decodeURIComponent(params.customerId),
+          p_customer_name: decodeURIComponent(customerId),
           p_active: includeInactive ? null : true
         }));
     }

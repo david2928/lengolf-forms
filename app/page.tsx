@@ -20,7 +20,7 @@ interface MenuItemProps {
 }
 
 const bookingItems = appMenuItems.filter(item => 
-  item.title === "Create Booking" || item.title === "Manage Bookings" || item.title === "Bookings Calendar"
+  item.title === "Create Booking" || item.title === "Create Booking (New)" || item.title === "Manage Bookings" || item.title === "Bookings Calendar"
 );
 
 const packageItems = appMenuItems.filter(item => 

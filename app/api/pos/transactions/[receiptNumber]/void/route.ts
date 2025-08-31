@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth-config';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { receiptNumber: string } }
+  { params }: { params: Promise<{ receiptNumber: string }> }
 ) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
@@ -12,7 +12,7 @@ export async function POST(
   }
 
   try {
-    const { receiptNumber } = params;
+    const { receiptNumber } = await params;
     const body = await request.json();
     const { reason, staffPin } = body;
 

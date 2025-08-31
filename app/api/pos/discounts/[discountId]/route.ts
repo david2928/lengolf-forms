@@ -5,15 +5,15 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { discountId: string } }
+  { params }: { params: Promise<{ discountId: string }> }
 ) {
   try {
+    const { discountId } = await params;
+    
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const { discountId } = params;
 
     if (!discountId) {
       return NextResponse.json({ error: "Discount ID is required" }, { status: 400 });

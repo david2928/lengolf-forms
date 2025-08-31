@@ -7,15 +7,14 @@ import type { OpenTableRequest, OpenTableResponse, TableSession } from '@/types/
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { tableId: string } }
+  { params }: { params: Promise<{ tableId: string }> }
 ) {
+  const { tableId } = await params;
   try {
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const { tableId } = params;
     const body: OpenTableRequest = await request.json();
     const { bookingId, customerId, staffPin, staffId, paxCount, notes } = body;
 

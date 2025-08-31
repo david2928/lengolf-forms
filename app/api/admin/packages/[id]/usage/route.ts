@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify admin access
@@ -23,7 +23,8 @@ export async function GET(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const packageId = params.id;
+    const { id } = await params;
+    const packageId = id;
     
     const { data: usageRecords, error } = await refacSupabaseAdmin
       .schema('backoffice')
@@ -49,7 +50,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify admin access
@@ -64,7 +65,8 @@ export async function POST(
     }
 
     const { usedHours, usedDate, employeeName, bookingId, notes } = await request.json();
-    const packageId = params.id;
+    const { id } = await params;
+    const packageId = id;
 
     // Validate inputs
     if (!usedHours || !usedDate || !employeeName) {

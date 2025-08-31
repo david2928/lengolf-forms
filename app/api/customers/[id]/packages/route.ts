@@ -10,15 +10,16 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const customerId = params.id;
+    const customerId = id;
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status'); // 'active', 'expired', or null for all
 

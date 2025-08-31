@@ -12,9 +12,9 @@ interface CancelBookingPayload {
 
 export async function POST(
   request: Request,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
-  const { bookingId } = params;
+  const { bookingId } = await params;
   let payload: CancelBookingPayload;
 
   console.log(`POST /api/bookings/${bookingId}/cancel called`);

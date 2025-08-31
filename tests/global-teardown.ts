@@ -1,19 +1,14 @@
-import { FullConfig } from '@playwright/test';
-
 /**
- * Global teardown for Playwright tests
- * 
- * This runs once after all tests complete and:
- * - Cleans up test data
- * - Logs test completion
+ * Playwright Global Teardown
+ * Runs once after all tests complete to clean up the test environment
  */
-async function globalTeardown(config: FullConfig) {
-  console.log('🧹 Cleaning up test environment...');
+async function globalTeardown() {
+  console.log('🧪 Playwright Global Teardown: Cleaning up test environment...');
   
-  // Clean up any environment variables set during testing
-  delete process.env.TEST_API_TOKEN;
+  // Clean up any global test data if needed
+  // For now, individual tests handle their own cleanup
   
-  console.log('✅ Test environment cleanup complete');
+  console.log('✅ Global teardown completed successfully');
 }
 
 export default globalTeardown;

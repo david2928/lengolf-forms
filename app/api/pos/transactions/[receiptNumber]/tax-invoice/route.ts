@@ -12,15 +12,16 @@ interface TaxInvoiceData {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { receiptNumber: string } }
+  { params }: { params: Promise<{ receiptNumber: string }> }
 ) {
+  const { receiptNumber } = await params;
+  
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const { receiptNumber } = params;
     const taxInvoiceData: TaxInvoiceData = await request.json();
 
     // Validate required fields

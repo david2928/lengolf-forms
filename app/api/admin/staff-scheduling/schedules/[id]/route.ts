@@ -14,9 +14,11 @@ import {
 // GET - Fetch single schedule
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     // Authenticate admin user
     const authResult = await authenticateStaffScheduleRequest(request, true)
     if (!authResult.success) {
@@ -36,7 +38,7 @@ export async function GET(
           staff_name
         )
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error) {
@@ -64,9 +66,11 @@ export async function GET(
 // PUT - Update schedule
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     // Authenticate admin user
     const authResult = await authenticateStaffScheduleRequest(request, true)
     if (!authResult.success) {
@@ -110,7 +114,7 @@ export async function PUT(
       .schema('backoffice')
       .from('staff_schedules')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (fetchError) {
@@ -230,7 +234,7 @@ export async function PUT(
             p_schedule_date: schedule_date,
             p_start_time: start_time,
             p_end_time: end_time,
-            p_exclude_schedule_id: params.id
+            p_exclude_schedule_id: id
           })
 
         if (conflictError) {
@@ -263,7 +267,7 @@ export async function PUT(
             recurring_group_id: null,
             updated_at: new Date().toISOString()
           })
-          .eq('id', params.id)
+          .eq('id', id)
           .select()
           .single()
 
@@ -280,7 +284,7 @@ export async function PUT(
           request,
           authResult.user!.email,
           'UPDATE_SINGLE',
-          params.id,
+          id,
           {
             updated_data: {
               staff_id,
@@ -314,7 +318,7 @@ export async function PUT(
           p_schedule_date: schedule_date,
           p_start_time: start_time,
           p_end_time: end_time,
-          p_exclude_schedule_id: params.id
+          p_exclude_schedule_id: id
         })
 
       if (conflictError) {
@@ -345,7 +349,7 @@ export async function PUT(
           notes: notes || null,
           updated_at: new Date().toISOString()
         })
-        .eq('id', params.id)
+        .eq('id', id)
         .select()
         .single()
 
@@ -362,7 +366,7 @@ export async function PUT(
         request,
         authResult.user!.email,
         'UPDATE',
-        params.id,
+        id,
         {
           updated_data: {
             staff_id,
@@ -395,9 +399,11 @@ export async function PUT(
 // DELETE - Delete schedule
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     // Authenticate admin user
     const authResult = await authenticateStaffScheduleRequest(request, true)
     if (!authResult.success) {
@@ -419,8 +425,8 @@ export async function DELETE(
 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    if (!uuidRegex.test(params.id)) {
-      console.error('Invalid UUID format:', params.id)
+    if (!uuidRegex.test(id)) {
+      console.error('Invalid UUID format:', id)
       return NextResponse.json({
         success: false,
         error: 'Invalid schedule ID format'
@@ -432,13 +438,13 @@ export async function DELETE(
       .schema('backoffice')
       .from('staff_schedules')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (fetchError) {
       console.error('Error fetching schedule for deletion:', {
         error: fetchError,
-        scheduleId: params.id,
+        scheduleId: id,
         errorCode: fetchError.code,
         errorMessage: fetchError.message
       })
@@ -522,12 +528,12 @@ export async function DELETE(
         .schema('backoffice')
         .from('staff_schedules')
         .delete()
-        .eq('id', params.id)
+        .eq('id', id)
 
       if (deleteError) {
         console.error('Error deleting schedule:', {
           error: deleteError,
-          scheduleId: params.id,
+          scheduleId: id,
           errorCode: deleteError.code,
           errorMessage: deleteError.message
         })
@@ -544,7 +550,7 @@ export async function DELETE(
           request,
           authResult.user!.email,
           scheduleToDelete.is_recurring ? 'DELETE_SINGLE_FROM_SERIES' : 'DELETE',
-          params.id,
+          id,
           {
             deleted_schedule: scheduleToDelete
           }

@@ -4,10 +4,10 @@ import { deleteTimeClockPhoto } from '@/lib/photo-storage'
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { photoId: string } }
+  { params }: { params: Promise<{ photoId: string }> }
 ) {
   try {
-    const { photoId } = params
+    const { photoId } = await params;
 
     if (!photoId) {
       return NextResponse.json(

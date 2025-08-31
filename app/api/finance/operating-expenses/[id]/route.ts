@@ -10,7 +10,7 @@ const supabase = createClient(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getDevSession(authOptions, request);
@@ -28,7 +28,7 @@ export async function PUT(
       is_fixed, 
       notes 
     } = body;
-    const id = params.id;
+    const { id } = await params;
 
     if (!expense_category || !amount || !effective_date) {
       return NextResponse.json({ 
@@ -67,7 +67,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getDevSession(authOptions, request);
@@ -75,7 +75,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const id = params.id;
+    const { id } = await params;
 
     const { error } = await supabase
       .schema('finance')

@@ -10,7 +10,7 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 // GET /api/marketing/audiences/[id] - Get specific audience with members
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
@@ -18,7 +18,8 @@ export async function GET(
   }
 
   try {
-    const audienceId = params.id;
+    const { id } = await params;
+    const audienceId = id;
 
     // Get audience details
     const { data: audience, error: audienceError } = await refacSupabaseAdmin
@@ -81,7 +82,7 @@ export async function GET(
 // DELETE /api/marketing/audiences/[id] - Delete audience
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
@@ -89,7 +90,8 @@ export async function DELETE(
   }
 
   try {
-    const audienceId = parseInt(params.id);
+    const { id } = await params;
+    const audienceId = parseInt(id);
 
     // Delete audience members first (foreign key constraint)
     const { error: membersError } = await refacSupabaseAdmin

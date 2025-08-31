@@ -4,14 +4,15 @@ import { authOptions } from '@/lib/auth-config';
 import { refacSupabase } from '@/lib/refac-supabase';
 
 // PATCH /api/admin/products/[id]/modifiers/toggle - Enable/disable modifiers for product
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const productId = params.id;
+    const { id } = await params;
+    const productId = id;
     const body = await request.json();
     const { has_modifiers, modifier_type } = body;
 

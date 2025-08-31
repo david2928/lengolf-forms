@@ -133,9 +133,9 @@ const getBookingIdFromDescription = (description: string | null | undefined): st
 
 export async function GET(
   request: Request,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
-  const { bookingId } = params;
+  const { bookingId } = await params;
 
   if (!bookingId) {
     return NextResponse.json({ error: 'Booking ID is required in path' }, { status: 400 });
@@ -208,9 +208,9 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
-  const { bookingId } = params;
+  const { bookingId } = await params;
   let payload: UpdateBookingPayload;
 
   try {

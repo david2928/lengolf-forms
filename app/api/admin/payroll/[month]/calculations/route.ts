@@ -9,19 +9,15 @@ import {
   PAYROLL_ERROR_CODES 
 } from '@/lib/payroll-error-handling';
 
-interface RouteParams {
-  month: string;
-}
-
 // GET /api/admin/payroll/[month]/calculations - Returns all payroll calculations for a month
-export async function GET(request: NextRequest, { params }: { params: RouteParams }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ month: string }> }) {
   try {
+    const { month } = await params;
+    
     const session = await getDevSession(authOptions, request);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const { month } = params;
     
     // Validate month format using enhanced validation
     const monthValidation = validateMonthFormat(month);
@@ -115,7 +111,7 @@ export async function GET(request: NextRequest, { params }: { params: RouteParam
 }
 
 // POST /api/admin/payroll/[month]/calculations - Refresh calculations (same as GET for now)
-export async function POST(request: NextRequest, { params }: { params: RouteParams }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ month: string }> }) {
   // For now, refresh is the same as GET - just recalculate
   return GET(request, { params });
 } 

@@ -1,7 +1,8 @@
 import React from 'react';
 import { AdminDiscountForm } from '@/components/admin/discounts/AdminDiscountForm';
 
-export default function EditDiscountPage({ params }: { params: { id: string } }) {
+export default async function EditDiscountPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
@@ -10,7 +11,7 @@ export default function EditDiscountPage({ params }: { params: { id: string } })
           ← Back to Discounts
         </a>
       </div>
-      <AdminDiscountForm discountId={params.id} />
+      <AdminDiscountForm discountId={id} />
     </div>
   );
 }

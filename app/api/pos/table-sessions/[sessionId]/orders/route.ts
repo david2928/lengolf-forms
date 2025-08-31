@@ -60,7 +60,7 @@ interface LegacyOrderData {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
     const session = await getDevSession(authOptions, request);
@@ -68,7 +68,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sessionId } = params;
+    const { sessionId } = await params;
 
     // Get table session with receipt discount data
     const { data: tableSession, error: sessionError } = await supabase

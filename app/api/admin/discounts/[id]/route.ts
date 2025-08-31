@@ -4,7 +4,9 @@ import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
 import { UpdateDiscountRequest } from '@/types/discount';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -21,7 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           product_id
         )
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) {
@@ -39,7 +41,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -110,7 +114,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       .schema('pos')
       .from('discounts')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -129,7 +133,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         .schema('pos')
         .from('discount_product_eligibility')
         .delete()
-        .eq('discount_id', params.id);
+        .eq('discount_id', id);
 
       if (deleteError) {
         console.error('Error removing existing eligibility:', deleteError);
@@ -139,7 +143,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       // Add new eligibility
       if (eligible_product_ids && eligible_product_ids.length > 0) {
         const eligibilityRecords = eligible_product_ids.map((productId: string) => ({
-          discount_id: params.id,
+          discount_id: id,
           product_id: productId
         }));
 
@@ -166,7 +170,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
           product_id
         )
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (fetchError) {
@@ -181,7 +185,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -193,28 +199,28 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       .schema('pos')
       .from('orders')
       .select('id')
-      .eq('applied_discount_id', params.id)
+      .eq('applied_discount_id', id)
       .limit(1);
 
     const { data: usedInOrderItems } = await supabase
       .schema('pos')
       .from('order_items')
       .select('id')
-      .eq('applied_discount_id', params.id)
+      .eq('applied_discount_id', id)
       .limit(1);
 
     const { data: usedInTransactions } = await supabase
       .schema('pos')
       .from('transactions')
       .select('id')
-      .eq('applied_discount_id', params.id)
+      .eq('applied_discount_id', id)
       .limit(1);
 
     const { data: usedInTransactionItems } = await supabase
       .schema('pos')
       .from('transaction_items')
       .select('id')
-      .eq('applied_discount_id', params.id)
+      .eq('applied_discount_id', id)
       .limit(1);
 
     if (usedInOrders?.length || usedInOrderItems?.length || usedInTransactions?.length || usedInTransactionItems?.length) {
@@ -227,7 +233,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       .schema('pos')
       .from('discounts')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       console.error('Error deleting discount:', error);

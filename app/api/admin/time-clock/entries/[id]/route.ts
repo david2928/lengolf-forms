@@ -9,9 +9,6 @@ import { DateTime } from 'luxon'
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
 
-interface RouteParams {
-  id: string
-}
 
 interface DeleteTimeEntryResponse {
   success: boolean
@@ -49,7 +46,7 @@ interface UpdateTimeEntryResponse {
  */
 export async function PUT(
   request: NextRequest, 
-  { params }: { params: RouteParams }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify admin access
@@ -63,7 +60,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    const { id } = params
+    const { id } = await params
     const entryId = parseInt(id)
     
     if (isNaN(entryId)) {
@@ -218,7 +215,7 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest, 
-  { params }: { params: RouteParams }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify admin access
@@ -232,7 +229,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    const { id } = params
+    const { id } = await params
     const entryId = parseInt(id)
     
     if (isNaN(entryId)) {
