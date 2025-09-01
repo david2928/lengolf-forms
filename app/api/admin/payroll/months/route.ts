@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth-config';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/admin/payroll/months - Returns last 3 months for payroll processing
+// GET /api/admin/payroll/months - Returns current month and last 2 months for payroll processing
 export async function GET(request: NextRequest) {
   try {
     const session = await getDevSession(authOptions, request);
@@ -16,13 +16,19 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const bangkokTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
     
-    // Generate last 3 months
+    // Generate current month and last 2 months (3 months total)
     const months = [];
-    for (let i = 1; i <= 3; i++) {
-      const targetDate = new Date(bangkokTime);
-      targetDate.setMonth(targetDate.getMonth() - i);
+    const currentYear = bangkokTime.getFullYear();
+    const currentMonth = bangkokTime.getMonth(); // 0-based (0 = January)
+    
+    for (let i = 0; i <= 2; i++) {
+      const targetMonth = currentMonth - i;
+      const targetYear = currentYear + Math.floor(targetMonth / 12);
+      const adjustedMonth = ((targetMonth % 12) + 12) % 12; // Handle negative months
       
-      const monthYear = targetDate.toISOString().slice(0, 7); // Format: "2024-06"
+      const targetDate = new Date(targetYear, adjustedMonth, 1);
+      
+      const monthYear = `${targetYear}-${String(adjustedMonth + 1).padStart(2, '0')}`; // Format: "2025-08"
       const monthName = targetDate.toLocaleDateString('en-US', { 
         month: 'long',
         year: 'numeric',

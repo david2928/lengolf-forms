@@ -22,8 +22,7 @@ export function EditProductModal({ product, isOpen, onClose, onUpdate }: EditPro
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState<UpdateProductMetadataRequest>({
     unit_cost: product.unit_cost || undefined,
-    image_url: product.image_url || undefined,
-    purchase_link: product.purchase_link || undefined,
+    notes: product.notes || undefined,
     reorder_threshold: product.reorder_threshold || undefined,
   })
 
@@ -105,24 +104,13 @@ export function EditProductModal({ product, isOpen, onClose, onUpdate }: EditPro
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="purchase_link">Purchase Link</Label>
-            <Input
-              id="purchase_link"
-              type="url"
-              placeholder="https://example.com/product"
-              value={formData.purchase_link || ''}
-              onChange={(e) => handleInputChange('purchase_link', e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="image_url">Image URL</Label>
-            <Input
-              id="image_url"
-              type="url"
-              placeholder="https://example.com/image.jpg"
-              value={formData.image_url || ''}
-              onChange={(e) => handleInputChange('image_url', e.target.value)}
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              placeholder="Add any notes about this product..."
+              value={formData.notes || ''}
+              onChange={(e) => handleInputChange('notes', e.target.value)}
+              rows={3}
             />
           </div>
 

@@ -23,7 +23,6 @@ import {
 } from 'lucide-react'
 import { AdminInventoryProductWithStatus } from '@/types/inventory'
 import { EditProductModal } from './edit-product-modal'
-import { PurchaseLinkModal } from './purchase-link-modal'
 import { TrendChartModal } from './trend-chart-modal'
 
 interface ProductCardProps {
@@ -35,7 +34,6 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse }: ProductCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false)
   const [isTrendModalOpen, setIsTrendModalOpen] = useState(false)
 
   const isCashProduct = product.name.toLowerCase().includes('cash')
@@ -128,6 +126,20 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
     return Math.min((product.current_stock / product.reorder_threshold) * 100, 100)
   }
 
+  const getCashProgressBarColor = () => {
+    const percentage = getStockPercentage()
+    if (isNaN(percentage) || percentage === 0) return 'bg-gray-300'
+    
+    // For cash: green until 50% of threshold, then yellow to red (needs collection)
+    if (percentage <= 50) {
+      return 'bg-green-500' // Low-medium cash = green (good)
+    } else if (percentage <= 80) {
+      return 'bg-yellow-500' // Higher cash = yellow (warning)
+    } else {
+      return 'bg-red-500' // Very high cash = red (needs collection)
+    }
+  }
+
   return (
     <>
       <Card 
@@ -193,8 +205,10 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
                 <div className="w-full bg-gray-200 rounded-full h-1.5">
                   <div 
                     className={`h-1.5 rounded-full transition-all ${
-                      product.reorder_status === 'REORDER_NEEDED' ? 'bg-red-500' :
-                      product.reorder_status === 'LOW_STOCK' ? 'bg-amber-500' : 'bg-green-500'
+                      isCashProduct 
+                        ? getCashProgressBarColor()
+                        : product.reorder_status === 'REORDER_NEEDED' ? 'bg-red-500' :
+                          product.reorder_status === 'LOW_STOCK' ? 'bg-amber-500' : 'bg-green-500'
                     }`}
                     style={{ width: `${Math.min(getStockPercentage(), 100)}%` }}
                   />
@@ -275,18 +289,6 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
               </Button>
             )}
             
-            {product.purchase_link && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2"
-                onClick={() => setIsPurchaseModalOpen(true)}
-                title="Purchase information"
-                aria-label={`View purchase information for ${product.name}`}
-              >
-                <Link className="h-2.5 w-2.5" />
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -298,11 +300,6 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
         onUpdate={onUpdate}
       />
 
-      <PurchaseLinkModal
-        product={product}
-        isOpen={isPurchaseModalOpen}
-        onClose={() => setIsPurchaseModalOpen(false)}
-      />
 
       <TrendChartModal
         product={product}

@@ -193,8 +193,7 @@ export interface AdminInventoryProductWithStatus {
   current_stock_text?: string; // For stock slider products showing "Out of Stock", "Need to Order", etc.
   reorder_threshold: number;
   unit_cost?: number;
-  image_url?: string;
-  purchase_link?: string;
+  notes?: string;
   supplier?: string;
   unit?: string;
   input_type: 'number' | 'checkbox' | 'textarea' | 'select' | 'stock_slider' | 'glove_sizes';
@@ -208,8 +207,7 @@ export interface AdminInventoryProductWithStatus {
 // Admin product update request type
 export interface UpdateProductMetadataRequest {
   unit_cost?: number;
-  image_url?: string;
-  purchase_link?: string;
+  notes?: string;
   reorder_threshold?: number;
 }
 

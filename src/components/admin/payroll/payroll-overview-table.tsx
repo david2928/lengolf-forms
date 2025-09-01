@@ -98,7 +98,7 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
   const exportToCSV = () => {
     if (!payrollData || !payrollData.staff_payroll) return
     
-    const headers = ['Staff Name', 'Base Salary', 'Hourly Rate', 'Hourly Hours', 'Allowance', 'OT Pay', 'Holiday Pay', 'Service Charge', 'Total Payout']
+    const headers = ['Staff Name', 'Base Salary', 'Hourly Rate', 'Hourly Hours', 'Allowance', 'OT Pay', 'Holiday Pay', 'OT + Holiday Total', 'Service Charge', 'Total Payout']
     const rows = payrollData.staff_payroll.map(staff => [
       staff.staff_name,
       staff.base_salary.toFixed(2),
@@ -107,6 +107,7 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
       staff.total_allowance.toFixed(2),
       staff.ot_pay.toFixed(2),
       staff.holiday_pay.toFixed(2),
+      (staff.ot_pay + staff.holiday_pay).toFixed(2),
       staff.service_charge.toFixed(2),
       staff.total_payout.toFixed(2)
     ])
@@ -234,7 +235,7 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
               <div className="text-sm text-muted-foreground">OT Hours</div>
             </Card>
             <Card className="p-4">
-              <div className="text-2xl font-bold">฿{payrollData.summary.total_payroll.toLocaleString()}</div>
+              <div className="text-2xl font-bold">฿{payrollData.summary.total_payroll.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <div className="text-sm text-muted-foreground">Total Payroll</div>
             </Card>
           </div>
@@ -249,7 +250,7 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
                 <TableRow className="border-b bg-gray-50/50">
                   <TableHead className="font-semibold text-gray-900 px-6 py-4 w-[30%]">Staff & Type</TableHead>
                   <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] text-center hidden md:table-cell">Base/Rate</TableHead>
-                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] text-center hidden lg:table-cell">Overtime</TableHead>
+                  <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] text-center hidden lg:table-cell">Overtime + Holidays</TableHead>
                   <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] text-center hidden lg:table-cell">Allowance</TableHead>
                   <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] text-center hidden xl:table-cell">Service</TableHead>
                   <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[10%] text-center">Total</TableHead>
@@ -296,25 +297,25 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
                             <div className="flex justify-between text-sm">
                               <span className="text-gray-500">Base:</span>
                               <span className="font-medium">
-                                {staff.base_salary > 0 ? `฿${staff.base_salary.toLocaleString()}` : 
-                                 staff.compensation_type === 'hourly' ? `฿${staff.hourly_rate.toLocaleString()}/hr` : '-'}
+                                {staff.base_salary > 0 ? `฿${staff.base_salary.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 
+                                 staff.compensation_type === 'hourly' ? `฿${staff.hourly_rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/hr` : '-'}
                               </span>
                             </div>
                             <div className="flex justify-between text-sm lg:hidden">
-                              <span className="text-gray-500">OT:</span>
+                              <span className="text-gray-500">OT+Holiday:</span>
                               <span className="font-medium">
-                                {staff.ot_pay > 0 ? `฿${staff.ot_pay.toLocaleString()}` : '-'}
+                                {(staff.ot_pay + staff.holiday_pay) > 0 ? `฿${(staff.ot_pay + staff.holiday_pay).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                               </span>
                             </div>
                             <div className="flex justify-between text-sm xl:hidden">
                               <span className="text-gray-500">Service:</span>
                               <span className="font-medium">
-                                {staff.service_charge > 0 ? `฿${staff.service_charge.toLocaleString()}` : '-'}
+                                {staff.service_charge > 0 ? `฿${staff.service_charge.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                               </span>
                             </div>
                             <div className="flex justify-between text-sm font-semibold">
                               <span className="text-gray-700">Total:</span>
-                              <span className="text-green-600">฿{staff.total_payout.toLocaleString()}</span>
+                              <span className="text-green-600">฿{staff.total_payout.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                           </div>
                         </div>
@@ -323,8 +324,8 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
                     <TableCell className="px-4 py-4 text-center hidden md:table-cell">
                       <div className="flex flex-col items-center">
                         <span className="font-medium text-base">
-                          {staff.base_salary > 0 ? `฿${staff.base_salary.toLocaleString()}` : 
-                           staff.compensation_type === 'hourly' ? `฿${staff.hourly_rate.toLocaleString()}/hr` : '-'}
+                          {staff.base_salary > 0 ? `฿${staff.base_salary.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 
+                           staff.compensation_type === 'hourly' ? `฿${staff.hourly_rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/hr` : '-'}
                         </span>
                         {staff.compensation_type === 'hourly' && (
                           <span className="text-xs text-gray-500">{staff.regular_hours.toFixed(1)}h worked</span>
@@ -334,24 +335,29 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
                     <TableCell className="px-4 py-4 text-center hidden lg:table-cell">
                       <div className="flex flex-col items-center">
                         <span className="font-medium text-base">
-                          {staff.ot_pay > 0 ? `฿${staff.ot_pay.toLocaleString()}` : '-'}
+                          {(staff.ot_pay + staff.holiday_pay) > 0 ? `฿${(staff.ot_pay + staff.holiday_pay).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                         </span>
-                        {staff.ot_hours > 0 && (
-                          <span className="text-xs text-gray-500">{staff.ot_hours.toFixed(1)}h OT</span>
-                        )}
+                        <div className="text-xs text-gray-500 space-y-1">
+                          {staff.ot_hours > 0 && (
+                            <div>OT: ฿{staff.ot_pay.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({staff.ot_hours.toFixed(1)}h)</div>
+                          )}
+                          {staff.holiday_hours > 0 && (
+                            <div>Holiday: ฿{staff.holiday_pay.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({staff.holiday_hours.toFixed(1)}h)</div>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="px-4 py-4 text-center hidden lg:table-cell">
                       <div className="flex flex-col items-center">
                         <span className="font-medium text-base">
-                          {staff.total_allowance > 0 ? `฿${staff.total_allowance.toLocaleString()}` : '-'}
+                          {staff.total_allowance > 0 ? `฿${staff.total_allowance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                         </span>
                         {staff.total_allowance > 0 && (
                           <span className="text-xs text-gray-500">Daily allowance</span>
                         )}
                         {staff.holiday_pay > 0 && (
                           <div className="mt-1">
-                            <span className="text-xs text-orange-600">+฿{staff.holiday_pay.toLocaleString()} holiday</span>
+                            <span className="text-xs text-orange-600">+฿{staff.holiday_pay.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} holiday</span>
                           </div>
                         )}
                       </div>
@@ -359,7 +365,7 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
                     <TableCell className="px-4 py-4 text-center hidden xl:table-cell">
                       <div className="flex flex-col items-center">
                         <span className="font-medium text-base">
-                          {staff.service_charge > 0 ? `฿${staff.service_charge.toLocaleString()}` : '-'}
+                          {staff.service_charge > 0 ? `฿${staff.service_charge.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                         </span>
                         <Badge variant={staff.service_charge > 0 ? 'secondary' : 'outline'} className="text-xs mt-1">
                           {staff.service_charge > 0 ? 'Eligible' : 'Not Eligible'}
@@ -369,7 +375,7 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
                     <TableCell className="px-4 py-4 text-center">
                       <div className="flex flex-col items-center">
                         <span className="font-bold text-lg text-green-600">
-                          ฿{staff.total_payout.toLocaleString()}
+                          ฿{staff.total_payout.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                         <span className="text-xs text-gray-500">Total payout</span>
                       </div>
@@ -389,7 +395,7 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4 text-sm">
                 <div>
                   <div className="text-muted-foreground">Total Amount</div>
-                  <div className="font-medium">฿{payrollData.service_charge_summary.total_amount.toLocaleString()}</div>
+                  <div className="font-medium">฿{payrollData.service_charge_summary.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Eligible Staff</div>
@@ -397,11 +403,11 @@ export function PayrollOverviewTable({ selectedMonth, refreshTrigger }: PayrollO
                 </div>
                 <div>
                   <div className="text-muted-foreground">Per Staff</div>
-                  <div className="font-medium">฿{payrollData.service_charge_summary.per_staff_amount.toLocaleString()}</div>
+                  <div className="font-medium">฿{payrollData.service_charge_summary.per_staff_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Total Distributed</div>
-                  <div className="font-medium">฿{payrollData.service_charge_summary.total_distributed.toLocaleString()}</div>
+                  <div className="font-medium">฿{payrollData.service_charge_summary.total_distributed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </div>
               </div>
             </Card>

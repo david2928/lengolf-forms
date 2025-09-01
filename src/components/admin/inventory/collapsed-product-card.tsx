@@ -3,10 +3,9 @@
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, Edit, BarChart3, ShoppingCart } from 'lucide-react'
+import { CheckCircle, Edit, BarChart3 } from 'lucide-react'
 import { AdminInventoryProductWithStatus } from '@/types/inventory'
 import { EditProductModal } from './edit-product-modal'
-import { PurchaseLinkModal } from './purchase-link-modal'
 import { TrendChartModal } from './trend-chart-modal'
 
 interface CollapsedProductCardProps {
@@ -18,7 +17,6 @@ interface CollapsedProductCardProps {
 
 export function CollapsedProductCard({ product, onUpdate, isExpanded, onExpand }: CollapsedProductCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false)
   const [isTrendModalOpen, setIsTrendModalOpen] = useState(false)
 
   const handleCardClick = () => {
@@ -87,20 +85,6 @@ export function CollapsedProductCard({ product, onUpdate, isExpanded, onExpand }
                 </Button>
               )}
               
-              {product.purchase_link && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIsPurchaseModalOpen(true)
-                  }}
-                  className="h-6 w-6 p-0"
-                  title="Purchase info"
-                >
-                  <ShoppingCart className="h-2.5 w-2.5" />
-                </Button>
-              )}
             </div>
           </div>
         </CardContent>
@@ -113,13 +97,6 @@ export function CollapsedProductCard({ product, onUpdate, isExpanded, onExpand }
         onUpdate={onUpdate}
       />
 
-      {product.purchase_link && (
-        <PurchaseLinkModal
-          product={product}
-          isOpen={isPurchaseModalOpen}
-          onClose={() => setIsPurchaseModalOpen(false)}
-        />
-      )}
 
       {product.input_type === 'number' && (
         <TrendChartModal
