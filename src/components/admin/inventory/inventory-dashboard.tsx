@@ -14,7 +14,9 @@ import {
   AlertCircle,
   RefreshCw,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react'
 import { useAdminInventoryOverview } from '@/hooks/use-admin-inventory'
 import { ProductCard } from './product-card'
@@ -35,6 +37,9 @@ export function InventoryDashboard() {
   
   // Expanded cards state for consolidated view
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
+  
+  // Collapsed categories state for sufficient stock section
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
   
   // Modal states
   const [isCostModalOpen, setIsCostModalOpen] = useState(false)
@@ -77,6 +82,18 @@ export function InventoryDashboard() {
         newSet.delete(productId)
       } else {
         newSet.add(productId)
+      }
+      return newSet
+    })
+  }
+
+  const handleCategoryToggle = (categoryName: string) => {
+    setCollapsedCategories(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(categoryName)) {
+        newSet.delete(categoryName)
+      } else {
+        newSet.add(categoryName)
       }
       return newSet
     })
@@ -467,40 +484,83 @@ export function InventoryDashboard() {
               ))}
             </div>
           ) : filteredData?.products?.sufficient_stock && filteredData.products.sufficient_stock.length > 0 ? (
-            isConsolidatedView ? (
-              <div className="space-y-2">
-                {filteredData.products.sufficient_stock.map((product: any) => (
-                  expandedCards.has(product.id) ? (
-                    <div key={product.id} className="border border-green-200 rounded-lg p-1 bg-green-50/50">
-                      <ProductCard 
-                        product={product} 
-                        onUpdate={handleRefresh}
-                        showCollapseButton={true}
-                        onCollapse={() => handleCardExpand(product.id)}
-                      />
+            (() => {
+              // Group products by category
+              const productsByCategory = filteredData.products.sufficient_stock.reduce((acc: any, product: any) => {
+                const category = product.category_name || 'Uncategorized'
+                if (!acc[category]) acc[category] = []
+                acc[category].push(product)
+                return acc
+              }, {})
+
+              const categoryNames = Object.keys(productsByCategory).sort()
+
+              return (
+                <div className="space-y-4">
+                  {categoryNames.map((categoryName: string) => (
+                    <div key={categoryName} className="border border-green-200 rounded-lg bg-green-50/20">
+                      {/* Category Header */}
+                      <div 
+                        className="flex items-center justify-between p-3 border-b border-green-200/50 cursor-pointer hover:bg-green-50/50 transition-colors"
+                        onClick={() => handleCategoryToggle(categoryName)}
+                      >
+                        <div className="flex items-center gap-2">
+                          {collapsedCategories.has(categoryName) ? (
+                            <ChevronRight className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-green-600" />
+                          )}
+                          <h3 className="font-medium text-green-800">{categoryName}</h3>
+                          <Badge variant="outline" className="text-green-700 border-green-300">
+                            {productsByCategory[categoryName].length} items
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Category Content */}
+                      {!collapsedCategories.has(categoryName) && (
+                        <div className="p-3">
+                          {isConsolidatedView ? (
+                            <div className="space-y-2">
+                              {productsByCategory[categoryName].map((product: any) => (
+                                expandedCards.has(product.id) ? (
+                                  <div key={product.id} className="border border-green-300 rounded-lg p-1 bg-green-50/50">
+                                    <ProductCard 
+                                      product={product} 
+                                      onUpdate={handleRefresh}
+                                      showCollapseButton={true}
+                                      onCollapse={() => handleCardExpand(product.id)}
+                                    />
+                                  </div>
+                                ) : (
+                                  <CollapsedProductCard 
+                                    key={product.id} 
+                                    product={product} 
+                                    onUpdate={handleRefresh}
+                                    isExpanded={expandedCards.has(product.id)}
+                                    onExpand={() => handleCardExpand(product.id)}
+                                  />
+                                )
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                              {productsByCategory[categoryName].map((product: any) => (
+                                <ProductCard 
+                                  key={product.id} 
+                                  product={product} 
+                                  onUpdate={handleRefresh}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <CollapsedProductCard 
-                      key={product.id} 
-                      product={product} 
-                      onUpdate={handleRefresh}
-                      isExpanded={expandedCards.has(product.id)}
-                      onExpand={() => handleCardExpand(product.id)}
-                    />
-                  )
-                ))}
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredData.products.sufficient_stock.map((product: any) => (
-                  <ProductCard 
-                    key={product.id} 
-                    product={product} 
-                    onUpdate={handleRefresh}
-                  />
-                ))}
-              </div>
-            )
+                  ))}
+                </div>
+              )
+            })()
           ) : (
             <Card>
               <CardContent className="flex items-center justify-center py-8">

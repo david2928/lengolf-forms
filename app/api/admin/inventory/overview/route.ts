@@ -21,13 +21,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Verify admin permissions (assuming isAdmin field exists in session)
-    if (!session.user.isAdmin) {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      )
-    }
 
     // Execute the reorder analysis query
     const { data: reorderData, error: reorderError } = await supabase.rpc('get_inventory_overview_with_reorder_status')
@@ -87,8 +80,7 @@ function mapToAdminProduct(item: any) {
     current_stock_text: item.current_stock_text,
     reorder_threshold: item.reorder_threshold,
     unit_cost: item.unit_cost,
-    image_url: item.image_url,
-    purchase_link: item.purchase_link,
+    notes: item.notes,
     supplier: item.supplier,
     unit: item.unit,
     input_type: item.input_type,

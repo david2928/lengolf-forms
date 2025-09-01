@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AdminInventoryProductWithStatus, ProductTrendData } from '@/types/inventory'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { TrendingUp, TrendingDown, Minus, AlertCircle, Calendar } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, AlertCircle, Calendar, Banknote } from 'lucide-react'
 
 interface TrendChartModalProps {
   product: AdminInventoryProductWithStatus
@@ -72,27 +72,59 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
     }
   }, [isOpen, product.id, fetchTrendData])
 
-  const getTrendDirection = () => {
-    if (!trendData?.trend_data || trendData.trend_data.length < 2) return 'stable'
+  const calculateAvgUnitsPerWeek = () => {
+    if (!trendData?.trend_data || trendData.trend_data.length < 2) return null
     
     const data = trendData.trend_data
-    const firstValue = data[0].value
-    const lastValue = data[data.length - 1].value
+    const oldestValue = data[0].value // 14 days ago
+    const currentValue = data[data.length - 1].value // today
     
-    if (lastValue > firstValue * 1.1) return 'up'
-    if (lastValue < firstValue * 0.9) return 'down'
-    return 'stable'
+    // Formula: (14 days ago level - current level) / 2
+    const avgPerWeek = (oldestValue - currentValue) / 2
+    return avgPerWeek
   }
 
-  const getTrendIcon = () => {
-    const direction = getTrendDirection()
-    switch (direction) {
-      case 'up':
-        return { icon: TrendingUp, color: 'text-green-600', label: 'Increasing' }
-      case 'down':
-        return { icon: TrendingDown, color: 'text-red-600', label: 'Decreasing' }
-      default:
-        return { icon: Minus, color: 'text-gray-600', label: 'Stable' }
+  const calculateAvgDailyCashCollection = () => {
+    if (!trendData?.trend_data || trendData.trend_data.length < 2) return null
+    
+    const data = trendData.trend_data
+    
+    // Calculate daily changes and only include positive increases
+    let totalIncrease = 0
+    let daysWithIncrease = 0
+    
+    for (let i = 1; i < data.length; i++) {
+      const dailyChange = data[i].value - data[i - 1].value
+      if (dailyChange > 0) {
+        totalIncrease += dailyChange
+        daysWithIncrease++
+      }
+    }
+    
+    // Return average daily collection only for days with increases
+    if (daysWithIncrease === 0) return 0
+    return totalIncrease / daysWithIncrease
+  }
+
+  const getMetricInfo = () => {
+    if (isCashProduct) {
+      const avgDaily = calculateAvgDailyCashCollection()
+      return {
+        icon: Banknote,
+        color: 'text-blue-600',
+        label: 'Avg. Daily Collection',
+        value: avgDaily !== null ? formatCashAmount(avgDaily) + '/day' : 'N/A',
+        suffix: ''
+      }
+    } else {
+      const avgWeekly = calculateAvgUnitsPerWeek()
+      return {
+        icon: TrendingDown,
+        color: 'text-orange-600', 
+        label: 'Avg usage per week',
+        value: avgWeekly !== null ? `${avgWeekly.toFixed(1)} ${product.unit || ''}` : 'N/A',
+        suffix: '/week'
+      }
     }
   }
 
@@ -129,8 +161,8 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
     return null
   }
 
-  const trendIcon = getTrendIcon()
-  const TrendIconComponent = trendIcon.icon
+  const metricInfo = getMetricInfo()
+  const MetricIconComponent = metricInfo.icon
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -154,11 +186,11 @@ export function TrendChartModal({ product, isOpen, onClose }: TrendChartModalPro
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-muted-foreground">Trend Direction</p>
+              <p className="text-sm text-muted-foreground">{metricInfo.label}</p>
               <div className="flex items-center gap-2 mt-1">
-                <TrendIconComponent className={`h-5 w-5 ${trendIcon.color}`} />
-                <span className={`font-medium ${trendIcon.color}`}>
-                  {trendIcon.label}
+                <MetricIconComponent className={`h-5 w-5 ${metricInfo.color}`} />
+                <span className={`font-medium ${metricInfo.color}`}>
+                  {metricInfo.value}
                 </span>
               </div>
             </div>

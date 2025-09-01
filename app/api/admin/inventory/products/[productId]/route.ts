@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getDevSession } from '@/lib/dev-session'
 import { authOptions } from '@/lib/auth-config'
 import { refacSupabase } from '@/lib/refac-supabase'
 import { UpdateProductMetadataRequest } from '@/types/inventory'
@@ -25,19 +25,11 @@ export async function PUT(
     const { productId } = await params;
     
     // Check admin authentication
-    const session = await getServerSession(authOptions)
+    const session = await getDevSession(authOptions, request)
     if (!session?.user?.email) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
-      )
-    }
-
-    // Verify admin permissions
-    if (!session.user.isAdmin) {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
       )
     }
     if (!productId) {
@@ -62,8 +54,7 @@ export async function PUT(
     // Prepare update object with only the fields that were provided
     const updateObject: any = {}
     if (updateData.unit_cost !== undefined) updateObject.unit_cost = updateData.unit_cost
-    if (updateData.image_url !== undefined) updateObject.image_url = updateData.image_url
-    if (updateData.purchase_link !== undefined) updateObject.purchase_link = updateData.purchase_link
+    if (updateData.notes !== undefined) updateObject.notes = updateData.notes
     if (updateData.reorder_threshold !== undefined) updateObject.reorder_threshold = updateData.reorder_threshold
 
     // Add updated_at timestamp
@@ -116,18 +107,11 @@ export async function GET(
     const { productId } = await params;
     
     // Check admin authentication
-    const session = await getServerSession(authOptions)
+    const session = await getDevSession(authOptions, request)
     if (!session?.user?.email) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
-      )
-    }
-
-    if (!session.user.isAdmin) {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
       )
     }
     if (!productId) {
@@ -179,21 +163,13 @@ function validateUpdateData(data: UpdateProductMetadataRequest): string | null {
     }
   }
 
-  // Validate image_url
-  if (data.image_url !== undefined && data.image_url !== null && data.image_url !== '') {
-    try {
-      new URL(data.image_url)
-    } catch {
-      return 'Image URL must be a valid URL'
+  // Validate notes
+  if (data.notes !== undefined && data.notes !== null) {
+    if (typeof data.notes !== 'string') {
+      return 'Notes must be a string'
     }
-  }
-
-  // Validate purchase_link
-  if (data.purchase_link !== undefined && data.purchase_link !== null && data.purchase_link !== '') {
-    try {
-      new URL(data.purchase_link)
-    } catch {
-      return 'Purchase link must be a valid URL'
+    if (data.notes.length > 1000) {
+      return 'Notes must be less than 1000 characters'
     }
   }
 
