@@ -86,9 +86,8 @@ export async function POST(
         used_date: usedDate,
         employee_name: employeeName,
         booking_id: bookingId || null,
-        notes: notes || null,
         modified_by: session.user.email,
-        modification_reason: 'Manual usage record added by admin'
+        modification_reason: notes ? `Manual usage record added by admin: ${notes}` : 'Manual usage record added by admin'
       })
       .select()
       .single();

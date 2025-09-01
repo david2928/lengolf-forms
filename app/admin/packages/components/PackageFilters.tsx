@@ -76,16 +76,16 @@ export const PackageFilters: React.FC<PackageFiltersProps> = ({
         {/* Package Type Filter */}
         <div className="w-[200px]">
           <Select
-            value={filters.package_type_id || ""}
+            value={filters.package_type_id || "all"}
             onValueChange={(value) => 
-              onFiltersChange({ package_type_id: value || undefined })
+              onFiltersChange({ package_type_id: value === "all" ? undefined : value })
             }
           >
             <SelectTrigger className="h-9">
               <SelectValue placeholder="All package types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All package types</SelectItem>
+              <SelectItem value="all">All package types</SelectItem>
               {packageTypes.map((type) => (
                 <SelectItem key={type.id} value={type.id.toString()}>
                   {type.display_name || type.name}
@@ -98,16 +98,16 @@ export const PackageFilters: React.FC<PackageFiltersProps> = ({
         {/* Status Filter */}
         <div className="w-[180px]">
           <Select
-            value={filters.status || ""}
+            value={filters.status || "all"}
             onValueChange={(value) => 
-              onFiltersChange({ status: value || undefined })
+              onFiltersChange({ status: value === "all" ? undefined : value })
             }
           >
             <SelectTrigger className="h-9">
               <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All statuses</SelectItem>
+              <SelectItem value="all">All statuses</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="expiring">Expiring Soon</SelectItem>
               <SelectItem value="expired">Expired</SelectItem>

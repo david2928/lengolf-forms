@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { AddUsageDialog } from './AddUsageDialog';
 
 interface Package {
   id: string;
@@ -101,7 +102,11 @@ export const UsageManagementModal: React.FC<UsageManagementModalProps> = ({
 
   const handleAddUsage = () => {
     setShowAddUsage(true);
-    // TODO: Implement add usage modal
+  };
+
+  const handleAddUsageSuccess = () => {
+    // Refresh usage records after successful addition
+    fetchUsageRecords();
   };
 
   const handleEditUsage = (record: UsageRecord) => {
@@ -290,6 +295,16 @@ export const UsageManagementModal: React.FC<UsageManagementModalProps> = ({
           </Card>
         </div>
       </DialogContent>
+      
+      {/* Add Usage Dialog */}
+      <AddUsageDialog
+        isOpen={showAddUsage}
+        packageId={selectedPackage.id}
+        packageName={selectedPackage.package_type_name}
+        customerName={selectedPackage.customer_name}
+        onClose={() => setShowAddUsage(false)}
+        onSuccess={handleAddUsageSuccess}
+      />
     </Dialog>
   );
 };
