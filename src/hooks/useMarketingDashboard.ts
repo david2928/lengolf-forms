@@ -311,7 +311,7 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
   const getCacheKeys = useCallback(() => ({
     kpis: `marketing-kpis-${timeRange}-${usePeriodType}-${referenceDate}`,
     performance: `marketing-performance-${timeRange}-${usePeriodType}-${referenceDate}`,
-    monthlyPerformance: `marketing-monthly-performance-${timeRange}-${usePeriodType}-${referenceDate}`,
+    monthlyPerformance: `marketing-monthly-performance-${timeRange}-${usePeriodType}-${referenceDate}-v2`, // v2 for UTC fix
     charts: `marketing-charts-${timeRange}-${usePeriodType}-${referenceDate}`,
     traffic: `marketing-traffic-${timeRange}-${usePeriodType}-${referenceDate}`
   }), [timeRange, usePeriodType, referenceDate]);
