@@ -219,10 +219,6 @@ export interface UseCustomerDetailDataReturn {
   setBookingsPage: (page: number) => void;
   bookingsTotalPages: number;
   
-  // Analytics
-  analytics: CustomerAnalytics | null;
-  analyticsLoading: boolean;
-  analyticsError: string | null;
   
   // Actions
   refreshCustomer: () => void;

@@ -65,9 +65,6 @@ export function CustomerDetailModalOptimized({
     bookingsPage,
     setBookingsPage,
     bookingsTotalPages,
-    analytics,
-    analyticsLoading,
-    analyticsError
   } = useCustomerDetailData(customerId);
 
   // Handle customer edit completion
@@ -139,7 +136,6 @@ export function CustomerDetailModalOptimized({
             {/* Customer Header with basic info and actions */}
             <CustomerHeader
               customer={customer}
-              analytics={analytics || undefined}
               onEdit={() => setEditModalOpen(true)}
               onRefresh={refreshCustomer}
             />

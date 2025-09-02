@@ -144,35 +144,6 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
     }
   }, [customerId, loadingStates.bookings, setTabLoading, setTabError]);
   
-  // Fetch analytics data (computed from customer data)
-  const fetchAnalytics = useCallback(async () => {
-    if (!customerId || !customer || loadingStates.analytics) return;
-    
-    try {
-      setTabLoading('analytics', true);
-      setTabError('analytics', null);
-      
-      // For now, compute analytics from customer data
-      // Later this could be moved to a dedicated endpoint
-      const analyticsData: CustomerAnalytics = {
-        engagementScore: calculateEngagementScore(customer),
-        customerTier: calculateCustomerTier(customer),
-        spendingTrend: calculateSpendingTrend(customer),
-        frequencyScore: calculateFrequencyScore(customer),
-        monthlySpend: [], // Would be populated from transactions
-        preferredTimes: [] // Would be populated from bookings
-      };
-      
-      setAnalytics(analyticsData);
-      setLoadedTabs(prev => new Set([...Array.from(prev), 'analytics' as CustomerTab]));
-    } catch (error) {
-      console.error('Error computing analytics:', error);
-      setTabError('analytics', error instanceof Error ? error.message : 'Failed to compute analytics');
-      setAnalytics(null);
-    } finally {
-      setTabLoading('analytics', false);
-    }
-  }, [customerId, customer, loadingStates.analytics, setTabLoading, setTabError]);
   
   // Lazy load tab data when tab becomes active
   useEffect(() => {
@@ -190,12 +161,9 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
         case 'bookings':
           fetchBookings(1);
           break;
-        case 'analytics':
-          fetchAnalytics();
-          break;
       }
     }
-  }, [activeTab, customerId, loadedTabs, fetchTransactions, fetchPackages, fetchBookings, fetchAnalytics]);
+  }, [activeTab, customerId, loadedTabs, fetchTransactions, fetchPackages, fetchBookings]);
   
   // Refresh specific tab data
   const refreshTab = useCallback((tab: CustomerTab) => {
@@ -222,12 +190,8 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
         setBookings([]);
         fetchBookings(1);
         break;
-      case 'analytics':
-        setAnalytics(null);
-        fetchAnalytics();
-        break;
     }
-  }, [customerId, fetchTransactions, fetchPackages, fetchBookings, fetchAnalytics]);
+  }, [customerId, fetchTransactions, fetchPackages, fetchBookings]);
   
   // Handle bookings pagination
   const handleBookingsPageChange = useCallback((page: number) => {
@@ -272,10 +236,6 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
     setBookingsPage: handleBookingsPageChange,
     bookingsTotalPages,
     
-    // Analytics
-    analytics,
-    analyticsLoading: loadingStates.analytics,
-    analyticsError: errorStates.analytics,
     
     // Actions
     refreshCustomer,
