@@ -244,35 +244,15 @@ export const SimplifiedPaymentModal: React.FC<SimplifiedPaymentModalProps> = ({
 
     setIsBluetoothPrinting(true);
     try {
-      console.log('📱 Printing via Bluetooth...');
+      console.log('📱 Using unified print service for receipt printing via Bluetooth...');
       
-      const response = await fetch('/api/pos/print-bluetooth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          receiptNumber: paymentResult.receiptNumber
-        })
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        // Get receipt data for Bluetooth printing
-        const receiptData = result.receiptData;
-        
-        // Connect to Bluetooth printer
-        const device = await (navigator as any).bluetooth.requestDevice({
-          filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
-          optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
-        });
-        
-        console.log('📱 Bluetooth device selected:', device.name);
-        alert('✅ Receipt printed via Bluetooth successfully!');
-        
+      // Use unified print service with Bluetooth preference for receipt printing
+      const result = await unifiedPrintService.print(PrintType.TAX_INV_ABB, paymentResult.receiptNumber, { method: 'bluetooth' });
+      
+      if (result.success) {
+        alert(`✅ ${result.message}`);
       } else {
-        throw new Error(result.error || 'Bluetooth print failed');
+        throw new Error(result.error || result.message);
       }
 
     } catch (error) {

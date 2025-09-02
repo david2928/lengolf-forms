@@ -160,32 +160,19 @@ export function TransactionDetailModal({
 
   const handleBluetoothPrint = useCallback(async (receiptNumber: string) => {
     try {
-      // First get receipt data from API
-      const response = await fetch('/api/pos/print-bluetooth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          receiptNumber: receiptNumber
-        })
-      });
+      console.log('📱 Using unified print service for receipt printing via Bluetooth');
       
-      const result = await response.json();
+      // Use unified print service with Bluetooth preference for receipt printing
+      const result = await unifiedPrintService.print(PrintType.TAX_INV_ABB, receiptNumber, { method: 'bluetooth' });
       
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to get receipt data');
-      }
-
-      if (result.printerConnected && result.data) {
-        // Printer found and ready - send data
-        alert('📱 Receipt sent to Bluetooth printer successfully!');
+      if (result.success) {
+        alert(`✅ ${result.message}`);
       } else {
-        throw new Error('Bluetooth printer not connected');
+        throw new Error(result.error || result.message);
       }
       
     } catch (error) {
-      console.error('Bluetooth print error:', error);
+      console.error('❌ Bluetooth receipt printing failed:', error);
       alert(`📱 Bluetooth print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, []);
