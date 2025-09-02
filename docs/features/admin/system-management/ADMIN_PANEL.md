@@ -148,17 +148,29 @@ The Sales Dashboard is the first fully implemented admin feature, providing comp
 - **Purpose**: Business intelligence and analytics
 - **Features**: KPIs, charts, filtering, export capabilities
 
-### 3. Reconciliation (`/admin/reconciliation`)
+### 3. Marketing Dashboard (`/admin/marketing-dashboard`)
+- **Status**: Fully implemented and active
+- **Purpose**: Cross-platform marketing analytics with ROAS tracking and website traffic integration
+- **Features**: 
+  - Unified Google Ads and Meta Ads performance analytics with real-time KPIs
+  - Customer acquisition cost (CAC) and return on ad spend (ROAS) calculations
+  - Website traffic analysis with channel breakdown (Total, Paid, Paid Social, Paid Search, Organic, Direct)
+  - Weekly and monthly performance tables with 4-week rolling averages
+  - Platform-specific breakdowns (CPM, CPC, CTR by Google vs Meta)
+  - Export capabilities and manual refresh functionality
+  - Mobile-responsive design with caching system (5-minute TTL)
+
+### 4. Reconciliation (`/admin/reconciliation`)
 - **Status**: Fully implemented and active
 - **Purpose**: Transaction and payment reconciliation
 - **Features**: File upload, data processing, comparison tools
 
-### 4. Inventory Dashboard (`/admin/inventory`)
+### 5. Inventory Dashboard (`/admin/inventory`)
 - **Status**: Fully implemented and active
 - **Purpose**: Stock level monitoring and product management
 - **Features**: Real-time inventory tracking, reorder alerts, trend analysis
 
-### 5. Product Management (`/admin/products`)
+### 6. Product Management (`/admin/products`)
 - **Status**: Fully implemented and active
 - **Purpose**: Comprehensive product catalog management system
 - **Features**: 
@@ -173,7 +185,7 @@ The Sales Dashboard is the first fully implemented admin feature, providing comp
   - Integration with existing inventory system
   - Qashier POS data migration support
 
-### 6. Competitor Tracking (`/admin/competitors`)
+### 7. Competitor Tracking (`/admin/competitors`)
 - **Status**: Fully implemented and active
 - **Purpose**: Monitor competitor social media metrics and growth trends
 - **Features**: 
@@ -187,7 +199,7 @@ The Sales Dashboard is the first fully implemented admin feature, providing comp
   - PgCron automated scheduling (3 AM Bangkok time daily)
   - API integration with scraper service authentication
 
-### 7. Finance Dashboard (`/admin/finance-dashboard`)
+### 8. Finance Dashboard (`/admin/finance-dashboard`)
 - **Status**: Fully implemented and active
 - **Purpose**: Comprehensive P&L analysis and financial KPIs
 - **Features**: 
@@ -202,7 +214,7 @@ The Sales Dashboard is the first fully implemented admin feature, providing comp
   - Integration with POS data, marketing costs, and manual entries
   - Mobile-responsive design for tablet and desktop use
 
-### 8. Customer Outreach (`/admin/customer-outreach`)
+### 9. Customer Outreach (`/admin/customer-outreach`)
 - **Status**: Fully implemented and active
 - **Purpose**: Customer audience building and OB sales call list management
 - **Features**: 
@@ -215,15 +227,15 @@ The Sales Dashboard is the first fully implemented admin feature, providing comp
   - Integration with Lead Feedback system for outbound sales tracking
   - Audience selection for targeted outreach campaigns
 
-### 9. Navigation Integration
+### 10. Navigation Integration
 - **Status**: Implemented
 - **Purpose**: Seamless access to admin features
 - **Features**: 
-  - Desktop dropdown menu with all admin tools
+  - Desktop dropdown menu with all admin tools (including Marketing Dashboard)
   - Mobile button linking to admin landing page
   - Conditional display based on admin privileges
 
-### 9. Access Control
+### 11. Access Control
 - **Status**: Implemented
 - **Purpose**: Secure admin-only access
 - **Features**: Route protection, session verification, middleware enforcement
@@ -316,6 +328,7 @@ admin/
 ```
 /admin/                     # Main admin dashboard
 /admin/sales-dashboard      # Business intelligence
+/admin/marketing-dashboard  # Marketing analytics with ROAS and traffic data
 /admin/reconciliation       # Transaction reconciliation
 /admin/inventory           # Inventory management
 /admin/products            # Product management system

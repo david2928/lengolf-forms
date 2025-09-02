@@ -17,6 +17,22 @@
       "env": {
         "PLAYWRIGHT_BROWSERS_PATH": "0"
       }
+    },
+    "bigquery": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@ergut/mcp-bigquery-server",
+        "--project-id",
+        "lengolf-booking-system-436804",
+        "--location",
+        "asia-southeast1"
+      ],
+      "env": {
+        "BIGQUERY_PROJECT": "lengolf-booking-system-436804"
+      }
     }
   }
 }

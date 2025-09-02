@@ -241,11 +241,10 @@ export interface CustomerDetailApiResponse {
   transactions?: TransactionRecord[];
   packages?: PackageRecord[];
   bookings?: BookingRecord[];
-  analytics?: CustomerAnalytics;
 }
 
 // Tab identifiers
-export type CustomerTab = 'overview' | 'transactions' | 'packages' | 'bookings' | 'analytics';
+export type CustomerTab = 'overview' | 'transactions' | 'packages' | 'bookings';
 
 // Loading states
 export interface LoadingStates {
@@ -253,7 +252,6 @@ export interface LoadingStates {
   transactions: boolean;
   packages: boolean;
   bookings: boolean;
-  analytics: boolean;
 }
 
 // Error states
@@ -262,7 +260,6 @@ export interface ErrorStates {
   transactions: string | null;
   packages: string | null;
   bookings: string | null;
-  analytics: string | null;
 }
 
 // Pagination configuration

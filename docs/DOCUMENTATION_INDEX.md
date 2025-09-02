@@ -66,6 +66,7 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 - **[Lead Feedback System](./features/admin/analytics/LEAD_FEEDBACK_SYSTEM.md)** - Comprehensive lead processing and OB sales management with Customer Outreach integration
 - **[Google Ads Analytics](./features/admin/analytics/GOOGLE_ADS_ANALYTICS.md)** - Google Ads campaign tracking and ROI analysis
 - **[Referral Analytics System](./features/admin/analytics/REFERRAL_ANALYTICS_SYSTEM.md)** - Customer acquisition tracking and trend analysis
+- **[Customer Segmentation Definitions](./features/admin/CUSTOMER_SEGMENTATION_DEFINITIONS.md)** - RFM analysis, segment definitions, and behavioral customer categorization
 
 ### Customer Management
 - **[Customer Management System](./features/public/customer-packages/CUSTOMER_MANAGEMENT_SYSTEM.md)** - Unified customer profiles with stable IDs and analytics

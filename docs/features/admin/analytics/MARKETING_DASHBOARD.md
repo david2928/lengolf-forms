@@ -83,6 +83,7 @@ The Marketing Dashboard is a comprehensive analytics feature that provides unifi
 - **Monthly Analysis**: MTD (Month-To-Date), M-1, M-2 comparisons
 - **4-Week Average Comparisons**: Percentage change vs rolling averages
 - **Week-over-Week Trends**: Spend and conversion changes
+- **Website Traffic Integration**: Total, Paid, Paid Social, Paid Search, Organic, Direct traffic data
 - **Export Functionality**: CSV export of all performance data
 
 ### 3. Analytics Charts
@@ -122,6 +123,20 @@ The Marketing Dashboard is a comprehensive analytics feature that provides unifi
 - spend_cents (bigint): Spend in cents (÷100 for actual cost)
 - conversions (numeric): Conversion count
 - ctr (double precision): Click-through rate percentage
+```
+
+#### marketing.google_analytics_traffic
+```sql
+- date (date): Traffic performance date
+- channel_grouping (text): Traffic channel (Organic Search, Paid Search, Direct, etc.)
+- device_category (text): Device type (desktop, mobile, tablet)
+- sessions (integer): Number of sessions
+- users (integer): Number of users
+- page_views (integer): Total page views
+- pages_per_session (numeric): Average pages per session
+- avg_session_duration (numeric): Average session duration in seconds
+- bounce_rate (numeric): Bounce rate percentage
+- booking_conversions (integer): Number of booking conversions
 ```
 
 ### Unified View
@@ -252,6 +267,33 @@ interface ChartData {
 }
 ```
 
+### 4. Website Traffic Integration
+
+**Traffic Data Source**: `marketing.google_analytics_traffic` table with Google Analytics 4 data populated by external ETL process.
+
+**Integration Points**:
+- **Performance API**: Traffic data integrated into weekly/monthly performance calculations
+- **Channel Mapping**: Traffic channels mapped to standard categories for consistent display
+- **Period Alignment**: Traffic data aligned with marketing performance periods for accurate comparisons
+
+**Channel Categories**:
+```typescript
+const channelMapping = {
+  'Total': ['Organic Search', 'Paid Search', 'Direct', 'Paid Social', 'Email', 'Referral', 'Other'],
+  'Paid': ['Paid Search', 'Paid Social'],
+  'Paid Social': ['Paid Social'],
+  'Paid Search': ['Paid Search'], 
+  'Organic': ['Organic Search', 'Referral'],
+  'Direct': ['Direct']
+};
+```
+
+**Data Processing**:
+- Sessions aggregated by channel and date range
+- Period-by-period calculation for consistent table display
+- Missing data handled gracefully with zero values
+- Conversion tracking integrated with booking system
+
 ---
 
 ## Component Architecture
@@ -310,8 +352,9 @@ export default function MarketingDashboardPage() {
 
 **Features**:
 - **Weekly View**: Last 12 weeks performance
-- **Monthly View**: MTD, M-1, M-2 comparisons
+- **Monthly View**: MTD, M-1, M-2 comparisons  
 - **4-Week Average**: Percentage comparisons vs rolling average
+- **Website Traffic Data**: Integrated Google Analytics traffic metrics by channel
 - **Responsive Design**: Mobile-optimized table with horizontal scroll
 - **Export Support**: CSV export functionality
 - **Sort Functionality**: Click to sort by any metric
@@ -323,6 +366,7 @@ export default function MarketingDashboardPage() {
 - CTR by Platform
 - New Customers by Platform
 - CAC & ROAS
+- Website Traffic (Total, Paid, Paid Social, Paid Search, Organic, Direct)
 - Week-over-Week Changes
 
 ### 4. Analytics Charts Component
@@ -884,6 +928,55 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 - **Completeness**: All weekly periods populate correctly with actual performance data
 - **Usability**: Cleaner number formatting improves dashboard readability
 - **Attribution**: Platform-specific revenue tracking enables better budget allocation decisions
+
+### 6. Website Traffic Integration (August 2025)
+**Feature Added**: Complete website traffic analysis integrated into the marketing performance table.
+
+**Implementation Details**:
+- **Data Source**: `marketing.google_analytics_traffic` table with Google Analytics 4 integration
+- **Channel Categories**: Total, Paid, Paid Social, Paid Search, Organic, Direct traffic segments
+- **Period Integration**: Traffic data synchronized with marketing performance periods for accurate comparisons
+- **API Enhancement**: Performance API updated to include `getTrafficDataForPeriod()` function
+
+**Technical Changes**:
+```typescript
+// New traffic data integration in performance API
+const getTrafficDataForPeriod = async (startDate: Date, endDate: Date) => {
+  const { data: trafficData } = await supabase
+    .schema('marketing')
+    .from('google_analytics_traffic')
+    .select('*')
+    .gte('date', startDate.toISOString().split('T')[0])
+    .lte('date', endDate.toISOString().split('T')[0]);
+
+  // Aggregate by channel categories
+  return {
+    total: trafficData?.reduce((sum, row) => sum + (row.sessions || 0), 0) || 0,
+    paid: calculatePaidTraffic(trafficData),
+    paidSocial: calculatePaidSocial(trafficData),
+    paidSearch: calculatePaidSearch(trafficData),
+    organic: calculateOrganic(trafficData),
+    direct: calculateDirect(trafficData)
+  };
+};
+```
+
+**UI Enhancements**:
+- **Performance Table**: Added Website Traffic columns with channel breakdown
+- **Historical Data**: Complete traffic history across all performance periods (Feb-Aug 2025)
+- **Channel Mapping**: Consistent categorization of Google Analytics channels
+- **Mobile Optimization**: Traffic columns included in responsive table design
+
+**Files Modified**:
+- `app/api/marketing/performance/route.ts`: Added traffic data integration to monthly/weekly calculations
+- `src/components/marketing-dashboard/MarketingPerformanceTable.tsx`: Updated to display traffic metrics
+- `app/api/marketing/traffic/route.ts`: Comprehensive traffic analysis API endpoint
+
+**Data Processing**:
+- **Channel Aggregation**: Raw GA4 channels mapped to business-relevant categories
+- **Period Alignment**: Traffic data periods match marketing performance periods exactly
+- **Missing Data Handling**: Graceful handling of periods with no traffic data (display as 0)
+- **Performance Integration**: Traffic metrics displayed alongside advertising and customer acquisition data
 
 ---
 

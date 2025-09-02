@@ -257,6 +257,12 @@ export function Nav() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
+                <Link href="/admin/marketing-dashboard" className="flex items-center gap-2 w-full">
+                  <Target className="h-4 w-4" />
+                  Marketing Dashboard
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link href="/admin/sales-report" className="flex items-center gap-2 w-full">
                   <FileText className="h-4 w-4" />
                   Sales Report

@@ -11,6 +11,7 @@ const supabase = createClient(
 );
 
 interface MarketingKPIs {
+  // Existing ad metrics
   totalSpend: number;
   totalSpendChange: number;
   totalImpressions: number;
@@ -31,6 +32,36 @@ interface MarketingKPIs {
   metaSpend: number;
   googleNewCustomers: number;
   metaNewCustomers: number;
+
+  // New GA traffic metrics
+  totalSessions: number;
+  totalSessionsChange: number;
+  totalUsers: number;
+  totalUsersChange: number;
+  totalPageViews: number;
+  totalPageViewsChange: number;
+  avgPagesPerSession: number;
+  avgPagesPerSessionChange: number;
+  avgBounceRate: number;
+  avgBounceRateChange: number;
+  avgSessionDuration: number; // in seconds
+  avgSessionDurationChange: number;
+  
+  // Golf booking conversions from GA
+  bookingConversions: number;
+  bookingConversionsChange: number;
+  bookingConversionRate: number;
+  bookingConversionRateChange: number;
+  
+  // Channel distribution
+  organicTrafficShare: number; // percentage
+  paidTrafficShare: number; // percentage
+  directTrafficShare: number; // percentage
+  
+  // Cross-channel efficiency
+  costPerSession: number;
+  costPerSessionChange: number;
+  trafficToAdRatio: number; // total sessions vs ad clicks
 }
 
 export async function GET(request: NextRequest) {
@@ -47,11 +78,14 @@ export async function GET(request: NextRequest) {
 
     // Get current period data (exclude today unless specific reference date provided)
     const today = new Date();
-    const referenceDate = referenceDateParam ? new Date(referenceDateParam) : new Date(today);
-    const yesterday = referenceDateParam ? referenceDate : new Date(today.setDate(today.getDate() - 1));
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
     
-    const currentPeriodStart = new Date(yesterday);
-    currentPeriodStart.setDate(yesterday.getDate() - days + 1);
+    const referenceDate = referenceDateParam ? new Date(referenceDateParam) : yesterday;
+    const endDate = referenceDate;
+    
+    const currentPeriodStart = new Date(endDate);
+    currentPeriodStart.setDate(endDate.getDate() - days + 1);
     
     // Get comparison period data
     const comparisonPeriodEnd = new Date(currentPeriodStart);
@@ -66,7 +100,7 @@ export async function GET(request: NextRequest) {
       .from('google_ads_campaign_performance')
       .select('impressions, clicks, cost_micros, conversions, ctr')
       .gte('date', currentPeriodStart.toISOString().split('T')[0])
-      .lte('date', yesterday.toISOString().split('T')[0]);
+      .lte('date', endDate.toISOString().split('T')[0]);
 
     // Get Google Ads comparison period data
     const { data: googleComparison } = await supabase
@@ -82,7 +116,7 @@ export async function GET(request: NextRequest) {
       .from('meta_ads_campaign_performance')
       .select('impressions, clicks, spend_cents, conversions, ctr')
       .gte('date', currentPeriodStart.toISOString().split('T')[0])
-      .lte('date', yesterday.toISOString().split('T')[0]);
+      .lte('date', endDate.toISOString().split('T')[0]);
 
     // Get Meta Ads comparison period data
     const { data: metaComparison } = await supabase
@@ -98,7 +132,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .in('referral_source', ['Google', 'Facebook', 'Instagram'])
       .gte('date', currentPeriodStart.toISOString().split('T')[0])
-      .lte('date', yesterday.toISOString().split('T')[0]);
+      .lte('date', endDate.toISOString().split('T')[0]);
 
     const { data: comparisonPeriodNewCustomers } = await supabase
       .from('referral_data')
@@ -110,13 +144,13 @@ export async function GET(request: NextRequest) {
     // Get new customer revenue data for ROAS calculations
     const { data: currentGoogleRevenue } = await supabase.rpc('get_new_customer_revenue', {
       start_date: currentPeriodStart.toISOString().split('T')[0],
-      end_date: yesterday.toISOString().split('T')[0],
+      end_date: endDate.toISOString().split('T')[0],
       referral_sources: ['Google']
     });
 
     const { data: currentMetaRevenue } = await supabase.rpc('get_new_customer_revenue', {
       start_date: currentPeriodStart.toISOString().split('T')[0],
-      end_date: yesterday.toISOString().split('T')[0],
+      end_date: endDate.toISOString().split('T')[0],
       referral_sources: ['Facebook', 'Instagram']
     });
 
@@ -178,7 +212,78 @@ export async function GET(request: NextRequest) {
     const googleNewCustomersComparison = comparisonPeriodNewCustomers?.filter((r: any) => r.referral_source === 'Google').reduce((sum: number, r: any) => sum + (r.count || 0), 0) || 0;
     const metaNewCustomersComparison = comparisonPeriodNewCustomers?.filter((r: any) => ['Facebook', 'Instagram'].includes(r.referral_source)).reduce((sum: number, r: any) => sum + (r.count || 0), 0) || 0;
 
-    // Variables already defined above using daily referral data
+    // Get Google Analytics traffic data (current period)
+    const { data: gaCurrentData } = await supabase
+      .schema('marketing')
+      .from('google_analytics_traffic')
+      .select('sessions, users, new_users, page_views, pages_per_session, avg_session_duration, bounce_rate, booking_conversions, conversion_rate, channel_grouping')
+      .gte('date', currentPeriodStart.toISOString().split('T')[0])
+      .lte('date', endDate.toISOString().split('T')[0]);
+
+    // Get Google Analytics traffic data (comparison period)
+    const { data: gaComparisonData } = await supabase
+      .schema('marketing')
+      .from('google_analytics_traffic')
+      .select('sessions, users, new_users, page_views, pages_per_session, avg_session_duration, bounce_rate, booking_conversions, conversion_rate, channel_grouping')
+      .gte('date', comparisonPeriodStart.toISOString().split('T')[0])
+      .lte('date', comparisonPeriodEnd.toISOString().split('T')[0]);
+
+    // Calculate GA traffic totals (current period)
+    const gaCurrentTotals = gaCurrentData?.reduce((acc, curr) => ({
+      sessions: acc.sessions + (curr.sessions || 0),
+      users: acc.users + (curr.users || 0),
+      newUsers: acc.newUsers + (curr.new_users || 0),
+      pageViews: acc.pageViews + (curr.page_views || 0),
+      bookingConversions: acc.bookingConversions + (curr.booking_conversions || 0),
+      sessionWeights: acc.sessionWeights + (curr.sessions || 0), // for weighted averages
+      pagesPerSessionWeighted: acc.pagesPerSessionWeighted + ((curr.pages_per_session || 0) * (curr.sessions || 0)),
+      sessionDurationWeighted: acc.sessionDurationWeighted + ((curr.avg_session_duration || 0) * (curr.sessions || 0)),
+      bounceRateWeighted: acc.bounceRateWeighted + ((curr.bounce_rate || 0) * (curr.sessions || 0)),
+      organicSessions: acc.organicSessions + (curr.channel_grouping === 'Organic Search' ? (curr.sessions || 0) : 0),
+      paidSessions: acc.paidSessions + (['Paid Search', 'Paid Social'].includes(curr.channel_grouping) ? (curr.sessions || 0) : 0),
+      directSessions: acc.directSessions + (curr.channel_grouping === 'Direct' ? (curr.sessions || 0) : 0)
+    }), {
+      sessions: 0, users: 0, newUsers: 0, pageViews: 0, bookingConversions: 0,
+      sessionWeights: 0, pagesPerSessionWeighted: 0, sessionDurationWeighted: 0, bounceRateWeighted: 0,
+      organicSessions: 0, paidSessions: 0, directSessions: 0
+    }) || {
+      sessions: 0, users: 0, newUsers: 0, pageViews: 0, bookingConversions: 0,
+      sessionWeights: 0, pagesPerSessionWeighted: 0, sessionDurationWeighted: 0, bounceRateWeighted: 0,
+      organicSessions: 0, paidSessions: 0, directSessions: 0
+    };
+
+    // Calculate GA traffic totals (comparison period)
+    const gaComparisonTotals = gaComparisonData?.reduce((acc, curr) => ({
+      sessions: acc.sessions + (curr.sessions || 0),
+      users: acc.users + (curr.users || 0),
+      newUsers: acc.newUsers + (curr.new_users || 0),
+      pageViews: acc.pageViews + (curr.page_views || 0),
+      bookingConversions: acc.bookingConversions + (curr.booking_conversions || 0),
+      sessionWeights: acc.sessionWeights + (curr.sessions || 0),
+      pagesPerSessionWeighted: acc.pagesPerSessionWeighted + ((curr.pages_per_session || 0) * (curr.sessions || 0)),
+      sessionDurationWeighted: acc.sessionDurationWeighted + ((curr.avg_session_duration || 0) * (curr.sessions || 0)),
+      bounceRateWeighted: acc.bounceRateWeighted + ((curr.bounce_rate || 0) * (curr.sessions || 0)),
+      organicSessions: acc.organicSessions + (curr.channel_grouping === 'Organic Search' ? (curr.sessions || 0) : 0),
+      paidSessions: acc.paidSessions + (['Paid Search', 'Paid Social'].includes(curr.channel_grouping) ? (curr.sessions || 0) : 0),
+      directSessions: acc.directSessions + (curr.channel_grouping === 'Direct' ? (curr.sessions || 0) : 0)
+    }), {
+      sessions: 0, users: 0, newUsers: 0, pageViews: 0, bookingConversions: 0,
+      sessionWeights: 0, pagesPerSessionWeighted: 0, sessionDurationWeighted: 0, bounceRateWeighted: 0,
+      organicSessions: 0, paidSessions: 0, directSessions: 0
+    }) || {
+      sessions: 0, users: 0, newUsers: 0, pageViews: 0, bookingConversions: 0,
+      sessionWeights: 0, pagesPerSessionWeighted: 0, sessionDurationWeighted: 0, bounceRateWeighted: 0,
+      organicSessions: 0, paidSessions: 0, directSessions: 0
+    };
+
+    // Calculate weighted averages for GA metrics
+    const avgPagesPerSessionCurrent = gaCurrentTotals.sessionWeights > 0 ? gaCurrentTotals.pagesPerSessionWeighted / gaCurrentTotals.sessionWeights : 0;
+    const avgSessionDurationCurrent = gaCurrentTotals.sessionWeights > 0 ? gaCurrentTotals.sessionDurationWeighted / gaCurrentTotals.sessionWeights : 0;
+    const avgBounceRateCurrent = gaCurrentTotals.sessionWeights > 0 ? gaCurrentTotals.bounceRateWeighted / gaCurrentTotals.sessionWeights : 0;
+
+    const avgPagesPerSessionComparison = gaComparisonTotals.sessionWeights > 0 ? gaComparisonTotals.pagesPerSessionWeighted / gaComparisonTotals.sessionWeights : 0;
+    const avgSessionDurationComparison = gaComparisonTotals.sessionWeights > 0 ? gaComparisonTotals.sessionDurationWeighted / gaComparisonTotals.sessionWeights : 0;
+    const avgBounceRateComparison = gaComparisonTotals.sessionWeights > 0 ? gaComparisonTotals.bounceRateWeighted / gaComparisonTotals.sessionWeights : 0;
 
     // Calculate combined totals
     const totalSpendCurrent = googleCurrentTotals.spend + metaCurrentTotals.spend;
@@ -241,7 +346,43 @@ export async function GET(request: NextRequest) {
       googleSpend: googleCurrentTotals.spend,
       metaSpend: metaCurrentTotals.spend,
       googleNewCustomers: googleNewCustomersCurrent,
-      metaNewCustomers: metaNewCustomersCurrent
+      metaNewCustomers: metaNewCustomersCurrent,
+
+      // New GA traffic metrics
+      totalSessions: gaCurrentTotals.sessions,
+      totalSessionsChange: calculateChange(gaCurrentTotals.sessions, gaComparisonTotals.sessions),
+      totalUsers: gaCurrentTotals.users,
+      totalUsersChange: calculateChange(gaCurrentTotals.users, gaComparisonTotals.users),
+      totalPageViews: gaCurrentTotals.pageViews,
+      totalPageViewsChange: calculateChange(gaCurrentTotals.pageViews, gaComparisonTotals.pageViews),
+      avgPagesPerSession: Number(avgPagesPerSessionCurrent.toFixed(2)),
+      avgPagesPerSessionChange: calculateChange(avgPagesPerSessionCurrent, avgPagesPerSessionComparison),
+      avgBounceRate: Number(avgBounceRateCurrent.toFixed(2)),
+      avgBounceRateChange: calculateChange(avgBounceRateCurrent, avgBounceRateComparison) * -1, // Invert for bounce rate (lower is better)
+      avgSessionDuration: Number(avgSessionDurationCurrent.toFixed(2)),
+      avgSessionDurationChange: calculateChange(avgSessionDurationCurrent, avgSessionDurationComparison),
+      
+      // Golf booking conversions from GA
+      bookingConversions: gaCurrentTotals.bookingConversions,
+      bookingConversionsChange: calculateChange(gaCurrentTotals.bookingConversions, gaComparisonTotals.bookingConversions),
+      bookingConversionRate: gaCurrentTotals.sessions > 0 ? Number((gaCurrentTotals.bookingConversions / gaCurrentTotals.sessions * 100).toFixed(2)) : 0,
+      bookingConversionRateChange: calculateChange(
+        gaCurrentTotals.sessions > 0 ? gaCurrentTotals.bookingConversions / gaCurrentTotals.sessions * 100 : 0,
+        gaComparisonTotals.sessions > 0 ? gaComparisonTotals.bookingConversions / gaComparisonTotals.sessions * 100 : 0
+      ),
+      
+      // Channel distribution
+      organicTrafficShare: gaCurrentTotals.sessions > 0 ? Number((gaCurrentTotals.organicSessions / gaCurrentTotals.sessions * 100).toFixed(2)) : 0,
+      paidTrafficShare: gaCurrentTotals.sessions > 0 ? Number((gaCurrentTotals.paidSessions / gaCurrentTotals.sessions * 100).toFixed(2)) : 0,
+      directTrafficShare: gaCurrentTotals.sessions > 0 ? Number((gaCurrentTotals.directSessions / gaCurrentTotals.sessions * 100).toFixed(2)) : 0,
+      
+      // Cross-channel efficiency
+      costPerSession: gaCurrentTotals.sessions > 0 ? Number((totalSpendCurrent / gaCurrentTotals.sessions).toFixed(2)) : 0,
+      costPerSessionChange: calculateChange(
+        gaCurrentTotals.sessions > 0 ? totalSpendCurrent / gaCurrentTotals.sessions : 0,
+        gaComparisonTotals.sessions > 0 ? totalSpendComparison / gaComparisonTotals.sessions : 0
+      ),
+      trafficToAdRatio: totalClicksCurrent > 0 ? Number((gaCurrentTotals.sessions / totalClicksCurrent).toFixed(2)) : 0
     };
 
     return NextResponse.json(kpis);

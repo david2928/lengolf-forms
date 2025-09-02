@@ -30,15 +30,13 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [packages, setPackages] = useState<PackageRecord[]>([]);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
-  const [analytics, setAnalytics] = useState<CustomerAnalytics | null>(null);
   
   // Loading states
   const [loadingStates, setLoadingStates] = useState<LoadingStates>({
     customer: false,
     transactions: false,
     packages: false,
-    bookings: false,
-    analytics: false
+    bookings: false
   });
   
   // Error states  
@@ -46,8 +44,7 @@ export const useCustomerDetailData = (customerId: string | null): UseCustomerDet
     customer: null,
     transactions: null,
     packages: null,
-    bookings: null,
-    analytics: null
+    bookings: null
   });
   
   // Pagination state

@@ -32,7 +32,7 @@ The Sales Dashboard is a comprehensive business intelligence tool that provides 
 ### Core Features
 1. **KPI Cards**: Essential business metrics at a glance with hoverable trend lines
 2. **Revenue Trends**: Historical revenue analysis with growth tracking
-3. **Bay Utilization**: Simulator usage statistics across all golf bays
+3. **Bay Utilization**: Simulator usage statistics across all golf bays (4 bays from Sept 1, 2024)
 4. **Category Breakdown**: Analysis of different booking types and packages
 5. **Customer Growth**: New customer acquisition and retention metrics
 6. **Payment Methods**: Payment preference analysis and trends
@@ -358,12 +358,18 @@ SELECT pos.get_dashboard_summary_enhanced('2025-06-01', '2025-06-12', '2025-05-0
 
 #### **SIM Utilization Logic**
 ```sql
--- SIM utilization calculation using INTEGER field for efficiency
-SUM(is_sim_usage) / (COUNT(DISTINCT date) * 3 * 12) * 100
+-- SIM utilization calculation using INTEGER field for efficiency with dynamic bay count
+SUM(is_sim_usage) / (COUNT(DISTINCT date) * bay_count * 12) * 100
 -- Where: 
 --   is_sim_usage = 1 for SIM usage, 0 for other products (INTEGER for easy summing)
---   3 = number of golf bays
+--   bay_count = 3 bays before September 1, 2024; 4 bays from September 1, 2024 onwards
 --   12 = operating hours per day
+
+-- Dynamic bay count calculation:
+bay_count = CASE 
+  WHEN date < '2024-09-01' THEN 3  -- Original 3 bays
+  ELSE 4                          -- Expanded to 4 bays from Sept 1, 2024
+END
 ```
 
 #### **VAT-Aware Revenue Calculations**
@@ -387,7 +393,7 @@ gross_margin_pct = (gross_profit / sales_net) * 100
 The dashboard uses optimized PostgreSQL functions for efficient data aggregation:
 
 ```sql
--- Revenue summary aggregation (within pos schema functions)
+-- Revenue summary aggregation (within pos schema functions) with dynamic bay count
 SELECT 
   SUM(sales_total) as total_revenue,
   SUM(gross_profit) as total_profit,
@@ -395,7 +401,15 @@ SELECT
   COUNT(DISTINCT customer_name) as unique_customers,
   AVG(sales_total) as avg_transaction_value,
   SUM(is_sim_usage) as sim_usage_count,  -- INTEGER field allows efficient SUM()
-  (SUM(is_sim_usage)::DECIMAL / (DATE_RANGE_DAYS * 3 * 12)) * 100 as sim_utilization_pct
+  -- Dynamic bay count: 3 bays before Sept 1, 2024; 4 bays after
+  (SUM(is_sim_usage)::DECIMAL / (
+    DATE_RANGE_DAYS * 12 * 
+    CASE 
+      WHEN end_date < '2024-09-01' THEN 3
+      WHEN start_date >= '2024-09-01' THEN 4
+      ELSE (weighted_average_bay_count)  -- For periods spanning the transition
+    END
+  )) * 100 as sim_utilization_pct
 FROM pos.lengolf_sales
 WHERE date BETWEEN start_date AND end_date
   AND is_voided = FALSE;
@@ -902,7 +916,18 @@ BEGIN
     wd.new_cust,
     ROUND(wd.revenue / wd.transactions, 2) as avg_transaction,
     ROUND((wd.profit / wd.revenue) * 100, 2) as margin_pct,
-    ROUND((wd.sim_usage::DECIMAL / (7 * 3 * 12)) * 100, 2) as sim_util_pct,
+    -- Dynamic bay count for weekly utilization: 3 bays before Sept 1, 2024; 4 bays after
+    ROUND((wd.sim_usage::DECIMAL / (7 * 12 * 
+      CASE 
+        WHEN wd.week_end < '2024-09-01' THEN 3
+        WHEN wd.week_start >= '2024-09-01' THEN 4  
+        ELSE (
+          -- Weighted average for weeks spanning the transition
+          ((DATE_PART('days', '2024-09-01'::DATE - wd.week_start) * 3) + 
+           (DATE_PART('days', wd.week_end - '2024-09-01'::DATE + 1) * 4)) / 7
+        )
+      END
+    )) * 100, 2) as sim_util_pct,
     wd.sim_usage,
     ROUND(((wd.customers - wd.new_cust)::DECIMAL / wd.customers) * 100, 2) as retention_rate,
     ROUND(wd.transactions::DECIMAL / 7, 2) as avg_daily_transactions,

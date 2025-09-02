@@ -23,14 +23,12 @@ import { CustomerOverviewTab } from '../tabs/CustomerOverviewTab';
 import { CustomerTransactionsTab } from '../tabs/CustomerTransactionsTab';
 import { CustomerPackagesTab } from '../tabs/CustomerPackagesTab';
 import { CustomerBookingsTab } from '../tabs/CustomerBookingsTab';
-import { CustomerAnalyticsTab } from '../tabs/CustomerAnalyticsTab';
 import type { 
   Customer, 
   CustomerTab, 
   TransactionRecord,
   PackageRecord,
-  BookingRecord,
-  CustomerAnalytics 
+  BookingRecord
 } from '../utils/customerTypes';
 
 interface TabData {
@@ -53,12 +51,6 @@ interface TabData {
     page: number;
     totalPages: number;
     onPageChange: (page: number) => void;
-    onRefresh: () => void;
-  };
-  analytics: {
-    data: CustomerAnalytics | null;
-    loading: boolean;
-    error: string | null;
     onRefresh: () => void;
   };
 }
@@ -93,11 +85,6 @@ const TAB_CONFIG = {
     label: 'Bookings',
     icon: Calendar,
     description: 'Reservation history'
-  },
-  analytics: {
-    label: 'Analytics',
-    icon: BarChart3,
-    description: 'Spending patterns and insights'
   }
 } as const;
 
@@ -186,10 +173,6 @@ export const CustomerTabs: React.FC<CustomerTabsProps> = ({
             count={tabData.bookings.data.length}
           />
           
-          <TabTriggerWithIcon 
-            value="analytics" 
-            isLoading={tabData.analytics.loading}
-          />
         </TabsList>
 
         {/* Data Flow Indicator */}
@@ -202,7 +185,7 @@ export const CustomerTabs: React.FC<CustomerTabsProps> = ({
         <TabsContent value="overview" className="h-full m-0">
           <CustomerOverviewTab 
             customer={customer}
-            analytics={tabData.analytics.data || undefined}
+            analytics={undefined}
           />
         </TabsContent>
 
@@ -242,16 +225,6 @@ export const CustomerTabs: React.FC<CustomerTabsProps> = ({
           />
         </TabsContent>
 
-        {/* Analytics Tab - Lazy loaded */}
-        <TabsContent value="analytics" className="h-full m-0">
-          <CustomerAnalyticsTab
-            customer={customer}
-            analytics={tabData.analytics.data}
-            loading={tabData.analytics.loading}
-            error={tabData.analytics.error}
-            onRefresh={tabData.analytics.onRefresh}
-          />
-        </TabsContent>
       </div>
     </Tabs>
   );

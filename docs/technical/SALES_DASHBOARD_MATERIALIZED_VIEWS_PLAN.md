@@ -158,7 +158,14 @@ SELECT
   ROUND(AVG(total_revenue), 2) as avg_daily_revenue,
   ROUND(SUM(total_revenue) / NULLIF(SUM(total_transactions), 0), 2) as avg_transaction_value,
   ROUND((SUM(total_profit) / NULLIF(SUM(total_revenue), 0)) * 100, 2) as gross_margin_pct,
-  ROUND((SUM(sim_usage_count)::DECIMAL / (COUNT(DISTINCT date) * 3 * 12)) * 100, 2) as sim_utilization_pct,
+  -- Dynamic bay count: 3 bays before Sept 1, 2024; 4 bays from Sept 1, 2024 onwards
+  ROUND((SUM(sim_usage_count)::DECIMAL / (COUNT(DISTINCT date) * 12 * 
+    CASE 
+      WHEN MAX(date) < '2024-09-01' THEN 3
+      WHEN MIN(date) >= '2024-09-01' THEN 4
+      ELSE 3.5  -- Approximate average for mixed periods
+    END
+  )) * 100, 2) as sim_utilization_pct,
   -- Operational metrics  
   COUNT(DISTINCT date) as operating_days,
   SUM(total_customers) / COUNT(DISTINCT date) as avg_daily_customers,
@@ -194,7 +201,14 @@ SELECT
   ROUND(AVG(total_revenue), 2) as avg_daily_revenue,
   ROUND(SUM(total_revenue) / NULLIF(SUM(total_transactions), 0), 2) as avg_transaction_value,
   ROUND((SUM(total_profit) / NULLIF(SUM(total_revenue), 0)) * 100, 2) as gross_margin_pct,
-  ROUND((SUM(sim_usage_count)::DECIMAL / (COUNT(DISTINCT date) * 3 * 12)) * 100, 2) as sim_utilization_pct,
+  -- Dynamic bay count: 3 bays before Sept 1, 2024; 4 bays from Sept 1, 2024 onwards
+  ROUND((SUM(sim_usage_count)::DECIMAL / (COUNT(DISTINCT date) * 12 * 
+    CASE 
+      WHEN MAX(date) < '2024-09-01' THEN 3
+      WHEN MIN(date) >= '2024-09-01' THEN 4
+      ELSE 3.5  -- Approximate average for mixed periods
+    END
+  )) * 100, 2) as sim_utilization_pct,
   -- Peak analysis
   (SELECT week_number FROM pos.mv_weekly_sales_summary w 
    WHERE w.year = EXTRACT(YEAR FROM mv_daily_sales_summary.date) 

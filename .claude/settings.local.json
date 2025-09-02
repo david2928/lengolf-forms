@@ -98,7 +98,10 @@
       "Bash(git stash:*)",
       "Bash(git reset:*)",
       "Bash(git log:*)",
-      "Bash(del cleanup-test-sessions.js)"
+      "Bash(del cleanup-test-sessions.js)",
+      "mcp__bigquery__query",
+      "Bash(gcloud config:*)",
+      "Bash(bq ls:*)"
     ],
     "deny": [],
     "additionalDirectories": [

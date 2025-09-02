@@ -173,12 +173,6 @@ export function CustomerDetailModalOptimized({
                   totalPages: bookingsTotalPages,
                   onPageChange: setBookingsPage,
                   onRefresh: () => refreshTab('bookings')
-                },
-                analytics: {
-                  data: analytics,
-                  loading: analyticsLoading,
-                  error: analyticsError,
-                  onRefresh: () => refreshTab('analytics')
                 }
               }}
             />

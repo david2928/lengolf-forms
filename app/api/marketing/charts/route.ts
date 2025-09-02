@@ -54,9 +54,18 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const days = parseInt(searchParams.get('days') || '30');
+    const referenceDateParam = searchParams.get('referenceDate');
 
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    // Default to yesterday to ensure complete day data
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const referenceDate = referenceDateParam ? new Date(referenceDateParam) : yesterday;
+    const endDate = referenceDate;
+
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - days + 1);
 
     // Get Google Ads daily data
     const { data: googleData } = await supabase
@@ -64,7 +73,7 @@ export async function GET(request: NextRequest) {
       .from('google_ads_campaign_performance')
       .select('date, impressions, clicks, cost_micros, conversions')
       .gte('date', startDate.toISOString().split('T')[0])
-      .lte('date', new Date().toISOString().split('T')[0])
+      .lte('date', endDate.toISOString().split('T')[0])
       .order('date', { ascending: true });
 
     // Get Meta Ads daily data
@@ -73,7 +82,7 @@ export async function GET(request: NextRequest) {
       .from('meta_ads_campaign_performance')
       .select('date, impressions, clicks, spend_cents, conversions')
       .gte('date', startDate.toISOString().split('T')[0])
-      .lte('date', new Date().toISOString().split('T')[0])
+      .lte('date', endDate.toISOString().split('T')[0])
       .order('date', { ascending: true });
 
     // Helper function to group data by date
