@@ -43,7 +43,7 @@ import TrafficAnalysis from '@/components/marketing-dashboard/TrafficAnalysis';
 // Import the marketing dashboard hook
 import { useMarketingDashboard } from '@/hooks/useMarketingDashboard';
 
-type DashboardTab = 'overview' | 'performance' | 'analytics' | 'traffic' | 'retention' | 'clv' | 'segments';
+type DashboardTab = 'overview' | 'performance' | 'traffic' | 'retention' | 'clv' | 'segments';
 
 export default function MarketingDashboardPage() {
   // Dashboard state
@@ -297,16 +297,6 @@ export default function MarketingDashboardPage() {
             }`}
           >
             Performance
-          </button>
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`py-2 px-3 border-b-2 font-medium text-sm whitespace-nowrap ${
-              activeTab === 'analytics'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Analytics
           </button>
           <button
             onClick={() => setActiveTab('traffic')}
@@ -621,12 +611,6 @@ export default function MarketingDashboardPage() {
         />
       )}
 
-      {activeTab === 'analytics' && chartData && (
-        <MarketingCharts 
-          data={chartData}
-          isLoading={isLoading}
-        />
-      )}
 
       {activeTab === 'traffic' && (
         <TrafficAnalysis 
