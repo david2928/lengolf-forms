@@ -163,7 +163,9 @@ export async function GET(request: NextRequest) {
     yesterday.setDate(yesterday.getDate() - 1);
     
     // For API calls, default end date to yesterday unless a specific reference date is provided
-    const referenceDate = referenceDateParam ? new Date(referenceDateParam) : yesterday;
+    const referenceDate = referenceDateParam ? 
+      new Date(referenceDateParam + 'T00:00:00.000Z') : // Force UTC interpretation
+      yesterday;
     const endDate = referenceDate;
     
     if (format === 'rolling7day') {
@@ -717,8 +719,11 @@ async function getMonthlyPerformance(startDate: Date, endDate: Date) {
   };
 
   // For MTD calculation, get current month to date
-  const currentMonth = endDate.getMonth();
-  const currentYear = endDate.getFullYear();
+  // Use UTC methods to ensure consistent date calculations
+  const currentMonth = endDate.getUTCMonth();
+  const currentYear = endDate.getUTCFullYear();
+  const currentDay = endDate.getUTCDate();
+  
   
   // Expand date range to include enough historical data for 3 months
   const expandedStartDate = new Date(currentYear, currentMonth - 2, 1);
@@ -737,30 +742,31 @@ async function getMonthlyPerformance(startDate: Date, endDate: Date) {
     throw new Error('Failed to fetch daily metrics');
   }
 
-  // Define the three periods we need
+  // Define the three periods we need using UTC dates
   const periods = [
     {
       key: 'MTD',
       label: 'Month-To-Date',
-      startDate: new Date(currentYear, currentMonth, 1),
-      endDate: endDate,
+      startDate: new Date(Date.UTC(currentYear, currentMonth, 1)),
+      endDate: new Date(Date.UTC(currentYear, currentMonth, currentDay)),
       isPartialMonth: true
     },
     {
       key: 'M-1', 
       label: 'Previous Month',
-      startDate: new Date(currentYear, currentMonth - 1, 1),
-      endDate: new Date(currentYear, currentMonth, 0), // Last day of previous month
+      startDate: new Date(Date.UTC(currentYear, currentMonth - 1, 1)),
+      endDate: new Date(Date.UTC(currentYear, currentMonth, 0)), // Last day of previous month
       isPartialMonth: false
     },
     {
       key: 'M-2',
       label: 'Two Months Ago', 
-      startDate: new Date(currentYear, currentMonth - 2, 1),
-      endDate: new Date(currentYear, currentMonth - 1, 0), // Last day of M-2
+      startDate: new Date(Date.UTC(currentYear, currentMonth - 2, 1)),
+      endDate: new Date(Date.UTC(currentYear, currentMonth - 1, 0)), // Last day of M-2
       isPartialMonth: false
     }
   ];
+
 
   // Pre-calculate all revenue data and additional data for periods
   const revenueDataMonthly = await Promise.all(
