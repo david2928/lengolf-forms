@@ -16,43 +16,9 @@ export class USBThermalPrinter {
    * Check if WebUSB is supported
    */
   static isSupported(): boolean {
-    const supported = typeof navigator !== 'undefined' && 
+    return typeof navigator !== 'undefined' && 
            'usb' in navigator && 
            typeof (navigator as any).usb?.requestDevice === 'function';
-    
-    if (!supported) {
-      console.warn('❌ WebUSB not supported:', {
-        hasNavigator: typeof navigator !== 'undefined',
-        hasUSB: typeof navigator !== 'undefined' && 'usb' in navigator,
-        hasRequestDevice: typeof navigator !== 'undefined' && 'usb' in navigator && typeof (navigator as any).usb?.requestDevice === 'function',
-        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-        isHTTPS: typeof location !== 'undefined' ? location.protocol === 'https:' : 'unknown'
-      });
-    }
-    
-    return supported;
-  }
-
-  /**
-   * Debug method to list all available USB devices
-   */
-  static async debugListDevices(): Promise<void> {
-    if (!USBThermalPrinter.isSupported()) {
-      console.error('❌ WebUSB not supported for device listing');
-      return;
-    }
-
-    try {
-      const devices = await (navigator as any).usb.getDevices();
-      console.log('🔍 Currently paired USB devices:', devices.map((device: any) => ({
-        manufacturer: device.manufacturerName,
-        product: device.productName,
-        vendorId: '0x' + device.vendorId.toString(16),
-        productId: '0x' + device.productId.toString(16)
-      })));
-    } catch (error) {
-      console.error('❌ Failed to list USB devices:', error);
-    }
   }
 
   /**
@@ -66,9 +32,8 @@ export class USBThermalPrinter {
 
       console.log('🔍 Scanning for USB thermal printers...');
 
-      // Expanded thermal printer vendor IDs including common USB-to-serial chips
+      // Common thermal printer vendor IDs
       const filters = [
-        // Brand name thermal printers
         { vendorId: 0x04b8 }, // Epson
         { vendorId: 0x0525 }, // Star Micronics
         { vendorId: 0x0fe6 }, // ICS Electronics
@@ -76,17 +41,7 @@ export class USBThermalPrinter {
         { vendorId: 0x28e9 }, // GigaDevice (common for generic printers)
         { vendorId: 0x1fc9 }, // NXP (some thermal printers)
         { vendorId: 0x0483 }, // STMicroelectronics (some thermal printers)
-        
-        // Common USB-to-serial chips used in thermal printers
-        { vendorId: 0x1a86 }, // CH340/CH341 (very common in cheap thermal printers)
-        { vendorId: 0x0403 }, // FTDI (FT232, FT234, etc.)
-        { vendorId: 0x10c4 }, // Silicon Labs CP210x series
-        { vendorId: 0x067b }, // Prolific PL2303
-        { vendorId: 0x16c0 }, // Van Ooijen Technische Informatica (V-USB)
-        
-        // Generic/broader filters
-        { classCode: 7 },      // USB Printer class
-        { classCode: 3 }       // USB HID class (some thermal printers)
+        { classCode: 7 }       // Printer class
       ];
 
       this.device = await (navigator as any).usb.requestDevice({ filters });
@@ -147,19 +102,6 @@ export class USBThermalPrinter {
 
     } catch (error) {
       console.error('❌ Failed to connect to USB printer:', error);
-      console.error('🔍 USB Connection Debug Info:', {
-        isSupported: USBThermalPrinter.isSupported(),
-        errorType: error instanceof Error ? error.name : typeof error,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        deviceSelected: !!this.device,
-        deviceInfo: this.device ? {
-          manufacturer: this.device.manufacturerName,
-          product: this.device.productName,
-          vendorId: '0x' + this.device.vendorId.toString(16),
-          productId: '0x' + this.device.productId.toString(16)
-        } : null
-      });
-      
       this.isConnected = false;
       throw error;
     }
