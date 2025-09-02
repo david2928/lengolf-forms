@@ -402,6 +402,7 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
       monthMinus1: monthlyData && monthlyData[1] ? monthlyData[1] : null,
       monthMinus2: monthlyData && monthlyData[2] ? monthlyData[2] : null,
     };
+    
   }, [data, monthlyData]);
 
   const formatCurrency = (value: number | undefined | null) => {
@@ -1373,7 +1374,6 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatFullNumber(transformedData.threeWeeksAgo?.totalSessions || 0)}</TableCell>
                     <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatFullNumber(transformedData.fourWeeksAgo?.totalSessions || 0)}</TableCell>
                     <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatFullNumber(transformedData.fiveWeeksAgo?.totalSessions || 0)}</TableCell>
-                    <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatFullNumber(transformedData.fourWeekAverage?.totalSessions || 0)}</TableCell>
                     <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatFullNumber(transformedData.mtd?.totalSessions || 0)}</TableCell>
                     <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatFullNumber(transformedData.monthMinus1?.totalSessions || 0)}</TableCell>
                     <TableCell className="py-3 px-2 text-center font-medium text-gray-900 text-xs">{formatFullNumber(transformedData.monthMinus2?.totalSessions || 0)}</TableCell>
@@ -1396,12 +1396,11 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-2 px-2 text-center text-green-700 font-medium text-xs">{formatFullNumber(transformedData.threeWeeksAgo?.paidSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-green-700 font-medium text-xs">{formatFullNumber(transformedData.fourWeeksAgo?.paidSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-green-700 font-medium text-xs">{formatFullNumber(transformedData.fiveWeeksAgo?.paidSessions || 0)}</TableCell>
-                    <TableCell className="py-2 px-2 text-center text-green-700 font-medium text-xs">{formatFullNumber(transformedData.fourWeekAverage?.paidSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-green-700 font-medium text-xs">{formatFullNumber(transformedData.mtd?.paidSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-green-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus1?.paidSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-green-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus2?.paidSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center">
-                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.monthMinus1?.paidSessions, transformedData.monthMinus2?.paidSessions), true)}`}>
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.monthMinus1?.paidSessions, transformedData.monthMinus2?.paidSessions))}`}>
                         {formatPercentageChange(transformedData.monthMinus1?.paidSessions, transformedData.monthMinus2?.paidSessions)}
                       </div>
                     </TableCell>
@@ -1419,7 +1418,6 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatFullNumber(transformedData.threeWeeksAgo?.paidSocialSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatFullNumber(transformedData.fourWeeksAgo?.paidSocialSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatFullNumber(transformedData.fiveWeeksAgo?.paidSocialSessions || 0)}</TableCell>
-                    <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatFullNumber(transformedData.fourWeekAverage?.paidSocialSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatFullNumber(transformedData.mtd?.paidSocialSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus1?.paidSocialSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus2?.paidSocialSessions || 0)}</TableCell>
@@ -1442,7 +1440,6 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatFullNumber(transformedData.threeWeeksAgo?.paidSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatFullNumber(transformedData.fourWeeksAgo?.paidSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatFullNumber(transformedData.fiveWeeksAgo?.paidSearchSessions || 0)}</TableCell>
-                    <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatFullNumber(transformedData.fourWeekAverage?.paidSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatFullNumber(transformedData.mtd?.paidSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus1?.paidSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus2?.paidSearchSessions || 0)}</TableCell>
@@ -1465,7 +1462,6 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-2 px-2 text-center text-emerald-700 font-medium text-xs">{formatFullNumber(transformedData.threeWeeksAgo?.organicSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-emerald-700 font-medium text-xs">{formatFullNumber(transformedData.fourWeeksAgo?.organicSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-emerald-700 font-medium text-xs">{formatFullNumber(transformedData.fiveWeeksAgo?.organicSearchSessions || 0)}</TableCell>
-                    <TableCell className="py-2 px-2 text-center text-emerald-700 font-medium text-xs">{formatFullNumber(transformedData.fourWeekAverage?.organicSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-emerald-700 font-medium text-xs">{formatFullNumber(transformedData.mtd?.organicSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-emerald-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus1?.organicSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-emerald-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus2?.organicSearchSessions || 0)}</TableCell>
@@ -1488,7 +1484,6 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-2 px-2 text-center text-amber-700 font-medium text-xs">{formatFullNumber(transformedData.threeWeeksAgo?.directSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-amber-700 font-medium text-xs">{formatFullNumber(transformedData.fourWeeksAgo?.directSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-amber-700 font-medium text-xs">{formatFullNumber(transformedData.fiveWeeksAgo?.directSessions || 0)}</TableCell>
-                    <TableCell className="py-2 px-2 text-center text-amber-700 font-medium text-xs">{formatFullNumber(transformedData.fourWeekAverage?.directSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-amber-700 font-medium text-xs">{formatFullNumber(transformedData.mtd?.directSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-amber-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus1?.directSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-amber-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus2?.directSessions || 0)}</TableCell>
