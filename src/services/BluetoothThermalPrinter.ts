@@ -323,10 +323,25 @@ export class BluetoothThermalPrinter {
   }
 
   /**
-   * Get connection status
+   * Get connection status - checks both internal flag and actual GATT state
    */
   getConnectionStatus(): boolean {
-    return this.isConnected;
+    // If no device or characteristic, definitely not connected
+    if (!this.device || !this.characteristic) {
+      this.isConnected = false;
+      return false;
+    }
+
+    // Check actual GATT connection state
+    const gattConnected = this.device.gatt?.connected || false;
+    
+    // Update internal state to match reality
+    if (!gattConnected) {
+      this.isConnected = false;
+    }
+
+    // Return the actual GATT state (most accurate)
+    return gattConnected && this.isConnected;
   }
 
   /**
