@@ -1424,7 +1424,9 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus1?.paidSocialSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-purple-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus2?.paidSocialSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center">
-                      <div className="font-medium text-xs text-gray-500">-</div>
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.monthMinus1?.paidSocialSessions, transformedData.monthMinus2?.paidSocialSessions))}`}>
+                        {formatPercentageChange(transformedData.monthMinus1?.paidSocialSessions, transformedData.monthMinus2?.paidSocialSessions)}
+                      </div>
                     </TableCell>
                   </TableRow>
                   
@@ -1445,7 +1447,9 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus1?.paidSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-blue-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus2?.paidSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center">
-                      <div className="font-medium text-xs text-gray-500">-</div>
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.monthMinus1?.paidSearchSessions, transformedData.monthMinus2?.paidSearchSessions))}`}>
+                        {formatPercentageChange(transformedData.monthMinus1?.paidSearchSessions, transformedData.monthMinus2?.paidSearchSessions)}
+                      </div>
                     </TableCell>
                   </TableRow>
                   
@@ -1466,7 +1470,9 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-2 px-2 text-center text-emerald-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus1?.organicSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-emerald-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus2?.organicSearchSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center">
-                      <div className="font-medium text-xs text-gray-500">-</div>
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.monthMinus1?.organicSearchSessions, transformedData.monthMinus2?.organicSearchSessions))}`}>
+                        {formatPercentageChange(transformedData.monthMinus1?.organicSearchSessions, transformedData.monthMinus2?.organicSearchSessions)}
+                      </div>
                     </TableCell>
                   </TableRow>
                   
@@ -1487,7 +1493,9 @@ const MarketingPerformanceTable: React.FC<MarketingPerformanceTableProps> = ({
                     <TableCell className="py-2 px-2 text-center text-amber-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus1?.directSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center text-amber-700 font-medium text-xs">{formatFullNumber(transformedData.monthMinus2?.directSessions || 0)}</TableCell>
                     <TableCell className="py-2 px-2 text-center">
-                      <div className="font-medium text-xs text-gray-500">-</div>
+                      <div className={`font-medium text-xs ${getTrendColor(calculatePercentageChange(transformedData.monthMinus1?.directSessions, transformedData.monthMinus2?.directSessions))}`}>
+                        {formatPercentageChange(transformedData.monthMinus1?.directSessions, transformedData.monthMinus2?.directSessions)}
+                      </div>
                     </TableCell>
                   </TableRow>
                 </>
