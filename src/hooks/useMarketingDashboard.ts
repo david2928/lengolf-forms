@@ -39,17 +39,33 @@ interface WeeklyPerformance {
   googleCtr: number;
   metaCtr: number;
   averageCtr: number;
-  googleConversions: number;
-  metaConversions: number;
-  totalConversions: number;
+  googleCpm: number;
+  metaCpm: number;
+  totalCpm: number;
+  googleCpc: number;
+  metaCpc: number;
+  totalCpc: number;
   googleNewCustomers: number;
   metaNewCustomers: number;
   totalNewCustomers: number;
+  metaLeads: number;
+  grossProfit: number;
+  lengolfLineFollowers: number;
+  fairwayLineFollowers: number;
   cac: number;
   roas: number;
   weekOverWeekSpendChange: number;
-  weekOverWeekConversionsChange: number;
   weekOverWeekNewCustomersChange: number;
+  // Traffic data
+  totalSessions?: number;
+  paidSessions?: number;
+  paidSocialSessions?: number;
+  paidSearchSessions?: number;
+  organicSearchSessions?: number;
+  directSessions?: number;
+  emailSessions?: number;
+  referralSessions?: number;
+  otherSessions?: number;
 }
 
 interface Rolling7DayPerformance {
@@ -68,13 +84,33 @@ interface Rolling7DayPerformance {
   googleCtr: number;
   metaCtr: number;
   averageCtr: number;
+  googleCpm: number;
+  metaCpm: number;
+  totalCpm: number;
+  googleCpc: number;
+  metaCpc: number;
+  totalCpc: number;
   googleNewCustomers: number;
   metaNewCustomers: number;
   totalNewCustomers: number;
+  metaLeads: number;
+  grossProfit: number;
+  lengolfLineFollowers: number;
+  fairwayLineFollowers: number;
   cac: number;
   roas: number;
   periodOverPeriodSpendChange: number;
   periodOverPeriodNewCustomersChange: number;
+  // Traffic data
+  totalSessions?: number;
+  paidSessions?: number;
+  paidSocialSessions?: number;
+  paidSearchSessions?: number;
+  organicSearchSessions?: number;
+  directSessions?: number;
+  emailSessions?: number;
+  referralSessions?: number;
+  otherSessions?: number;
 }
 
 interface ChartData {
@@ -83,6 +119,66 @@ interface ChartData {
   conversionFunnel: any[];
   cacTrend: any[];
   roasByPlatform: any[];
+}
+
+interface TrafficAnalytics {
+  // Overall traffic metrics
+  totalSessions: number;
+  totalUsers: number;
+  totalPageViews: number;
+  avgPagesPerSession: number;
+  avgSessionDuration: number;
+  avgBounceRate: number;
+  
+  // Channel performance
+  channelPerformance: Array<{
+    channel: string;
+    sessions: number;
+    users: number;
+    bookingConversions: number;
+    conversionRate: number;
+    sessionsChange: number;
+    conversionRateChange: number;
+  }>;
+  
+  // Device breakdown
+  deviceBreakdown: Array<{
+    device: string;
+    sessions: number;
+    percentage: number;
+    conversionRate: number;
+  }>;
+  
+  // Funnel analysis
+  funnelData: Array<{
+    channel: string;
+    stage1Users: number; // Landing
+    stage2Users: number; // Book Now
+    stage3Users: number; // Booking Page
+    stage4Users: number; // Form Start
+    stage5Users: number; // Login
+    stage6Users: number; // Confirmation
+    overallConversionRate: number;
+  }>;
+  
+  // Top pages
+  topPages: Array<{
+    path: string;
+    title: string;
+    pageViews: number;
+    entrances: number;
+    bounceRate: number;
+    bookingConversions: number;
+  }>;
+  
+  // Time series data for charts
+  dailyTrends: Array<{
+    date: string;
+    sessions: number;
+    users: number;
+    bookingConversions: number;
+    conversionRate: number;
+  }>;
 }
 
 interface MonthlyPerformance {
@@ -101,9 +197,19 @@ interface MonthlyPerformance {
   googleCtr: number;
   metaCtr: number;
   averageCtr: number;
+  googleCpm: number;
+  metaCpm: number;
+  totalCpm: number;
+  googleCpc: number;
+  metaCpc: number;
+  totalCpc: number;
   googleNewCustomers: number;
   metaNewCustomers: number;
   totalNewCustomers: number;
+  metaLeads: number;
+  grossProfit: number;
+  lengolfLineFollowers: number;
+  fairwayLineFollowers: number;
   cac: number;
   roas: number;
 }
@@ -113,6 +219,7 @@ interface MarketingDashboardData {
   performance: (WeeklyPerformance | Rolling7DayPerformance)[];
   monthlyPerformance: MonthlyPerformance[];
   charts: ChartData | null;
+  traffic: TrafficAnalytics | null;
 }
 
 interface UseMarketingDashboardOptions {
@@ -192,7 +299,8 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
     kpis: null,
     performance: [],
     monthlyPerformance: [],
-    charts: null
+    charts: null,
+    traffic: null
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isValidating, setIsValidating] = useState(false);
@@ -204,7 +312,8 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
     kpis: `marketing-kpis-${timeRange}-${usePeriodType}-${referenceDate}`,
     performance: `marketing-performance-${timeRange}-${usePeriodType}-${referenceDate}`,
     monthlyPerformance: `marketing-monthly-performance-${timeRange}-${usePeriodType}-${referenceDate}`,
-    charts: `marketing-charts-${timeRange}-${usePeriodType}-${referenceDate}`
+    charts: `marketing-charts-${timeRange}-${usePeriodType}-${referenceDate}`,
+    traffic: `marketing-traffic-${timeRange}-${usePeriodType}-${referenceDate}`
   }), [timeRange, usePeriodType, referenceDate]);
 
   // Fetch KPI data
@@ -334,6 +443,35 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
     }
   }, [timeRange, referenceDate, getCacheKeys]);
 
+  // Fetch traffic data
+  const fetchTraffic = useCallback(async (): Promise<TrafficAnalytics | null> => {
+    const cacheKey = getCacheKeys().traffic;
+    
+    // Check cache first
+    const cached = marketingCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const referenceDateParam = referenceDate ? `&referenceDate=${referenceDate}` : '';
+      const response = await fetch(`/api/marketing/traffic?days=${timeRange}&comparisonDays=${timeRange}${referenceDateParam}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch traffic: ${response.statusText}`);
+      }
+
+      const traffic = await response.json();
+      
+      // Cache for 5 minutes
+      marketingCache.set(cacheKey, traffic, 5 * 60 * 1000);
+      
+      return traffic;
+    } catch (err) {
+      console.error('Error fetching traffic:', err);
+      throw err;
+    }
+  }, [timeRange, referenceDate, getCacheKeys]);
+
   // Load all data
   const loadData = useCallback(async (showValidating = false) => {
     if (!enabled) return;
@@ -354,7 +492,8 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
         marketingCache.has(cacheKeys.kpis) &&
         marketingCache.has(cacheKeys.performance) &&
         marketingCache.has(cacheKeys.monthlyPerformance) &&
-        marketingCache.has(cacheKeys.charts);
+        marketingCache.has(cacheKeys.charts) &&
+        marketingCache.has(cacheKeys.traffic);
 
       if (hasAllCached && !showValidating) {
         // Load from cache immediately
@@ -362,12 +501,14 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
         const cachedPerformance = marketingCache.get(cacheKeys.performance);
         const cachedMonthlyPerformance = marketingCache.get(cacheKeys.monthlyPerformance);
         const cachedCharts = marketingCache.get(cacheKeys.charts);
+        const cachedTraffic = marketingCache.get(cacheKeys.traffic);
 
         setData({
           kpis: cachedKpis,
           performance: cachedPerformance,
           monthlyPerformance: cachedMonthlyPerformance,
-          charts: cachedCharts
+          charts: cachedCharts,
+          traffic: cachedTraffic
         });
 
         setIsLoading(false);
@@ -376,14 +517,15 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
       }
 
       // Fetch all data in parallel
-      const [kpis, performance, monthlyPerformance, charts] = await Promise.all([
+      const [kpis, performance, monthlyPerformance, charts, traffic] = await Promise.all([
         fetchKPIs(),
         fetchPerformance(),
         fetchMonthlyPerformance(),
-        fetchCharts()
+        fetchCharts(),
+        fetchTraffic()
       ]);
 
-      setData({ kpis, performance, monthlyPerformance, charts });
+      setData({ kpis, performance, monthlyPerformance, charts, traffic });
     } catch (err) {
       console.error('Error loading marketing dashboard data:', err);
       setIsError(true);
@@ -392,7 +534,7 @@ export const useMarketingDashboard = (options: UseMarketingDashboardOptions = {}
       setIsLoading(false);
       setIsValidating(false);
     }
-  }, [enabled, getCacheKeys, fetchKPIs, fetchPerformance, fetchMonthlyPerformance, fetchCharts]);
+  }, [enabled, getCacheKeys, fetchKPIs, fetchPerformance, fetchMonthlyPerformance, fetchCharts, fetchTraffic]);
 
   // Refresh function (bypasses cache)
   const refresh = useCallback(async () => {

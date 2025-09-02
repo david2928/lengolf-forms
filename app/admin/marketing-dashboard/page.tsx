@@ -35,23 +35,31 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import MarketingKPICards from '@/components/marketing-dashboard/MarketingKPICards';
 import MarketingPerformanceTable from '@/components/marketing-dashboard/MarketingPerformanceTable';
 import MarketingCharts from '@/components/marketing-dashboard/MarketingCharts';
+import RetentionAnalysis from '@/components/marketing-dashboard/RetentionAnalysis';
+import CLVAnalysis from '@/components/marketing-dashboard/CLVAnalysis';
+import CustomerSegmentation from '@/components/marketing-dashboard/CustomerSegmentation';
+import TrafficAnalysis from '@/components/marketing-dashboard/TrafficAnalysis';
 
 // Import the marketing dashboard hook
 import { useMarketingDashboard } from '@/hooks/useMarketingDashboard';
 
-type DashboardTab = 'overview' | 'performance' | 'analytics';
+type DashboardTab = 'overview' | 'performance' | 'analytics' | 'traffic' | 'retention' | 'clv' | 'segments';
 
 export default function MarketingDashboardPage() {
   // Dashboard state
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [timeRange, setTimeRange] = useState<string>('30');
   const [usePeriodType, setUsePeriodType] = useState<'rolling' | 'weekly'>('rolling');
-  const [referenceDate, setReferenceDate] = useState<Date>(new Date());
+  const [referenceDate, setReferenceDate] = useState<Date>(() => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday;
+  });
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   
   // Use the marketing dashboard hook with caching
   const {
-    data: { kpis: kpiData, performance: performanceData, monthlyPerformance: monthlyData, charts: chartData },
+    data: { kpis: kpiData, performance: performanceData, monthlyPerformance: monthlyData, charts: chartData, traffic: trafficData },
     isLoading,
     isValidating: isRefreshing,
     isError,
@@ -96,9 +104,19 @@ export default function MarketingDashboardPage() {
         'Google CTR': row.googleCtr,
         'Meta CTR': row.metaCtr,
         'Average CTR': row.averageCtr,
+        'Google CPM': row.googleCpm || 0,
+        'Meta CPM': row.metaCpm || 0,
+        'Total CPM': row.totalCpm || 0,
+        'Google CPC': row.googleCpc || 0,
+        'Meta CPC': row.metaCpc || 0,
+        'Total CPC': row.totalCpc || 0,
         'Google New Customers': row.googleNewCustomers,
         'Meta New Customers': row.metaNewCustomers,
         'Total New Customers': row.totalNewCustomers,
+        'Meta Leads': row.metaLeads || 0,
+        'Gross Profit': row.grossProfit || 0,
+        'LENGOLF LINE Followers': row.lengolfLineFollowers || 0,
+        'FAIRWAY LINE Followers': row.fairwayLineFollowers || 0,
         'CAC': row.cac,
         'ROAS': row.roas,
         'Spend Change': spendChange,
@@ -259,10 +277,10 @@ export default function MarketingDashboardPage() {
 
       {/* Tab Navigation */}
       <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex space-x-8">
+        <nav className="-mb-px flex space-x-4 overflow-x-auto">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-3 border-b-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'overview'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -272,23 +290,63 @@ export default function MarketingDashboardPage() {
           </button>
           <button
             onClick={() => setActiveTab('performance')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-3 border-b-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'performance'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Performance Table
+            Performance
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-3 border-b-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'analytics'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Analytics & Charts
+            Analytics
+          </button>
+          <button
+            onClick={() => setActiveTab('traffic')}
+            className={`py-2 px-3 border-b-2 font-medium text-sm whitespace-nowrap ${
+              activeTab === 'traffic'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Traffic
+          </button>
+          <button
+            onClick={() => setActiveTab('retention')}
+            className={`py-2 px-3 border-b-2 font-medium text-sm whitespace-nowrap ${
+              activeTab === 'retention'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Retention
+          </button>
+          <button
+            onClick={() => setActiveTab('clv')}
+            className={`py-2 px-3 border-b-2 font-medium text-sm whitespace-nowrap ${
+              activeTab === 'clv'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            CLV Analysis
+          </button>
+          <button
+            onClick={() => setActiveTab('segments')}
+            className={`py-2 px-3 border-b-2 font-medium text-sm whitespace-nowrap ${
+              activeTab === 'segments'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Segments
           </button>
         </nav>
       </div>
@@ -567,6 +625,36 @@ export default function MarketingDashboardPage() {
         <MarketingCharts 
           data={chartData}
           isLoading={isLoading}
+        />
+      )}
+
+      {activeTab === 'traffic' && (
+        <TrafficAnalysis 
+          data={trafficData}
+          isLoading={isLoading}
+          timeRange={timeRange}
+          onRefresh={handleRefresh}
+        />
+      )}
+
+      {activeTab === 'retention' && (
+        <RetentionAnalysis 
+          isLoading={isLoading}
+          onRefresh={handleRefresh}
+        />
+      )}
+
+      {activeTab === 'clv' && (
+        <CLVAnalysis 
+          isLoading={isLoading}
+          onRefresh={handleRefresh}
+        />
+      )}
+
+      {activeTab === 'segments' && (
+        <CustomerSegmentation 
+          isLoading={isLoading}
+          onRefresh={handleRefresh}
         />
       )}
 

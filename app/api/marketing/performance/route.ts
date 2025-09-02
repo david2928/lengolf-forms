@@ -26,13 +26,33 @@ interface WeeklyPerformance {
   googleCtr: number;
   metaCtr: number;
   averageCtr: number;
+  googleCpm: number;
+  metaCpm: number;
+  totalCpm: number;
+  googleCpc: number;
+  metaCpc: number;
+  totalCpc: number;
   googleNewCustomers: number;
   metaNewCustomers: number;
   totalNewCustomers: number;
+  metaLeads: number;
+  grossProfit: number;
+  lengolfLineFollowers: number;
+  fairwayLineFollowers: number;
   cac: number;
   roas: number;
   weekOverWeekSpendChange: number;
   weekOverWeekNewCustomersChange: number;
+  // Traffic data
+  totalSessions?: number;
+  paidSessions?: number;
+  paidSocialSessions?: number;
+  paidSearchSessions?: number;
+  organicSearchSessions?: number;
+  directSessions?: number;
+  emailSessions?: number;
+  referralSessions?: number;
+  otherSessions?: number;
 }
 
 interface Rolling7DayPerformance {
@@ -51,13 +71,33 @@ interface Rolling7DayPerformance {
   googleCtr: number;
   metaCtr: number;
   averageCtr: number;
+  googleCpm: number;
+  metaCpm: number;
+  totalCpm: number;
+  googleCpc: number;
+  metaCpc: number;
+  totalCpc: number;
   googleNewCustomers: number;
   metaNewCustomers: number;
   totalNewCustomers: number;
+  metaLeads: number;
+  grossProfit: number;
+  lengolfLineFollowers: number;
+  fairwayLineFollowers: number;
   cac: number;
   roas: number;
   periodOverPeriodSpendChange: number;
   periodOverPeriodNewCustomersChange: number;
+  // Traffic data
+  totalSessions?: number;
+  paidSessions?: number;
+  paidSocialSessions?: number;
+  paidSearchSessions?: number;
+  organicSearchSessions?: number;
+  directSessions?: number;
+  emailSessions?: number;
+  referralSessions?: number;
+  otherSessions?: number;
 }
 
 interface MonthlyPerformance {
@@ -76,11 +116,31 @@ interface MonthlyPerformance {
   googleCtr: number;
   metaCtr: number;
   averageCtr: number;
+  googleCpm: number;
+  metaCpm: number;
+  totalCpm: number;
+  googleCpc: number;
+  metaCpc: number;
+  totalCpc: number;
   googleNewCustomers: number;
   metaNewCustomers: number;
   totalNewCustomers: number;
+  metaLeads: number;
+  grossProfit: number;
+  lengolfLineFollowers: number;
+  fairwayLineFollowers: number;
   cac: number;
   roas: number;
+  // Traffic data
+  totalSessions?: number;
+  paidSessions?: number;
+  paidSocialSessions?: number;
+  paidSearchSessions?: number;
+  organicSearchSessions?: number;
+  directSessions?: number;
+  emailSessions?: number;
+  referralSessions?: number;
+  otherSessions?: number;
 }
 
 export async function GET(request: NextRequest) {
@@ -99,10 +159,12 @@ export async function GET(request: NextRequest) {
 
     // Calculate date range relative to reference date (defaults to yesterday)
     const today = new Date();
-    const referenceDate = referenceDateParam ? new Date(referenceDateParam) : new Date(today);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
     
     // For API calls, default end date to yesterday unless a specific reference date is provided
-    const endDate = referenceDateParam ? referenceDate : new Date(today.setDate(today.getDate() - 1));
+    const referenceDate = referenceDateParam ? new Date(referenceDateParam) : yesterday;
+    const endDate = referenceDate;
     
     if (format === 'rolling7day') {
       return await getRolling7DayPerformance(endDate, periods);
@@ -122,6 +184,177 @@ export async function GET(request: NextRequest) {
       { error: "Failed to fetch marketing performance data" },
       { status: 500 }
     );
+  }
+}
+
+// Helper functions for additional data fetching
+const getMetaLeads = async (startDate: Date, endDate: Date): Promise<number> => {
+  try {
+    // Query the processed_leads table directly instead of making HTTP call
+    const { data, error } = await supabase
+      .from('processed_leads')
+      .select('id')
+      .in('form_type', ['B2C (New)', 'B2B (New)'])
+      .eq('is_likely_spam', false)
+      .not('email', 'like', '%tosomavertey%')
+      .not('email', 'like', '%putheaggc%')
+      .not('email', 'like', '%rothacr11%')
+      .not('full_name', 'like', '%sdeg%')
+      .not('full_name', 'like', '%GGG%')
+      .gte('meta_submitted_at', startDate.toISOString().split('T')[0])
+      .lte('meta_submitted_at', endDate.toISOString().split('T')[0]);
+
+    if (error) {
+      console.error('Error fetching Meta leads:', error);
+      return 0;
+    }
+
+    return data?.length || 0;
+  } catch (error) {
+    console.error('Error fetching Meta leads:', error);
+    return 0;
+  }
+};
+
+const getGrossProfit = async (startDate: Date, endDate: Date): Promise<number> => {
+  try {
+    const { data, error } = await supabase.rpc('get_sales_report_summary', {
+      p_start_date: startDate.toISOString().split('T')[0],
+      p_end_date: endDate.toISOString().split('T')[0]
+    });
+    if (error) {
+      console.error('Error fetching gross profit:', error);
+      return 0;
+    }
+    return Number(data?.grossProfit || 0);
+  } catch (error) {
+    console.error('Error fetching gross profit:', error);
+    return 0;
+  }
+};
+
+const getLineFollowers = async (startDate: Date, endDate: Date): Promise<{lengolf: number, fairway: number}> => {
+  try {
+    // Get the latest follower counts for each competitor (regardless of exact date range)
+    // as LINE followers are updated periodically and we want the most recent available data
+    const { data, error } = await supabase
+      .schema('marketing')
+      .from('competitor_latest_metrics')
+      .select('competitor_name, line_friends_count')
+      .eq('platform', 'line')
+      .in('competitor_name', ['LENGOLF', 'FAIRWAY GOLF AND CITY CLUB'])
+      .order('recorded_at', { ascending: false })
+      .limit(10); // Get recent records to ensure we have both competitors
+
+    if (error) {
+      console.error('Error fetching LINE followers:', error);
+      return { lengolf: 0, fairway: 0 };
+    }
+
+    // Get the most recent data for each competitor
+    const lengolfData = data?.find(d => d.competitor_name === 'LENGOLF');
+    const fairwayData = data?.find(d => d.competitor_name === 'FAIRWAY GOLF AND CITY CLUB');
+
+    return {
+      lengolf: Number(lengolfData?.line_friends_count || 0),
+      fairway: Number(fairwayData?.line_friends_count || 0)
+    };
+  } catch (error) {
+    console.error('Error fetching LINE followers:', error);
+    return { lengolf: 0, fairway: 0 };
+  }
+};
+
+async function getTrafficDataForPeriod(startDate: Date, endDate: Date) {
+  try {
+    const { data: trafficData } = await supabase
+      .schema('marketing')
+      .from('google_analytics_traffic')
+      .select('*')
+      .gte('date', startDate.toISOString().split('T')[0])
+      .lte('date', endDate.toISOString().split('T')[0]);
+
+    if (!trafficData || trafficData.length === 0) {
+      return {
+        totalSessions: 0,
+        paidSessions: 0,
+        paidSocialSessions: 0,
+        paidSearchSessions: 0,
+        organicSearchSessions: 0,
+        directSessions: 0,
+        emailSessions: 0,
+        referralSessions: 0,
+        otherSessions: 0
+      };
+    }
+
+    // Aggregate sessions by channel
+    const channelTotals = trafficData.reduce((acc, row) => {
+      const sessions = row.sessions || 0;
+      acc.total += sessions;
+
+      switch (row.channel_grouping) {
+        case 'Paid Social':
+          acc.paidSocial += sessions;
+          break;
+        case 'Paid Search':
+          acc.paidSearch += sessions;
+          break;
+        case 'Organic Search':
+          acc.organicSearch += sessions;
+          break;
+        case 'Direct':
+          acc.direct += sessions;
+          break;
+        case 'Email':
+          acc.email += sessions;
+          break;
+        case 'Referral':
+          acc.referral += sessions;
+          break;
+        default:
+          acc.other += sessions;
+          break;
+      }
+
+      return acc;
+    }, {
+      total: 0,
+      paidSocial: 0,
+      paidSearch: 0,
+      organicSearch: 0,
+      direct: 0,
+      email: 0,
+      referral: 0,
+      other: 0
+    });
+
+    const paidTotal = channelTotals.paidSocial + channelTotals.paidSearch;
+
+    return {
+      totalSessions: channelTotals.total,
+      paidSessions: paidTotal,
+      paidSocialSessions: channelTotals.paidSocial,
+      paidSearchSessions: channelTotals.paidSearch,
+      organicSearchSessions: channelTotals.organicSearch,
+      directSessions: channelTotals.direct,
+      emailSessions: channelTotals.email,
+      referralSessions: channelTotals.referral,
+      otherSessions: channelTotals.other
+    };
+  } catch (error) {
+    console.error('Error fetching traffic data for period:', error);
+    return {
+      totalSessions: 0,
+      paidSessions: 0,
+      paidSocialSessions: 0,
+      paidSearchSessions: 0,
+      organicSearchSessions: 0,
+      directSessions: 0,
+      emailSessions: 0,
+      referralSessions: 0,
+      otherSessions: 0
+    };
   }
 }
 
@@ -173,6 +406,71 @@ async function getWeeklyPerformance(startDate: Date, endDate: Date, weeks: numbe
     return Number(data || 0);
   };
 
+  // Helper function to get Meta leads for a period
+  const getMetaLeads = async (startDate: Date, endDate: Date): Promise<number> => {
+    const { data, error } = await supabase
+      .from('processed_leads')
+      .select('id')
+      .gte('meta_submitted_at', startDate.toISOString())
+      .lte('meta_submitted_at', endDate.toISOString())
+      .eq('is_likely_spam', false)
+      .in('form_type', ['B2C (New)', 'B2B (New)']);
+
+    if (error) {
+      console.error('Error fetching Meta leads:', error);
+      return 0;
+    }
+
+    return data?.length || 0;
+  };
+
+  // Helper function to get gross profit for a period
+  const getGrossProfit = async (startDate: Date, endDate: Date): Promise<number> => {
+    const { data, error } = await supabase.rpc('get_sales_report_summary', {
+      p_start_date: startDate.toISOString().split('T')[0],
+      p_end_date: endDate.toISOString().split('T')[0]
+    });
+
+    if (error) {
+      console.error('Error fetching gross profit:', error);
+      return 0;
+    }
+
+    return Number(data?.grossProfit || 0);
+  };
+
+  // Helper function to get LINE followers for competitors during a period
+  const getLineFollowers = async (startDate: Date, endDate: Date): Promise<{lengolf: number, fairway: number}> => {
+    // First try to get data within the specific period
+    const { data, error } = await supabase
+      .schema('marketing')
+      .from('competitor_metrics')
+      .select(`
+        line_friends_count,
+        recorded_at,
+        competitors!inner(name)
+      `)
+      .eq('platform', 'line')
+      .in('competitors.name', ['LENGOLF', 'FAIRWAY GOLF AND CITY CLUB'])
+      .lte('recorded_at', endDate.toISOString())
+      .order('recorded_at', { ascending: false })
+      .limit(50); // Get more records to find data close to the period
+
+    if (error) {
+      console.error('Error fetching LINE followers:', error);
+      return { lengolf: 0, fairway: 0 };
+    }
+
+    // Find the most recent data for each competitor at or before the end date
+    const lengolfData = data?.find((metric: any) => metric.competitors.name === 'LENGOLF');
+    const fairwayData = data?.find((metric: any) => metric.competitors.name === 'FAIRWAY GOLF AND CITY CLUB');
+
+    return {
+      lengolf: Number(lengolfData?.line_friends_count || 0),
+      fairway: Number(fairwayData?.line_friends_count || 0)
+    };
+  };
+
   // Group daily data by week using Monday-Sunday boundaries
   const weeklyData = new Map<string, any[]>();
   dailyData?.forEach(day => {
@@ -192,22 +490,43 @@ async function getWeeklyPerformance(startDate: Date, endDate: Date, weeks: numbe
     .sort(([a], [b]) => b.localeCompare(a)) // Sort by week descending
     .slice(0, weeks);
 
-  // Pre-calculate all revenue data to avoid async in forEach
-  const revenueData = await Promise.all(
+  // Pre-calculate all additional data to avoid async in forEach
+  const additionalData = await Promise.all(
     sortedWeeks.map(async ([weekKey, days]) => {
       const firstDay = new Date(Math.min(...days.map(d => new Date(d.date).getTime())));
       const weekStart = getWeekStart(new Date(firstDay));
       const weekEnd = getWeekEnd(new Date(firstDay));
       
-      const googleRevenue = await getNewCustomerRevenue(weekStart, weekEnd, 'Google');
-      const metaRevenue = await getNewCustomerRevenue(weekStart, weekEnd, ['Facebook', 'Instagram']);
+      const [
+        googleRevenue,
+        metaRevenue,
+        metaLeads,
+        grossProfit,
+        lineFollowers
+      ] = await Promise.all([
+        getNewCustomerRevenue(weekStart, weekEnd, 'Google'),
+        getNewCustomerRevenue(weekStart, weekEnd, ['Facebook', 'Instagram']),
+        getMetaLeads(weekStart, weekEnd),
+        getGrossProfit(weekStart, weekEnd),
+        getLineFollowers(weekStart, weekEnd)
+      ]);
       
-      return { weekKey, googleRevenue, metaRevenue, totalRevenue: googleRevenue + metaRevenue };
+      return { 
+        weekKey, 
+        googleRevenue, 
+        metaRevenue, 
+        totalRevenue: googleRevenue + metaRevenue,
+        metaLeads,
+        grossProfit,
+        lengolfLineFollowers: lineFollowers.lengolf,
+        fairwayLineFollowers: lineFollowers.fairway
+      };
     })
   );
 
-  sortedWeeks.forEach(([weekKey, days], index) => {
-    const currentRevenueData = revenueData.find(r => r.weekKey === weekKey);
+  for (let index = 0; index < sortedWeeks.length; index++) {
+    const [weekKey, days] = sortedWeeks[index];
+    const currentAdditionalData = additionalData.find(r => r.weekKey === weekKey);
     // Aggregate the daily data for this week
     const weekTotals = days.reduce((acc, day) => ({
       googleSpend: acc.googleSpend + Number(day.google_spend),
@@ -241,12 +560,28 @@ async function getWeeklyPerformance(startDate: Date, endDate: Date, weeks: numbe
     const averageCtr = weekTotals.totalImpressions > 0 ? 
       (weekTotals.totalClicks / weekTotals.totalImpressions) * 100 : 0;
 
+    // Calculate CPM (Cost Per Mille - per 1000 impressions)
+    const googleCpm = weekTotals.googleImpressions > 0 ? 
+      (weekTotals.googleSpend / weekTotals.googleImpressions) * 1000 : 0;
+    const metaCpm = weekTotals.metaImpressions > 0 ? 
+      (weekTotals.metaSpend / weekTotals.metaImpressions) * 1000 : 0;
+    const totalCpm = weekTotals.totalImpressions > 0 ? 
+      (weekTotals.totalSpend / weekTotals.totalImpressions) * 1000 : 0;
+
+    // Calculate CPC (Cost Per Click)
+    const googleCpc = weekTotals.googleClicks > 0 ? 
+      weekTotals.googleSpend / weekTotals.googleClicks : 0;
+    const metaCpc = weekTotals.metaClicks > 0 ? 
+      weekTotals.metaSpend / weekTotals.metaClicks : 0;
+    const totalCpc = weekTotals.totalClicks > 0 ? 
+      weekTotals.totalSpend / weekTotals.totalClicks : 0;
+
     const cac = weekTotals.totalNewCustomers > 0 ? 
       weekTotals.totalSpend / weekTotals.totalNewCustomers : 0;
     
     // Use pre-calculated ROAS from actual new customer revenue
     const roas = weekTotals.totalSpend > 0 ? 
-      (currentRevenueData?.totalRevenue || 0) / weekTotals.totalSpend : 0;
+      (currentAdditionalData?.totalRevenue || 0) / weekTotals.totalSpend : 0;
 
     // Calculate week-over-week changes
     let weekOverWeekSpendChange = 0;
@@ -267,6 +602,9 @@ async function getWeeklyPerformance(startDate: Date, endDate: Date, weeks: numbe
     const weekStart = getWeekStart(new Date(firstDay));
     const weekEnd = getWeekEnd(new Date(firstDay));
 
+    // Get traffic data for this week
+    const trafficData = await getTrafficDataForPeriod(weekStart, weekEnd);
+
     const weekPerformance: WeeklyPerformance = {
       period: weekKey,
       weekStart: weekStart.toISOString().split('T')[0],
@@ -283,17 +621,37 @@ async function getWeeklyPerformance(startDate: Date, endDate: Date, weeks: numbe
       googleCtr,
       metaCtr,
       averageCtr,
+      googleCpm,
+      metaCpm,
+      totalCpm,
+      googleCpc,
+      metaCpc,
+      totalCpc,
       googleNewCustomers: weekTotals.googleNewCustomers,
       metaNewCustomers: weekTotals.metaNewCustomers,
       totalNewCustomers: weekTotals.totalNewCustomers,
+      metaLeads: currentAdditionalData?.metaLeads || 0,
+      grossProfit: currentAdditionalData?.grossProfit || 0,
+      lengolfLineFollowers: currentAdditionalData?.lengolfLineFollowers || 0,
+      fairwayLineFollowers: currentAdditionalData?.fairwayLineFollowers || 0,
       cac,
       roas,
       weekOverWeekSpendChange,
-      weekOverWeekNewCustomersChange
+      weekOverWeekNewCustomersChange,
+      // Traffic data
+      totalSessions: trafficData.totalSessions,
+      paidSessions: trafficData.paidSessions,
+      paidSocialSessions: trafficData.paidSocialSessions,
+      paidSearchSessions: trafficData.paidSearchSessions,
+      organicSearchSessions: trafficData.organicSearchSessions,
+      directSessions: trafficData.directSessions,
+      emailSessions: trafficData.emailSessions,
+      referralSessions: trafficData.referralSessions,
+      otherSessions: trafficData.otherSessions
     };
 
     performance.push(weekPerformance);
-  });
+  }
 
   return NextResponse.json({
     data: performance,
@@ -325,6 +683,39 @@ async function getMonthlyPerformance(startDate: Date, endDate: Date) {
 
     return Number(data || 0);
   };
+
+  // Helper function to get LINE followers for competitors during a monthly period
+  const getLineFollowersForMonthly = async (startDate: Date, endDate: Date): Promise<{lengolf: number, fairway: number}> => {
+    // Get data at or before the end date for historical comparison
+    const { data, error } = await supabase
+      .schema('marketing')
+      .from('competitor_metrics')
+      .select(`
+        line_friends_count,
+        recorded_at,
+        competitors!inner(name)
+      `)
+      .eq('platform', 'line')
+      .in('competitors.name', ['LENGOLF', 'FAIRWAY GOLF AND CITY CLUB'])
+      .lte('recorded_at', endDate.toISOString())
+      .order('recorded_at', { ascending: false })
+      .limit(50); // Get more records to find data close to the period
+
+    if (error) {
+      console.error('Error fetching LINE followers for monthly:', error);
+      return { lengolf: 0, fairway: 0 };
+    }
+
+    // Find the most recent data for each competitor at or before the end date
+    const lengolfData = data?.find((metric: any) => metric.competitors.name === 'LENGOLF');
+    const fairwayData = data?.find((metric: any) => metric.competitors.name === 'FAIRWAY GOLF AND CITY CLUB');
+
+    return {
+      lengolf: Number(lengolfData?.line_friends_count || 0),
+      fairway: Number(fairwayData?.line_friends_count || 0)
+    };
+  };
+
   // For MTD calculation, get current month to date
   const currentMonth = endDate.getMonth();
   const currentYear = endDate.getFullYear();
@@ -371,17 +762,26 @@ async function getMonthlyPerformance(startDate: Date, endDate: Date) {
     }
   ];
 
-  // Pre-calculate all revenue data for periods
+  // Pre-calculate all revenue data and additional data for periods
   const revenueDataMonthly = await Promise.all(
     periods.map(async period => {
-      const googleRevenue = await getNewCustomerRevenueForMonthly(period.startDate, period.endDate, 'Google');
-      const metaRevenue = await getNewCustomerRevenueForMonthly(period.startDate, period.endDate, ['Facebook', 'Instagram']);
+      const [googleRevenue, metaRevenue, metaLeads, grossProfit, lineFollowers] = await Promise.all([
+        getNewCustomerRevenueForMonthly(period.startDate, period.endDate, 'Google'),
+        getNewCustomerRevenueForMonthly(period.startDate, period.endDate, ['Facebook', 'Instagram']),
+        getMetaLeads(period.startDate, period.endDate),
+        getGrossProfit(period.startDate, period.endDate),
+        getLineFollowersForMonthly(period.startDate, period.endDate)
+      ]);
       
       return { 
         periodKey: period.key, 
         googleRevenue, 
         metaRevenue, 
-        totalRevenue: googleRevenue + metaRevenue 
+        totalRevenue: googleRevenue + metaRevenue,
+        metaLeads,
+        grossProfit,
+        lengolfLineFollowers: lineFollowers.lengolf,
+        fairwayLineFollowers: lineFollowers.fairway
       };
     })
   );
@@ -389,7 +789,7 @@ async function getMonthlyPerformance(startDate: Date, endDate: Date) {
   // Calculate performance for each period
   const performance: MonthlyPerformance[] = [];
 
-  periods.forEach(period => {
+  for (const period of periods) {
     const currentRevenueData = revenueDataMonthly.find(r => r.periodKey === period.key);
     // Filter daily data for this period
     const periodData = dailyData?.filter(day => {
@@ -429,12 +829,31 @@ async function getMonthlyPerformance(startDate: Date, endDate: Date) {
     const averageCtr = periodTotals.totalImpressions > 0 ? 
       (periodTotals.totalClicks / periodTotals.totalImpressions) * 100 : 0;
 
+    // Calculate CPM (Cost Per Mille - per 1000 impressions)
+    const googleCpm = periodTotals.googleImpressions > 0 ? 
+      (periodTotals.googleSpend / periodTotals.googleImpressions) * 1000 : 0;
+    const metaCpm = periodTotals.metaImpressions > 0 ? 
+      (periodTotals.metaSpend / periodTotals.metaImpressions) * 1000 : 0;
+    const totalCpm = periodTotals.totalImpressions > 0 ? 
+      (periodTotals.totalSpend / periodTotals.totalImpressions) * 1000 : 0;
+
+    // Calculate CPC (Cost Per Click)
+    const googleCpc = periodTotals.googleClicks > 0 ? 
+      periodTotals.googleSpend / periodTotals.googleClicks : 0;
+    const metaCpc = periodTotals.metaClicks > 0 ? 
+      periodTotals.metaSpend / periodTotals.metaClicks : 0;
+    const totalCpc = periodTotals.totalClicks > 0 ? 
+      periodTotals.totalSpend / periodTotals.totalClicks : 0;
+
     const cac = periodTotals.totalNewCustomers > 0 ? 
       periodTotals.totalSpend / periodTotals.totalNewCustomers : 0;
       
     // Use pre-calculated ROAS from actual new customer revenue
     const roas = periodTotals.totalSpend > 0 ? 
       (currentRevenueData?.totalRevenue || 0) / periodTotals.totalSpend : 0;
+
+    // Get traffic data for this period
+    const trafficData = await getTrafficDataForPeriod(period.startDate, period.endDate);
 
     const periodPerformance: MonthlyPerformance = {
       period: period.key,
@@ -452,15 +871,35 @@ async function getMonthlyPerformance(startDate: Date, endDate: Date) {
       googleCtr,
       metaCtr,
       averageCtr,
+      googleCpm,
+      metaCpm,
+      totalCpm,
+      googleCpc,
+      metaCpc,
+      totalCpc,
       googleNewCustomers: periodTotals.googleNewCustomers,
       metaNewCustomers: periodTotals.metaNewCustomers,
       totalNewCustomers: periodTotals.totalNewCustomers,
+      metaLeads: currentRevenueData?.metaLeads || 0,
+      grossProfit: currentRevenueData?.grossProfit || 0,
+      lengolfLineFollowers: currentRevenueData?.lengolfLineFollowers || 0,
+      fairwayLineFollowers: currentRevenueData?.fairwayLineFollowers || 0,
       cac,
-      roas
+      roas,
+      // Traffic data
+      totalSessions: trafficData.totalSessions,
+      paidSessions: trafficData.paidSessions,
+      paidSocialSessions: trafficData.paidSocialSessions,
+      paidSearchSessions: trafficData.paidSearchSessions,
+      organicSearchSessions: trafficData.organicSearchSessions,
+      directSessions: trafficData.directSessions,
+      emailSessions: trafficData.emailSessions,
+      referralSessions: trafficData.referralSessions,
+      otherSessions: trafficData.otherSessions
     };
 
     performance.push(periodPerformance);
-  });
+  }
 
   return NextResponse.json({
     data: performance,
@@ -492,6 +931,39 @@ async function getRolling7DayPerformance(endDate: Date, periods: number) {
 
     return Number(data || 0);
   };
+
+  // Helper function to get LINE followers for competitors during a rolling period
+  const getLineFollowersForRolling = async (startDate: Date, endDate: Date): Promise<{lengolf: number, fairway: number}> => {
+    // Get data at or before the end date for historical comparison
+    const { data, error } = await supabase
+      .schema('marketing')
+      .from('competitor_metrics')
+      .select(`
+        line_friends_count,
+        recorded_at,
+        competitors!inner(name)
+      `)
+      .eq('platform', 'line')
+      .in('competitors.name', ['LENGOLF', 'FAIRWAY GOLF AND CITY CLUB'])
+      .lte('recorded_at', endDate.toISOString())
+      .order('recorded_at', { ascending: false })
+      .limit(50); // Get more records to find data close to the period
+
+    if (error) {
+      console.error('Error fetching LINE followers for rolling:', error);
+      return { lengolf: 0, fairway: 0 };
+    }
+
+    // Find the most recent data for each competitor at or before the end date
+    const lengolfData = data?.find((metric: any) => metric.competitors.name === 'LENGOLF');
+    const fairwayData = data?.find((metric: any) => metric.competitors.name === 'FAIRWAY GOLF AND CITY CLUB');
+
+    return {
+      lengolf: Number(lengolfData?.line_friends_count || 0),
+      fairway: Number(fairwayData?.line_friends_count || 0)
+    };
+  };
+
   // Get daily data from our view
   const { data: dailyData, error } = await supabase
     .schema('marketing')
@@ -550,12 +1022,34 @@ async function getRolling7DayPerformance(endDate: Date, periods: number) {
     const averageCtr = periodTotals.totalImpressions > 0 ? 
       (periodTotals.totalClicks / periodTotals.totalImpressions) * 100 : 0;
 
+    // Calculate CPM (Cost Per Mille - per 1000 impressions)
+    const googleCpm = periodTotals.googleImpressions > 0 ? 
+      (periodTotals.googleSpend / periodTotals.googleImpressions) * 1000 : 0;
+    const metaCpm = periodTotals.metaImpressions > 0 ? 
+      (periodTotals.metaSpend / periodTotals.metaImpressions) * 1000 : 0;
+    const totalCpm = periodTotals.totalImpressions > 0 ? 
+      (periodTotals.totalSpend / periodTotals.totalImpressions) * 1000 : 0;
+
+    // Calculate CPC (Cost Per Click)
+    const googleCpc = periodTotals.googleClicks > 0 ? 
+      periodTotals.googleSpend / periodTotals.googleClicks : 0;
+    const metaCpc = periodTotals.metaClicks > 0 ? 
+      periodTotals.metaSpend / periodTotals.metaClicks : 0;
+    const totalCpc = periodTotals.totalClicks > 0 ? 
+      periodTotals.totalSpend / periodTotals.totalClicks : 0;
+
     const cac = periodTotals.totalNewCustomers > 0 ? 
       periodTotals.totalSpend / periodTotals.totalNewCustomers : 0;
     
-    // Calculate ROAS using actual new customer revenue from bookings  
-    const googleNewCustomerRevenue = await getNewCustomerRevenueForRolling(periodStart, periodEnd, 'Google');
-    const metaNewCustomerRevenue = await getNewCustomerRevenueForRolling(periodStart, periodEnd, ['Facebook', 'Instagram']);
+    // Calculate ROAS and fetch additional data in parallel
+    const [googleNewCustomerRevenue, metaNewCustomerRevenue, metaLeads, grossProfit, lineFollowers] = await Promise.all([
+      getNewCustomerRevenueForRolling(periodStart, periodEnd, 'Google'),
+      getNewCustomerRevenueForRolling(periodStart, periodEnd, ['Facebook', 'Instagram']),
+      getMetaLeads(periodStart, periodEnd),
+      getGrossProfit(periodStart, periodEnd),
+      getLineFollowersForRolling(periodStart, periodEnd)
+    ]);
+    
     const totalNewCustomerRevenue = googleNewCustomerRevenue + metaNewCustomerRevenue;
     
     const roas = periodTotals.totalSpend > 0 ? 
@@ -575,6 +1069,9 @@ async function getRolling7DayPerformance(endDate: Date, periods: number) {
 
     const periodKey = `${periodStart.toISOString().split('T')[0]} to ${periodEnd.toISOString().split('T')[0]}`;
 
+    // Get traffic data for this period
+    const trafficData = await getTrafficDataForPeriod(periodStart, periodEnd);
+
     const periodPerformance: Rolling7DayPerformance = {
       period: periodKey,
       periodStart: periodStart.toISOString().split('T')[0],
@@ -591,13 +1088,33 @@ async function getRolling7DayPerformance(endDate: Date, periods: number) {
       googleCtr,
       metaCtr,
       averageCtr,
+      googleCpm,
+      metaCpm,
+      totalCpm,
+      googleCpc,
+      metaCpc,
+      totalCpc,
       googleNewCustomers: periodTotals.googleNewCustomers,
       metaNewCustomers: periodTotals.metaNewCustomers,
       totalNewCustomers: periodTotals.totalNewCustomers,
+      metaLeads,
+      grossProfit,
+      lengolfLineFollowers: lineFollowers.lengolf,
+      fairwayLineFollowers: lineFollowers.fairway,
       cac,
       roas,
       periodOverPeriodSpendChange,
-      periodOverPeriodNewCustomersChange
+      periodOverPeriodNewCustomersChange,
+      // Traffic data
+      totalSessions: trafficData.totalSessions,
+      paidSessions: trafficData.paidSessions,
+      paidSocialSessions: trafficData.paidSocialSessions,
+      paidSearchSessions: trafficData.paidSearchSessions,
+      organicSearchSessions: trafficData.organicSearchSessions,
+      directSessions: trafficData.directSessions,
+      emailSessions: trafficData.emailSessions,
+      referralSessions: trafficData.referralSessions,
+      otherSessions: trafficData.otherSessions
     };
 
     performance.push(periodPerformance);
