@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
+import VendorOrderNotificationModal, { VendorOrderItem } from './vendor/VendorOrderNotificationModal';
 
 export interface POSInterfaceProps {
   tableSession: TableSession;
@@ -70,6 +71,23 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
   }
   
   const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  // Vendor notification modal state
+  const [vendorNotificationModal, setVendorNotificationModal] = useState<{
+    isOpen: boolean;
+    orderId: string | null;
+    currentVendorIndex: number;
+    vendorItems: { vendor: string; items: VendorOrderItem[] }[];
+    processedVendors: string[];
+    nextOrderNumbers: { [vendor: string]: number };
+  }>({
+    isOpen: false,
+    orderId: null,
+    currentVendorIndex: 0,
+    vendorItems: [],
+    processedVendors: [],
+    nextOrderNumbers: {}
+  });
 
   const addNotification = (notification: Omit<Notification, 'id'>) => {
     const id = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -282,16 +300,19 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
   const handleConfirmOrder = async () => {
     if (currentOrder.length === 0) return;
     
+    // Capture current order items before async operations
+    const orderItemsToConfirm = [...currentOrder];
+    
     try {
       // Calculate total for this order
-      const orderTotal = currentOrder.reduce((sum, item) => sum + item.totalPrice, 0);
+      const orderTotal = orderItemsToConfirm.reduce((sum, item) => sum + item.totalPrice, 0);
       
       // Send current order to API to confirm and save to normalized tables
       const response = await fetch(`/api/pos/table-sessions/${tableSession.id}/confirm-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orderItems: currentOrder,
+          orderItems: orderItemsToConfirm,
           orderTotal,
           notes: null
         })
@@ -304,22 +325,214 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
       
       const result = await response.json();
       
-      // Move current order items to running tab locally
-      setRunningTab(prev => [...prev, ...currentOrder]);
+      console.log('📋 ORDER CONFIRMATION RESULT:', result);
+      console.log('🔍 Vendor items in response:', result.vendorItems);
       
-      // Clear current order
-      setCurrentOrder([]);
-      
-      // Navigate back to table view after successful order confirmation
-      onBack();
+      // Check if there are vendor items in the response
+      if (result.vendorItems && result.vendorItems.length > 0) {
+        console.log('🏪 Vendor items detected, showing notification modal');
+        
+        // Convert order items to vendor items format
+        const vendorItemsForModal = result.vendorItems.map((vendorGroup: any) => ({
+          vendor: vendorGroup.vendor,
+          items: vendorGroup.items.map((item: any) => ({
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            notes: '' // Start with empty notes for user to fill
+          }))
+        }));
+
+        // Move captured order items to running tab before showing modal
+        setRunningTab(prev => [...prev, ...orderItemsToConfirm]);
+        setCurrentOrder([]);
+        
+        // Fetch next order numbers for all vendors
+        const vendors = vendorItemsForModal.map((v: any) => v.vendor);
+        console.log('🔢 Fetching next order numbers for vendors:', vendors);
+        
+        const nextOrderNumbers = await fetchNextOrderNumbers(vendors);
+        console.log('🔢 Got next order numbers:', nextOrderNumbers);
+        
+        // Show vendor notification modal for first vendor
+        setVendorNotificationModal({
+          isOpen: true,
+          orderId: result.order.id,
+          currentVendorIndex: 0,
+          vendorItems: vendorItemsForModal,
+          processedVendors: [],
+          nextOrderNumbers
+        });
+      } else {
+        // No vendor items, proceed normally and navigate back to table management
+        console.log('📝 No vendor items detected, completing order confirmation without modal');
+        console.log('🔄 Order items to confirm:', orderItemsToConfirm);
+        console.log('🔄 Current running tab length before:', runningTab.length);
+        
+        // Move captured order items to running tab locally
+        setRunningTab(prev => {
+          const newRunningTab = [...prev, ...orderItemsToConfirm];
+          console.log('🔄 New running tab length:', newRunningTab.length);
+          return newRunningTab;
+        });
+        
+        // Clear current order
+        setCurrentOrder([]);
+        
+        console.log('🔔 Adding success notification...');
+        
+        addNotification({
+          type: 'success',
+          title: 'Order Confirmed',
+          message: `${orderItemsToConfirm.length} item(s) confirmed successfully`,
+          icon: 'check'
+        });
+        
+        // Navigate back to table management for regular orders (no vendor items)
+        onBack();
+        
+        console.log('✅ Order confirmation process completed');
+      }
     } catch (error) {
       setError('Failed to confirm order. Please try again.');
       console.error('Failed to confirm order:', error);
     }
   };
+
+  const handleOrderConfirmationComplete = () => {
+    // This function is called after vendor notifications are processed
+    // The order items should already be moved to running tab by this point
+    // Just navigate back to table view
+    onBack();
+  };
   
   const handleClearCurrentOrder = () => {
     setCurrentOrder([]);
+  };
+
+  // Fetch next order numbers for vendors
+  const fetchNextOrderNumbers = async (vendors: string[]): Promise<{ [vendor: string]: number }> => {
+    const orderNumbers: { [vendor: string]: number } = {};
+    
+    try {
+      for (const vendor of vendors) {
+        const response = await fetch('/api/pos/vendor-order-number', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vendor })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          orderNumbers[vendor] = result.nextOrderNumber;
+        } else {
+          console.error(`Failed to get order number for ${vendor}`);
+          orderNumbers[vendor] = 1; // Default fallback
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching order numbers:', error);
+      // Set defaults for all vendors
+      vendors.forEach(vendor => {
+        orderNumbers[vendor] = 1;
+      });
+    }
+    
+    return orderNumbers;
+  };
+
+  // Vendor notification modal handlers
+  const handleVendorNotificationConfirm = async (items: VendorOrderItem[], customMessage?: string) => {
+    if (!vendorNotificationModal.orderId) return;
+
+    const currentVendor = vendorNotificationModal.vendorItems[vendorNotificationModal.currentVendorIndex];
+    if (!currentVendor) return;
+
+    try {
+      // Send notification for current vendor
+      const response = await fetch('/api/pos/vendor-notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: vendorNotificationModal.orderId,
+          vendorItems: [{
+            vendor: currentVendor.vendor,
+            items: items
+          }],
+          customMessage: customMessage
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send vendor notifications');
+      }
+
+      // Add current vendor to processed list
+      const newProcessedVendors = [...vendorNotificationModal.processedVendors, currentVendor.vendor];
+      
+      // Check if there are more vendors to process
+      const nextVendorIndex = vendorNotificationModal.currentVendorIndex + 1;
+      if (nextVendorIndex < vendorNotificationModal.vendorItems.length) {
+        // Show next vendor modal
+        setVendorNotificationModal({
+          ...vendorNotificationModal,
+          currentVendorIndex: nextVendorIndex,
+          processedVendors: newProcessedVendors
+        });
+      } else {
+        // All vendors processed, close modal and complete order
+        setVendorNotificationModal({
+          isOpen: false,
+          orderId: null,
+          currentVendorIndex: 0,
+          vendorItems: [],
+          processedVendors: [],
+          nextOrderNumbers: {}
+        });
+
+        handleOrderConfirmationComplete();
+
+        addNotification({
+          type: 'success',
+          title: 'Vendor Notifications Sent',
+          message: `LINE notifications sent to ${newProcessedVendors.length} vendor(s) successfully`,
+          icon: 'check'
+        });
+      }
+
+    } catch (error) {
+      console.error('Failed to send vendor notifications:', error);
+      addNotification({
+        type: 'error',
+        title: 'Notification Failed',
+        message: error instanceof Error ? error.message : 'Failed to send vendor notifications',
+        icon: 'x'
+      });
+    }
+  };
+
+  const handleVendorNotificationClose = () => {
+    // User chose to skip current vendor or all remaining vendors
+    const nextVendorIndex = vendorNotificationModal.currentVendorIndex + 1;
+    if (nextVendorIndex < vendorNotificationModal.vendorItems.length) {
+      // Skip current vendor, move to next
+      setVendorNotificationModal({
+        ...vendorNotificationModal,
+        currentVendorIndex: nextVendorIndex
+      });
+    } else {
+      // Skip all remaining vendors, complete order confirmation
+      setVendorNotificationModal({
+        isOpen: false,
+        orderId: null,
+        currentVendorIndex: 0,
+        vendorItems: [],
+        processedVendors: [],
+        nextOrderNumbers: {}
+      });
+      handleOrderConfirmationComplete();
+    }
   };
 
   const handleBackWithCheck = () => {
@@ -707,6 +920,18 @@ export const POSInterface: React.FC<POSInterfaceProps> = ({
             />
           </div>
         </div>
+      )}
+
+      {/* Vendor Notification Modal */}
+      {vendorNotificationModal.vendorItems.length > 0 && vendorNotificationModal.currentVendorIndex < vendorNotificationModal.vendorItems.length && (
+        <VendorOrderNotificationModal
+          isOpen={vendorNotificationModal.isOpen}
+          onClose={handleVendorNotificationClose}
+          onConfirm={handleVendorNotificationConfirm}
+          vendorName={vendorNotificationModal.vendorItems[vendorNotificationModal.currentVendorIndex]?.vendor || 'Vendor'}
+          items={vendorNotificationModal.vendorItems[vendorNotificationModal.currentVendorIndex]?.items || []}
+          orderNumber={vendorNotificationModal.nextOrderNumbers[vendorNotificationModal.vendorItems[vendorNotificationModal.currentVendorIndex]?.vendor] || 0}
+        />
       )}
     </div>
   );

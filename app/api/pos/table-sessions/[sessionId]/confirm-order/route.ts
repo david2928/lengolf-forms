@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
+import { getVendorItemsFromOrder } from '@/services/vendor-order-service';
 
 // Type definitions for order confirmation
 interface OrderItem {
@@ -227,6 +228,18 @@ export async function POST(
     // No manual session total update needed - let triggers handle discount recalculation
     console.log(`🔍 ORDER CONFIRM DEBUG: Order created with total ${totalAmount}, triggers will recalculate session total including discounts`);
 
+    // Check for vendor items and include in response
+    let vendorItems: any[] = [];
+    try {
+      vendorItems = await getVendorItemsFromOrder(newOrder.id);
+      if (vendorItems.length > 0) {
+        console.log(`🏪 VENDOR ITEMS DETECTED: Found ${vendorItems.length} vendor groups in order ${newOrder.id}`);
+      }
+    } catch (error) {
+      console.error('Error checking for vendor items:', error);
+      // Don't fail the order confirmation if vendor check fails
+    }
+
     return NextResponse.json({
       success: true,
       order: {
@@ -235,6 +248,7 @@ export async function POST(
         totalAmount: newOrder.total_amount,
         itemCount: orderItems.length
       },
+      vendorItems: vendorItems, // Include vendor items in response
       message: "Order confirmed successfully"
     });
 

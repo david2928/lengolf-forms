@@ -25,11 +25,13 @@ import {
   BarChart3,
   Target,
   Eye,
-  EyeOff
+  EyeOff,
+  ArrowRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import Link from 'next/link';
 
 // Import our marketing dashboard components
 import MarketingKPICards from '@/components/marketing-dashboard/MarketingKPICards';
@@ -368,6 +370,32 @@ export default function MarketingDashboardPage() {
                 ))}
               </div>
             )}
+          </section>
+
+          {/* Meta Ads Deep Dive Link */}
+          <section>
+            <Link href="/admin/meta-ads-dashboard">
+              <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 hover:border-blue-300 transition-all duration-200 cursor-pointer group">
+                <CardContent className="py-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
+                        <span className="text-2xl">📱</span>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
+                          Meta Ads Deep Dive Dashboard
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Detailed Facebook & Instagram ads analysis with creative performance, campaign insights, and monthly calendar view
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           </section>
 
           {/* Quick Performance Summary */}
