@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,7 +50,7 @@ const MetaAdsCreativeCalendar: React.FC<MetaAdsCreativeCalendarProps> = ({
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const fetchCalendarData = async () => {
+  const fetchCalendarData = useCallback(async () => {
     try {
       setIsLoadingCalendar(true);
       const monthStart = startOfMonth(currentMonth);
@@ -68,13 +69,13 @@ const MetaAdsCreativeCalendar: React.FC<MetaAdsCreativeCalendarProps> = ({
     } finally {
       setIsLoadingCalendar(false);
     }
-  };
+  }, [currentMonth]);
 
   useEffect(() => {
     if (!isLoading) {
       fetchCalendarData();
     }
-  }, [currentMonth, isLoading]);
+  }, [currentMonth, isLoading, fetchCalendarData]);
 
   const formatCurrency = (amount: number): string => {
     return `฿${Math.round(amount).toLocaleString('th-TH')}`;
@@ -296,11 +297,12 @@ const MetaAdsCreativeCalendar: React.FC<MetaAdsCreativeCalendarProps> = ({
                     </div>
                     
                     {creative.thumbnail_url && (
-                      <div className="aspect-video bg-gray-100 rounded overflow-hidden">
-                        <img
-                          src={creative.thumbnail_url}
+                      <div className="aspect-video bg-gray-100 rounded overflow-hidden relative">
+                        <Image
+                          src={creative.thumbnail_url || ''}
                           alt={creative.creative_name}
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
                         />
                       </div>
                     )}

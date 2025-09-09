@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -162,10 +163,11 @@ const MetaAdsCreativeActionView: React.FC<MetaAdsCreativeActionViewProps> = ({
           <div className="flex-shrink-0 ml-3">
             {creative.thumbnail_url || creative.image_url ? (
               <div className="relative w-12 h-12 bg-gray-100 rounded-lg overflow-hidden">
-                <img
-                  src={creative.thumbnail_url || creative.image_url}
+                <Image
+                  src={creative.thumbnail_url || creative.image_url || ''}
                   alt="Creative"
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = 'none';

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -130,7 +131,7 @@ const MetaAdsCreativeGallery: React.FC<MetaAdsCreativeGalleryProps> = ({
   const [isLoadingGallery, setIsLoadingGallery] = useState(false);
   const [selectedCreative, setSelectedCreative] = useState<CreativePerformanceDisplay | null>(null);
 
-  const fetchCreativeData = async () => {
+  const fetchCreativeData = useCallback(async () => {
     try {
       setIsLoadingGallery(true);
       
@@ -190,13 +191,13 @@ const MetaAdsCreativeGallery: React.FC<MetaAdsCreativeGalleryProps> = ({
     } finally {
       setIsLoadingGallery(false);
     }
-  };
+  }, [timeRange, referenceDate, sortBy, creativeType, adsetFilter, view]);
 
   useEffect(() => {
     if (!isLoading) {
       fetchCreativeData();
     }
-  }, [timeRange, referenceDate, sortBy, creativeType, adsetFilter, view, isLoading]);
+  }, [fetchCreativeData, isLoading]);
 
   const formatCurrency = (amount: number): string => {
     return `฿${Math.round(amount).toLocaleString('th-TH')}`;
@@ -500,10 +501,11 @@ const MetaAdsCreativeGallery: React.FC<MetaAdsCreativeGalleryProps> = ({
                       <div className={`relative ${
                         viewMode === 'grid' ? 'aspect-video' : 'w-full h-full'
                       } bg-gray-100 rounded-lg overflow-hidden`}>
-                        <img
-                          src={creative.thumbnail_url || creative.image_url}
+                        <Image
+                          src={creative.thumbnail_url || creative.image_url || ''}
                           alt={creative.creative_name}
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.style.display = 'none';

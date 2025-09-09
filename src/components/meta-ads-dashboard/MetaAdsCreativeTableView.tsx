@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -356,10 +357,11 @@ const MetaAdsCreativeTableView: React.FC<MetaAdsCreativeTableViewProps> = ({
                                     <div className="flex-shrink-0">
                                       {creative.thumbnail_url || creative.image_url ? (
                                         <div className="relative w-8 h-8 bg-gray-100 rounded overflow-hidden">
-                                          <img
-                                            src={creative.thumbnail_url || creative.image_url}
+                                          <Image
+                                            src={creative.thumbnail_url || creative.image_url || ''}
                                             alt=""
-                                            className="w-full h-full object-cover"
+                                            fill
+                                            className="object-cover"
                                             onError={(e) => {
                                               const target = e.target as HTMLImageElement;
                                               target.style.display = 'none';

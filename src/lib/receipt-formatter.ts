@@ -2,6 +2,8 @@
 // Consolidates ESC/POS generation for both Bluetooth and USB printing
 // Supports both normal receipts and tax invoices
 
+import { ReceiptPreview } from './receipt-preview';
+
 export interface ReceiptItem {
   name: string;
   price: number;
@@ -13,8 +15,11 @@ export interface ReceiptItem {
     title: string;
     type: string;
     value: number;
+    amount?: number; // Bill structure uses this
   };
-  itemDiscountAmount?: number;
+  itemDiscountAmount?: number; // Receipt structure uses this
+  // Bill-specific fields
+  totalPrice?: number; // Bill structure has separate totalPrice
 }
 
 export interface ReceiptData {
@@ -59,14 +64,6 @@ export class ReceiptFormatter {
    * Works for both normal receipts and tax invoices
    */
   static generateESCPOSData(data: ReceiptData): Uint8Array {
-    // Ensure required arrays are defined to prevent forEach errors
-    if (!data.items) {
-      data.items = [];
-    }
-    if (!data.paymentMethods) {
-      data.paymentMethods = [{ method: 'Cash', amount: data.total }];
-    }
-    
     const commands: number[] = [];
     
     // ESC/POS Commands
@@ -76,280 +73,88 @@ export class ReceiptFormatter {
     // Initialize printer
     commands.push(ESC, 0x40);
     
-    // Header - centered
-    commands.push(ESC, 0x61, 0x01); // Center alignment
+    // Get the text lines using shared preview component
+    const isTaxInvoice = data.isTaxInvoice || false;
+    const isBill = data.isBill || false;
+    const lines = ReceiptPreview.generatePreviewLines(data, isTaxInvoice, isBill);
     
-    // Company name
-    commands.push(ESC, 0x21, 0x30); // Double size
-    this.addText(commands, 'LENGOLF CO. LTD.');
-    commands.push(0x0A, 0x0A);
+    // Convert text lines to ESC/POS commands
+    let currentAlignment = 0; // 0=left, 1=center
+    let currentSize = 0; // 0=normal, others=special
     
-    commands.push(ESC, 0x21, 0x00); // Normal size
-    
-    // Business info
-    this.addText(commands, '540 Mercury Tower, 4th Floor, Unit 407');
-    commands.push(0x0A);
-    this.addText(commands, 'Ploenchit Road, Lumpini, Pathumwan');
-    commands.push(0x0A);
-    this.addText(commands, 'Bangkok 10330');
-    commands.push(0x0A);
-    this.addText(commands, 'TAX ID: 0105566207013');
-    commands.push(0x0A, 0x0A);
-    
-    // Receipt type header
-    commands.push(ESC, 0x21, 0x20); // Double height
-    if (data.isTaxInvoice) {
-      this.addText(commands, 'Receipt / TAX Invoice');
-      commands.push(0x0A);
-      this.addText(commands, '(Original)');
-    } else if (data.isBill) {
-      this.addText(commands, 'BILL');
-    } else {
-      this.addText(commands, 'TAX Invoice (ABB)');
-    }
-    commands.push(0x0A);
-    commands.push(ESC, 0x21, 0x00); // Reset
-    
-    this.addText(commands, '------------------------------------------------');
-    commands.push(0x0A);
-    
-    // Receipt details - left aligned
-    commands.push(ESC, 0x61, 0x00);
-    
-    if (!data.isBill) {
-      this.addText(commands, `Receipt No: ${data.receiptNumber}`);
-      commands.push(0x0A);
-    }
-    
-    if (data.staffName) {
-      this.addText(commands, `Staff: ${data.staffName}`);
-      commands.push(0x0A);
-    }
-    
-    const guestCount = data.paxCount || 1;
-    this.addText(commands, `Guests: ${guestCount}`);
-    commands.push(0x0A);
-    
-    // Date and time
-    const transactionDate = data.transactionDate ? new Date(data.transactionDate) : new Date();
-    const dateStr = transactionDate.toLocaleDateString('en-GB', { year: '2-digit', month: '2-digit', day: '2-digit' });
-    const timeStr = transactionDate.toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit' });
-    const dateText = `Date: ${dateStr}`;
-    const timeText = `Time: ${timeStr}`;
-    const spacing = ' '.repeat(Math.max(1, 48 - dateText.length - timeText.length));
-    this.addText(commands, `${dateText}${spacing}${timeText}`);
-    commands.push(0x0A);
-    
-    this.addText(commands, '------------------------------------------------');
-    commands.push(0x0A);
-    
-    // Items
-    const items = data.items || [];
-    items.forEach(item => {
-      const qty = item.qty || 1;
-      const originalPrice = item.originalPrice || item.price;
-      const originalTotal = originalPrice * qty;
-      const qtyStr = qty.toString();
-      const priceStr = originalTotal.toFixed(2);
-      const nameMaxLength = 48 - qtyStr.length - priceStr.length - 4;
-      const itemName = item.name.length > nameMaxLength ? 
-        item.name.substring(0, nameMaxLength - 3) + '...' : item.name;
-      
-      const itemLine = `${qtyStr}    ${itemName}${' '.repeat(Math.max(1, 48 - qtyStr.length - 4 - itemName.length - priceStr.length))}${priceStr}`;
-      this.addText(commands, itemLine);
-      commands.push(0x0A);
-      
-      // Show item discount if applicable
-      if (item.itemDiscount && item.itemDiscountAmount && item.itemDiscountAmount > 0) {
-        // Debug logging
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 Discount debug:', {
-            title: item.itemDiscount.title,
-            type: item.itemDiscount.type,
-            value: item.itemDiscount.value,
-            amount: item.itemDiscountAmount
-          });
+    lines.forEach((line, index) => {
+      // Special formatting for specific lines
+      if (line.includes('L E N G O L F   C O .   L T D .')) {
+        // Company name - center and double size
+        if (currentAlignment !== 1) {
+          commands.push(ESC, 0x61, 0x01); // Center
+          currentAlignment = 1;
         }
-        
-        const discountLabel = `     ${item.itemDiscount.title}`;
-        const discountAmount = `-${(item.itemDiscountAmount || 0).toFixed(2)}`;
-        const discountSpacing = ' '.repeat(Math.max(1, 48 - discountLabel.length - discountAmount.length));
-        const finalLine = `${discountLabel}${discountSpacing}${discountAmount}`;
-        
-        // Debug final output
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 Final discount line:', JSON.stringify(finalLine));
+        if (currentSize !== 1) {
+          commands.push(ESC, 0x21, 0x30); // Double size
+          currentSize = 1;
         }
-        
-        this.addText(commands, finalLine);
-        commands.push(0x0A);
+      } else if (line.includes('TAX Invoice') || line.includes('BILL') || line.includes('Receipt / TAX Invoice')) {
+        // Receipt type - center and double height
+        if (currentAlignment !== 1) {
+          commands.push(ESC, 0x61, 0x01); // Center
+          currentAlignment = 1;
+        }
+        if (currentSize !== 2) {
+          commands.push(ESC, 0x21, 0x20); // Double height
+          currentSize = 2;
+        }
+      } else if (line.includes('AMOUNT DUE:')) {
+        // Amount due - bold
+        if (currentSize !== 3) {
+          commands.push(ESC, 0x21, 0x10); // Bold
+          currentSize = 3;
+        }
+      } else if (line.includes('You\'re tee-rific') || line.includes('LENGOLF') || line.includes('@lengolf') || line.includes('Tel:') || line.includes('________________________') || line.includes('Signature Cashier')) {
+        // Footer items - center
+        if (currentAlignment !== 1) {
+          commands.push(ESC, 0x61, 0x01); // Center
+          currentAlignment = 1;
+        }
+        if (currentSize !== 0) {
+          commands.push(ESC, 0x21, 0x00); // Normal
+          currentSize = 0;
+        }
+      } else if (line.startsWith('Receipt No:') || line.startsWith('Staff:') || line.startsWith('Guests:') || line.startsWith('Date:') || line.match(/^\d+\s+/) || line.includes('Items:') || line.includes('Subtotal:') || line.includes('Discount') || line.includes('VAT') || line.includes('Total:') || line.includes('Mastercard') || line.includes('Cash') || line.includes('Customer Name:') || line.includes('Address:') || line.includes('TAX ID:') || line.includes('Issued to replace')) {
+        // Receipt details, items, totals, payments - left align
+        if (currentAlignment !== 0) {
+          commands.push(ESC, 0x61, 0x00); // Left
+          currentAlignment = 0;
+        }
+        if (currentSize !== 0) {
+          commands.push(ESC, 0x21, 0x00); // Normal
+          currentSize = 0;
+        }
+      } else if (line.includes('Mercury Tower') || line.includes('Ploenchit Road') || line.includes('Bangkok') || line.includes('TAX ID: 0105566207013')) {
+        // Business info - center
+        if (currentAlignment !== 1) {
+          commands.push(ESC, 0x61, 0x01); // Center
+          currentAlignment = 1;
+        }
+        if (currentSize !== 0) {
+          commands.push(ESC, 0x21, 0x00); // Normal
+          currentSize = 0;
+        }
+      } else {
+        // Default - reset to normal
+        if (currentSize !== 0) {
+          commands.push(ESC, 0x21, 0x00); // Normal
+          currentSize = 0;
+        }
       }
       
-      if (item.notes) {
-        this.addText(commands, `  Note: ${item.notes}`);
-        commands.push(0x0A);
-      }
+      // Add the text line
+      this.addText(commands, line);
+      commands.push(0x0A); // Line feed
     });
     
-    this.addText(commands, '------------------------------------------------');
-    commands.push(0x0A);
-    
-    const itemCount = data.items.reduce((sum, item) => sum + (item.qty || 1), 0);
-    this.addText(commands, `Items: ${itemCount}`);
-    commands.push(0x0A, 0x0A);
-    
-    // Totals
-    const leftAlign = 20;
-    const width = 48;
-    
-    // Original subtotal (before discount)
-    const originalSubtotal = (data.orderItemsTotal || data.subtotal || 0);
-    const originalSubtotalStr = originalSubtotal.toFixed(2);
-    this.addText(commands, `${' '.repeat(leftAlign)}Subtotal:${' '.repeat(width - leftAlign - 9 - originalSubtotalStr.length)}${originalSubtotalStr}`);
-    commands.push(0x0A);
-    
-    // Receipt discount (if applicable)
-    if (data.receiptDiscount && data.receiptDiscountAmount && data.receiptDiscountAmount > 0) {
-      const discount = data.receiptDiscount;
-      const discountAmount = data.receiptDiscountAmount;
-      
-      let discountLabel = '';
-      let discountAmountStr = '';
-      if (discount.type === 'percentage') {
-        // Calculate the correct discount amount based on order items total
-        const correctDiscountAmount = data.orderItemsTotal ? 
-          (data.orderItemsTotal * discount.value / 100) : discountAmount;
-        discountLabel = `Discount (${discount.value}%):`;
-        discountAmountStr = `-${(correctDiscountAmount || 0).toFixed(2)}`;
-      } else {
-        discountLabel = 'Discount:';
-        discountAmountStr = `-${(discountAmount || 0).toFixed(2)}`;
-      }
-      
-      const discountSpacing = ' '.repeat(Math.max(1, width - leftAlign - discountLabel.length - discountAmountStr.length));
-      this.addText(commands, `${' '.repeat(leftAlign)}${discountLabel}${discountSpacing}${discountAmountStr}`);
-      commands.push(0x0A);
-    }
-    
-    // VAT (calculated from final amount)
-    const vatAmount = (data.tax || 0).toFixed(2);
-    this.addText(commands, `${' '.repeat(leftAlign)}VAT(7%) incl.:${' '.repeat(width - leftAlign - 14 - vatAmount.length)}${vatAmount}`);
-    commands.push(0x0A);
-    
-    this.addText(commands, `${' '.repeat(leftAlign)}============================`);
-    commands.push(0x0A);
-    
-    const totalAmount = (data.total || 0).toFixed(2);
-    this.addText(commands, `${' '.repeat(leftAlign)}Total:${' '.repeat(width - leftAlign - 6 - totalAmount.length)}${totalAmount}`);
-    commands.push(0x0A, 0x0A);
-    
-    // Payment section
-    this.addText(commands, '------------------------------------------------');
-    commands.push(0x0A);
-    
-    if (data.isBill) {
-      // For bills, show amount due and available payment options
-      commands.push(ESC, 0x21, 0x10); // Bold
-      this.addText(commands, `AMOUNT DUE: THB ${(data.total || 0).toFixed(2)}`);
-      commands.push(ESC, 0x21, 0x00); // Reset
-      commands.push(0x0A, 0x0A);
-      
-      this.addText(commands, 'PAYMENT OPTIONS AVAILABLE:');
-      commands.push(0x0A);
-      this.addText(commands, '- Cash');
-      commands.push(0x0A);
-      this.addText(commands, '- PromptPay (QR Code)');
-      commands.push(0x0A);
-      this.addText(commands, '- Visa/Mastercard (EDC)');
-      commands.push(0x0A);
-      this.addText(commands, '- Alipay');
-      commands.push(0x0A);
-    } else {
-      // For receipts, show actual payment methods used
-      const paymentMethods = data.paymentMethods || [{ method: 'Cash', amount: data.total }];
-      paymentMethods.forEach(payment => {
-        const methodText = payment.method;
-        const amountText = (payment.amount || 0).toFixed(2);
-        const spacing = ' '.repeat(Math.max(1, 48 - methodText.length - amountText.length));
-        this.addText(commands, `${methodText}${spacing}${amountText}`);
-        commands.push(0x0A);
-      });
-    }
-    
-    this.addText(commands, '------------------------------------------------');
-    commands.push(0x0A);
-    
-    // Tax invoice customer information (right after payment)
-    if (data.isTaxInvoice) {
-      if (data.taxInvoiceData && data.taxInvoiceData.customerName) {
-        this.addText(commands, `Customer Name: ${data.taxInvoiceData.customerName}`);
-        commands.push(0x0A);
-        
-        if (data.taxInvoiceData.customerAddress) {
-          this.addText(commands, `Address: ${data.taxInvoiceData.customerAddress}`);
-        } else {
-          this.addText(commands, `Address:`);
-        }
-        commands.push(0x0A);
-        commands.push(0x0A); // Empty row between Address and TAX ID
-        
-        if (data.taxInvoiceData.customerTaxId) {
-          this.addText(commands, `TAX ID: ${data.taxInvoiceData.customerTaxId}`);
-        } else {
-          this.addText(commands, `TAX ID:`);
-        }
-        commands.push(0x0A);
-      } else {
-        // Fallback when no tax invoice data
-        this.addText(commands, `Customer Name:`);
-        commands.push(0x0A);
-        this.addText(commands, `Address:`);
-        commands.push(0x0A);
-        commands.push(0x0A); // Empty row
-        this.addText(commands, `TAX ID:`);
-        commands.push(0x0A);
-      }
-      commands.push(0x0A); // Empty row after customer info
-    }
-    
-    // Tax invoice specific sections (before footer)
-    if (data.isTaxInvoice) {
-      // Signature section
-      commands.push(0x0A);
-      commands.push(ESC, 0x61, 0x01); // Center alignment
-      this.addText(commands, '________________________');
-      commands.push(0x0A);
-      this.addText(commands, 'Signature Cashier');
-      commands.push(0x0A, 0x0A);
-      commands.push(ESC, 0x61, 0x00); // Reset to left alignment
-      
-      // ABB reference with lines around it
-      this.addText(commands, '------------------------------------------------');
-      commands.push(0x0A);
-      this.addText(commands, `Issued to replace the TAX invoice (ABB)`);
-      commands.push(0x0A);
-      this.addText(commands, `number: ${data.receiptNumber}`);
-      commands.push(0x0A);
-      this.addText(commands, '------------------------------------------------');
-      commands.push(0x0A, 0x0A);
-    }
-    
-    // Footer
-    commands.push(ESC, 0x61, 0x01); // Center
-    this.addText(commands, 'You\'re tee-rific. Come back soon!');
-    commands.push(0x0A, 0x0A);
-    
-    this.addText(commands, 'LENGOLF');
-    commands.push(0x0A);
-    this.addText(commands, '@lengolf | www.len.golf');
-    commands.push(0x0A);
-    this.addText(commands, 'Tel: 096-668-2335');
-    commands.push(0x0A, 0x0A);
-    
-    // Add moderate line feeds
+    // Add moderate line feeds and cut paper
     commands.push(0x0A, 0x0A, 0x0A, 0x0A);
-    
-    // Feed and cut paper
     commands.push(ESC, 0x64, 0x03); // Feed 3 lines
     commands.push(GS, 0x56, 0x01);  // Cut paper
     

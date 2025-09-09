@@ -129,7 +129,7 @@ const MetaAdsCampaignTable: React.FC<MetaAdsCampaignTableProps> = ({
     if (!isLoading) {
       fetchCampaignData();
     }
-  }, [timeRange, referenceDate, sortBy, sortOrder, isLoading]);
+  }, [timeRange, referenceDate, sortBy, sortOrder, isLoading, fetchCampaignData]);
 
   const handleSort = (column: string) => {
     if (sortBy === column) {

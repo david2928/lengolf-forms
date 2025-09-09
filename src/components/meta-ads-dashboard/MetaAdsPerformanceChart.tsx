@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,7 @@ const MetaAdsPerformanceChart: React.FC<MetaAdsPerformanceChartProps> = ({
   const [activeMetrics, setActiveMetrics] = useState<string[]>(['spend', 'bookings']);
   const [isLoadingChart, setIsLoadingChart] = useState(false);
 
-  const fetchChartData = async () => {
+  const fetchChartData = useCallback(async () => {
     try {
       setIsLoadingChart(true);
       const metricsParam = activeMetrics.join(',');
@@ -45,13 +45,13 @@ const MetaAdsPerformanceChart: React.FC<MetaAdsPerformanceChartProps> = ({
     } finally {
       setIsLoadingChart(false);
     }
-  };
+  }, [timeRange, referenceDate, activeMetrics]);
 
   useEffect(() => {
     if (!isLoading) {
       fetchChartData();
     }
-  }, [timeRange, referenceDate, activeMetrics, isLoading]);
+  }, [fetchChartData, isLoading]);
 
   const toggleMetric = (metric: string) => {
     setActiveMetrics(prev => 

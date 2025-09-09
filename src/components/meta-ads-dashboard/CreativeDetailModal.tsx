@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import {
   Dialog,
   DialogContent,
@@ -203,10 +204,11 @@ const CreativeDetailModal: React.FC<CreativeDetailModalProps> = ({
               <CardContent>
                 {creative.thumbnail_url || creative.image_url ? (
                   <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                    <img
-                      src={creative.thumbnail_url || creative.image_url}
+                    <Image
+                      src={creative.thumbnail_url || creative.image_url || ''}
                       alt={creative.creative_name}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.style.display = 'none';
