@@ -8,7 +8,6 @@ import { Bluetooth, Printer, TestTube, CheckCircle, XCircle, Usb, Smartphone, Ey
 import { bluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
 import { usbThermalPrinter } from '@/services/USBThermalPrinter';
 import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
-import { ReceiptPreview } from '@/lib/receipt-preview';
 
 export default function UnifiedPrinterTestPage() {
   const [bluetoothSupported, setBluetoothSupported] = useState<boolean>(false);
@@ -243,15 +242,22 @@ export default function UnifiedPrinterTestPage() {
 
     setIsLoading(true);
     try {
-      // Use unified print service - same as table management
-      const result = await unifiedPrintService.print(PrintType.BILL, tableSessionId, { method: 'bluetooth' });
-      
+      // Call API to get bill data
+      const response = await fetch('/api/pos/print-bill-bluetooth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableSessionId })
+      });
+
+      const result = await response.json();
       if (result.success) {
+        // Print using the service
+        await bluetoothThermalPrinter.printReceipt(result.billData);
         if (!silentMode) {
-          setLastResult({ success: true, message: result.message });
+          setLastResult({ success: true, message: `Bill for table session ${tableSessionId} printed via Bluetooth!` });
         }
       } else {
-        setLastResult({ success: false, message: result.error || 'Bill printing failed' });
+        setLastResult({ success: false, message: result.error || 'Bill not found' });
       }
     } catch (error) {
       setLastResult({ success: false, message: `Print failed: ${error}` });
@@ -370,9 +376,224 @@ export default function UnifiedPrinterTestPage() {
     }
   };
 
-  // Generate thermal preview using shared component
+  // Generate thermal preview exactly like TaxInvoiceModal does
   const generateThermalPreview = (receiptData: any, isTaxInvoice: boolean = false, isBill: boolean = false) => {
-    return ReceiptPreview.generatePreviewText(receiptData, isTaxInvoice, isBill);
+    const width = 48; // 80mm thermal printer width
+    const lines: string[] = [];
+    
+    // Company name (larger effect)
+    lines.push(centerText('L E N G O L F   C O .   L T D .', width));
+    lines.push('');
+    
+    // Business info
+    lines.push(centerText('540 Mercury Tower, 4th Floor, Unit 407', width));
+    lines.push(centerText('Ploenchit Road, Lumpini, Pathumwan', width));
+    lines.push(centerText('Bangkok 10330', width));
+    lines.push(centerText('TAX ID: 0105566207013', width));
+    lines.push('');
+    
+    // Receipt type
+    if (isTaxInvoice) {
+      lines.push(centerText('Receipt / TAX Invoice (Original)', width));
+    } else if (isBill) {
+      lines.push(centerText('BILL', width));
+    } else {
+      lines.push(centerText('TAX Invoice (ABB)', width));
+    }
+    lines.push('------------------------------------------------');
+    
+    // Receipt details
+    if (!isBill) {
+      lines.push(`Receipt No: ${receiptData.receiptNumber}`);
+    }
+    
+    if (receiptData.staffName) {
+      lines.push(`Staff: ${receiptData.staffName}`);
+    }
+    
+    // Guest count
+    const guestCount = receiptData.paxCount || 1;
+    lines.push(`Guests: ${guestCount}`);
+    
+    // Date and time
+    const transactionDate = receiptData.transactionDate ? new Date(receiptData.transactionDate) : new Date();
+    const dateStr = transactionDate.toLocaleDateString('en-GB', { year: '2-digit', month: '2-digit', day: '2-digit' });
+    const timeStr = transactionDate.toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit' });
+    const dateText = `Date: ${dateStr}`;
+    const timeText = `Time: ${timeStr}`;
+    const totalLength = dateText.length + timeText.length;
+    const spacing = ' '.repeat(Math.max(1, width - totalLength));
+    lines.push(`${dateText}${spacing}${timeText}`);
+    
+    lines.push('------------------------------------------------');
+    
+    // Items
+    if (receiptData.items) {
+      receiptData.items.forEach((item: any) => {
+        const qty = item.qty || 1;
+        const originalPrice = item.originalPrice || item.price;
+        const originalTotal = originalPrice * qty;
+        const qtyStr = qty.toString();
+        const priceStr = originalTotal.toFixed(2);
+        const nameMaxLength = width - qtyStr.length - priceStr.length - 4;
+        const itemName = item.name.length > nameMaxLength ? 
+          item.name.substring(0, nameMaxLength - 3) + '...' : item.name;
+        
+        const spaces = ' '.repeat(Math.max(1, width - qtyStr.length - 4 - itemName.length - priceStr.length));
+        lines.push(`${qtyStr}    ${itemName}${spaces}${priceStr}`);
+        
+        // Show item discount if applicable
+        if (item.itemDiscount && item.itemDiscountAmount > 0) {
+          const discountLabel = `     ${item.itemDiscount.title}`;
+          const discountAmount = `-${item.itemDiscountAmount.toFixed(2)}`;
+          const discountSpacing = ' '.repeat(Math.max(1, width - discountLabel.length - discountAmount.length));
+          lines.push(`${discountLabel}${discountSpacing}${discountAmount}`);
+        }
+      });
+    }
+    
+    lines.push('------------------------------------------------');
+    
+    // Items count
+    const itemCount = receiptData.items ? 
+      receiptData.items.reduce((sum: number, item: any) => sum + (item.qty || 1), 0) : 0;
+    lines.push(`Items: ${itemCount}`);
+    lines.push('');
+    
+    // Totals section
+    const leftAlign = 20;
+    
+    // Original subtotal (before discount)
+    const originalSubtotal = (receiptData.orderItemsTotal || receiptData.subtotal || 0);
+    const originalSubtotalStr = originalSubtotal.toFixed(2);
+    lines.push(`${' '.repeat(leftAlign)}Subtotal:${' '.repeat(width - leftAlign - 9 - originalSubtotalStr.length)}${originalSubtotalStr}`);
+    
+    // Receipt discount (if applicable)
+    if (receiptData.receiptDiscount && receiptData.receiptDiscountAmount > 0) {
+      const discount = receiptData.receiptDiscount;
+      const discountAmount = receiptData.receiptDiscountAmount;
+      
+      let discountLabel = '';
+      let discountAmountStr = '';
+      if (discount.type === 'percentage') {
+        // Calculate the correct discount amount based on order items total
+        const correctDiscountAmount = receiptData.orderItemsTotal ? 
+          (receiptData.orderItemsTotal * discount.value / 100) : discountAmount;
+        discountLabel = `Discount (${discount.value}%):`;
+        discountAmountStr = `-${correctDiscountAmount.toFixed(2)}`;
+      } else {
+        discountLabel = 'Discount:';
+        discountAmountStr = `-${discountAmount.toFixed(2)}`;
+      }
+      
+      const discountSpacing = ' '.repeat(Math.max(1, width - leftAlign - discountLabel.length - discountAmountStr.length));
+      lines.push(`${' '.repeat(leftAlign)}${discountLabel}${discountSpacing}${discountAmountStr}`);
+    }
+    
+    // VAT (calculated from final amount)
+    const vatAmount = (receiptData.tax || 0).toFixed(2);
+    lines.push(`${' '.repeat(leftAlign)}VAT(7%) incl.:${' '.repeat(width - leftAlign - 14 - vatAmount.length)}${vatAmount}`);
+    
+    // Double line under VAT
+    lines.push(`${' '.repeat(leftAlign)}============================`);
+    
+    // Total
+    const totalAmount = (receiptData.total || 0).toFixed(2);
+    lines.push(`${' '.repeat(leftAlign)}Total:${' '.repeat(width - leftAlign - 6 - totalAmount.length)}${totalAmount}`);
+    
+    lines.push('');
+    lines.push('------------------------------------------------');
+    
+    if (isBill) {
+      // For bills, show amount due and available payment options
+      const totalAmount = (receiptData.total || 0);
+      lines.push(`AMOUNT DUE: THB ${totalAmount.toFixed(2)}`);
+      lines.push('');
+      
+      lines.push('PAYMENT OPTIONS AVAILABLE:');
+      lines.push('- Cash');
+      lines.push('- PromptPay (QR Code)');
+      lines.push('- Visa/Mastercard (EDC)');
+      lines.push('- Alipay');
+    } else {
+      // Payment method
+      if (receiptData.paymentMethods && receiptData.paymentMethods.length > 0) {
+        receiptData.paymentMethods.forEach((payment: any) => {
+          const methodText = payment.method;
+          const amountText = payment.amount.toFixed(2);
+          const paymentSpacing = ' '.repeat(Math.max(1, width - methodText.length - amountText.length));
+          lines.push(`${methodText}${paymentSpacing}${amountText}`);
+        });
+      }
+    }
+    
+    lines.push('------------------------------------------------');
+    
+    // Tax invoice customer information (right after payment)
+    if (isTaxInvoice) {
+      // Use stored tax invoice customer information if available
+      if (receiptData.taxInvoiceData && receiptData.taxInvoiceData.customerName) {
+        lines.push(`Customer Name: ${receiptData.taxInvoiceData.customerName}`);
+        
+        if (receiptData.taxInvoiceData.customerAddress) {
+          // Split long addresses into multiple lines
+          const addressLines = receiptData.taxInvoiceData.customerAddress.match(/.{1,46}/g) || [receiptData.taxInvoiceData.customerAddress];
+          addressLines.forEach((line: string, index: number) => {
+            lines.push(index === 0 ? `Address: ${line}` : `         ${line}`);
+          });
+        } else {
+          lines.push(`Address: [To be filled by customer]`);
+        }
+        lines.push('');
+        
+        if (receiptData.taxInvoiceData.customerTaxId) {
+          lines.push(`TAX ID: ${receiptData.taxInvoiceData.customerTaxId}`);
+        } else {
+          lines.push(`TAX ID: [To be filled by customer]`);
+        }
+      } else {
+        // Fallback to basic customer name or placeholders
+        lines.push(`Customer Name: ${receiptData.customerName || '[To be filled by customer]'}`);
+        lines.push(`Address: [To be filled by customer]`);
+        lines.push('');
+        lines.push(`TAX ID: [To be filled by customer]`);
+      }
+      
+      lines.push('');
+    }
+    
+    // Tax invoice specific sections (before footer)
+    if (isTaxInvoice) {
+      // Signature section
+      lines.push('');
+      lines.push(centerText('________________________', width));
+      lines.push(centerText('Signature Cashier', width));
+      lines.push('');
+      
+      // ABB reference with lines around it
+      lines.push('------------------------------------------------');
+      lines.push(`Issued to replace the TAX invoice (ABB)`);
+      lines.push(`number: ${receiptData.receiptNumber}`);
+      lines.push('------------------------------------------------');
+      lines.push('');
+    }
+    
+    // Footer
+    lines.push(centerText('You\'re tee-rific. Come back soon!', width));
+    lines.push('');
+    
+    lines.push(centerText('LENGOLF', width));
+    lines.push(centerText('@lengolf | www.len.golf', width));
+    lines.push(centerText('Tel: 096-668-2335', width));
+    lines.push('');
+    
+    return lines.join('\n');
+  };
+
+  // Helper function to center text
+  const centerText = (text: string, width: number): string => {
+    const padding = Math.max(0, Math.floor((width - text.length) / 2));
+    return ' '.repeat(padding) + text;
   };
 
   return (
