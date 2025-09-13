@@ -106,7 +106,7 @@
     "qrcode": "^1.5.4",
     "react": "^19.1.1",
     "react-big-calendar": "^1.19.2",
-    "react-day-picker": "^8.10.1",
+    "react-day-picker": "^9.9.0",
     "react-dom": "^19.1.1",
     "react-dropzone": "^14.3.8",
     "react-hook-form": "^7.60.0",

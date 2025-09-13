@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/C:\\vs_code\\lengolf-forms-feature\\lengolf-forms\\src\\components\\meta-ads-dashboard/**)",
+      "Read(/C:\\vs_code\\lengolf-forms-feature\\lengolf-forms\\src\\components\\meta-ads-dashboard/**)",
+      "mcp__supabase__execute_sql",
+      "Bash(curl:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run lint)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npm info:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "enabledMcpjsonServers": [
+    "supabase",
+    "playwright",
+    "bigquery"
+  ]
+}
