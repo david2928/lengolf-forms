@@ -12,6 +12,7 @@ import { TaxInvoiceModal } from './TaxInvoiceModal';
 import { bluetoothThermalPrinter, BluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
 import { unifiedPrintService, PrintType } from '@/services/UnifiedPrintService';
 import { TouchFriendlyDiscountTooltip } from '../discount/TouchFriendlyDiscountTooltip';
+import { CustomerLink } from '@/components/shared/CustomerLink';
 
 interface TransactionDetail {
   receipt_number: string;
@@ -28,6 +29,7 @@ interface TransactionDetail {
   total_item_level_discounts: number;
   receipt_level_discounts: number;
   status: string;
+  customer_id?: string;
   customer_name: string;
   staff_name: string;
   payment_method: string;
@@ -270,7 +272,17 @@ export function TransactionDetailModal({
               </h2>
               {transactionDetails && (
                 <div className="text-sm text-gray-600">
-                  {transactionDetails.customer_name || 'Walk-in Customer'}
+                  {transactionDetails.customer_id && transactionDetails.customer_name ? (
+                    <CustomerLink
+                      customerId={transactionDetails.customer_id}
+                      customerName={transactionDetails.customer_name}
+                      fromLocation="/pos/transactions"
+                      fromLabel="POS Transactions"
+                      className="text-blue-600 hover:text-blue-800"
+                    />
+                  ) : (
+                    <span>{transactionDetails.customer_name || 'Walk-in Customer'}</span>
+                  )}
                 </div>
               )}
             </div>
@@ -295,10 +307,20 @@ export function TransactionDetailModal({
                   {receiptNumber}
                 </h2>
                 {transactionDetails && (
-                  <div className="text-sm text-gray-600">
-                    {transactionDetails.customer_name || 'Walk-in Customer'}
+                  <div className="text-sm text-gray-600 flex items-center gap-2">
+                    {transactionDetails.customer_id && transactionDetails.customer_name ? (
+                      <CustomerLink
+                        customerId={transactionDetails.customer_id}
+                        customerName={transactionDetails.customer_name}
+                        fromLocation="/pos/transactions"
+                        fromLabel="POS Transactions"
+                        className="text-blue-600 hover:text-blue-800"
+                      />
+                    ) : (
+                      <span>{transactionDetails.customer_name || 'Walk-in Customer'}</span>
+                    )}
                     {isVoided && (
-                      <span className="ml-2 px-2 py-0.5 bg-red-600 text-white text-xs font-semibold rounded">
+                      <span className="px-2 py-0.5 bg-red-600 text-white text-xs font-semibold rounded">
                         VOIDED
                       </span>
                     )}

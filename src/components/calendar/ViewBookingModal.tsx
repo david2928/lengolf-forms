@@ -14,6 +14,7 @@ import { EditBookingModal } from '@/components/manage-bookings/EditBookingModal'
 import { BookingConfirmationDialog } from '@/components/booking/BookingConfirmationDialog';
 import { useToast } from '@/components/ui/use-toast';
 import { getDisplayPackageName } from '@/lib/client-package-utils';
+import { CustomerLink } from '@/components/shared/CustomerLink';
 
 interface ViewBookingModalProps {
   isOpen: boolean;
@@ -282,7 +283,18 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
               </h2>
               {currentBooking && (
                 <div className="text-sm text-gray-600 flex items-center gap-2">
-                  <span>{currentBooking.customer?.customer_name || currentBooking.name}</span>
+                  {currentBooking.customer_id ? (
+                    <CustomerLink
+                      customerId={currentBooking.customer_id}
+                      customerName={currentBooking.customer?.customer_name || currentBooking.name}
+                      customerCode={currentBooking.customer?.customer_code || currentBooking.customer_code}
+                      fromLocation="/bookings-calendar"
+                      fromLabel="Booking Calendar"
+                      className="text-blue-600 hover:text-blue-800"
+                    />
+                  ) : (
+                    <span>{currentBooking.customer?.customer_name || currentBooking.name}</span>
+                  )}
                   {isPastBooking && (
                     <Badge variant="secondary" className="text-xs">
                       Past
@@ -331,7 +343,18 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
                 </div>
                 {currentBooking && (
                   <div className="text-sm text-gray-600">
-                    {currentBooking.customer?.customer_name || currentBooking.name}
+                    {currentBooking.customer_id ? (
+                      <CustomerLink
+                        customerId={currentBooking.customer_id}
+                        customerName={currentBooking.customer?.customer_name || currentBooking.name}
+                        customerCode={currentBooking.customer?.customer_code || currentBooking.customer_code}
+                        fromLocation="/bookings-calendar"
+                        fromLabel="Booking Calendar"
+                        className="text-blue-600 hover:text-blue-800"
+                      />
+                    ) : (
+                      <span>{currentBooking.customer?.customer_name || currentBooking.name}</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -374,9 +397,20 @@ export function ViewBookingModal({ isOpen, onClose, booking, onBookingUpdated }:
                   
                   <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-lg font-semibold text-gray-900">
-                        {currentBooking.customer?.customer_name || currentBooking.name}
-                      </span>
+                      {currentBooking.customer_id ? (
+                        <CustomerLink
+                          customerId={currentBooking.customer_id}
+                          customerName={currentBooking.customer?.customer_name || currentBooking.name}
+                          customerCode={currentBooking.customer?.customer_code || currentBooking.customer_code}
+                          fromLocation="/bookings-calendar"
+                          fromLabel="Booking Calendar"
+                          className="text-lg font-semibold text-blue-600 hover:text-blue-800"
+                        />
+                      ) : (
+                        <span className="text-lg font-semibold text-gray-900">
+                          {currentBooking.customer?.customer_name || currentBooking.name}
+                        </span>
+                      )}
                       {(currentBooking.customer?.customer_code || currentBooking.customer_code) && (
                         <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded">
                           {currentBooking.customer?.customer_code || currentBooking.customer_code}

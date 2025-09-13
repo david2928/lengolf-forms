@@ -18,7 +18,7 @@ interface PackageItem {
   uses_remaining: number;
   original_uses: number;
   used_hours: number;
-  status: 'created' | 'active' | 'expired' | 'depleted';
+  status: 'created' | 'active' | 'expired' | 'depleted' | 'fully_used';
   usage_percentage: number;
   employee_name?: string;
 }
@@ -71,7 +71,7 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
         filtered = allPackages.filter(pkg => pkg.status === 'active');
         break;
       case 'expired':
-        filtered = allPackages.filter(pkg => pkg.status === 'expired' || pkg.status === 'depleted');
+        filtered = allPackages.filter(pkg => pkg.status === 'expired' || pkg.status === 'depleted' || pkg.status === 'fully_used');
         break;
       default:
         filtered = allPackages;
@@ -102,7 +102,9 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
       case 'expired':
         return <Badge className="bg-red-500 text-white">Expired</Badge>;
       case 'depleted':
-        return <Badge className="bg-orange-500 text-white">Used Up</Badge>;
+        return <Badge className="bg-orange-500 text-white">Fully Used</Badge>;
+      case 'fully_used':
+        return <Badge className="bg-orange-500 text-white">Fully Used</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -123,7 +125,7 @@ export const PackageHistoryTable: React.FC<PackageHistoryTableProps> = ({ custom
       all: allPackages.length,
       created: allPackages.filter(pkg => pkg.status === 'created').length,
       active: allPackages.filter(pkg => pkg.status === 'active').length,
-      expired: allPackages.filter(pkg => pkg.status === 'expired' || pkg.status === 'depleted').length
+      expired: allPackages.filter(pkg => pkg.status === 'expired' || pkg.status === 'depleted' || pkg.status === 'fully_used').length
     };
   };
 

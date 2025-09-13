@@ -154,7 +154,7 @@ export async function GET(
         created: createdPackages,
         active: activePackages,
         expired: expiredPackages,
-        depleted: fullyUsedPackages
+        fully_used: fullyUsedPackages
       },
       customer: {
         id: customer.id,

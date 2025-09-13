@@ -4,8 +4,10 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calendar, momentLocalizer, Views, Event } from 'react-big-calendar';
 import moment from 'moment';
 import { DateTime } from 'luxon';
+import { User } from 'lucide-react';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './BigCalendarStyles.css';
+import { useCustomerModal } from '@/contexts/CustomerModalContext';
 
 // Set up the localizer with moment.js (more reliable for timezone handling)
 const localizer = momentLocalizer(moment);
@@ -15,6 +17,7 @@ interface ProcessedBooking {
   id: string;
   customer_name: string;
   customer_code?: string | null;
+  customer_id?: string | null;
   start: string;
   end: string;
   start_hour: number;
@@ -227,15 +230,29 @@ export function BigCalendarView({
   // Custom event component to show customer name and booking type
   const EventComponent = ({ event }: { event: BigCalendarEvent }) => {
     const booking = event.resource.booking;
-    
+    const { openCustomerModal } = useCustomerModal();
+
     // Use the same logic as styling to detect booking types
     const isCoaching = booking.booking_type?.toLowerCase().includes('coaching');
     const isPackage = booking.package_name || booking.booking_type?.toLowerCase() === 'package';
     const isNewCustomer = booking.is_new_customer;
 
+    const handleCustomerClick = (e: React.MouseEvent) => {
+      e.stopPropagation(); // Prevent event click
+      if (booking.customer_id) {
+        openCustomerModal(
+          booking.customer_id,
+          booking.customer_name,
+          booking.customer_code,
+          '/bookings-calendar',
+          'Booking Calendar'
+        );
+      }
+    };
+
     return (
-      <div className="truncate">
-        <div className="font-medium text-xs">
+      <div className="truncate flex items-center justify-between">
+        <div className="font-medium text-xs flex-1 truncate">
           <span className="truncate">
             {booking.customer_name}
             {booking.customer_code && (
@@ -246,6 +263,15 @@ export function BigCalendarView({
           {isCoaching && <span className="ml-1 text-xs">🏌️</span>}
           {isPackage && !isCoaching && <span className="ml-1 text-xs">📦</span>}
         </div>
+        {booking.customer_id && (
+          <button
+            onClick={handleCustomerClick}
+            className="ml-1 p-0.5 hover:bg-white/20 rounded transition-colors opacity-60 hover:opacity-100"
+            title="View customer details"
+          >
+            <User className="w-3 h-3" />
+          </button>
+        )}
       </div>
     );
   };

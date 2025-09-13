@@ -13,13 +13,13 @@ export const menuItems: MenuItem[] = [
     icon: CalendarRange,
     title: "Create Booking",
     path: '/create-booking',
-    description: "Create new customer bookings (multi-step)"
+    description: "Create new customer bookings (single-page)"
   },
   {
     icon: CalendarRange,
-    title: "Create Booking (New)",
-    path: '/create-booking-new',
-    description: "Create new customer bookings (single-page)"
+    title: "Create Booking (Old)",
+    path: '/create-booking-old',
+    description: "Create new customer bookings (multi-step)"
   },
   {
     icon: FileText,

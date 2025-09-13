@@ -8,6 +8,7 @@ export interface CalendarEvent {
   end: string;   // ISO datetime
   customer_name: string;
   customer_code?: string | null;
+  customer_id?: string | null;
   booking_type: string;
   package_name?: string;
   number_of_pax: string;
@@ -80,6 +81,7 @@ export function formatBookingForCalendar(booking: Booking): CalendarEvent {
     end: endDateTime.toISO() || '',
     customer_name: booking.name,
     customer_code: booking.customer_code || null,
+    customer_id: booking.customer_id || null,
     booking_type: booking.booking_type || 'Bay Rate',
     package_name: booking.package_name || undefined,
     number_of_pax: booking.number_of_people.toString(),

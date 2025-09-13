@@ -23,6 +23,7 @@ import { EditPackageSelector } from '@/components/booking-form/selectors/edit-pa
 import { SimpleBookingTypeSelector } from '@/components/booking-form/selectors/simple-booking-type-selector';
 import { SimpleReferralSourceSelector } from '@/components/booking-form/selectors/simple-referral-source-selector';
 import { getDisplayPackageName } from '@/lib/client-package-utils';
+import { CustomerLink } from '@/components/shared/CustomerLink';
 
 // Bay mapping to match API expectations
 const BAY_NAME_TO_API_BAY_NAME: { [key: string]: string } = {
@@ -771,9 +772,20 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           {/* Customer Information Section */}
           <div className="border-b pb-4 space-y-3">
           <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold text-primary">
-              {booking.customer?.customer_name || booking.name}
-            </h3>
+            {booking.customer_id && booking.customer ? (
+              <CustomerLink
+                customerId={booking.customer_id}
+                customerName={booking.customer.customer_name || booking.name}
+                customerCode={booking.customer.customer_code}
+                fromLocation="/manage-bookings"
+                fromLabel="Edit Booking"
+                className="text-lg font-semibold text-blue-600 hover:text-blue-800 underline underline-offset-2"
+              />
+            ) : (
+              <h3 className="text-lg font-semibold text-primary">
+                {booking.name}
+              </h3>
+            )}
             {booking.customer?.customer_code && (
               <Badge variant="secondary" className="text-xs">
                 {booking.customer.customer_code}

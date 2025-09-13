@@ -13,11 +13,13 @@ import { formatBangkokTime, getBangkokNow, getBangkokToday } from '@/lib/bangkok
 import { formatThaiDateTime, formatCurrency, getPaymentIcon } from '@/lib/pos-utils';
 import { formatDateToLocalString } from '@/lib/utils';
 import { TransactionDetailModal } from './TransactionDetailModal';
+import { CustomerLink } from '@/components/shared/CustomerLink';
 
 interface Transaction {
   receipt_number: string;
   sales_timestamp: string;
   customer_name: string;
+  customer_id: string | null;
   staff_name: string;
   payment_method: string;
   total_amount: number;
@@ -218,7 +220,12 @@ export const POSTransactionList: React.FC<POSTransactionListProps> = ({ onRegist
                               </TableCell>
                               <TableCell className="px-4 py-4 hidden md:table-cell">
                                 <div className="text-sm">
-                                  {transaction.customer_name || 'Walk-in'}
+                                  <CustomerLink
+                                    customerId={transaction.customer_id}
+                                    customerName={transaction.customer_name}
+                                    fromLocation="/pos/transactions"
+                                    fromLabel="POS Transactions"
+                                  />
                                 </div>
                               </TableCell>
                               <TableCell className="px-4 py-4 hidden md:table-cell">

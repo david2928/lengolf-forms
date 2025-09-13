@@ -14,6 +14,7 @@ import { BookingHistoryModal } from '@/components/manage-bookings/BookingHistory
 import { useToast } from "@/components/ui/use-toast"; // For showing success/error messages
 import { Checkbox } from '@/components/ui/checkbox'; // Add Checkbox import
 import { Info, Package, Users } from 'lucide-react'; // Import Info, Package, and Users icons
+import { CustomerLink } from '@/components/shared/CustomerLink';
 
 // Helper function to calculate end_time
 const calculateEndTime = (date: string, startTime: string, duration: number): string => {
@@ -328,7 +329,18 @@ export default function ManageBookingsPage() {
                 <div key={booking.id} className={`rounded-lg border p-4 shadow-sm ${booking.status === 'cancelled' ? 'bg-red-50 opacity-70' : 'bg-white'}`}> 
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center">
-                      <span className="font-semibold text-gray-900">{booking.name}</span>
+                      {booking.customer_id ? (
+                        <CustomerLink
+                          customerId={booking.customer_id}
+                          customerName={booking.name}
+                          customerCode={booking.customer_code}
+                          fromLocation="/manage-bookings"
+                          fromLabel="Manage Bookings"
+                          className="font-semibold text-blue-600 hover:text-blue-800 underline underline-offset-2"
+                        />
+                      ) : (
+                        <span className="font-semibold text-gray-900">{booking.name}</span>
+                      )}
                       {renderNewCustomerBadge(booking.is_new_customer)}
                     </div>
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : booking.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{booking.status}</span>
@@ -371,7 +383,18 @@ export default function ManageBookingsPage() {
                     <tr key={booking.id} className={booking.status === 'cancelled' ? 'bg-red-50 opacity-70' : ''}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         <div className="flex items-center">
-                          {booking.name}
+                          {booking.customer_id ? (
+                            <CustomerLink
+                              customerId={booking.customer_id}
+                              customerName={booking.name}
+                              customerCode={booking.customer_code}
+                              fromLocation="/manage-bookings"
+                              fromLabel="Manage Bookings"
+                              className="font-medium text-blue-600 hover:text-blue-800 underline underline-offset-2"
+                            />
+                          ) : (
+                            <span>{booking.name}</span>
+                          )}
                           {renderNewCustomerBadge(booking.is_new_customer)}
                         </div>
                         {booking.customer_notes && (

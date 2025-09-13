@@ -105,7 +105,7 @@ export async function GET(
       lastPackagePurchase: null 
     };
     try {
-      const packagesResponse = await fetch(`http://localhost:3000/api/customers/${customerId}/packages`);
+      const packagesResponse = await fetch(`http://localhost:3000/api/packages/customer/${customerId}?include_expired=true&include_used=true`);
       if (packagesResponse.ok) {
         const packagesData = await packagesResponse.json();
         packageSummary = {
