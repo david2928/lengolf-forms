@@ -5,7 +5,13 @@ const nextConfig = {
   
   // Image optimization
   images: {
-    domains: ['bisimqmtxjsptehhqpeg.supabase.co'],
+    domains: [
+      'bisimqmtxjsptehhqpeg.supabase.co',
+      'profile.line-scdn.net',
+      'obs.line-scdn.net',
+      'static.line-scdn.net',
+      'scdn.line-apps.com'
+    ],
     formats: ['image/webp', 'image/avif'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
