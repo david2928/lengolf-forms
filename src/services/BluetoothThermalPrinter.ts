@@ -246,7 +246,7 @@ export class BluetoothThermalPrinter {
       
       for (let i = 0; i < chunks.length; i++) {
         try {
-          await this.characteristic.writeValue(chunks[i]);
+          await this.characteristic.writeValue(new Uint8Array(chunks[i]));
           
           // Add small delay between chunks to ensure printer can process
           if (i > 0 && i % 5 === 0) {
@@ -266,7 +266,7 @@ export class BluetoothThermalPrinter {
             console.warn('⚠️ Retrying with smaller chunk size...');
             const smallerChunks = ReceiptFormatter.splitIntoChunks(chunks[i], 20);
             for (const smallChunk of smallerChunks) {
-              await this.characteristic.writeValue(smallChunk);
+              await this.characteristic.writeValue(new Uint8Array(smallChunk));
               await new Promise(resolve => setTimeout(resolve, 20));
             }
           } else {

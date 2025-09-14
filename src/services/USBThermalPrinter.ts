@@ -150,7 +150,7 @@ export class USBThermalPrinter {
       console.log(`📤 Sending ${chunks.length} chunks of up to ${chunkSize} bytes each...`);
       
       for (let i = 0; i < chunks.length; i++) {
-        const result = await this.device.transferOut(this.endpointOut, chunks[i]);
+        const result = await this.device.transferOut(this.endpointOut, new Uint8Array(chunks[i]));
         
         if (result.status !== 'ok') {
           throw new Error(`USB transfer failed: ${result.status}`);
@@ -220,8 +220,8 @@ export class USBThermalPrinter {
   getDeviceInfo(): { manufacturer?: string; product?: string; vendorId?: string; productId?: string } | null {
     if (!this.device) return null;
     return {
-      manufacturer: this.device.manufacturerName,
-      product: this.device.productName,
+      manufacturer: this.device.manufacturerName || undefined,
+      product: this.device.productName || undefined,
       vendorId: this.device.vendorId.toString(16),
       productId: this.device.productId.toString(16)
     };

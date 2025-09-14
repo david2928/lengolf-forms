@@ -105,7 +105,11 @@ export async function GET(
       lastPackagePurchase: null 
     };
     try {
-      const packagesResponse = await fetch(`http://localhost:3000/api/packages/customer/${customerId}?include_expired=true&include_used=true`);
+      // Make internal API call using the same server instance
+      const baseUrl = process.env.NODE_ENV === 'production'
+        ? `https://${request.headers.get('host')}`
+        : `http://${request.headers.get('host')}`;
+      const packagesResponse = await fetch(`${baseUrl}/api/packages/customer/${customerId}?include_expired=true&include_used=true`);
       if (packagesResponse.ok) {
         const packagesData = await packagesResponse.json();
         packageSummary = {
@@ -127,6 +131,7 @@ export async function GET(
       console.log('Could not fetch package summary, using fallback');
       // Fallback to direct database query
       const { data: dbPackages } = await refacSupabaseAdmin
+        .schema('backoffice')
         .from('packages')
         .select('id, purchase_date, expiration_date, first_use_date')
         .eq('customer_id', customerId);
@@ -169,7 +174,8 @@ export async function GET(
       packageSummary: {
         activePackages: packageSummary.activePackages,
         totalPackages: packageSummary.totalPackages,
-        lastPackagePurchase: packageSummary.lastPackagePurchase ? new Date(packageSummary.lastPackagePurchase).toISOString().split('T')[0] : null
+        lastPackagePurchase: packageSummary.lastPackagePurchase ? new Date(packageSummary.lastPackagePurchase).toISOString().split('T')[0] : null,
+        packageStatus: packageSummary.packageStatus
       },
       bookingSummary: {
         totalBookings,

@@ -133,7 +133,7 @@ export async function POST(
     })
 
     // Return the generated file (PDF or HTML fallback)
-    return new NextResponse(result.buffer, {
+    return new NextResponse(Buffer.from(result.buffer), {
       headers: {
         'Content-Type': result.contentType,
         'Content-Disposition': `inline; filename="${result.filename}"`

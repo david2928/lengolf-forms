@@ -556,7 +556,7 @@ export const CustomerDetailModal: React.FC = () => {
 
                 <Card>
                   <CardContent className={cn(isTablet ? "p-3" : "p-4")}>
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between">
                       <div>
                         <p className={cn(
                           "font-medium text-gray-600",
@@ -574,32 +574,6 @@ export const CustomerDetailModal: React.FC = () => {
                         isTablet ? "h-6 w-6" : "h-8 w-8"
                       )} />
                     </div>
-
-                    {/* Detailed Package Status */}
-                    {customerDetail.packageSummary.packageStatus && customerDetail.packageSummary.packageStatus.total > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {customerDetail.packageSummary.packageStatus.created > 0 && (
-                          <Badge className="text-xs bg-blue-500 text-white">
-                            {customerDetail.packageSummary.packageStatus.created} Created
-                          </Badge>
-                        )}
-                        {customerDetail.packageSummary.packageStatus.active > 0 && (
-                          <Badge className="text-xs bg-green-500 text-white">
-                            {customerDetail.packageSummary.packageStatus.active} Active
-                          </Badge>
-                        )}
-                        {customerDetail.packageSummary.packageStatus.depleted > 0 && (
-                          <Badge className="text-xs bg-orange-500 text-white">
-                            {customerDetail.packageSummary.packageStatus.depleted} Used Up
-                          </Badge>
-                        )}
-                        {customerDetail.packageSummary.packageStatus.expired > 0 && (
-                          <Badge className="text-xs bg-red-500 text-white">
-                            {customerDetail.packageSummary.packageStatus.expired} Expired
-                          </Badge>
-                        )}
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
 

@@ -12,7 +12,9 @@
       "Bash(git push:*)",
       "Bash(npm info:*)",
       "Bash(npm install:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm ls:*)",
+      "mcp__supabase__list_tables"
     ],
     "deny": [],
     "ask": []

@@ -85,8 +85,9 @@ export function CustomerDetails({
 
   // Check for phone number duplicates (simplified - just validation)
   const checkPhoneDuplicates = useCallback(async (): Promise<void> => {
-    if (!phoneNumber || phoneNumber.length < 8) {
+    if (!phoneNumber || phoneNumber.length < 6) {
       setPhoneError('');
+      onPhoneError?.('');
       return;
     }
 
@@ -103,14 +104,16 @@ export function CustomerDetails({
 
       if (response.ok) {
         const data = await response.json();
+
         // Check for exact phone matches only
-        const exactPhoneMatch = (data.potentialDuplicates || []).find((dup: any) => 
-          dup.matchReasons && 
+        const exactPhoneMatch = (data.potentialDuplicates || []).find((dup: any) =>
+          dup.matchReasons &&
           dup.matchReasons.some((reason: string) => reason.includes('Phone number match'))
         );
-        
+
         if (exactPhoneMatch) {
-          const errorMsg = 'This phone number is already registered to another customer';
+          const customer = exactPhoneMatch.customer;
+          const errorMsg = `This phone number is already registered to ${customer.customer_name} (${customer.customer_code})`;
           setPhoneError(errorMsg);
           onPhoneError?.(errorMsg);
         } else {

@@ -122,9 +122,9 @@ export function BookingFormNew() {
   const showCustomerDetails = showCustomerInfo && formData.isNewCustomer !== null;
   const showPackageSelection = showCustomerDetails && !formData.isNewCustomer && selectedCustomerCache && availablePackages.length > 0;
   const showBookingType = showCustomerDetails && (
-    (formData.isNewCustomer && formData.customerName && formData.customerPhone) ||
+    (formData.isNewCustomer && formData.customerName && formData.customerPhone && !errors.customerPhone) ||
     (!formData.isNewCustomer && formData.customerId)
-  ); // Show booking type after customer details are complete
+  ); // Show booking type after customer details are complete and no validation errors
   const showContactMethod = showBookingType && formData.bookingType; // Show contact method AFTER booking type is selected
   const showCoachSelection = showBookingType && (formData.bookingType === 'Coaching' || formData.bookingType?.startsWith('Coaching (') || autoSelectedBookingType === 'Coaching');
   const showTimeSlot = showContactMethod && formData.customerContactedVia && formData.bookingType;
@@ -167,6 +167,9 @@ export function BookingFormNew() {
         }
         if (!formData.customerPhone?.trim()) {
           allErrors.customerPhone = 'Phone number is required';
+        } else if (phoneError) {
+          // Block form submission if there's a phone duplicate error
+          allErrors.customerPhone = phoneError;
         }
       } else {
         if (!formData.customerId) {
