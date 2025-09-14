@@ -7,6 +7,40 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, Users, MessageSquare, Webhook } from 'lucide-react';
 
+// Safe Image component with error handling
+const SafeImage = ({ src, alt, width, height, className, onError }: {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  className: string;
+  onError?: () => void;
+}) => {
+  const [imageError, setImageError] = useState(false);
+
+  if (!src || imageError) {
+    return (
+      <div className={`${className} bg-gray-300 flex items-center justify-center`}>
+        <Users className="h-5 w-5 text-gray-600" />
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      className={className}
+      onError={() => {
+        setImageError(true);
+        onError?.();
+      }}
+    />
+  );
+};
+
 interface LineUser {
   line_user_id: string;
   display_name: string;
@@ -211,22 +245,13 @@ export default function LineMessagesPage() {
                   className="flex items-center justify-between p-3 border rounded-lg"
                 >
                   <div className="flex items-center space-x-3">
-                    {user.picture_url ? (
-                      <Image
-                        src={user.picture_url}
-                        alt={user.display_name || 'User'}
-                        width={40}
-                        height={40}
-                        className="w-10 h-10 rounded-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-                        <Users className="h-5 w-5 text-gray-600" />
-                      </div>
-                    )}
+                    <SafeImage
+                      src={user.picture_url || ''}
+                      alt={user.display_name || 'User'}
+                      width={40}
+                      height={40}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
                     <div>
                       <p className="font-medium">{user.display_name || 'Unknown User'}</p>
                       <p className="text-sm text-muted-foreground">ID: {user.line_user_id.substring(0, 20)}...</p>

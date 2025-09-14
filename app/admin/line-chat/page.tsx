@@ -55,6 +55,36 @@ interface Message {
   timestamp?: number;
 }
 
+// Safe Image component with error handling
+const SafeImage = ({ src, alt, width, height, className }: {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  className: string;
+}) => {
+  const [imageError, setImageError] = useState(false);
+
+  if (!src || imageError) {
+    return (
+      <div className={`${className} bg-gray-300 flex items-center justify-center`}>
+        <Users className="h-5 w-5 text-gray-600" />
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      className={className}
+      onError={() => setImageError(true)}
+    />
+  );
+};
+
 export default function LineChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
@@ -349,19 +379,13 @@ export default function LineChatPage() {
                 }`}
               >
                 <div className="flex items-center space-x-3">
-                  {conversation.user.pictureUrl ? (
-                    <Image
-                      src={conversation.user.pictureUrl}
-                      alt={conversation.user.displayName}
-                      width={40}
-                      height={40}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-                      <Users className="h-5 w-5 text-gray-600" />
-                    </div>
-                  )}
+                  <SafeImage
+                    src={conversation.user.pictureUrl || ''}
+                    alt={conversation.user.displayName}
+                    width={40}
+                    height={40}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
@@ -416,19 +440,13 @@ export default function LineChatPage() {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
 
-                {selectedConv?.user.pictureUrl ? (
-                  <Image
-                    src={selectedConv.user.pictureUrl}
-                    alt={selectedConv.user.displayName}
-                    width={32}
-                    height={32}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-                    <Users className="h-4 w-4 text-gray-600" />
-                  </div>
-                )}
+                <SafeImage
+                  src={selectedConv?.user.pictureUrl || ''}
+                  alt={selectedConv?.user.displayName || 'User'}
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
 
                 <div>
                   <h2 className="font-semibold">
@@ -574,19 +592,13 @@ export default function LineChatPage() {
             <Card className="mb-4">
               <CardContent className="p-4">
                 <div className="flex items-center space-x-3 mb-4">
-                  {selectedConv.user.pictureUrl ? (
-                    <Image
-                      src={selectedConv.user.pictureUrl}
-                      alt={selectedConv.user.displayName}
-                      width={48}
-                      height={48}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center">
-                      <Users className="h-6 w-6 text-gray-600" />
-                    </div>
-                  )}
+                  <SafeImage
+                    src={selectedConv.user.pictureUrl || ''}
+                    alt={selectedConv.user.displayName}
+                    width={48}
+                    height={48}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
                   <div>
                     <h4 className="font-medium">{selectedConv.user.displayName}</h4>
                     <p className="text-sm text-gray-500">LINE User</p>

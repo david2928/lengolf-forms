@@ -7,10 +7,24 @@ const nextConfig = {
   images: {
     domains: [
       'bisimqmtxjsptehhqpeg.supabase.co',
-      'profile.line-scdn.net',
-      'obs.line-scdn.net',
-      'static.line-scdn.net',
-      'scdn.line-apps.com'
+    ],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.line-scdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'scdn.line-apps.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'profile.line-scdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'sprofile.line-scdn.net',
+      }
     ],
     formats: ['image/webp', 'image/avif'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
