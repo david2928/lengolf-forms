@@ -14,7 +14,12 @@
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
       "Bash(npm ls:*)",
-      "mcp__supabase__list_tables"
+      "mcp__supabase__list_tables",
+      "Bash(npm audit:*)",
+      "WebSearch",
+      "mcp__supabase__apply_migration",
+      "Bash(npx tsc:*)",
+      "Read(//c/c/vs_code/lengolf-forms-feature/lengolf-forms/**)"
     ],
     "deny": [],
     "ask": []

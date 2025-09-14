@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { parse } from 'csv-parse/sync';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -298,16 +298,25 @@ async function parseCSVFile(file: File, config: any, reconciliationType: string)
 async function parseExcelFile(file: File, config: any, reconciliationType: string): Promise<ParsedInvoiceData> {
   const buffer = await file.arrayBuffer();
   const parseErrors: string[] = [];
-  
+
   try {
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    
-    const records = XLSX.utils.sheet_to_json(worksheet, { 
-      header: 1,
-      defval: '',
-      raw: false
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) {
+      throw new Error('Excel file must contain at least one worksheet');
+    }
+
+    // Convert worksheet to array of arrays
+    const records: any[][] = [];
+    worksheet.eachRow((row, rowNumber) => {
+      const rowData: any[] = [];
+      row.eachCell((cell, colNumber) => {
+        // Get the displayed value (formatted text) rather than raw value
+        rowData[colNumber - 1] = cell.text || cell.value || '';
+      });
+      records.push(rowData);
     });
 
     if (records.length < 2) {
