@@ -247,8 +247,18 @@ export default function LineChatPage() {
   const selectedConv = conversations.find(conv => conv.id === selectedConversation);
 
   // Format time display
-  const formatTime = (dateString: string) => {
+  const formatTime = (dateString?: string | null) => {
+    if (!dateString) {
+      return 'No messages';
+    }
+
     const date = new Date(dateString);
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const hours = diff / (1000 * 60 * 60);
@@ -258,7 +268,14 @@ export default function LineChatPage() {
     } else if (hours < 24) {
       return `${Math.floor(hours)}h ago`;
     } else {
-      return date.toLocaleDateString();
+      const days = Math.floor(hours / 24);
+      if (days === 1) {
+        return 'Yesterday';
+      } else if (days < 7) {
+        return `${days} days ago`;
+      } else {
+        return date.toLocaleDateString();
+      }
     }
   };
 
@@ -471,7 +488,7 @@ export default function LineChatPage() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ maxHeight: 'calc(100vh - 200px)' }}>
               {messages.map((message) => (
                 <div
                   key={message.id}
@@ -513,7 +530,7 @@ export default function LineChatPage() {
             </div>
 
             {/* Message Input */}
-            <div className="bg-white border-t p-4">
+            <div className="bg-white border-t p-4 sticky bottom-0">
               {/* Quick Actions */}
               <div className="flex flex-wrap gap-2 mb-3">
                 <Button

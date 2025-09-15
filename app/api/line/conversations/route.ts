@@ -12,34 +12,9 @@ const supabase = createClient(
  */
 export async function GET() {
   try {
+    // Get unique conversations - one per LINE user (most recent)
     const { data: conversations, error } = await supabase
-      .from('line_conversations')
-      .select(`
-        id,
-        line_user_id,
-        customer_id,
-        last_message_at,
-        last_message_text,
-        last_message_by,
-        unread_count,
-        is_active,
-        assigned_to,
-        created_at,
-        updated_at,
-        line_users!inner (
-          display_name,
-          picture_url
-        ),
-        customers (
-          id,
-          customer_name,
-          contact_number,
-          email
-        )
-      `)
-      .eq('is_active', true)
-      .order('last_message_at', { ascending: false })
-      .limit(50);
+      .rpc('get_unique_line_conversations', { limit_count: 50 });
 
     if (error) {
       console.error('Error fetching conversations:', error);
@@ -60,14 +35,14 @@ export async function GET() {
       createdAt: conv.created_at,
       updatedAt: conv.updated_at,
       user: {
-        displayName: (conv as any).line_users.display_name,
-        pictureUrl: (conv as any).line_users.picture_url
+        displayName: conv.line_users?.display_name,
+        pictureUrl: conv.line_users?.picture_url
       },
-      customer: (conv as any).customers ? {
-        id: (conv as any).customers.id,
-        name: (conv as any).customers.customer_name,
-        phone: (conv as any).customers.contact_number,
-        email: (conv as any).customers.email
+      customer: conv.customers ? {
+        id: conv.customers.id,
+        name: conv.customers.customer_name,
+        phone: conv.customers.contact_number,
+        email: conv.customers.email
       } : null
     })) || [];
 
