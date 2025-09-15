@@ -17,6 +17,7 @@
     "test:integration": "jest --testPathPattern=integration --run",
     "test:e2e": "playwright test tests/e2e",
     "test:crm": "node scripts/test-crm-sync.js",
+    "fix-emoji": "node scripts/fix-emoji-messages.js",
     "test:crm:prod": "node scripts/test-crm-sync.js production",
     "protect-formatting": "node scripts/comprehensive-formatting-protection.js",
     "protect-formatting:watch": "node scripts/protect-compact-formatting.js --watch",

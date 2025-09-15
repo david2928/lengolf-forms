@@ -22,7 +22,7 @@ export async function GET() {
     }
 
     // Format the response
-    const formattedConversations = conversations?.map(conv => ({
+    const formattedConversations = conversations?.map((conv: any) => ({
       id: conv.id,
       lineUserId: conv.line_user_id,
       customerId: conv.customer_id,
@@ -36,7 +36,9 @@ export async function GET() {
       updatedAt: conv.updated_at,
       user: {
         displayName: conv.line_users?.display_name,
-        pictureUrl: conv.line_users?.picture_url
+        pictureUrl: conv.line_users?.picture_url,
+        lineUserId: conv.line_user_id,
+        customerId: conv.line_users?.customer_id
       },
       customer: conv.customers ? {
         id: conv.customers.id,

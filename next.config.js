@@ -24,6 +24,10 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'sprofile.line-scdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.line.me',
       }
     ],
     formats: ['image/webp', 'image/avif'],
@@ -36,13 +40,29 @@ const nextConfig = {
   
   // Optimize bundle by excluding unused dependencies
   webpack: (config, { isServer, dev }) => {
+    // Fix cache serialization performance warning
+    config.cache = {
+      ...config.cache,
+      compression: 'gzip',
+      maxMemoryGenerations: 1,
+    }
+
     if (!isServer) {
       config.resolve.alias = {
         ...config.resolve.alias,
         '@supabase/realtime-js': false,
       }
+
+      // Exclude Node.js APIs from client bundle
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        process: false,
+        fs: false,
+        net: false,
+        tls: false,
+      }
     }
-    
+
     // Bundle analyzer in development
     if (dev && process.env.ANALYZE === 'true') {
       const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
@@ -102,7 +122,7 @@ const nextConfig = {
   },
   
   // Optimize builds
-  serverExternalPackages: ['@supabase/supabase-js'],
+  serverExternalPackages: ['@supabase/realtime-js'],
   experimental: {
   },
   

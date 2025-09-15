@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { enhanceMessageDisplay, createMessagePreview, type MessagePreview } from '@/lib/line/emoji-display-utils';
+import { CustomerLinkModal } from '@/components/admin/line-chat/CustomerLinkModal';
+import { StickerMessage } from '@/components/line/StickerMessage';
 import {
   MessageSquare,
   Send,
@@ -24,6 +27,8 @@ import {
 interface LineUser {
   displayName: string;
   pictureUrl?: string;
+  lineUserId?: string;
+  customerId?: string;
 }
 
 interface Customer {
@@ -40,6 +45,7 @@ interface Conversation {
   lastMessageAt: string;
   lastMessageText?: string;
   lastMessageBy: 'user' | 'admin';
+  lastMessageType?: string;
   unreadCount: number;
   user: LineUser;
   customer?: Customer;
@@ -53,6 +59,52 @@ interface Message {
   senderName?: string;
   createdAt: string;
   timestamp?: number;
+  // Sticker properties
+  packageId?: string;
+  stickerId?: string;
+  stickerKeywords?: string[];
+  // Image properties
+  imageUrl?: string;
+}
+
+interface CustomerDetails {
+  id: string;
+  name: string;
+  code: string;
+  phone?: string;
+  email?: string;
+  lifetimeValue: number;
+  totalVisits: number;
+  lastVisitDate?: string;
+  profiles?: any;
+}
+
+interface Booking {
+  id: string;
+  date: string;
+  start_time: string;
+  duration: number;
+  bay: string;
+  number_of_people: number;
+  status: string;
+}
+
+interface Package {
+  id: string;
+  package_type_name: string;
+  remaining_hours: number | string;
+  used_hours?: number;
+  expiration_date: string;
+  package_type: string;
+  hours_remaining?: number | null; // For numeric calculations, null for unlimited packages
+}
+
+interface Transaction {
+  id: string;
+  transaction_date: string;
+  total_amount: number;
+  payment_method: string;
+  receipt_number: string;
 }
 
 // Safe Image component with error handling
@@ -95,9 +147,84 @@ export default function LineChatPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [showMobileCustomer, setShowMobileCustomer] = useState(false);
+  const [customerDetails, setCustomerDetails] = useState<CustomerDetails | null>(null);
+  const [customerBookings, setCustomerBookings] = useState<Booking[]>([]);
+  const [customerPackages, setCustomerPackages] = useState<Package[]>([]);
+  const [customerTransactions, setCustomerTransactions] = useState<Transaction[]>([]);
+  const [linkingCustomer, setLinkingCustomer] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Link LINE user to customer
+  const linkCustomerToLineUser = async (customerId: string, customer: any) => {
+    if (!selectedConv?.user.lineUserId) return;
+
+    try {
+      setLinkingCustomer(true);
+
+      const response = await fetch(`/api/line/users/${selectedConv.user.lineUserId}/link-customer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ customerId }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update the conversation with customer info
+        setConversations(prev =>
+          prev.map(conv =>
+            conv.id === selectedConversation
+              ? {
+                  ...conv,
+                  customer: {
+                    id: customerId,
+                    name: customer.customer_name,
+                    phone: customer.contact_number,
+                    email: customer.email
+                  },
+                  user: {
+                    ...conv.user,
+                    customerId
+                  }
+                }
+              : conv
+          )
+        );
+
+        // Fetch detailed customer information
+        fetchCustomerDetails(customerId);
+      } else {
+        alert('Failed to link customer: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error linking customer:', error);
+      alert('Failed to link customer');
+    } finally {
+      setLinkingCustomer(false);
+    }
+  };
+
+  // Fetch customer details
+  const fetchCustomerDetails = async (customerId: string) => {
+    try {
+      const response = await fetch(`/api/line/customers/${customerId}/details`);
+      const data = await response.json();
+
+      if (data.success) {
+        setCustomerDetails(data.customer);
+        setCustomerBookings(data.bookings);
+        setCustomerPackages(data.packages);
+        setCustomerTransactions(data.transactions);
+      }
+    } catch (error) {
+      console.error('Error fetching customer details:', error);
+    }
+  };
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -338,6 +465,19 @@ export default function LineChatPage() {
     }
   }, [selectedConversation, fetchMessages]);
 
+  // Fetch customer details when conversation with linked customer is selected
+  useEffect(() => {
+    if (selectedConv?.customer?.id) {
+      fetchCustomerDetails(selectedConv.customer.id);
+    } else {
+      // Clear customer details when no customer is linked
+      setCustomerDetails(null);
+      setCustomerBookings([]);
+      setCustomerPackages([]);
+      setCustomerTransactions([]);
+    }
+  }, [selectedConv?.customer?.id]);
+
   // Auto-scroll when messages change
   useEffect(() => {
     scrollToBottom();
@@ -407,7 +547,7 @@ export default function LineChatPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-gray-900 truncate">
-                        {conversation.customer?.name || conversation.user.displayName}
+                        {conversation.user.displayName}
                       </p>
                       <div className="flex items-center space-x-2">
                         {conversation.unreadCount > 0 && (
@@ -421,17 +561,26 @@ export default function LineChatPage() {
                       </div>
                     </div>
 
-                    {conversation.customer && (
-                      <p className="text-xs text-gray-500 truncate">
-                        LINE: {conversation.user.displayName}
-                      </p>
-                    )}
 
                     {conversation.lastMessageText && (
-                      <p className="text-sm text-gray-500 truncate mt-1">
-                        {conversation.lastMessageBy === 'admin' ? '✓ ' : ''}
-                        {conversation.lastMessageText}
-                      </p>
+                      <div className="flex items-center space-x-2 mt-1">
+                        {conversation.lastMessageBy === 'admin' && (
+                          <span className="text-sm text-gray-500">✓</span>
+                        )}
+                        {conversation.lastMessageType === 'sticker' ? (
+                          <p className="text-sm text-gray-500 truncate">
+                            {conversation.user.displayName} sent a sticker
+                          </p>
+                        ) : conversation.lastMessageType === 'image' ? (
+                          <p className="text-sm text-gray-500 truncate">
+                            {conversation.user.displayName} sent an image
+                          </p>
+                        ) : (
+                          <p className="text-sm text-gray-500 truncate">
+                            {enhanceMessageDisplay(conversation.lastMessageText)}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -494,36 +643,51 @@ export default function LineChatPage() {
                   key={message.id}
                   className={`flex ${message.senderType === 'admin' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      message.senderType === 'admin'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white border shadow-sm'
-                    }`}
-                  >
-                    {message.text && (
-                      <p className="text-sm whitespace-pre-wrap">{message.text}</p>
-                    )}
-                    <div className="flex items-center justify-between mt-1">
-                      <span className={`text-xs ${
-                        message.senderType === 'admin'
-                          ? 'text-blue-100'
-                          : 'text-gray-500'
-                      }`}>
-                        {message.senderType === 'admin'
-                          ? message.senderName || 'Admin'
-                          : selectedConv?.user.displayName
-                        }
-                      </span>
-                      <span className={`text-xs ml-2 ${
-                        message.senderType === 'admin'
-                          ? 'text-blue-100'
-                          : 'text-gray-400'
-                      }`}>
+                  {/* Render stickers without background container */}
+                  {message.type === 'sticker' && message.stickerId ? (
+                    <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
+                      <StickerMessage
+                        packageId={message.packageId || ''}
+                        stickerId={message.stickerId}
+                        keywords={message.stickerKeywords}
+                        size="large"
+                        className=""
+                      />
+                      <span className="text-xs text-gray-400">
                         {formatMessageTime(message.createdAt)}
                       </span>
                     </div>
-                  </div>
+                  ) : (
+                    /* Regular messages with background and timestamp below */
+                    <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
+                      <div
+                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                          message.senderType === 'admin'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-white border shadow-sm'
+                        }`}
+                      >
+                        {message.type === 'image' && message.imageUrl ? (
+                          <div className="my-2">
+                            <Image
+                              src={message.imageUrl}
+                              alt="Shared image"
+                              width={200}
+                              height={150}
+                              className="rounded-lg object-cover max-w-full"
+                            />
+                          </div>
+                        ) : message.text ? (
+                          <p className="text-sm whitespace-pre-wrap">{enhanceMessageDisplay(message.text)}</p>
+                        ) : (
+                          <p className="text-sm text-gray-500 italic">[{message.type} message]</p>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {formatMessageTime(message.createdAt)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               ))}
               <div ref={messagesEndRef} />
@@ -644,8 +808,13 @@ export default function LineChatPage() {
                 ) : (
                   <div className="text-center py-4">
                     <p className="text-sm text-gray-500 mb-2">Not linked to customer</p>
-                    <Button size="sm" variant="outline">
-                      Link to Customer
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowLinkModal(true)}
+                      disabled={linkingCustomer}
+                    >
+                      {linkingCustomer ? 'Linking...' : 'Link to Customer'}
                     </Button>
                   </div>
                 )}
@@ -653,33 +822,103 @@ export default function LineChatPage() {
             </Card>
 
             {/* Customer Details (if linked) */}
-            {selectedConv.customer && (
+            {selectedConv.customer && customerDetails && (
               <>
+                {/* Customer Stats */}
+                <Card className="mb-4">
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div>
+                        <p className="text-lg font-bold">{customerDetails.totalVisits || 0}</p>
+                        <p className="text-xs text-gray-500">Total Visits</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold">฿{(customerDetails.lifetimeValue || 0).toLocaleString()}</p>
+                        <p className="text-xs text-gray-500">Lifetime Value</p>
+                      </div>
+                    </div>
+                    {customerDetails.lastVisitDate && (
+                      <div className="mt-3 text-center">
+                        <p className="text-xs text-gray-500">
+                          Last visit: {new Date(customerDetails.lastVisitDate).toLocaleDateString('en-GB')}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Recent Bookings */}
                 <Card className="mb-4">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center">
                       <Calendar className="h-4 w-4 mr-2" />
-                      Recent Bookings
+                      Recent Bookings ({customerBookings.length})
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <p className="text-sm text-gray-500">
-                      Feature coming soon - will show last booking and next booking
-                    </p>
+                    {customerBookings.length > 0 ? (
+                      <div className="space-y-3">
+                        {customerBookings.slice(0, 3).map((booking) => (
+                          <div key={booking.id} className="p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center justify-between mb-2">
+                              <Badge variant="outline" className="text-xs">
+                                {booking.bay}
+                              </Badge>
+                              <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'} className="text-xs">
+                                {booking.status}
+                              </Badge>
+                            </div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {new Date(booking.date).toLocaleDateString('en-GB')} at {booking.start_time}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Duration: {booking.duration}h
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No recent bookings</p>
+                    )}
                   </CardContent>
                 </Card>
 
+                {/* Active Packages */}
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center">
                       <Package className="h-4 w-4 mr-2" />
-                      Active Packages
+                      Active Packages ({customerPackages.length})
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <p className="text-sm text-gray-500">
-                      Feature coming soon - will show active packages and hours remaining
-                    </p>
+                    {customerPackages.length > 0 ? (
+                      <div className="space-y-2">
+                        {customerPackages.map((pkg) => (
+                          <div key={pkg.id} className="text-sm border-b pb-2 last:border-b-0">
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium">{pkg.package_type_name}</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {pkg.remaining_hours === 'Unlimited' ? 'Unlimited' : `${pkg.remaining_hours}h left`}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              Expires: {new Date(pkg.expiration_date).toLocaleDateString('en-GB')}
+                            </p>
+                            {pkg.remaining_hours !== 'Unlimited' && pkg.hours_remaining !== null && (
+                              <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                                <div
+                                  className="bg-blue-500 h-1.5 rounded-full"
+                                  style={{ width: `${((Number(pkg.remaining_hours) || 0) / ((Number(pkg.remaining_hours) || 0) + (pkg.used_hours || 0))) * 100}%` }}
+                                ></div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No active packages</p>
+                    )}
                   </CardContent>
                 </Card>
               </>
@@ -692,6 +931,14 @@ export default function LineChatPage() {
           </div>
         )}
       </div>
+
+      {/* Customer Link Modal */}
+      <CustomerLinkModal
+        isOpen={showLinkModal}
+        onClose={() => setShowLinkModal(false)}
+        onCustomerSelect={linkCustomerToLineUser}
+        loading={linkingCustomer}
+      />
     </div>
   );
 }

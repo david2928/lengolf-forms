@@ -10,6 +10,7 @@ export interface Package {
   employee_name?: string | null;
   remaining_hours?: number | string;
   used_hours?: number | string;
+  hours_remaining?: number | null; // For numeric calculations, null for unlimited packages
 }
 
 export interface PackageMonitorData {

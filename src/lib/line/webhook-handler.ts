@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { processLineMessage, logEmojiProcessing } from './emoji-processor';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -33,6 +34,12 @@ export interface LineWebhookEvent {
     longitude?: number;
     packageId?: string;
     stickerId?: string;
+    emojis?: Array<{
+      index: number;
+      length: number;
+      emojiId: string;
+      productId: string;
+    }>;
   };
   mode?: string;
 }
@@ -258,6 +265,15 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
     // Get the conversation ID
     const conversationId = await ensureConversationExists(event.source.userId);
 
+    // Process emoji placeholders to Unicode emojis
+    const originalText = event.message?.text || '';
+    const processedText = processLineMessage(originalText, event);
+
+    // Log emoji processing for debugging
+    if (originalText !== processedText) {
+      logEmojiProcessing(originalText, processedText, event.message?.emojis || []);
+    }
+
     // Insert the message
     const { error: messageError } = await supabase
       .from('line_messages')
@@ -267,7 +283,7 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
         line_user_id: event.source.userId,
         message_type: event.message?.type || 'unknown',
         message_id: event.message?.id,
-        message_text: event.message?.text,
+        message_text: processedText, // Use processed text with emojis
         reply_token: event.replyToken,
         timestamp: event.timestamp,
         sender_type: 'user',
@@ -284,7 +300,7 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
     const { error: updateError } = await supabase.rpc('increment_conversation_unread', {
       conversation_id: conversationId,
       new_last_message_at: new Date(event.timestamp).toISOString(),
-      new_last_message_text: event.message?.text || `[${event.message?.type || 'message'}]`,
+      new_last_message_text: processedText || `[${event.message?.type || 'message'}]`,
       new_last_message_by: 'user'
     });
 
@@ -296,7 +312,7 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
         .from('line_conversations')
         .update({
           last_message_at: new Date(event.timestamp).toISOString(),
-          last_message_text: event.message?.text || `[${event.message?.type || 'message'}]`,
+          last_message_text: processedText || `[${event.message?.type || 'message'}]`,
           last_message_by: 'user',
           updated_at: new Date().toISOString()
         })

@@ -55,7 +55,8 @@ export async function GET(
         sender_name,
         timestamp,
         created_at,
-        is_read
+        is_read,
+        raw_event
       `)
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
@@ -66,16 +67,30 @@ export async function GET(
     }
 
     // Format messages
-    const formattedMessages = messages?.map(msg => ({
-      id: msg.id,
-      text: msg.message_text,
-      type: msg.message_type,
-      senderType: msg.sender_type, // 'user' or 'admin'
-      senderName: msg.sender_name,
-      timestamp: msg.timestamp,
-      createdAt: msg.created_at,
-      isRead: msg.is_read
-    })) || [];
+    const formattedMessages = messages?.map(msg => {
+      const rawMessage = msg.raw_event?.message;
+
+      return {
+        id: msg.id,
+        text: msg.message_text,
+        type: msg.message_type,
+        senderType: msg.sender_type, // 'user' or 'admin'
+        senderName: msg.sender_name,
+        timestamp: msg.timestamp,
+        createdAt: msg.created_at,
+        isRead: msg.is_read,
+        // Include sticker information if it's a sticker message
+        ...(msg.message_type === 'sticker' && rawMessage && {
+          packageId: rawMessage.packageId,
+          stickerId: rawMessage.stickerId,
+          stickerKeywords: rawMessage.keywords || []
+        }),
+        // Include image information if it's an image message
+        ...(msg.message_type === 'image' && rawMessage && {
+          imageUrl: `https://api.line.me/v2/bot/message/${rawMessage.id}/content`
+        })
+      };
+    }) || [];
 
     return NextResponse.json({
       success: true,
