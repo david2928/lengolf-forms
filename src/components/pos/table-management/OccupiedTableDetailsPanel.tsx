@@ -41,6 +41,7 @@ export function OccupiedTableDetailsPanel({
   const [appliedReceiptDiscount, setAppliedReceiptDiscount] = useState<any>(null);
   const [localTableData, setLocalTableData] = useState<Table | null>(table);
   const [ordersApiTotalAmount, setOrdersApiTotalAmount] = useState<number>(0);
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferNotification, setTransferNotification] = useState<{
     show: boolean;
@@ -176,6 +177,7 @@ export function OccupiedTableDetailsPanel({
       return;
     }
 
+    setIsApplyingDiscount(true);
     try {
       // Use the new simplified session-level API
       const applyResponse = await fetch(`/api/pos/table-sessions/${table.currentSession.id}/receipt-discount/apply`, {
@@ -227,6 +229,8 @@ export function OccupiedTableDetailsPanel({
     } catch (error) {
       console.error('Error applying receipt discount:', error);
       alert('Error applying discount');
+    } finally {
+      setIsApplyingDiscount(false);
     }
   };
 
@@ -235,6 +239,7 @@ export function OccupiedTableDetailsPanel({
       return;
     }
 
+    setIsApplyingDiscount(true);
     try {
       // Use the new simplified session-level API
       const removeResponse = await fetch(`/api/pos/table-sessions/${table.currentSession.id}/receipt-discount/remove`, {
@@ -281,6 +286,8 @@ export function OccupiedTableDetailsPanel({
     } catch (error) {
       console.error('Error removing receipt discount:', error);
       alert('Error removing discount');
+    } finally {
+      setIsApplyingDiscount(false);
     }
   };
 
@@ -300,14 +307,6 @@ export function OccupiedTableDetailsPanel({
   const totalInclVat = tableTotalAmount > 0 ? tableTotalAmount : ordersApiTotalAmount;
   
   // Debug logging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 Total amount calculation debug:', {
-      tableTotalAmount,
-      ordersApiTotalAmount,
-      finalTotalInclVat: totalInclVat,
-      usingFallback: tableTotalAmount <= 0 && ordersApiTotalAmount > 0
-    });
-  }
   const vatRate = 0.07; // 7% VAT
   const vatAmount = totalInclVat * vatRate / (1 + vatRate); // Extract VAT from VAT-inclusive price
   const totalExclVat = totalInclVat - vatAmount; // Subtotal without VAT
@@ -545,10 +544,10 @@ export function OccupiedTableDetailsPanel({
                     onClick={onPayment}
                     size="lg"
                     className="h-12 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold shadow-md hover:shadow-lg active:shadow-sm transition-all duration-150 active:scale-[0.98] touch-manipulation sm:col-span-1"
-                    disabled={session.totalAmount < 0}
+                    disabled={session.totalAmount < 0 || isApplyingDiscount}
                   >
                     <CreditCard className="w-5 h-5 mr-2" />
-                    Payment
+                    {isApplyingDiscount ? 'Applying Discount...' : 'Payment'}
                   </Button>
 
                   {/* Cancel Button */}

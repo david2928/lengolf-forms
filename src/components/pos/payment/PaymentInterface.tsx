@@ -51,14 +51,38 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   const [inputAmount, setInputAmount] = useState<string>('');
   const [isBluetoothSupported, setIsBluetoothSupported] = useState<boolean>(false);
   const [bluetoothConnected, setBluetoothConnected] = useState<boolean>(false);
+  const [hasLoadedFreshData, setHasLoadedFreshData] = useState(false);
 
   // Fetch current session data to get updated total amount
   const fetcher = (url: string) => fetch(url).then(res => res.json());
-  const { data: sessionData } = useSWR(
-    tableSessionId ? `/api/pos/table-sessions/${tableSessionId}` : null,
+  const { data: sessionData, mutate } = useSWR(
+    tableSessionId ? `/api/pos/table-sessions/${tableSessionId}/orders` : null,
     fetcher,
-    { refreshInterval: 2000 } // Refresh every 2 seconds to catch discount changes
+    {
+      refreshInterval: 2000, // Refresh every 2 seconds to catch discount changes
+      fallbackData: undefined, // Don't use any fallback data
+      revalidateOnMount: true, // Always revalidate when component mounts
+      dedupingInterval: 0 // Don't dedupe requests
+    }
   );
+
+  // Clear stale cache when component mounts to prevent flash
+  useEffect(() => {
+    if (tableSessionId) {
+      setHasLoadedFreshData(false);
+      // Clear the cache entry completely
+      mutate(undefined, { revalidate: false });
+      // Then trigger fresh fetch
+      setTimeout(() => mutate(), 0);
+    }
+  }, [tableSessionId, mutate]);
+
+  // Track when fresh data has been loaded
+  useEffect(() => {
+    if (sessionData && tableSessionId && !hasLoadedFreshData) {
+      setHasLoadedFreshData(true);
+    }
+  }, [sessionData, tableSessionId, hasLoadedFreshData]);
 
   // Calculate current total amount from session data (includes applied discounts)
   const totalAmount = useMemo(() => {
@@ -867,6 +891,15 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
       </>
     );
   };
+
+  // Prevent flash by not rendering until we have fresh data
+  if (tableSessionId && (!sessionData || !hasLoadedFreshData)) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-50">
+        <div className="text-lg">Loading payment details...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-50">

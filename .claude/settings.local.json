@@ -20,7 +20,10 @@
       "mcp__supabase__apply_migration",
       "Bash(npx tsc:*)",
       "Read(//c/c/vs_code/lengolf-forms-feature/lengolf-forms/**)",
-      "Bash(npm run fix-emoji:*)"
+      "Bash(npm run fix-emoji:*)",
+      "Bash(grep:*)",
+      "Bash(git log:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []

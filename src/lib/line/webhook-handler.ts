@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { processLineMessage, logEmojiProcessing } from './emoji-processor';
+import { downloadLineImageToStorage } from './storage-handler';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -274,6 +275,81 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
       logEmojiProcessing(originalText, processedText, event.message?.emojis || []);
     }
 
+    // Handle image and file downloads
+    let fileUrl: string | null = null;
+    let fileName: string | null = null;
+    let fileSize: number | null = null;
+    let fileType: string | null = null;
+
+    if (event.message?.type === 'image' || event.message?.type === 'video' || event.message?.type === 'audio' || event.message?.type === 'file') {
+      if (event.message?.id) {
+        console.log(`Processing ${event.message.type} message: ${event.message.id}`);
+
+        try {
+          const downloadResult = await downloadLineImageToStorage(
+            event.message.id,
+            conversationId
+          );
+
+          if (downloadResult.success) {
+            fileUrl = downloadResult.url || null;
+            fileName = event.message.fileName || `${event.message.type}-${event.message.id}`;
+            fileSize = event.message.fileSize || null;
+
+            // Set file type based on message type or get from LINE content
+            switch (event.message.type) {
+              case 'image':
+                fileType = 'image/jpeg'; // Default, may be overridden by actual content type
+                break;
+              case 'video':
+                fileType = 'video/mp4';
+                break;
+              case 'audio':
+                fileType = 'audio/mpeg';
+                break;
+              case 'file':
+                fileType = 'application/octet-stream';
+                break;
+            }
+
+            console.log(`Successfully downloaded ${event.message.type} to: ${fileUrl}`);
+          } else {
+            console.error(`Failed to download ${event.message.type}:`, downloadResult.error);
+          }
+        } catch (downloadError) {
+          console.error(`Error downloading ${event.message.type}:`, downloadError);
+        }
+      }
+    }
+
+    // Prepare message text for display
+    let displayText = processedText;
+    if (!displayText && event.message?.type !== 'text') {
+      // Generate display text for non-text messages
+      switch (event.message?.type) {
+        case 'image':
+          displayText = '📷 Image';
+          break;
+        case 'video':
+          displayText = '🎥 Video';
+          break;
+        case 'audio':
+          displayText = '🎵 Audio';
+          break;
+        case 'file':
+          displayText = `📄 ${fileName || 'File'}`;
+          break;
+        case 'sticker':
+          displayText = '😀 Sticker';
+          break;
+        case 'location':
+          displayText = '📍 Location';
+          break;
+        default:
+          displayText = `[${event.message?.type || 'message'}]`;
+      }
+    }
+
     // Insert the message
     const { error: messageError } = await supabase
       .from('line_messages')
@@ -283,7 +359,11 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
         line_user_id: event.source.userId,
         message_type: event.message?.type || 'unknown',
         message_id: event.message?.id,
-        message_text: processedText, // Use processed text with emojis
+        message_text: displayText,
+        file_url: fileUrl,
+        file_name: fileName,
+        file_size: fileSize,
+        file_type: fileType,
         reply_token: event.replyToken,
         timestamp: event.timestamp,
         sender_type: 'user',
@@ -300,7 +380,7 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
     const { error: updateError } = await supabase.rpc('increment_conversation_unread', {
       conversation_id: conversationId,
       new_last_message_at: new Date(event.timestamp).toISOString(),
-      new_last_message_text: processedText || `[${event.message?.type || 'message'}]`,
+      new_last_message_text: displayText,
       new_last_message_by: 'user'
     });
 
@@ -312,7 +392,7 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
         .from('line_conversations')
         .update({
           last_message_at: new Date(event.timestamp).toISOString(),
-          last_message_text: processedText || `[${event.message?.type || 'message'}]`,
+          last_message_text: displayText,
           last_message_by: 'user',
           updated_at: new Date().toISOString()
         })

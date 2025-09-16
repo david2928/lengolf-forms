@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input';
 import { enhanceMessageDisplay, createMessagePreview, type MessagePreview } from '@/lib/line/emoji-display-utils';
 import { CustomerLinkModal } from '@/components/admin/line-chat/CustomerLinkModal';
 import { StickerMessage } from '@/components/line/StickerMessage';
+import { ImageMessage } from '@/components/line/ImageMessage';
+import { FileMessage } from '@/components/line/FileMessage';
+import { CuratedImageModal } from '@/components/line/CuratedImageModal';
 import {
   MessageSquare,
   Send,
@@ -21,7 +24,11 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-  Zap
+  Zap,
+  Paperclip,
+  Image as ImageIcon,
+  Upload,
+  X
 } from 'lucide-react';
 
 interface LineUser {
@@ -63,7 +70,12 @@ interface Message {
   packageId?: string;
   stickerId?: string;
   stickerKeywords?: string[];
-  // Image properties
+  // File properties (includes images)
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
+  // Legacy image property (for backward compatibility)
   imageUrl?: string;
 }
 
@@ -144,6 +156,9 @@ export default function LineChatPage() {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showCuratedImages, setShowCuratedImages] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [showMobileCustomer, setShowMobileCustomer] = useState(false);
@@ -266,30 +281,61 @@ export default function LineChatPage() {
     }
   }, [fetchConversations]);
 
-  // Send message
-  const sendMessage = async () => {
-    if (!selectedConversation || !newMessage.trim()) return;
+  // Send message (text, image, or file)
+  const sendMessage = async (type: 'text' | 'image' | 'file' = 'text', curatedImageId?: string) => {
+    if (!selectedConversation) return;
+
+    // Validate based on message type
+    if (type === 'text' && !newMessage.trim()) return;
+    if ((type === 'image' || type === 'file') && !selectedFile && !curatedImageId) return;
 
     try {
       setSendingMessage(true);
 
-      const response = await fetch(`/api/line/conversations/${selectedConversation}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: newMessage.trim(),
-          senderName: 'Admin' // You can make this dynamic based on logged-in user
-        }),
-      });
+      let response: Response;
+
+      if (type === 'text') {
+        // Send regular text message
+        response = await fetch(`/api/line/conversations/${selectedConversation}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: newMessage.trim(),
+            type: 'text',
+            senderName: 'Admin'
+          }),
+        });
+      } else {
+        // Send file or curated image
+        const formData = new FormData();
+        if (selectedFile) {
+          formData.append('file', selectedFile);
+        }
+        if (curatedImageId) {
+          formData.append('curatedImageId', curatedImageId);
+        }
+        formData.append('type', type);
+        formData.append('senderName', 'Admin');
+
+        response = await fetch(`/api/line/conversations/${selectedConversation}/messages`, {
+          method: 'POST',
+          body: formData,
+        });
+      }
 
       const data = await response.json();
 
       if (data.success) {
         // Add message to current messages
         setMessages(prev => [...prev, data.message]);
+
+        // Clear input states
         setNewMessage('');
+        setSelectedFile(null);
+        setShowAttachmentMenu(false);
+        setShowCuratedImages(false);
 
         // Refresh conversations
         fetchConversations();
@@ -302,6 +348,24 @@ export default function LineChatPage() {
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  // Handle file selection
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setShowAttachmentMenu(false);
+
+      // Determine message type based on file type
+      const messageType = file.type.startsWith('image/') ? 'image' : 'file';
+      sendMessage(messageType);
+    }
+  };
+
+  // Handle curated image selection
+  const handleCuratedImageSelect = (imageId: string) => {
+    sendMessage('image', imageId);
   };
 
   // Send rich message
@@ -667,16 +731,22 @@ export default function LineChatPage() {
                             : 'bg-white border shadow-sm'
                         }`}
                       >
-                        {message.type === 'image' && message.imageUrl ? (
-                          <div className="my-2">
-                            <Image
-                              src={message.imageUrl}
-                              alt="Shared image"
-                              width={200}
-                              height={150}
-                              className="rounded-lg object-cover max-w-full"
-                            />
-                          </div>
+                        {message.type === 'image' && (message.fileUrl || message.imageUrl) ? (
+                          <ImageMessage
+                            imageUrl={message.fileUrl || message.imageUrl!}
+                            fileName={message.fileName}
+                            fileSize={message.fileSize}
+                            altText="Shared image"
+                            className="my-2"
+                          />
+                        ) : (message.type === 'file' || message.type === 'video' || message.type === 'audio') && message.fileUrl ? (
+                          <FileMessage
+                            fileUrl={message.fileUrl}
+                            fileName={message.fileName}
+                            fileSize={message.fileSize}
+                            fileType={message.fileType}
+                            className="my-2"
+                          />
                         ) : message.text ? (
                           <p className="text-sm whitespace-pre-wrap">{enhanceMessageDisplay(message.text)}</p>
                         ) : (
@@ -719,7 +789,50 @@ export default function LineChatPage() {
                 </Button>
               </div>
 
-              <div className="flex space-x-2">
+              <div className="flex space-x-2 relative">
+                {/* Attachment button */}
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+                    disabled={sendingMessage}
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+
+                  {/* Attachment menu */}
+                  {showAttachmentMenu && (
+                    <div className="absolute bottom-full mb-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10 min-w-[180px]">
+                      <div className="space-y-1">
+                        {/* Upload from device */}
+                        <label className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                          <Upload className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm">Upload from Device</span>
+                          <input
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                          />
+                        </label>
+
+                        {/* Select curated image */}
+                        <button
+                          onClick={() => {
+                            setShowCuratedImages(true);
+                            setShowAttachmentMenu(false);
+                          }}
+                          className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded w-full text-left"
+                        >
+                          <ImageIcon className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm">Select from Library</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <Input
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
@@ -729,7 +842,7 @@ export default function LineChatPage() {
                   className="flex-1"
                 />
                 <Button
-                  onClick={sendMessage}
+                  onClick={() => sendMessage()}
                   disabled={sendingMessage || !newMessage.trim()}
                   size="sm"
                 >
@@ -938,6 +1051,12 @@ export default function LineChatPage() {
         onClose={() => setShowLinkModal(false)}
         onCustomerSelect={linkCustomerToLineUser}
         loading={linkingCustomer}
+      />
+
+      <CuratedImageModal
+        isOpen={showCuratedImages}
+        onClose={() => setShowCuratedImages(false)}
+        onSelect={handleCuratedImageSelect}
       />
     </div>
   );

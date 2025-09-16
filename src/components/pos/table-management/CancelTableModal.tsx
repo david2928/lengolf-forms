@@ -23,14 +23,6 @@ export function CancelTableModal({ isOpen, table, onClose, onConfirm }: CancelTa
   const [showPinModal, setShowPinModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // Debug logging to see table structure
-  React.useEffect(() => {
-    if (isOpen && table) {
-      console.log('🔍 CancelTableModal: Table data:', JSON.stringify(table, null, 2));
-      console.log('🔍 CancelTableModal: Current session:', table.currentSession);
-      console.log('🔍 CancelTableModal: Orders:', table.currentSession?.orders);
-    }
-  }, [isOpen, table]);
 
   const handleReasonSubmit = () => {
     if (!reason.trim()) {
@@ -38,21 +30,17 @@ export function CancelTableModal({ isOpen, table, onClose, onConfirm }: CancelTa
       return;
     }
 
-    console.log('🔍 CancelTableModal: Showing PIN modal');
     setError(null);
     setShowPinModal(true);
   };
 
   const handlePinSuccess = async (pin: string) => {
-    console.log('🔍 CancelTableModal: PIN success, canceling table');
     setIsSubmitting(true);
     setShowPinModal(false);
     setError(null); // Clear any previous errors
 
     try {
-      console.log('🔍 CancelTableModal: Calling onConfirm with:', { pin: pin ? 'PROVIDED' : 'MISSING', reason });
       await onConfirm(pin, reason);
-      console.log('🔍 CancelTableModal: onConfirm completed successfully - showing animation');
       setIsSubmitting(false); // Reset before showing success
       setShowSuccess(true);
       // Auto-close after showing success animation
@@ -60,14 +48,13 @@ export function CancelTableModal({ isOpen, table, onClose, onConfirm }: CancelTa
         handleClose();
       }, 3000);
     } catch (error) {
-      console.error('🔍 CancelTableModal: Cancel failed:', error);
+      console.error('CancelTableModal: Cancel failed:', error);
       setError(error instanceof Error ? error.message : 'Failed to cancel table');
       setIsSubmitting(false);
     }
   };
 
   const handlePinCancel = () => {
-    console.log('🔍 CancelTableModal: PIN canceled');
     setShowPinModal(false);
   };
 
