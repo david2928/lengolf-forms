@@ -48,7 +48,7 @@ ensureConversationExists(lineUserId: string) - Creates conversation if needed
 - **Conversation Threading** - Groups messages by conversation with unread counts
 
 #### Files
-- `app/admin/line-chat/page.tsx` - Main chat interface
+- `app/staff/line-chat/page.tsx` - Main chat interface (moved to Staff Panel)
 - `app/api/line/conversations/route.ts` - Conversations API
 - `app/api/line/conversations/[id]/messages/route.ts` - Messages API
 
@@ -82,8 +82,11 @@ ensureConversationExists(lineUserId: string) - Creates conversation if needed
 - **Rich Message Testing** - Buttons to test booking confirmation and reminder messages
 
 #### Files
-- `app/admin/line-messages/page.tsx` - Admin interface for LINE management
+- `app/admin/line-messages/page.tsx` - Admin interface for LINE debugging and testing
+- `app/staff/line-chat/page.tsx` - Staff interface for customer communication
+- `app/staff/line-templates/page.tsx` - Staff interface for template management
 - `app/api/line/send-message/route.ts` - API for sending text messages
+- `app/api/line/templates/route.ts` - Template management API
 - `app/api/line/test/route.ts` - Test data endpoint
 
 ## Architecture Decisions
@@ -111,25 +114,26 @@ ensureConversationExists(lineUserId: string) - Creates conversation if needed
 - Message collection with conversation threading
 - Chat interface with responsive design (3-column layout)
 - Rich message templates (booking confirmation/reminder) - **Fixed LINE API compatibility**
-- Admin interface for message management
+- **Staff Panel Integration** - Moved from admin to staff panel with proper access control
+- **Advanced Message Types** - Image, file, audio, video message handling with download/storage
+- **Message Templates Management** - Complete dynamic template creation, editing, and categorization system
+- **Customer Linking** - Manual linking of LINE users to customers with API endpoints
 - Send text messages to LINE users
 - Test rich message sending
 - **Next.js 14 compatibility** - All dynamic routes updated for async params
+- **Postback Event Structure** - Webhook handler ready to process button clicks from rich messages
 
-### 🔄 Mock Data (Ready for Real Integration)
-- **Customer Linking** - Currently manual, database structure ready
-- **Booking Data** - Uses mock data, can be connected to real booking system
-- **Package Information** - Placeholder data, structure ready for real packages
+### 🔄 Partially Implemented
+- **Customer Auto-Linking** - Manual linking fully works, automatic matching logic not implemented
+- **Real Booking Data Integration** - Some real booking data connected, full integration pending
+- **Package Information** - Structure ready, some real package data connected
 
 ### ❌ Not Yet Implemented
-- **Postback Event Handling** - Process button clicks from rich messages
-- **Customer Auto-Linking** - Automatic matching of LINE users to customers
-- **Real Booking Data Integration** - Connect to actual booking/package systems
-- **Advanced Message Types** - Image, file, location message handling
 - **Group/Room Support** - Currently only handles 1:1 conversations
-- **Message Templates Management** - Dynamic template creation/editing
 - **Bulk Messaging** - Send messages to multiple users
 - **Message Scheduling** - Schedule messages for future delivery
+- **Complete Postback Processing** - Button click handling logic (structure exists)
+- **Advanced Analytics** - Message performance tracking and reporting
 
 ## Testing & Setup
 
@@ -149,8 +153,11 @@ https://your-domain.com/api/line/webhook
 - `/api/line/test` - Get users, messages, webhook logs
 - `/api/line/send-message` - Send text message
 - `/api/line/send-rich-message` - Send Flex Message
-- `/admin/line-messages` - Admin interface
-- `/admin/line-chat` - Chat interface
+- `/api/line/templates` - Template management
+- `/api/line/users/[lineUserId]/link-customer` - Customer linking
+- `/admin/line-messages` - Admin debugging interface
+- `/staff/line-chat` - Staff chat interface
+- `/staff/line-templates` - Staff template management
 
 ## Technical Specifications
 
@@ -177,19 +184,19 @@ line_webhook_logs (independent table)
 ## Next Steps
 
 ### Priority 1 - Complete Core Functionality
-1. **Postback Event Handling** - Process button clicks from rich messages
-2. **Real Booking Integration** - Connect to actual booking data
-3. **Customer Auto-Linking** - Implement customer matching logic
+1. **Complete Postback Processing** - Finish button click handling logic (structure exists)
+2. **Customer Auto-Linking** - Implement automatic customer matching logic
+3. **Full Booking Integration** - Complete connection to real booking data
 
 ### Priority 2 - Enhanced Features
-1. **Advanced Message Types** - Handle images, files, locations
-2. **Message Templates** - Dynamic template management
-3. **Bulk Operations** - Mass messaging capabilities
+1. **Bulk Operations** - Mass messaging capabilities
+2. **Message Scheduling** - Automated message delivery
+3. **Advanced Analytics** - Message performance tracking and reporting
 
 ### Priority 3 - Advanced Integrations
 1. **Group/Room Support** - Handle group conversations
-2. **Message Scheduling** - Automated message delivery
-3. **Analytics Dashboard** - Message performance tracking
+2. **AI-Powered Features** - Smart responses and template suggestions
+3. **Multi-language Support** - Templates and responses in multiple languages
 
 ## Recent Fixes Applied
 
@@ -208,8 +215,13 @@ line_webhook_logs (independent table)
 ## Files Modified/Created
 
 ### New Files Created
-- `src/lib/line/webhook-handler.ts`
+- `src/lib/line/webhook-handler.ts` - **Enhanced with image/file handling**
 - `src/lib/line/flex-templates.ts` - **Updated for LINE API compatibility**
+- `src/lib/line/storage-handler.ts` - **File download and storage system**
+- `src/lib/line/emoji-processor.ts` - **LINE emoji processing**
+- `src/lib/line/template-helpers.ts` - **Template variable substitution**
+- `src/components/line/ImageMessage.tsx` - **Image message display component**
+- `src/components/line/TemplateSelector.tsx` - **Template selection UI**
 - `app/api/line/webhook/route.ts`
 - `app/api/line/test/route.ts`
 - `app/api/line/send-message/route.ts`
@@ -217,8 +229,13 @@ line_webhook_logs (independent table)
 - `app/api/line/conversations/route.ts`
 - `app/api/line/conversations/[id]/route.ts` - **Fixed Next.js 14 async params**
 - `app/api/line/conversations/[id]/messages/route.ts` - **Fixed Next.js 14 async params**
-- `app/admin/line-messages/page.tsx`
-- `app/admin/line-chat/page.tsx`
+- `app/api/line/templates/route.ts` - **Template management API**
+- `app/api/line/templates/[id]/route.ts` - **Individual template operations**
+- `app/api/line/templates/[id]/send/route.ts` - **Template sending API**
+- `app/api/line/users/[lineUserId]/link-customer/route.ts` - **Customer linking API**
+- `app/admin/line-messages/page.tsx` - **Admin debugging interface**
+- `app/staff/line-chat/page.tsx` - **Staff chat interface**
+- `app/staff/line-templates/page.tsx` - **Staff template management**
 
 ### Database Migrations
 - `create_line_users_table.sql`

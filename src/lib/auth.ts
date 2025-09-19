@@ -162,7 +162,7 @@ export async function isUserCoach(email: string | null | undefined): Promise<boo
   }
 
   if (!email) return false;
-  
+
   try {
     const { data, error } = await refacSupabaseAdmin
       .schema('backoffice')
@@ -170,7 +170,7 @@ export async function isUserCoach(email: string | null | undefined): Promise<boo
       .select('is_coach')
       .eq('email', email.toLowerCase())
       .single();
-    
+
     if (error) {
       if (error.code === 'PGRST116') { // No rows returned
         console.log(`User not found: ${email}`);
@@ -179,10 +179,42 @@ export async function isUserCoach(email: string | null | undefined): Promise<boo
       console.error('Error checking coach status:', error);
       return false;
     }
-    
+
     return data?.is_coach === true;
   } catch (error) {
     console.error('Error checking coach status:', error);
+    return false;
+  }
+}
+
+export async function isUserStaff(email: string | null | undefined): Promise<boolean> {
+  // Development auth bypass - always grant staff in development
+  if (isDevAuthBypassEnabled()) {
+    return true;
+  }
+
+  if (!email) return false;
+
+  try {
+    const { data, error } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('allowed_users')
+      .select('is_staff')
+      .eq('email', email.toLowerCase())
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') { // No rows returned
+        console.log(`User not found: ${email}`);
+        return false;
+      }
+      console.error('Error checking staff status:', error);
+      return false;
+    }
+
+    return data?.is_staff === true;
+  } catch (error) {
+    console.error('Error checking staff status:', error);
     return false;
   }
 }

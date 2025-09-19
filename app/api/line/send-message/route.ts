@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getDevSession } from '@/lib/dev-session';
+import { authOptions } from '@/lib/auth-config';
+import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import { createLineClient } from '@/lib/line-messaging';
 
 interface SendMessageRequest {
@@ -12,7 +15,24 @@ interface SendMessageRequest {
  * POST /api/line/send-message
  */
 export async function POST(request: NextRequest) {
+  const session = await getDevSession(authOptions, request);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
+    // Check if user is staff or admin
+    const { data: user, error: userError } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('allowed_users')
+      .select('is_admin, is_staff')
+      .eq('email', session.user.email)
+      .single();
+
+    if (userError || (!user?.is_admin && !user?.is_staff)) {
+      return NextResponse.json({ error: "Staff access required" }, { status: 403 });
+    }
+
     const { userId, message, type = 'text' }: SendMessageRequest = await request.json();
 
     // Validate input

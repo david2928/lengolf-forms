@@ -23,7 +23,19 @@
       "Bash(npm run fix-emoji:*)",
       "Bash(grep:*)",
       "Bash(git log:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(node:*)",
+      "Bash(npm --version)",
+      "Bash(if [ -f .env.local ])",
+      "Bash(then echo \"✓ .env.local exists\")",
+      "Bash(else echo \"✗ .env.local missing\")",
+      "Bash(fi)",
+      "Bash(if [ -f .env.example ])",
+      "Bash(then echo \"✓ .env.example exists\")",
+      "Bash(else echo \"✗ .env.example missing\")",
+      "Bash(claude --version)",
+      "Bash(git checkout:*)",
+      "mcp__supabase__get_logs"
     ],
     "deny": [],
     "ask": []

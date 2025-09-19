@@ -9,6 +9,7 @@ declare module "next-auth" {
       image?: string | null
       isAdmin?: boolean
       isCoach?: boolean
+      isStaff?: boolean
     }
     lastValidated?: string
     sessionType?: 'admin' | 'user'
@@ -20,5 +21,6 @@ declare module "next-auth/jwt" {
     email?: string
     isAdmin?: boolean
     isCoach?: boolean
+    isStaff?: boolean
   }
 } 

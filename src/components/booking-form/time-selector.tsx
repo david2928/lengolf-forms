@@ -2,7 +2,7 @@
 
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Calendar } from '@/components/ui/calendar'
+import { SimpleCalendar } from '@/components/ui/simple-calendar'
 import { Calendar as CalendarIcon } from 'lucide-react'
 import {
   Popover,
@@ -52,7 +52,7 @@ export function TimeSelector({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
+          <SimpleCalendar
             mode="single"
             selected={date}
             onSelect={(newDate: Date | undefined) => {
@@ -63,16 +63,16 @@ export function TimeSelector({
               if (!date) return false // Handle undefined case
               const today = startOfDay(new Date())
               const targetDate = startOfDay(date)
-              
+
               // Allow today and future dates, but not past dates
               if (targetDate < today) return true
-              
+
               // Apply maxDate if provided
               if (maxDate && targetDate > maxDate) return true
-              
+
               return false
             }}
-            initialFocus
+            className="rounded-md border"
           />
         </PopoverContent>
       </Popover>

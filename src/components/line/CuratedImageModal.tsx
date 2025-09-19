@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { X, Search, ImageIcon, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -58,7 +58,7 @@ export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageMod
   };
 
   // Filter images based on search and category
-  const filterImages = () => {
+  const filterImages = useCallback(() => {
     let filtered = images;
 
     // Filter by search term (name, description, tags)
@@ -77,7 +77,7 @@ export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageMod
     }
 
     setFilteredImages(filtered);
-  };
+  }, [images, searchTerm, selectedCategory]);
 
   // Load images when modal opens
   useEffect(() => {
@@ -89,7 +89,7 @@ export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageMod
   // Apply filters when search or category changes
   useEffect(() => {
     filterImages();
-  }, [searchTerm, selectedCategory, images]);
+  }, [filterImages]);
 
   const handleSelect = () => {
     if (selectedImageId) {

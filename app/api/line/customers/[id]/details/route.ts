@@ -44,7 +44,7 @@ export async function GET(
       }, { status: 404 });
     }
 
-    // Fetch recent bookings (last 5)
+    // Fetch only upcoming bookings (soonest first)
     const { data: bookings, error: bookingsError } = await refacSupabaseAdmin
       .from('bookings')
       .select(`
@@ -58,8 +58,9 @@ export async function GET(
         created_at
       `)
       .eq('customer_id', customerId)
-      .order('date', { ascending: false })
-      .limit(5);
+      .gte('date', new Date().toISOString().split('T')[0]) // Only future dates
+      .order('date', { ascending: true }) // Soonest first
+      .limit(1); // Only the next upcoming booking
 
     // Fetch ALL active packages for this customer (not just package monitor categories)
     const { data: packages, error: packagesError } = await refacSupabaseAdmin

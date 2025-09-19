@@ -44,7 +44,7 @@ export async function GET(
       throw conversationError;
     }
 
-    // Get messages for this conversation
+    // Get messages for this conversation (direct messages from users + admin messages)
     const { data: messages, error: messagesError } = await supabase
       .from('line_messages')
       .select(`
@@ -56,9 +56,14 @@ export async function GET(
         timestamp,
         created_at,
         is_read,
+        file_url,
+        file_name,
+        file_size,
+        file_type,
         raw_event
       `)
       .eq('conversation_id', conversationId)
+      .in('sender_type', ['user', 'admin']) // Include only user and admin messages
       .order('created_at', { ascending: true });
 
     if (messagesError) {
@@ -79,14 +84,21 @@ export async function GET(
         timestamp: msg.timestamp,
         createdAt: msg.created_at,
         isRead: msg.is_read,
+        // Include file information (images, PDFs, etc.)
+        ...(msg.file_url && {
+          fileUrl: msg.file_url,
+          fileName: msg.file_name,
+          fileSize: msg.file_size,
+          fileType: msg.file_type
+        }),
         // Include sticker information if it's a sticker message
         ...(msg.message_type === 'sticker' && rawMessage && {
           packageId: rawMessage.packageId,
           stickerId: rawMessage.stickerId,
           stickerKeywords: rawMessage.keywords || []
         }),
-        // Include image information if it's an image message
-        ...(msg.message_type === 'image' && rawMessage && {
+        // Legacy image support (fallback to LINE API if no stored file)
+        ...((msg.message_type === 'image' && !msg.file_url) && rawMessage && {
           imageUrl: `https://api.line.me/v2/bot/message/${rawMessage.id}/content`
         })
       };

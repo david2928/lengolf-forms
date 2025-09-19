@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -206,5 +206,29 @@ export const menuItems: MenuItem[] = [
     title: "Customer Outreach",
     path: '/admin/customer-outreach',
     description: "Build customer audiences and manage OB sales call lists"
+  },
+  {
+    icon: Headphones,
+    title: "Staff Panel",
+    path: '/staff',
+    description: "Access staff communication tools and operational systems"
+  },
+  {
+    icon: MessageSquare,
+    title: "LINE Chat",
+    path: '/staff/line-chat',
+    description: "Manage LINE customer conversations and communication"
+  },
+  {
+    icon: FileText,
+    title: "Message Templates",
+    path: '/staff/line-templates',
+    description: "Manage standard reply templates for customer communication"
+  },
+  {
+    icon: MessageSquare,
+    title: "LINE Testing",
+    path: '/admin/line-messages',
+    description: "Debug and test LINE messaging functionality (Admin only)"
   }
 ] 

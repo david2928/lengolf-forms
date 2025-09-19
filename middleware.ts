@@ -58,6 +58,29 @@ async function customMiddleware(request: NextRequest, event: NextFetchEvent) {
       } else if (req.nextUrl.pathname.startsWith('/staff-schedule')) {
         // Staff scheduling interface - allow all authenticated users
         return response;
+      } else if (req.nextUrl.pathname.startsWith('/staff')) {
+        // Staff panel - require is_staff flag
+        try {
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!,
+            process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!
+          );
+
+          const { data: user } = await supabase
+            .schema('backoffice')
+            .from('allowed_users')
+            .select('is_staff')
+            .eq('email', req.nextauth.token?.email)
+            .single();
+
+          if (!user?.is_staff) {
+            return NextResponse.redirect(new URL('/', req.url));
+          }
+        } catch (error) {
+          console.error('Error checking staff status:', error);
+          return NextResponse.redirect(new URL('/', req.url));
+        }
+        return response;
       } else if (req.nextUrl.pathname.startsWith('/pos') || req.nextUrl.pathname === '/pos') {
         // POS system access - allow all authenticated users
         // The POS system has its own internal authentication using staff PINs

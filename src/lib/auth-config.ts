@@ -1,6 +1,6 @@
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from "next-auth/providers/google"
-import { isUserAllowed, isUserAdmin, isUserCoach } from "@/lib/auth"
+import { isUserAllowed, isUserAdmin, isUserCoach, isUserStaff } from "@/lib/auth"
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -43,8 +43,10 @@ export const authOptions: NextAuthOptions = {
       if (user?.email) {
         const adminStatus = await isUserAdmin(user.email);
         const coachStatus = await isUserCoach(user.email);
+        const staffStatus = await isUserStaff(user.email);
         token.isAdmin = adminStatus;
         token.isCoach = coachStatus;
+        token.isStaff = staffStatus;
       }
       return token;
     },
@@ -53,8 +55,9 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.isAdmin = token.isAdmin;
         session.user.isCoach = token.isCoach;
+        session.user.isStaff = token.isStaff;
       }
-      
+
       return session;
     }
   },

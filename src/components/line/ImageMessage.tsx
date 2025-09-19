@@ -1,6 +1,7 @@
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Download, Eye, X } from 'lucide-react';
+import { CachedImage } from './CachedImage';
 
 interface ImageMessageProps {
   imageUrl: string;
@@ -27,6 +28,7 @@ export function ImageMessage({
   const [showFullSize, setShowFullSize] = useState(false);
 
   const handleImageError = () => {
+    console.error('Image failed to load:', imageUrl);
     setImageError(true);
   };
 
@@ -78,33 +80,33 @@ export function ImageMessage({
 
   return (
     <>
-      <div className={`relative group max-w-sm ${className}`}>
-        {/* Main image display */}
-        <div className="relative overflow-hidden rounded-lg border border-gray-200">
-          <Image
+      <div className={`relative group max-w-[200px] ${className}`}>
+        {/* Main image display - smaller like LINE OA */}
+        <div
+          className="relative overflow-hidden rounded-lg border border-gray-200 cursor-pointer"
+          onClick={() => setShowFullSize(true)}
+        >
+          <CachedImage
             src={imageUrl}
             alt={altText || fileName || 'Image'}
-            width={300}
-            height={200}
-            className="object-cover w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+            width={200}
+            height={120}
+            className="object-cover w-full h-auto hover:opacity-90 transition-opacity"
             onError={handleImageError}
-            unoptimized={true}
-            onClick={() => setShowFullSize(true)}
+            loading="lazy"
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
           />
 
           {/* Overlay controls */}
           {showControls && (
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
               <div className="flex space-x-2">
                 <button
-                  onClick={() => setShowFullSize(true)}
-                  className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-colors"
-                  title="View full size"
-                >
-                  <Eye className="w-4 h-4 text-gray-700" />
-                </button>
-                <button
-                  onClick={handleDownload}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownload();
+                  }}
                   className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-colors"
                   title="Download image"
                 >
@@ -115,19 +117,13 @@ export function ImageMessage({
           )}
         </div>
 
-        {/* Image info */}
-        {(fileName || fileSize) && (
-          <div className="mt-1 text-xs text-gray-500 flex items-center justify-between">
-            {fileName && <span className="truncate">{fileName}</span>}
-            {fileSize && <span className="ml-2">{formatFileSize(fileSize)}</span>}
-          </div>
-        )}
+        {/* Image info removed - now shown externally */}
       </div>
 
       {/* Full size modal */}
       {showFullSize && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center p-4" onClick={() => setShowFullSize(false)}>
-          <div className="relative max-w-screen-lg max-h-screen-lg">
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center p-4 overflow-auto" onClick={() => setShowFullSize(false)}>
+          <div className="relative w-full h-full flex items-center justify-center">
             {/* Close button */}
             <button
               onClick={() => setShowFullSize(false)}
@@ -136,22 +132,23 @@ export function ImageMessage({
               <X className="w-5 h-5 text-gray-700" />
             </button>
 
-            {/* Full size image */}
-            <Image
-              src={imageUrl}
-              alt={altText || fileName || 'Image'}
-              width={800}
-              height={600}
-              className="object-contain max-w-full max-h-full"
-              onError={handleImageError}
-              unoptimized={true}
-              onClick={(e) => e.stopPropagation()}
-            />
+            {/* Full size image container */}
+            <div className="relative max-w-[90vw] max-h-[90vh] overflow-auto">
+              <CachedImage
+                src={imageUrl}
+                alt={altText || fileName || 'Image'}
+                width={1200}
+                height={800}
+                className="object-contain w-auto h-auto max-w-full max-h-full"
+                onError={handleImageError}
+                onClick={(e) => e?.stopPropagation()}
+              />
+            </div>
 
             {/* Download button */}
             <button
               onClick={handleDownload}
-              className="absolute bottom-4 right-4 p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-colors"
+              className="absolute bottom-4 right-4 p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-colors z-10"
               title="Download image"
             >
               <Download className="w-5 h-5 text-gray-700" />
@@ -159,7 +156,7 @@ export function ImageMessage({
 
             {/* Image info overlay */}
             {(fileName || fileSize) && (
-              <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white px-3 py-2 rounded text-sm">
+              <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white px-3 py-2 rounded text-sm z-10">
                 {fileName && <div>{fileName}</div>}
                 {fileSize && <div className="text-xs text-gray-300">{formatFileSize(fileSize)}</div>}
               </div>
@@ -187,14 +184,14 @@ export function ImageMessageInline({ imageUrl, className = "" }: { imageUrl: str
 
   return (
     <div className={`inline-flex items-center ${className}`}>
-      <Image
+      <CachedImage
         src={imageUrl}
         alt="Image"
         width={24}
         height={24}
         className="object-cover rounded border border-gray-200"
         onError={() => setImageError(true)}
-        unoptimized={true}
+        loading="lazy"
       />
       <span className="ml-2 text-sm text-gray-600">Image</span>
     </div>

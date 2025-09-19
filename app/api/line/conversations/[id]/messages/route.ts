@@ -18,21 +18,32 @@ export async function POST(
 ) {
   try {
     const { id: conversationId } = await params;
+    console.log('API: Received request for conversation:', conversationId);
 
     // Check if this is a form data request (file upload) or JSON
     const contentType = request.headers.get('content-type') || '';
+    console.log('API: Content type:', contentType);
     let messageData: any;
     let uploadedFile: File | null = null;
 
     if (contentType.includes('multipart/form-data')) {
       // Handle file upload
+      console.log('API: Processing FormData...');
       const formData = await request.formData();
       const file = formData.get('file') as File;
       const messageType = formData.get('type') as string;
       const senderName = formData.get('senderName') as string || 'Admin';
       const curatedImageId = formData.get('curatedImageId') as string;
 
+      console.log('API: FormData contents:', {
+        file: file ? { name: file.name, size: file.size, type: file.type } : null,
+        messageType,
+        senderName,
+        curatedImageId
+      });
+
       if (file && !isValidFileType(file)) {
+        console.log('API: Invalid file type:', file.type);
         return NextResponse.json({
           success: false,
           error: 'Invalid file type. Only images and PDFs are allowed.'
@@ -109,9 +120,9 @@ export async function POST(
         }
 
         fileUrl = uploadResult.url!;
-        fileName = uploadedFile.name;
-        fileSize = uploadedFile.size;
-        fileType = uploadedFile.type;
+        fileName = uploadResult.processedFile?.name || uploadedFile.name;
+        fileSize = uploadResult.processedFile?.size || uploadedFile.size;
+        fileType = uploadResult.processedFile?.type || uploadedFile.type;
       } else if (curatedImageId) {
         // Get curated image
         const { data: curatedImage, error: curatedError } = await supabase
@@ -161,7 +172,7 @@ export async function POST(
           originalContentUrl: fileUrl,
           previewImageUrl: fileUrl
         };
-        displayText = `📷 ${fileName || 'Image'}`;
+        displayText = 'You sent a photo';
         break;
 
       case 'file':

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target, Percent } from 'lucide-react'
+import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target, Percent, MessageSquare, Headphones } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
 import {
   DropdownMenu,
@@ -35,6 +35,7 @@ export function Nav() {
   // Only apply role-based rendering after client hydration to avoid hydration mismatch
   const isAdmin = isClient && (shouldBypass ? true : (session?.user?.isAdmin || false));
   const isCoach = isClient && (shouldBypass ? false : (session?.user?.isCoach || false));
+  const isStaff = isClient && (shouldBypass ? true : (session?.user?.isStaff || false));
   
   // Only apply authentication check after client hydration
   if (isClient && !shouldBypass && status !== 'authenticated') return null;
@@ -221,6 +222,48 @@ export function Nav() {
             My Schedule
           </Button>
         </Link>
+
+        {/* Staff Panel - Only for Staff Users */}
+        {isStaff && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant={pathname.startsWith('/staff') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Headphones className="h-4 w-4" />
+                Staff Panel
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuItem asChild>
+                <Link href="/staff" className="flex items-center gap-2 w-full">
+                  <Cog className="h-4 w-4" />
+                  Staff Dashboard
+                </Link>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              {/* Communication Tools */}
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Communication</div>
+              <DropdownMenuItem asChild>
+                <Link href="/staff/line-chat" className="flex items-center gap-2 w-full">
+                  <MessageSquare className="h-4 w-4" />
+                  LINE Chat
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/staff/line-templates" className="flex items-center gap-2 w-full">
+                  <FileText className="h-4 w-4" />
+                  Message Templates
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Admin Dropdown - Only for Admin Users */}
         {isAdmin && (
@@ -419,6 +462,12 @@ export function Nav() {
                   Coaching Management
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/line-messages" className="flex items-center gap-2 w-full">
+                  <MessageSquare className="h-4 w-4" />
+                  LINE Testing
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -473,14 +522,25 @@ export function Nav() {
           </Button>
         </Link>
       )}
-      {!isAdmin && (
+      {!isAdmin && !isStaff && (
         <Link href="/time-clock" className="flex-1">
-          <Button 
-            variant={pathname === '/time-clock' ? 'secondary' : 'ghost'} 
-            size="sm" 
+          <Button
+            variant={pathname === '/time-clock' ? 'secondary' : 'ghost'}
+            size="sm"
             className="w-full flex justify-center"
           >
             <Timer className="h-3.5 w-3.5" />
+          </Button>
+        </Link>
+      )}
+      {isStaff && !isAdmin && (
+        <Link href="/staff" className="flex-1">
+          <Button
+            variant={pathname.startsWith('/staff') ? 'secondary' : 'ghost'}
+            size="sm"
+            className="w-full flex justify-center"
+          >
+            <Headphones className="h-3.5 w-3.5" />
           </Button>
         </Link>
       )}

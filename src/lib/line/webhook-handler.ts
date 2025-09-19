@@ -42,6 +42,10 @@ export interface LineWebhookEvent {
       productId: string;
     }>;
   };
+  postback?: {
+    data: string;
+    params?: Record<string, any>;
+  };
   mode?: string;
 }
 
@@ -262,6 +266,12 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
     return;
   }
 
+  // Only process direct messages (user-to-bot), not group or room messages
+  if (event.source.type !== 'user') {
+    console.log(`Skipping message storage - not a direct message (source type: ${event.source.type})`);
+    return;
+  }
+
   try {
     // Get the conversation ID
     const conversationId = await ensureConversationExists(event.source.userId);
@@ -328,7 +338,7 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
       // Generate display text for non-text messages
       switch (event.message?.type) {
         case 'image':
-          displayText = '📷 Image';
+          displayText = 'sent a photo';
           break;
         case 'video':
           displayText = '🎥 Video';
@@ -340,7 +350,7 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
           displayText = `📄 ${fileName || 'File'}`;
           break;
         case 'sticker':
-          displayText = '😀 Sticker';
+          displayText = 'sent a sticker';
           break;
         case 'location':
           displayText = '📍 Location';
@@ -364,6 +374,7 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
         file_name: fileName,
         file_size: fileSize,
         file_type: fileType,
+        source_type: event.source.type, // Track source type for filtering
         reply_token: event.replyToken,
         timestamp: event.timestamp,
         sender_type: 'user',
@@ -411,6 +422,104 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
 }
 
 /**
+ * Handle postback events from interactive buttons
+ */
+async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
+  if (!event.postback || !event.source.userId) return;
+
+  console.log(`Processing postback: ${event.postback.data} from user: ${event.source.userId}`);
+
+  try {
+    // Parse the postback data
+    const postbackData = event.postback.data;
+    const params = new URLSearchParams(postbackData);
+    const action = params.get('action');
+    const bookingId = params.get('booking_id');
+
+    // Ensure conversation exists before storing the response
+    await ensureConversationExists(event.source.userId);
+
+    // Get conversation ID
+    const { data: conversation } = await supabase
+      .from('line_conversations')
+      .select('id')
+      .eq('line_user_id', event.source.userId)
+      .single();
+
+    if (!conversation) {
+      console.error('Could not find conversation for user:', event.source.userId);
+      return;
+    }
+
+    let responseMessage = '';
+    let displayText = '';
+
+    // Handle different actions
+    switch (action) {
+      case 'confirm_booking':
+        responseMessage = '✅ Thank you for confirming your booking! We look forward to seeing you.';
+        displayText = '✅ Confirmed booking';
+        break;
+
+      case 'request_changes':
+        responseMessage = '📝 We\'ve received your request to make changes to your booking. Our staff will contact you shortly to assist with the modifications.';
+        displayText = '📝 Requested booking changes';
+        break;
+
+      case 'cancel_booking':
+        responseMessage = '❌ We\'ve received your cancellation request. Our staff will process this and contact you to confirm the cancellation.';
+        displayText = '❌ Requested booking cancellation';
+        break;
+
+      default:
+        responseMessage = '🤔 We received your response but couldn\'t understand the action. Our staff will follow up with you.';
+        displayText = '❓ Unknown action';
+    }
+
+    // Store the customer's action as a message
+    const { error: postbackError } = await supabase
+      .from('line_messages')
+      .insert({
+        conversation_id: conversation.id,
+        webhook_event_id: event.webhookEventId,
+        line_user_id: event.source.userId,
+        message_type: 'postback',
+        message_text: displayText,
+        reply_token: event.replyToken,
+        timestamp: event.timestamp,
+        sender_type: 'user',
+        is_read: false,
+        raw_event: event
+      });
+
+    if (postbackError) {
+      console.error('Error storing postback message:', postbackError);
+      throw postbackError;
+    }
+
+    // Note: Automated responses removed per user request - only show customer button clicks
+
+    // Update conversation with the customer's action
+    const { error: updateError } = await supabase.rpc('increment_conversation_unread', {
+      conversation_id: conversation.id,
+      new_last_message_at: new Date(event.timestamp).toISOString(),
+      new_last_message_text: displayText,
+      new_last_message_by: 'user'
+    });
+
+    if (updateError) {
+      console.error('Error updating conversation:', updateError);
+      // Don't throw here as the messages are already stored
+    }
+
+    console.log(`Processed postback action: ${action} for booking: ${bookingId}`);
+
+  } catch (error) {
+    console.error('Error handling postback event:', error);
+  }
+}
+
+/**
  * Process a single webhook event
  */
 export async function processWebhookEvent(event: LineWebhookEvent): Promise<void> {
@@ -418,6 +527,12 @@ export async function processWebhookEvent(event: LineWebhookEvent): Promise<void
     // Check for deduplication
     if (await isWebhookEventProcessed(event.webhookEventId)) {
       console.log(`Skipping duplicate event: ${event.webhookEventId}`);
+      return;
+    }
+
+    // Only process direct messages and user events (not group/room events)
+    if (event.source.type !== 'user') {
+      console.log(`Skipping event processing - not from direct user (source type: ${event.source.type})`);
       return;
     }
 
@@ -480,6 +595,13 @@ export async function processWebhookEvent(event: LineWebhookEvent): Promise<void
       case 'join':
         // Bot was added to a group/room
         console.log(`Bot joined group/room: ${event.source.groupId || event.source.roomId}`);
+        break;
+
+      case 'postback':
+        // Handle button clicks from Flex messages
+        if (event.source.userId && event.postback) {
+          await handlePostbackEvent(event);
+        }
         break;
 
       default:

@@ -11,12 +11,87 @@ export interface ImageUploadResult {
   url?: string;
   path?: string;
   error?: string;
+  processedFile?: {
+    name: string;
+    size: number;
+    type: string;
+  };
 }
 
 export interface ImageDownloadOptions {
   maxSizeBytes?: number; // Default 2MB
   maxWidth?: number; // Default 1024
   maxHeight?: number; // Default 1024
+}
+
+export interface ImageCompressionOptions {
+  maxWidth?: number; // Default 1200
+  maxHeight?: number; // Default 1200
+  quality?: number; // Default 0.8 (80% quality)
+  maxSizeBytes?: number; // Default 1MB
+}
+
+/**
+ * Compress an image file to reduce size and dimensions
+ */
+async function compressImage(
+  file: File,
+  options: ImageCompressionOptions = {}
+): Promise<File> {
+  const {
+    maxWidth = 1200,
+    maxHeight = 1200,
+    quality = 0.8,
+    maxSizeBytes = 1024 * 1024 // 1MB
+  } = options;
+
+  // If file is already small enough, return as-is
+  if (file.size <= maxSizeBytes) {
+    return file;
+  }
+
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+
+    img.onload = () => {
+      // Calculate new dimensions
+      let { width, height } = img;
+
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width *= ratio;
+        height *= ratio;
+      }
+
+      // Set canvas dimensions
+      canvas.width = width;
+      canvas.height = height;
+
+      // Draw and compress
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file); // Fallback to original if compression fails
+          }
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+
+    img.onerror = () => resolve(file); // Fallback to original if load fails
+    img.src = URL.createObjectURL(file);
+  });
 }
 
 /**
@@ -138,21 +213,27 @@ export async function uploadCuratedImage(
  */
 export async function uploadSentImage(
   file: File,
-  conversationId: string
+  conversationId: string,
+  compressionOptions?: ImageCompressionOptions
 ): Promise<ImageUploadResult> {
   try {
+    console.log(`Uploading file size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+
+    // File is already processed on client-side before reaching here
+    let processedFile = file;
+
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const timestamp = now.getTime();
-    const extension = getExtensionFromFile(file);
+    const extension = getExtensionFromFile(processedFile);
     const filePath = `sent/${year}/${month}/${conversationId}/${timestamp}.${extension}`;
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from('line-messages')
-      .upload(filePath, file, {
-        contentType: file.type,
+      .upload(filePath, processedFile, {
+        contentType: processedFile.type,
         upsert: false
       });
 
@@ -168,7 +249,12 @@ export async function uploadSentImage(
     return {
       success: true,
       url: publicUrl,
-      path: filePath
+      path: filePath,
+      processedFile: {
+        name: processedFile.name,
+        size: processedFile.size,
+        type: processedFile.type
+      }
     };
 
   } catch (error) {

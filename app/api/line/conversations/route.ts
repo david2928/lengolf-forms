@@ -1,19 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!,
-  process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getDevSession } from '@/lib/dev-session';
+import { authOptions } from '@/lib/auth-config';
+import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 /**
  * Get all LINE conversations
  * GET /api/line/conversations
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const session = await getDevSession(authOptions, request);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
+    // Check if user is staff or admin
+    const { data: user, error: userError } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('allowed_users')
+      .select('is_admin, is_staff')
+      .eq('email', session.user.email)
+      .single();
+
+    if (userError || (!user?.is_admin && !user?.is_staff)) {
+      return NextResponse.json({ error: "Staff access required" }, { status: 403 });
+    }
+
     // Get unique conversations - one per LINE user (most recent)
-    const { data: conversations, error } = await supabase
+    const { data: conversations, error } = await refacSupabaseAdmin
       .rpc('get_unique_line_conversations', { limit_count: 50 });
 
     if (error) {
@@ -68,7 +82,24 @@ export async function GET() {
  * POST /api/line/conversations
  */
 export async function POST(request: NextRequest) {
+  const session = await getDevSession(authOptions, request);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
+    // Check if user is staff or admin
+    const { data: user, error: userError } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('allowed_users')
+      .select('is_admin, is_staff')
+      .eq('email', session.user.email)
+      .single();
+
+    if (userError || (!user?.is_admin && !user?.is_staff)) {
+      return NextResponse.json({ error: "Staff access required" }, { status: 403 });
+    }
+
     const { lineUserId, customerId, assignedTo } = await request.json();
 
     if (!lineUserId) {
@@ -79,7 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if conversation already exists
-    const { data: existing } = await supabase
+    const { data: existing } = await refacSupabaseAdmin
       .from('line_conversations')
       .select('id')
       .eq('line_user_id', lineUserId)
@@ -87,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       // Update existing conversation
-      const { data, error } = await supabase
+      const { data, error } = await refacSupabaseAdmin
         .from('line_conversations')
         .update({
           customer_id: customerId,
@@ -106,7 +137,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Create new conversation
-      const { data, error } = await supabase
+      const { data, error } = await refacSupabaseAdmin
         .from('line_conversations')
         .insert({
           line_user_id: lineUserId,
