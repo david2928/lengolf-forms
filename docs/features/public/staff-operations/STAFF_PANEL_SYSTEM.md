@@ -23,7 +23,8 @@ User Roles:
 ```
 /staff/                    # Staff Panel dashboard
 ├── line-chat/            # LINE customer communication
-└── line-templates/       # Message template management
+├── line-templates/       # Message template management
+└── image-library/        # Curated image management
 ```
 
 ## Features
@@ -38,6 +39,7 @@ User Roles:
 ### 2. Communication Tools
 - **[LINE Chat System](./STAFF_LINE_CHAT.md)**: Customer conversation management
 - **[Message Templates](./STAFF_MESSAGE_TEMPLATES.md)**: Standard reply management
+- **[Image Library](./STAFF_IMAGE_LIBRARY.md)**: Curated image management for customer communication
 
 ## Authentication & Security
 
@@ -137,7 +139,8 @@ Staff Panel ▼
 ├── ── (separator) ──
 ├── Communication
 │   ├── LINE Chat
-│   └── Message Templates
+│   ├── Message Templates
+│   └── Image Library
 ```
 
 ## Development Notes
@@ -161,6 +164,7 @@ The Staff Panel uses the exact same layout structure as the Admin Panel:
 The following features were migrated from Admin Panel to Staff Panel:
 - **LINE Chat**: `/admin/line-chat` → `/staff/line-chat`
 - **Message Templates**: `/admin/line-templates` → `/staff/line-templates`
+- **Image Library**: New feature added to Staff Panel for curated image management
 
 ### Retained in Admin Panel
 - **LINE Testing**: `/admin/line-messages` (debugging tool for admins)
@@ -170,6 +174,7 @@ All LINE communication APIs updated to require staff access:
 - `/api/line/conversations` - Staff or Admin required
 - `/api/line/send-message` - Staff or Admin required
 - `/api/line/templates/*` - Staff or Admin required
+- `/api/line/curated-images/*` - Staff or Admin required
 
 ## Future Expansion
 
@@ -194,14 +199,17 @@ app/staff/
 ├── page.tsx                # Staff dashboard with categorized sections
 ├── line-chat/
 │   └── page.tsx            # LINE customer communication interface
-└── line-templates/
-    └── page.tsx            # Message template management interface
+├── line-templates/
+│   └── page.tsx            # Message template management interface
+└── image-library/
+    └── page.tsx            # Curated image management interface
 
 api/line/
 ├── conversations/          # Protected with staff access
 ├── send-message/          # Protected with staff access
 ├── send-rich-message/     # Protected with staff access
-└── templates/            # Protected with staff access
+├── templates/            # Protected with staff access
+└── curated-images/       # Protected with staff access
 
 src/components/nav.tsx      # Updated with Staff Panel dropdown
 middleware.ts              # Staff route protection
@@ -211,5 +219,6 @@ middleware.ts              # Staff route protection
 
 - **[Staff LINE Chat System](./STAFF_LINE_CHAT.md)**: Customer conversation management
 - **[Staff Message Templates](./STAFF_MESSAGE_TEMPLATES.md)**: Template creation and management
+- **[Staff Image Library](./STAFF_IMAGE_LIBRARY.md)**: Curated image management for customer communication
 - **[LINE Messaging Integration](../../../integrations/LINE_MESSAGING_INTEGRATION.md)**: Technical LINE API integration
 - **[Authentication System](../../../technical/AUTHENTICATION_SYSTEM.md)**: Role-based access control
