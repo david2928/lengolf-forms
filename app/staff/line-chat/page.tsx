@@ -35,7 +35,10 @@ import {
   X,
   FileText,
   Plus,
-  CheckCircle
+  CheckCircle,
+  PanelLeft,
+  PanelRight,
+  Maximize2
 } from 'lucide-react';
 
 interface LineUser {
@@ -177,6 +180,8 @@ export default function LineChatPage() {
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState<string | null>(null);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -804,9 +809,10 @@ export default function LineChatPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-gray-50">
+    <div className="h-screen flex flex-col md:flex-row bg-gray-50 relative">
       {/* Left Sidebar - Conversations List */}
-      <div className={`w-full md:w-80 bg-white border-r flex flex-col ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
+      {!leftPanelCollapsed && (
+        <div className={`w-full md:w-80 bg-white border-r flex flex-col transition-all duration-300 ease-in-out ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b">
           <h1 className="text-xl font-semibold mb-3">LINE Conversations</h1>
           <div className="relative">
@@ -891,15 +897,52 @@ export default function LineChatPage() {
             ))
           )}
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Center - Chat Window */}
-      <div className={`flex-1 flex flex-col ${!showMobileChat && selectedConversation ? 'hidden md:flex' : ''} ${!selectedConversation ? 'hidden md:flex' : ''}`}>
+      <div className={`flex-1 flex flex-col ${!showMobileChat && selectedConversation ? 'hidden md:flex' : ''} ${!selectedConversation ? 'hidden md:flex' : ''} transition-all duration-300 ease-in-out`}>
         {selectedConversation ? (
           <>
             {/* Chat Header */}
             <div className="bg-white border-b p-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
+                {/* Panel Controls */}
+                <div className="hidden md:flex items-center space-x-2 mr-4">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLeftPanelCollapsed(!leftPanelCollapsed)}
+                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                    title={leftPanelCollapsed ? "Show conversations" : "Hide conversations"}
+                  >
+                    <PanelLeft className={`h-4 w-4 transition-all duration-200 ${leftPanelCollapsed ? 'text-gray-400' : 'text-gray-600'}`} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                    title={rightPanelCollapsed ? "Show customer info" : "Hide customer info"}
+                  >
+                    <PanelRight className={`h-4 w-4 transition-all duration-200 ${rightPanelCollapsed ? 'text-gray-400' : 'text-gray-600'}`} />
+                  </Button>
+                  {leftPanelCollapsed && rightPanelCollapsed && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setLeftPanelCollapsed(false);
+                        setRightPanelCollapsed(false);
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-gray-100"
+                      title="Show all panels"
+                    >
+                      <Maximize2 className="h-4 w-4 text-blue-600" />
+                    </Button>
+                  )}
+                </div>
+
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1015,7 +1058,7 @@ export default function LineChatPage() {
             <div className="bg-white border-t p-4 sticky bottom-0">
               {/* Quick Actions */}
               <div className="flex flex-wrap gap-2 mb-3">
-                <Link href="/create-booking">
+                <Link href="/create-booking" target="_blank" rel="noopener noreferrer">
                   <Button
                     size="sm"
                     variant="outline"
@@ -1105,20 +1148,93 @@ export default function LineChatPage() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-gray-500">
-              <MessageSquare className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-medium mb-2">Select a conversation</h3>
-              <p>Choose a conversation from the left to start chatting</p>
+          <div className="flex flex-col h-full">
+            {/* Global Panel Controls for Empty State */}
+            <div className="bg-white border-b p-4 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLeftPanelCollapsed(!leftPanelCollapsed)}
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  title={leftPanelCollapsed ? "Show conversations" : "Hide conversations"}
+                >
+                  <PanelLeft className={`h-4 w-4 transition-all duration-200 ${leftPanelCollapsed ? 'text-gray-400' : 'text-gray-600'}`} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  title={rightPanelCollapsed ? "Show customer info" : "Hide customer info"}
+                >
+                  <PanelRight className={`h-4 w-4 transition-all duration-200 ${rightPanelCollapsed ? 'text-gray-400' : 'text-gray-600'}`} />
+                </Button>
+                {leftPanelCollapsed && rightPanelCollapsed && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setLeftPanelCollapsed(false);
+                      setRightPanelCollapsed(false);
+                    }}
+                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                    title="Show all panels"
+                  >
+                    <Maximize2 className="h-4 w-4 text-blue-600" />
+                  </Button>
+                )}
+              </div>
+              <h2 className="font-semibold text-gray-500">LINE Chat</h2>
+            </div>
+
+            {/* Centered Content Area */}
+            <div className="flex-1 flex items-center justify-center bg-gray-50">
+              <div className="text-center text-gray-500">
+                {leftPanelCollapsed && rightPanelCollapsed ? (
+                  <div className="max-w-md px-8">
+                    <Users className="h-20 w-20 mx-auto mb-6 opacity-30" />
+                    <h3 className="text-xl font-medium mb-3">Select a conversation to view customer information</h3>
+                    <p className="text-base leading-relaxed mb-6">
+                      Use the panel controls above to show conversations and customer details
+                    </p>
+                    <div className="flex justify-center space-x-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => setLeftPanelCollapsed(false)}
+                        className="flex items-center space-x-2"
+                      >
+                        <PanelLeft className="h-4 w-4" />
+                        <span>Show Conversations</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setRightPanelCollapsed(false)}
+                        className="flex items-center space-x-2"
+                      >
+                        <PanelRight className="h-4 w-4" />
+                        <span>Show Customer Info</span>
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <MessageSquare className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-lg font-medium mb-2">Select a conversation</h3>
+                    <p>Choose a conversation from the left to start chatting</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
       </div>
 
       {/* Right Sidebar - Customer Info */}
-      <div className={`w-full md:w-80 bg-white border-l ${!showMobileCustomer ? 'hidden md:block' : ''}`}>
+      {!rightPanelCollapsed && (
+        <div className={`w-full md:w-80 bg-white border-l transition-all duration-300 ease-in-out flex flex-col ${!showMobileCustomer ? 'hidden md:flex' : 'flex'}`}>
         {selectedConv ? (
-          <div className="p-4">
+          <div className="p-4 flex-1 overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Customer Information</h3>
               <Button
@@ -1451,12 +1567,15 @@ export default function LineChatPage() {
             )}
           </div>
         ) : (
-          <div className="p-4 text-center text-gray-500">
-            <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>Select a conversation to view customer information</p>
+          <div className="flex-1 flex items-center justify-center p-4">
+            <div className="text-center text-gray-500">
+              <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Select a conversation to view customer information</p>
+            </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Customer Link Modal */}
       <CustomerLinkModal

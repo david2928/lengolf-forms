@@ -64,41 +64,6 @@ export function BigCalendarView({
     return today;
   });
 
-  // Touch/swipe handling for mobile
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
-
-  // Handle touch start
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  // Handle touch move
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  // Handle touch end - detect swipe
-  const onTouchEnd = useCallback(() => {
-    if (!touchStart || !touchEnd) return;
-    
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > 50;
-    const isRightSwipe = distance < -50;
-
-    if (isLeftSwipe) {
-      // Swipe left - next day
-      const nextDay = moment(date).add(1, 'day').toDate();
-      setDate(nextDay);
-      if (onDateChange) onDateChange(nextDay);
-    } else if (isRightSwipe) {
-      // Swipe right - previous day
-      const prevDay = moment(date).subtract(1, 'day').toDate();
-      setDate(prevDay);
-      if (onDateChange) onDateChange(prevDay);
-    }
-  }, [touchStart, touchEnd, date, onDateChange]);
 
   // Update internal date when selectedDate prop changes
   useEffect(() => {
@@ -288,11 +253,8 @@ export function BigCalendarView({
 
   return (
     <div className="flex flex-col h-full">
-      <div 
+      <div
         className="flex-1 bg-white rounded-lg border min-h-0"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
       >
         <Calendar
           localizer={localizer}

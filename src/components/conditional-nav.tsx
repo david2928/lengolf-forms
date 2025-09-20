@@ -12,11 +12,12 @@ export function ConditionalNav() {
     setIsClient(true)
   }, [])
   
-  // Hide nav for coaching routes and POS routes - standalone portals
+  // Hide nav for coaching routes, POS routes, and staff LINE chat - standalone portals
   const isCoachingRoute = isClient && pathname.startsWith('/coaching') && !pathname.startsWith('/coaching-assist')
   const isPOSRoute = isClient && pathname.startsWith('/pos')
-  
-  if (isCoachingRoute || isPOSRoute) {
+  const isStaffLineChatRoute = isClient && pathname === '/staff/line-chat'
+
+  if (isCoachingRoute || isPOSRoute || isStaffLineChatRoute) {
     return null
   }
   

@@ -46,6 +46,8 @@ export function createMockSession(): Session {
       email: 'dev@lengolf.local',
       name: 'Development User',
       isAdmin: true,
+      isStaff: true,
+      isCoach: true,
       image: null
     },
     expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
