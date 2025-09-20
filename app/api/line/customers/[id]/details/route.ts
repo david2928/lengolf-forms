@@ -44,8 +44,13 @@ export async function GET(
       }, { status: 404 });
     }
 
-    // Fetch all upcoming bookings (soonest first)
-    const { data: bookings, error: bookingsError } = await refacSupabaseAdmin
+    // Get current date and time in Thailand timezone
+    const thailandNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+    const thailandDate = thailandNow.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const currentThailandTime = thailandNow.toTimeString().slice(0, 5); // HH:MM format
+
+    // Fetch all bookings from today onwards, then filter by time in the application
+    const { data: allBookings, error: bookingsError } = await refacSupabaseAdmin
       .from('bookings')
       .select(`
         id,
@@ -58,9 +63,28 @@ export async function GET(
         created_at
       `)
       .eq('customer_id', customerId)
-      .gte('date', new Date().toISOString().split('T')[0]) // Only future dates
-      .order('date', { ascending: true }) // Soonest first
-      .limit(10); // Get up to 10 upcoming bookings
+      .gte('date', thailandDate) // Get bookings from today onwards
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true });
+
+    // Filter out past bookings (considering both date and time)
+    const bookings = allBookings?.filter((booking: any) => {
+      const bookingDate = booking.date;
+      const bookingTime = booking.start_time;
+
+      // If booking is on a future date, include it
+      if (bookingDate > thailandDate) {
+        return true;
+      }
+
+      // If booking is today, only include if start time is in the future
+      if (bookingDate === thailandDate) {
+        return bookingTime > currentThailandTime;
+      }
+
+      // Past dates are excluded
+      return false;
+    }).slice(0, 10) || []; // Limit to 10 upcoming bookings
 
     // Fetch ALL active packages for this customer (not just package monitor categories)
     const { data: packages, error: packagesError } = await refacSupabaseAdmin

@@ -1401,11 +1401,21 @@ export default function LineChatPage() {
                           if (!booking) return null;
 
                           const bookingDate = new Date(booking.date);
-                          const isUpcoming = bookingDate >= new Date(new Date().toDateString());
                           const isConfirmed = booking.status === 'confirmed';
-                          const today = new Date();
-                          const isToday = bookingDate.toDateString() === today.toDateString();
-                          const isTomorrow = bookingDate.toDateString() === new Date(today.getTime() + 24 * 60 * 60 * 1000).toDateString();
+
+                          // Use Thailand timezone for date and time comparisons
+                          const thailandNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+                          const thailandToday = new Date(thailandNow.getFullYear(), thailandNow.getMonth(), thailandNow.getDate());
+                          const thailandTomorrow = new Date(thailandToday.getTime() + 24 * 60 * 60 * 1000);
+
+                          // Create full datetime for this booking in Thailand timezone
+                          const [hours, minutes] = booking.start_time.split(':').map(Number);
+                          const bookingDateTime = new Date(bookingDate.getFullYear(), bookingDate.getMonth(), bookingDate.getDate(), hours, minutes);
+
+                          // Booking is upcoming if it's in the future (considering both date and time)
+                          const isUpcoming = bookingDateTime > thailandNow;
+                          const isToday = bookingDate.toDateString() === thailandToday.toDateString();
+                          const isTomorrow = bookingDate.toDateString() === thailandTomorrow.toDateString();
 
                           // Format date more elegantly
                           let dateDisplay;
@@ -1441,11 +1451,6 @@ export default function LineChatPage() {
                                   }`}>
                                     {booking.bay}
                                   </div>
-                                  {isToday && (
-                                    <div className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full">
-                                      TODAY
-                                    </div>
-                                  )}
                                 </div>
 
                                 <Badge
