@@ -116,14 +116,9 @@ export async function GET(request: NextRequest) {
       // Only active customers
       searchQuery = searchQuery.eq('is_active', true);
 
-      // Sorting
-      const sortColumnSearch = filters.sortBy === 'fullName' ? 'customer_name' : 
-                               filters.sortBy === 'customerCode' ? 'customer_code' :
-                               filters.sortBy === 'registrationDate' ? 'customer_create_date' :
-                               filters.sortBy === 'lastVisit' ? 'last_visit_date' :
-                               filters.sortBy === 'lifetimeValue' ? 'lifetime_spending' :
-                               filters.sortBy === 'totalBookings' ? 'total_bookings' : 'customer_name';
-      searchQuery = searchQuery.order(sortColumnSearch, { ascending: filters.sortOrder === 'asc' });
+      // For search, increase limit and sort by name for now
+      // The frontend will handle relevance sorting
+      searchQuery = searchQuery.order('customer_name', { ascending: true });
 
       // Apply pagination
       const offset = (filters.page! - 1) * filters.limit!;

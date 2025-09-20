@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import {
   MessageSquare,
   FileText,
-  Headphones
+  ImageIcon
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -30,6 +30,12 @@ const communicationItems = [
     title: "Message Templates",
     description: "Manage standard reply templates for customer communication",
     path: "/staff/line-templates"
+  },
+  {
+    icon: ImageIcon,
+    title: "Image Library",
+    description: "Manage standard images for customer communication",
+    path: "/staff/image-library"
   }
 ];
 

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { enhanceMessageDisplay, createMessagePreview, type MessagePreview } from '@/lib/line/emoji-display-utils';
 import { CustomerLinkModal } from '@/components/admin/line-chat/CustomerLinkModal';
 import { StickerMessage } from '@/components/line/StickerMessage';
@@ -38,7 +39,8 @@ import {
   CheckCircle,
   PanelLeft,
   PanelRight,
-  Maximize2
+  Maximize2,
+  CalendarPlus
 } from 'lucide-react';
 
 interface LineUser {
@@ -182,6 +184,7 @@ export default function LineChatPage() {
   const [sendingConfirmation, setSendingConfirmation] = useState<string | null>(null);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [currentBookingIndex, setCurrentBookingIndex] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -250,6 +253,7 @@ export default function LineChatPage() {
         setCustomerBookings(data.bookings);
         setCustomerPackages(data.packages);
         setCustomerTransactions(data.transactions);
+        setCurrentBookingIndex(0); // Reset to first booking
       }
     } catch (error) {
       console.error('Error fetching customer details:', error);
@@ -390,6 +394,12 @@ export default function LineChatPage() {
         setSelectedFile(null);
         setShowAttachmentMenu(false);
         setShowCuratedImages(false);
+
+        // Reset textarea height to default (3 lines)
+        const textarea = document.querySelector('textarea');
+        if (textarea) {
+          textarea.style.height = '80px';
+        }
 
         // Scroll to bottom when user sends a message
         setTimeout(() => {
@@ -785,18 +795,39 @@ export default function LineChatPage() {
       setCustomerBookings([]);
       setCustomerPackages([]);
       setCustomerTransactions([]);
+      setCurrentBookingIndex(0);
     }
   }, [selectedConv?.customer?.id]);
+
+  // Ensure booking index stays within bounds when bookings change
+  useEffect(() => {
+    if (customerBookings.length > 0 && currentBookingIndex >= customerBookings.length) {
+      setCurrentBookingIndex(0);
+    }
+  }, [customerBookings.length, currentBookingIndex]);
+
 
   // Only auto-scroll when sending new messages (not when receiving or loading)
   // Removed automatic scrolling on messages change to prevent interrupting reading
 
   // Handle Enter key in message input
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  // Auto-resize textarea
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setNewMessage(e.target.value);
+
+    // Auto-resize textarea - no max height, grows as needed
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    const scrollHeight = textarea.scrollHeight;
+    const minHeight = 80; // min-h-[80px] = 80px (3 lines)
+    textarea.style.height = `${Math.max(minHeight, scrollHeight)}px`;
   };
 
   if (loading) {
@@ -1056,92 +1087,113 @@ export default function LineChatPage() {
 
             {/* Message Input */}
             <div className="bg-white border-t p-4 sticky bottom-0">
-              {/* Quick Actions */}
-              <div className="flex flex-wrap gap-2 mb-3">
-                <Link href="/create-booking" target="_blank" rel="noopener noreferrer">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Create Booking
-                  </Button>
-                </Link>
+              {/* Textarea */}
+              <div className="mb-3">
+                <Textarea
+                  value={newMessage}
+                  onChange={handleTextareaChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type a message... (Shift + Enter for new line)"
+                  disabled={sendingMessage}
+                  className="w-full min-h-[80px] resize-none border-gray-200 focus:border-gray-200 focus:ring-0 focus:outline-none overflow-hidden"
+                  rows={3}
+                  style={{
+                    outline: 'none !important',
+                    boxShadow: 'none !important',
+                    userSelect: 'text',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    border: '1px solid #e5e7eb'
+                  }}
+                />
               </div>
 
-              <div className="flex space-x-2 relative">
-                {/* Template button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowTemplateSelector(true)}
-                  disabled={sendingMessage}
-                  title="Select template"
-                >
-                  <FileText className="h-4 w-4" />
-                </Button>
+              {/* Action Buttons Row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  {/* Attachment button */}
+                  <div className="relative">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+                      disabled={sendingMessage}
+                      className="h-9 w-9 p-0 rounded-full hover:bg-gray-100"
+                      title="Attach file or image"
+                    >
+                      <Paperclip className="h-5 w-5 text-gray-600" />
+                    </Button>
 
-                {/* Attachment button */}
-                <div className="relative">
+                    {/* Attachment menu */}
+                    {showAttachmentMenu && (
+                      <div className="absolute bottom-full mb-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10 min-w-[180px]">
+                        <div className="space-y-1">
+                          {/* Upload from device */}
+                          <label className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                            <Upload className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm">Upload from Device</span>
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              onChange={handleFileSelect}
+                              className="hidden"
+                            />
+                          </label>
+
+                          {/* Select curated image */}
+                          <button
+                            onClick={() => {
+                              setShowCuratedImages(true);
+                              setShowAttachmentMenu(false);
+                            }}
+                            className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded w-full text-left"
+                          >
+                            <ImageIcon className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm">Select from Library</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Template button */}
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+                    onClick={() => setShowTemplateSelector(true)}
                     disabled={sendingMessage}
+                    className="h-9 w-9 p-0 rounded-full hover:bg-gray-100"
+                    title="Select template"
                   >
-                    <Paperclip className="h-4 w-4" />
+                    <FileText className="h-5 w-5 text-gray-600" />
                   </Button>
 
-                  {/* Attachment menu */}
-                  {showAttachmentMenu && (
-                    <div className="absolute bottom-full mb-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10 min-w-[180px]">
-                      <div className="space-y-1">
-                        {/* Upload from device */}
-                        <label className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                          <Upload className="h-4 w-4 text-gray-500" />
-                          <span className="text-sm">Upload from Device</span>
-                          <input
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={handleFileSelect}
-                            className="hidden"
-                          />
-                        </label>
-
-                        {/* Select curated image */}
-                        <button
-                          onClick={() => {
-                            setShowCuratedImages(true);
-                            setShowAttachmentMenu(false);
-                          }}
-                          className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded w-full text-left"
-                        >
-                          <ImageIcon className="h-4 w-4 text-gray-500" />
-                          <span className="text-sm">Select from Library</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Create Booking Button */}
+                  <Link href="/create-booking" target="_blank" rel="noopener noreferrer">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 w-9 p-0 rounded-full hover:bg-gray-100"
+                      title="Create Booking"
+                    >
+                      <CalendarPlus className="h-5 w-5 text-gray-600" />
+                    </Button>
+                  </Link>
                 </div>
 
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type a message..."
-                  disabled={sendingMessage}
-                  className="flex-1"
-                />
+                {/* Send Button */}
                 <Button
                   onClick={() => sendMessage()}
                   disabled={sendingMessage || !newMessage.trim()}
-                  size="sm"
+                  className="px-4 py-2 h-10 bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-all duration-200 rounded-md font-medium"
                 >
                   {sendingMessage ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                      Sending...
+                    </>
                   ) : (
-                    <Send className="h-4 w-4" />
+                    "Send"
                   )}
                 </Button>
               </div>
@@ -1325,18 +1377,29 @@ export default function LineChatPage() {
                   </CardContent>
                 </Card>
 
-                {/* Upcoming Booking */}
+                {/* Upcoming Bookings Carousel */}
                 <Card className="mb-4">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Next Upcoming Booking
+                    <CardTitle className="text-sm flex items-center justify-between">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Upcoming Bookings
+                      </div>
+                      {customerBookings.length > 1 && (
+                        <span className="text-xs text-gray-500 font-normal">
+                          {customerBookings.length} bookings
+                        </span>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
                     {customerBookings.length > 0 ? (
                       <div className="space-y-3">
-                        {customerBookings.map((booking) => {
+                        {/* Current Booking Display */}
+                        {(() => {
+                          const booking = customerBookings[currentBookingIndex];
+                          if (!booking) return null;
+
                           const bookingDate = new Date(booking.date);
                           const isUpcoming = bookingDate >= new Date(new Date().toDateString());
                           const isConfirmed = booking.status === 'confirmed';
@@ -1442,7 +1505,38 @@ export default function LineChatPage() {
                               )}
                             </div>
                           );
-                        })}
+                        })()}
+
+                        {/* Booking Navigation */}
+                        {customerBookings.length > 1 && (
+                          <div className="flex items-center justify-center space-x-3 pt-3 border-t border-gray-100">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-gray-100"
+                              onClick={() => setCurrentBookingIndex(Math.max(0, currentBookingIndex - 1))}
+                              disabled={currentBookingIndex === 0}
+                              title="Previous booking"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+
+                            <span className="text-sm text-gray-600 font-medium">
+                              {currentBookingIndex + 1}/{customerBookings.length}
+                            </span>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-gray-100"
+                              onClick={() => setCurrentBookingIndex(Math.min(customerBookings.length - 1, currentBookingIndex + 1))}
+                              disabled={currentBookingIndex === customerBookings.length - 1}
+                              title="Next booking"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <p className="text-sm text-gray-500">No upcoming bookings</p>

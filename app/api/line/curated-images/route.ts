@@ -49,10 +49,60 @@ export async function POST(request: NextRequest) {
     const category = formData.get('category') as string || null;
     const tags = formData.get('tags') as string;
 
-    if (!file || !name) {
+    // Enhanced validation
+    if (!file) {
       return NextResponse.json({
         success: false,
-        error: 'File and name are required'
+        error: 'Image file is required'
+      }, { status: 400 });
+    }
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return NextResponse.json({
+        success: false,
+        error: 'Name is required and must be a non-empty string'
+      }, { status: 400 });
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      return NextResponse.json({
+        success: false,
+        error: 'Only JPEG, PNG, GIF, and WebP images are allowed'
+      }, { status: 400 });
+    }
+
+    // Validate file size (max 10MB for library images before compression)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return NextResponse.json({
+        success: false,
+        error: 'Image must be smaller than 10MB'
+      }, { status: 400 });
+    }
+
+    // Validate name length
+    if (name.trim().length > 100) {
+      return NextResponse.json({
+        success: false,
+        error: 'Name must be 100 characters or less'
+      }, { status: 400 });
+    }
+
+    // Validate description length
+    if (description && description.length > 500) {
+      return NextResponse.json({
+        success: false,
+        error: 'Description must be 500 characters or less'
+      }, { status: 400 });
+    }
+
+    // Validate category length
+    if (category && category.length > 50) {
+      return NextResponse.json({
+        success: false,
+        error: 'Category must be 50 characters or less'
       }, { status: 400 });
     }
 
@@ -62,7 +112,7 @@ export async function POST(request: NextRequest) {
     // Generate unique ID for the image
     const imageId = crypto.randomUUID();
 
-    // Upload the image
+    // Upload the image (file should already be compressed on client side)
     const uploadResult = await uploadCuratedImage(file, imageId);
     if (!uploadResult.success) {
       return NextResponse.json({
@@ -71,14 +121,40 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Parse tags
+    // Parse and validate tags
     let parsedTags: string[] = [];
     if (tags) {
       try {
-        parsedTags = tags.split(',').map(tag => tag.trim()).filter(Boolean);
+        parsedTags = tags.split(',')
+          .map(tag => tag.trim())
+          .filter(Boolean)
+          .slice(0, 10); // Limit to 10 tags
+
+        // Validate individual tag length
+        const invalidTags = parsedTags.filter(tag => tag.length > 30);
+        if (invalidTags.length > 0) {
+          return NextResponse.json({
+            success: false,
+            error: 'Each tag must be 30 characters or less'
+          }, { status: 400 });
+        }
       } catch (e) {
         parsedTags = [];
       }
+    }
+
+    // Check for duplicate names (optional - you might want unique names)
+    const { data: existingImage } = await supabase
+      .from('line_curated_images')
+      .select('id')
+      .eq('name', name.trim())
+      .single();
+
+    if (existingImage) {
+      return NextResponse.json({
+        success: false,
+        error: 'An image with this name already exists'
+      }, { status: 400 });
     }
 
     // Store image metadata in database
@@ -86,11 +162,11 @@ export async function POST(request: NextRequest) {
       .from('line_curated_images')
       .insert({
         id: imageId,
-        name,
-        description,
+        name: name.trim(),
+        description: description?.trim() || null,
         file_url: uploadResult.url!,
         tags: parsedTags,
-        category,
+        category: category?.trim() || null,
         usage_count: 0
       })
       .select()

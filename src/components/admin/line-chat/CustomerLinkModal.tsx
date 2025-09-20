@@ -45,21 +45,45 @@ export function CustomerLinkModal({
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (searchTerm.length >= 2) {
+    if (searchTerm.length >= 1) {
       searchTimeoutRef.current = setTimeout(async () => {
         setSearching(true);
         try {
           const params = new URLSearchParams({
             search: searchTerm,
-            limit: '10',
-            sortBy: 'customer_name',
+            limit: '200',
+            sortBy: 'fullName',
             sortOrder: 'asc'
           });
 
           const response = await fetch(`/api/customers?${params}`);
           if (response.ok) {
             const data = await response.json();
-            setCustomers(data.customers || []);
+            // Sort results to show exact matches first, then partial matches
+            const sortedCustomers = (data.customers || []).sort((a: Customer, b: Customer) => {
+              const searchLower = searchTerm.toLowerCase();
+
+              // Exact matches for customer name or code
+              const aNameExact = a.customer_name.toLowerCase() === searchLower;
+              const bNameExact = b.customer_name.toLowerCase() === searchLower;
+              const aCodeExact = a.customer_code.toLowerCase() === searchLower;
+              const bCodeExact = b.customer_code.toLowerCase() === searchLower;
+
+              // Name starts with search term
+              const aNameStarts = a.customer_name.toLowerCase().startsWith(searchLower);
+              const bNameStarts = b.customer_name.toLowerCase().startsWith(searchLower);
+              const aCodeStarts = a.customer_code.toLowerCase().startsWith(searchLower);
+              const bCodeStarts = b.customer_code.toLowerCase().startsWith(searchLower);
+
+              // Priority order: exact name/code match, then starts with, then contains
+              if (aNameExact || aCodeExact) return -1;
+              if (bNameExact || bCodeExact) return 1;
+              if (aNameStarts || aCodeStarts) return -1;
+              if (bNameStarts || bCodeStarts) return 1;
+
+              return a.customer_name.localeCompare(b.customer_name);
+            });
+            setCustomers(sortedCustomers);
           }
         } catch (error) {
           console.error('Error searching customers:', error);
@@ -93,7 +117,7 @@ export function CustomerLinkModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-w-[90vw]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
@@ -126,21 +150,21 @@ export function CustomerLinkModal({
 
           {/* Search Results */}
           <div className="max-h-80 overflow-y-auto">
-            {searchTerm.length < 2 && (
+            {searchTerm.length < 1 && (
               <div className="text-center py-8 text-gray-500">
                 <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Type at least 2 characters to search customers</p>
+                <p className="text-sm">Type to search customers</p>
               </div>
             )}
 
-            {searching && searchTerm.length >= 2 && (
+            {searching && searchTerm.length >= 1 && (
               <div className="text-center py-8 text-gray-500">
                 <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
                 <p className="text-sm">Searching customers...</p>
               </div>
             )}
 
-            {!searching && searchTerm.length >= 2 && customers.length === 0 && (
+            {!searching && searchTerm.length >= 1 && customers.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">No customers found for &ldquo;{searchTerm}&rdquo;</p>
@@ -154,34 +178,26 @@ export function CustomerLinkModal({
                     key={customer.id}
                     onClick={() => handleCustomerSelect(customer)}
                     disabled={loading}
-                    className="w-full p-3 text-left border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full p-4 text-left border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <User className="h-4 w-4 text-gray-400" />
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
                           <span className="font-medium text-gray-900 truncate">
                             {customer.customer_name}
                           </span>
-                          <Badge variant="outline" className="text-xs">
-                            {customer.customer_code}
-                          </Badge>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                          {customer.contact_number && (
-                            <div className="flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              <span>{customer.contact_number}</span>
-                            </div>
-                          )}
-                          {customer.email && (
-                            <div className="flex items-center gap-1">
-                              <Hash className="h-3 w-3" />
-                              <span className="truncate">{customer.email}</span>
-                            </div>
-                          )}
-                        </div>
+                        <Badge variant="outline" className="text-xs flex-shrink-0">
+                          {customer.customer_code}
+                        </Badge>
                       </div>
+                      {customer.contact_number && (
+                        <div className="flex items-center gap-2 text-sm text-gray-500 pl-6">
+                          <Phone className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{customer.contact_number}</span>
+                        </div>
+                      )}
                     </div>
                   </button>
                 ))}
