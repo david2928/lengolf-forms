@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { refacSupabase } from '@/lib/refac-supabase';
+import { supabaseRealtime } from '@/lib/supabase-realtime';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface Message {
@@ -59,7 +59,8 @@ export function useRealtimeMessages({
   const channelRef = useRef<RealtimeChannel | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<RealtimeConnectionStatus>({
-    status: 'disconnected',
+    status: supabaseRealtime ? 'disconnected' : 'error',
+    error: supabaseRealtime ? undefined : 'Realtime client not available',
     reconnectAttempts: 0
   });
 
@@ -80,7 +81,7 @@ export function useRealtimeMessages({
   }, []);
 
   const connect = useCallback(async () => {
-    if (!conversationId || !refacSupabase) {
+    if (!conversationId || !supabaseRealtime) {
       setConnectionStatus(prev => ({ ...prev, status: 'disconnected' }));
       return;
     }
@@ -93,7 +94,7 @@ export function useRealtimeMessages({
       setConnectionStatus(prev => ({ ...prev, status: 'connecting' }));
 
       // Create channel with conversation-specific name
-      const channel = refacSupabase
+      const channel = supabaseRealtime
         .channel(`line_messages:conversation:${conversationId}`)
         .on(
           'postgres_changes',
@@ -219,7 +220,7 @@ export function useRealtimeMessages({
 
   // Connect when conversationId changes
   useEffect(() => {
-    if (conversationId) {
+    if (conversationId && supabaseRealtime) {
       connect();
     } else {
       disconnect();

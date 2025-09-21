@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { refacSupabase } from '@/lib/refac-supabase';
+import { supabaseRealtime } from '@/lib/supabase-realtime';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface LineUser {
@@ -48,7 +48,8 @@ export function useRealtimeConversations({
   const channelRef = useRef<RealtimeChannel | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<RealtimeConnectionStatus>({
-    status: 'disconnected',
+    status: supabaseRealtime ? 'disconnected' : 'error',
+    error: supabaseRealtime ? undefined : 'Realtime client not available',
     reconnectAttempts: 0
   });
 
@@ -69,7 +70,7 @@ export function useRealtimeConversations({
   }, []);
 
   const connect = useCallback(async () => {
-    if (!refacSupabase) {
+    if (!supabaseRealtime) {
       setConnectionStatus(prev => ({ ...prev, status: 'disconnected' }));
       return;
     }
@@ -82,7 +83,7 @@ export function useRealtimeConversations({
       setConnectionStatus(prev => ({ ...prev, status: 'connecting' }));
 
       // Create channel for conversation updates
-      const channel = refacSupabase
+      const channel = supabaseRealtime
         .channel('line_conversations:updates')
         .on(
           'postgres_changes',
@@ -199,7 +200,9 @@ export function useRealtimeConversations({
 
   // Connect on mount
   useEffect(() => {
-    connect();
+    if (supabaseRealtime) {
+      connect();
+    }
     return disconnect;
   }, [connect, disconnect]);
 

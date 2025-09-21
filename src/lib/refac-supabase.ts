@@ -24,7 +24,7 @@ if (typeof window === 'undefined' && !supabaseServiceRoleKey) {
 let refacSupabase: any = null;
 
 if (supabaseUrl && supabaseAnonKey) {
-  // Create Supabase client with minimal configuration to avoid realtime issues
+  // Create Supabase client with realtime configuration
   refacSupabase = createClient(
     supabaseUrl,
     supabaseAnonKey,
