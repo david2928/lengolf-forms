@@ -107,6 +107,8 @@ interface Message {
     text?: string;
     type: string;
     senderName?: string;
+    senderType?: string;
+    pictureUrl?: string;
     fileName?: string;
   };
 }
@@ -1251,45 +1253,65 @@ export default function LineChatPage() {
                 <div
                   key={message.id}
                   className={`flex ${message.senderType === 'admin' ? 'justify-end' : 'justify-start'}`}
-                  onContextMenu={(e) => handleMessageRightClick(e, message)}
-                  onTouchStart={(e) => {
-                    // Simple long press detection for mobile
-                    const timeout = setTimeout(() => {
-                      handleMessageLongPress(e as any, message);
-                    }, 500);
-
-                    const handleTouchEnd = () => {
-                      clearTimeout(timeout);
-                      document.removeEventListener('touchend', handleTouchEnd);
-                    };
-
-                    document.addEventListener('touchend', handleTouchEnd);
-                  }}
                 >
                   {/* Render stickers and images without background container */}
                   {message.type === 'sticker' && message.stickerId ? (
                     <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
-                      <StickerMessage
-                        packageId={message.packageId || ''}
-                        stickerId={message.stickerId}
-                        keywords={message.stickerKeywords}
-                        size="large"
-                        className=""
-                      />
+                      <div
+                        onContextMenu={(e: React.MouseEvent) => handleMessageRightClick(e, message)}
+                        onTouchStart={(e: React.TouchEvent) => {
+                          // Simple long press detection for mobile
+                          const timeout = setTimeout(() => {
+                            handleMessageLongPress(e as any, message);
+                          }, 500);
+
+                          const handleTouchEnd = () => {
+                            clearTimeout(timeout);
+                            document.removeEventListener('touchend', handleTouchEnd);
+                          };
+
+                          document.addEventListener('touchend', handleTouchEnd);
+                        }}
+                      >
+                        <StickerMessage
+                          packageId={message.packageId || ''}
+                          stickerId={message.stickerId}
+                          keywords={message.stickerKeywords}
+                          size="large"
+                          className=""
+                        />
+                      </div>
                       <span className="text-xs text-gray-400">
                         {formatMessageTime(message.createdAt)}
                       </span>
                     </div>
                   ) : message.type === 'image' && (message.fileUrl || message.imageUrl) ? (
                     <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
-                      <ImageMessage
-                        imageUrl={message.fileUrl || message.imageUrl!}
-                        fileName={message.fileName}
-                        fileSize={message.fileSize}
-                        altText="Shared image"
-                        className=""
-                        showControls={true}
-                      />
+                      <div
+                        onContextMenu={(e: React.MouseEvent) => handleMessageRightClick(e, message)}
+                        onTouchStart={(e: React.TouchEvent) => {
+                          // Simple long press detection for mobile
+                          const timeout = setTimeout(() => {
+                            handleMessageLongPress(e as any, message);
+                          }, 500);
+
+                          const handleTouchEnd = () => {
+                            clearTimeout(timeout);
+                            document.removeEventListener('touchend', handleTouchEnd);
+                          };
+
+                          document.addEventListener('touchend', handleTouchEnd);
+                        }}
+                      >
+                        <ImageMessage
+                          imageUrl={message.fileUrl || message.imageUrl!}
+                          fileName={message.fileName}
+                          fileSize={message.fileSize}
+                          altText="Shared image"
+                          className=""
+                          showControls={true}
+                        />
+                      </div>
                       <div className="flex items-center space-x-2 text-xs text-gray-400">
                         {message.fileSize && (
                           <span>{formatFileSize(message.fileSize)}</span>
@@ -1301,11 +1323,29 @@ export default function LineChatPage() {
                     /* Regular messages with background and timestamp below */
                     <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        className={`${
+                          message.repliedToMessage
+                            ? 'max-w-lg lg:max-w-2xl'
+                            : 'max-w-xs lg:max-w-md'
+                        } px-4 py-2 rounded-lg ${
                           message.senderType === 'admin'
-                            ? 'bg-blue-500 text-white'
+                            ? 'bg-green-100 text-gray-800 border border-green-200'
                             : 'bg-white border shadow-sm'
                         }`}
+                        onContextMenu={(e: React.MouseEvent) => handleMessageRightClick(e, message)}
+                        onTouchStart={(e: React.TouchEvent) => {
+                          // Simple long press detection for mobile
+                          const timeout = setTimeout(() => {
+                            handleMessageLongPress(e as any, message);
+                          }, 500);
+
+                          const handleTouchEnd = () => {
+                            clearTimeout(timeout);
+                            document.removeEventListener('touchend', handleTouchEnd);
+                          };
+
+                          document.addEventListener('touchend', handleTouchEnd);
+                        }}
                       >
                         {/* Show reply preview if this is a reply */}
                         {message.repliedToMessage && (
@@ -1344,46 +1384,59 @@ export default function LineChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input */}
-            <div className="bg-white border-t p-4 sticky bottom-0">
-              {/* Reply Preview */}
+            {/* Input Area Container */}
+            <div className="sticky bottom-0">
+              {/* Reply Preview Container (separate) */}
               {replyingToMessage && (
-                <ReplyPreview
-                  message={{
-                    id: replyingToMessage.id,
-                    text: replyingToMessage.text,
-                    type: replyingToMessage.type,
-                    senderName: replyingToMessage.senderName,
-                    fileName: replyingToMessage.fileName,
-                    senderType: replyingToMessage.senderType
-                  }}
-                  onClose={handleCancelReply}
-                />
+                <div className="bg-white border-t">
+                  <ReplyPreview
+                    message={{
+                      id: replyingToMessage.id,
+                      text: replyingToMessage.text,
+                      type: replyingToMessage.type,
+                      senderName: replyingToMessage.senderName,
+                      senderType: replyingToMessage.senderType,
+                      pictureUrl: replyingToMessage.senderType === 'admin' ? '/favicon.svg' : (selectedConv?.user.pictureUrl),
+                      fileName: replyingToMessage.fileName
+                    }}
+                    onClose={handleCancelReply}
+                  />
+                </div>
               )}
 
-              {/* Textarea */}
-              <div className="mb-3">
+              {/* Message Input Container (separate) */}
+              <div className={`bg-white p-4 ${replyingToMessage ? 'border-t border-gray-200' : 'border-t'}`}>
                 <Textarea
                   value={newMessage}
                   onChange={handleTextareaChange}
                   onKeyDown={handleKeyDown}
                   placeholder="Type a message... (Shift + Enter for new line)"
                   disabled={sendingMessage}
-                  className="w-full min-h-[80px] resize-none border-gray-200 focus:border-gray-200 focus:ring-0 focus:outline-none overflow-hidden"
+                  className="w-full min-h-[80px] resize-none border-0 focus:border-0 focus:ring-0 focus:outline-none focus:shadow-none active:border-0 active:ring-0 hover:border-0 overflow-hidden mb-3 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
                   rows={3}
                   style={{
                     outline: 'none !important',
                     boxShadow: 'none !important',
+                    border: '0 !important',
+                    borderWidth: '0 !important',
+                    borderStyle: 'none !important',
+                    borderColor: 'transparent !important',
                     userSelect: 'text',
                     scrollbarWidth: 'none',
                     msOverflowStyle: 'none',
-                    border: '1px solid #e5e7eb'
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    appearance: 'none'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.outline = 'none';
+                    e.target.style.border = 'none';
+                    e.target.style.boxShadow = 'none';
                   }}
                 />
-              </div>
 
-              {/* Action Buttons Row */}
-              <div className="flex items-center justify-between">
+                {/* Action Buttons Row */}
+                <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   {/* Attachment button */}
                   <div className="relative">
@@ -1481,6 +1534,7 @@ export default function LineChatPage() {
                   )}
                 </Button>
               </div>
+            </div>
             </div>
           </>
         ) : (

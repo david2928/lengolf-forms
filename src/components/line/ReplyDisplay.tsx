@@ -1,4 +1,5 @@
 import { Reply, Image as ImageIcon, FileText } from 'lucide-react';
+import Image from 'next/image';
 
 interface ReplyDisplayProps {
   repliedToMessage: {
@@ -6,6 +7,8 @@ interface ReplyDisplayProps {
     text?: string;
     type: string;
     senderName?: string;
+    senderType?: string;
+    pictureUrl?: string;
     fileName?: string;
   };
   replyPreviewText?: string;
@@ -46,25 +49,51 @@ export function ReplyDisplay({
 
   return (
     <div
-      className={`flex items-start space-x-2 p-2 bg-blue-50 border-l-2 border-blue-400 rounded mb-2 text-xs ${
-        onClickReply ? 'cursor-pointer hover:bg-blue-100' : ''
+      className={`mb-2 ${
+        onClickReply ? 'cursor-pointer' : ''
       } ${className}`}
       onClick={onClickReply}
     >
-      {/* Reply icon only */}
-      <div className="flex items-center text-blue-500 flex-shrink-0">
-        <Reply className="h-3 w-3" />
+      {/* Original message preview - subtle */}
+      <div className="flex items-center space-x-2 mb-2">
+        {/* Small profile image - centered */}
+        <div className="w-3.5 h-3.5 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center">
+          {repliedToMessage.senderType === 'admin' ? (
+            <Image
+              src="/favicon.svg"
+              alt="LENGOLF"
+              width={14}
+              height={14}
+              className="w-full h-full object-cover"
+            />
+          ) : repliedToMessage.pictureUrl ? (
+            <Image
+              src={repliedToMessage.pictureUrl}
+              alt={repliedToMessage.senderName || 'User'}
+              width={14}
+              height={14}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+              <span className="text-xs">👤</span>
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 flex flex-col justify-center">
+          <div className="text-[11px] font-bold text-gray-700 mb-0.5">
+            {repliedToMessage.senderName || 'User'}
+          </div>
+          <div className="text-[11px] text-gray-600 truncate opacity-50">
+            {displayText}
+          </div>
+        </div>
       </div>
 
-      {/* Reply content */}
-      <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-blue-700 mb-1">
-          {repliedToMessage.senderName || 'User'}
-        </div>
-        <div className="text-gray-700 truncate">
-          {displayText}
-        </div>
-      </div>
+      {/* Separator line */}
+      <div className="border-t border-gray-200 mb-2"></div>
     </div>
   );
 }

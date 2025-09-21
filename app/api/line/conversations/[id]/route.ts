@@ -65,13 +65,9 @@ export async function GET(
         replied_to_message_id,
         reply_preview_text,
         reply_preview_type,
-        replied_to_message:replied_to_message_id (
-          id,
-          message_text,
-          message_type,
-          sender_name,
-          file_name
-        )
+        reply_sender_name,
+        reply_sender_type,
+        reply_sender_picture_url
       `)
       .eq('conversation_id', conversationId)
       .in('sender_type', ['user', 'admin']) // Include only user and admin messages
@@ -120,13 +116,16 @@ export async function GET(
           repliedToMessageId: msg.replied_to_message_id,
           replyPreviewText: msg.reply_preview_text,
           replyPreviewType: msg.reply_preview_type,
-          repliedToMessage: Array.isArray(msg.replied_to_message) && msg.replied_to_message.length > 0 ? {
-            id: msg.replied_to_message[0].id,
-            text: msg.replied_to_message[0].message_text,
-            type: msg.replied_to_message[0].message_type,
-            senderName: msg.replied_to_message[0].sender_name,
-            fileName: msg.replied_to_message[0].file_name
-          } : undefined
+          // Use the stored sender information, fallback to conversation user for legacy data
+          repliedToMessage: {
+            id: msg.replied_to_message_id,
+            text: msg.reply_preview_text,
+            type: msg.reply_preview_type || 'text',
+            senderName: msg.reply_sender_name || (msg.reply_sender_type === 'admin' ? 'LENGOLF' : (conversation as any).line_users?.display_name || 'User'),
+            senderType: msg.reply_sender_type || 'user',
+            pictureUrl: msg.reply_sender_picture_url || (msg.reply_sender_type === 'admin' ? '/favicon.svg' : (conversation as any).line_users?.picture_url),
+            fileName: null
+          }
         })
       };
     }) || [];

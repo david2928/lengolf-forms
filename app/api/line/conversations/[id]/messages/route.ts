@@ -237,10 +237,16 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Get conversation details
+    // Get conversation details with user info
     const { data: conversation, error: conversationError } = await supabase
       .from('line_conversations')
-      .select('line_user_id')
+      .select(`
+        line_user_id,
+        line_users!inner (
+          display_name,
+          picture_url
+        )
+      `)
       .eq('id', conversationId)
       .single();
 
@@ -452,7 +458,10 @@ export async function POST(
         quote_token: responseQuoteToken,
         replied_to_message_id: repliedToMessageId,
         reply_preview_text: replyPreviewText,
-        reply_preview_type: replyPreviewType
+        reply_preview_type: replyPreviewType,
+        reply_sender_name: repliedToMessage?.sender_name || (repliedToMessage?.sender_type === 'admin' ? 'LENGOLF' : (conversation as any).line_users?.display_name),
+        reply_sender_type: repliedToMessage?.sender_type,
+        reply_sender_picture_url: repliedToMessage?.sender_type === 'admin' ? '/favicon.svg' : (conversation as any).line_users?.picture_url
       })
       .select()
       .single();

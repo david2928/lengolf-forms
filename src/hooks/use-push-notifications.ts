@@ -40,19 +40,17 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     checkSupport();
   }, []);
 
-  // Register service worker
-  useEffect(() => {
-    if (isSupported) {
-      registerServiceWorker();
-    }
-  }, [isSupported, registerServiceWorker]);
+  const handleServiceWorkerMessage = (event: MessageEvent) => {
+    if (event.data?.action === 'focus-conversation') {
+      // Handle focusing on specific conversation
+      const conversationId = event.data.conversationId;
 
-  // Check subscription status on mount
-  useEffect(() => {
-    if (isSupported) {
-      checkSubscriptionStatus();
+      // Dispatch custom event that the LINE Chat component can listen to
+      window.dispatchEvent(new CustomEvent('focus-conversation', {
+        detail: { conversationId }
+      }));
     }
-  }, [isSupported, checkSubscriptionStatus]);
+  };
 
   const registerServiceWorker = useCallback(async () => {
     try {
@@ -68,18 +66,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       setError('Failed to register service worker');
     }
   }, []);
-
-  const handleServiceWorkerMessage = (event: MessageEvent) => {
-    if (event.data?.action === 'focus-conversation') {
-      // Handle focusing on specific conversation
-      const conversationId = event.data.conversationId;
-
-      // Dispatch custom event that the LINE Chat component can listen to
-      window.dispatchEvent(new CustomEvent('focus-conversation', {
-        detail: { conversationId }
-      }));
-    }
-  };
 
   const checkSubscriptionStatus = useCallback(async () => {
     if (!isSupported) return;
@@ -118,6 +104,20 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       setIsLoading(false);
     }
   }, [isSupported]);
+
+  // Register service worker
+  useEffect(() => {
+    if (isSupported) {
+      registerServiceWorker();
+    }
+  }, [isSupported, registerServiceWorker]);
+
+  // Check subscription status on mount
+  useEffect(() => {
+    if (isSupported) {
+      checkSubscriptionStatus();
+    }
+  }, [isSupported, checkSubscriptionStatus]);
 
   const subscribe = useCallback(async () => {
     if (!isSupported) {
