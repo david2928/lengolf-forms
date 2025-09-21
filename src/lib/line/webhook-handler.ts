@@ -255,7 +255,7 @@ export async function ensureConversationExists(lineUserId: string): Promise<stri
 }
 
 /**
- * Send push notification for new LINE message
+ * Send push notification for new LINE message directly (optimized for serverless)
  */
 async function sendPushNotificationForNewMessage(
   event: LineWebhookEvent,
@@ -286,39 +286,83 @@ async function sendPushNotificationForNewMessage(
 
     const customerName = userProfile?.displayName || 'Unknown Customer';
 
-    // Prepare notification content
-    const notificationData = {
+    // Get active subscriptions directly from database
+    const { data: subscriptions, error } = await supabase
+      .schema('backoffice')
+      .from('push_subscriptions')
+      .select('*')
+      .eq('is_active', true);
+
+    if (error) {
+      console.error('Error fetching subscriptions:', error);
+      return;
+    }
+
+    if (!subscriptions || subscriptions.length === 0) {
+      console.log('No active push subscriptions found');
+      return;
+    }
+
+    // Prepare notification payload
+    const notificationPayload = {
       title: `New message from ${customerName}`,
       body: displayText.length > 100 ? displayText.substring(0, 100) + '...' : displayText,
       conversationId,
       lineUserId: event.source.userId,
-      customerName
+      customerName,
+      url: conversationId ? `/staff/line-chat?conversation=${conversationId}` : '/staff/line-chat'
     };
 
-    // Use the push notification API endpoint instead of direct web-push
-    // This ensures consistent behavior and avoids dynamic import issues
+    // Import and configure web-push directly
     try {
-      // Determine the correct base URL - use local when running locally, production otherwise
-      const baseUrl = process.env.NODE_ENV === 'development'
-        ? 'http://localhost:3000'
-        : 'https://lengolf-forms.vercel.app';
+      const webpush = await import('web-push');
 
-      const response = await fetch(`${baseUrl}/api/push-notifications/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Internal-Request': 'true' // Mark as internal request to bypass auth
-        },
-        body: JSON.stringify(notificationData)
+      webpush.default.setVapidDetails(
+        process.env.VAPID_SUBJECT!,
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+        process.env.VAPID_PRIVATE_KEY!
+      );
+
+      // Send notifications to all active subscriptions
+      const sendPromises = subscriptions.map(async (subscription) => {
+        try {
+          const pushSubscription = {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.p256dh_key,
+              auth: subscription.auth_key
+            }
+          };
+
+          await webpush.default.sendNotification(
+            pushSubscription,
+            JSON.stringify(notificationPayload)
+          );
+
+          return { success: true, email: subscription.user_email };
+        } catch (error) {
+          console.error(`Failed to send push notification to ${subscription.user_email}:`, error);
+
+          // If subscription is invalid (410 Gone), deactivate it
+          if ((error as any)?.statusCode === 410) {
+            console.log(`Deactivating invalid subscription for ${subscription.user_email}`);
+            await supabase
+              .schema('backoffice')
+              .from('push_subscriptions')
+              .update({ is_active: false })
+              .eq('id', subscription.id);
+          }
+
+          return { success: false, email: subscription.user_email };
+        }
       });
 
-      const result = await response.json();
+      const results = await Promise.all(sendPromises);
+      const successful = results.filter(r => r.success).length;
+      console.log(`Push notifications sent to ${successful}/${subscriptions.length} users`);
 
-      if (!result.success) {
-        console.error('Webhook push notification failed:', result.error);
-      }
-    } catch (apiError) {
-      console.error('Failed to call push notification API from webhook:', apiError);
+    } catch (importError) {
+      console.error('Failed to import web-push module:', importError);
     }
 
   } catch (error) {
@@ -483,11 +527,12 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
       console.error('Error updating conversation:', updateError);
     }
 
-    // Send push notification to all staff (don't await this to avoid blocking)
-    sendPushNotificationForNewMessage(event, conversationId, displayText)
-      .catch(error => {
-        console.error('Failed to send push notification:', error);
-      });
+    // Send push notification to all staff (await for immediate delivery)
+    try {
+      await sendPushNotificationForNewMessage(event, conversationId, displayText);
+    } catch (error) {
+      console.error('Failed to send push notification:', error);
+    }
 
   } catch (err) {
     console.error('Failed to store LINE message:', err);
@@ -588,11 +633,12 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
 
     console.log(`Processed postback action: ${action} for booking: ${bookingId}`);
 
-    // Send push notification for postback action (don't await to avoid blocking)
-    sendPushNotificationForNewMessage(event, conversation.id, displayText)
-      .catch(error => {
-        console.error('Failed to send push notification for postback:', error);
-      });
+    // Send push notification for postback action (await for immediate delivery)
+    try {
+      await sendPushNotificationForNewMessage(event, conversation.id, displayText);
+    } catch (error) {
+      console.error('Failed to send push notification for postback:', error);
+    }
 
   } catch (error) {
     console.error('Error handling postback event:', error);
