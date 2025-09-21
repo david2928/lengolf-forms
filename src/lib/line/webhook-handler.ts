@@ -527,12 +527,12 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
       console.error('Error updating conversation:', updateError);
     }
 
-    // Send push notification to all staff (await for immediate delivery)
-    try {
-      await sendPushNotificationForNewMessage(event, conversationId, displayText);
-    } catch (error) {
-      console.error('Failed to send push notification:', error);
-    }
+    // Send push notification to all staff (don't await to avoid blocking message storage)
+    sendPushNotificationForNewMessage(event, conversationId, displayText)
+      .catch(error => {
+        console.error('Failed to send push notification:', error);
+        // Don't let push notification failures block message storage
+      });
 
   } catch (err) {
     console.error('Failed to store LINE message:', err);
@@ -633,12 +633,12 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
 
     console.log(`Processed postback action: ${action} for booking: ${bookingId}`);
 
-    // Send push notification for postback action (await for immediate delivery)
-    try {
-      await sendPushNotificationForNewMessage(event, conversation.id, displayText);
-    } catch (error) {
-      console.error('Failed to send push notification for postback:', error);
-    }
+    // Send push notification for postback action (don't await to avoid blocking)
+    sendPushNotificationForNewMessage(event, conversation.id, displayText)
+      .catch(error => {
+        console.error('Failed to send push notification for postback:', error);
+        // Don't let push notification failures block postback processing
+      });
 
   } catch (error) {
     console.error('Error handling postback event:', error);

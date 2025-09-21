@@ -78,6 +78,7 @@
     "@types/react": "18.2.48",
     "@types/react-dom": "18.2.18",
     "@types/react-signature-canvas": "^1.0.7",
+    "@vercel/functions": "^3.1.0",
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

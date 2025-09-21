@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { waitUntil } from '@vercel/functions';
 import { validateAndGetBody } from '@/lib/line/signature-validator';
 import {
   processWebhookPayload,
@@ -28,26 +29,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
-    // Step 3: Log the webhook event
+    // Step 3: Log the webhook event and return immediately
     const eventTypes = payload.events.map(e => e.type).join(',');
     await logWebhookEvent(eventTypes, signature, rawBody, false);
 
     // Step 4: Return 200 immediately to prevent LINE from retrying
-    // Process events asynchronously
     const response = NextResponse.json({ success: true }, { status: 200 });
 
-    // Step 5: Process events asynchronously (don't await this)
-    processWebhookPayload(payload)
-      .then(async () => {
-        console.log('Webhook events processed successfully');
-        // Update log to mark as processed
-        await logWebhookEvent(eventTypes, signature, rawBody, true);
-      })
-      .catch(async (error) => {
-        console.error('Error processing webhook events:', error);
-        // Update log with error
-        await logWebhookEvent(eventTypes, signature, rawBody, false, error.message);
-      });
+    // Step 5: Process events in background using waitUntil
+    waitUntil(
+      processWebhookPayload(payload)
+        .then(async () => {
+          console.log('Webhook events processed successfully');
+          // Update log to mark as processed
+          await logWebhookEvent(eventTypes, signature, rawBody, true);
+        })
+        .catch(async (error) => {
+          console.error('Error processing webhook events:', error);
+          // Update log with error
+          await logWebhookEvent(eventTypes, signature, rawBody, false, error.message);
+        })
+    );
 
     return response;
 
