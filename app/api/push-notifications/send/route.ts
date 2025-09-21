@@ -2,18 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { createClient } from '@supabase/supabase-js';
-import webpush from 'web-push';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!;
 const supabaseKey = process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Configure web-push
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
 
 export async function POST(request: NextRequest) {
   try {
@@ -87,6 +79,16 @@ export async function POST(request: NextRequest) {
       url: conversationId ? `/staff/line-chat?conversation=${conversationId}` : '/staff/line-chat'
     };
 
+    // Import web-push dynamically
+    const webpush = await import('web-push');
+
+    // Configure web-push
+    webpush.default.setVapidDetails(
+      process.env.VAPID_SUBJECT!,
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!
+    );
+
     // Send notifications to all active subscriptions
     const sendPromises = subscriptions.map(async (subscription) => {
       try {
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
           }
         };
 
-        await webpush.sendNotification(
+        await webpush.default.sendNotification(
           pushSubscription,
           JSON.stringify(notificationPayload)
         );
