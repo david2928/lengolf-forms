@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
           }
         };
 
-        await webpush.default.sendNotification(
+        const result = await webpush.default.sendNotification(
           pushSubscription,
           JSON.stringify(notificationPayload)
         );
@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
 
         // If subscription is invalid (410 Gone), deactivate it
         if ((error as any)?.statusCode === 410) {
+          console.log(`Deactivating invalid subscription for ${subscription.user_email}`);
           await supabase
             .schema('backoffice')
             .from('push_subscriptions')

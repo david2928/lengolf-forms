@@ -126,7 +126,6 @@ export async function fetchLineUserProfile(userId: string): Promise<LineUserProf
   }
 
   try {
-    console.log(`Fetching LINE profile for user: ${userId}`);
     const response = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
       headers: {
         'Authorization': `Bearer ${channelAccessToken}`,
@@ -150,7 +149,6 @@ export async function fetchLineUserProfile(userId: string): Promise<LineUserProf
     }
 
     const profile: LineUserProfile = await response.json();
-    console.log(`Successfully fetched profile for user: ${userId} (${profile.displayName})`);
     return profile;
   } catch (error) {
     console.error(`Failed to fetch user profile for ${userId}:`, error);
@@ -182,7 +180,6 @@ export async function storeLineUserProfile(profile: LineUserProfile): Promise<vo
       throw error;
     }
 
-    console.log(`Stored/updated profile for user: ${profile.userId}`);
   } catch (err) {
     console.error('Failed to store LINE user profile:', err);
     throw err;
@@ -210,7 +207,6 @@ export async function createMinimalUserRecord(userId: string): Promise<void> {
       throw error;
     }
 
-    console.log(`Created minimal user record for: ${userId}`);
   } catch (err) {
     console.error('Failed to create minimal user record:', err);
     throw err;
@@ -251,7 +247,6 @@ export async function ensureConversationExists(lineUserId: string): Promise<stri
       throw error;
     }
 
-    console.log(`Created conversation for user: ${lineUserId}`);
     return conversation.id;
   } catch (err) {
     console.error('Failed to ensure conversation exists:', err);
@@ -300,13 +295,13 @@ async function sendPushNotificationForNewMessage(
       customerName
     };
 
-    console.log('Attempting to send push notification via API:', notificationData);
-
     // Use the push notification API endpoint instead of direct web-push
     // This ensures consistent behavior and avoids dynamic import issues
     try {
-      // For webhooks, always use the production URL since LINE webhooks only hit production
-      const baseUrl = 'https://lengolf-forms.vercel.app';
+      // Determine the correct base URL - use local when running locally, production otherwise
+      const baseUrl = process.env.NODE_ENV === 'development'
+        ? 'http://localhost:3000'
+        : 'https://lengolf-forms.vercel.app';
 
       const response = await fetch(`${baseUrl}/api/push-notifications/send`, {
         method: 'POST',
@@ -319,9 +314,7 @@ async function sendPushNotificationForNewMessage(
 
       const result = await response.json();
 
-      if (result.success) {
-        console.log(`Webhook push notification sent successfully: ${result.message}`);
-      } else {
+      if (!result.success) {
         console.error('Webhook push notification failed:', result.error);
       }
     } catch (apiError) {
@@ -489,8 +482,6 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
     if (updateError) {
       console.error('Error updating conversation:', updateError);
     }
-
-    console.log(`Stored message: ${event.webhookEventId} from user: ${event.source.userId}`);
 
     // Send push notification to all staff (don't await this to avoid blocking)
     sendPushNotificationForNewMessage(event, conversationId, displayText)
