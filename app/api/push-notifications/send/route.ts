@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Import web-push dynamically
-    const webpush = await import('web-push');
+    const webpush = await import('web-push') as any;
 
     // Configure web-push
     webpush.default.setVapidDetails(
