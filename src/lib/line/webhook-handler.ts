@@ -305,9 +305,8 @@ async function sendPushNotificationForNewMessage(
     // Use the push notification API endpoint instead of direct web-push
     // This ensures consistent behavior and avoids dynamic import issues
     try {
-      const baseUrl = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      // For webhooks, always use the production URL since LINE webhooks only hit production
+      const baseUrl = 'https://lengolf-forms.vercel.app';
 
       const response = await fetch(`${baseUrl}/api/push-notifications/send`, {
         method: 'POST',
