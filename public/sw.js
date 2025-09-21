@@ -318,7 +318,7 @@ self.addEventListener('push', (event) => {
     body: 'You have a new customer message',
     icon: '/favicon.svg',
     badge: '/favicon.svg',
-    tag: 'line-message',
+    tag: `line-message-${Date.now()}`,
     requireInteraction: false,
     actions: [
       {
@@ -336,11 +336,11 @@ self.addEventListener('push', (event) => {
   if (event.data) {
     try {
       const data = event.data.json();
-      // For test notifications, use a unique tag to avoid replacement
+      // Always use unique tags to prevent Chrome from silently replacing notifications
       const isTestNotification = data.title && data.title.includes('Test');
       const notificationTag = isTestNotification
         ? `test-notification-${Date.now()}`
-        : data.tag || notificationData.tag;
+        : `line-message-${data.conversationId || 'unknown'}-${Date.now()}`;
 
       notificationData = {
         ...notificationData,
