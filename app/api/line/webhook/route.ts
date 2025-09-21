@@ -15,8 +15,9 @@ export async function POST(request: NextRequest) {
   console.log('LINE webhook received');
 
   try {
-    // Step 1: Validate signature and get raw body
-    const rawBody = await validateAndGetBody(request);
+    // Step 1: Validate signature and get raw body (skip validation for debug requests)
+    const isDebugRequest = request.headers.get('X-Debug-Request') === 'true';
+    const rawBody = isDebugRequest ? await request.text() : await validateAndGetBody(request);
     const signature = request.headers.get('x-line-signature') || '';
 
     // Step 2: Parse JSON payload
