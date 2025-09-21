@@ -300,81 +300,34 @@ async function sendPushNotificationForNewMessage(
       customerName
     };
 
-    console.log('Attempting to send push notification:', notificationData);
+    console.log('Attempting to send push notification via API:', notificationData);
 
-    // Get active subscriptions directly from database
-    const { data: subscriptions, error } = await supabase
-      .schema('backoffice')
-      .from('push_subscriptions')
-      .select('*')
-      .eq('is_active', true);
-
-    if (error) {
-      console.error('Error fetching subscriptions for webhook notification:', error);
-      return;
-    }
-
-    if (!subscriptions || subscriptions.length === 0) {
-      console.log('No active push subscriptions found for webhook notification');
-      return;
-    }
-
-    console.log(`Found ${subscriptions.length} active push subscriptions`);
-
-    // Import webpush dynamically since it's not available in webhook context
-    let webpush: any;
+    // Use the push notification API endpoint instead of direct web-push
+    // This ensures consistent behavior and avoids dynamic import issues
     try {
-      webpush = await import('web-push');
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
-      // Configure web-push
-      webpush.default.setVapidDetails(
-        process.env.VAPID_SUBJECT!,
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-        process.env.VAPID_PRIVATE_KEY!
-      );
-    } catch (error) {
-      console.error('Failed to import web-push module:', error);
-      console.log('Push notifications will not be sent from webhook');
-      return;
-    }
+      const response = await fetch(`${baseUrl}/api/push-notifications/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Request': 'true' // Mark as internal request to bypass auth
+        },
+        body: JSON.stringify(notificationData)
+      });
 
-    // Send notifications to all active subscriptions
-    const sendPromises = subscriptions.map(async (subscription) => {
-      try {
-        const pushSubscription = {
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: subscription.p256dh_key,
-            auth: subscription.auth_key
-          }
-        };
+      const result = await response.json();
 
-        await webpush.default.sendNotification(
-          pushSubscription,
-          JSON.stringify(notificationData)
-        );
-
-        console.log(`Push notification sent to ${subscription.user_email}`);
-        return { success: true, email: subscription.user_email };
-      } catch (error) {
-        console.error(`Failed to send push notification to ${subscription.user_email}:`, error);
-
-        // If subscription is invalid (410 Gone), deactivate it
-        if ((error as any)?.statusCode === 410) {
-          await supabase
-            .schema('backoffice')
-            .from('push_subscriptions')
-            .update({ is_active: false })
-            .eq('id', subscription.id);
-        }
-
-        return { success: false, email: subscription.user_email, error: error instanceof Error ? error.message : 'Unknown error' };
+      if (result.success) {
+        console.log(`Webhook push notification sent successfully: ${result.message}`);
+      } else {
+        console.error('Webhook push notification failed:', result.error);
       }
-    });
-
-    const results = await Promise.all(sendPromises);
-    const successful = results.filter(r => r.success).length;
-    console.log(`Push notifications sent to ${successful} users via webhook`);
+    } catch (apiError) {
+      console.error('Failed to call push notification API from webhook:', apiError);
+    }
 
   } catch (error) {
     console.error('Error sending push notification from webhook:', error);
