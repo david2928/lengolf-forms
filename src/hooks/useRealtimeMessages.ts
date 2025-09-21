@@ -82,7 +82,11 @@ export function useRealtimeMessages({
 
   const connect = useCallback(async () => {
     if (!conversationId || !supabaseRealtime) {
-      setConnectionStatus(prev => ({ ...prev, status: 'disconnected' }));
+      setConnectionStatus(prev => ({
+        ...prev,
+        status: 'disconnected',
+        error: supabaseRealtime ? undefined : 'Realtime client not available'
+      }));
       return;
     }
 
@@ -91,11 +95,11 @@ export function useRealtimeMessages({
 
     try {
       console.log(`Connecting to realtime messages for conversation: ${conversationId}`);
-      setConnectionStatus(prev => ({ ...prev, status: 'connecting' }));
+      setConnectionStatus(prev => ({ ...prev, status: 'connecting', error: undefined }));
 
-      // Create channel with conversation-specific name
+      // Create channel with minimal configuration
       const channel = supabaseRealtime
-        .channel(`line_messages:conversation:${conversationId}`)
+        .channel(`messages-${conversationId}`)
         .on(
           'postgres_changes',
           {
@@ -105,17 +109,16 @@ export function useRealtimeMessages({
             filter: `conversation_id=eq.${conversationId}`
           },
           (payload: any) => {
-            console.log('Realtime message INSERT:', payload);
+            console.log('📨 New message via realtime:', payload.new?.message_text);
 
             const messageId = payload.new?.id;
             if (!messageId || processedMessagesRef.current.has(messageId)) {
-              console.log('Skipping duplicate message:', messageId);
               return;
             }
 
             processedMessagesRef.current.add(messageId);
 
-            // Transform database record to Message interface
+            // Transform to Message interface
             const message: Message = {
               id: payload.new.id,
               text: payload.new.message_text,
@@ -141,45 +144,8 @@ export function useRealtimeMessages({
             onNewMessage?.(message);
           }
         )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'line_messages',
-            filter: `conversation_id=eq.${conversationId}`
-          },
-          (payload: any) => {
-            console.log('Realtime message UPDATE:', payload);
-
-            // Transform database record to Message interface
-            const message: Message = {
-              id: payload.new.id,
-              text: payload.new.message_text,
-              type: payload.new.message_type || 'text',
-              senderType: payload.new.sender_type === 'admin' ? 'admin' : 'user',
-              senderName: payload.new.sender_name,
-              createdAt: payload.new.created_at,
-              timestamp: payload.new.timestamp,
-              packageId: payload.new.package_id,
-              stickerId: payload.new.sticker_id,
-              stickerKeywords: payload.new.sticker_keywords,
-              fileUrl: payload.new.file_url,
-              fileName: payload.new.file_name,
-              fileSize: payload.new.file_size,
-              fileType: payload.new.file_type,
-              imageUrl: payload.new.image_url,
-              quoteToken: payload.new.quote_token,
-              repliedToMessageId: payload.new.replied_to_message_id,
-              replyPreviewText: payload.new.reply_preview_text,
-              replyPreviewType: payload.new.reply_preview_type,
-            };
-
-            onMessageUpdate?.(message);
-          }
-        )
         .subscribe((status) => {
-          console.log('Realtime subscription status:', status);
+          console.log('🔌 Realtime status:', status);
 
           if (status === 'SUBSCRIBED') {
             setConnectionStatus({
@@ -190,13 +156,13 @@ export function useRealtimeMessages({
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             setConnectionStatus(prev => ({
               status: 'error',
-              error: `Subscription failed: ${status}`,
+              error: `Connection failed: ${status}`,
               reconnectAttempts: prev.reconnectAttempts + 1
             }));
 
-            // Exponential backoff reconnection
+            // Retry with exponential backoff
             const delay = Math.min(1000 * Math.pow(2, connectionStatus.reconnectAttempts), 30000);
-            console.log(`Reconnecting in ${delay}ms...`);
+            console.log(`🔄 Retrying in ${delay}ms...`);
 
             reconnectTimeoutRef.current = setTimeout(() => {
               connect();
@@ -209,14 +175,14 @@ export function useRealtimeMessages({
       channelRef.current = channel;
 
     } catch (error) {
-      console.error('Failed to connect to realtime messages:', error);
+      console.error('❌ Realtime connection failed:', error);
       setConnectionStatus(prev => ({
         status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : 'Connection failed',
         reconnectAttempts: prev.reconnectAttempts + 1
       }));
     }
-  }, [conversationId, onNewMessage, onMessageUpdate, disconnect, connectionStatus.reconnectAttempts]);
+  }, [conversationId, onNewMessage, disconnect]);
 
   // Connect when conversationId changes
   useEffect(() => {

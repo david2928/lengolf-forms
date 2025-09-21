@@ -34,11 +34,6 @@ if (supabaseUrl && supabaseAnonKey) {
         persistSession: false,
         detectSessionInUrl: false
       },
-      realtime: {
-        params: {
-          eventsPerSecond: 10
-        }
-      },
       global: {
         headers: {
           'X-Client-Info': 'lengolf-forms'
@@ -66,11 +61,6 @@ if (supabaseUrl && supabaseServiceRoleKey) {
       },
       db: {
         schema: 'public'
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10
-        }
       },
       global: {
         headers: {

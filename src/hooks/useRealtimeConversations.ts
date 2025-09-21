@@ -71,7 +71,11 @@ export function useRealtimeConversations({
 
   const connect = useCallback(async () => {
     if (!supabaseRealtime) {
-      setConnectionStatus(prev => ({ ...prev, status: 'disconnected' }));
+      setConnectionStatus(prev => ({
+        ...prev,
+        status: 'error',
+        error: 'Realtime client not available'
+      }));
       return;
     }
 
@@ -79,52 +83,12 @@ export function useRealtimeConversations({
     disconnect();
 
     try {
-      console.log('Connecting to realtime conversations');
-      setConnectionStatus(prev => ({ ...prev, status: 'connecting' }));
+      console.log('📋 Connecting to realtime conversations');
+      setConnectionStatus(prev => ({ ...prev, status: 'connecting', error: undefined }));
 
       // Create channel for conversation updates
       const channel = supabaseRealtime
-        .channel('line_conversations:updates')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'line_conversations'
-          },
-          (payload: any) => {
-            console.log('Realtime conversation INSERT:', payload);
-
-            const conversationId = payload.new?.id;
-            const updateKey = `insert:${conversationId}`;
-
-            if (!conversationId || processedUpdatesRef.current.has(updateKey)) {
-              console.log('Skipping duplicate conversation insert:', conversationId);
-              return;
-            }
-
-            processedUpdatesRef.current.add(updateKey);
-
-            // For new conversations, we need to fetch complete data including user/customer info
-            // This is a simplified version - in practice you might want to call the API
-            const newConversation: Conversation = {
-              id: payload.new.id,
-              lineUserId: payload.new.line_user_id,
-              customerId: payload.new.customer_id,
-              lastMessageAt: payload.new.last_message_at || payload.new.created_at,
-              lastMessageText: payload.new.last_message_text,
-              lastMessageBy: payload.new.last_message_by || 'user',
-              lastMessageType: payload.new.last_message_type,
-              unreadCount: payload.new.unread_count || 0,
-              user: {
-                displayName: 'New User', // This would normally come from a join
-                lineUserId: payload.new.line_user_id
-              }
-            };
-
-            onNewConversation?.(newConversation);
-          }
-        )
+        .channel('conversations-updates')
         .on(
           'postgres_changes',
           {
@@ -133,20 +97,19 @@ export function useRealtimeConversations({
             table: 'line_conversations'
           },
           (payload: any) => {
-            console.log('Realtime conversation UPDATE:', payload);
+            console.log('📋 Conversation update via realtime:', payload.new?.id);
 
             const conversationId = payload.new?.id;
             const updateKey = `update:${conversationId}:${payload.new.updated_at}`;
 
             if (!conversationId || processedUpdatesRef.current.has(updateKey)) {
-              console.log('Skipping duplicate conversation update:', conversationId);
               return;
             }
 
             processedUpdatesRef.current.add(updateKey);
 
-            // Create partial update object with changed fields
-            const conversationUpdate: Partial<Conversation> & { id: string } = {
+            // Create partial update object
+            const conversationUpdate = {
               id: conversationId,
               lastMessageAt: payload.new.last_message_at,
               lastMessageText: payload.new.last_message_text,
@@ -159,7 +122,7 @@ export function useRealtimeConversations({
           }
         )
         .subscribe((status) => {
-          console.log('Realtime conversations subscription status:', status);
+          console.log('🔌 Conversations realtime status:', status);
 
           if (status === 'SUBSCRIBED') {
             setConnectionStatus({
@@ -170,17 +133,9 @@ export function useRealtimeConversations({
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             setConnectionStatus(prev => ({
               status: 'error',
-              error: `Subscription failed: ${status}`,
+              error: `Connection failed: ${status}`,
               reconnectAttempts: prev.reconnectAttempts + 1
             }));
-
-            // Exponential backoff reconnection
-            const delay = Math.min(1000 * Math.pow(2, connectionStatus.reconnectAttempts), 30000);
-            console.log(`Reconnecting conversations in ${delay}ms...`);
-
-            reconnectTimeoutRef.current = setTimeout(() => {
-              connect();
-            }, delay);
           } else if (status === 'CLOSED') {
             setConnectionStatus(prev => ({ ...prev, status: 'disconnected' }));
           }
@@ -189,14 +144,14 @@ export function useRealtimeConversations({
       channelRef.current = channel;
 
     } catch (error) {
-      console.error('Failed to connect to realtime conversations:', error);
+      console.error('❌ Conversations realtime failed:', error);
       setConnectionStatus(prev => ({
         status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : 'Connection failed',
         reconnectAttempts: prev.reconnectAttempts + 1
       }));
     }
-  }, [onConversationUpdate, onNewConversation, disconnect, connectionStatus.reconnectAttempts]);
+  }, [onConversationUpdate, disconnect]);
 
   // Connect on mount
   useEffect(() => {

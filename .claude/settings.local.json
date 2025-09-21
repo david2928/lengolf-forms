@@ -39,7 +39,10 @@
       "Bash(npx web-push:*)",
       "mcp__supabase__get_project_url",
       "Bash(export:*)",
-      "WebFetch(domain:developers.line.biz)"
+      "WebFetch(domain:developers.line.biz)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "Read(//c/vs_code/realtime-test-isolated/**)"
     ],
     "deny": [],
     "ask": []

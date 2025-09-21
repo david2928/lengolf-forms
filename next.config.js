@@ -41,25 +41,29 @@ const nextConfig = {
   // Optimize bundle by excluding unused dependencies
   webpack: (config, { isServer, dev }) => {
     // Fix cache serialization performance warning
-    config.cache = {
-      ...config.cache,
-      compression: 'gzip',
-      maxMemoryGenerations: 1,
+    // Disable aggressive caching in dev to prevent realtime issues
+    if (!dev) {
+      config.cache = {
+        ...config.cache,
+        compression: 'gzip',
+        maxMemoryGenerations: 1,
+      }
     }
 
     if (!isServer) {
       config.resolve.alias = {
         ...config.resolve.alias,
-        '@supabase/realtime-js': false,
+        // Removed realtime-js exclusion to enable client-side realtime
       }
 
-      // Exclude Node.js APIs from client bundle
+      // Exclude Node.js APIs from client bundle (except those needed for realtime)
       config.resolve.fallback = {
         ...config.resolve.fallback,
         process: false,
         fs: false,
-        net: false,
-        tls: false,
+        // Keep net and tls for WebSocket/realtime functionality
+        // net: false,
+        // tls: false,
       }
     }
 
@@ -83,6 +87,14 @@ const nextConfig = {
           cacheGroups: {
             default: false,
             vendors: false,
+            // Supabase chunk (isolated to prevent conflicts)
+            supabase: {
+              name: 'supabase',
+              chunks: 'all',
+              test: /node_modules\/@supabase/,
+              priority: 40,
+              enforce: true
+            },
             // Vendor chunk for common libraries
             vendor: {
               name: 'vendor',
@@ -122,7 +134,7 @@ const nextConfig = {
   },
   
   // Optimize builds
-  serverExternalPackages: ['@supabase/realtime-js'],
+  // Removed realtime-js from server externals to enable realtime functionality
   experimental: {
   },
   
