@@ -21,6 +21,8 @@ import { ReplyDisplay } from '@/components/line/ReplyDisplay';
 import { compressImage } from '@/lib/image-compression';
 import { imageCache } from '@/lib/image-cache';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
+import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 import {
   MessageSquare,
   Send,
@@ -229,6 +231,78 @@ export default function LineChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastOpenedConversationRef = useRef<string | null>(null);
+
+  // Realtime message updates for selected conversation
+  const {
+    connectionStatus: messagesConnectionStatus,
+    reconnect: reconnectMessages
+  } = useRealtimeMessages({
+    conversationId: selectedConversation,
+    onNewMessage: useCallback((message: Message) => {
+      console.log('Realtime new message received:', message);
+
+      // Add to messages array if not already present
+      setMessages(prev => {
+        const exists = prev.some(m => m.id === message.id);
+        if (exists) return prev;
+
+        // Insert in chronological order
+        const newMessages = [...prev, message];
+        return newMessages.sort((a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+      });
+
+      // Auto-scroll for new messages from other users
+      if (message.senderType === 'user') {
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
+    }, []),
+    onMessageUpdate: useCallback((message: Message) => {
+      console.log('Realtime message update received:', message);
+
+      // Update existing message
+      setMessages(prev =>
+        prev.map(m => m.id === message.id ? message : m)
+      );
+    }, [])
+  });
+
+  // Realtime conversation list updates
+  const {
+    connectionStatus: conversationsConnectionStatus,
+    reconnect: reconnectConversations
+  } = useRealtimeConversations({
+    onConversationUpdate: useCallback((update) => {
+      console.log('Realtime conversation update received:', update);
+
+      // Update conversation in list
+      setConversations(prev =>
+        prev.map(conv =>
+          conv.id === update.id
+            ? { ...conv, ...update }
+            : conv
+        ).sort((a, b) =>
+          new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+        )
+      );
+    }, []),
+    onNewConversation: useCallback((conversation) => {
+      console.log('Realtime new conversation received:', conversation);
+
+      // Add new conversation to list
+      setConversations(prev => {
+        const exists = prev.some(c => c.id === conversation.id);
+        if (exists) return prev;
+
+        return [conversation, ...prev].sort((a, b) =>
+          new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+        );
+      });
+    }, [])
+  });
 
   // Link LINE user to customer
   const linkCustomerToLineUser = async (customerId: string, customer: any) => {
@@ -889,23 +963,44 @@ export default function LineChatPage() {
     }
   };
 
-  // Setup polling for new messages
+  // Setup minimal fallback polling (30 seconds) as backup to realtime
   useEffect(() => {
     fetchConversations();
     setLoading(false);
 
-    // Poll for updates every 5 seconds when window is focused
-    const startPolling = () => {
+    // Reduced polling as fallback - only when realtime is disconnected or as periodic sync
+    const startFallbackPolling = () => {
       if (pollIntervalRef.current) return;
 
       pollIntervalRef.current = setInterval(() => {
         if (!document.hidden) {
-          fetchConversations();
-          if (selectedConversation) {
-            fetchMessages(selectedConversation);
+          // Only poll if realtime connections are having issues or as periodic sync
+          const hasConnectionIssues =
+            messagesConnectionStatus.status === 'error' ||
+            messagesConnectionStatus.status === 'disconnected' ||
+            conversationsConnectionStatus.status === 'error' ||
+            conversationsConnectionStatus.status === 'disconnected';
+
+          if (hasConnectionIssues) {
+            console.log('Fallback polling due to realtime connection issues');
+            fetchConversations();
+            if (selectedConversation) {
+              fetchMessages(selectedConversation);
+            }
+          } else {
+            // Periodic sync every few cycles even when realtime is working
+            const now = Date.now();
+            const lastSync = localStorage.getItem('lastPeriodicSync');
+            const timeSinceLastSync = now - (lastSync ? parseInt(lastSync) : 0);
+
+            if (timeSinceLastSync > 5 * 60 * 1000) { // 5 minutes
+              console.log('Periodic sync for data consistency');
+              fetchConversations();
+              localStorage.setItem('lastPeriodicSync', now.toString());
+            }
           }
         }
-      }, 5000);
+      }, 30000); // 30 seconds instead of 5
     };
 
     const stopPolling = () => {
@@ -920,18 +1015,20 @@ export default function LineChatPage() {
       if (document.hidden) {
         stopPolling();
       } else {
-        startPolling();
+        startFallbackPolling();
+        // Refresh data when coming back to the page
+        fetchConversations();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    startPolling();
+    startFallbackPolling();
 
     return () => {
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchConversations, fetchMessages, selectedConversation]);
+  }, [fetchConversations, fetchMessages, selectedConversation, messagesConnectionStatus.status, conversationsConnectionStatus.status]);
 
   // Fetch messages when conversation is selected
   useEffect(() => {
@@ -1052,6 +1149,52 @@ export default function LineChatPage() {
             </div>
           )}
 
+          {/* Realtime Connection Status */}
+          <div className="mb-3 flex items-center justify-between text-xs">
+            <div className="flex items-center space-x-2">
+              <span className="text-gray-500">Realtime:</span>
+              <div className="flex items-center space-x-1">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    messagesConnectionStatus.status === 'connected' && conversationsConnectionStatus.status === 'connected'
+                      ? 'bg-green-500'
+                      : messagesConnectionStatus.status === 'connecting' || conversationsConnectionStatus.status === 'connecting'
+                      ? 'bg-yellow-500'
+                      : 'bg-red-500'
+                  }`}
+                />
+                <span
+                  className={`${
+                    messagesConnectionStatus.status === 'connected' && conversationsConnectionStatus.status === 'connected'
+                      ? 'text-green-600'
+                      : messagesConnectionStatus.status === 'connecting' || conversationsConnectionStatus.status === 'connecting'
+                      ? 'text-yellow-600'
+                      : 'text-red-600'
+                  }`}
+                >
+                  {messagesConnectionStatus.status === 'connected' && conversationsConnectionStatus.status === 'connected'
+                    ? 'Connected'
+                    : messagesConnectionStatus.status === 'connecting' || conversationsConnectionStatus.status === 'connecting'
+                    ? 'Connecting...'
+                    : 'Disconnected'}
+                </span>
+              </div>
+            </div>
+            {(messagesConnectionStatus.status === 'error' || conversationsConnectionStatus.status === 'error') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  reconnectMessages();
+                  reconnectConversations();
+                }}
+                className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
+                title="Reconnect to realtime"
+              >
+                Retry
+              </Button>
+            )}
+          </div>
 
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -1235,6 +1378,22 @@ export default function LineChatPage() {
                     <Target className="h-4 w-4 text-gray-600" />
                   </Button>
                 </Link>
+
+                {/* Manual Refresh Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    fetchConversations();
+                    if (selectedConversation) {
+                      fetchMessages(selectedConversation);
+                    }
+                  }}
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  title="Refresh conversations and messages"
+                >
+                  <RefreshCw className="h-4 w-4 text-gray-600" />
+                </Button>
 
                 <Button
                   variant="outline"
