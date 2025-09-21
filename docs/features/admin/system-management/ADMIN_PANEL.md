@@ -240,6 +240,17 @@ The Sales Dashboard is the first fully implemented admin feature, providing comp
 - **Purpose**: Secure admin-only access
 - **Features**: Route protection, session verification, middleware enforcement
 
+### 12. Infrastructure Monitoring
+- **Status**: Planned/Partially Implemented
+- **Purpose**: Monitor and optimize Supabase infrastructure usage, focusing on egress tracking
+- **Features**:
+  - Comprehensive egress breakdown and cost analysis
+  - Real-time infrastructure usage monitoring
+  - Cost optimization recommendations
+  - Historical usage trending and projections
+  - Service-level egress tracking (Storage, Database, Auth, Edge Functions)
+  - Automated alerts for usage thresholds
+
 ## Planned Features
 
 ### Phase 1 (Immediate)
@@ -335,6 +346,7 @@ admin/
 /admin/competitors         # Competitor tracking system
 /admin/customer-outreach   # Customer audience building and OB sales
 /admin/finance-dashboard   # Finance dashboard and P&L analysis
+/admin/infrastructure      # Infrastructure monitoring and egress management
 /admin/settings            # System settings (planned)
 ```
 
@@ -380,6 +392,12 @@ export function middleware(request: NextRequest) {
 /api/finance/pl-comparison          # Multi-month P&L comparison
 /api/finance/operating-expenses     # Operating expenses management
 /api/finance/manual-entries         # Manual revenue/COGS entries
+/api/admin/infrastructure/egress    # Current egress usage and breakdown
+/api/admin/infrastructure/egress/breakdown  # Detailed egress by service
+/api/admin/infrastructure/egress/trends     # Historical egress data
+/api/admin/infrastructure/optimize  # Egress optimization suggestions
+/api/admin/infrastructure/costs     # Cost analysis and projections
+/api/admin/infrastructure/alerts    # Usage threshold alerts
 ```
 
 ## Security
@@ -427,6 +445,235 @@ export function middleware(request: NextRequest) {
 - [ ] Implement granular permissions
 - [ ] Add comprehensive testing
 - [ ] Performance optimizations
+
+## Infrastructure Monitoring and Egress Management
+
+### Overview
+The Infrastructure Monitoring system provides comprehensive visibility into Supabase usage patterns, with a focus on egress tracking and cost optimization. Based on analysis of a 5.25 GB monthly egress baseline, the system identifies key sources and provides actionable optimization strategies.
+
+### Egress Breakdown Analysis
+
+#### Complete Usage Breakdown (5.25 GB/month)
+```
+┌─ Storage: 4.338 GB (82.63%) ─────────────────────────────┐
+│  ├─ Time Clock Photos: 2.832 GB (53.94%)                │
+│  │   594 photos × 500KB × 10 views/month                 │
+│  ├─ LINE Image Library: 0.977 GB (18.61%)               │
+│  │   Curated images sent via LINE messaging              │
+│  └─ Transaction Signatures: 0.529 GB (10.08%)           │
+│      555 digital signatures × 200KB × 5 views/month     │
+├─ Development/Testing: 0.488 GB (9.30%)                   │
+│   Local development, CI/CD, testing traffic             │
+├─ Database Queries: 0.355 GB (6.76%)                      │
+│  ├─ Admin Dashboards: 0.286 GB                          │
+│  └─ Marketing Data ETL: 0.069 GB                        │
+├─ Other Services: 0.033 GB (0.63%)                        │
+│   Auth, POS API, External integrations                  │
+└─ Unidentified Gap: 0.036 GB (0.69%)                     │
+    Minor untracked sources                                │
+└──────────────────────────────────────────────────────────┘
+```
+
+#### Cost Analysis
+- **Current Monthly Cost (Uncached)**: $0.47 at $0.09/GB
+- **Optimized Cost (Cached)**: $0.16 at $0.03/GB (66% savings)
+- **Annual Impact**: $3.72 potential savings with caching optimization
+
+### Service-Level Egress Details
+
+#### 1. Storage Services (82.63% of total egress)
+**Time Clock Photos (2.832 GB - 53.94%)**
+- **Source**: 594 time clock photos in `time-clock-photos` bucket
+- **Access Pattern**: Staff viewing clock-in/out records in admin dashboard
+- **Optimization Potential**: High - implement CDN caching
+
+**LINE Image Library (0.977 GB - 18.61%)**
+- **Source**: Curated images sent to customers via LINE messaging
+- **Access Pattern**: Images served when staff send messages to customers
+- **Optimization Potential**: Medium - compress images before storage
+
+**Transaction Signatures (0.529 GB - 10.08%)**
+- **Source**: 555 digital signatures in `signature` bucket
+- **Access Pattern**: Signatures viewed when reviewing transactions
+- **Optimization Potential**: Low - infrequent access, already optimized size
+
+#### 2. Database Services (6.76% of total egress)
+**Admin Dashboards (0.286 GB)**
+- **Source**: Sales, Marketing, Finance dashboard queries
+- **Access Pattern**: Daily dashboard loads by admin users
+- **Optimization Potential**: High - implement query result caching
+
+**Marketing Data ETL (0.069 GB)**
+- **Source**: Google Ads and Meta Ads data synchronization
+- **Access Pattern**: Automated hourly data fetches
+- **Optimization Potential**: Medium - optimize query efficiency
+
+#### 3. Development and Testing (9.30% of total egress)
+- **Source**: Local development, CI/CD pipelines, automated testing
+- **Optimization Potential**: Medium - ensure dev environments use separate instances
+
+### Monitoring Implementation
+
+#### Database Schema
+```sql
+-- Create infrastructure monitoring schema
+CREATE SCHEMA IF NOT EXISTS infrastructure;
+
+-- Egress tracking table
+CREATE TABLE infrastructure.egress_metrics (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    service_type TEXT NOT NULL, -- 'Storage', 'Database', 'Auth', 'Edge Functions', 'Realtime'
+    endpoint TEXT,
+    request_bytes INTEGER DEFAULT 0,
+    response_bytes INTEGER NOT NULL,
+    user_id UUID,
+    session_id TEXT,
+    cached BOOLEAN DEFAULT FALSE,
+    source_ip INET,
+    user_agent TEXT
+);
+
+-- Daily egress summary view
+CREATE VIEW infrastructure.daily_egress_summary AS
+SELECT
+    DATE(timestamp) as date,
+    service_type,
+    COUNT(*) as request_count,
+    SUM(response_bytes) as total_bytes,
+    ROUND(SUM(response_bytes) / 1024.0 / 1024.0, 2) as mb,
+    ROUND(SUM(response_bytes) / 1024.0 / 1024.0 / 1024.0, 3) as gb,
+    ROUND(AVG(response_bytes), 0) as avg_response_size,
+    COUNT(CASE WHEN cached THEN 1 END) as cached_requests,
+    ROUND(COUNT(CASE WHEN cached THEN 1 END) * 100.0 / COUNT(*), 2) as cache_hit_rate
+FROM infrastructure.egress_metrics
+GROUP BY DATE(timestamp), service_type;
+
+-- Monthly cost projection
+CREATE VIEW infrastructure.monthly_cost_projection AS
+SELECT
+    service_type,
+    SUM(gb) as monthly_gb,
+    ROUND(SUM(gb) * 0.09, 3) as uncached_cost_usd,
+    ROUND(SUM(gb) * 0.03, 3) as cached_cost_usd,
+    ROUND((SUM(gb) * 0.09) - (SUM(gb) * 0.03), 3) as potential_savings_usd
+FROM infrastructure.daily_egress_summary
+WHERE date >= DATE_TRUNC('month', CURRENT_DATE)
+GROUP BY service_type;
+```
+
+#### Monitoring Queries
+
+**Daily Egress by Service**
+```sql
+SELECT
+    service_type,
+    ROUND(SUM(response_bytes) / 1024.0 / 1024.0 / 1024.0, 3) as gb_today,
+    COUNT(*) as requests_today,
+    ROUND(AVG(response_bytes), 0) as avg_response_size
+FROM infrastructure.egress_metrics
+WHERE DATE(timestamp) = CURRENT_DATE
+GROUP BY service_type
+ORDER BY gb_today DESC;
+```
+
+**Top Egress Endpoints**
+```sql
+SELECT
+    endpoint,
+    service_type,
+    COUNT(*) as request_count,
+    ROUND(SUM(response_bytes) / 1024.0 / 1024.0, 2) as total_mb,
+    ROUND(AVG(response_bytes), 0) as avg_size_bytes
+FROM infrastructure.egress_metrics
+WHERE timestamp >= NOW() - INTERVAL '7 days'
+GROUP BY endpoint, service_type
+ORDER BY total_mb DESC
+LIMIT 20;
+```
+
+**Cache Efficiency Analysis**
+```sql
+SELECT
+    service_type,
+    COUNT(*) as total_requests,
+    COUNT(CASE WHEN cached THEN 1 END) as cached_requests,
+    ROUND(COUNT(CASE WHEN cached THEN 1 END) * 100.0 / COUNT(*), 2) as cache_hit_rate,
+    ROUND(SUM(CASE WHEN cached THEN response_bytes ELSE 0 END) / 1024.0 / 1024.0, 2) as cached_mb,
+    ROUND(SUM(CASE WHEN NOT cached THEN response_bytes ELSE 0 END) / 1024.0 / 1024.0, 2) as uncached_mb
+FROM infrastructure.egress_metrics
+WHERE timestamp >= NOW() - INTERVAL '30 days'
+GROUP BY service_type;
+```
+
+### Cost Optimization Strategies
+
+#### 1. Storage Optimization (Potential: 2.2 GB savings)
+
+**Cache Time Clock Photos**
+- **Implementation**: Configure CDN caching for frequently viewed photos
+- **Potential Savings**: ~1.4 GB/month (70% cache hit rate assumed)
+- **Cost Impact**: $0.13/month → $0.04/month
+
+**Optimize Image Sizes**
+- **Implementation**: Compress images to 300KB (from 500KB average)
+- **Potential Savings**: ~0.8 GB/month
+- **Cost Impact**: Additional $0.07/month savings
+
+#### 2. Database Query Optimization (Potential: 0.2 GB savings)
+
+**Dashboard Query Caching**
+- **Implementation**: Cache dashboard queries for 5-10 minutes
+- **Potential Savings**: ~0.2 GB/month
+- **Cost Impact**: $0.02/month savings
+
+**Query Result Pagination**
+- **Implementation**: Implement pagination for large dataset queries
+- **Potential Savings**: ~0.1 GB/month
+
+#### 3. Development Environment Optimization (Potential: 0.3 GB savings)
+
+**Separate Development Instance**
+- **Implementation**: Use dedicated Supabase project for development
+- **Potential Savings**: ~0.3 GB/month (eliminate development traffic)
+- **Cost Impact**: $0.03/month savings
+
+#### 4. Smart Loading Strategies
+
+**Lazy Loading for Images**
+- **Implementation**: Load images only when visible in viewport
+- **Potential Savings**: ~0.5 GB/month
+- **Cost Impact**: $0.05/month savings
+
+### Alert Configuration
+
+#### Usage Threshold Alerts
+```sql
+-- Daily egress threshold check (run via cron)
+SELECT
+    service_type,
+    ROUND(SUM(response_bytes) / 1024.0 / 1024.0 / 1024.0, 3) as gb_today
+FROM infrastructure.egress_metrics
+WHERE DATE(timestamp) = CURRENT_DATE
+GROUP BY service_type
+HAVING SUM(response_bytes) > 200 * 1024 * 1024 * 1024; -- Alert if > 200MB/day
+```
+
+#### Cost Projection Alerts
+```sql
+-- Monthly cost projection (run weekly)
+WITH monthly_projection AS (
+    SELECT
+        SUM(gb) * (30.0 / EXTRACT(DAY FROM CURRENT_DATE)) as projected_monthly_gb
+    FROM infrastructure.daily_egress_summary
+    WHERE date >= DATE_TRUNC('month', CURRENT_DATE)
+)
+SELECT
+    projected_monthly_gb,
+    ROUND(projected_monthly_gb * 0.09, 2) as projected_cost_usd
+FROM monthly_projection
+WHERE projected_monthly_gb > 6.0; -- Alert if projecting > 6GB/month
+```
 
 ## Best Practices for Admin Development
 

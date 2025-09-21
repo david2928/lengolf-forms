@@ -10,15 +10,16 @@ async function customMiddleware(request: NextRequest, event: NextFetchEvent) {
     process.env.NODE_ENV === 'development' &&
     process.env.SKIP_AUTH === 'true'
   );
-  
+
   if (shouldBypass) {
     // If trying to access auth pages in dev mode, redirect to home
     if (request.nextUrl.pathname.startsWith('/auth/')) {
       return NextResponse.redirect(new URL('/', request.url));
     }
-    
+
     const response = NextResponse.next();
     response.headers.set('x-pathname', request.nextUrl.pathname);
+
     return response;
   }
 

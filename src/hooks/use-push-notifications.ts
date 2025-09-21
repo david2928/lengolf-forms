@@ -45,16 +45,16 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     if (isSupported) {
       registerServiceWorker();
     }
-  }, [isSupported]);
+  }, [isSupported, registerServiceWorker]);
 
   // Check subscription status on mount
   useEffect(() => {
     if (isSupported) {
       checkSubscriptionStatus();
     }
-  }, [isSupported]);
+  }, [isSupported, checkSubscriptionStatus]);
 
-  const registerServiceWorker = async () => {
+  const registerServiceWorker = useCallback(async () => {
     try {
       if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.register('/sw.js');
@@ -67,7 +67,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       console.error('Service worker registration failed:', error);
       setError('Failed to register service worker');
     }
-  };
+  }, []);
 
   const handleServiceWorkerMessage = (event: MessageEvent) => {
     if (event.data?.action === 'focus-conversation') {

@@ -80,14 +80,23 @@ export async function POST(request: NextRequest) {
     };
 
     // Import web-push dynamically
-    const webpush = await import('web-push') as any;
+    let webpush: any;
+    try {
+      webpush = await import('web-push');
 
-    // Configure web-push
-    webpush.default.setVapidDetails(
-      process.env.VAPID_SUBJECT!,
-      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-      process.env.VAPID_PRIVATE_KEY!
-    );
+      // Configure web-push
+      webpush.default.setVapidDetails(
+        process.env.VAPID_SUBJECT!,
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+        process.env.VAPID_PRIVATE_KEY!
+      );
+    } catch (error) {
+      console.error('Failed to import web-push module:', error);
+      return NextResponse.json(
+        { error: 'Push notification service unavailable' },
+        { status: 503 }
+      );
+    }
 
     // Send notifications to all active subscriptions
     const sendPromises = subscriptions.map(async (subscription) => {

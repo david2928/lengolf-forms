@@ -60,7 +60,18 @@ export async function GET(
         file_name,
         file_size,
         file_type,
-        raw_event
+        raw_event,
+        quote_token,
+        replied_to_message_id,
+        reply_preview_text,
+        reply_preview_type,
+        replied_to_message:replied_to_message_id (
+          id,
+          message_text,
+          message_type,
+          sender_name,
+          file_name
+        )
       `)
       .eq('conversation_id', conversationId)
       .in('sender_type', ['user', 'admin']) // Include only user and admin messages
@@ -100,6 +111,22 @@ export async function GET(
         // Legacy image support (fallback to LINE API if no stored file)
         ...((msg.message_type === 'image' && !msg.file_url) && rawMessage && {
           imageUrl: `https://api.line.me/v2/bot/message/${rawMessage.id}/content`
+        }),
+        // Include reply information
+        ...(msg.quote_token && {
+          quoteToken: msg.quote_token
+        }),
+        ...(msg.replied_to_message_id && {
+          repliedToMessageId: msg.replied_to_message_id,
+          replyPreviewText: msg.reply_preview_text,
+          replyPreviewType: msg.reply_preview_type,
+          repliedToMessage: Array.isArray(msg.replied_to_message) && msg.replied_to_message.length > 0 ? {
+            id: msg.replied_to_message[0].id,
+            text: msg.replied_to_message[0].message_text,
+            type: msg.replied_to_message[0].message_type,
+            senderName: msg.replied_to_message[0].sender_name,
+            fileName: msg.replied_to_message[0].file_name
+          } : undefined
         })
       };
     }) || [];

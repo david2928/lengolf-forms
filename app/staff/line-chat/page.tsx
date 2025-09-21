@@ -15,6 +15,9 @@ import { ImageMessage } from '@/components/line/ImageMessage';
 import { FileMessage } from '@/components/line/FileMessage';
 import { CuratedImageModal } from '@/components/line/CuratedImageModal';
 import { TemplateSelector } from '@/components/line/TemplateSelector';
+import { MessageContextMenu } from '@/components/line/MessageContextMenu';
+import { ReplyPreview } from '@/components/line/ReplyPreview';
+import { ReplyDisplay } from '@/components/line/ReplyDisplay';
 import { compressImage } from '@/lib/image-compression';
 import { imageCache } from '@/lib/image-cache';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
@@ -43,7 +46,8 @@ import {
   Maximize2,
   CalendarPlus,
   Bell,
-  BellOff
+  BellOff,
+  Target
 } from 'lucide-react';
 
 interface LineUser {
@@ -92,6 +96,19 @@ interface Message {
   fileType?: string;
   // Legacy image property (for backward compatibility)
   imageUrl?: string;
+  // Reply/Quote properties for native LINE reply support
+  quoteToken?: string;
+  repliedToMessageId?: string;
+  replyPreviewText?: string;
+  replyPreviewType?: string;
+  // Populated reply data when message is a reply
+  repliedToMessage?: {
+    id: string;
+    text?: string;
+    type: string;
+    senderName?: string;
+    fileName?: string;
+  };
 }
 
 interface CustomerDetails {
@@ -182,6 +199,7 @@ export default function LineChatPage() {
     sendTestNotification
   } = usePushNotifications();
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [sendingProgress, setSendingProgress] = useState<{current: number, total: number} | null>(null);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showCuratedImages, setShowCuratedImages] = useState(false);
@@ -199,6 +217,12 @@ export default function LineChatPage() {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [currentBookingIndex, setCurrentBookingIndex] = useState(0);
+
+  // Reply functionality state
+  const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [contextMenuMessage, setContextMenuMessage] = useState<Message | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -334,6 +358,56 @@ export default function LineChatPage() {
     }
   }, [fetchConversations]);
 
+  // Handle right-click context menu
+  const handleMessageRightClick = (e: React.MouseEvent, message: Message) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setContextMenuPosition({
+      x: e.clientX,
+      y: e.clientY
+    });
+    setContextMenuMessage(message);
+    setShowContextMenu(true);
+  };
+
+  // Handle long press for mobile
+  const handleMessageLongPress = (e: React.TouchEvent, message: Message) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    setContextMenuPosition({
+      x: touch.clientX,
+      y: touch.clientY
+    });
+    setContextMenuMessage(message);
+    setShowContextMenu(true);
+  };
+
+  // Start reply to a message
+  const handleReplyToMessage = (message: Message) => {
+    setReplyingToMessage(message);
+    setShowContextMenu(false);
+
+    // Focus the message input
+    setTimeout(() => {
+      const textarea = document.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+      }
+    }, 100);
+  };
+
+  // Cancel reply
+  const handleCancelReply = () => {
+    setReplyingToMessage(null);
+  };
+
+  // Close context menu
+  const handleCloseContextMenu = () => {
+    setShowContextMenu(false);
+    setContextMenuMessage(null);
+  };
+
   // Send message (text, image, or file)
   const sendMessage = async (type: 'text' | 'image' | 'file' = 'text', curatedImageId?: string, fileToUpload?: File) => {
     const fileToUse = fileToUpload || selectedFile;
@@ -369,7 +443,8 @@ export default function LineChatPage() {
           body: JSON.stringify({
             message: newMessage.trim(),
             type: 'text',
-            senderName: 'Admin'
+            senderName: 'Admin',
+            repliedToMessageId: replyingToMessage?.id
           }),
         });
       } else {
@@ -408,6 +483,7 @@ export default function LineChatPage() {
         setSelectedFile(null);
         setShowAttachmentMenu(false);
         setShowCuratedImages(false);
+        setReplyingToMessage(null); // Clear reply state
 
         // Reset textarea height to default (3 lines)
         const textarea = document.querySelector('textarea');
@@ -463,9 +539,72 @@ export default function LineChatPage() {
     }
   };
 
-  // Handle curated image selection
-  const handleCuratedImageSelect = (imageId: string) => {
-    sendMessage('image', imageId);
+  // Handle curated image selection - now supports multiple images
+  const handleCuratedImageSelect = async (imageIds: string[]) => {
+    if (imageIds.length === 1) {
+      // Single image - use existing flow
+      sendMessage('image', imageIds[0]);
+    } else {
+      // Multiple images - send directly
+      await sendBatchImages(imageIds);
+    }
+  };
+
+  // Send multiple images in batch
+  const sendBatchImages = async (imageIds: string[]) => {
+    if (!selectedConversation || imageIds.length === 0) return;
+
+    try {
+      setSendingMessage(true);
+      setSendingProgress({ current: 1, total: imageIds.length });
+
+      const response = await fetch(`/api/line/conversations/${selectedConversation}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'batch_images',
+          curatedImageIds: imageIds,
+          senderName: 'Admin'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Add all sent messages to current messages
+        if (data.messages && Array.isArray(data.messages)) {
+          setMessages(prev => [...prev, ...data.messages]);
+        }
+
+        // Show success feedback
+        setSendingProgress({ current: imageIds.length, total: imageIds.length });
+
+        // Brief success state before clearing
+        setTimeout(() => {
+          setSendingProgress(null);
+        }, 1000);
+
+        // Scroll to bottom when user sends multiple images
+        setTimeout(() => {
+          scrollToBottom();
+        }, 100);
+
+        // Refresh conversations
+        fetchConversations();
+      } else {
+        alert('Failed to send images: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error sending batch images:', error);
+      alert('Failed to send images: ' + error);
+    } finally {
+      // Delay clearing the sending state to show completion
+      setTimeout(() => {
+        setSendingMessage(false);
+      }, 1000);
+    }
   };
 
   // Handle template selection
@@ -1069,14 +1208,41 @@ export default function LineChatPage() {
                 </div>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="md:hidden"
-                onClick={() => setShowMobileCustomer(true)}
-              >
-                <Users className="h-4 w-4" />
-              </Button>
+              {/* Quick Links */}
+              <div className="flex items-center space-x-2">
+                {/* Calendar Link */}
+                <Link href="/bookings-calendar" target="_blank" rel="noopener noreferrer">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                    title="Bookings Calendar"
+                  >
+                    <Calendar className="h-4 w-4 text-gray-600" />
+                  </Button>
+                </Link>
+
+                {/* Coaching Link */}
+                <Link href="/coaching-assist" target="_blank" rel="noopener noreferrer">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                    title="Coaching Assist"
+                  >
+                    <Target className="h-4 w-4 text-gray-600" />
+                  </Button>
+                </Link>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="md:hidden"
+                  onClick={() => setShowMobileCustomer(true)}
+                >
+                  <Users className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             {/* Messages */}
@@ -1085,6 +1251,20 @@ export default function LineChatPage() {
                 <div
                   key={message.id}
                   className={`flex ${message.senderType === 'admin' ? 'justify-end' : 'justify-start'}`}
+                  onContextMenu={(e) => handleMessageRightClick(e, message)}
+                  onTouchStart={(e) => {
+                    // Simple long press detection for mobile
+                    const timeout = setTimeout(() => {
+                      handleMessageLongPress(e as any, message);
+                    }, 500);
+
+                    const handleTouchEnd = () => {
+                      clearTimeout(timeout);
+                      document.removeEventListener('touchend', handleTouchEnd);
+                    };
+
+                    document.addEventListener('touchend', handleTouchEnd);
+                  }}
                 >
                   {/* Render stickers and images without background container */}
                   {message.type === 'sticker' && message.stickerId ? (
@@ -1127,6 +1307,19 @@ export default function LineChatPage() {
                             : 'bg-white border shadow-sm'
                         }`}
                       >
+                        {/* Show reply preview if this is a reply */}
+                        {message.repliedToMessage && (
+                          <ReplyDisplay
+                            repliedToMessage={message.repliedToMessage}
+                            replyPreviewText={message.replyPreviewText}
+                            replyPreviewType={message.replyPreviewType}
+                            onClickReply={() => {
+                              // TODO: Scroll to original message
+                              console.log('Scroll to message:', message.repliedToMessage?.id);
+                            }}
+                          />
+                        )}
+
                         {((message.type === 'file' || message.type === 'video' || message.type === 'audio') && message.fileUrl) ? (
                           <FileMessage
                             fileUrl={message.fileUrl}
@@ -1153,6 +1346,21 @@ export default function LineChatPage() {
 
             {/* Message Input */}
             <div className="bg-white border-t p-4 sticky bottom-0">
+              {/* Reply Preview */}
+              {replyingToMessage && (
+                <ReplyPreview
+                  message={{
+                    id: replyingToMessage.id,
+                    text: replyingToMessage.text,
+                    type: replyingToMessage.type,
+                    senderName: replyingToMessage.senderName,
+                    fileName: replyingToMessage.fileName,
+                    senderType: replyingToMessage.senderType
+                  }}
+                  onClose={handleCancelReply}
+                />
+              )}
+
               {/* Textarea */}
               <div className="mb-3">
                 <Textarea
@@ -1255,8 +1463,18 @@ export default function LineChatPage() {
                 >
                   {sendingMessage ? (
                     <>
-                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                      Sending...
+                      {sendingProgress && sendingProgress.current === sendingProgress.total ? (
+                        <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                      )}
+                      {sendingProgress && sendingProgress.current === sendingProgress.total ? (
+                        'Sent successfully!'
+                      ) : sendingProgress ? (
+                        `Sending ${sendingProgress.total} images...`
+                      ) : (
+                        'Sending...'
+                      )}
                     </>
                   ) : (
                     "Send"
@@ -1303,7 +1521,33 @@ export default function LineChatPage() {
                   </Button>
                 )}
               </div>
-              <h2 className="font-semibold text-gray-500">LINE Chat</h2>
+
+              {/* Quick Links */}
+              <div className="flex items-center space-x-2">
+                {/* Calendar Link */}
+                <Link href="/bookings-calendar" target="_blank" rel="noopener noreferrer">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                    title="Bookings Calendar"
+                  >
+                    <Calendar className="h-4 w-4 text-gray-600" />
+                  </Button>
+                </Link>
+
+                {/* Coaching Link */}
+                <Link href="/coaching-assist" target="_blank" rel="noopener noreferrer">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                    title="Coaching Assist"
+                  >
+                    <Target className="h-4 w-4 text-gray-600" />
+                  </Button>
+                </Link>
+              </div>
             </div>
 
             {/* Centered Content Area */}
@@ -1762,6 +2006,16 @@ export default function LineChatPage() {
         onSelect={handleTemplateSelect}
         customerName={selectedConv?.customer?.name || selectedConv?.user.displayName}
       />
+
+      {/* Message Context Menu */}
+      {contextMenuMessage && (
+        <MessageContextMenu
+          isOpen={showContextMenu}
+          onClose={handleCloseContextMenu}
+          onReply={() => handleReplyToMessage(contextMenuMessage)}
+          position={contextMenuPosition}
+        />
+      )}
     </div>
   );
 }

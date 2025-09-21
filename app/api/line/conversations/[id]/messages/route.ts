@@ -8,6 +8,153 @@ const supabase = createClient(
 );
 
 /**
+ * Handle batch image sending - send multiple curated images at once
+ */
+async function handleBatchImages(conversationId: string, imageIds: string[], senderName: string) {
+  try {
+    if (!imageIds || !Array.isArray(imageIds) || imageIds.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'Image IDs array is required for batch images'
+      }, { status: 400 });
+    }
+
+    // Limit to 5 images (LINE API limit)
+    const limitedImageIds = imageIds.slice(0, 5);
+
+    // Get conversation details
+    const { data: conversation, error: conversationError } = await supabase
+      .from('line_conversations')
+      .select('line_user_id')
+      .eq('id', conversationId)
+      .single();
+
+    if (conversationError || !conversation) {
+      return NextResponse.json({
+        success: false,
+        error: 'Conversation not found'
+      }, { status: 404 });
+    }
+
+    // Get all curated images
+    const { data: curatedImages, error: curatedError } = await supabase
+      .from('line_curated_images')
+      .select('*')
+      .in('id', limitedImageIds);
+
+    if (curatedError || !curatedImages || curatedImages.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'No valid curated images found'
+      }, { status: 404 });
+    }
+
+    // Build LINE API messages array
+    const lineMessages = curatedImages.map(image => ({
+      type: 'image',
+      originalContentUrl: image.file_url,
+      previewImageUrl: image.file_url
+    }));
+
+    // Send all images via LINE API in one call
+    const lineResponse = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
+      },
+      body: JSON.stringify({
+        to: conversation.line_user_id,
+        messages: lineMessages
+      })
+    });
+
+    if (!lineResponse.ok) {
+      const errorText = await lineResponse.text();
+      console.error(`LINE API error: ${lineResponse.status} ${lineResponse.statusText} - ${errorText}`);
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to send images via LINE API',
+        details: errorText
+      }, { status: lineResponse.status });
+    }
+
+    // Store all messages in database
+    const messagesToInsert = curatedImages.map(image => ({
+      conversation_id: conversationId,
+      line_user_id: conversation.line_user_id,
+      message_type: 'image',
+      message_text: 'You sent a photo',
+      file_url: image.file_url,
+      file_name: image.name,
+      file_type: 'image/jpeg',
+      sender_type: 'admin',
+      sender_name: senderName,
+      timestamp: Date.now(),
+      is_read: true
+    }));
+
+    const { data: storedMessages, error: messageError } = await supabase
+      .from('line_messages')
+      .insert(messagesToInsert)
+      .select();
+
+    if (messageError) {
+      console.error('Error storing messages:', messageError);
+      throw messageError;
+    }
+
+    // Update usage count for all sent images
+    for (const image of curatedImages) {
+      await supabase
+        .from('line_curated_images')
+        .update({ usage_count: image.usage_count + 1 })
+        .eq('id', image.id);
+    }
+
+    // Update conversation with last message info
+    await supabase
+      .from('line_conversations')
+      .update({
+        last_message_at: new Date().toISOString(),
+        last_message_text: `You sent ${curatedImages.length} photo${curatedImages.length > 1 ? 's' : ''}`,
+        last_message_by: 'admin',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', conversationId);
+
+    // Format messages for frontend
+    const formattedMessages = storedMessages?.map(msg => ({
+      id: msg.id,
+      text: msg.message_text,
+      type: msg.message_type,
+      fileUrl: msg.file_url,
+      fileName: msg.file_name,
+      fileSize: null,
+      fileType: msg.file_type,
+      senderType: msg.sender_type,
+      senderName: msg.sender_name,
+      timestamp: msg.timestamp,
+      createdAt: msg.created_at,
+      isRead: msg.is_read
+    })) || [];
+
+    return NextResponse.json({
+      success: true,
+      messages: formattedMessages,
+      count: curatedImages.length
+    });
+
+  } catch (error) {
+    console.error('Failed to send batch images:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+}
+
+/**
  * Send a message in a conversation
  * POST /api/line/conversations/[id]/messages
  * Supports text, image, and file messages
@@ -65,8 +212,15 @@ export async function POST(
       message,
       type = 'text',
       senderName = 'Admin',
-      curatedImageId
+      curatedImageId,
+      curatedImageIds,
+      repliedToMessageId
     } = messageData;
+
+    // Handle batch images separately
+    if (type === 'batch_images') {
+      return await handleBatchImages(conversationId, curatedImageIds, senderName);
+    }
 
     // Validate based on message type
     if (type === 'text' && (!message || !message.trim())) {
@@ -150,6 +304,52 @@ export async function POST(
       }
     }
 
+    // Handle reply logic - fetch replied-to message and its quote token
+    let repliedToMessage: any = null;
+    let replyQuoteToken: string | null = null;
+    let replyPreviewText: string | null = null;
+    let replyPreviewType: string | null = null;
+
+    if (repliedToMessageId) {
+      const { data: originalMessage, error: replyError } = await supabase
+        .from('line_messages')
+        .select('id, message_text, message_type, quote_token, sender_name, file_name')
+        .eq('id', repliedToMessageId)
+        .single();
+
+      if (replyError) {
+        console.error('Error fetching replied-to message:', replyError);
+        return NextResponse.json({
+          success: false,
+          error: 'Replied-to message not found'
+        }, { status: 404 });
+      }
+
+      if (originalMessage) {
+        repliedToMessage = originalMessage;
+        replyQuoteToken = originalMessage.quote_token;
+
+        // Generate preview data
+        replyPreviewType = originalMessage.message_type;
+        switch (originalMessage.message_type) {
+          case 'image':
+            replyPreviewText = '📷 Photo';
+            break;
+          case 'sticker':
+            replyPreviewText = '🎨 Sticker';
+            break;
+          case 'file':
+            replyPreviewText = `📄 ${originalMessage.file_name || 'File'}`;
+            break;
+          default:
+            replyPreviewText = originalMessage.message_text?.substring(0, 50) || 'Message';
+            if (originalMessage.message_text && originalMessage.message_text.length > 50) {
+              replyPreviewText += '...';
+            }
+        }
+      }
+    }
+
     // Prepare LINE API message based on type
     let lineMessage: any;
     let displayText: string;
@@ -160,6 +360,11 @@ export async function POST(
           type: 'text',
           text: message
         };
+        // Add quote token for native LINE reply if this is a reply
+        if (replyQuoteToken) {
+          lineMessage.quoteToken = replyQuoteToken;
+          console.log('Adding quote token to message:', replyQuoteToken);
+        }
         displayText = message;
         break;
 
@@ -212,6 +417,22 @@ export async function POST(
       }, { status: lineResponse.status });
     }
 
+    // Get quote token from LINE API response for future replies
+    let responseQuoteToken: string | null = null;
+    try {
+      const lineResponseData = await lineResponse.json();
+      console.log('LINE API Response:', JSON.stringify(lineResponseData, null, 2));
+
+      if (lineResponseData.sentMessages && lineResponseData.sentMessages[0]?.quoteToken) {
+        responseQuoteToken = lineResponseData.sentMessages[0].quoteToken;
+        console.log('Quote token received:', responseQuoteToken);
+      } else {
+        console.log('No quote token in response. SentMessages:', lineResponseData.sentMessages);
+      }
+    } catch (error) {
+      console.warn('Failed to parse LINE API response for quote token:', error);
+    }
+
     // Store message in our database
     const { data: storedMessage, error: messageError } = await supabase
       .from('line_messages')
@@ -227,7 +448,11 @@ export async function POST(
         sender_type: 'admin',
         sender_name: senderName,
         timestamp: Date.now(),
-        is_read: true // Admin messages are already "read" by admin
+        is_read: true, // Admin messages are already "read" by admin
+        quote_token: responseQuoteToken,
+        replied_to_message_id: repliedToMessageId,
+        reply_preview_text: replyPreviewText,
+        reply_preview_type: replyPreviewType
       })
       .select()
       .single();

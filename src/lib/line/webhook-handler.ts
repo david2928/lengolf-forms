@@ -322,14 +322,21 @@ async function sendPushNotificationForNewMessage(
     console.log(`Found ${subscriptions.length} active push subscriptions`);
 
     // Import webpush dynamically since it's not available in webhook context
-    const webpush = await import('web-push');
+    let webpush: any;
+    try {
+      webpush = await import('web-push');
 
-    // Configure web-push
-    webpush.default.setVapidDetails(
-      process.env.VAPID_SUBJECT!,
-      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-      process.env.VAPID_PRIVATE_KEY!
-    );
+      // Configure web-push
+      webpush.default.setVapidDetails(
+        process.env.VAPID_SUBJECT!,
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+        process.env.VAPID_PRIVATE_KEY!
+      );
+    } catch (error) {
+      console.error('Failed to import web-push module:', error);
+      console.log('Push notifications will not be sent from webhook');
+      return;
+    }
 
     // Send notifications to all active subscriptions
     const sendPromises = subscriptions.map(async (subscription) => {

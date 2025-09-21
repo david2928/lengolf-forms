@@ -96,6 +96,31 @@ The system includes a comprehensive image caching and display system:
 - **Rich Messages**: Flex Message support for structured content
 - **Template Integration**: Quick access to predefined message templates
 - **Customer Name Substitution**: Automatic `{{customer_name}}` replacement
+- **Native Reply Support**: Reply to any message using LINE's native quote message feature
+
+#### Reply Functionality
+The system includes comprehensive reply support using LINE's native quote message feature:
+
+**Reply Features**:
+- **Native LINE Integration**: Uses LINE's official quote message API for authentic reply experience
+- **Context Menu**: Right-click (desktop) or long-press (mobile) any message to access reply option
+- **Reply Preview**: Shows preview of message being replied to above input field
+- **Visual Reply Indicators**: Messages show quoted content with visual connection to original
+- **Cross-Platform Support**: Works seamlessly on desktop and mobile devices
+
+**Reply User Experience**:
+- Right-click or long-press any message to see reply option
+- Reply preview shows sender name and message content/type
+- Different previews for different message types (text, image, sticker, file)
+- Click reply preview in messages to see context
+- ESC key or X button to cancel reply
+- Automatic cleanup after sending message
+
+**Technical Implementation**:
+- **Quote Tokens**: Captures and stores LINE API quote tokens for each sent message
+- **Database Relations**: Links reply messages to original messages via `replied_to_message_id`
+- **Preview Caching**: Stores reply preview text and type for efficient display
+- **Native LINE Display**: Recipients see replies as native LINE quoted messages
 
 ### 3. Template Integration
 
@@ -174,11 +199,12 @@ Response: {
 #### Message Sending
 ```typescript
 // Send text message
-POST /api/line/send-message
+POST /api/line/conversations/[id]/messages
 Body: {
-  userId: string;
   message: string;
   type: 'text';
+  senderName?: string;
+  repliedToMessageId?: string; // For native LINE replies
 }
 
 // Send rich message
@@ -186,6 +212,26 @@ POST /api/line/send-rich-message
 Body: {
   userId: string;
   flexMessage: FlexMessage;
+}
+
+// Message Response (includes quote token for replies)
+Response: {
+  success: boolean;
+  message: {
+    id: string;
+    text: string;
+    type: string;
+    quoteToken?: string; // Used for native LINE replies
+    repliedToMessageId?: string;
+    replyPreviewText?: string;
+    replyPreviewType?: string;
+    repliedToMessage?: {
+      id: string;
+      text: string;
+      type: string;
+      senderName: string;
+    };
+  };
 }
 ```
 
@@ -401,6 +447,9 @@ clearAllImages(): Promise<void>      // Manual cache reset
 4. **Conversations Not Updating**: Verify webhook configuration and processing
 5. **Images Not Loading**: Check image caching system and network connectivity
 6. **Image Click Not Working**: Verify click handlers and overlay conflicts
+7. **Reply Context Menu Not Appearing**: Verify right-click/long-press event handlers
+8. **Native LINE Replies Not Working**: Check quote token storage and LINE API integration
+9. **Reply Preview Not Showing**: Verify replied message data and preview generation
 
 ### Image-Related Issues
 

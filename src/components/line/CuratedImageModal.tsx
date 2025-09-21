@@ -21,7 +21,7 @@ interface CuratedImage {
 interface CuratedImageModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (imageId: string) => void;
+  onSelect: (imageIds: string[]) => void;
 }
 
 export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageModalProps) {
@@ -31,7 +31,8 @@ export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageMod
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [categories, setCategories] = useState<string[]>([]);
-  const [selectedImageId, setSelectedImageId] = useState<string>('');
+  const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
+  const MAX_SELECTION = 5;
 
   // Fetch curated images
   const fetchImages = async () => {
@@ -91,11 +92,28 @@ export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageMod
     filterImages();
   }, [filterImages]);
 
+  const toggleImageSelection = (imageId: string) => {
+    if (selectedImageIds.includes(imageId)) {
+      setSelectedImageIds(prev => prev.filter(id => id !== imageId));
+    } else if (selectedImageIds.length < MAX_SELECTION) {
+      setSelectedImageIds(prev => [...prev, imageId]);
+    }
+  };
+
+  const selectAllImages = () => {
+    const availableIds = filteredImages.slice(0, MAX_SELECTION).map(img => img.id);
+    setSelectedImageIds(availableIds);
+  };
+
+  const clearSelection = () => {
+    setSelectedImageIds([]);
+  };
+
   const handleSelect = () => {
-    if (selectedImageId) {
-      onSelect(selectedImageId);
+    if (selectedImageIds.length > 0) {
+      onSelect(selectedImageIds);
       onClose();
-      setSelectedImageId('');
+      setSelectedImageIds([]);
       setSearchTerm('');
       setSelectedCategory('');
     }
@@ -108,7 +126,14 @@ export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageMod
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold">Select Image from Library</h2>
+          <div>
+            <h2 className="text-lg font-semibold">Select Images from Library</h2>
+            {selectedImageIds.length > 0 && (
+              <p className="text-sm text-gray-500">
+                {selectedImageIds.length} of {MAX_SELECTION} images selected
+              </p>
+            )}
+          </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
             <X className="w-5 h-5" />
           </button>
@@ -127,28 +152,60 @@ export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageMod
             />
           </div>
 
-          {/* Categories */}
-          {categories.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={selectedCategory === '' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedCategory('')}
-              >
-                All Categories
-              </Button>
-              {categories.map(category => (
+          {/* Selection controls and Categories */}
+          <div className="space-y-2">
+            {/* Selection controls */}
+            {filteredImages.length > 0 && (
+              <div className="flex items-center justify-between">
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllImages}
+                    disabled={filteredImages.length === 0 || selectedImageIds.length === Math.min(filteredImages.length, MAX_SELECTION)}
+                  >
+                    Select All ({Math.min(filteredImages.length, MAX_SELECTION)})
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearSelection}
+                    disabled={selectedImageIds.length === 0}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+                {selectedImageIds.length >= MAX_SELECTION && (
+                  <div className="text-sm text-orange-600 font-medium">
+                    Maximum {MAX_SELECTION} images can be sent at once
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Categories */}
+            {categories.length > 0 && (
+              <div className="flex flex-wrap gap-2">
                 <Button
-                  key={category}
-                  variant={selectedCategory === category ? 'default' : 'outline'}
+                  variant={selectedCategory === '' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setSelectedCategory(category)}
+                  onClick={() => setSelectedCategory('')}
                 >
-                  {category}
+                  All Categories
                 </Button>
-              ))}
-            </div>
-          )}
+                {categories.map(category => (
+                  <Button
+                    key={category}
+                    variant={selectedCategory === category ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedCategory(category)}
+                  >
+                    {category}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Images grid */}
@@ -168,11 +225,13 @@ export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageMod
                 <div
                   key={image.id}
                   className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
-                    selectedImageId === image.id
+                    selectedImageIds.includes(image.id)
                       ? 'border-blue-500 ring-2 ring-blue-200'
+                      : selectedImageIds.length >= MAX_SELECTION
+                      ? 'border-gray-200 opacity-50 cursor-not-allowed'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
-                  onClick={() => setSelectedImageId(image.id)}
+                  onClick={() => toggleImageSelection(image.id)}
                 >
                   {/* Image */}
                   <div className="aspect-square relative">
@@ -183,10 +242,17 @@ export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageMod
                       className="object-cover"
                       unoptimized={true}
                     />
-                    {selectedImageId === image.id && (
+                    {selectedImageIds.includes(image.id) && (
                       <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
-                        <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                          <div className="w-2 h-2 bg-white rounded-full"></div>
+                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                          {selectedImageIds.indexOf(image.id) + 1}
+                        </div>
+                      </div>
+                    )}
+                    {selectedImageIds.length >= MAX_SELECTION && !selectedImageIds.includes(image.id) && (
+                      <div className="absolute inset-0 bg-gray-500 bg-opacity-30 flex items-center justify-center">
+                        <div className="text-white text-xs bg-gray-600 px-2 py-1 rounded">
+                          Max reached
                         </div>
                       </div>
                     )}
@@ -230,6 +296,11 @@ export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageMod
         <div className="p-4 border-t border-gray-200 flex justify-between items-center">
           <div className="text-sm text-gray-500">
             {filteredImages.length} image{filteredImages.length !== 1 ? 's' : ''} found
+            {selectedImageIds.length > 0 && (
+              <span className="ml-2 text-blue-600 font-medium">
+                • {selectedImageIds.length} selected
+              </span>
+            )}
           </div>
           <div className="flex space-x-2">
             <Button variant="outline" onClick={onClose}>
@@ -237,9 +308,10 @@ export function CuratedImageModal({ isOpen, onClose, onSelect }: CuratedImageMod
             </Button>
             <Button
               onClick={handleSelect}
-              disabled={!selectedImageId}
+              disabled={selectedImageIds.length === 0}
+              className={selectedImageIds.length > 0 ? 'bg-blue-600 hover:bg-blue-700' : ''}
             >
-              Send Image
+              Send {selectedImageIds.length > 0 ? `${selectedImageIds.length} Image${selectedImageIds.length > 1 ? 's' : ''}` : 'Images'}
             </Button>
           </div>
         </div>
