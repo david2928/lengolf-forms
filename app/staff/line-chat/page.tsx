@@ -235,41 +235,51 @@ export default function LineChatPage() {
 
   // Stabilize the new message callback to prevent infinite re-renders
   const handleNewMessage = useCallback((message: any) => {
-    console.log('📨 Realtime new message:', message.text);
-    setMessages(prev => {
-      // Prevent duplicates
-      if (prev.find(m => m.id === message.id)) return prev;
-      return [...prev, message];
-    });
+    // Add message to the messages list ONLY if it's for the currently selected conversation
+    if (selectedConversation === message.conversationId) {
+      setMessages(prev => {
+        // Prevent duplicates
+        if (prev.find(m => m.id === message.id)) return prev;
+        return [...prev, message];
+      });
+    }
 
-    // Update conversation's last message and unread count
-    setConversations(prev =>
-      prev.map(conv =>
-        conv.id === selectedConversation
-          ? {
-              ...conv,
-              lastMessage: message.text || '[Media]',
-              lastMessageTime: message.createdAt,
-              unreadCount: selectedConversation === conv.id ? 0 : (conv.unreadCount || 0) + 1
-            }
-          : conv
-      )
-    );
+    // Always update conversation's last message and unread count for ALL conversations
+    setConversations(prev => {
+      const updated = prev.map(conv => {
+        if (conv.id === message.conversationId) {
+          const isCurrentlySelected = selectedConversation === conv.id;
+          return {
+            ...conv,
+            lastMessage: message.text || '[Media]',
+            lastMessageTime: message.createdAt,
+            // Increment unread count ONLY if this conversation is NOT currently selected
+            unreadCount: isCurrentlySelected ? 0 : (conv.unreadCount || 0) + 1
+          };
+        }
+        return conv;
+      });
+
+      // Sort conversations by last message time (most recent first)
+      return updated.sort((a, b) =>
+        new Date(b.lastMessageAt || 0).getTime() -
+        new Date(a.lastMessageAt || 0).getTime()
+      );
+    });
   }, [selectedConversation]);
 
-  // Realtime hooks for instant message updates
+  // Realtime hooks for instant message updates (ALL conversations)
   const {
     connectionStatus: messagesConnectionStatus,
     reconnect: reconnectMessages,
     disconnect: disconnectMessages
   } = useRealtimeMessages({
-    conversationId: selectedConversation,
+    conversationId: null, // Subscribe to ALL conversations, not just selected
     onNewMessage: handleNewMessage
   });
 
   // Stabilize the conversation update callback to prevent infinite re-renders
   const handleConversationUpdate = useCallback((conversation: any) => {
-    console.log('🔄 Realtime conversation update:', conversation.id, conversation);
     setConversations(prev =>
       prev.map(conv =>
         conv.id === conversation.id
@@ -957,13 +967,17 @@ export default function LineChatPage() {
 
       pollIntervalRef.current = setInterval(() => {
         if (!document.hidden) {
-          // Only poll if realtime connections are having issues
+          // Skip polling entirely if conversations realtime is working
+          if (conversationsConnectionStatus.status === 'connected') {
+            return; // Realtime is working, no need to poll
+          }
+
+          // Only poll if realtime connections are having actual issues
           const hasConnectionIssues =
             // Messages connection issues (only check if conversation is selected)
             (selectedConversation && messagesConnectionStatus.status === 'error') ||
-            // Conversations connection issues
-            conversationsConnectionStatus.status === 'error' ||
-            conversationsConnectionStatus.status === 'disconnected';
+            // Conversations connection issues (only error, not disconnected - disconnected is normal during startup)
+            conversationsConnectionStatus.status === 'error';
 
           if (hasConnectionIssues) {
             console.log('🔄 Fallback polling due to realtime issues:', {
@@ -1010,7 +1024,12 @@ export default function LineChatPage() {
   // Fetch messages when conversation is selected
   useEffect(() => {
     if (selectedConversation) {
+      // Clear existing messages first to prevent showing stale data
+      setMessages([]);
       fetchMessages(selectedConversation);
+    } else {
+      // Clear messages when no conversation is selected
+      setMessages([]);
     }
   }, [selectedConversation, fetchMessages]);
 
@@ -1126,56 +1145,6 @@ export default function LineChatPage() {
             </div>
           )}
 
-          {/* Realtime Connection Status */}
-          <div className="mb-3 flex items-center justify-between text-xs">
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-500">Realtime:</span>
-              <div className="flex items-center space-x-1">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    // Show connected if conversations are connected and (no conversation selected OR messages connected)
-                    conversationsConnectionStatus.status === 'connected' &&
-                    (!selectedConversation || messagesConnectionStatus.status === 'connected')
-                      ? 'bg-green-500'
-                      : messagesConnectionStatus.status === 'connecting' || conversationsConnectionStatus.status === 'connecting'
-                      ? 'bg-yellow-500'
-                      : 'bg-red-500'
-                  }`}
-                />
-                <span
-                  className={`${
-                    conversationsConnectionStatus.status === 'connected' &&
-                    (!selectedConversation || messagesConnectionStatus.status === 'connected')
-                      ? 'text-green-600'
-                      : messagesConnectionStatus.status === 'connecting' || conversationsConnectionStatus.status === 'connecting'
-                      ? 'text-yellow-600'
-                      : 'text-red-600'
-                  }`}
-                >
-                  {conversationsConnectionStatus.status === 'connected' &&
-                   (!selectedConversation || messagesConnectionStatus.status === 'connected')
-                    ? 'Connected'
-                    : messagesConnectionStatus.status === 'connecting' || conversationsConnectionStatus.status === 'connecting'
-                    ? 'Connecting...'
-                    : 'Disconnected'}
-                </span>
-              </div>
-            </div>
-            {(messagesConnectionStatus.status === 'error' || conversationsConnectionStatus.status === 'error') && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  reconnectMessages();
-                  reconnectConversations();
-                }}
-                className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
-                title="Reconnect to realtime"
-              >
-                Retry
-              </Button>
-            )}
-          </div>
 
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />

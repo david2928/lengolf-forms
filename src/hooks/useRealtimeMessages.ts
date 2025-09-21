@@ -4,6 +4,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface Message {
   id: string;
+  conversationId?: string; // Added for routing messages to correct conversations
   text?: string;
   type: string;
   senderType: 'user' | 'admin';
@@ -46,7 +47,7 @@ interface RealtimeConnectionStatus {
 }
 
 interface UseRealtimeMessagesOptions {
-  conversationId: string | null;
+  conversationId: string | null; // null means subscribe to ALL conversations
   onNewMessage?: (message: Message) => void;
   onMessageUpdate?: (message: Message) => void;
 }
@@ -69,7 +70,6 @@ export function useRealtimeMessages({
 
   const disconnect = useCallback(() => {
     if (channelRef.current) {
-      console.log('Disconnecting from realtime messages channel');
       channelRef.current.unsubscribe();
       channelRef.current = null;
     }
@@ -81,11 +81,11 @@ export function useRealtimeMessages({
   }, []);
 
   const connect = useCallback(async () => {
-    if (!conversationId || !supabaseRealtime) {
+    if (!supabaseRealtime) {
       setConnectionStatus(prev => ({
         ...prev,
-        status: 'disconnected',
-        error: supabaseRealtime ? undefined : 'Realtime client not available'
+        status: 'error',
+        error: 'Realtime client not available'
       }));
       return;
     }
@@ -94,23 +94,28 @@ export function useRealtimeMessages({
     disconnect();
 
     try {
-      console.log(`Connecting to realtime messages for conversation: ${conversationId}`);
+      const channelName = conversationId ? `messages-${conversationId}` : 'all-messages';
       setConnectionStatus(prev => ({ ...prev, status: 'connecting', error: undefined }));
 
       // Create channel with minimal configuration
       const channel = supabaseRealtime
-        .channel(`messages-${conversationId}`)
+        .channel(channelName)
         .on(
           'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'line_messages',
-            filter: `conversation_id=eq.${conversationId}`
-          },
+          conversationId
+            ? {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'line_messages',
+                filter: `conversation_id=eq.${conversationId}`
+              }
+            : {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'line_messages'
+                // No filter = subscribe to ALL messages
+              },
           (payload: any) => {
-            console.log('📨 New message via realtime:', payload.new?.message_text);
-
             const messageId = payload.new?.id;
             if (!messageId || processedMessagesRef.current.has(messageId)) {
               return;
@@ -121,6 +126,7 @@ export function useRealtimeMessages({
             // Transform to Message interface
             const message: Message = {
               id: payload.new.id,
+              conversationId: payload.new.conversation_id, // Add conversation ID for routing
               text: payload.new.message_text,
               type: payload.new.message_type || 'text',
               senderType: payload.new.sender_type === 'admin' ? 'admin' : 'user',
@@ -145,8 +151,6 @@ export function useRealtimeMessages({
           }
         )
         .subscribe((status) => {
-          console.log('🔌 Realtime status:', status);
-
           if (status === 'SUBSCRIBED') {
             setConnectionStatus({
               status: 'connected',
@@ -162,7 +166,6 @@ export function useRealtimeMessages({
 
             // Retry with exponential backoff
             const delay = Math.min(1000 * Math.pow(2, connectionStatus.reconnectAttempts), 30000);
-            console.log(`🔄 Retrying in ${delay}ms...`);
 
             reconnectTimeoutRef.current = setTimeout(() => {
               connect();
@@ -175,18 +178,17 @@ export function useRealtimeMessages({
       channelRef.current = channel;
 
     } catch (error) {
-      console.error('❌ Realtime connection failed:', error);
       setConnectionStatus(prev => ({
         status: 'error',
         error: error instanceof Error ? error.message : 'Connection failed',
         reconnectAttempts: prev.reconnectAttempts + 1
       }));
     }
-  }, [conversationId, onNewMessage, disconnect]);
+  }, [conversationId, onNewMessage, disconnect, connectionStatus.reconnectAttempts]);
 
-  // Connect when conversationId changes
+  // Connect when conversationId changes OR when subscribing to all conversations
   useEffect(() => {
-    if (conversationId && supabaseRealtime) {
+    if (supabaseRealtime) {
       connect();
     } else {
       disconnect();

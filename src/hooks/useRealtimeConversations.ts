@@ -58,7 +58,6 @@ export function useRealtimeConversations({
 
   const disconnect = useCallback(() => {
     if (channelRef.current) {
-      console.log('Disconnecting from realtime conversations channel');
       channelRef.current.unsubscribe();
       channelRef.current = null;
     }
@@ -83,7 +82,6 @@ export function useRealtimeConversations({
     disconnect();
 
     try {
-      console.log('📋 Connecting to realtime conversations');
       setConnectionStatus(prev => ({ ...prev, status: 'connecting', error: undefined }));
 
       // Create channel for conversation updates
@@ -97,8 +95,6 @@ export function useRealtimeConversations({
             table: 'line_conversations'
           },
           (payload: any) => {
-            console.log('📋 Conversation update via realtime:', payload.new?.id);
-
             const conversationId = payload.new?.id;
             const updateKey = `update:${conversationId}:${payload.new.updated_at}`;
 
@@ -122,8 +118,6 @@ export function useRealtimeConversations({
           }
         )
         .subscribe((status) => {
-          console.log('🔌 Conversations realtime status:', status);
-
           if (status === 'SUBSCRIBED') {
             setConnectionStatus({
               status: 'connected',

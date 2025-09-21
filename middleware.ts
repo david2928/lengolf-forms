@@ -137,4 +137,6 @@ export const config = {
      */
     "/((?!api|_next|public).*)",
   ],
+  // Explicitly use Node.js runtime for Supabase client compatibility
+  runtime: 'nodejs',
 };
