@@ -17,6 +17,7 @@ import { CuratedImageModal } from '@/components/line/CuratedImageModal';
 import { TemplateSelector } from '@/components/line/TemplateSelector';
 import { compressImage } from '@/lib/image-compression';
 import { imageCache } from '@/lib/image-cache';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 import {
   MessageSquare,
   Send,
@@ -40,7 +41,9 @@ import {
   PanelLeft,
   PanelRight,
   Maximize2,
-  CalendarPlus
+  CalendarPlus,
+  Bell,
+  BellOff
 } from 'lucide-react';
 
 interface LineUser {
@@ -167,6 +170,17 @@ export default function LineChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Push notifications hook
+  const {
+    isSupported,
+    isSubscribed,
+    isLoading: notificationLoading,
+    error: notificationError,
+    subscribe: subscribeToNotifications,
+    unsubscribe: unsubscribeFromNotifications,
+    sendTestNotification
+  } = usePushNotifications();
   const [sendingMessage, setSendingMessage] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -845,7 +859,59 @@ export default function LineChatPage() {
       {!leftPanelCollapsed && (
         <div className={`w-full md:w-80 bg-white border-r flex flex-col transition-all duration-300 ease-in-out ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b">
-          <h1 className="text-xl font-semibold mb-3">LINE Conversations</h1>
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-xl font-semibold">LINE Conversations</h1>
+
+            {/* Push Notification Controls */}
+            {isSupported && (
+              <div className="flex items-center space-x-2">
+                {isSubscribed ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={unsubscribeFromNotifications}
+                      disabled={notificationLoading}
+                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                      title="Notifications enabled - Click to disable"
+                    >
+                      <Bell className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={sendTestNotification}
+                      disabled={notificationLoading}
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      title="Send test notification"
+                    >
+                      <Zap className="h-3 w-3" />
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={subscribeToNotifications}
+                    disabled={notificationLoading}
+                    className="text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                    title="Enable notifications for new messages"
+                  >
+                    <BellOff className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Notification Error/Status */}
+          {notificationError && (
+            <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+              {notificationError}
+            </div>
+          )}
+
+
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input

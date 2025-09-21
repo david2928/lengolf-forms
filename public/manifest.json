@@ -1,13 +1,45 @@
 {
-  "name": "LenGolf Staff Schedule",
-  "short_name": "Staff Schedule",
-  "description": "Mobile-optimized staff scheduling system for LenGolf",
-  "start_url": "/staff-schedule",
+  "name": "LenGolf Staff Panel",
+  "short_name": "LenGolf Staff",
+  "description": "Staff panel with LINE chat notifications and scheduling for LenGolf",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#2563eb",
   "orientation": "portrait-primary",
-  "categories": ["business", "productivity"],
+  "categories": ["business", "productivity", "communication"],
   "lang": "en-US",
-  "dir": "ltr"
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "scope": "/",
+  "shortcuts": [
+    {
+      "name": "LINE Chat",
+      "url": "/staff/line-chat",
+      "description": "Access customer LINE conversations",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "any"
+        }
+      ]
+    },
+    {
+      "name": "Staff Schedule",
+      "url": "/staff-schedule",
+      "description": "View and manage staff schedules",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "any"
+        }
+      ]
+    }
+  ]
 }

@@ -222,18 +222,20 @@ export async function createMinimalUserRecord(userId: string): Promise<void> {
  */
 export async function ensureConversationExists(lineUserId: string): Promise<string> {
   try {
-    // Check if conversation already exists
+    // Get the most recent active conversation (handles multiple records gracefully)
     const { data: existing } = await supabase
       .from('line_conversations')
       .select('id')
       .eq('line_user_id', lineUserId)
-      .single();
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (existing) {
-      return existing.id;
+    if (existing && existing.length > 0) {
+      return existing[0].id;
     }
 
-    // Create new conversation
+    // Create new conversation only if none exists
     const { data: conversation, error } = await supabase
       .from('line_conversations')
       .insert({
@@ -254,6 +256,121 @@ export async function ensureConversationExists(lineUserId: string): Promise<stri
   } catch (err) {
     console.error('Failed to ensure conversation exists:', err);
     throw err;
+  }
+}
+
+/**
+ * Send push notification for new LINE message
+ */
+async function sendPushNotificationForNewMessage(
+  event: LineWebhookEvent,
+  conversationId: string,
+  displayText: string
+): Promise<void> {
+  try {
+    // Get user profile for notification
+    let userProfile: LineUserProfile | null = null;
+    if (event.source.userId) {
+      try {
+        const { data: userData } = await supabase
+          .from('line_users')
+          .select('display_name')
+          .eq('line_user_id', event.source.userId)
+          .single();
+
+        if (userData) {
+          userProfile = {
+            userId: event.source.userId,
+            displayName: userData.display_name
+          };
+        }
+      } catch (error) {
+        console.error('Failed to get user profile for notification:', error);
+      }
+    }
+
+    const customerName = userProfile?.displayName || 'Unknown Customer';
+
+    // Prepare notification content
+    const notificationData = {
+      title: `New message from ${customerName}`,
+      body: displayText.length > 100 ? displayText.substring(0, 100) + '...' : displayText,
+      conversationId,
+      lineUserId: event.source.userId,
+      customerName
+    };
+
+    console.log('Attempting to send push notification:', notificationData);
+
+    // Get active subscriptions directly from database
+    const { data: subscriptions, error } = await supabase
+      .schema('backoffice')
+      .from('push_subscriptions')
+      .select('*')
+      .eq('is_active', true);
+
+    if (error) {
+      console.error('Error fetching subscriptions for webhook notification:', error);
+      return;
+    }
+
+    if (!subscriptions || subscriptions.length === 0) {
+      console.log('No active push subscriptions found for webhook notification');
+      return;
+    }
+
+    console.log(`Found ${subscriptions.length} active push subscriptions`);
+
+    // Import webpush dynamically since it's not available in webhook context
+    const webpush = await import('web-push');
+
+    // Configure web-push
+    webpush.default.setVapidDetails(
+      process.env.VAPID_SUBJECT!,
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!
+    );
+
+    // Send notifications to all active subscriptions
+    const sendPromises = subscriptions.map(async (subscription) => {
+      try {
+        const pushSubscription = {
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: subscription.p256dh_key,
+            auth: subscription.auth_key
+          }
+        };
+
+        await webpush.default.sendNotification(
+          pushSubscription,
+          JSON.stringify(notificationData)
+        );
+
+        console.log(`Push notification sent to ${subscription.user_email}`);
+        return { success: true, email: subscription.user_email };
+      } catch (error) {
+        console.error(`Failed to send push notification to ${subscription.user_email}:`, error);
+
+        // If subscription is invalid (410 Gone), deactivate it
+        if ((error as any)?.statusCode === 410) {
+          await supabase
+            .schema('backoffice')
+            .from('push_subscriptions')
+            .update({ is_active: false })
+            .eq('id', subscription.id);
+        }
+
+        return { success: false, email: subscription.user_email, error: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    });
+
+    const results = await Promise.all(sendPromises);
+    const successful = results.filter(r => r.success).length;
+    console.log(`Push notifications sent to ${successful} users via webhook`);
+
+  } catch (error) {
+    console.error('Error sending push notification from webhook:', error);
   }
 }
 
@@ -415,6 +532,13 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
     }
 
     console.log(`Stored message: ${event.webhookEventId} from user: ${event.source.userId}`);
+
+    // Send push notification to all staff (don't await this to avoid blocking)
+    sendPushNotificationForNewMessage(event, conversationId, displayText)
+      .catch(error => {
+        console.error('Failed to send push notification:', error);
+      });
+
   } catch (err) {
     console.error('Failed to store LINE message:', err);
     throw err;
@@ -513,6 +637,12 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
     }
 
     console.log(`Processed postback action: ${action} for booking: ${bookingId}`);
+
+    // Send push notification for postback action (don't await to avoid blocking)
+    sendPushNotificationForNewMessage(event, conversation.id, displayText)
+      .catch(error => {
+        console.error('Failed to send push notification for postback:', error);
+      });
 
   } catch (error) {
     console.error('Error handling postback event:', error);

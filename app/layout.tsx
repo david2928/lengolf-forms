@@ -9,8 +9,17 @@ import { SessionProvider } from '@/components/session-provider'
 import { ConditionalNav } from '@/components/conditional-nav'
 import { CustomerModalProvider } from '@/contexts/CustomerModalContext'
 import { CustomerDetailModal } from '@/components/shared/CustomerDetailModal'
+import type { Metadata } from 'next'
 
 const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
+}
 
 export default async function RootLayout({
   children,
