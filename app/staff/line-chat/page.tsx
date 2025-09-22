@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { enhanceMessageDisplay, createMessagePreview, type MessagePreview } from '@/lib/line/emoji-display-utils';
 import { CustomerLinkModal } from '@/components/admin/line-chat/CustomerLinkModal';
+import { CustomerConfirmationModal } from '@/components/admin/line-chat/CustomerConfirmationModal';
 import { StickerMessage } from '@/components/line/StickerMessage';
 import { ImageMessage } from '@/components/line/ImageMessage';
 import { FileMessage } from '@/components/line/FileMessage';
@@ -220,6 +221,8 @@ export default function LineChatPage() {
   const [customerTransactions, setCustomerTransactions] = useState<Transaction[]>([]);
   const [linkingCustomer, setLinkingCustomer] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [selectedCustomerForLink, setSelectedCustomerForLink] = useState<any>(null);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState<string | null>(null);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
@@ -234,13 +237,37 @@ export default function LineChatPage() {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [contextMenuMessage, setContextMenuMessage] = useState<Message | null>(null);
+  const [contextMenuMessageElement, setContextMenuMessageElement] = useState<HTMLElement | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastOpenedConversationRef = useRef<string | null>(null);
+  // Track recently sent message IDs to prevent duplicates from realtime
+  const recentlySentMessagesRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // Helper function to track recently sent messages
+  const trackRecentlySentMessage = useCallback((messageId: string) => {
+    // Clear any existing timeout for this message
+    const existingTimeout = recentlySentMessagesRef.current.get(messageId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // Set new timeout to remove from tracking after 5 seconds
+    const timeout = setTimeout(() => {
+      recentlySentMessagesRef.current.delete(messageId);
+    }, 5000);
+
+    recentlySentMessagesRef.current.set(messageId, timeout);
+  }, []);
 
   // Stabilize the new message callback to prevent infinite re-renders
   const handleNewMessage = useCallback((message: any) => {
+    // Skip if this message was recently sent by us
+    if (recentlySentMessagesRef.current.has(message.id)) {
+      return;
+    }
+
     // Add message to the messages list ONLY if it's for the currently selected conversation
     if (selectedConversation === message.conversationId) {
       setMessages(prev => {
@@ -303,9 +330,23 @@ export default function LineChatPage() {
     onConversationUpdate: handleConversationUpdate
   });
 
+  // Handle customer selection from search modal - shows confirmation first
+  const handleCustomerSelection = (customerId: string, customer: any) => {
+    setSelectedCustomerForLink(customer);
+    setShowLinkModal(false);
+    setShowConfirmationModal(true);
+  };
+
+  // Handle edit link - reopens customer search
+  const handleEditCustomerLink = () => {
+    setShowConfirmationModal(false);
+    setSelectedCustomerForLink(null);
+    setShowLinkModal(true);
+  };
+
   // Link LINE user to customer
-  const linkCustomerToLineUser = async (customerId: string, customer: any) => {
-    if (!selectedConv?.user.lineUserId) return;
+  const linkCustomerToLineUser = async () => {
+    if (!selectedCustomerForLink || !selectedConv?.user.lineUserId) return;
 
     try {
       setLinkingCustomer(true);
@@ -315,7 +356,7 @@ export default function LineChatPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ customerId }),
+        body: JSON.stringify({ customerId: selectedCustomerForLink.id }),
       });
 
       const data = await response.json();
@@ -328,22 +369,26 @@ export default function LineChatPage() {
               ? {
                   ...conv,
                   customer: {
-                    id: customerId,
-                    name: customer.customer_name,
-                    phone: customer.contact_number,
-                    email: customer.email
+                    id: selectedCustomerForLink.id,
+                    name: selectedCustomerForLink.customer_name,
+                    phone: selectedCustomerForLink.contact_number,
+                    email: selectedCustomerForLink.email
                   },
                   user: {
                     ...conv.user,
-                    customerId
+                    customerId: selectedCustomerForLink.id
                   }
                 }
               : conv
           )
         );
 
+        // Close modals and reset state
+        setShowConfirmationModal(false);
+        setSelectedCustomerForLink(null);
+
         // Fetch detailed customer information
-        fetchCustomerDetails(customerId);
+        fetchCustomerDetails(selectedCustomerForLink.id);
       } else {
         alert('Failed to link customer: ' + data.error);
       }
@@ -438,11 +483,15 @@ export default function LineChatPage() {
     e.preventDefault();
     e.stopPropagation();
 
+    // Find the message bubble element for better positioning
+    const messageElement = (e.currentTarget as HTMLElement).closest('.message-bubble') as HTMLElement;
+
     setContextMenuPosition({
       x: e.clientX,
       y: e.clientY
     });
     setContextMenuMessage(message);
+    setContextMenuMessageElement(messageElement);
     setShowContextMenu(true);
   };
 
@@ -456,11 +505,16 @@ export default function LineChatPage() {
 
     e.preventDefault();
     const touch = e.touches[0];
+
+    // Find the message bubble element for better positioning
+    const messageElement = (e.currentTarget as HTMLElement).closest('.message-bubble') as HTMLElement;
+
     setContextMenuPosition({
       x: touch.clientX,
       y: touch.clientY
     });
     setContextMenuMessage(message);
+    setContextMenuMessageElement(messageElement);
     setShowContextMenu(true);
   };
 
@@ -493,6 +547,7 @@ export default function LineChatPage() {
   const handleCloseContextMenu = () => {
     setShowContextMenu(false);
     setContextMenuMessage(null);
+    setContextMenuMessageElement(null);
   };
 
   // Send message (text, image, or file)
@@ -562,6 +617,9 @@ export default function LineChatPage() {
 
       if (data.success) {
         console.log('Message sent successfully:', data.message);
+        // Track this message to prevent duplicate from realtime
+        trackRecentlySentMessage(data.message.id);
+
         // Add message to current messages
         setMessages(prev => [...prev, data.message]);
 
@@ -577,6 +635,17 @@ export default function LineChatPage() {
         if (textarea) {
           textarea.style.height = '80px';
         }
+
+        // Refocus the input for continued typing (both desktop and mobile)
+        setTimeout(() => {
+          const input = isMobile
+            ? document.querySelector('input[placeholder="Enter Message"]') as HTMLInputElement
+            : document.querySelector('textarea[placeholder*="Type a message"]') as HTMLTextAreaElement;
+
+          if (input) {
+            input.focus();
+          }
+        }, 100);
 
         // Scroll to bottom when user sends a message
         setTimeout(() => {
@@ -660,6 +729,13 @@ export default function LineChatPage() {
       const data = await response.json();
 
       if (data.success) {
+        // Track all sent messages to prevent duplicates from realtime
+        if (data.messages && Array.isArray(data.messages)) {
+          data.messages.forEach((message: any) => {
+            trackRecentlySentMessage(message.id);
+          });
+        }
+
         // Add all sent messages to current messages
         if (data.messages && Array.isArray(data.messages)) {
           setMessages(prev => [...prev, ...data.messages]);
@@ -677,6 +753,17 @@ export default function LineChatPage() {
         setTimeout(() => {
           scrollToBottom();
         }, 100);
+
+        // Refocus the input for continued typing (both desktop and mobile)
+        setTimeout(() => {
+          const input = isMobile
+            ? document.querySelector('input[placeholder="Enter Message"]') as HTMLInputElement
+            : document.querySelector('textarea[placeholder*="Type a message"]') as HTMLTextAreaElement;
+
+          if (input) {
+            input.focus();
+          }
+        }, 150);
 
         // Refresh conversations
         fetchConversations();
@@ -720,6 +807,11 @@ export default function LineChatPage() {
       const data = await response.json();
 
       if (data.success) {
+        // Track sent message to prevent duplicate from realtime
+        if (data.message) {
+          trackRecentlySentMessage(data.message.id);
+        }
+
         // Add message to current messages
         if (data.message) {
           setMessages(prev => [...prev, data.message]);
@@ -729,6 +821,17 @@ export default function LineChatPage() {
         setTimeout(() => {
           scrollToBottom();
         }, 100);
+
+        // Refocus the input for continued typing (both desktop and mobile)
+        setTimeout(() => {
+          const input = isMobile
+            ? document.querySelector('input[placeholder="Enter Message"]') as HTMLInputElement
+            : document.querySelector('textarea[placeholder*="Type a message"]') as HTMLTextAreaElement;
+
+          if (input) {
+            input.focus();
+          }
+        }, 150);
 
         // Refresh conversations
         fetchConversations();
@@ -767,6 +870,8 @@ export default function LineChatPage() {
       if (data.success) {
         // Add message to current messages if returned
         if (data.message) {
+          // Track sent message to prevent duplicate from realtime
+          trackRecentlySentMessage(data.message.id);
           setMessages(prev => [...prev, data.message]);
         } else {
           // Fallback display
@@ -774,14 +879,18 @@ export default function LineChatPage() {
             ? '📋 Sent booking confirmation with interactive buttons'
             : '⏰ Sent booking reminder with action buttons';
 
-          setMessages(prev => [...prev, {
+          const mockMessage: Message = {
             id: `mock-${Date.now()}`,
             text: displayText,
             type: 'flex',
-            senderType: 'admin',
+            senderType: 'admin' as const,
             senderName: 'Admin',
             createdAt: new Date().toISOString()
-          }]);
+          };
+
+          // Track mock message to prevent any potential realtime interference
+          trackRecentlySentMessage(mockMessage.id);
+          setMessages(prev => [...prev, mockMessage]);
         }
 
         // Scroll to bottom when user sends a rich message
@@ -1530,6 +1639,7 @@ export default function LineChatPage() {
                   {message.type === 'sticker' && message.stickerId ? (
                     <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
                       <div
+                        className="message-bubble"
                         onContextMenu={(e: React.MouseEvent) => handleMessageRightClick(e, message)}
                         onTouchStart={(e: React.TouchEvent) => {
                           // More sophisticated long press detection that respects text selection
@@ -1578,6 +1688,7 @@ export default function LineChatPage() {
                   ) : message.type === 'image' && (message.fileUrl || message.imageUrl) ? (
                     <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
                       <div
+                        className="message-bubble"
                         onContextMenu={(e: React.MouseEvent) => handleMessageRightClick(e, message)}
                         onTouchStart={(e: React.TouchEvent) => {
                           // More sophisticated long press detection that respects text selection
@@ -1631,7 +1742,7 @@ export default function LineChatPage() {
                     /* Regular messages with background and timestamp below */
                     <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
                       <div
-                        className={`${
+                        className={`message-bubble ${
                           message.repliedToMessage
                             ? 'max-w-lg lg:max-w-2xl'
                             : 'max-w-xs lg:max-w-md'
@@ -2119,23 +2230,34 @@ export default function LineChatPage() {
                 </div>
 
                 {selectedConv.customer ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Users className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm">{selectedConv.customer.name}</span>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm">{selectedConv.customer.name}</span>
+                      </div>
+                      {selectedConv.customer.phone && (
+                        <div className="flex items-center space-x-2">
+                          <Phone className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm">{selectedConv.customer.phone}</span>
+                        </div>
+                      )}
+                      {selectedConv.customer.email && (
+                        <div className="flex items-center space-x-2">
+                          <Mail className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm">{selectedConv.customer.email}</span>
+                        </div>
+                      )}
                     </div>
-                    {selectedConv.customer.phone && (
-                      <div className="flex items-center space-x-2">
-                        <Phone className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm">{selectedConv.customer.phone}</span>
-                      </div>
-                    )}
-                    {selectedConv.customer.email && (
-                      <div className="flex items-center space-x-2">
-                        <Mail className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm">{selectedConv.customer.email}</span>
-                      </div>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowLinkModal(true)}
+                      disabled={linkingCustomer}
+                      className="w-full text-xs"
+                    >
+                      Edit Customer Link
+                    </Button>
                   </div>
                 ) : (
                   <div className="text-center py-4">
@@ -2485,9 +2607,23 @@ export default function LineChatPage() {
       <CustomerLinkModal
         isOpen={showLinkModal}
         onClose={() => setShowLinkModal(false)}
-        onCustomerSelect={linkCustomerToLineUser}
+        onCustomerSelect={handleCustomerSelection}
         loading={linkingCustomer}
         lineUserName={selectedConv?.user.displayName}
+      />
+
+      {/* Customer Confirmation Modal */}
+      <CustomerConfirmationModal
+        isOpen={showConfirmationModal}
+        onClose={() => {
+          setShowConfirmationModal(false);
+          setSelectedCustomerForLink(null);
+        }}
+        onConfirm={linkCustomerToLineUser}
+        onEdit={handleEditCustomerLink}
+        customer={selectedCustomerForLink}
+        lineUserName={selectedConv?.user.displayName}
+        loading={linkingCustomer}
       />
 
       <CuratedImageModal
@@ -2512,6 +2648,8 @@ export default function LineChatPage() {
           onCopy={handleCopyMessage}
           position={contextMenuPosition}
           messageText={contextMenuMessage.text}
+          isOwnMessage={contextMenuMessage.senderType === 'admin'}
+          messageElement={contextMenuMessageElement || undefined}
         />
       )}
 
@@ -2563,23 +2701,34 @@ export default function LineChatPage() {
                 </div>
 
                 {selectedConv.customer ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Users className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm">{selectedConv.customer.name}</span>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm">{selectedConv.customer.name}</span>
+                      </div>
+                      {selectedConv.customer.phone && (
+                        <div className="flex items-center space-x-2">
+                          <Phone className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm">{selectedConv.customer.phone}</span>
+                        </div>
+                      )}
+                      {selectedConv.customer.email && (
+                        <div className="flex items-center space-x-2">
+                          <Mail className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm">{selectedConv.customer.email}</span>
+                        </div>
+                      )}
                     </div>
-                    {selectedConv.customer.phone && (
-                      <div className="flex items-center space-x-2">
-                        <Phone className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm">{selectedConv.customer.phone}</span>
-                      </div>
-                    )}
-                    {selectedConv.customer.email && (
-                      <div className="flex items-center space-x-2">
-                        <Mail className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm">{selectedConv.customer.email}</span>
-                      </div>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowLinkModal(true)}
+                      disabled={linkingCustomer}
+                      className="w-full text-xs"
+                    >
+                      Edit Customer Link
+                    </Button>
                   </div>
                 ) : (
                   <div className="text-center py-4">
