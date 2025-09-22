@@ -175,7 +175,7 @@ export function CustomerConfirmationModal({
                   <h3 className="font-semibold text-lg truncate">Confirm Customer Link</h3>
                   {lineUserName && (
                     <p className="text-sm text-gray-500 truncate">
-                      Link "{lineUserName}" to this customer?
+                      Link &ldquo;{lineUserName}&rdquo; to this customer?
                     </p>
                   )}
                 </div>
@@ -494,7 +494,7 @@ export function CustomerConfirmationModal({
               <div>Confirm Customer Link</div>
               {lineUserName && (
                 <div className="text-sm font-normal text-gray-500 mt-1">
-                  Link "{lineUserName}" to this customer?
+                  Link &ldquo;{lineUserName}&rdquo; to this customer?
                 </div>
               )}
             </div>

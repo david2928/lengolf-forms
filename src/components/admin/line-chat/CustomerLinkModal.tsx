@@ -176,7 +176,7 @@ export function CustomerLinkModal({
                   <h3 className="font-semibold text-lg truncate">Link to Customer</h3>
                   {lineUserName && (
                     <p className="text-sm text-gray-500 truncate">
-                      for "{lineUserName}"
+                      for &ldquo;{lineUserName}&rdquo;
                     </p>
                   )}
                 </div>
@@ -285,7 +285,7 @@ export function CustomerLinkModal({
               <div>Link to Customer</div>
               {lineUserName && (
                 <div className="text-sm font-normal text-gray-500 mt-1">
-                  for "{lineUserName}"
+                  for &ldquo;{lineUserName}&rdquo;
                 </div>
               )}
             </div>

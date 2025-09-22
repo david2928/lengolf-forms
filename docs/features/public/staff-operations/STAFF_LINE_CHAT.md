@@ -97,6 +97,47 @@ The system includes a comprehensive image caching and display system:
 - **Template Integration**: Quick access to predefined message templates
 - **Customer Name Substitution**: Automatic `{{customer_name}}` replacement
 - **Native Reply Support**: Reply to any message using LINE's native quote message feature
+- **Batch Image Sending**: Send multiple curated images simultaneously with progress tracking
+
+#### Batch Image Sending
+The system supports sending multiple curated images in a single operation with advanced progress tracking:
+
+**Batch Selection Features**:
+- **Multiple Image Selection**: Select multiple curated images from the image modal
+- **Single vs. Batch Logic**: Automatically detects single vs. multiple image selection
+- **Progress Tracking**: Real-time progress indicator during batch sending
+- **Error Handling**: Individual image failure handling with batch continuation
+
+**Progress Tracking**:
+- **Visual Progress Bar**: Shows current/total progress (e.g., "2/5 images sent")
+- **Real-time Updates**: Progress updates as each image is processed
+- **Completion Feedback**: Brief success state before clearing progress indicator
+- **Error Recovery**: Failed images don't stop the entire batch
+
+**Technical Implementation**:
+```typescript
+// Batch image sending with progress
+const sendBatchImages = async (imageIds: string[]) => {
+  setSendingProgress({ current: 1, total: imageIds.length });
+
+  const response = await fetch('/api/line/conversations/[id]/messages', {
+    method: 'POST',
+    body: JSON.stringify({
+      type: 'batch_images',
+      curatedImageIds: imageIds,
+      senderName: 'Admin'
+    })
+  });
+
+  // Progress completion with delay
+  setTimeout(() => setSendingProgress(null), 1000);
+};
+```
+
+**User Experience**:
+- **Seamless Selection**: Choose multiple images naturally from curated collection
+- **Visual Feedback**: Clear progress indication prevents user confusion
+- **Automatic Focus**: Input refocuses after batch completion for continued conversation
 
 #### Reply Functionality
 The system includes comprehensive reply support using LINE's native quote message feature:
@@ -263,12 +304,120 @@ Response: {
 - **Message Polling**: Real-time message updates
 - **Typing Indicators**: Show when staff is typing (future enhancement)
 
+#### Advanced Realtime Features
+The system implements a sophisticated dual-hook realtime architecture with intelligent fallbacks:
+
+**Dual Hook Architecture**:
+- **useRealtimeMessages**: Handles real-time message updates for all conversations
+- **useRealtimeConversations**: Manages conversation list updates and metadata changes
+- **Global Subscription**: Messages hook subscribes to ALL conversations, not just selected ones
+- **Smart Message Routing**: Messages only added to UI if conversation is currently selected
+
+**Intelligent Fallback System**:
+- **Connection Health Monitoring**: Real-time tracking of connection status for both hooks
+- **Automatic Fallback Polling**: 10-second polling activates only when realtime connections fail
+- **Error Recovery**: Automatic reconnection attempts with exponential backoff
+- **Performance Optimization**: Polling skips when realtime is working properly
+
+**Technical Implementation**:
+```typescript
+// Dual realtime hooks with fallback
+const { connectionStatus: messagesConnectionStatus } = useRealtimeMessages({
+  conversationId: null, // Subscribe to ALL conversations
+  onNewMessage: handleNewMessage
+});
+
+const { connectionStatus: conversationsConnectionStatus } = useRealtimeConversations({
+  onConversationUpdate: handleConversationUpdate
+});
+
+// Intelligent fallback polling
+if (messagesConnectionStatus.status === 'error' ||
+    conversationsConnectionStatus.status === 'error') {
+  // Activate fallback polling
+}
+```
+
+**Connection Status Indicators**:
+- **Connected**: Full realtime functionality active
+- **Connecting**: Initial connection in progress
+- **Error**: Connection failed, fallback polling active
+- **Disconnected**: Clean disconnection (normal during startup)
+
 #### Enhanced UX Features
 - **Smart Scroll Behavior**: Conversations automatically scroll to bottom only on first open
 - **Non-Intrusive Updates**: Message updates don't interrupt reading flow
 - **Instant Positioning**: No animated scrolling for initial conversation load
 - **Image Preloading**: Images preloaded for smoother conversation experience
 - **Optimized Click Handling**: Reliable image click events for modal viewing
+- **Automatic Input Refocus**: Input field automatically refocuses after sending messages for continuous typing workflow
+
+#### Input Focus Management
+The system includes sophisticated input focus management to enhance the user experience:
+
+**Automatic Refocus Features**:
+- **Post-Send Refocus**: Input field automatically refocuses after successfully sending any message type
+- **Cross-Platform Support**: Works seamlessly on both desktop (textarea) and mobile (input) interfaces
+- **Multiple Message Types**: Applies to text messages, template messages, and batch image sending
+- **Timing Optimization**: 100-150ms delay ensures DOM updates complete before focusing
+
+**Technical Implementation**:
+```typescript
+// Automatic refocus after sending messages
+setTimeout(() => {
+  const input = isMobile
+    ? document.querySelector('input[placeholder="Enter Message"]') as HTMLInputElement
+    : document.querySelector('textarea[placeholder*="Type a message"]') as HTMLTextAreaElement;
+
+  if (input) {
+    input.focus();
+  }
+}, 100);
+```
+
+**User Experience Benefits**:
+- **Continuous Workflow**: Staff can send multiple messages without manually clicking back into input
+- **Improved Efficiency**: Reduces friction in customer communication workflow
+- **Mobile Optimized**: Particularly beneficial on mobile devices where input selection can be cumbersome
+
+#### Push Notification System
+The LINE chat system includes comprehensive push notification support for real-time message alerts:
+
+**Browser Support Detection**:
+- **Automatic Capability Checking**: System detects if browser supports push notifications
+- **Graceful Degradation**: Features hidden on unsupported browsers
+- **Permission Management**: Handles browser permission requests gracefully
+
+**Subscription Management**:
+- **Enable/Disable Toggle**: Staff can easily subscribe or unsubscribe from notifications
+- **Visual Status Indicators**: Clear icons show subscription status (Bell/BellOff)
+- **Persistent State**: Subscription status maintained across sessions
+
+**Notification Features**:
+- **Test Functionality**: Send test notifications to verify setup
+- **Message Alerts**: Receive notifications for new customer messages
+- **Smart Filtering**: Only notify for relevant conversations
+- **Error Handling**: Clear error messages for notification failures
+
+**Technical Implementation**:
+```typescript
+// Push notification hook integration
+const {
+  isSupported,
+  isSubscribed,
+  isLoading: notificationLoading,
+  error: notificationError,
+  subscribe: subscribeToNotifications,
+  unsubscribe: unsubscribeFromNotifications,
+  sendTestNotification
+} = usePushNotifications();
+```
+
+**UI Integration**:
+- **Header Controls**: Notification toggle buttons in conversation list header
+- **Status Display**: Visual feedback for subscription state and errors
+- **Test Button**: Quick test notification functionality when subscribed
+- **Error Messages**: Clear error display for notification setup issues
 
 ## User Interface
 
