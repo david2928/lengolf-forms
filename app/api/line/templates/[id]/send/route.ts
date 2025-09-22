@@ -117,7 +117,29 @@ export async function POST(
       }
     );
 
-    const sendResult = await sendResponse.json();
+    // Check if the response is okay first
+    if (!sendResponse.ok) {
+      const errorText = await sendResponse.text();
+      console.error(`Failed to send message: ${sendResponse.status} ${sendResponse.statusText} - ${errorText}`);
+      return NextResponse.json(
+        { error: 'Failed to send message', details: `HTTP ${sendResponse.status}: ${errorText}` },
+        { status: 500 }
+      );
+    }
+
+    // Try to parse as JSON, handle non-JSON responses
+    let sendResult;
+    try {
+      sendResult = await sendResponse.json();
+    } catch (parseError) {
+      const responseText = await sendResponse.text();
+      console.error('Failed to parse response as JSON:', parseError);
+      console.error('Response text:', responseText);
+      return NextResponse.json(
+        { error: 'Invalid response from message API', details: 'Response is not valid JSON' },
+        { status: 500 }
+      );
+    }
 
     if (!sendResult.success) {
       return NextResponse.json(
