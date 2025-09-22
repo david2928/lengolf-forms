@@ -423,21 +423,9 @@ export async function POST(
       }, { status: lineResponse.status });
     }
 
-    // Get quote token from LINE API response for future replies
+    // LINE Push API returns 200 OK with empty body - quote tokens are only available in Reply API responses
+    // We'll store our own quote token when this message is received back via webhook
     let responseQuoteToken: string | null = null;
-    try {
-      const lineResponseData = await lineResponse.json();
-      console.log('LINE API Response:', JSON.stringify(lineResponseData, null, 2));
-
-      if (lineResponseData.sentMessages && lineResponseData.sentMessages[0]?.quoteToken) {
-        responseQuoteToken = lineResponseData.sentMessages[0].quoteToken;
-        console.log('Quote token received:', responseQuoteToken);
-      } else {
-        console.log('No quote token in response. SentMessages:', lineResponseData.sentMessages);
-      }
-    } catch (error) {
-      console.warn('Failed to parse LINE API response for quote token:', error);
-    }
 
     // Store message in our database
     const { data: storedMessage, error: messageError } = await supabase
@@ -500,7 +488,20 @@ export async function POST(
         senderName: storedMessage.sender_name,
         timestamp: storedMessage.timestamp,
         createdAt: storedMessage.created_at,
-        isRead: storedMessage.is_read
+        isRead: storedMessage.is_read,
+        repliedToMessageId: storedMessage.replied_to_message_id,
+        replyPreviewText: storedMessage.reply_preview_text,
+        replyPreviewType: storedMessage.reply_preview_type,
+        replySenderName: storedMessage.reply_sender_name,
+        replySenderType: storedMessage.reply_sender_type,
+        replySenderPictureUrl: storedMessage.reply_sender_picture_url,
+        repliedToMessage: repliedToMessage ? {
+          id: repliedToMessage.id,
+          text: repliedToMessage.message_text,
+          type: repliedToMessage.message_type,
+          senderName: repliedToMessage.sender_name,
+          senderType: repliedToMessage.sender_type
+        } : undefined
       }
     });
 

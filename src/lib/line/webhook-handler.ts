@@ -35,6 +35,7 @@ export interface LineWebhookEvent {
     longitude?: number;
     packageId?: string;
     stickerId?: string;
+    quoteToken?: string;
     emojis?: Array<{
       index: number;
       length: number;
@@ -489,6 +490,7 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
         file_type: fileType,
         source_type: event.source.type, // Track source type for filtering
         reply_token: event.replyToken,
+        quote_token: event.message?.quoteToken, // Capture quote token for replies
         timestamp: event.timestamp,
         sender_type: 'user',
         is_read: false,
