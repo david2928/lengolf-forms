@@ -27,6 +27,9 @@ interface Message {
   repliedToMessageId?: string;
   replyPreviewText?: string;
   replyPreviewType?: string;
+  replySenderName?: string;
+  replySenderType?: string;
+  replySenderPictureUrl?: string;
   // Populated reply data when message is a reply
   repliedToMessage?: {
     id: string;
@@ -145,6 +148,18 @@ export function useRealtimeMessages({
               repliedToMessageId: payload.new.replied_to_message_id,
               replyPreviewText: payload.new.reply_preview_text,
               replyPreviewType: payload.new.reply_preview_type,
+              replySenderName: payload.new.reply_sender_name,
+              replySenderType: payload.new.reply_sender_type,
+              replySenderPictureUrl: payload.new.reply_sender_picture_url,
+              // Construct repliedToMessage object from available reply data
+              repliedToMessage: payload.new.replied_to_message_id ? {
+                id: payload.new.replied_to_message_id,
+                text: payload.new.reply_preview_text,
+                type: payload.new.reply_preview_type || 'text',
+                senderName: payload.new.reply_sender_name,
+                senderType: payload.new.reply_sender_type,
+                pictureUrl: payload.new.reply_sender_picture_url
+              } : undefined,
             };
 
             onNewMessage?.(message);

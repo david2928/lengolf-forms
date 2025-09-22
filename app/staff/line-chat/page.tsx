@@ -242,32 +242,9 @@ export default function LineChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastOpenedConversationRef = useRef<string | null>(null);
-  // Track recently sent message IDs to prevent duplicates from realtime
-  const recentlySentMessagesRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-
-  // Helper function to track recently sent messages
-  const trackRecentlySentMessage = useCallback((messageId: string) => {
-    // Clear any existing timeout for this message
-    const existingTimeout = recentlySentMessagesRef.current.get(messageId);
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-    }
-
-    // Set new timeout to remove from tracking after 5 seconds
-    const timeout = setTimeout(() => {
-      recentlySentMessagesRef.current.delete(messageId);
-    }, 5000);
-
-    recentlySentMessagesRef.current.set(messageId, timeout);
-  }, []);
 
   // Stabilize the new message callback to prevent infinite re-renders
   const handleNewMessage = useCallback((message: any) => {
-    // Skip if this message was recently sent by us
-    if (recentlySentMessagesRef.current.has(message.id)) {
-      return;
-    }
-
     // Add message to the messages list ONLY if it's for the currently selected conversation
     if (selectedConversation === message.conversationId) {
       setMessages(prev => {
@@ -617,11 +594,6 @@ export default function LineChatPage() {
 
       if (data.success) {
         console.log('Message sent successfully:', data.message);
-        // Track this message to prevent duplicate from realtime
-        trackRecentlySentMessage(data.message.id);
-
-        // Add message to current messages
-        setMessages(prev => [...prev, data.message]);
 
         // Clear input states
         setNewMessage('');
@@ -651,9 +623,6 @@ export default function LineChatPage() {
         setTimeout(() => {
           scrollToBottom();
         }, 100);
-
-        // Refresh conversations
-        fetchConversations();
       } else {
         console.error('Failed to send message:', data.error);
         alert('Failed to send message: ' + data.error);
@@ -729,18 +698,6 @@ export default function LineChatPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Track all sent messages to prevent duplicates from realtime
-        if (data.messages && Array.isArray(data.messages)) {
-          data.messages.forEach((message: any) => {
-            trackRecentlySentMessage(message.id);
-          });
-        }
-
-        // Add all sent messages to current messages
-        if (data.messages && Array.isArray(data.messages)) {
-          setMessages(prev => [...prev, ...data.messages]);
-        }
-
         // Show success feedback
         setSendingProgress({ current: imageIds.length, total: imageIds.length });
 
@@ -764,9 +721,6 @@ export default function LineChatPage() {
             input.focus();
           }
         }, 150);
-
-        // Refresh conversations
-        fetchConversations();
       } else {
         alert('Failed to send images: ' + data.error);
       }
@@ -807,16 +761,6 @@ export default function LineChatPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Track sent message to prevent duplicate from realtime
-        if (data.message) {
-          trackRecentlySentMessage(data.message.id);
-        }
-
-        // Add message to current messages
-        if (data.message) {
-          setMessages(prev => [...prev, data.message]);
-        }
-
         // Scroll to bottom when user sends a template
         setTimeout(() => {
           scrollToBottom();
@@ -832,9 +776,6 @@ export default function LineChatPage() {
             input.focus();
           }
         }, 150);
-
-        // Refresh conversations
-        fetchConversations();
       } else {
         alert('Failed to send template: ' + data.error);
       }
@@ -868,38 +809,10 @@ export default function LineChatPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Add message to current messages if returned
-        if (data.message) {
-          // Track sent message to prevent duplicate from realtime
-          trackRecentlySentMessage(data.message.id);
-          setMessages(prev => [...prev, data.message]);
-        } else {
-          // Fallback display
-          const displayText = messageType === 'booking_confirmation'
-            ? '📋 Sent booking confirmation with interactive buttons'
-            : '⏰ Sent booking reminder with action buttons';
-
-          const mockMessage: Message = {
-            id: `mock-${Date.now()}`,
-            text: displayText,
-            type: 'flex',
-            senderType: 'admin' as const,
-            senderName: 'Admin',
-            createdAt: new Date().toISOString()
-          };
-
-          // Track mock message to prevent any potential realtime interference
-          trackRecentlySentMessage(mockMessage.id);
-          setMessages(prev => [...prev, mockMessage]);
-        }
-
         // Scroll to bottom when user sends a rich message
         setTimeout(() => {
           scrollToBottom();
         }, 100);
-
-        // Refresh conversations
-        fetchConversations();
       } else {
         alert(`Failed to send ${messageType}: ${data.error}`);
       }
@@ -933,13 +846,6 @@ export default function LineChatPage() {
 
       if (data.success) {
         console.log('Booking confirmation sent successfully');
-        // Refresh conversations to show the new message
-        fetchConversations();
-
-        // Refresh messages if this conversation is selected
-        if (selectedConversation) {
-          fetchMessages(selectedConversation);
-        }
       } else {
         if (data.error.includes('does not have a linked LINE account')) {
           alert('This customer does not have a linked LINE account. Please link their LINE account first.');
