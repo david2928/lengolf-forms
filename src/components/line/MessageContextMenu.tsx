@@ -1,18 +1,22 @@
 import { useEffect, useRef } from 'react';
-import { Reply } from 'lucide-react';
+import { Reply, Copy } from 'lucide-react';
 
 interface MessageContextMenuProps {
   isOpen: boolean;
   onClose: () => void;
   onReply: () => void;
+  onCopy?: () => void;
   position: { x: number; y: number };
+  messageText?: string;
 }
 
 export function MessageContextMenu({
   isOpen,
   onClose,
   onReply,
-  position
+  onCopy,
+  position,
+  messageText
 }: MessageContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -49,6 +53,38 @@ export function MessageContextMenu({
 
   if (!isOpen) return null;
 
+  // Handle copy to clipboard
+  const handleCopy = async () => {
+    if (!messageText) return;
+
+    try {
+      await navigator.clipboard.writeText(messageText);
+      if (onCopy) {
+        onCopy();
+      }
+    } catch (err) {
+      // Fallback for older browsers or when clipboard API fails
+      const textArea = document.createElement('textarea');
+      textArea.value = messageText;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        if (onCopy) {
+          onCopy();
+        }
+      } catch (fallbackErr) {
+        console.error('Failed to copy text:', fallbackErr);
+      }
+      document.body.removeChild(textArea);
+    }
+    onClose();
+  };
+
   // Adjust position to keep menu within viewport
   const adjustedPosition = {
     x: Math.min(position.x, window.innerWidth - 140), // 140px is approx menu width
@@ -74,6 +110,15 @@ export function MessageContextMenu({
         <Reply className="h-4 w-4 mr-2 text-gray-500" />
         Reply
       </button>
+      {messageText && (
+        <button
+          onClick={handleCopy}
+          className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          <Copy className="h-4 w-4 mr-2 text-gray-500" />
+          Copy Text
+        </button>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, User, Phone, Hash, X } from 'lucide-react';
+import { Search, User, Phone, Hash, X, ChevronLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,18 +25,57 @@ interface CustomerLinkModalProps {
   onClose: () => void;
   onCustomerSelect: (customerId: string, customer: Customer) => void;
   loading?: boolean;
+  lineUserName?: string;
 }
 
 export function CustomerLinkModal({
   isOpen,
   onClose,
   onCustomerSelect,
-  loading = false
+  loading = false,
+  lineUserName
 }: CustomerLinkModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searching, setSearching] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
+
+  // Prevent background scrolling on mobile when modal is open
+  useEffect(() => {
+    if (isOpen && isMobile) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = '0';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    };
+  }, [isOpen, isMobile]);
 
   // Search customers with debouncing
   useEffect(() => {
@@ -115,13 +154,141 @@ export function CustomerLinkModal({
     onClose();
   };
 
+  // Mobile full-screen modal
+  if (isMobile) {
+    return (
+      <>
+        {isOpen && (
+          <div className="fixed inset-0 bg-white z-[60] flex flex-col">
+            {/* Mobile Header */}
+            <div className="bg-white border-b p-4 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 flex-shrink-0"
+                  onClick={handleClose}
+                  disabled={loading}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-lg truncate">Link to Customer</h3>
+                  {lineUserName && (
+                    <p className="text-sm text-gray-500 truncate">
+                      for "{lineUserName}"
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Content */}
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col">
+              {/* Search Input - Sticky at top */}
+              <div className="relative mb-4 bg-white sticky top-0 z-10 pb-2">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder={lineUserName
+                    ? `Search for ${lineUserName}'s customer profile...`
+                    : "Search by name, phone, or customer code..."
+                  }
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                  disabled={loading}
+                  autoFocus
+                />
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2 top-2 h-6 w-6 p-0"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Search Results */}
+              <div className="flex-1">
+                {searchTerm.length < 1 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Type to search customers</p>
+                  </div>
+                )}
+
+                {searching && searchTerm.length >= 1 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+                    <p className="text-sm">Searching customers...</p>
+                  </div>
+                )}
+
+                {!searching && searchTerm.length >= 1 && customers.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No customers found for &ldquo;{searchTerm}&rdquo;</p>
+                  </div>
+                )}
+
+                {customers.length > 0 && (
+                  <div className="space-y-2">
+                    {customers.map((customer) => (
+                      <button
+                        key={customer.id}
+                        onClick={() => handleCustomerSelect(customer)}
+                        disabled={loading}
+                        className="w-full p-4 text-left border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <div className="flex flex-col space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              <span className="font-medium text-gray-900 truncate">
+                                {customer.customer_name}
+                              </span>
+                            </div>
+                            <Badge variant="outline" className="text-xs flex-shrink-0">
+                              {customer.customer_code}
+                            </Badge>
+                          </div>
+                          {customer.contact_number && (
+                            <div className="flex items-center gap-2 text-sm text-gray-500 pl-6">
+                              <Phone className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{customer.contact_number}</span>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // Desktop modal (unchanged)
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg max-w-[90vw]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            Link to Customer
+            <div className="flex-1">
+              <div>Link to Customer</div>
+              {lineUserName && (
+                <div className="text-sm font-normal text-gray-500 mt-1">
+                  for "{lineUserName}"
+                </div>
+              )}
+            </div>
           </DialogTitle>
         </DialogHeader>
 
@@ -130,7 +297,10 @@ export function CustomerLinkModal({
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search by name, phone, or customer code..."
+              placeholder={lineUserName
+                ? `Search for ${lineUserName}'s customer profile...`
+                : "Search by name, phone, or customer code..."
+              }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
