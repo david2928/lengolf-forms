@@ -100,8 +100,13 @@ export async function POST(
     }
 
     // Send the message via the existing conversation endpoint
+    // Use the same pattern as other internal API calls in the codebase
+    const internalUrl = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:3000'
+      : 'https://lengolf-forms.vercel.app';
+
     const sendResponse = await fetch(
-      `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/line/conversations/${conversationId}/messages`,
+      `${internalUrl}/api/line/conversations/${conversationId}/messages`,
       {
         method: 'POST',
         headers: {
