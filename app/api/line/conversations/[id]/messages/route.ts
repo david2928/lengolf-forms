@@ -423,9 +423,20 @@ export async function POST(
       }, { status: lineResponse.status });
     }
 
-    // LINE Push API returns 200 OK with empty body - quote tokens are only available in Reply API responses
-    // We'll store our own quote token when this message is received back via webhook
+    // Parse LINE Push API response to extract quote token
     let responseQuoteToken: string | null = null;
+    try {
+      const lineResponseData = await lineResponse.json();
+      if (lineResponseData.sentMessages && lineResponseData.sentMessages.length > 0) {
+        responseQuoteToken = lineResponseData.sentMessages[0].quoteToken || null;
+        if (responseQuoteToken) {
+          console.log('Quote token extracted from LINE API response:', responseQuoteToken);
+        }
+      }
+    } catch (parseError) {
+      console.error('Failed to parse LINE API response for quote token:', parseError);
+      // Continue without quote token rather than failing the entire request
+    }
 
     // Store message in our database
     const { data: storedMessage, error: messageError } = await supabase
