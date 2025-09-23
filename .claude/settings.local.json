@@ -42,7 +42,8 @@
       "WebFetch(domain:developers.line.biz)",
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_snapshot",
-      "Read(//c/vs_code/realtime-test-isolated/**)"
+      "Read(//c/vs_code/realtime-test-isolated/**)",
+      "mcp__supabase__list_extensions"
     ],
     "deny": [],
     "ask": []

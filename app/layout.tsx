@@ -26,7 +26,13 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await getServerSession(authOptions)
+  // Development auth bypass
+  const shouldBypass = (
+    process.env.NODE_ENV === 'development' &&
+    process.env.SKIP_AUTH === 'true'
+  );
+
+  const session = shouldBypass ? null : await getServerSession(authOptions)
 
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>

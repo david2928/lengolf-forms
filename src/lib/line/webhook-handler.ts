@@ -36,6 +36,7 @@ export interface LineWebhookEvent {
     packageId?: string;
     stickerId?: string;
     quoteToken?: string;
+    quotedMessageId?: string; // LINE message ID of the message being replied to
     emojis?: Array<{
       index: number;
       length: number;
@@ -474,6 +475,57 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
       }
     }
 
+    // Handle reply if quotedMessageId is present
+    let repliedToMessageId: string | null = null;
+    let replyPreviewText: string | null = null;
+    let replyPreviewType: string | null = null;
+    let replySenderName: string | null = null;
+    let replySenderType: string | null = null;
+    let replySenderPictureUrl: string | null = null;
+
+    if (event.message?.quotedMessageId) {
+      const { data: originalMessage } = await supabase
+        .from('line_messages')
+        .select(`
+          id, message_text, message_type, sender_name, sender_type, file_name,
+          line_user_id,
+          line_users!inner(picture_url)
+        `)
+        .eq('message_id', event.message.quotedMessageId)
+        .single();
+
+      if (originalMessage) {
+        repliedToMessageId = originalMessage.id;
+        replyPreviewType = originalMessage.message_type;
+        replySenderName = originalMessage.sender_name;
+        replySenderType = originalMessage.sender_type;
+        replySenderPictureUrl = (originalMessage as any).line_users?.picture_url || null;
+
+        // Generate preview text based on message type
+        if (originalMessage.message_type === 'text') {
+          replyPreviewText = originalMessage.message_text;
+        } else if (originalMessage.message_type === 'image') {
+          replyPreviewText = '📷 Photo';
+        } else if (originalMessage.message_type === 'file') {
+          replyPreviewText = `📄 ${originalMessage.file_name || 'File'}`;
+        } else {
+          replyPreviewText = `[${originalMessage.message_type}]`;
+        }
+      }
+    }
+
+    // Get customer name for sender_name
+    let customerName: string | null = null;
+    if (event.source.userId) {
+      const { data: userProfile } = await supabase
+        .from('line_users')
+        .select('display_name')
+        .eq('line_user_id', event.source.userId)
+        .single();
+
+      customerName = userProfile?.display_name || null;
+    }
+
     // Insert the message
     const { error: messageError } = await supabase
       .from('line_messages')
@@ -491,8 +543,15 @@ export async function storeLineMessage(event: LineWebhookEvent): Promise<void> {
         source_type: event.source.type, // Track source type for filtering
         reply_token: event.replyToken,
         quote_token: event.message?.quoteToken, // Capture quote token for replies
+        replied_to_message_id: repliedToMessageId, // Link to original message for replies
+        reply_preview_text: replyPreviewText,
+        reply_preview_type: replyPreviewType,
+        reply_sender_name: replySenderName,
+        reply_sender_type: replySenderType,
+        reply_sender_picture_url: replySenderPictureUrl,
         timestamp: event.timestamp,
         sender_type: 'user',
+        sender_name: customerName,
         is_read: false,
         raw_event: event
       });

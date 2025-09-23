@@ -499,6 +499,56 @@ Future enhancement to track:
 - **Conversation Caching**: Cache conversation list and customer data
 - **Debounced Search**: Prevent excessive API calls
 - **Smart Preloading**: Preload images when conversations are opened
+- **Enhanced Scroll Management**: Intelligent scroll behavior with image loading awareness
+
+### Enhanced Scroll Behavior
+The system implements sophisticated scroll management that improves user experience and performance:
+
+**Smart Scroll Timing**:
+- **First Open Only**: Conversations automatically scroll to bottom only on initial open
+- **Conversation Tracking**: Remembers which conversations have been opened to prevent repeated auto-scrolling
+- **Instant Positioning**: Uses `behavior: 'instant'` for initial load to avoid animation delays
+- **Non-Intrusive Updates**: New messages don't force scroll, allowing users to read history
+
+**Image-Aware Scrolling**:
+- **Load Detection**: Waits for images to fully load before scrolling to final position
+- **Event Handling**: Listens for both `load` and `error` events on all images
+- **Fallback Timeout**: 1-second timeout ensures scrolling happens even if images fail
+- **Performance Optimization**: Only tracks images within the messages container
+
+**Technical Implementation**:
+```typescript
+// Enhanced scroll that waits for images
+const scrollToBottomAfterImages = () => {
+  const images = document.querySelectorAll('.messages-container img');
+  let loadedCount = 0;
+  const totalImages = images.length;
+
+  const checkAllLoaded = () => {
+    loadedCount++;
+    if (loadedCount === totalImages) {
+      scrollToBottom();
+    }
+  };
+
+  images.forEach((img) => {
+    if (img.complete) {
+      checkAllLoaded();
+    } else {
+      img.addEventListener('load', checkAllLoaded, { once: true });
+      img.addEventListener('error', checkAllLoaded, { once: true });
+    }
+  });
+
+  // Fallback timeout
+  setTimeout(scrollToBottom, 1000);
+};
+```
+
+**User Experience Benefits**:
+- **Consistent Positioning**: Messages always appear at correct scroll position
+- **Reading Flow**: Users can scroll up to read history without interruption
+- **Performance**: Eliminates layout shift issues from late-loading images
 
 ### Image Performance Optimization
 
@@ -599,6 +649,9 @@ clearAllImages(): Promise<void>      // Manual cache reset
 7. **Reply Context Menu Not Appearing**: Verify right-click/long-press event handlers
 8. **Native LINE Replies Not Working**: Check quote token storage and LINE API integration
 9. **Reply Preview Not Showing**: Verify replied message data and preview generation
+10. **Input Not Refocusing After Send**: Input automatically refocuses after successful message sending
+11. **Push Notifications Not Working**: Check browser permissions and notification subscription status
+12. **Realtime Updates Failing**: Verify Supabase realtime connection and fallback polling activation
 
 ### Image-Related Issues
 

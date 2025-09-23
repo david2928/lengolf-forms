@@ -39,6 +39,14 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 ### Coaching Services
 - **[Coaching System](./features/public/coaching/COACHING_SYSTEM.md)** - Coach dashboards, booking assistant, student tracking, and earnings
 
+### Customer Communication
+- **[Unified Chat System](./features/public/customer-chat/UNIFIED_CHAT_SYSTEM.md)** - Multi-channel messaging platform (LINE + Website chat) with real-time updates
+- **[Unified Chat Architecture](./features/public/customer-chat/UNIFIED_CHAT_ARCHITECTURE.md)** - Technical architecture, components, and state management patterns
+- **[Unified Chat API Reference](./features/public/customer-chat/UNIFIED_CHAT_API_REFERENCE.md)** - Complete API documentation for all chat endpoints
+- **[Unified Chat Database](./features/public/customer-chat/UNIFIED_CHAT_DATABASE.md)** - Database schema, views, and relationship documentation
+- **[Unified Chat Development Guide](./features/public/customer-chat/UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)** - Developer implementation guide with testing strategies
+- **[Customer Web Chat Implementation Guide](./features/public/customer-chat/CUSTOMER_WEB_CHAT_IMPLEMENTATION_GUIDE.md)** - Original implementation plan and research
+
 ### Point of Sale System
 - **[POS System Implementation](./features/public/pos/POS_SYSTEM_IMPLEMENTATION.md)** - Complete POS system architecture
 - **[POS Product Catalog](./features/public/pos/POS_PRODUCT_CATALOG.md)** - Product browsing and custom products
@@ -170,6 +178,7 @@ The following documentation files contain overlapping content and should be cons
 - **🏌️ Coaches**: [Coaching System](./features/COACHING_SYSTEM.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md)
 - **⚙️ Operations Managers**: [Staff Management System](./features/STAFF_MANAGEMENT_SYSTEM.md) → [Staff Scheduling System](./features/STAFF_SCHEDULING_SYSTEM.md) → [Time Clock System](./features/TIME_CLOCK_SYSTEM.md)
 - **🔗 Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [Calendar Integration](./features/CALENDAR_INTEGRATION.md)
+- **💬 Chat System Developers**: [Unified Chat System](./features/public/customer-chat/UNIFIED_CHAT_SYSTEM.md) → [Chat Architecture](./features/public/customer-chat/UNIFIED_CHAT_ARCHITECTURE.md) → [Chat Development Guide](./features/public/customer-chat/UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
 
 ### By Feature Category
 - **📅 Booking & Scheduling**: All booking-related documentation under Public Features > Booking & Scheduling

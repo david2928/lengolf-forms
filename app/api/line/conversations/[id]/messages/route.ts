@@ -319,7 +319,7 @@ export async function POST(
     if (repliedToMessageId) {
       const { data: originalMessage, error: replyError } = await supabase
         .from('line_messages')
-        .select('id, message_text, message_type, quote_token, sender_name, file_name')
+        .select('id, message_text, message_type, quote_token, sender_name, file_name, sender_type')
         .eq('id', repliedToMessageId)
         .single();
 
