@@ -28,6 +28,32 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'api.line.me',
+      },
+      // Meta/Facebook profile pictures
+      {
+        protocol: 'https',
+        hostname: 'platform-lookaside.fbsbx.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'scontent.fbkk*.fbcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.fbcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'graph.facebook.com',
+      },
+      // Instagram profile pictures
+      {
+        protocol: 'https',
+        hostname: 'scontent.cdninstagram.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.cdninstagram.com',
       }
     ],
     formats: ['image/webp', 'image/avif'],

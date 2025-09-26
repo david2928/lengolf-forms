@@ -90,7 +90,7 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
             } : null,
             channelType: 'line' as const // Add channel identifier
           };
-        } else {
+        } else if (conv.channel_type === 'website') {
           // Website conversation - transform to legacy format
           return {
             id: conv.id,
@@ -104,7 +104,7 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
             user: {
               displayName: conv.channel_metadata?.display_name ||
                           (conv.channel_metadata?.email ? `Web User (${conv.channel_metadata.email})` : 'Website User'),
-              pictureUrl: '', // No profile pictures for website users
+              pictureUrl: '/LG_Logo_Big.jpg', // Use Lengolf logo for website users
               lineUserId: conv.channel_user_id,
               customerId: conv.customer_id
             },
@@ -115,6 +115,57 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
               email: ''
             } : null,
             channelType: 'website' as const // Add channel identifier
+          };
+        } else if (['facebook', 'instagram', 'whatsapp'].includes(conv.channel_type)) {
+          // Meta platforms conversation - transform to legacy format
+          const platformName = conv.channel_type.charAt(0).toUpperCase() + conv.channel_type.slice(1);
+          return {
+            id: conv.id,
+            lineUserId: conv.channel_user_id, // Use platform_user_id for compatibility
+            customerId: conv.customer_id,
+            lastMessageAt: conv.last_message_at,
+            lastMessageText: conv.last_message_text,
+            lastMessageBy: conv.last_message_by,
+            lastMessageType: 'text',
+            unreadCount: conv.unread_count || 0,
+            user: {
+              displayName: conv.channel_metadata?.display_name || `${platformName} User`,
+              pictureUrl: conv.channel_metadata?.profile_pic || '',
+              lineUserId: conv.channel_user_id,
+              customerId: conv.customer_id
+            },
+            customer: conv.customer_id ? {
+              id: conv.customer_id,
+              name: conv.channel_metadata?.customer_name || 'Customer',
+              phone: conv.channel_metadata?.phone_number || '',
+              email: ''
+            } : null,
+            channelType: conv.channel_type as 'facebook' | 'instagram' | 'whatsapp'
+          };
+        } else {
+          // Unknown channel type - fallback
+          return {
+            id: conv.id,
+            lineUserId: conv.channel_user_id,
+            customerId: conv.customer_id,
+            lastMessageAt: conv.last_message_at,
+            lastMessageText: conv.last_message_text,
+            lastMessageBy: conv.last_message_by,
+            lastMessageType: 'text',
+            unreadCount: conv.unread_count || 0,
+            user: {
+              displayName: conv.channel_metadata?.display_name || 'Unknown User',
+              pictureUrl: conv.channel_metadata?.profile_pic || '',
+              lineUserId: conv.channel_user_id,
+              customerId: conv.customer_id
+            },
+            customer: conv.customer_id ? {
+              id: conv.customer_id,
+              name: conv.channel_metadata?.customer_name || 'Customer',
+              phone: '',
+              email: ''
+            } : null,
+            channelType: conv.channel_type as any
           };
         }
       });
@@ -141,8 +192,9 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
 
   // Update conversation's last message when a new message arrives
   const updateConversationLastMessage = useCallback((conversationId: string, message: UnifiedMessage) => {
-    setConversations(prev =>
-      prev.map(conv => {
+    setConversations(prev => {
+      // Update the conversation data
+      const updated = prev.map(conv => {
         if (conv.id === conversationId) {
           return {
             ...conv,
@@ -156,8 +208,15 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
           } as Conversation;
         }
         return conv;
-      })
-    );
+      });
+
+      // IMMEDIATELY sort the updated conversations by lastMessageAt (newest first)
+      return updated.sort((a, b) => {
+        const aTime = new Date(a.lastMessageAt || 0).getTime();
+        const bTime = new Date(b.lastMessageAt || 0).getTime();
+        return bTime - aTime; // Descending order
+      });
+    });
   }, []);
 
   // Update conversation's unread count (useful for marking as read)

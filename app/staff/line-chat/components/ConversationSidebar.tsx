@@ -20,9 +20,14 @@ import {
   BellOff,
   Zap,
   Monitor,
-  Smartphone
+  Smartphone,
+  Sparkles,
+  Home,
+  Globe
 } from 'lucide-react';
+import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import Image from 'next/image';
+import Link from 'next/link';
 import type {
   ConversationSidebarProps,
   Conversation,
@@ -31,17 +36,40 @@ import type {
 } from '../utils/chatTypes';
 import { formatTime } from '../utils/formatters';
 
-// Channel indicator component
-const ChannelIndicator = ({ channelType }: { channelType: ChannelType }) => {
-  if (channelType === 'line') {
-    return <div className="w-2 h-2 bg-green-500 rounded-full"></div>;
-  } else if (channelType === 'website') {
-    return <div className="w-2 h-2 bg-blue-500 rounded-full"></div>;
-  }
-  return null;
+// Platform logo badge component - ChatCone style with actual company logos
+const PlatformLogoBadge = ({ channelType }: { channelType: ChannelType }) => {
+  const getIcon = () => {
+    switch (channelType) {
+      case 'facebook':
+        return <FaFacebook className="w-3 h-3" style={{ color: '#1877F2' }} />;
+      case 'instagram':
+        return <FaInstagram className="w-3 h-3" style={{ color: '#E4405F' }} />;
+      case 'whatsapp':
+        return <FaWhatsapp className="w-3 h-3" style={{ color: '#25D366' }} />;
+      case 'line':
+        return <FaLine className="w-3 h-3" style={{ color: '#00B900' }} />;
+      case 'website':
+        return <Globe className="w-3 h-3" style={{ color: '#3B82F6' }} />;
+      default:
+        return null;
+    }
+  };
+
+  const icon = getIcon();
+  if (!icon) return null;
+
+  return (
+    <div
+      className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-white rounded-full shadow-sm border-0 flex items-center justify-center"
+      style={{ padding: '1px' }}
+      title={channelType.toUpperCase()}
+    >
+      {icon}
+    </div>
+  );
 };
 
-// Get display name for unified conversation
+// Get display name for unified conversation with Meta platform support
 const getConversationDisplayName = (conversation: UnifiedConversation | Conversation): string => {
   // Check if it's a unified conversation
   if ('channel_type' in conversation) {
@@ -51,6 +79,13 @@ const getConversationDisplayName = (conversation: UnifiedConversation | Conversa
     } else if (unified.channel_type === 'website') {
       return unified.channel_metadata?.display_name ||
              (unified.channel_metadata?.email ? `Web User (${unified.channel_metadata.email})` : 'Website User');
+    } else if (unified.channel_type === 'facebook') {
+      return unified.channel_metadata?.display_name || 'Facebook User';
+    } else if (unified.channel_type === 'instagram') {
+      return unified.channel_metadata?.display_name || 'Instagram User';
+    } else if (unified.channel_type === 'whatsapp') {
+      return unified.channel_metadata?.display_name ||
+             (unified.channel_metadata?.phone_number ? `WhatsApp User (${unified.channel_metadata.phone_number})` : 'WhatsApp User');
     }
   }
 
@@ -59,15 +94,21 @@ const getConversationDisplayName = (conversation: UnifiedConversation | Conversa
   return legacy.customer?.name || legacy.user?.displayName || 'Unknown';
 };
 
-// Get profile picture URL for unified conversation
+// Get profile picture URL for unified conversation with Meta platform support
 const getConversationPictureUrl = (conversation: UnifiedConversation | Conversation): string => {
   // Check if it's a unified conversation
   if ('channel_type' in conversation) {
     const unified = conversation as UnifiedConversation;
     if (unified.channel_type === 'line') {
       return unified.channel_metadata?.picture_url || '';
+    } else if (unified.channel_type === 'facebook' || unified.channel_type === 'instagram') {
+      // Meta platforms support profile pictures
+      return unified.channel_metadata?.profile_pic || '';
+    } else if (unified.channel_type === 'website') {
+      // Use Lengolf logo for website users
+      return '/LG_Logo_Big.jpg';
     }
-    // Website users don't have profile pictures
+    // WhatsApp users don't have profile pictures typically
     return '';
   }
 
@@ -144,13 +185,30 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   selectedConversation,
   onConversationSelect,
   conversations: propConversations,
-  setConversations: propSetConversations
+  setConversations: propSetConversations,
+  enableAISuggestions = true,
+  onToggleAI
 }) => {
   // Use conversations from props if provided, otherwise use local state
   const [localConversations, setLocalConversations] = useState<Conversation[]>([]);
   const conversations = propConversations || localConversations;
   const setConversations = propSetConversations || setLocalConversations;
   const [searchTerm, setSearchTerm] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
 
   // Push notifications hook
   const {
@@ -195,7 +253,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     } catch (error) {
       console.error('Failed to fetch conversations:', error);
     }
-  }, []);
+  }, [setConversations]);
 
   // Initialize conversations on mount (only if not provided via props)
   useEffect(() => {
@@ -217,46 +275,80 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-semibold">Conversations</h1>
 
-          {/* Push Notification Controls */}
-          {isSupported && (
-            <div className="flex items-center space-x-2">
-              {isSubscribed ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={unsubscribeFromNotifications}
-                    disabled={notificationLoading}
-                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                    title="Notifications enabled - Click to disable"
-                  >
-                    <Bell className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={sendTestNotification}
-                    disabled={notificationLoading}
-                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                    title="Send test notification"
-                  >
-                    <Zap className="h-3 w-3" />
-                  </Button>
-                </>
-              ) : (
+          {/* Controls */}
+          <div className="flex items-center space-x-2">
+            {/* Mobile Home Button */}
+            {isMobile && (
+              <Link href="/">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={subscribeToNotifications}
-                  disabled={notificationLoading}
-                  className="text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                  title="Enable notifications for new messages"
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  title="Go to Home"
                 >
-                  <BellOff className="h-4 w-4" />
+                  <Home className="h-4 w-4 text-gray-600" />
                 </Button>
-              )}
-            </div>
-          )}
+              </Link>
+            )}
+
+            {/* AI Suggestions Toggle - TEMPORARILY HIDDEN */}
+            {false && onToggleAI && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onToggleAI?.(!enableAISuggestions)}
+                className={`transition-all duration-200 ${
+                  enableAISuggestions
+                    ? 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'
+                    : 'text-gray-400 hover:text-purple-600 hover:bg-purple-50'
+                }`}
+                title={enableAISuggestions ? "Disable AI suggestions" : "Enable AI suggestions"}
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Push Notification Controls */}
+            {isSupported && (
+              <>
+                {isSubscribed ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={unsubscribeFromNotifications}
+                      disabled={notificationLoading}
+                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                      title="Notifications enabled - Click to disable"
+                    >
+                      <Bell className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={sendTestNotification}
+                      disabled={notificationLoading}
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      title="Send test notification"
+                    >
+                      <Zap className="h-3 w-3" />
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={subscribeToNotifications}
+                    disabled={notificationLoading}
+                    className="text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                    title="Enable notifications for new messages"
+                  >
+                    <BellOff className="h-4 w-4" />
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Notification Error/Status */}
@@ -277,7 +369,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         </div>
       </div>
 
-      <div className="overflow-y-auto flex-1">
+      <div className="overflow-y-auto flex-1 conversations-container">
         {filteredConversations.length === 0 ? (
           <div className="p-4 text-center text-gray-500">
             <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -286,30 +378,32 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         ) : (
           filteredConversations.map((conversation) => (
             <div
-              key={conversation.id}
+              key={`${conversation.id}-${(conversation as any).channel_type || conversation.channelType || 'unknown'}`}
               onClick={() => onConversationSelect(conversation.id)}
               className={`p-4 border-b cursor-pointer hover:bg-gray-50 ${
                 selectedConversation === conversation.id ? 'bg-blue-50 border-blue-200' : ''
               }`}
             >
               <div className="flex items-center space-x-3">
-                <SafeImage
-                  src={getConversationPictureUrl(conversation)}
-                  alt={getConversationDisplayName(conversation)}
-                  width={40}
-                  height={40}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
+                <div className="relative">
+                  <SafeImage
+                    src={getConversationPictureUrl(conversation)}
+                    alt={getConversationDisplayName(conversation)}
+                    width={40}
+                    height={40}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                  {/* Platform logo badge overlaid on profile picture */}
+                  {conversation.channelType && (
+                    <PlatformLogoBadge channelType={conversation.channelType as ChannelType} />
+                  )}
+                </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 flex-1 min-w-0">
-                      {/* Channel indicator */}
-                      {conversation.channelType && (
-                        <ChannelIndicator channelType={conversation.channelType as ChannelType} />
-                      )}
                       <p className="text-sm font-medium text-gray-900 truncate">
-                        {conversation.customer?.name || conversation.user.displayName}
+                        {getConversationDisplayName(conversation)}
                       </p>
                     </div>
                     <div className="flex items-center space-x-2 flex-shrink-0">

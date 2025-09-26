@@ -71,7 +71,6 @@ if (supabaseUrl && supabaseServiceRoleKey) {
   );
 } else if (refacSupabase) {
   // Fallback to anon key with warning
-  console.warn('🚨 Using anon key for admin client - service role missing!');
   refacSupabaseAdmin = refacSupabase;
 } else {
   console.error('Cannot create Supabase admin client: missing URL or service role key');

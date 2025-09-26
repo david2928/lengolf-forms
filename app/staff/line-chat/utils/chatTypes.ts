@@ -34,6 +34,7 @@ export interface Conversation {
 
 export interface Message {
   id: string;
+  platformMessageId?: string; // Original platform message ID (LINE message_id, Facebook mid, etc)
   text?: string;
   type: string;
   senderType: 'user' | 'admin';
@@ -124,7 +125,7 @@ export interface ChatOperations {
   setSelectedFile: (file: File | null) => void;
   sendBatchImages: (imageIds: string[]) => Promise<void>;
   sendingProgress: {current: number, total: number} | null;
-  sendUnifiedMessage?: (content: string, conversation: UnifiedConversation, type?: MessageType) => Promise<void>;
+  sendUnifiedMessage?: (content: string, conversation: UnifiedConversation, type?: MessageType, replyToMessageId?: string) => Promise<void>;
   channelType?: ChannelType | null;
 }
 
@@ -156,6 +157,9 @@ export interface ConversationSidebarProps {
   onConversationSelect: (id: string) => void;
   conversations?: Conversation[];
   setConversations?: React.Dispatch<React.SetStateAction<Conversation[]>>;
+  // AI configuration
+  enableAISuggestions?: boolean;
+  onToggleAI?: (enabled: boolean) => void;
 }
 
 export interface ChatAreaProps {
@@ -179,7 +183,7 @@ export interface CustomerSidebarProps {
 }
 
 export interface MessageInputProps {
-  onSendMessage: (content: string, type?: MessageType) => Promise<void>;
+  onSendMessage: (content: string, type?: MessageType, replyToMessageId?: string) => Promise<void>;
   replyingToMessage: Message | null;
   onCancelReply: () => void;
   disabled: boolean;
@@ -188,11 +192,14 @@ export interface MessageInputProps {
   onTemplateSelect?: (template: any) => Promise<void>;
   onCuratedImagesSelect?: (imageIds: string[]) => Promise<void>;
   onFileUpload?: (file: File) => Promise<void>;
+  // AI suggestions
+  onAIRetrigger?: () => void;
+  enableAISuggestions?: boolean;
 }
 
 // ========== UNIFIED MULTI-CHANNEL TYPES ==========
 
-export type ChannelType = 'line' | 'website';
+export type ChannelType = 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp';
 
 export interface ChannelMetadata {
   // LINE specific metadata
@@ -202,6 +209,12 @@ export interface ChannelMetadata {
   // Website specific metadata
   session_id?: string;
   email?: string;
+  // Meta platforms specific metadata
+  platform?: 'facebook' | 'instagram' | 'whatsapp';
+  platform_user_id?: string;
+  profile_pic?: string;
+  phone_number?: string; // For WhatsApp
+  customer_name?: string;
   // Unified metadata
   [key: string]: any;
 }
@@ -272,7 +285,7 @@ export interface WebsiteChatMessage {
 
 // Extended hook return types for multi-channel support
 export interface UnifiedChatOperations extends ChatOperations {
-  sendUnifiedMessage: (content: string, conversation: UnifiedConversation, type?: MessageType) => Promise<void>;
+  sendUnifiedMessage: (content: string, conversation: UnifiedConversation, type?: MessageType, replyToMessageId?: string) => Promise<void>;
   channelType: ChannelType | null;
 }
 

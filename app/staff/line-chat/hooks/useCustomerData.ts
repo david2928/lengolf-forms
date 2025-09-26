@@ -44,16 +44,14 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     try {
       setLinkingCustomer(true);
 
-      // This would need the selectedConv.user.lineUserId from the parent component
-      // For now, we'll structure it to receive the lineUserId as a parameter
-      const response = await fetch(`/api/line/users/link-customer`, {
+      // Use the unified customer linking API endpoint that works for all platforms
+      const response = await fetch(`/api/conversations/${conversationId}/link-customer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          customerId: customerId,
-          conversationId: conversationId
+          customerId: customerId
         }),
       });
 

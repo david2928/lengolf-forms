@@ -55,6 +55,20 @@ export function Nav() {
           </Button>
         </Link>
 
+        {/* Chat - Available to Staff and Admin */}
+        {(isStaff || isAdmin) && (
+          <Link href="/staff/unified-chat">
+            <Button
+              variant={pathname.startsWith('/staff/unified-chat') || pathname.startsWith('/staff/line-chat') ? 'secondary' : 'ghost'}
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Chat
+            </Button>
+          </Link>
+        )}
+
         {/* Bookings Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -518,13 +532,13 @@ export function Nav() {
       </Link>
       <PackageMonitorNavButton />
       {isAdmin && (
-        <Link href="/admin/customers" className="flex-1">
-          <Button 
-            variant={pathname.startsWith('/admin/customers') ? 'secondary' : 'ghost'} 
-            size="sm" 
+        <Link href="/staff/unified-chat" className="flex-1">
+          <Button
+            variant={pathname.startsWith('/staff/unified-chat') || pathname.startsWith('/staff/line-chat') ? 'secondary' : 'ghost'}
+            size="sm"
             className="w-full flex justify-center"
           >
-            <Users className="h-3.5 w-3.5" />
+            <MessageSquare className="h-3.5 w-3.5" />
           </Button>
         </Link>
       )}
@@ -540,13 +554,13 @@ export function Nav() {
         </Link>
       )}
       {isStaff && !isAdmin && (
-        <Link href="/staff" className="flex-1">
+        <Link href="/staff/unified-chat" className="flex-1">
           <Button
-            variant={pathname.startsWith('/staff') ? 'secondary' : 'ghost'}
+            variant={pathname.startsWith('/staff/unified-chat') || pathname.startsWith('/staff/line-chat') ? 'secondary' : 'ghost'}
             size="sm"
             className="w-full flex justify-center"
           >
-            <Headphones className="h-3.5 w-3.5" />
+            <MessageSquare className="h-3.5 w-3.5" />
           </Button>
         </Link>
       )}

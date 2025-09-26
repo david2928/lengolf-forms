@@ -4,7 +4,7 @@
 // Supports LINE and Website conversations in a single interface
 // Access at: http://localhost:3000/staff/unified-chat
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { CustomerLinkModal } from '@/components/admin/line-chat/CustomerLinkModal';
 import { CustomerConfirmationModal } from '@/components/admin/line-chat/CustomerConfirmationModal';
 import { CuratedImageModal } from '@/components/line/CuratedImageModal';
@@ -20,10 +20,12 @@ import { useChatOperations } from '../line-chat/hooks/useChatOperations';
 import { useCustomerData } from '../line-chat/hooks/useCustomerData';
 import { useUnifiedChat } from '../line-chat/hooks/useUnifiedChat';
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
+import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 
 export default function UnifiedChatPage() {
   // Core state - using unified chat system
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+  const selectedConversationRef = useRef<string | null>(null);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [showMobileCustomer, setShowMobileCustomer] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -39,6 +41,47 @@ export default function UnifiedChatPage() {
     updateConversationUnreadCount
   } = useUnifiedChat();
 
+  // Set up realtime conversation updates
+  useRealtimeConversations({
+    onConversationUpdate: (conversationUpdate) => {
+      // Update existing conversation in the list and re-sort by lastMessageAt
+      console.log('🔄 Conversation update received:', conversationUpdate);
+
+      setConversations(prev => {
+        const updated = prev.map(conv =>
+          conv.id === conversationUpdate.id
+            ? { ...conv, ...conversationUpdate }
+            : conv
+        );
+
+        // Re-sort conversations by lastMessageAt (most recent first)
+        const sorted = updated.sort((a, b) => {
+          const aTime = new Date(a.lastMessageAt || 0).getTime();
+          const bTime = new Date(b.lastMessageAt || 0).getTime();
+          return bTime - aTime; // Descending order (newest first)
+        });
+
+        console.log('🔄 Conversations after sort:', sorted.map(c => ({
+          id: c.id.slice(-8),
+          lastMessageAt: c.lastMessageAt,
+          lastMessageText: c.lastMessageText?.slice(0, 20)
+        })));
+
+        return sorted;
+      });
+    },
+    onNewConversation: () => {
+      // Refresh the entire conversation list when a new conversation is created
+      console.log('🔔 New conversation detected - refreshing list');
+      refreshConversations();
+    }
+  });
+
+  // Memoize the callback to prevent infinite re-renders
+  const handleMarkConversationRead = useCallback((conversationId: string) => {
+    updateConversationUnreadCount(conversationId, 0);
+  }, [updateConversationUnreadCount]);
+
   // Get the full conversation object for the selected conversation
   const selectedConversationObj = selectedConversation ? getConversationById(selectedConversation) : null;
 
@@ -47,6 +90,9 @@ export default function UnifiedChatPage() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [selectedCustomerForLink, setSelectedCustomerForLink] = useState<any>(null);
   const [showCuratedImages, setShowCuratedImages] = useState(false);
+
+  // AI suggestions toggle
+  const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
   // Additional modal states from original component
@@ -64,17 +110,12 @@ export default function UnifiedChatPage() {
     setRightPanelCollapsed
   } = usePanelState();
 
-  // Handle when a message is sent - add it immediately to messages
+  // Handle when a message is sent - only update conversations list, let realtime handle message addition
   const handleMessageSent = useCallback((message: any) => {
-    setMessages(prev => {
-      // Prevent duplicates
-      if (prev.find((m: any) => m.id === message.id)) return prev;
-      return [...prev, message];
-    });
-
-    // Also update the conversations list
-    setConversations(prev =>
-      prev.map(conv => {
+    // Don't add message to messages array - let realtime handle that
+    // Only update the conversations list for immediate UI feedback and sort
+    setConversations(prev => {
+      const updated = prev.map(conv => {
         if (conv.id === message.conversationId) {
           return {
             ...conv,
@@ -85,8 +126,15 @@ export default function UnifiedChatPage() {
           };
         }
         return conv;
-      })
-    );
+      });
+
+      // Sort immediately after updating to move the conversation to the top
+      return updated.sort((a, b) => {
+        const aTime = new Date(a.lastMessageAt || 0).getTime();
+        const bTime = new Date(b.lastMessageAt || 0).getTime();
+        return bTime - aTime; // Descending order (newest first)
+      });
+    });
   }, [setConversations]);
 
   // Extract complex operations to custom hooks - major complexity reduction
@@ -112,20 +160,28 @@ export default function UnifiedChatPage() {
 
   // Handle new messages from realtime - updated for unified system
   const handleNewMessage = useCallback((message: any) => {
+    const currentSelectedConversation = selectedConversationRef.current;
+
     // Add message to the messages list ONLY if it's for the currently selected conversation
-    if (selectedConversation === message.conversationId) {
+    if (currentSelectedConversation === message.conversationId) {
       setMessages(prev => {
         // Prevent duplicates
         if (prev.find((m: any) => m.id === message.id)) return prev;
         return [...prev, message];
       });
+
+      // Auto-scroll to bottom for new realtime messages
+      setTimeout(() => {
+        const messagesEnd = document.querySelector('[data-messages-end]');
+        messagesEnd?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
 
     // Determine channel type from the selected conversation or message context
     const selectedConv = selectedConversation ? getConversationById(selectedConversation) : null;
     const channelType = selectedConv?.channelType || 'line'; // Default to LINE if unknown
 
-    // Use unified conversation update function
+    // Use unified conversation update function (this already handles sorting internally)
     updateConversationLastMessage(message.conversationId, {
       id: message.id,
       channel_type: channelType,
@@ -139,7 +195,9 @@ export default function UnifiedChatPage() {
       created_at: message.createdAt,
       channel_metadata: {}
     });
-  }, [selectedConversation, updateConversationLastMessage, getConversationById]);
+
+    // NOTE: Sorting is now handled inside updateConversationLastMessage() to avoid race conditions
+  }, [updateConversationLastMessage, getConversationById, selectedConversation]);
 
   const {
     connectionStatus: messagesConnectionStatus,
@@ -151,9 +209,15 @@ export default function UnifiedChatPage() {
     channelType: 'all' // Subscribe to both LINE and website messages
   });
 
+  // Update ref whenever selectedConversation changes
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation;
+  }, [selectedConversation]);
+
   // Handle conversation selection
   const handleConversationSelect = (conversationId: string) => {
     setSelectedConversation(conversationId);
+    selectedConversationRef.current = conversationId; // Update ref immediately
     if (isMobile) {
       setShowMobileChat(true);
     }
@@ -212,6 +276,8 @@ export default function UnifiedChatPage() {
               onConversationSelect={handleConversationSelect}
               conversations={conversations}
               setConversations={setConversations}
+              enableAISuggestions={aiSuggestionsEnabled}
+              onToggleAI={setAiSuggestionsEnabled}
             />
           </div>
         )}
@@ -228,7 +294,7 @@ export default function UnifiedChatPage() {
             messages={messages}
             setMessages={setMessages}
             onShowMobileCustomer={() => setShowMobileCustomer(true)}
-            onMarkConversationRead={(conversationId) => updateConversationUnreadCount(conversationId, 0)}
+            onMarkConversationRead={handleMarkConversationRead}
           />
         </div>
 

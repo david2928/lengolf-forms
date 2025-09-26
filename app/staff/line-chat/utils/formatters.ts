@@ -126,3 +126,47 @@ export const isBookingUpcoming = (booking: { date: string; start_time: string })
 
   return bookingDateTime > thailandNow;
 };
+
+/**
+ * Check if two dates are on different days
+ * @param date1 - First date string
+ * @param date2 - Second date string
+ * @returns true if dates are on different days
+ */
+export const isDifferentDay = (date1: string, date2: string): boolean => {
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+
+  return d1.getFullYear() !== d2.getFullYear() ||
+         d1.getMonth() !== d2.getMonth() ||
+         d1.getDate() !== d2.getDate();
+};
+
+/**
+ * Format date separator text like LINE OA (Today, Yesterday, or date)
+ * @param dateString - ISO date string
+ * @returns Formatted date separator text
+ */
+export const formatDateSeparator = (dateString: string): string => {
+  const messageDate = new Date(dateString);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  // Compare just the date parts (ignore time)
+  const isToday = messageDate.toDateString() === today.toDateString();
+  const isYesterday = messageDate.toDateString() === yesterday.toDateString();
+
+  if (isToday) {
+    return 'Today';
+  } else if (isYesterday) {
+    return 'Yesterday';
+  } else {
+    // For older dates, show in format like "Monday, Sep 23"
+    return messageDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+};

@@ -31,11 +31,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const transformedMessages = (messages || []).map((msg: any) => ({
       id: msg.id,
       text: msg.message_text,
-      type: 'text',
+      type: msg.message_type || 'text',
       senderType: (msg.sender_type === 'staff' || msg.sender_type === 'bot') ? 'admin' : 'user',
       senderName: msg.sender_name || (msg.sender_type === 'customer' ? 'Website User' : 'Admin'),
       createdAt: msg.created_at,
-      timestamp: new Date(msg.created_at).getTime()
+      timestamp: new Date(msg.created_at).getTime(),
+      // Include image URL if it's an image message
+      ...(msg.message_type === 'image' && msg.image_url && {
+        imageUrl: msg.image_url
+      })
     }));
 
     return NextResponse.json({

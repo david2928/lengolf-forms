@@ -20,7 +20,8 @@ import {
   FileText,
   Plus,
   CheckCircle,
-  CalendarPlus
+  CalendarPlus,
+  Sparkles
 } from 'lucide-react';
 import type { MessageInputProps, MessageType } from '../utils/chatTypes';
 
@@ -33,7 +34,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   selectedConversationObj,
   onTemplateSelect,
   onCuratedImagesSelect,
-  onFileUpload
+  onFileUpload,
+  onAIRetrigger,
+  enableAISuggestions = false
 }) => {
   const [newMessage, setNewMessage] = useState('');
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
@@ -46,13 +49,20 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const handleSendMessage = async () => {
     if (!newMessage.trim() || disabled) return;
 
-    await onSendMessage(newMessage.trim(), 'text');
+    // Pass reply information if replying to a message - use platformMessageId for Facebook replies
+    await onSendMessage(newMessage.trim(), 'text', replyingToMessage?.platformMessageId || replyingToMessage?.id);
     setNewMessage('');
 
-    // Reset textarea height to default (3 lines)
+    // Clear reply state when message is sent
+    if (replyingToMessage && onCancelReply) {
+      onCancelReply();
+    }
+
+    // Reset textarea height to default
     const textarea = document.querySelector('textarea');
     if (textarea) {
-      textarea.style.height = '80px';
+      const defaultHeight = isMobile ? '20px' : '80px'; // Single line for mobile, 3 lines for desktop
+      textarea.style.height = defaultHeight;
     }
   };
 
@@ -85,30 +95,38 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  // Handle Enter key
+  // Handle Enter key - different behavior for mobile vs desktop
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
-      // On mobile, always send on Enter
-      // On desktop, send on Enter unless Shift is held
-      if (isMobile || !e.shiftKey) {
-        e.preventDefault();
-        handleSendMessage();
+      if (isMobile) {
+        // Mobile: Enter creates new line (no shift key available)
+        // Use Send button to send message
+        return; // Let Enter create new line naturally
+      } else {
+        // Desktop: Shift+Enter creates new line, Enter alone sends message
+        if (!e.shiftKey) {
+          e.preventDefault();
+          handleSendMessage();
+        }
       }
     }
   };
 
-  // Auto-resize textarea
+  // Auto-resize textarea - now works for both mobile and desktop
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNewMessage(e.target.value);
 
-    // Auto-resize textarea only on desktop
-    if (!isMobile) {
-      const textarea = e.target;
-      textarea.style.height = 'auto';
-      const scrollHeight = textarea.scrollHeight;
-      const minHeight = 80; // min-h-[80px] = 80px (3 lines)
-      textarea.style.height = `${Math.max(minHeight, scrollHeight)}px`;
-    }
+    // Auto-resize textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    const scrollHeight = textarea.scrollHeight;
+
+    // Different min heights for mobile vs desktop
+    const minHeight = isMobile ? 20 : 80; // Mobile: single line height, Desktop: ~3 lines
+    const maxHeight = isMobile ? 120 : 200; // Mobile: ~5 lines, Desktop: ~8 lines
+
+    const newHeight = Math.max(minHeight, Math.min(maxHeight, scrollHeight));
+    textarea.style.height = `${newHeight}px`;
   };
 
   return (
@@ -136,9 +154,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Message Input Container */}
       <div className={`${isMobile ? 'bg-gray-100 p-2' : 'bg-white p-4'} ${replyingToMessage ? 'border-t border-gray-200' : 'border-t'}`}>
-        {/* Mobile Compact Input */}
+        {/* Mobile Input - starts single line, grows upward */}
         {isMobile ? (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-end space-x-2">
             {/* Plus Button */}
             <div className="relative mobile-quick-actions-container">
               <Button
@@ -203,31 +221,55 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                           <span className="text-sm">Create Booking</span>
                         </button>
                       </Link>
+
+                      {/* AI Re-trigger Button (Mobile) - TEMPORARILY HIDDEN */}
+                      {false && onAIRetrigger && enableAISuggestions && (
+                        <button
+                          onClick={() => {
+                            onAIRetrigger?.();
+                            setShowMobileQuickActions(false);
+                          }}
+                          className="flex items-center space-x-2 p-2 hover:bg-purple-50 rounded w-full text-left"
+                        >
+                          <Sparkles className="h-4 w-4 text-purple-600" />
+                          <span className="text-sm">Re-trigger AI</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </>
               )}
             </div>
 
-            {/* Message Input */}
-            <div className="flex-1 bg-white rounded-full px-3 py-2 border border-gray-300">
-              <input
-                type="text"
+            {/* Message Input - Now using textarea for multi-line support */}
+            <div className="flex-1 bg-white rounded-2xl px-3 py-1 border border-gray-300 min-h-[32px] flex items-center">
+              <Textarea
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                placeholder="Enter Message"
+                onChange={handleTextareaChange}
+                onKeyDown={handleKeyDown}
+                placeholder={isMobile ? "Type a message..." : "Type a message... (Shift + Enter for new line)"}
                 disabled={disabled}
-                className="w-full bg-transparent border-0 focus:border-0 focus:ring-0 focus:outline-none text-sm"
+                className="w-full bg-transparent border-0 focus:border-0 focus:ring-0 focus:outline-none focus:shadow-none text-sm resize-none min-h-[20px] p-0 leading-5 overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+                rows={1}
                 style={{
                   outline: 'none !important',
                   boxShadow: 'none !important',
-                  border: '0 !important'
+                  border: '0 !important',
+                  borderWidth: '0 !important',
+                  borderStyle: 'none !important',
+                  borderColor: 'transparent !important',
+                  height: '20px', // Start with single line height
+                  userSelect: 'text',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  WebkitAppearance: 'none',
+                  MozAppearance: 'none',
+                  appearance: 'none'
+                }}
+                onFocus={(e) => {
+                  e.target.style.outline = 'none';
+                  e.target.style.border = 'none';
+                  e.target.style.boxShadow = 'none';
                 }}
               />
             </div>
@@ -252,7 +294,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               value={newMessage}
               onChange={handleTextareaChange}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message... (Shift + Enter for new line)"
+              placeholder={isMobile ? "Type a message..." : "Type a message... (Shift + Enter for new line)"}
               disabled={disabled}
               className="w-full min-h-[80px] resize-none border-0 focus:border-0 focus:ring-0 focus:outline-none focus:shadow-none active:border-0 active:ring-0 hover:border-0 overflow-hidden mb-3 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
               rows={3}
@@ -346,6 +388,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                     <CalendarPlus className="h-5 w-5 text-gray-600" />
                   </Button>
                 </Link>
+
+                {/* AI Re-trigger Button - TEMPORARILY HIDDEN */}
+                {false && onAIRetrigger && enableAISuggestions && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onAIRetrigger}
+                    className="h-9 w-9 p-0 rounded-full hover:bg-purple-50"
+                    title="Re-trigger AI suggestion"
+                  >
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                  </Button>
+                )}
               </div>
 
               {/* Desktop Send Button */}

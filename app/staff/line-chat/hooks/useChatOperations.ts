@@ -20,7 +20,7 @@ import { validateMessageContent, scrollToBottom } from '../utils/messageHelpers'
 export const useChatOperations = (
   conversationId: string | null,
   onMessageSent?: (message: any) => void,
-  selectedConversation?: any // Add selected conversation to determine channel type
+  selectedConversationObj?: any // Add selected conversation to determine channel type
 ): ChatOperations => {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -42,10 +42,9 @@ export const useChatOperations = (
 
     try {
       setSendingMessage(true);
-      console.log(`Starting to send ${selectedConversation?.channelType || 'LINE'} message...`);
 
       // Check if this is a website conversation
-      if (selectedConversation?.channelType === 'website') {
+      if (selectedConversationObj?.channelType === 'website' || selectedConversationObj?.channel_type === 'website') {
         // Handle website message sending
         if (!refacSupabase) {
           throw new Error('Supabase client not available');
@@ -55,7 +54,7 @@ export const useChatOperations = (
           .from('web_chat_messages')
           .insert({
             conversation_id: conversationId,
-            session_id: selectedConversation.lineUserId, // Using lineUserId as session_id for compatibility
+            session_id: selectedConversationObj.lineUserId || selectedConversationObj.channel_user_id, // Using lineUserId as session_id for compatibility
             message_text: content.trim(),
             sender_type: 'staff',
             sender_name: 'Admin'
@@ -83,6 +82,32 @@ export const useChatOperations = (
         }
 
         console.log('Website message sent successfully:', message);
+      } else if (['facebook', 'instagram', 'whatsapp'].includes(selectedConversationObj?.channelType || selectedConversationObj?.channel_type)) {
+        // Handle Meta platform message sending
+        const response = await fetch('/api/meta/send-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            platformUserId: selectedConversationObj.lineUserId || selectedConversationObj.channel_user_id, // Using lineUserId as platform user ID for compatibility
+            message: content.trim(),
+            platform: selectedConversationObj.channelType || selectedConversationObj.channel_type, // facebook, instagram, or whatsapp
+            ...(replyToMessageId && { replyToMessageId }) // Add reply support for Meta platforms
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Notify parent component about the sent message
+          if (onMessageSent && data.message) {
+            onMessageSent(data.message);
+          }
+        } else {
+          console.error(`Failed to send message:`, data.error);
+          alert(`Failed to send message: ${data.error}`);
+        }
       } else {
         // Handle LINE message sending (existing logic)
         const response = await fetch(`/api/line/conversations/${conversationId}/messages`, {
@@ -125,7 +150,7 @@ export const useChatOperations = (
     } finally {
       setSendingMessage(false);
     }
-  }, [conversationId, selectedConversation, onMessageSent]);
+  }, [conversationId, selectedConversationObj, onMessageSent]);
 
   // File upload function extracted from main component
   const handleFileUpload = useCallback(async (file: File) => {
@@ -141,6 +166,7 @@ export const useChatOperations = (
         type: file.type
       });
 
+
       setSendingMessage(true);
 
       // Compress image if it's an image file
@@ -155,11 +181,48 @@ export const useChatOperations = (
       formData.append('type', file.type.startsWith('image/') ? 'image' : 'file');
       formData.append('senderName', 'Admin');
 
-      console.log('Sending file upload request...');
-      const response = await fetch(`/api/line/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        body: formData,
-      });
+      let response;
+
+
+      if (selectedConversationObj?.channel_type === 'website' || selectedConversationObj?.channelType === 'website') {
+        // Website channel - upload file to storage and send actual image
+        console.log('Website channel - uploading file');
+
+        const websiteFormData = new FormData();
+        websiteFormData.append('file', processedFile);
+        websiteFormData.append('conversationId', conversationId);
+        websiteFormData.append('sessionId', selectedConversationObj.channel_user_id);
+        websiteFormData.append('senderName', 'Admin');
+
+        response = await fetch('/api/conversations/website/upload', {
+          method: 'POST',
+          body: websiteFormData,
+        });
+      } else if (selectedConversationObj?.channel_type === 'facebook' || selectedConversationObj?.channelType === 'facebook' ||
+                 selectedConversationObj?.channel_type === 'instagram' || selectedConversationObj?.channelType === 'instagram' ||
+                 selectedConversationObj?.channel_type === 'whatsapp' || selectedConversationObj?.channelType === 'whatsapp') {
+        // Meta channels - upload file and send actual image
+        console.log('Meta channel - uploading file and sending actual image');
+
+        // Create form data for Meta file upload
+        const metaFormData = new FormData();
+        metaFormData.append('file', processedFile);
+        metaFormData.append('conversationId', conversationId);
+        metaFormData.append('platformUserId', selectedConversationObj.lineUserId || selectedConversationObj.channel_user_id);
+        metaFormData.append('platform', selectedConversationObj.channelType || selectedConversationObj.channel_type);
+
+        response = await fetch('/api/meta/upload-file', {
+          method: 'POST',
+          body: metaFormData,
+        });
+      } else {
+        // LINE endpoint supports file uploads
+        console.log(`Sending file upload request to LINE endpoint`);
+        response = await fetch(`/api/line/conversations/${conversationId}/messages`, {
+          method: 'POST',
+          body: formData,
+        });
+      }
 
       const data = await response.json();
       console.log('File upload response:', data);
@@ -167,6 +230,11 @@ export const useChatOperations = (
       if (data.success) {
         console.log('File uploaded successfully:', data.message);
         setSelectedFile(null);
+
+        // Notify parent component about the uploaded file/message
+        if (onMessageSent && data.message) {
+          onMessageSent(data.message);
+        }
 
         // Scroll to bottom when file is uploaded
         setTimeout(() => {
@@ -182,7 +250,7 @@ export const useChatOperations = (
     } finally {
       setSendingMessage(false);
     }
-  }, [conversationId]);
+  }, [conversationId, selectedConversationObj, onMessageSent]);
 
   // Batch image sending function extracted from main component
   const sendBatchImages = useCallback(async (imageIds: string[]) => {
@@ -192,21 +260,80 @@ export const useChatOperations = (
       setSendingMessage(true);
       setSendingProgress({ current: 1, total: imageIds.length });
 
-      const response = await fetch(`/api/line/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: 'batch_images',
-          curatedImageIds: imageIds,
-          senderName: 'Admin'
-        }),
-      });
+
+      let response;
+
+      if (selectedConversationObj?.channel_type === 'website' || selectedConversationObj?.channelType === 'website') {
+        // Website channel - send actual curated images using enhanced send-message API
+        console.log('Website channel - sending actual curated images');
+
+        // Try multiple possible session ID properties for website conversations
+        const sessionId = selectedConversationObj.channel_user_id ||
+                          selectedConversationObj.session_id ||
+                          selectedConversationObj.lineUserId; // fallback
+
+        response = await fetch('/api/conversations/website/send-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            conversationId,
+            sessionId,
+            messageType: 'image',
+            curatedImageIds: imageIds,
+            senderName: 'Admin'
+          }),
+        });
+      } else if (selectedConversationObj?.channel_type === 'facebook' || selectedConversationObj?.channelType === 'facebook' ||
+                 selectedConversationObj?.channel_type === 'instagram' || selectedConversationObj?.channelType === 'instagram' ||
+                 selectedConversationObj?.channel_type === 'whatsapp' || selectedConversationObj?.channelType === 'whatsapp') {
+        // Meta channels - send actual images!
+        console.log('Meta channel - sending actual images');
+        response = await fetch('/api/meta/send-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            platformUserId: selectedConversationObj.lineUserId || selectedConversationObj.channel_user_id,
+            platform: selectedConversationObj.channelType || selectedConversationObj.channel_type,
+            messageType: 'image',
+            curatedImageIds: imageIds,
+            message: imageIds.length > 1 ? `Sent ${imageIds.length} images` : undefined // Optional caption for multiple images
+          }),
+        });
+      } else {
+        // LINE endpoint supports batch images
+        console.log(`Sending batch images to LINE endpoint`);
+        response = await fetch(`/api/line/conversations/${conversationId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'batch_images',
+            curatedImageIds: imageIds,
+            senderName: 'Admin'
+          }),
+        });
+      }
 
       const data = await response.json();
 
+      // 🐛 DEBUG: Check what the API returns
+      console.log('🐛 DEBUG: Batch images API response:', data);
+      console.log('🐛 DEBUG: data.message for UI:', data.message);
+
       if (data.success) {
+        // Notify parent component about the sent message
+        if (onMessageSent && data.message) {
+          console.log('🐛 DEBUG: Calling onMessageSent with:', data.message);
+          onMessageSent(data.message);
+        } else {
+          console.log('🐛 DEBUG: No onMessageSent callback or no message in response');
+        }
+
         // Show success feedback
         setSendingProgress({ current: imageIds.length, total: imageIds.length });
 
@@ -231,13 +358,14 @@ export const useChatOperations = (
         setSendingMessage(false);
       }, 1000);
     }
-  }, [conversationId]);
+  }, [conversationId, selectedConversationObj, onMessageSent]);
 
   // Unified message sending that handles both LINE and website channels
   const sendUnifiedMessage = useCallback(async (
     content: string,
     conversation: UnifiedConversation,
-    type: MessageType = 'text'
+    type: MessageType = 'text',
+    replyToMessageId?: string
   ) => {
     if (!conversation) {
       console.log('No conversation provided');
@@ -311,6 +439,30 @@ export const useChatOperations = (
         // Notify parent component about the sent message
         if (onMessageSent && message) {
           onMessageSent(message);
+        }
+
+      } else if (['facebook', 'instagram', 'whatsapp'].includes(conversation.channel_type)) {
+        // Use Meta send message API
+        const response = await fetch('/api/meta/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            platformUserId: conversation.channel_user_id,
+            message: content.trim(),
+            platform: conversation.channel_type, // facebook, instagram, or whatsapp
+            ...(replyToMessageId && { replyToMessageId }) // Include reply ID if provided
+          }),
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to send Meta message');
+        }
+
+        // The Meta API handles message storage and conversation updates
+        // Notify parent component if needed
+        if (onMessageSent && data.message) {
+          onMessageSent(data.message);
         }
       }
 

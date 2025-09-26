@@ -56,7 +56,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     try {
       if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service worker registered:', registration);
 
         // Listen for service worker messages
         navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);

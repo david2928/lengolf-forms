@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       .order('last_message_at', { ascending: false, nullsFirst: false });
 
     // Apply channel filter if specified
-    if (channelFilter && (channelFilter === 'line' || channelFilter === 'website')) {
+    if (channelFilter && ['line', 'website', 'facebook', 'instagram', 'whatsapp'].includes(channelFilter)) {
       query = query.eq('channel_type', channelFilter);
     }
 

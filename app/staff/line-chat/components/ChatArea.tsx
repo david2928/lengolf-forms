@@ -27,8 +27,10 @@ import {
   ChevronLeft,
   MoreHorizontal,
   Monitor,
-  Smartphone
+  Smartphone,
+  Globe
 } from 'lucide-react';
+import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import type {
   ChatAreaProps,
   Message,
@@ -36,7 +38,40 @@ import type {
   UnifiedConversation,
   ChannelType
 } from '../utils/chatTypes';
-import { formatMessageTime } from '../utils/formatters';
+import { formatMessageTime, isDifferentDay, formatDateSeparator } from '../utils/formatters';
+
+// Platform logo badge component - ChatCone style with actual company logos
+const PlatformLogoBadge = ({ channelType }: { channelType: ChannelType }) => {
+  const getIcon = () => {
+    switch (channelType) {
+      case 'facebook':
+        return <FaFacebook className="w-3 h-3" style={{ color: '#1877F2' }} />;
+      case 'instagram':
+        return <FaInstagram className="w-3 h-3" style={{ color: '#E4405F' }} />;
+      case 'whatsapp':
+        return <FaWhatsapp className="w-3 h-3" style={{ color: '#25D366' }} />;
+      case 'line':
+        return <FaLine className="w-3 h-3" style={{ color: '#00B900' }} />;
+      case 'website':
+        return <Globe className="w-3 h-3" style={{ color: '#3B82F6' }} />;
+      default:
+        return null;
+    }
+  };
+
+  const icon = getIcon();
+  if (!icon) return null;
+
+  return (
+    <div
+      className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-white rounded-full shadow-sm border-0 flex items-center justify-center"
+      style={{ padding: '1px' }}
+      title={channelType.toUpperCase()}
+    >
+      {icon}
+    </div>
+  );
+};
 
 // Channel indicator for chat header
 const ChatHeaderChannelIndicator = ({ channelType }: { channelType: ChannelType }) => {
@@ -82,9 +117,12 @@ const getConversationPictureUrl = (conversation: any): string => {
   if (isUnifiedConversation(conversation)) {
     if (conversation.channel_type === 'line') {
       return conversation.channel_metadata?.picture_url || '';
+    } else if (conversation.channel_type === 'website') {
+      // Use Lengolf logo for website users
+      return '/LG_Logo_Big.jpg';
     }
-    // Website users don't have profile pictures
-    return '';
+    // Meta platforms and other users
+    return conversation.channel_metadata?.profile_pic || '';
   }
   // Fallback for legacy conversation format
   return conversation?.user?.pictureUrl || '';
@@ -163,17 +201,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     };
   }, []);
 
-  // Fetch messages when conversation is selected
-  useEffect(() => {
-    if (selectedConversation) {
-      // Clear existing messages first
-      setMessages([]);
-      fetchMessages(selectedConversation);
-    } else {
-      setMessages([]);
-    }
-  }, [selectedConversation]);
-
   const fetchMessages = useCallback(async (conversationId: string) => {
     if (!selectedConversationObj) {
       console.log('No conversation object available');
@@ -187,12 +214,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
       if (channelType === 'website') {
         apiEndpoint = `/api/conversations/website/${conversationId}/messages`;
+      } else if (channelType && ['facebook', 'instagram', 'whatsapp'].includes(channelType)) {
+        apiEndpoint = `/api/conversations/meta/${conversationId}/messages`;
       } else {
         // Default to LINE API for LINE conversations or legacy conversations without channelType
         apiEndpoint = `/api/line/conversations/${conversationId}`;
       }
 
-      console.log(`Fetching messages for ${channelType || 'LINE'} conversation:`, conversationId);
       const response = await fetch(apiEndpoint);
       const data = await response.json();
 
@@ -208,6 +236,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         if (channelType === 'website') {
           // Mark website conversation as read
           await fetch(`/api/conversations/website/${conversationId}/mark-read`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+        } else if (channelType && ['facebook', 'instagram', 'whatsapp'].includes(channelType)) {
+          // Mark Meta conversation as read
+          await fetch(`/api/conversations/meta/${conversationId}/mark-read`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -232,7 +268,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     } catch (error) {
       console.error('Failed to fetch messages:', error);
     }
-  }, [selectedConversationObj]);
+  }, [selectedConversationObj, onMarkConversationRead, setMessages]);
+
+  // Fetch messages when conversation is selected
+  useEffect(() => {
+    if (selectedConversation) {
+      // Clear existing messages first
+      setMessages([]);
+      fetchMessages(selectedConversation);
+    } else {
+      setMessages([]);
+    }
+  }, [selectedConversation, fetchMessages, setMessages]);
 
   // Handle template selection
   const handleTemplateSelect = useCallback(async (template: any) => {
@@ -241,26 +288,86 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     try {
       const customerName = selectedConversationObj.customer?.name || selectedConversationObj.user.displayName || '';
 
-      const response = await fetch(`/api/line/templates/${template.id}/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          conversationId: selectedConversation,
-          variables: { customer_name: customerName },
-          senderName: 'Admin'
-        }),
-      });
+      // Check if this is a unified conversation and route to appropriate API
+      if (isUnifiedConversation(selectedConversationObj)) {
 
-      const data = await response.json();
-      if (data.success) {
-        // Scroll to bottom after template is sent
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+        if (['facebook', 'instagram', 'whatsapp'].includes(selectedConversationObj.channel_type)) {
+          // For Meta conversations, use the Meta send-message API with template
+          const response = await fetch('/api/meta/send-message', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              platformUserId: selectedConversationObj.channel_user_id,
+              platform: selectedConversationObj.channel_type,
+              message: template.text?.replace(/\{\{customer_name\}\}/g, customerName) || template.name || 'Template message',
+              messageType: selectedConversationObj.channel_type === 'whatsapp' ? 'template' : 'text',
+              templateName: selectedConversationObj.channel_type === 'whatsapp' ? template.name : undefined
+            }),
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            // Scroll to bottom after template is sent
+            setTimeout(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+          } else {
+            console.error('Failed to send template:', data.error);
+          }
+
+        } else if (selectedConversationObj.channel_type === 'website') {
+          // For Website conversations, use the website send-message API
+          const response = await fetch('/api/conversations/website/send-message', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              conversationId: selectedConversation,
+              sessionId: selectedConversationObj.channel_user_id, // For website, channel_user_id is the session_id
+              messageText: template.text?.replace(/\{\{customer_name\}\}/g, customerName) || template.name || 'Template message',
+              senderType: 'staff',
+              senderName: 'Admin'
+            }),
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            // Scroll to bottom after template is sent
+            setTimeout(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+          } else {
+            console.error('Failed to send template:', data.error);
+          }
+        } else {
+          console.error('Unsupported unified conversation type:', selectedConversationObj.channel_type);
+        }
       } else {
-        console.error('Failed to send template:', data.error);
+        // For LINE conversations, use the original LINE API
+        const response = await fetch(`/api/line/templates/${template.id}/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            conversationId: selectedConversation,
+            variables: { customer_name: customerName },
+            senderName: 'Admin'
+          }),
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          // Scroll to bottom after template is sent
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        } else {
+          console.error('Failed to send template:', data.error);
+        }
       }
     } catch (error) {
       console.error('Error sending template:', error);
@@ -336,13 +443,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   };
 
   // Wrapper for sendMessage that includes reply logic and unified channel support
-  const handleSendMessage = async (content: string, type?: MessageType) => {
+  const handleSendMessage = async (content: string, type?: MessageType, replyToMessageId?: string) => {
     // Check if we're dealing with a unified conversation and use appropriate sending method
     if (isUnifiedConversation(selectedConversationObj) && chatOperations.sendUnifiedMessage) {
-      await chatOperations.sendUnifiedMessage(content, selectedConversationObj, type);
+      // For unified conversations, we need to handle reply differently
+      // Pass the reply ID to the unified send function
+      await chatOperations.sendUnifiedMessage(content, selectedConversationObj, type, replyToMessageId);
     } else {
       // Fallback to regular LINE message sending for legacy conversations
-      await chatOperations.sendMessage(content, type, replyingToMessage?.id);
+      await chatOperations.sendMessage(content, type, replyToMessageId || replyingToMessage?.id);
     }
 
     // Clear reply after sending
@@ -530,13 +639,23 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           </Button>
 
           {/* User Avatar */}
-          <SafeImage
-            src={getConversationPictureUrl(selectedConv)}
-            alt={getConversationDisplayName(selectedConv)}
-            width={32}
-            height={32}
-            className="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover flex-shrink-0"
-          />
+          <div className="relative flex-shrink-0">
+            <SafeImage
+              src={getConversationPictureUrl(selectedConv)}
+              alt={getConversationDisplayName(selectedConv)}
+              width={32}
+              height={32}
+              className="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover"
+            />
+            {/* Platform logo badge overlaid on profile picture */}
+            {selectedConv && (
+              (isUnifiedConversation(selectedConv) && selectedConv.channel_type) ? (
+                <PlatformLogoBadge channelType={selectedConv.channel_type} />
+              ) : (
+                selectedConv.channelType && <PlatformLogoBadge channelType={selectedConv.channelType} />
+              )
+            )}
+          </div>
 
           {/* Customer Info - Clickable on Mobile */}
           <div
@@ -669,11 +788,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.senderType === 'admin' ? 'justify-end' : 'justify-start'}`}
-          >
+        {messages.map((message, index) => {
+          // Check if we need a date separator before this message
+          const showDateSeparator = index === 0 ||
+            (index > 0 && isDifferentDay(messages[index - 1].createdAt, message.createdAt));
+
+          return (
+            <div key={message.id}>
+              {/* Date Separator */}
+              {showDateSeparator && (
+                <div className="flex justify-center my-4">
+                  <div className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full">
+                    {formatDateSeparator(message.createdAt)}
+                  </div>
+                </div>
+              )}
+
+              {/* Message Content */}
+              <div
+                className={`flex ${message.senderType === 'admin' ? 'justify-end' : 'justify-start'}`}
+              >
             {/* Render stickers and images without background container */}
             {message.type === 'sticker' && message.stickerId ? (
               <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
@@ -796,8 +930,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </span>
               </div>
             )}
-          </div>
-        ))}
+              </div>
+            </div>
+          );
+        })}
         <div ref={messagesEndRef} className="messages-end" />
       </div>
 

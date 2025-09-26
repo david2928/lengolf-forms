@@ -3,6 +3,9 @@
 **Comprehensive Guide to the Multi-Channel Unified Chat System**
 *Last Updated: September 2025*
 
+> ⚠️ **Notice**: AI-powered chat suggestions are currently disabled while we continue development. The core unified chat functionality remains fully operational.
+
+
 ## 🌟 Executive Summary
 
 The Unified Chat System is a comprehensive multi-channel messaging platform that enables staff to manage customer conversations across both LINE and website channels from a single, streamlined interface. This system represents the evolution of the original LINE-only chat system into a full omnichannel communication platform.

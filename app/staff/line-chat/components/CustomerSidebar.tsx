@@ -18,10 +18,70 @@ import {
   Send,
   RefreshCw,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Globe
 } from 'lucide-react';
-import type { CustomerSidebarProps, Conversation } from '../utils/chatTypes';
+import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
+import type { CustomerSidebarProps, Conversation, UnifiedConversation, ChannelType } from '../utils/chatTypes';
 import { formatBookingDate, calculateDaysUntilExpiry, isBookingUpcoming } from '../utils/formatters';
+
+// Platform logo badge component - ChatCone style with actual company logos
+const PlatformLogoBadge = ({ channelType }: { channelType: ChannelType }) => {
+  const getIcon = () => {
+    switch (channelType) {
+      case 'facebook':
+        return <FaFacebook className="w-3 h-3" style={{ color: '#1877F2' }} />;
+      case 'instagram':
+        return <FaInstagram className="w-3 h-3" style={{ color: '#E4405F' }} />;
+      case 'whatsapp':
+        return <FaWhatsapp className="w-3 h-3" style={{ color: '#25D366' }} />;
+      case 'line':
+        return <FaLine className="w-3 h-3" style={{ color: '#00B900' }} />;
+      case 'website':
+        return <Globe className="w-3 h-3" style={{ color: '#3B82F6' }} />;
+      default:
+        return null;
+    }
+  };
+
+  const icon = getIcon();
+  if (!icon) return null;
+
+  return (
+    <div
+      className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-white rounded-full shadow-sm border-0 flex items-center justify-center"
+      style={{ padding: '1px' }}
+      title={channelType.toUpperCase()}
+    >
+      {icon}
+    </div>
+  );
+};
+
+// Helper function to get platform display name
+const getPlatformDisplayName = (conversation: any): string => {
+  const channelType = conversation?.channelType || conversation?.channel_type;
+
+  switch (channelType) {
+    case 'facebook':
+      return 'Facebook User';
+    case 'instagram':
+      return 'Instagram User';
+    case 'whatsapp':
+      return 'WhatsApp User';
+    case 'line':
+      return 'LINE User';
+    case 'website':
+      return 'Website User';
+    default:
+      return 'LINE User'; // fallback
+  }
+};
+
+// Helper function to check if it's a unified conversation
+const isUnifiedConversation = (conversation: any): conversation is UnifiedConversation => {
+  return conversation && 'channel_type' in conversation;
+};
 
 // Safe Image component with error handling
 const SafeImage = ({ src, alt, width, height, className }: {
@@ -97,13 +157,23 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
         <Card className="mb-4">
           <CardContent className="p-4">
             <div className="flex items-center space-x-3 mb-4">
-              <SafeImage
-                src={selectedConv.user.pictureUrl || ''}
-                alt={selectedConv.user.displayName}
-                width={48}
-                height={48}
-                className="w-12 h-12 rounded-full object-cover"
-              />
+              <div className="relative">
+                <SafeImage
+                  src={selectedConv.user.pictureUrl || ''}
+                  alt={selectedConv.user.displayName}
+                  width={48}
+                  height={48}
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+                {/* Platform logo badge overlaid on profile picture */}
+                {selectedConv && (
+                  (isUnifiedConversation(selectedConv) && selectedConv.channel_type) ? (
+                    <PlatformLogoBadge channelType={selectedConv.channel_type} />
+                  ) : (
+                    selectedConv.channelType && <PlatformLogoBadge channelType={selectedConv.channelType} />
+                  )
+                )}
+              </div>
               <div>
                 <h4 className="font-medium">
                   {customerDetails ? customerDetails.name : selectedConv.user.displayName}
@@ -112,7 +182,7 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                   {customerDetails ? (
                     <>User: {selectedConv.user.displayName}</>
                   ) : (
-                    selectedConv.channelType === 'website' ? 'Website User' : 'LINE User'
+                    getPlatformDisplayName(selectedConv)
                   )}
                 </p>
               </div>

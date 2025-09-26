@@ -43,7 +43,11 @@
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_snapshot",
       "Read(//c/vs_code/realtime-test-isolated/**)",
-      "mcp__supabase__list_extensions"
+      "mcp__supabase__list_extensions",
+      "Bash(then grep META_ .env.local)",
+      "Bash(else echo \"No .env.local file found\")",
+      "Bash(git show:*)",
+      "WebFetch(domain:developers.facebook.com)"
     ],
     "deny": [],
     "ask": []

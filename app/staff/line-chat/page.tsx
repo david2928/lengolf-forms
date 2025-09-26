@@ -290,13 +290,20 @@ export default function LineChatPage() {
 
   // Stabilize the conversation update callback to prevent infinite re-renders
   const handleConversationUpdate = useCallback((conversation: any) => {
-    setConversations(prev =>
-      prev.map(conv =>
+    setConversations(prev => {
+      const updated = prev.map(conv =>
         conv.id === conversation.id
           ? { ...conv, ...conversation }
           : conv
-      )
-    );
+      );
+
+      // Re-sort conversations by lastMessageAt (most recent first)
+      return updated.sort((a, b) => {
+        const aTime = new Date(a.lastMessageAt || 0).getTime();
+        const bTime = new Date(b.lastMessageAt || 0).getTime();
+        return bTime - aTime; // Descending order (newest first)
+      });
+    });
   }, []);
 
   const {
