@@ -264,6 +264,12 @@ export function Nav() {
               {/* Communication Tools */}
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Communication</div>
               <DropdownMenuItem asChild>
+                <Link href="/staff/unified-chat" className="flex items-center gap-2 w-full">
+                  <MessageSquare className="h-4 w-4" />
+                  Unified Chat
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link href="/staff/line-chat" className="flex items-center gap-2 w-full">
                   <MessageSquare className="h-4 w-4" />
                   LINE Chat

@@ -73,6 +73,9 @@ graph TB
 - **Read Status Tracking**: Automatic read status updates when conversations are viewed
 - **Typing Indicators**: Real-time feedback for active conversations
 - **Connection Status**: Visual indicators for real-time connection health
+- **Conversation Sorting**: Conversations automatically re-order with newest messages at top
+- **Multi-Platform Realtime**: Comprehensive real-time updates for LINE, website, and Meta platforms
+- **Date Separators**: Visual date separators for messages spanning multiple days
 
 ### 3. Customer Context & Linking
 - **Automatic Linking**: Website users automatically linked to customer profiles

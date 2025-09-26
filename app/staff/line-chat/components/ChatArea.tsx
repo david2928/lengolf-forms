@@ -279,7 +279,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     } else {
       setMessages([]);
     }
-  }, [selectedConversation, fetchMessages, setMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConversation]);
 
   // Handle template selection
   const handleTemplateSelect = useCallback(async (template: any) => {
