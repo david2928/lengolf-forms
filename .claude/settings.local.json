@@ -47,7 +47,8 @@
       "Bash(then grep META_ .env.local)",
       "Bash(else echo \"No .env.local file found\")",
       "Bash(git show:*)",
-      "WebFetch(domain:developers.facebook.com)"
+      "WebFetch(domain:developers.facebook.com)",
+      "Read(//c/vs_code/lengolf-booking-new/**)"
     ],
     "deny": [],
     "ask": []

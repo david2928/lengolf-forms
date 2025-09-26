@@ -460,11 +460,11 @@ export async function storeMetaMessage(
         .eq('id', conversationId);
     }
 
-    // Send push notification (non-blocking, same as LINE) - TEMPORARILY DISABLED
-    // sendPushNotificationForMetaMessage(conversationId, messageText, senderName, platform)
-    //   .catch(error => {
-    //     console.error('Failed to send push notification:', error);
-    //   });
+    // Send push notification (non-blocking, same as LINE)
+    sendPushNotificationForMetaMessage(conversationId, messageText, senderName, platform)
+      .catch(error => {
+        console.error('Failed to send push notification:', error);
+      });
 
     // Return the database UUID
     return insertedMessage.id;
