@@ -11,15 +11,23 @@ interface BookingDetails {
   duration: string;
   packageName?: string;
   totalAmount?: number;
+  isCoaching?: boolean;
+  coachName?: string;
+  bookingType?: string;
 }
 
 /**
  * Creates a booking confirmation Flex Message with interactive buttons
  */
 export function createBookingConfirmationMessage(booking: BookingDetails) {
+  // Determine header text and color based on booking type
+  const headerText = booking.isCoaching ? 'COACHING SESSION CONFIRMED' : 'BOOKING CONFIRMED';
+  const headerColor = booking.isCoaching ? '#7B68EE' : '#06C755'; // Purple for coaching, green for regular
+  const altTextType = booking.isCoaching ? 'Coaching Session' : 'Booking';
+
   return {
     type: 'flex',
-    altText: `Booking Confirmed - ${booking.date} ${booking.time}`,
+    altText: `${altTextType} Confirmed - ${booking.date} ${booking.time}`,
     contents: {
       type: 'bubble',
       header: {
@@ -28,14 +36,14 @@ export function createBookingConfirmationMessage(booking: BookingDetails) {
         contents: [
           {
             type: 'text',
-            text: 'BOOKING CONFIRMED',
+            text: headerText,
             weight: 'bold',
             color: '#ffffff',
             size: 'sm',
             align: 'center'
           }
         ],
-        backgroundColor: '#06C755',
+        backgroundColor: headerColor,
         paddingAll: '16px'
       },
       body: {
@@ -57,6 +65,29 @@ export function createBookingConfirmationMessage(booking: BookingDetails) {
             size: 'xs',
             color: '#999999'
           },
+          ...(booking.isCoaching && booking.coachName ? [{
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'sm',
+            margin: 'md',
+            contents: [
+              {
+                type: 'text',
+                text: '🏌️',
+                size: 'sm',
+                flex: 0
+              },
+              {
+                type: 'text',
+                text: `Coach: ${booking.coachName}`,
+                size: 'md',
+                weight: 'bold',
+                color: '#7B68EE',
+                flex: 1,
+                wrap: true
+              }
+            ]
+          }] : []),
           {
             type: 'separator',
             margin: 'md'

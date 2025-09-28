@@ -12,7 +12,7 @@ import { TemplateSelector } from '@/components/line/TemplateSelector';
 import { RefreshCw } from 'lucide-react';
 
 // Import our new components and hooks
-import { ConversationSidebar } from '../line-chat/components/ConversationSidebar';
+import { ConversationSidebar, ConversationSidebarRef } from '../line-chat/components/ConversationSidebar';
 import { ChatArea } from '../line-chat/components/ChatArea';
 import { CustomerSidebar } from '../line-chat/components/CustomerSidebar';
 import { usePanelState } from '../line-chat/hooks/usePanelState';
@@ -29,6 +29,9 @@ export default function UnifiedChatPage() {
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [showMobileCustomer, setShowMobileCustomer] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Ref for ConversationSidebar to control scrolling
+  const conversationSidebarRef = useRef<ConversationSidebarRef>(null);
 
   // Use unified chat hook for multi-channel conversations
   const {
@@ -223,6 +226,45 @@ export default function UnifiedChatPage() {
     }
   };
 
+  // Handle going back from mobile chat to conversation list
+  const handleMobileBackToList = useCallback(() => {
+    setShowMobileChat(false);
+    setSelectedConversation(null);
+    selectedConversationRef.current = null;
+
+    // Use ref to scroll to top - much more reliable than querySelector
+    setTimeout(() => {
+      if (conversationSidebarRef.current) {
+        conversationSidebarRef.current.scrollToTop();
+
+        // Also try scrolling parent containers as backup
+        setTimeout(() => {
+          // Try scrolling various containers that might be the actual scroll parent
+          const containers = [
+            document.querySelector('[data-conversations-list]'),
+            document.querySelector('.conversations-container'),
+            document.querySelector('.w-full.md\\:w-80'), // sidebar
+            document.body,
+            document.documentElement
+          ];
+
+          containers.forEach((container) => {
+            if (container) {
+              if ('scrollTo' in container) {
+                (container as any).scrollTo({ top: 0, behavior: 'smooth' });
+              }
+              if ('scrollTop' in container) {
+                (container as any).scrollTop = 0;
+              }
+            }
+          });
+        }, 150);
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 50); // Small delay to ensure React has finished state updates
+  }, []);
+
   // Clear messages when conversation changes and fetch new ones
   useEffect(() => {
     if (selectedConversation) {
@@ -230,6 +272,8 @@ export default function UnifiedChatPage() {
       // Messages will be loaded by ChatArea component
     }
   }, [selectedConversation]);
+
+  // Note: Scroll handling is now done via ref in handleMobileBackToList
 
   // Customer linking functions - simplified
   const handleCustomerSelection = (customerId: string, customer: any) => {
@@ -266,12 +310,13 @@ export default function UnifiedChatPage() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 relative">
+    <div className="h-screen bg-gray-50 relative" style={{ height: '100dvh' }}>
       <div className="h-full flex flex-col md:flex-row">
         {/* Left Sidebar - Conversations */}
         {!leftPanelCollapsed && (
           <div className={`transition-all duration-300 ease-in-out ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
             <ConversationSidebar
+              ref={conversationSidebarRef}
               selectedConversation={selectedConversation}
               onConversationSelect={handleConversationSelect}
               conversations={conversations}
@@ -283,7 +328,7 @@ export default function UnifiedChatPage() {
         )}
 
         {/* Center - Chat Area */}
-        <div className={`flex-1 transition-all duration-300 ease-in-out ${!showMobileChat && selectedConversation ? 'hidden md:flex' : ''} ${!selectedConversation ? 'hidden md:flex' : ''}`}>
+        <div className={`flex-1 transition-all duration-300 ease-in-out h-full ${!showMobileChat && selectedConversation ? 'hidden md:flex' : ''} ${!selectedConversation ? 'hidden md:flex' : ''}`}>
           <ChatArea
             selectedConversation={selectedConversation}
             selectedConversationObj={selectedConversationObj}
@@ -295,6 +340,7 @@ export default function UnifiedChatPage() {
             setMessages={setMessages}
             onShowMobileCustomer={() => setShowMobileCustomer(true)}
             onMarkConversationRead={handleMarkConversationRead}
+            onMobileBackToList={handleMobileBackToList}
           />
         </div>
 

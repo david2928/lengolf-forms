@@ -100,12 +100,32 @@ const isUnifiedConversation = (conversation: any): conversation is UnifiedConver
   return conversation && 'channel_type' in conversation;
 };
 
+const resolveChannelDisplayName = (metadata: any, fallback: string): string => {
+  if (!metadata) return fallback;
+
+  const candidates = [
+    metadata.customer_name,
+    metadata.display_name,
+    metadata.displayName,
+    metadata.full_name,
+    metadata.username,
+    metadata.ig_username,
+    metadata.profile_name,
+    metadata.profileName,
+    metadata.name,
+    metadata.sender_name
+  ];
+
+  const resolved = candidates.find(name => typeof name === 'string' && name.trim().length > 0);
+  return resolved || fallback;
+};
+
 const getConversationDisplayName = (conversation: any): string => {
   if (isUnifiedConversation(conversation)) {
     if (conversation.channel_type === 'line') {
-      return conversation.channel_metadata?.display_name || 'Unknown User';
+      return resolveChannelDisplayName(conversation.channel_metadata, 'Unknown User');
     } else if (conversation.channel_type === 'website') {
-      return conversation.channel_metadata?.display_name ||
+      return resolveChannelDisplayName(conversation.channel_metadata, '') ||
              (conversation.channel_metadata?.email ? `Web User (${conversation.channel_metadata.email})` : 'Website User');
     }
   }
@@ -168,7 +188,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   messages: propMessages,
   setMessages: propSetMessages,
   onShowMobileCustomer,
-  onMarkConversationRead
+  onMarkConversationRead,
+  onMobileBackToList
 }) => {
   // Use messages from props if provided, otherwise use local state
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -183,6 +204,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [isMobile, setIsMobile] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Touch gesture state for swipe detection
+  const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
+  const [isSwipeDetected, setIsSwipeDetected] = useState(false);
 
   // Use the real conversation object passed from parent
   const selectedConv = selectedConversationObj;
@@ -199,6 +224,48 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     return () => {
       window.removeEventListener('resize', checkMobile);
     };
+  }, []);
+
+  // Handle touch start for swipe gesture detection
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!isMobile || !onMobileBackToList) return;
+
+    const touch = e.touches[0];
+    touchStart.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now()
+    };
+    setIsSwipeDetected(false);
+  }, [isMobile, onMobileBackToList]);
+
+  // Handle touch move for swipe gesture detection
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStart.current || !isMobile || !onMobileBackToList || isSwipeDetected) return;
+
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - touchStart.current.x;
+    const deltaY = touch.clientY - touchStart.current.y;
+    const deltaTime = Date.now() - touchStart.current.time;
+
+    // Check if this is a rightward swipe gesture
+    const isRightSwipe = deltaX > 100; // Must swipe at least 100px right
+    const isNotVerticalScroll = Math.abs(deltaY) < Math.abs(deltaX) * 0.5; // Vertical movement should be less than half of horizontal
+    const isFastEnough = deltaTime < 500; // Must complete within 500ms
+
+    if (isRightSwipe && isNotVerticalScroll && isFastEnough) {
+      setIsSwipeDetected(true);
+      // Prevent default to avoid interfering with normal touch behavior
+      e.preventDefault();
+      // Trigger back navigation
+      onMobileBackToList?.();
+    }
+  }, [isMobile, onMobileBackToList, isSwipeDetected]);
+
+  // Handle touch end to reset swipe detection
+  const handleTouchEnd = useCallback(() => {
+    touchStart.current = null;
+    setIsSwipeDetected(false);
   }, []);
 
   const fetchMessages = useCallback(async (conversationId: string) => {
@@ -589,7 +656,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div
+      className="flex-1 flex flex-col h-full min-h-0"
+      style={{ height: isMobile ? '100vh' : 'auto' }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Chat Header */}
       <div className="bg-white border-b p-2 md:p-4 flex items-center justify-between sticky top-0 z-10 md:static md:z-auto">
         <div className="flex items-center space-x-2 md:space-x-3 flex-1 min-w-0">
@@ -634,7 +707,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             variant="ghost"
             size="sm"
             className="md:hidden h-8 w-8 p-0"
-            onClick={() => {/* This would come from parent */}}
+            onClick={onMobileBackToList}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -788,7 +861,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container">
+      <div className={`flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container min-h-0 ${isMobile ? 'pb-20' : ''}`}>
         {messages.map((message, index) => {
           // Check if we need a date separator before this message
           const showDateSeparator = index === 0 ||
@@ -938,18 +1011,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         <div ref={messagesEndRef} className="messages-end" />
       </div>
 
-      {/* Message Input */}
-      <MessageInput
-        onSendMessage={handleSendMessage}
-        replyingToMessage={replyingToMessage}
-        onCancelReply={handleCancelReply}
-        disabled={chatOperations.sendingMessage}
-        isMobile={isMobile}
-        selectedConversationObj={selectedConversationObj}
-        onTemplateSelect={handleTemplateSelect}
-        onCuratedImagesSelect={handleCuratedImagesSelect}
-        onFileUpload={chatOperations.handleFileUpload}
-      />
+      {/* Message Input - Always at bottom */}
+      <div className={`${isMobile ? 'fixed bottom-0 left-0 right-0' : 'mt-auto'} bg-white border-t z-10 flex-shrink-0`}>
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          replyingToMessage={replyingToMessage}
+          onCancelReply={handleCancelReply}
+          disabled={chatOperations.sendingMessage}
+          isMobile={isMobile}
+          selectedConversationObj={selectedConversationObj}
+          onTemplateSelect={handleTemplateSelect}
+          onCuratedImagesSelect={handleCuratedImagesSelect}
+          onFileUpload={chatOperations.handleFileUpload}
+        />
+      </div>
 
       {/* Message Context Menu */}
       {contextMenuMessage && (

@@ -25,6 +25,26 @@ interface UseUnifiedChatReturn {
   updateConversationUnreadCount: (conversationId: string, unreadCount: number) => void;
 }
 
+const resolvePreferredName = (metadata: any, fallback: string) => {
+  if (!metadata) return fallback;
+
+  const candidates = [
+    metadata.customer_name,
+    metadata.display_name,
+    metadata.displayName,
+    metadata.full_name,
+    metadata.username,
+    metadata.ig_username,
+    metadata.profile_name,
+    metadata.profileName,
+    metadata.name,
+    metadata.sender_name
+  ];
+
+  const resolved = candidates.find(name => typeof name === 'string' && name.trim().length > 0);
+  return resolved || fallback;
+};
+
 /**
  * Custom hook for managing unified conversations across LINE and website channels
  * Uses the unified_conversations view to provide a seamless multi-channel experience
@@ -77,18 +97,22 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
             lastMessageType: 'text', // Default, can be enhanced later
             unreadCount: conv.unread_count || 0,
             user: {
-              displayName: conv.channel_metadata?.display_name || 'Unknown User',
+              displayName: resolvePreferredName(conv.channel_metadata, 'Unknown User'),
               pictureUrl: conv.channel_metadata?.picture_url || '',
               lineUserId: conv.channel_user_id,
               customerId: conv.customer_id
             },
             customer: conv.customer_id ? {
               id: conv.customer_id,
-              name: conv.channel_metadata?.customer_name || 'Customer',
+              name: resolvePreferredName({
+                customer_name: conv.channel_metadata?.customer_name,
+                display_name: conv.channel_metadata?.display_name
+              }, 'Customer'),
               phone: '',
               email: ''
             } : null,
-            channelType: 'line' as const // Add channel identifier
+            channelType: 'line' as const,
+            channelMetadata: conv.channel_metadata
           };
         } else if (conv.channel_type === 'website') {
           // Website conversation - transform to legacy format
@@ -102,7 +126,7 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
             lastMessageType: 'text',
             unreadCount: conv.unread_count || 0,
             user: {
-              displayName: conv.channel_metadata?.display_name ||
+              displayName: resolvePreferredName(conv.channel_metadata, '') ||
                           (conv.channel_metadata?.email ? `Web User (${conv.channel_metadata.email})` : 'Website User'),
               pictureUrl: '/LG_Logo_Big.jpg', // Use Lengolf logo for website users
               lineUserId: conv.channel_user_id,
@@ -110,11 +134,15 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
             },
             customer: conv.customer_id ? {
               id: conv.customer_id,
-              name: conv.channel_metadata?.customer_name || 'Customer',
+              name: resolvePreferredName({
+                customer_name: conv.channel_metadata?.customer_name,
+                display_name: conv.channel_metadata?.display_name
+              }, 'Customer'),
               phone: '',
               email: ''
             } : null,
-            channelType: 'website' as const // Add channel identifier
+            channelType: 'website' as const,
+            channelMetadata: conv.channel_metadata
           };
         } else if (['facebook', 'instagram', 'whatsapp'].includes(conv.channel_type)) {
           // Meta platforms conversation - transform to legacy format
@@ -129,18 +157,22 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
             lastMessageType: 'text',
             unreadCount: conv.unread_count || 0,
             user: {
-              displayName: conv.channel_metadata?.display_name || `${platformName} User`,
+              displayName: resolvePreferredName(conv.channel_metadata, `${platformName} User`),
               pictureUrl: conv.channel_metadata?.profile_pic || '',
               lineUserId: conv.channel_user_id,
               customerId: conv.customer_id
             },
             customer: conv.customer_id ? {
               id: conv.customer_id,
-              name: conv.channel_metadata?.customer_name || 'Customer',
+              name: resolvePreferredName({
+                customer_name: conv.channel_metadata?.customer_name,
+                display_name: conv.channel_metadata?.display_name
+              }, 'Customer'),
               phone: conv.channel_metadata?.phone_number || '',
               email: ''
             } : null,
-            channelType: conv.channel_type as 'facebook' | 'instagram' | 'whatsapp'
+            channelType: conv.channel_type as 'facebook' | 'instagram' | 'whatsapp',
+            channelMetadata: conv.channel_metadata
           };
         } else {
           // Unknown channel type - fallback
@@ -154,23 +186,35 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
             lastMessageType: 'text',
             unreadCount: conv.unread_count || 0,
             user: {
-              displayName: conv.channel_metadata?.display_name || 'Unknown User',
+              displayName: resolvePreferredName(conv.channel_metadata, 'Unknown User'),
               pictureUrl: conv.channel_metadata?.profile_pic || '',
               lineUserId: conv.channel_user_id,
               customerId: conv.customer_id
             },
             customer: conv.customer_id ? {
               id: conv.customer_id,
-              name: conv.channel_metadata?.customer_name || 'Customer',
+              name: resolvePreferredName({
+                customer_name: conv.channel_metadata?.customer_name,
+                display_name: conv.channel_metadata?.display_name
+              }, 'Customer'),
               phone: '',
               email: ''
             } : null,
-            channelType: conv.channel_type as any
+            channelType: conv.channel_type as any,
+            channelMetadata: conv.channel_metadata
           };
         }
       });
 
-      setConversations(legacyFormatConversations);
+      // Sort conversations by lastMessageAt before setting them
+      const sortedConversations = legacyFormatConversations.sort((a: Conversation, b: Conversation) => {
+        const aTime = new Date(a.lastMessageAt || 0).getTime();
+        const bTime = new Date(b.lastMessageAt || 0).getTime();
+        return bTime - aTime; // Descending order (newest first)
+      });
+
+
+      setConversations(sortedConversations);
 
     } catch (err) {
       console.error('Error in fetchConversations:', err);
@@ -192,11 +236,12 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
 
   // Update conversation's last message when a new message arrives
   const updateConversationLastMessage = useCallback((conversationId: string, message: UnifiedMessage) => {
+
     setConversations(prev => {
       // Update the conversation data
       const updated = prev.map(conv => {
         if (conv.id === conversationId) {
-          return {
+          const updatedConv = {
             ...conv,
             lastMessageAt: message.created_at,
             lastMessageText: message.content,
@@ -206,16 +251,22 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
               ? conv.unreadCount + 1
               : conv.unreadCount
           } as Conversation;
+
+
+          return updatedConv;
         }
         return conv;
       });
 
       // IMMEDIATELY sort the updated conversations by lastMessageAt (newest first)
-      return updated.sort((a, b) => {
+      const sorted = updated.sort((a, b) => {
         const aTime = new Date(a.lastMessageAt || 0).getTime();
         const bTime = new Date(b.lastMessageAt || 0).getTime();
         return bTime - aTime; // Descending order
       });
+
+
+      return sorted;
     });
   }, []);
 

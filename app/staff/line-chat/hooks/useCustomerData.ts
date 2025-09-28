@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect } from 'react';
 import type { CustomerOperations, CustomerDetails, Booking, Package, Transaction, Conversation } from '../utils/chatTypes';
 import { generateMessages } from '@/components/booking-form/submit/booking-messages';
 import type { BookingFormData } from '@/types/booking-form';
+import { useToast } from '@/components/ui/use-toast';
 
 /**
  * Custom hook for customer data operations
@@ -18,6 +19,7 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
   const [currentBookingIndex, setCurrentBookingIndex] = useState(0);
   const [linkingCustomer, setLinkingCustomer] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Fetch customer details function extracted from main component
   const fetchCustomerDetails = useCallback(async (customerId: string) => {
@@ -61,16 +63,28 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
         console.log('Customer linked successfully');
         // Fetch detailed customer information
         await fetchCustomerDetails(customerId);
+        toast({
+          title: "Customer linked successfully",
+          description: "Customer information has been loaded"
+        });
       } else {
-        alert('Failed to link customer: ' + data.error);
+        toast({
+          variant: "destructive",
+          title: "Failed to link customer",
+          description: data.error
+        });
       }
     } catch (error) {
       console.error('Error linking customer:', error);
-      alert('Failed to link customer');
+      toast({
+        variant: "destructive",
+        title: "Failed to link customer",
+        description: "Please try again"
+      });
     } finally {
       setLinkingCustomer(false);
     }
-  }, [conversationId, fetchCustomerDetails]);
+  }, [conversationId, fetchCustomerDetails, toast]);
 
   // Send booking confirmation function extracted from main component
   const sendBookingConfirmation = useCallback(async (bookingId: string) => {
@@ -79,49 +93,59 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     try {
       setSendingConfirmation(bookingId);
 
-      // For website conversations, create a simple text confirmation and send via website chat
-      if (selectedConversation?.channelType === 'website') {
-        // First get booking details
-        const bookingResponse = await fetch(`/api/bookings/${bookingId}`);
-        const bookingData = await bookingResponse.json();
+      // Get booking details first (shared for all platforms)
+      const bookingResponse = await fetch(`/api/bookings/${bookingId}`);
+      const bookingData = await bookingResponse.json();
 
-        if (!bookingData.booking) {
-          alert('Failed to fetch booking details: ' + (bookingData.error || 'Unknown error'));
-          return;
-        }
+      if (!bookingData.booking) {
+        toast({
+          variant: "destructive",
+          title: "Failed to fetch booking details",
+          description: bookingData.error || 'Unknown error'
+        });
+        return;
+      }
 
-        const booking = bookingData.booking;
+      const booking = bookingData.booking;
 
-        // Transform booking data to match the format expected by generateMessages
-        const bookingFormData: BookingFormData = {
-          employeeName: null,
-          customerContactedVia: null,
-          bookingDate: new Date(booking.date),
-          startTime: booking.start_time,
-          endTime: (() => {
-            const [hours, minutes] = booking.start_time.split(':').map(Number);
-            return `${String(hours + booking.duration).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-          })(),
-          customerName: booking.name,
-          customerPhone: booking.phone_number,
-          bookingType: booking.booking_type || 'Golf',
-          bayNumber: booking.bay,
-          numberOfPax: booking.number_of_people,
-          notes: booking.customer_notes || '',
-          isNewCustomer: false,
-          duration: booking.duration * 60, // Convert hours to minutes
-          isManualMode: false
-        };
+      // Transform booking data to match the format expected by generateMessages
+      const bookingFormData: BookingFormData = {
+        employeeName: null,
+        customerContactedVia: null,
+        bookingDate: new Date(booking.date),
+        startTime: booking.start_time,
+        endTime: (() => {
+          const [hours, minutes] = booking.start_time.split(':').map(Number);
+          return `${String(hours + booking.duration).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        })(),
+        customerName: booking.name,
+        customerPhone: booking.phone_number,
+        bookingType: booking.booking_type || 'Golf',
+        bayNumber: booking.bay,
+        numberOfPax: booking.number_of_people,
+        notes: booking.customer_notes || '',
+        isNewCustomer: false,
+        duration: booking.duration * 60, // Convert hours to minutes
+        isManualMode: false
+      };
 
-        // Generate the existing short confirmation message
-        const messages = generateMessages(bookingFormData);
-        if (!messages) {
-          alert('Failed to generate booking confirmation message');
-          return;
-        }
+      // Generate the booking confirmation message
+      const messages = generateMessages(bookingFormData);
+      if (!messages) {
+        toast({
+          variant: "destructive",
+          title: "Failed to generate booking confirmation message",
+          description: "Unable to create confirmation text"
+        });
+        return;
+      }
 
-        const confirmationMessage = messages.enShort;
+      const confirmationMessage = messages.enShort;
 
+      // Handle different channel types
+      const channelType = selectedConversation?.channelType;
+
+      if (channelType === 'website') {
         // Send message to website chat
         const messageResponse = await fetch('/api/conversations/website/send-message', {
           method: 'POST',
@@ -130,7 +154,7 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
           },
           body: JSON.stringify({
             conversationId: conversationId,
-            sessionId: selectedConversation.lineUserId, // Session ID for website
+            sessionId: selectedConversation?.lineUserId, // Session ID for website
             messageText: confirmationMessage,
             senderType: 'staff',
             senderName: 'Admin'
@@ -141,8 +165,70 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
 
         if (messageData.success) {
           console.log('Booking confirmation sent successfully to website chat');
+          const userName = selectedConversation?.user?.displayName || 'Website User';
+          toast({
+            title: userName,
+            description: "Booking confirmation sent successfully"
+          });
         } else {
-          alert('Failed to send booking confirmation to website chat: ' + messageData.error);
+          const userName = selectedConversation?.user?.displayName || 'Website User';
+          toast({
+            variant: "destructive",
+            title: userName,
+            description: `Failed to send booking confirmation: ${messageData.error}`
+          });
+        }
+      } else if (channelType && ['facebook', 'instagram', 'whatsapp'].includes(channelType)) {
+        // Send message to META platforms (Facebook, Instagram, WhatsApp)
+        const platformUserId = selectedConversation?.lineUserId;
+
+        if (!platformUserId) {
+          toast({
+            variant: "destructive",
+            title: "Unable to send booking confirmation",
+            description: "Platform user ID not found"
+          });
+          return;
+        }
+
+        const messageResponse = await fetch('/api/meta/send-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            platformUserId: platformUserId,
+            message: confirmationMessage,
+            platform: channelType,
+            messageType: 'text'
+          }),
+        });
+
+        const messageData = await messageResponse.json();
+
+        if (messageData.success) {
+          console.log(`Booking confirmation sent successfully to ${channelType}`);
+          const userName = selectedConversation?.user?.displayName || `${channelType.charAt(0).toUpperCase() + channelType.slice(1)} User`;
+          toast({
+            title: userName,
+            description: "Booking confirmation sent successfully"
+          });
+        } else {
+          // Handle Facebook's 24-hour messaging window limitation
+          const userName = selectedConversation?.user?.displayName || `${channelType.charAt(0).toUpperCase() + channelType.slice(1)} User`;
+          if (messageData.error && messageData.error.includes('sent outside of allowed window')) {
+            toast({
+              variant: "destructive",
+              title: userName,
+              description: "Message cannot be sent - customer must message first to reopen 24-hour window"
+            });
+          } else {
+            toast({
+              variant: "destructive",
+              title: userName,
+              description: `Failed to send booking confirmation: ${messageData.error}`
+            });
+          }
         }
       } else {
         // For LINE conversations, use rich flex message format
@@ -161,25 +247,52 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
 
         if (data.success) {
           console.log('Booking confirmation sent successfully to LINE');
+          const userName = selectedConversation?.user?.displayName || 'LINE User';
+          toast({
+            title: userName,
+            description: "Booking confirmation sent successfully"
+          });
         } else {
+          const userName = selectedConversation?.user?.displayName || 'LINE User';
           if (data.error.includes('does not have a linked LINE account')) {
-            alert('This customer does not have a linked LINE account. Please link their LINE account first.');
+            toast({
+              variant: "destructive",
+              title: userName,
+              description: "LINE account not linked - please link account first"
+            });
           } else if (data.error.includes('Cannot send confirmation for booking with status')) {
-            alert(`Cannot send confirmation: ${data.error}\n\nBooking Status: ${data.bookingStatus || 'unknown'}`);
+            toast({
+              variant: "destructive",
+              title: userName,
+              description: `Cannot send confirmation - booking status: ${data.bookingStatus || 'unknown'}`
+            });
           } else if (data.error.includes('Booking not found')) {
-            alert('Booking not found. It may have been deleted or the ID is incorrect.');
+            toast({
+              variant: "destructive",
+              title: userName,
+              description: "Booking not found or has been deleted"
+            });
           } else {
-            alert('Failed to send booking confirmation: ' + data.error);
+            toast({
+              variant: "destructive",
+              title: userName,
+              description: `Failed to send booking confirmation: ${data.error}`
+            });
           }
         }
       }
     } catch (error) {
       console.error('Error sending booking confirmation:', error);
-      alert('Failed to send booking confirmation. Please try again.');
+      const userName = selectedConversation?.user?.displayName || 'User';
+      toast({
+        variant: "destructive",
+        title: userName,
+        description: "Failed to send booking confirmation - please try again"
+      });
     } finally {
       setSendingConfirmation(null);
     }
-  }, [conversationId, selectedConversation?.channelType, selectedConversation?.lineUserId]);
+  }, [conversationId, selectedConversation?.channelType, selectedConversation?.lineUserId, selectedConversation?.user?.displayName, toast]);
 
   // Enhanced setCurrentBookingIndex with bounds checking
   const setCurrentBookingIndexSafe = useCallback((index: number) => {

@@ -182,6 +182,19 @@ export async function POST(
       bayDisplay = 'AI Bay';
     }
 
+    // Check if it's a coaching booking and extract coach name
+    const bookingType = booking.booking_type || '';
+    const isCoaching = bookingType.toLowerCase().includes('coaching');
+    let coachName = '';
+
+    if (isCoaching) {
+      // Extract coach name from booking type - get text within parentheses
+      const match = bookingType.match(/\(([^)]+)\)/);
+      if (match && match[1]) {
+        coachName = match[1]; // This will extract "Boss", "Boss - Ratchavin", or "Noon"
+      }
+    }
+
     // Prepare flex data for both message creation and storage
     const flexData = {
       bookingId: booking.id,
@@ -196,7 +209,10 @@ export async function POST(
       bay: bayDisplay,
       duration: `${booking.duration} hours`,
       packageName: undefined, // We don't have package info in booking table
-      totalAmount: undefined // We don't have amount in booking table
+      totalAmount: undefined, // We don't have amount in booking table
+      isCoaching,
+      coachName,
+      bookingType
     };
 
     // Send only the interactive Flex message
@@ -235,7 +251,9 @@ export async function POST(
 
     // Store confirmation message in database if we have a conversation
     if (conversationId) {
-      const messageText = '📋 Booking confirmation with interactive options';
+      const messageText = isCoaching
+        ? '🏌️ Coaching session confirmation with interactive options'
+        : '📋 Booking confirmation with interactive options';
 
       const { data: storedMessage, error: messageError } = await refacSupabaseAdmin
         .from('line_messages')

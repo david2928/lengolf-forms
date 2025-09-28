@@ -77,7 +77,7 @@ export async function sendPushNotificationForWebsiteMessage(
 
     // Prepare notification payload
     const notificationPayload = {
-      title: `🌐 New website message from ${displayName}`,
+      title: displayName,
       body: messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText,
       conversationId,
       platform: 'website',

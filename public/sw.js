@@ -314,12 +314,14 @@ self.addEventListener('push', (event) => {
   console.log('Push event received:', event);
 
   let notificationData = {
-    title: 'New LINE Message',
+    title: 'New Message',
     body: 'You have a new customer message',
     icon: '/favicon.svg',
     badge: '/favicon.svg',
-    tag: `line-message-${Date.now()}`,
+    tag: `message-${Date.now()}`,
     requireInteraction: false,
+    silent: false,
+    renotify: false,
     actions: [
       {
         action: 'open',

@@ -307,7 +307,7 @@ async function sendPushNotificationForNewMessage(
 
     // Prepare notification payload
     const notificationPayload = {
-      title: `New message from ${customerName}`,
+      title: customerName,
       body: displayText.length > 100 ? displayText.substring(0, 100) + '...' : displayText,
       conversationId,
       lineUserId: event.source.userId,

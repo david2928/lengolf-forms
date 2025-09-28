@@ -123,59 +123,67 @@ export function generateMessages(formData: BookingFormData) {
   const thaiPlayers = `${details.players} ท่าน`;
 
   // Conditional text based on booking type
-  const bookingConfirmation = details.isCoaching ? 'Your coaching session booking has been confirmed.' : 'Your bay booking has been confirmed.';
-  const thaiBookingConfirmation = details.isCoaching ? 'ยืนยันการจองคลาสเรียนเรียบร้อยค่ะ' : 'ยืนยันการจองเบย์เรียบร้อยค่ะ';
+  const bookingConfirmation = details.isCoaching ? '⛳ COACHING SESSION CONFIRMED ⛳' : 'Your bay booking has been confirmed.';
+  const thaiBookingConfirmation = details.isCoaching ? '⛳ ยืนยันการจองคลาสเรียนเรียบร้อย ⛳' : 'ยืนยันการจองเบย์เรียบร้อยค่ะ';
 
   // English Messages
   const enShort = [
     bookingConfirmation,
     details.isCoaching && details.coachName ? `Coach: ${details.coachName}` : '',
+    details.isCoaching ? `Type: Golf Coaching Lesson` : '',
     ``,
     `Date: ${details.date}`,
     `Time: ${details.time}`,
+    `Bay: ${details.bay}`,
     ``,
-    `See you soon! ⛳`
+    details.isCoaching ? `See you soon! 🏌️` : `See you soon! ⛳`
   ].filter(Boolean).join('\n');
 
   const enLong = [
     bookingConfirmation,
     details.isCoaching && details.coachName ? `Coach: ${details.coachName}` : '',
+    details.isCoaching ? `Type: Golf Coaching Lesson` : '',
     ``,
     `Date: ${details.date}`,
     `Time: ${details.time}`,
     `Customer: ${details.customer}`,
     details.contact ? `Contact: ${details.contact}` : '',
     `Players: ${details.players}`,
+    details.bay ? `Bay: ${details.bay}` : '',
     ``,
     `Note: If you need to make any changes, please let us know at least 2 hours before your scheduled time.`,
     ``,
-    `See you soon! ⛳`
+    details.isCoaching ? `See you soon! 🏌️` : `See you soon! ⛳`
   ].filter(Boolean).join('\n');
 
   // Thai Messages
   const thShort = [
     thaiBookingConfirmation,
     details.isCoaching && details.coachName ? `Coach: ${details.coachName}` : '',
+    details.isCoaching ? `ประเภท: คลาสเรียนกอล์ฟ` : '',
     ``,
     `วันที่: ${thaiDate}`,
     `เวลา: ${details.time}`,
+    `เบย์: ${details.bay}`,
     ``,
-    `แล้วพบกันค่ะ ⛳`
+    details.isCoaching ? `แล้วพบกันค่ะ 🏌️` : `แล้วพบกันค่ะ ⛳`
   ].filter(Boolean).join('\n');
 
   const thLong = [
     thaiBookingConfirmation,
     details.isCoaching && details.coachName ? `Coach: ${details.coachName}` : '',
+    details.isCoaching ? `ประเภท: คลาสเรียนกอล์ฟ` : '',
     ``,
     `วันที่: ${thaiDate}`,
     `เวลา: ${details.time}`,
     `ลูกค้า: ${details.customer}`,
     details.contact ? `ติดต่อ: ${details.contact}` : '',
     `ผู้เล่น: ${thaiPlayers}`,
+    `เบย์: ${details.bay}`,
     ``,
     `หมายเหตุ: หากต้องการเปลี่ยนแปลงการจอง กรุณาแจ้งให้ทราบอย่างน้อย 2 ชม. ก่อนถึงเวลานัดหมายค่ะ`,
     ``,
-    `แล้วพบกันค่ะ ⛳`
+    details.isCoaching ? `แล้วพบกันค่ะ 🏌️` : `แล้วพบกันค่ะ ⛳`
   ].filter(Boolean).join('\n');
 
   return {

@@ -4,7 +4,7 @@
 // Handles the left panel with conversation list, search, and notifications
 // Extended to support unified multi-channel conversations (LINE + Website)
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -70,21 +70,41 @@ const PlatformLogoBadge = ({ channelType }: { channelType: ChannelType }) => {
 };
 
 // Get display name for unified conversation with Meta platform support
+const resolveChannelDisplayName = (metadata: any, fallback: string): string => {
+  if (!metadata) return fallback;
+
+  const candidates = [
+    metadata.customer_name,
+    metadata.display_name,
+    metadata.displayName,
+    metadata.full_name,
+    metadata.username,
+    metadata.ig_username,
+    metadata.profile_name,
+    metadata.profileName,
+    metadata.name,
+    metadata.sender_name
+  ];
+
+  const resolved = candidates.find(name => typeof name === 'string' && name.trim().length > 0);
+  return resolved || fallback;
+};
+
 const getConversationDisplayName = (conversation: UnifiedConversation | Conversation): string => {
   // Check if it's a unified conversation
   if ('channel_type' in conversation) {
     const unified = conversation as UnifiedConversation;
     if (unified.channel_type === 'line') {
-      return unified.channel_metadata?.display_name || 'Unknown User';
+      return resolveChannelDisplayName(unified.channel_metadata, 'Unknown User');
     } else if (unified.channel_type === 'website') {
-      return unified.channel_metadata?.display_name ||
+      return resolveChannelDisplayName(unified.channel_metadata, '') ||
              (unified.channel_metadata?.email ? `Web User (${unified.channel_metadata.email})` : 'Website User');
     } else if (unified.channel_type === 'facebook') {
-      return unified.channel_metadata?.display_name || 'Facebook User';
+      return resolveChannelDisplayName(unified.channel_metadata, 'Facebook User');
     } else if (unified.channel_type === 'instagram') {
-      return unified.channel_metadata?.display_name || 'Instagram User';
+      return resolveChannelDisplayName(unified.channel_metadata, 'Instagram User');
     } else if (unified.channel_type === 'whatsapp') {
-      return unified.channel_metadata?.display_name ||
+      return resolveChannelDisplayName(unified.channel_metadata, '') ||
              (unified.channel_metadata?.phone_number ? `WhatsApp User (${unified.channel_metadata.phone_number})` : 'WhatsApp User');
     }
   }
@@ -181,20 +201,77 @@ const SafeImage = ({ src, alt, width, height, className }: {
   );
 };
 
-export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
+// Export interface for imperative methods
+export interface ConversationSidebarRef {
+  scrollToTop: () => void;
+}
+
+export const ConversationSidebar = forwardRef<ConversationSidebarRef, ConversationSidebarProps>(({
   selectedConversation,
   onConversationSelect,
   conversations: propConversations,
   setConversations: propSetConversations,
   enableAISuggestions = true,
   onToggleAI
-}) => {
+}, ref) => {
   // Use conversations from props if provided, otherwise use local state
   const [localConversations, setLocalConversations] = useState<Conversation[]>([]);
   const conversations = propConversations || localConversations;
   const setConversations = propSetConversations || setLocalConversations;
   const [searchTerm, setSearchTerm] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+
+  // Ref for the scrollable conversations container
+  const conversationsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Expose scroll method to parent component
+  useImperativeHandle(ref, () => ({
+    scrollToTop: () => {
+      if (conversationsContainerRef.current) {
+        const container = conversationsContainerRef.current;
+
+        // Try multiple scroll methods immediately
+        container.scrollTo({ top: 0, behavior: 'smooth' });
+        container.scrollTop = 0; // Force instant scroll too
+
+        // Find and scroll all scrollable parents
+        const findScrollableParents = (element: HTMLElement): HTMLElement[] => {
+          const scrollableParents: HTMLElement[] = [];
+          let current = element.parentElement;
+
+          while (current && current !== document.body) {
+            const style = window.getComputedStyle(current);
+            const isScrollable = style.overflowY === 'auto' || style.overflowY === 'scroll' ||
+                               current.scrollHeight > current.clientHeight;
+
+            if (isScrollable) {
+              scrollableParents.push(current);
+            }
+            current = current.parentElement;
+          }
+          return scrollableParents;
+        };
+
+        const scrollableParents = findScrollableParents(container);
+        scrollableParents.forEach((parent) => {
+          parent.scrollTo({ top: 0, behavior: 'smooth' });
+          parent.scrollTop = 0;
+        });
+
+        // Force scroll after a delay
+        setTimeout(() => {
+          if (conversationsContainerRef.current) {
+            conversationsContainerRef.current.scrollTop = 0;
+          }
+
+          // Also force scroll all parents again
+          scrollableParents.forEach((parent) => {
+            parent.scrollTop = 0;
+          });
+        }, 100);
+      }
+    }
+  }), []);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -277,19 +354,17 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
 
           {/* Controls */}
           <div className="flex items-center space-x-2">
-            {/* Mobile Home Button */}
-            {isMobile && (
-              <Link href="/">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 hover:bg-gray-100"
-                  title="Go to Home"
-                >
-                  <Home className="h-4 w-4 text-gray-600" />
-                </Button>
-              </Link>
-            )}
+            {/* Home Button - Available on both mobile and desktop */}
+            <Link href="/">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+                title="Go to Home"
+              >
+                <Home className="h-4 w-4 text-gray-600" />
+              </Button>
+            </Link>
 
             {/* AI Suggestions Toggle - TEMPORARILY HIDDEN */}
             {false && onToggleAI && (
@@ -369,7 +444,11 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         </div>
       </div>
 
-      <div className="overflow-y-auto flex-1 conversations-container">
+      <div
+        ref={conversationsContainerRef}
+        className="overflow-y-auto flex-1 conversations-container"
+        data-conversations-list
+      >
         {filteredConversations.length === 0 ? (
           <div className="p-4 text-center text-gray-500">
             <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -476,4 +555,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       </div>
     </div>
   );
-};
+});
+
+// Add display name for debugging
+ConversationSidebar.displayName = 'ConversationSidebar';

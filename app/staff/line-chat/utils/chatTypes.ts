@@ -29,7 +29,8 @@ export interface Conversation {
   unreadCount: number;
   user: LineUser;
   customer?: Customer;
-  channelType?: 'line' | 'website'; // Add channel type for unified conversations
+  channelType?: 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp'; // Add channel type for unified conversations
+  channelMetadata?: ChannelMetadata;
 }
 
 export interface Message {
@@ -162,6 +163,11 @@ export interface ConversationSidebarProps {
   onToggleAI?: (enabled: boolean) => void;
 }
 
+// Ref interface for ConversationSidebar
+export interface ConversationSidebarRef {
+  scrollToTop: () => void;
+}
+
 export interface ChatAreaProps {
   selectedConversation: string | null;
   selectedConversationObj?: Conversation | null;
@@ -173,6 +179,7 @@ export interface ChatAreaProps {
   setMessages?: React.Dispatch<React.SetStateAction<Message[]>>;
   onShowMobileCustomer?: () => void;
   onMarkConversationRead?: (conversationId: string) => void;
+  onMobileBackToList?: () => void;
 }
 
 export interface CustomerSidebarProps {
@@ -215,6 +222,9 @@ export interface ChannelMetadata {
   profile_pic?: string;
   phone_number?: string; // For WhatsApp
   customer_name?: string;
+  username?: string; // Meta username (Instagram/Facebook)
+  full_name?: string;
+  name?: string;
   // Unified metadata
   [key: string]: any;
 }

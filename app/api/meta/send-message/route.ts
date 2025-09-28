@@ -247,14 +247,39 @@ export async function POST(request: NextRequest) {
       console.error(`Meta API error: ${response.status} ${response.statusText} - ${errorText}`);
 
       let errorMessage = 'Failed to send message';
+      let parsedError: any = null;
+
+      // Try to parse the error response JSON
+      try {
+        parsedError = JSON.parse(errorText);
+      } catch (e) {
+        // If parsing fails, use the raw error text
+        parsedError = { error: { message: errorText } };
+      }
+
       if (response.status === 401) {
         errorMessage = 'Meta API authentication failed - check your access token';
       } else if (response.status === 400) {
-        errorMessage = 'Invalid request - user may not be reachable or message format invalid';
+        // Parse specific Facebook/Meta error codes
+        const fbError = parsedError?.error;
+        if (fbError?.code === 10 && (fbError.error_subcode === 2018278 || fbError.error_subcode === 2534022)) {
+          // Facebook/Instagram messaging window error (24-hour policy)
+          errorMessage = 'sent outside of allowed window';
+        } else if (fbError?.message?.includes('outside of allowed window') ||
+                   fbError?.message?.includes('24 hour messaging window') ||
+                   fbError?.message?.includes('messaging window has expired')) {
+          // Alternative detection methods for various platforms
+          errorMessage = 'sent outside of allowed window';
+        } else if (fbError?.code === 131056) {
+          // WhatsApp Business API specific window error
+          errorMessage = 'sent outside of allowed window';
+        } else {
+          errorMessage = 'Invalid request - user may not be reachable or message format invalid';
+        }
       }
 
       return NextResponse.json(
-        { error: errorMessage, details: errorText },
+        { error: errorMessage, details: errorText, fbError: parsedError?.error },
         { status: response.status }
       );
     }

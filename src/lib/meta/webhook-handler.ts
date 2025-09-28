@@ -172,10 +172,66 @@ export function detectPlatform(entry: MetaWebhookEntry): 'facebook' | 'instagram
   return 'facebook'; // default fallback
 }
 
+// Cache for profile fetch results to avoid repeated API calls
+const profileCache = new Map<string, { name?: string, profile_pic?: string, timestamp: number }>();
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
 /**
- * Fetch user profile from Meta platforms (Facebook/Instagram)
+ * Generate a friendly fallback name for Instagram users
+ * Uses the first message content if available, otherwise a simple counter
  */
-async function fetchMetaUserProfile(userId: string, platform: 'facebook' | 'instagram' | 'whatsapp'): Promise<{ name?: string, profile_pic?: string }> {
+async function generateFriendlyInstagramName(userId: string): Promise<string> {
+  try {
+    // Try to get the user's first message to use as a hint for naming
+    const { data: firstMessage } = await supabase
+      .from('meta_messages')
+      .select('message_text, created_at')
+      .eq('platform_user_id', userId)
+      .eq('sender_type', 'user')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (firstMessage?.message_text) {
+      // Extract first word from their first message as a potential name hint
+      const firstWord = firstMessage.message_text.trim().split(/\s+/)[0];
+      if (firstWord && firstWord.length >= 3 && firstWord.length <= 20 && /^[a-zA-Zก-๙\u0E00-\u0E7F]+$/.test(firstWord)) {
+        return `${firstWord} (Instagram)`;
+      }
+    }
+  } catch (error) {
+    // Ignore errors, just fall back to generic naming
+  }
+
+  // Count existing Instagram users to generate a friendly sequence
+  try {
+    const { count } = await supabase
+      .from('meta_users')
+      .select('*', { count: 'exact', head: true })
+      .eq('platform', 'instagram')
+      .like('display_name', 'Instagram User %');
+
+    const userNumber = (count || 0) + 1;
+    return `Instagram User ${userNumber}`;
+  } catch (error) {
+    // Final fallback
+    return `Instagram User`;
+  }
+}
+
+/**
+ * Fetch user profile from Meta platforms with robust retry and caching
+ */
+async function fetchMetaUserProfile(userId: string, platform: 'facebook' | 'instagram' | 'whatsapp', retryCount: number = 0): Promise<{ name?: string, profile_pic?: string }> {
+  const cacheKey = `${platform}:${userId}`;
+
+  // Check cache first
+  const cached = profileCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+    console.log(`Using cached profile for ${platform} user ${userId}`);
+    return { name: cached.name, profile_pic: cached.profile_pic };
+  }
+
   const pageAccessToken = process.env.META_PAGE_ACCESS_TOKEN;
 
   if (!pageAccessToken) {
@@ -183,47 +239,95 @@ async function fetchMetaUserProfile(userId: string, platform: 'facebook' | 'inst
     return {};
   }
 
-  try {
-    let apiUrl: string;
-
+  // Multiple endpoint strategies for different platforms
+  const getEndpoints = (userId: string, token: string) => {
     if (platform === 'instagram') {
-      // For Instagram, Instagram Graph API has limited fields available for business-scoped IDs
-      // Try to get basic profile info - may not work for all Instagram accounts
-      apiUrl = `https://graph.facebook.com/v19.0/${userId}?fields=name,username&access_token=${pageAccessToken}`;
+      return [
+        `https://graph.facebook.com/v20.0/${userId}?fields=name,username&access_token=${token}`,
+        `https://graph.facebook.com/v19.0/${userId}?fields=name,username&access_token=${token}`,
+        `https://graph.facebook.com/v18.0/${userId}?fields=name&access_token=${token}`,
+        `https://graph.facebook.com/v20.0/${userId}?fields=username&access_token=${token}`,
+      ];
     } else {
-      // For Facebook and WhatsApp, use standard Graph API
-      apiUrl = `https://graph.facebook.com/v19.0/${userId}?fields=name,profile_pic&access_token=${pageAccessToken}`;
+      return [
+        `https://graph.facebook.com/v20.0/${userId}?fields=name,profile_pic&access_token=${token}`,
+        `https://graph.facebook.com/v19.0/${userId}?fields=name,profile_pic&access_token=${token}`,
+        `https://graph.facebook.com/v18.0/${userId}?fields=name&access_token=${token}`,
+      ];
     }
+  };
 
-    const response = await fetch(apiUrl);
+  const endpoints = getEndpoints(userId, pageAccessToken);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.warn(`Failed to fetch ${platform} user profile: ${response.status} ${response.statusText}`, errorText);
+  for (let i = 0; i < endpoints.length; i++) {
+    try {
+      const response = await fetch(endpoints[i], {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(10000) // 10 second timeout
+      });
 
-      // For Instagram, if the profile fetch fails, we'll use a meaningful fallback
-      if (platform === 'instagram') {
-        console.log(`Using Instagram user fallback for ID: ${userId}`);
-        return {
-          name: `Instagram User ${userId.slice(-4)}`, // Use last 4 digits for uniqueness
-          profile_pic: undefined
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ Successfully fetched ${platform} profile for ${userId} using endpoint ${i + 1}`);
+
+        const result = {
+          name: data.name || data.username,
+          profile_pic: data.profile_pic || null
         };
+
+        // Cache the successful result
+        profileCache.set(cacheKey, { ...result, timestamp: Date.now() });
+
+        return result;
+      } else if (response.status === 429) {
+        // Rate limiting - wait and retry
+        if (retryCount < 2) {
+          console.log(`Rate limited, waiting ${(retryCount + 1) * 2} seconds before retry...`);
+          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+          return fetchMetaUserProfile(userId, platform, retryCount + 1);
+        }
+      } else {
+        const errorText = await response.text();
+        console.log(`Endpoint ${i + 1} failed: ${response.status} ${response.statusText}`);
+
+        // For specific Instagram errors, don't try more endpoints
+        if (platform === 'instagram' && response.status === 400) {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error?.error_subcode === 33) {
+            console.log(`Instagram user ${userId} profile not accessible due to privacy restrictions`);
+            break; // No point trying other endpoints
+          }
+        }
       }
-
-      return {};
+    } catch (error) {
+      console.log(`Endpoint ${i + 1} error:`, error instanceof Error ? error.message : String(error));
+      continue;
     }
-
-    const data = await response.json();
-    // console.log(`${platform} profile data:`, data); // Removed to avoid logging personal data
-
-    return {
-      name: data.name || data.username || (platform === 'instagram' ? `Instagram User ${userId.slice(-4)}` : undefined),
-      profile_pic: data.profile_pic || null
-    };
-  } catch (error) {
-    console.error(`Error fetching ${platform} user profile:`, error);
-    return {};
   }
+
+  // All endpoints failed, generate intelligent fallback
+  let fallbackName: string;
+
+  if (platform === 'instagram') {
+    console.log(`Generating friendly fallback name for Instagram user ${userId}`);
+    fallbackName = await generateFriendlyInstagramName(userId);
+  } else {
+    fallbackName = `${platform.charAt(0).toUpperCase() + platform.slice(1)} User`;
+  }
+
+  const fallbackResult = {
+    name: fallbackName,
+    profile_pic: undefined
+  };
+
+  // Cache the fallback result with shorter duration
+  profileCache.set(cacheKey, { ...fallbackResult, timestamp: Date.now() });
+
+  return fallbackResult;
 }
 
 /**
@@ -497,11 +601,9 @@ async function sendPushNotificationForMetaMessage(
       return;
     }
 
-    const platformEmoji = platform === 'whatsapp' ? '💬' : platform === 'instagram' ? '📷' : '📘';
-
     // Prepare notification payload
     const notificationPayload = {
-      title: `${platformEmoji} New ${platform} message from ${senderName}`,
+      title: senderName,
       body: messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText,
       conversationId,
       platform,
@@ -753,6 +855,75 @@ export async function processWhatsAppEvent(value: WhatsAppChange['value']): Prom
   } catch (error) {
     console.error('Error processing WhatsApp event:', error);
     throw error;
+  }
+}
+
+/**
+ * Update existing Instagram users with better names using the new robust fetching
+ */
+export async function updateInstagramUserNames(): Promise<void> {
+  try {
+    console.log('🔄 Starting Instagram user name update process...');
+
+    // Get all Instagram users with generic names
+    const { data: users, error } = await supabase
+      .from('meta_users')
+      .select('platform_user_id, display_name')
+      .eq('platform', 'instagram')
+      .or('display_name.like.Instagram User %,display_name.eq.Instagram User');
+
+    if (error) {
+      console.error('Error fetching Instagram users:', error);
+      return;
+    }
+
+    if (!users || users.length === 0) {
+      console.log('No Instagram users with generic names found');
+      return;
+    }
+
+    console.log(`Found ${users.length} Instagram users to update`);
+
+    for (const user of users) {
+      try {
+        console.log(`Updating profile for user ${user.platform_user_id}...`);
+
+        // Use the new robust profile fetching
+        const profile = await fetchMetaUserProfile(user.platform_user_id, 'instagram');
+
+        if (profile.name && profile.name !== user.display_name) {
+          const { error: updateError } = await supabase
+            .from('meta_users')
+            .update({
+              display_name: profile.name,
+              profile_pic: profile.profile_pic,
+              updated_at: new Date().toISOString()
+            })
+            .eq('platform_user_id', user.platform_user_id)
+            .eq('platform', 'instagram');
+
+          if (updateError) {
+            console.error(`Error updating user ${user.platform_user_id}:`, updateError);
+          } else {
+            console.log(`✅ Updated ${user.platform_user_id}: "${user.display_name}" → "${profile.name}"`);
+          }
+        } else {
+          console.log(`No update needed for ${user.platform_user_id}`);
+        }
+
+        // Small delay to avoid overwhelming the API
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+      } catch (error) {
+        console.error(`Error processing user ${user.platform_user_id}:`, error);
+        continue;
+      }
+    }
+
+    console.log('✅ Instagram user name update process completed');
+
+  } catch (error) {
+    console.error('Error in updateInstagramUserNames:', error);
   }
 }
 

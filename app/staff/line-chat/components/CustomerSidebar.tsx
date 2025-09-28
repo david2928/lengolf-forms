@@ -59,22 +59,43 @@ const PlatformLogoBadge = ({ channelType }: { channelType: ChannelType }) => {
 };
 
 // Helper function to get platform display name
+const resolveChannelDisplayName = (metadata: any, fallback: string): string => {
+  if (!metadata) return fallback;
+
+  const candidates = [
+    metadata.customer_name,
+    metadata.display_name,
+    metadata.displayName,
+    metadata.full_name,
+    metadata.username,
+    metadata.ig_username,
+    metadata.profile_name,
+    metadata.profileName,
+    metadata.name,
+    metadata.sender_name
+  ];
+
+  const resolved = candidates.find(name => typeof name === 'string' && name.trim().length > 0);
+  return resolved || fallback;
+};
+
 const getPlatformDisplayName = (conversation: any): string => {
   const channelType = conversation?.channelType || conversation?.channel_type;
+  const metadata = conversation?.channel_metadata || conversation?.channelMetadata;
 
   switch (channelType) {
     case 'facebook':
-      return 'Facebook User';
+      return resolveChannelDisplayName(metadata, 'Facebook User');
     case 'instagram':
-      return 'Instagram User';
+      return resolveChannelDisplayName(metadata, 'Instagram User');
     case 'whatsapp':
-      return 'WhatsApp User';
+      return resolveChannelDisplayName(metadata, 'WhatsApp User');
     case 'line':
-      return 'LINE User';
+      return resolveChannelDisplayName(metadata, 'LINE User');
     case 'website':
-      return 'Website User';
+      return resolveChannelDisplayName(metadata, 'Website User');
     default:
-      return 'LINE User'; // fallback
+      return resolveChannelDisplayName(metadata, 'LINE User');
   }
 };
 
