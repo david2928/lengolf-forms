@@ -23,6 +23,8 @@ interface UseUnifiedChatReturn {
   getConversationById: (id: string) => Conversation | null;
   updateConversationLastMessage: (conversationId: string, message: UnifiedMessage) => void;
   updateConversationUnreadCount: (conversationId: string, unreadCount: number) => void;
+  markAsUnread: (conversationId: string, channelType: string) => Promise<void>;
+  toggleFollowUp: (conversationId: string, channelType: string, currentFollowingStatus: boolean) => Promise<void>;
 }
 
 const resolvePreferredName = (metadata: any, fallback: string) => {
@@ -112,7 +114,11 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
               email: ''
             } : null,
             channelType: 'line' as const,
-            channelMetadata: conv.channel_metadata
+            channelMetadata: conv.channel_metadata,
+            // Follow-up and unread features
+            isFollowing: conv.is_following || false,
+            markedUnreadAt: conv.marked_unread_at,
+            followUpAt: conv.follow_up_at
           };
         } else if (conv.channel_type === 'website') {
           // Website conversation - transform to legacy format
@@ -142,7 +148,11 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
               email: ''
             } : null,
             channelType: 'website' as const,
-            channelMetadata: conv.channel_metadata
+            channelMetadata: conv.channel_metadata,
+            // Follow-up and unread features
+            isFollowing: conv.is_following || false,
+            markedUnreadAt: conv.marked_unread_at,
+            followUpAt: conv.follow_up_at
           };
         } else if (['facebook', 'instagram', 'whatsapp'].includes(conv.channel_type)) {
           // Meta platforms conversation - transform to legacy format
@@ -172,7 +182,11 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
               email: ''
             } : null,
             channelType: conv.channel_type as 'facebook' | 'instagram' | 'whatsapp',
-            channelMetadata: conv.channel_metadata
+            channelMetadata: conv.channel_metadata,
+            // Follow-up and unread features
+            isFollowing: conv.is_following || false,
+            markedUnreadAt: conv.marked_unread_at,
+            followUpAt: conv.follow_up_at
           };
         } else {
           // Unknown channel type - fallback
@@ -201,16 +215,33 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
               email: ''
             } : null,
             channelType: conv.channel_type as any,
-            channelMetadata: conv.channel_metadata
+            channelMetadata: conv.channel_metadata,
+            // Follow-up and unread features
+            isFollowing: conv.is_following || false,
+            markedUnreadAt: conv.marked_unread_at,
+            followUpAt: conv.follow_up_at
           };
         }
       });
 
-      // Sort conversations by lastMessageAt before setting them
+      // Sort conversations: Following first (by follow_up_at), then by lastMessageAt
       const sortedConversations = legacyFormatConversations.sort((a: Conversation, b: Conversation) => {
-        const aTime = new Date(a.lastMessageAt || 0).getTime();
-        const bTime = new Date(b.lastMessageAt || 0).getTime();
-        return bTime - aTime; // Descending order (newest first)
+        // First priority: Following status
+        if (a.isFollowing && !b.isFollowing) return -1;
+        if (!a.isFollowing && b.isFollowing) return 1;
+
+        // If both are following or both are not following, sort by appropriate timestamp
+        if (a.isFollowing && b.isFollowing) {
+          // Both following: sort by follow_up_at (newest first)
+          const aFollowTime = new Date(a.followUpAt || 0).getTime();
+          const bFollowTime = new Date(b.followUpAt || 0).getTime();
+          return bFollowTime - aFollowTime;
+        } else {
+          // Neither following: sort by last_message_at (newest first)
+          const aTime = new Date(a.lastMessageAt || 0).getTime();
+          const bTime = new Date(b.lastMessageAt || 0).getTime();
+          return bTime - aTime;
+        }
       });
 
 
@@ -285,6 +316,107 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
     );
   }, []);
 
+  // Mark conversation as unread
+  const markAsUnread = useCallback(async (conversationId: string, channelType: string) => {
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'markUnread',
+          channelType
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark conversation as unread');
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Update local state
+        setConversations(prev =>
+          prev.map(conv => {
+            if (conv.id === conversationId) {
+              return {
+                ...conv,
+                unreadCount: 1,
+                markedUnreadAt: new Date().toISOString()
+              } as Conversation;
+            }
+            return conv;
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error marking conversation as unread:', error);
+      throw error;
+    }
+  }, []);
+
+  // Toggle follow-up status
+  const toggleFollowUp = useCallback(async (conversationId: string, channelType: string, currentFollowingStatus: boolean) => {
+    try {
+      const action = currentFollowingStatus ? 'unfollow' : 'follow';
+      const response = await fetch(`/api/conversations/${conversationId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          channelType
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${action} conversation`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Update local state and re-sort conversations
+        setConversations(prev => {
+          const updated = prev.map(conv => {
+            if (conv.id === conversationId) {
+              return {
+                ...conv,
+                isFollowing: !currentFollowingStatus,
+                followUpAt: !currentFollowingStatus ? new Date().toISOString() : undefined
+              } as Conversation;
+            }
+            return conv;
+          });
+
+          // Re-sort conversations with new following status
+          return updated.sort((a: Conversation, b: Conversation) => {
+            // First priority: Following status
+            if (a.isFollowing && !b.isFollowing) return -1;
+            if (!a.isFollowing && b.isFollowing) return 1;
+
+            // If both are following or both are not following, sort by appropriate timestamp
+            if (a.isFollowing && b.isFollowing) {
+              // Both following: sort by follow_up_at (newest first)
+              const aFollowTime = new Date(a.followUpAt || 0).getTime();
+              const bFollowTime = new Date(b.followUpAt || 0).getTime();
+              return bFollowTime - aFollowTime;
+            } else {
+              // Neither following: sort by last_message_at (newest first)
+              const aTime = new Date(a.lastMessageAt || 0).getTime();
+              const bTime = new Date(b.lastMessageAt || 0).getTime();
+              return bTime - aTime;
+            }
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling follow-up status:', error);
+      throw error;
+    }
+  }, []);
+
   // Initial fetch on mount
   useEffect(() => {
     fetchConversations();
@@ -299,7 +431,9 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
     refreshConversations,
     getConversationById,
     updateConversationLastMessage,
-    updateConversationUnreadCount
+    updateConversationUnreadCount,
+    markAsUnread,
+    toggleFollowUp
   };
 };
 

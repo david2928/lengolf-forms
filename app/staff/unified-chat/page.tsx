@@ -41,7 +41,9 @@ export default function UnifiedChatPage() {
     refreshConversations,
     getConversationById,
     updateConversationLastMessage,
-    updateConversationUnreadCount
+    updateConversationUnreadCount,
+    markAsUnread,
+    toggleFollowUp
   } = useUnifiedChat();
 
   // Set up realtime conversation updates
@@ -323,6 +325,8 @@ export default function UnifiedChatPage() {
               setConversations={setConversations}
               enableAISuggestions={aiSuggestionsEnabled}
               onToggleAI={setAiSuggestionsEnabled}
+              markAsUnread={markAsUnread}
+              toggleFollowUp={toggleFollowUp}
             />
           </div>
         )}

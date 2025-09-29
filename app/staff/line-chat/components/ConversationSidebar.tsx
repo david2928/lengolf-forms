@@ -9,6 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 import { enhanceMessageDisplay } from '@/lib/line/emoji-display-utils';
@@ -23,7 +29,11 @@ import {
   Smartphone,
   Sparkles,
   Home,
-  Globe
+  Globe,
+  MailOpen,
+  Pin,
+  PinOff,
+  MoreHorizontal
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import Image from 'next/image';
@@ -212,7 +222,9 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
   conversations: propConversations,
   setConversations: propSetConversations,
   enableAISuggestions = true,
-  onToggleAI
+  onToggleAI,
+  markAsUnread,
+  toggleFollowUp
 }, ref) => {
   // Use conversations from props if provided, otherwise use local state
   const [localConversations, setLocalConversations] = useState<Conversation[]>([]);
@@ -220,6 +232,13 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
   const setConversations = propSetConversations || setLocalConversations;
   const [searchTerm, setSearchTerm] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+
+  // Context menu state
+  const [contextMenuOpen, setContextMenuOpen] = useState<string | null>(null);
+
+  // Long press state for mobile
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [isLongPressing, setIsLongPressing] = useState(false);
 
   // Ref for the scrollable conversations container
   const conversationsContainerRef = useRef<HTMLDivElement>(null);
@@ -287,6 +306,72 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
     };
   }, []);
 
+
+  // Context menu actions
+  const handleMarkAsUnread = useCallback(async (conversation: Conversation) => {
+    if (!markAsUnread) return;
+    try {
+      const channelType = conversation.channelType || 'line';
+      await markAsUnread(conversation.id, channelType);
+      setContextMenuOpen(null);
+    } catch (error) {
+      console.error('Failed to mark conversation as unread:', error);
+    }
+  }, [markAsUnread]);
+
+  const handleToggleFollowUp = useCallback(async (conversation: Conversation) => {
+    if (!toggleFollowUp) return;
+    try {
+      const channelType = conversation.channelType || 'line';
+      await toggleFollowUp(conversation.id, channelType, conversation.isFollowing || false);
+      setContextMenuOpen(null);
+    } catch (error) {
+      console.error('Failed to toggle follow-up status:', error);
+    }
+  }, [toggleFollowUp]);
+
+  // Long press handlers for mobile
+  const handleTouchStart = useCallback((conversationId: string) => {
+    if (!isMobile) return;
+
+    setIsLongPressing(false);
+    const timer = setTimeout(() => {
+      setIsLongPressing(true);
+      setContextMenuOpen(conversationId);
+      // Add haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 500); // 500ms long press duration
+
+    setLongPressTimer(timer);
+  }, [isMobile]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+    setIsLongPressing(false);
+  }, [longPressTimer]);
+
+  const handleTouchCancel = useCallback(() => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+    setIsLongPressing(false);
+  }, [longPressTimer]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+      }
+    };
+  }, [longPressTimer]);
+
   // Push notifications hook
   const {
     isSupported,
@@ -347,7 +432,7 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
   );
 
   return (
-    <div className="w-full md:w-80 bg-white border-r flex flex-col transition-all duration-300 ease-in-out">
+    <div className="w-full md:w-96 bg-white border-r flex flex-col transition-all duration-300 ease-in-out">
       <div className="p-4 border-b">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-semibold">Conversations</h1>
@@ -458,12 +543,24 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
           filteredConversations.map((conversation) => (
             <div
               key={`${conversation.id}-${(conversation as any).channel_type || conversation.channelType || 'unknown'}`}
-              onClick={() => onConversationSelect(conversation.id)}
-              className={`p-4 border-b cursor-pointer hover:bg-gray-50 ${
+              className={`p-4 border-b cursor-pointer hover:bg-gray-50 group relative ${
                 selectedConversation === conversation.id ? 'bg-blue-50 border-blue-200' : ''
               }`}
+              onTouchStart={() => handleTouchStart(conversation.id)}
+              onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchCancel}
             >
-              <div className="flex items-center space-x-3">
+              <div
+                className="flex items-center space-x-3"
+                onClick={(e) => {
+                  // Don't navigate if we're in the middle of a long press
+                  if (isLongPressing) {
+                    e.preventDefault();
+                    return;
+                  }
+                  onConversationSelect(conversation.id);
+                }}
+              >
                 <div className="relative">
                   <SafeImage
                     src={getConversationPictureUrl(conversation)}
@@ -484,6 +581,12 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {getConversationDisplayName(conversation)}
                       </p>
+                      {/* Following badge */}
+                      {conversation.isFollowing && (
+                        <Badge variant="default" className="text-xs bg-blue-500 text-white">
+                          Following
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center space-x-2 flex-shrink-0">
                       {getUnreadCount(conversation) > 0 && (
@@ -491,7 +594,9 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                           {getUnreadCount(conversation)}
                         </Badge>
                       )}
-                      <span className="text-xs text-gray-500">
+                      <span className={`text-xs text-gray-500 transition-opacity ${
+                        contextMenuOpen === conversation.id ? 'opacity-0' : 'group-hover:opacity-0'
+                      }`}>
                         {formatTime(getLastMessageAt(conversation))}
                       </span>
                     </div>
@@ -510,13 +615,13 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
 
                           if (lastMessageType === 'image') {
                             return (
-                              <p className="text-sm text-gray-500 truncate">
+                              <p className="text-sm text-gray-500 truncate max-w-48">
                                 📷 Image message
                               </p>
                             );
                           } else {
                             return (
-                              <p className="text-sm text-gray-500 truncate">
+                              <p className="text-sm text-gray-500 truncate max-w-48">
                                 {enhanceMessageDisplay(getLastMessageText(conversation))}
                               </p>
                             );
@@ -527,19 +632,19 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                         const legacyConv = conversation as Conversation;
                         if (legacyConv.lastMessageType === 'sticker') {
                           return (
-                            <p className="text-sm text-gray-500 truncate">
+                            <p className="text-sm text-gray-500 truncate max-w-48">
                               {getConversationDisplayName(conversation)} sent a sticker
                             </p>
                           );
                         } else if (legacyConv.lastMessageType === 'image') {
                           return (
-                            <p className="text-sm text-gray-500 truncate">
+                            <p className="text-sm text-gray-500 truncate max-w-48">
                               {getConversationDisplayName(conversation)} sent an image
                             </p>
                           );
                         } else {
                           return (
-                            <p className="text-sm text-gray-500 truncate">
+                            <p className="text-sm text-gray-500 truncate max-w-48">
                               {enhanceMessageDisplay(getLastMessageText(conversation))}
                             </p>
                           );
@@ -549,10 +654,119 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                   )}
                 </div>
               </div>
+
+              {/* Three dots menu - desktop only (hover), mobile uses long press without visible dots */}
+              {!isMobile && (
+                <div className={`absolute top-4 right-4 transition-opacity ${
+                  contextMenuOpen === conversation.id ? 'opacity-70' : 'opacity-0 group-hover:opacity-70'
+                }`}>
+                <DropdownMenu
+                  open={contextMenuOpen === conversation.id}
+                  onOpenChange={(open) => setContextMenuOpen(open ? conversation.id : null)}
+                >
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent conversation selection
+                      }}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem
+                      onClick={() => handleMarkAsUnread(conversation)}
+                      className="cursor-pointer"
+                    >
+                      <MailOpen className="mr-2 h-4 w-4" />
+                      Mark as Unread
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleToggleFollowUp(conversation)}
+                      className="cursor-pointer"
+                    >
+                      {conversation.isFollowing ? (
+                        <>
+                          <PinOff className="mr-2 h-4 w-4" />
+                          Unfollow
+                        </>
+                      ) : (
+                        <>
+                          <Pin className="mr-2 h-4 w-4" />
+                          Follow Up
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                </div>
+              )}
+
             </div>
           ))
         )}
       </div>
+
+      {/* Mobile Bottom Sheet Modal - LINE OA Style */}
+      {isMobile && contextMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={() => setContextMenuOpen(null)}
+          />
+
+          {/* Center Modal */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl p-0 shadow-2xl w-80 max-w-[90%]">
+            {/* Header */}
+            <div className="text-center py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Chat actions</h3>
+            </div>
+
+            {/* Menu Items */}
+            <div className="py-2">
+              <button
+                onClick={() => {
+                  const conversation = conversations.find(c => c.id === contextMenuOpen);
+                  if (conversation) handleMarkAsUnread(conversation);
+                }}
+                className="w-full px-6 py-4 text-left hover:bg-gray-50 flex items-center space-x-3"
+              >
+                <MailOpen className="h-5 w-5 text-gray-600" />
+                <span className="text-base text-gray-900">Mark as Unread</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const conversation = conversations.find(c => c.id === contextMenuOpen);
+                  if (conversation) handleToggleFollowUp(conversation);
+                }}
+                className="w-full px-6 py-4 text-left hover:bg-gray-50 flex items-center space-x-3"
+              >
+                {(() => {
+                  const conversation = conversations.find(c => c.id === contextMenuOpen);
+                  const isFollowing = conversation?.isFollowing || false;
+                  return (
+                    <>
+                      {isFollowing ? (
+                        <PinOff className="h-5 w-5 text-gray-600" />
+                      ) : (
+                        <Pin className="h-5 w-5 text-gray-600" />
+                      )}
+                      <span className="text-base text-gray-900">
+                        {isFollowing ? 'Unfollow' : 'Follow up'}
+                      </span>
+                    </>
+                  );
+                })()}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

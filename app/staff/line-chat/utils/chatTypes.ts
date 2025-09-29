@@ -31,6 +31,10 @@ export interface Conversation {
   customer?: Customer;
   channelType?: 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp'; // Add channel type for unified conversations
   channelMetadata?: ChannelMetadata;
+  // Follow-up and unread features
+  isFollowing?: boolean;
+  markedUnreadAt?: string;
+  followUpAt?: string;
 }
 
 export interface Message {
@@ -161,6 +165,9 @@ export interface ConversationSidebarProps {
   // AI configuration
   enableAISuggestions?: boolean;
   onToggleAI?: (enabled: boolean) => void;
+  // Follow-up and unread features
+  markAsUnread?: (conversationId: string, channelType: string) => Promise<void>;
+  toggleFollowUp?: (conversationId: string, channelType: string, currentFollowingStatus: boolean) => Promise<void>;
 }
 
 // Ref interface for ConversationSidebar
@@ -243,6 +250,10 @@ export interface UnifiedConversation {
   created_at: string;
   updated_at: string;
   channel_metadata: ChannelMetadata;
+  // Follow-up and unread features
+  is_following?: boolean;
+  marked_unread_at?: string;
+  follow_up_at?: string;
 }
 
 export interface UnifiedMessage {
