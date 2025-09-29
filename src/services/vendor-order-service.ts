@@ -162,12 +162,12 @@ async function getVendorItemsFallback(orderId: string): Promise<{
     return [];
   }
 
-  // Get product details
+  // Get product details including vendor field
   const productIds = orderItems.map((item: any) => item.product_id);
   const { data: products, error: productsError } = await supabase
     .schema('products')
     .from('products')
-    .select('id, name')
+    .select('id, name, vendor')
     .in('id', productIds);
 
   if (productsError || !products) {
@@ -175,40 +175,20 @@ async function getVendorItemsFallback(orderId: string): Promise<{
     return [];
   }
 
-  // Check which products have SKU mappings (these are Smith & Co items)
-  const { data: skuMappings, error: skuError } = await supabase
-    .schema('pos')
-    .from('lengolf_sales')
-    .select('product_id, sku_number')
-    .in('product_id', productIds);
-
-  if (skuError) {
-    console.error('Error fetching SKU mappings:', skuError);
-    return [];
-  }
-
-  // Create maps for quick lookup - only include products with meaningful SKU numbers (containing "lengolf")
+  // Create map for quick lookup
   const productMap = new Map(products.map((p: any) => [p.id, p]));
-  const skuMap = new Set(
-    (skuMappings || [])
-      .filter((s: any) => 
-        s.sku_number && 
-        s.sku_number.trim().length > 1 &&
-        s.sku_number !== '-' &&
-        s.sku_number.toLowerCase().includes('lengolf')
-      )
-      .map((s: any) => s.product_id)
-  );
 
-  console.log('🔍 Products with SKU mappings:', Array.from(skuMap));
+  // Group items by vendor
+  const vendorGroups = new Map<string, VendorOrderItem[]>();
 
-  // Group items by vendor (Smith & Co for items with SKU)
-  const vendorItems: VendorOrderItem[] = [];
-  
   orderItems.forEach((item: any) => {
     const product = productMap.get(item.product_id) as any;
-    if (product && skuMap.has(item.product_id)) {
-      vendorItems.push({
+    if (product && product.vendor) {
+      if (!vendorGroups.has(product.vendor)) {
+        vendorGroups.set(product.vendor, []);
+      }
+
+      vendorGroups.get(product.vendor)!.push({
         productId: item.product_id,
         productName: product.name,
         quantity: item.quantity,
@@ -217,14 +197,13 @@ async function getVendorItemsFallback(orderId: string): Promise<{
     }
   });
 
-  if (vendorItems.length === 0) {
-    return [];
-  }
+  const result = Array.from(vendorGroups.entries()).map(([vendor, items]) => ({
+    vendor,
+    items
+  }));
 
-  return [{
-    vendor: 'Smith & Co',
-    items: vendorItems
-  }];
+  console.log('🏪 Found vendor groups in fallback:', result);
+  return result;
 }
 
 /**
@@ -283,6 +262,9 @@ export async function sendVendorNotification(
   switch (vendor) {
     case 'Smith & Co':
       groupId = process.env.LINE_GROUP_SMITH_CO_ID || '';
+      break;
+    case 'SEXY PIZZA':
+      groupId = process.env.LINE_GROUP_SEXY_PIZZA_ID || '';
       break;
     default:
       throw new Error(`No LINE group configured for vendor: ${vendor}`);

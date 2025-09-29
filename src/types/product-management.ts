@@ -33,6 +33,7 @@ export interface Product {
   // Product Identifiers
   sku?: string;
   external_code?: string;
+  vendor?: string;
   
   // Basic Properties
   unit?: string;
@@ -130,6 +131,7 @@ export interface ProductFormData {
   cost?: number;
   sku?: string;
   external_code?: string;
+  vendor?: string;
   unit?: string | null;
   is_sim_usage: boolean;
   is_active: boolean;

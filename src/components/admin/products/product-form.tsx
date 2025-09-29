@@ -104,6 +104,7 @@ export function ProductForm({
       cost: 0,
       sku: '',
       external_code: '',
+      vendor: '',
       unit: undefined,
       is_sim_usage: false,
       is_active: true,
@@ -149,6 +150,7 @@ export function ProductForm({
           cost: product.cost || 0,
           sku: product.sku || '',
           external_code: product.external_code || '',
+          vendor: product.vendor || '',
           unit: product.unit as ProductUnit,
           is_sim_usage: product.is_sim_usage,
           is_active: product.is_active,
@@ -175,6 +177,7 @@ export function ProductForm({
           cost: 0,
           sku: '',
           external_code: '',
+          vendor: '',
           unit: undefined,
           is_sim_usage: false,
           is_active: true,
@@ -325,6 +328,24 @@ export function ProductForm({
                         {...register('external_code')}
                         placeholder="Supplier code (optional)"
                       />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="vendor">Vendor</Label>
+                      <Select
+                        value={watch('vendor') || 'none'}
+                        onValueChange={(value) => setValue('vendor', value === 'none' ? '' : value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select vendor (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No Vendor</SelectItem>
+                          <SelectItem value="Smith & Co">Smith & Co</SelectItem>
+                          <SelectItem value="SEXY PIZZA">SEXY PIZZA</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500 mt-1">Vendor for LINE order notifications</p>
                     </div>
 
                     <div className="md:col-span-2">

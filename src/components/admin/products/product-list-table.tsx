@@ -218,10 +218,11 @@ export function ProductListTable({
                 className="min-w-[200px] font-semibold text-gray-700 py-4 px-6"
               />
               <TableHead className="min-w-[180px] font-semibold text-gray-700 py-4 px-6">Category</TableHead>
-              <SortableHeader 
-                label="Price" 
-                field="price" 
-                currentSort={sort} 
+              <TableHead className="min-w-[120px] font-semibold text-gray-700 py-4 px-6">Vendor</TableHead>
+              <SortableHeader
+                label="Price"
+                field="price"
+                currentSort={sort}
                 onSortChange={onSortChange}
                 className="text-right font-semibold text-gray-700 py-4 px-6"
               />
@@ -318,7 +319,17 @@ export function ProductListTable({
                     )}
                   </div>
                 </TableCell>
-                
+
+                <TableCell className="py-4 px-6">
+                  {product.vendor ? (
+                    <span className="text-sm text-gray-900 bg-blue-50 px-2 py-1 rounded-full text-xs font-medium">
+                      {product.vendor}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+
                 <TableCell className="text-right py-4 px-6">
                   <span className="text-sm font-medium text-gray-900">
                     {formatPrice(product.price)}
@@ -546,7 +557,17 @@ export function ProductListTable({
                       {product.category?.name || 'Uncategorized'}
                     </span>
                   </div>
-                  
+
+                  {/* Vendor */}
+                  {product.vendor && (
+                    <div className="flex items-center gap-1 text-xs">
+                      <span className="text-gray-500">Vendor:</span>
+                      <span className="text-gray-900 bg-blue-50 px-2 py-0.5 rounded-full text-xs font-medium">
+                        {product.vendor}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Price & Cost Grid */}
                   <div className="grid grid-cols-2 gap-4 text-xs">
                     <div>

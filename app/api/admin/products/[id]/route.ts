@@ -98,6 +98,7 @@ export async function PUT(
       cost,
       sku,
       external_code,
+      vendor,
       unit,
       is_sim_usage,
       is_active,
@@ -153,6 +154,7 @@ export async function PUT(
     if (cost !== undefined) updateData.cost = cost;
     if (sku !== undefined) updateData.sku = sku || null;
     if (external_code !== undefined) updateData.external_code = external_code || null;
+    if (vendor !== undefined) updateData.vendor = vendor || null;
     if (unit !== undefined) updateData.unit = unit || null;
     if (is_sim_usage !== undefined) updateData.is_sim_usage = is_sim_usage;
     if (is_active !== undefined) updateData.is_active = is_active;

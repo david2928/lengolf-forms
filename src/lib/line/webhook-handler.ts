@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { processLineMessage, logEmojiProcessing } from './emoji-processor';
 import { downloadLineImageToStorage } from './storage-handler';
+import { captureGroupMessage } from './group-debug-handler';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -810,6 +811,9 @@ export async function processWebhookPayload(payload: LineWebhookPayload): Promis
   // Process events sequentially to avoid overwhelming the database
   for (const event of payload.events) {
     try {
+      // Optional debug capture for group messages (controlled by UI toggle)
+      await captureGroupMessage(event);
+
       await processWebhookEvent(event);
     } catch (error) {
       console.error(`Failed to process event ${event.webhookEventId}:`, error);
