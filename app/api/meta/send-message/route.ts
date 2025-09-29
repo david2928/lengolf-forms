@@ -98,7 +98,8 @@ export async function POST(request: NextRequest) {
       const { data: curatedImages, error: imagesError } = await refacSupabaseAdmin
         .from('line_curated_images')
         .select('file_url')
-        .in('id', curatedImageIds);
+        .in('id', curatedImageIds)
+        .order('id'); // Maintain consistent ordering
 
       if (imagesError) {
         return NextResponse.json(
@@ -135,217 +136,315 @@ export async function POST(request: NextRequest) {
     }
 
 
-    // Prepare API request based on platform
-    let apiUrl: string;
-    let requestBody: any;
+    // For multiple images, send each as a separate message
+    const sentMessages: any[] = [];
+    const messageIds: string[] = [];
 
-    switch (platform) {
-      case 'whatsapp':
-        const phoneNumberId = process.env.META_WA_PHONE_NUMBER_ID;
-        if (!phoneNumberId) {
-          return NextResponse.json(
-            { error: 'WhatsApp phone number ID not configured' },
-            { status: 500 }
-          );
-        }
+    // If we have multiple images, send each separately
+    if (mediaIds.length > 1) {
+      for (let i = 0; i < mediaIds.length; i++) {
+        const mediaId = mediaIds[i];
+        const sourceUrl = sourceImageUrls[i];
 
-        apiUrl = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
+        let apiUrl: string;
+        let requestBody: any;
 
-        if (messageType === 'template' && templateName) {
-          // WhatsApp template message
-          requestBody = {
-            messaging_product: 'whatsapp',
-            to: platformUserId,
-            type: 'template',
-            template: {
-              name: templateName,
-              language: { code: 'en' }
+        switch (platform) {
+          case 'whatsapp':
+            const phoneNumberId = process.env.META_WA_PHONE_NUMBER_ID;
+            if (!phoneNumberId) {
+              console.error('WhatsApp phone number ID not configured');
+              continue;
             }
-          };
-        } else if (mediaIds.length > 0) {
-          // WhatsApp image message - send first image using media ID
-          requestBody = {
-            messaging_product: 'whatsapp',
-            to: platformUserId,
-            type: 'image',
-            image: {
-              id: mediaIds[0], // Use media ID instead of link
-              caption: message || '' // Optional caption
-            }
-          };
-        } else {
-          // Regular WhatsApp text message
-          requestBody = {
-            messaging_product: 'whatsapp',
-            to: platformUserId,
-            type: 'text',
-            text: { body: message }
-          };
-        }
-        break;
 
-      case 'facebook':
-      case 'instagram':
-        apiUrl = 'https://graph.facebook.com/v20.0/me/messages';
-        if (mediaIds.length > 0) {
-          // Facebook/Instagram image message - send first image using attachment ID
-          const messageObj: any = {
-            attachment: {
+            apiUrl = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
+            requestBody = {
+              messaging_product: 'whatsapp',
+              to: platformUserId,
               type: 'image',
-              payload: {
-                attachment_id: mediaIds[0] // Use attachment ID instead of URL
+              image: {
+                id: mediaId,
+                caption: i === 0 && message ? message : '' // Only first image gets caption
               }
+            };
+            break;
+
+          case 'facebook':
+          case 'instagram':
+            apiUrl = 'https://graph.facebook.com/v20.0/me/messages';
+            requestBody = {
+              messaging_type: 'RESPONSE',
+              recipient: { id: platformUserId },
+              message: {
+                attachment: {
+                  type: 'image',
+                  payload: {
+                    attachment_id: mediaId
+                  }
+                }
+              }
+            };
+            break;
+        }
+
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${pageAccessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            const msgId = platform === 'whatsapp'
+              ? result.messages?.[0]?.id
+              : result.message_id || result.id;
+
+            if (msgId) {
+              messageIds.push(msgId);
+              sentMessages.push({ mediaId, sourceUrl, messageId: msgId });
             }
-          };
+          } else {
+            const errorText = await response.text();
+            console.error(`Failed to send image ${i + 1}:`, errorText);
 
-          // NOTE: reply_to removed - Facebook doesn't support it yet
-          // We handle replies visually in our UI only
+            // Check if this is a messaging window error
+            try {
+              const errorData = JSON.parse(errorText);
+              const fbError = errorData?.error;
 
-          requestBody = {
-            messaging_type: 'RESPONSE',
-            recipient: { id: platformUserId },
-            message: messageObj
-          };
-        } else {
-          // Facebook/Instagram text message
-          const messageObj: any = { text: message };
+              // Detect messaging window errors
+              if ((fbError?.code === 10 && (fbError.error_subcode === 2018278 || fbError.error_subcode === 2534022)) ||
+                  fbError?.code === 131056 ||
+                  fbError?.message?.includes('outside of allowed window')) {
+                // Stop trying to send more images if we hit the messaging window limit
+                console.log('❌ Messaging window expired - stopping image send');
 
-          // NOTE: reply_to removed - Facebook doesn't support it yet
-          // We handle replies visually in our UI only
+                // Return a user-friendly error immediately
+                return NextResponse.json({
+                  error: 'Message cannot be sent - the 24-hour messaging window has expired',
+                  details: 'You can only message users who have contacted you within the last 24 hours on Facebook/Instagram',
+                  errorType: 'messaging_window_expired',
+                  fbError: fbError
+                }, { status: 400 });
+              }
+            } catch (parseError) {
+              // Continue if we can't parse the error
+            }
+          }
 
-          requestBody = {
-            messaging_type: 'RESPONSE',
-            recipient: { id: platformUserId },
-            message: messageObj
-          };
-        }
-        break;
-    }
-
-
-    // Send message via Meta API
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${pageAccessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Meta API error: ${response.status} ${response.statusText} - ${errorText}`);
-
-      let errorMessage = 'Failed to send message';
-      let parsedError: any = null;
-
-      // Try to parse the error response JSON
-      try {
-        parsedError = JSON.parse(errorText);
-      } catch (e) {
-        // If parsing fails, use the raw error text
-        parsedError = { error: { message: errorText } };
-      }
-
-      if (response.status === 401) {
-        errorMessage = 'Meta API authentication failed - check your access token';
-      } else if (response.status === 400) {
-        // Parse specific Facebook/Meta error codes
-        const fbError = parsedError?.error;
-        if (fbError?.code === 10 && (fbError.error_subcode === 2018278 || fbError.error_subcode === 2534022)) {
-          // Facebook/Instagram messaging window error (24-hour policy)
-          errorMessage = 'sent outside of allowed window';
-        } else if (fbError?.message?.includes('outside of allowed window') ||
-                   fbError?.message?.includes('24 hour messaging window') ||
-                   fbError?.message?.includes('messaging window has expired')) {
-          // Alternative detection methods for various platforms
-          errorMessage = 'sent outside of allowed window';
-        } else if (fbError?.code === 131056) {
-          // WhatsApp Business API specific window error
-          errorMessage = 'sent outside of allowed window';
-        } else {
-          errorMessage = 'Invalid request - user may not be reachable or message format invalid';
+          // Small delay between messages to avoid rate limiting
+          if (i < mediaIds.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        } catch (error) {
+          console.error(`Error sending image ${i + 1}:`, error);
         }
       }
 
-      return NextResponse.json(
-        { error: errorMessage, details: errorText, fbError: parsedError?.error },
-        { status: response.status }
-      );
-    }
-
-    const result = await response.json();
-
-    // Extract message ID based on platform
-    let messageId: string;
-    if (platform === 'whatsapp') {
-      // WhatsApp returns: { messages: [{ id: "wamid.xxx" }] }
-      messageId = result.messages?.[0]?.id || `staff_${Date.now()}`;
+      // If no images were successfully sent, return error
+      if (messageIds.length === 0) {
+        return NextResponse.json(
+          { error: 'Failed to send any images' },
+          { status: 500 }
+        );
+      }
     } else {
-      // Facebook/Instagram returns: { message_id: "mid.xxx", recipient_id: "xxx" }
-      messageId = result.message_id || result.id || `staff_${Date.now()}`;
+      // Single message (text or single image)
+      let apiUrl: string;
+      let requestBody: any;
+
+      switch (platform) {
+        case 'whatsapp':
+          const phoneNumberId = process.env.META_WA_PHONE_NUMBER_ID;
+          if (!phoneNumberId) {
+            return NextResponse.json(
+              { error: 'WhatsApp phone number ID not configured' },
+              { status: 500 }
+            );
+          }
+
+          apiUrl = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
+
+          if (messageType === 'template' && templateName) {
+            requestBody = {
+              messaging_product: 'whatsapp',
+              to: platformUserId,
+              type: 'template',
+              template: {
+                name: templateName,
+                language: { code: 'en' }
+              }
+            };
+          } else if (mediaIds.length === 1) {
+            requestBody = {
+              messaging_product: 'whatsapp',
+              to: platformUserId,
+              type: 'image',
+              image: {
+                id: mediaIds[0],
+                caption: message || ''
+              }
+            };
+          } else {
+            requestBody = {
+              messaging_product: 'whatsapp',
+              to: platformUserId,
+              type: 'text',
+              text: { body: message }
+            };
+          }
+          break;
+
+        case 'facebook':
+        case 'instagram':
+          apiUrl = 'https://graph.facebook.com/v20.0/me/messages';
+          if (mediaIds.length === 1) {
+            requestBody = {
+              messaging_type: 'RESPONSE',
+              recipient: { id: platformUserId },
+              message: {
+                attachment: {
+                  type: 'image',
+                  payload: {
+                    attachment_id: mediaIds[0]
+                  }
+                }
+              }
+            };
+          } else {
+            requestBody = {
+              messaging_type: 'RESPONSE',
+              recipient: { id: platformUserId },
+              message: { text: message }
+            };
+          }
+          break;
+      }
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${pageAccessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Meta API error: ${response.status} ${response.statusText} - ${errorText}`);
+
+        let errorMessage = 'Failed to send message';
+        let parsedError: any = null;
+
+        try {
+          parsedError = JSON.parse(errorText);
+        } catch (e) {
+          parsedError = { error: { message: errorText } };
+        }
+
+        if (response.status === 401) {
+          errorMessage = 'Meta API authentication failed - check your access token';
+        } else if (response.status === 400) {
+          const fbError = parsedError?.error;
+          if (fbError?.code === 10 && (fbError.error_subcode === 2018278 || fbError.error_subcode === 2534022)) {
+            errorMessage = 'sent outside of allowed window';
+          } else if (fbError?.message?.includes('outside of allowed window') ||
+                     fbError?.message?.includes('24 hour messaging window') ||
+                     fbError?.message?.includes('messaging window has expired')) {
+            errorMessage = 'sent outside of allowed window';
+          } else if (fbError?.code === 131056) {
+            errorMessage = 'sent outside of allowed window';
+          } else {
+            errorMessage = 'Invalid request - user may not be reachable or message format invalid';
+          }
+        }
+
+        return NextResponse.json(
+          { error: errorMessage, details: errorText, fbError: parsedError?.error },
+          { status: response.status }
+        );
+      }
+
+      const result = await response.json();
+      const messageId = platform === 'whatsapp'
+        ? result.messages?.[0]?.id || `staff_${Date.now()}`
+        : result.message_id || result.id || `staff_${Date.now()}`;
+
+      messageIds.push(messageId);
     }
 
-
-    // Declare variables outside try block for later use
+    // Now store all messages in the database
     let conversationId: string = '';
-    let staffName: string = 'Admin'; // Use consistent "Admin" label like LINE
-    let databaseMessageId: string = messageId; // Default to messageId if database storage fails
+    const staffName: string = 'Admin';
+    const databaseMessageIds: string[] = [];
 
-    // Store the sent message in our database
     try {
-      // Ensure conversation exists
       conversationId = await ensureMetaConversationExists(platformUserId, platform);
 
-      // Staff name already set above, no need to reassign
+      // Store each message with a small delay to ensure realtime processes them in order
+      for (let i = 0; i < messageIds.length; i++) {
+        const msgId = messageIds[i];
+        const sourceUrl = sourceImageUrls[i];
 
-      // Store the message and get the database UUID
-      databaseMessageId = await storeMetaMessage(
-        conversationId,
-        platformUserId,
-        messageId, // Use the correctly extracted message ID
-        message || (sourceImageUrls.length > 0 ? `Image message (${sourceImageUrls.length} image${sourceImageUrls.length > 1 ? 's' : ''})` : 'Message'),
-        messageType,
-        'business',
-        staffName,
-        platform,
-        `sent_${Date.now()}`, // webhook event ID for sent messages
-        sourceImageUrls.length > 0 ? sourceImageUrls.map(url => ({ url, type: 'image' })) : undefined, // store original image URLs for UI
-        replyToMessageId // store reply for our UI (even though not sent to Facebook)
-      );
+        const attachmentsForStorage = sourceUrl ? [{
+          type: 'image' as const,
+          payload: { url: sourceUrl }
+        }] : undefined;
 
+        const dbMsgId = await storeMetaMessage(
+          conversationId,
+          platformUserId,
+          msgId,
+          i === 0 && message ? message : '📷 Image',
+          'image',
+          'business',
+          staffName,
+          platform,
+          `sent_${Date.now()}_${i}`,
+          attachmentsForStorage,
+          i === 0 ? replyToMessageId : undefined // Only first message has reply
+        );
 
+        databaseMessageIds.push(dbMsgId);
+
+        // Small delay between inserts to ensure realtime can process them sequentially
+        if (i < messageIds.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
     } catch (dbError) {
-      console.error('Failed to store sent message in database:', dbError);
-      // Don't fail the API call if database storage fails
+      console.error('Failed to store sent messages in database:', dbError);
     }
 
-    // Create a message object for the UI (similar to LINE API response format)
-    const messageForUI = {
-      id: databaseMessageId, // Use the database UUID for internal identification
-      platformMessageId: messageId, // Include the Facebook message ID for replies
-      text: message || (sourceImageUrls.length > 0 ? `📷 Image sent` : 'Message sent'),
-      type: messageType,
+    // Create response messages for the UI
+    const messagesForUI = databaseMessageIds.map((dbId, i) => ({
+      id: dbId,
+      platformMessageId: messageIds[i],
+      text: i === 0 && message ? message : '📷 Image',
+      type: messageType || 'image',
       senderType: 'admin',
       senderName: staffName,
       createdAt: new Date().toISOString(),
       timestamp: Date.now(),
       conversationId: conversationId,
       platform: platform,
-      // Include image URLs for UI display - use the first image URL like LINE does
-      ...(sourceImageUrls.length > 0 && {
-        imageUrl: sourceImageUrls[0], // For single image display compatibility with LINE
-        fileUrl: sourceImageUrls[0],   // Alternative property name used in some components
-        fileName: `image_${Date.now()}.jpg`, // Provide a filename
-        fileType: 'image'
-      })
-    };
+      imageUrl: sourceImageUrls[i],
+      fileUrl: sourceImageUrls[i],
+      fileName: `image_${Date.now()}_${i}.jpg`,
+      fileType: 'image'
+    }));
 
     return NextResponse.json({
       success: true,
-      message: messageForUI, // Return the actual message object instead of success text
-      messageId: messageId,
+      messages: messagesForUI, // Return array of messages
+      message: messagesForUI[0], // Keep backward compatibility with single message
+      messageId: messageIds[0],
+      messageIds: messageIds, // Return all message IDs
       platform
     });
 

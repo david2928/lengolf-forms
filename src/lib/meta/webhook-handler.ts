@@ -195,7 +195,18 @@ async function generateFriendlyInstagramName(userId: string): Promise<string> {
     if (firstMessage?.message_text) {
       // Extract first word from their first message as a potential name hint
       const firstWord = firstMessage.message_text.trim().split(/\s+/)[0];
-      if (firstWord && firstWord.length >= 3 && firstWord.length <= 20 && /^[a-zA-Zก-๙\u0E00-\u0E7F]+$/.test(firstWord)) {
+
+      // Common words to exclude from being used as names
+      const excludedWords = ['hi', 'hello', 'hey', 'you', 'we', 'i', 'me', 'yes', 'no', 'ok', 'okay', 'thanks', 'thank', 'please'];
+      const firstWordLower = firstWord.toLowerCase();
+
+      // More strict validation: 4-20 chars, not a common word, letters only
+      if (firstWord &&
+          firstWord.length >= 4 &&
+          firstWord.length <= 20 &&
+          !excludedWords.includes(firstWordLower) &&
+          /^[a-zA-Zก-๙\u0E00-\u0E7F]+$/.test(firstWord) &&
+          firstWord !== firstWord.toUpperCase()) { // Avoid all-caps words like "YOU"
         return `${firstWord} (Instagram)`;
       }
     }
@@ -564,11 +575,14 @@ export async function storeMetaMessage(
         .eq('id', conversationId);
     }
 
-    // Send push notification (non-blocking, same as LINE)
-    sendPushNotificationForMetaMessage(conversationId, messageText, senderName, platform)
-      .catch(error => {
-        console.error('Failed to send push notification:', error);
-      });
+    // Send push notification only for user messages (non-blocking, same as LINE)
+    // Skip notifications for messages sent by business/admin to avoid self-notifications
+    if (senderType === 'user') {
+      sendPushNotificationForMetaMessage(conversationId, messageText, senderName, platform)
+        .catch(error => {
+          console.error('Failed to send push notification:', error);
+        });
+    }
 
     // Return the database UUID
     return insertedMessage.id;

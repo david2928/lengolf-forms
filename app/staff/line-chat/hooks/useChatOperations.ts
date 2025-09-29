@@ -323,15 +323,25 @@ export const useChatOperations = (
 
       // 🐛 DEBUG: Check what the API returns
       console.log('🐛 DEBUG: Batch images API response:', data);
-      console.log('🐛 DEBUG: data.message for UI:', data.message);
+      console.log('🐛 DEBUG: data.messages for UI:', data.messages);
+      console.log('🐛 DEBUG: data.message (single) for UI:', data.message);
 
       if (data.success) {
-        // Notify parent component about the sent message
-        if (onMessageSent && data.message) {
-          console.log('🐛 DEBUG: Calling onMessageSent with:', data.message);
-          onMessageSent(data.message);
-        } else {
-          console.log('🐛 DEBUG: No onMessageSent callback or no message in response');
+        // Handle multiple messages (Meta platforms send each image as separate message)
+        if (onMessageSent) {
+          if (data.messages && Array.isArray(data.messages)) {
+            // Send multiple messages - call onMessageSent for each
+            console.log(`🐛 DEBUG: Calling onMessageSent for ${data.messages.length} messages`);
+            data.messages.forEach((message: any) => {
+              onMessageSent(message);
+            });
+          } else if (data.message) {
+            // Single message (LINE/legacy format)
+            console.log('🐛 DEBUG: Calling onMessageSent with single message:', data.message);
+            onMessageSent(data.message);
+          } else {
+            console.log('🐛 DEBUG: No onMessageSent callback or no message in response');
+          }
         }
 
         // Show success feedback
