@@ -52,6 +52,7 @@ import {
 } from '@/components/ui/tabs';
 import { CustomerSearchSelect } from '@/components/admin/customers/customer-search-select';
 import { CustomerFormModal } from '@/components/admin/customers/customer-form-modal';
+import { ManualMergeTab } from '@/components/admin/customers/ManualMergeTab';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -370,7 +371,7 @@ export default function CustomerMappingPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="unmapped" className="flex items-center gap-2">
             <Link2 className="h-4 w-4" />
             Unmapped Records
@@ -378,6 +379,10 @@ export default function CustomerMappingPage() {
           <TabsTrigger value="duplicates" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Duplicate Customers
+          </TabsTrigger>
+          <TabsTrigger value="manual-merge" className="flex items-center gap-2">
+            <Merge className="h-4 w-4" />
+            Manual Merge
           </TabsTrigger>
         </TabsList>
 
@@ -850,6 +855,10 @@ export default function CustomerMappingPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="manual-merge" className="space-y-4">
+          <ManualMergeTab />
         </TabsContent>
       </Tabs>
 

@@ -108,7 +108,6 @@ export async function POST(request: NextRequest) {
       }
 
       sourceImageUrls = curatedImages?.map((img: any) => img.file_url) || [];
-      console.log(`Retrieved ${sourceImageUrls.length} curated image URLs`);
 
       // Upload images to Meta and get media IDs
       for (const sourceUrl of sourceImageUrls) {
@@ -135,9 +134,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`Sending ${messageType} message to ${platform} user: ${platformUserId}`);
-    if (message) console.log(`Message: ${message}`);
-    if (sourceImageUrls.length) console.log(`Images: ${sourceImageUrls.length} images`);
 
     // Prepare API request based on platform
     let apiUrl: string;
@@ -226,11 +222,6 @@ export async function POST(request: NextRequest) {
         break;
     }
 
-    // Log what we're sending to Facebook for debugging
-    console.log('📤 Sending to Facebook API:', {
-      url: apiUrl,
-      payload: JSON.stringify(requestBody, null, 2)
-    });
 
     // Send message via Meta API
     const response = await fetch(apiUrl, {
@@ -285,7 +276,6 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await response.json();
-    console.log('Meta message sent successfully:', result);
 
     // Extract message ID based on platform
     let messageId: string;
@@ -297,7 +287,6 @@ export async function POST(request: NextRequest) {
       messageId = result.message_id || result.id || `staff_${Date.now()}`;
     }
 
-    console.log(`${platform} returned message ID:`, messageId);
 
     // Declare variables outside try block for later use
     let conversationId: string = '';
@@ -326,7 +315,6 @@ export async function POST(request: NextRequest) {
         replyToMessageId // store reply for our UI (even though not sent to Facebook)
       );
 
-      console.log('Sent message stored in database');
 
     } catch (dbError) {
       console.error('Failed to store sent message in database:', dbError);

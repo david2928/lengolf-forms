@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { refacSupabase } from '@/lib/refac-supabase';
+import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: conversationId } = await params;
 
-    if (!refacSupabase) {
+    if (!refacSupabaseAdmin) {
       return NextResponse.json({
         success: false,
         error: 'Database client not available'
@@ -20,7 +20,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Mark website conversation as read by setting unread_count to 0
-    const { error } = await refacSupabase
+    const { error } = await refacSupabaseAdmin
       .from('web_chat_conversations')
       .update({
         unread_count: 0,

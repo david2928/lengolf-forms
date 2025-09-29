@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { refacSupabase } from '@/lib/refac-supabase';
+import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: conversationId } = await params;
 
-    if (!refacSupabase) {
+    if (!refacSupabaseAdmin) {
       return NextResponse.json({
         success: false,
         error: 'Database client not available'
@@ -13,7 +13,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Mark all messages in this Meta conversation as read
-    const { error: messagesError } = await refacSupabase
+    const { error: messagesError } = await refacSupabaseAdmin
       .from('meta_messages')
       .update({ is_read: true })
       .eq('conversation_id', conversationId)
@@ -28,7 +28,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Reset unread count for Meta conversation
-    const { error: conversationError } = await refacSupabase
+    const { error: conversationError } = await refacSupabaseAdmin
       .from('meta_conversations')
       .update({
         unread_count: 0,
