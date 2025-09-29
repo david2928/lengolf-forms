@@ -26,7 +26,7 @@ export function useResponsive(): ResponsiveState {
       
       setState({
         isMobile: width < 640,
-        isTablet: width >= 600 && width <= 1024,
+        isTablet: width >= 640 && width <= 1024,
         isDesktop: width > 1024,
         width,
         height,
@@ -56,7 +56,7 @@ export function useBreakpoint() {
     lg: width >= 1024,
     xl: width >= 1280,
     '2xl': width >= 1536,
-    tablet: width >= 600 && width <= 1024,
+    tablet: width >= 640 && width <= 1024,
     mobile: width < 640,
     desktop: width > 1024,
   };

@@ -212,7 +212,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                         <span className="text-sm">Select Template</span>
                       </button>
 
-                      <Link href="/create-booking" target="_blank" rel="noopener noreferrer">
+                      <Link
+                        href={`/create-booking?from=chat&conversation=${selectedConversationObj?.id || ''}&customer=${selectedConversationObj?.customerId || ''}&channel=${selectedConversationObj?.channelType || 'line'}&staff=David`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         <button
                           onClick={() => setShowMobileQuickActions(false)}
                           className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded w-full text-left"
@@ -378,7 +382,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 </Button>
 
                 {/* Create Booking Button */}
-                <Link href="/create-booking" target="_blank" rel="noopener noreferrer">
+                <Link
+                  href={`/create-booking?from=chat&conversation=${selectedConversationObj?.id || ''}&customer=${selectedConversationObj?.customerId || ''}&channel=${selectedConversationObj?.channelType || 'line'}&staff=David`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <Button
                     variant="ghost"
                     size="sm"

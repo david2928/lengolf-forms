@@ -76,7 +76,20 @@ interface Package {
   coach?: string;
 }
 
-export function BookingFormNew() {
+interface ChatContext {
+  from?: string | null
+  conversationId?: string | null
+  customerId?: string | null
+  channelType?: string | null
+  staffName?: string | null
+}
+
+interface BookingFormNewProps {
+  chatContext?: ChatContext
+}
+
+export function BookingFormNew(props: BookingFormNewProps = {}) {
+  const { chatContext } = props;
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,18 +130,60 @@ export function BookingFormNew() {
     mutateCustomers();
   }, [mutateCustomers]);
 
+  // Check if this is from chat context
+  const isFromChat = chatContext && chatContext.from === 'chat'
+
   // Progressive section display logic
-  const showCustomerInfo = formData.employeeName; // Show customer type selection after employee selection
-  const showCustomerDetails = showCustomerInfo && formData.isNewCustomer !== null;
-  const showPackageSelection = showCustomerDetails && !formData.isNewCustomer && selectedCustomerCache && availablePackages.length > 0;
-  const showBookingType = showCustomerDetails && (
-    (formData.isNewCustomer && formData.customerName && formData.customerPhone && !errors.customerPhone) ||
-    (!formData.isNewCustomer && formData.customerId)
-  ); // Show booking type after customer details are complete and no validation errors
-  const showContactMethod = showBookingType && formData.bookingType; // Show contact method AFTER booking type is selected
+  const showCustomerInfo = !isFromChat && formData.employeeName; // Hide for chat since pre-filled
+  const showCustomerDetails = !isFromChat && showCustomerInfo && formData.isNewCustomer !== null;
+  const showPackageSelection = (isFromChat ? selectedCustomerCache && availablePackages.length > 0 :
+    showCustomerDetails && !formData.isNewCustomer && selectedCustomerCache && availablePackages.length > 0);
+  const showBookingType = isFromChat ? (formData.employeeName && formData.customerId) :
+    (showCustomerDetails && (
+      (formData.isNewCustomer && formData.customerName && formData.customerPhone && !errors.customerPhone) ||
+      (!formData.isNewCustomer && formData.customerId)
+    )); // Show booking type after customer details are complete and no validation errors
+  const showContactMethod = !isFromChat && showBookingType && formData.bookingType; // Hide for chat since pre-filled
   const showCoachSelection = showBookingType && (formData.bookingType === 'Coaching' || formData.bookingType?.startsWith('Coaching (') || autoSelectedBookingType === 'Coaching');
-  const showTimeSlot = showContactMethod && formData.customerContactedVia && formData.bookingType;
+  const showTimeSlot = isFromChat ? (showBookingType && formData.bookingType) :
+    (showContactMethod && formData.customerContactedVia && formData.bookingType);
   const showBookingDetails = showTimeSlot && formData.bookingDate && formData.startTime;
+
+  // Pre-populate form from chat context
+  useEffect(() => {
+    if (chatContext && chatContext.from === 'chat') {
+      const getContactMethod = (channel: string | null) => {
+        switch (channel) {
+          case 'line': return 'LINE'
+          case 'website': return 'Walk-in'
+          case 'facebook': return 'Facebook'
+          case 'instagram': return 'Instagram'
+          case 'whatsapp': return 'WhatsApp'
+          default: return 'LINE'
+        }
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        employeeName: chatContext.staffName || 'David',
+        isNewCustomer: false, // Since we have a customer ID, it's an existing customer
+        customerId: chatContext.customerId || undefined,
+        customerContactedVia: getContactMethod(chatContext.channelType || null)
+      }))
+
+      // If we have a customer ID, fetch the customer details and packages
+      if (chatContext.customerId) {
+        fetchCustomerPackages(chatContext.customerId)
+        // Fetch customer details and set in cache
+        fetchCustomerDetails(chatContext.customerId)
+      }
+
+      // Auto-scroll to booking type section since earlier sections are pre-filled
+      setTimeout(() => {
+        scrollToNextSection('[data-scroll-target="booking-type"]')
+      }, 1000)
+    }
+  }, [chatContext])
 
   // Auto-scroll function
   const scrollToNextSection = (selector: string) => {
@@ -143,22 +198,22 @@ export function BookingFormNew() {
   // Form validation - only validate visible sections
   useEffect(() => {
     let allErrors: FormErrors = {};
-    
-    // Always validate employee selection
-    if (!formData.employeeName) {
+
+    // Only validate employee selection if not from chat
+    if (!isFromChat && !formData.employeeName) {
       allErrors.employeeName = 'Please select who is creating this booking';
     }
-    
-    // Only validate contact method if employee is selected
+
+    // Only validate contact method if employee is selected and section is visible
     if (showContactMethod && !formData.customerContactedVia) {
       allErrors.customerContactedVia = 'Please select how customer was contacted';
     }
-    
+
     // Only validate customer info if that section is visible
     if (showCustomerInfo && formData.isNewCustomer === null) {
       allErrors.isNewCustomer = 'Please select customer type';
     }
-    
+
     // Only validate customer details if that section is visible
     if (showCustomerDetails) {
       if (formData.isNewCustomer) {
@@ -177,16 +232,18 @@ export function BookingFormNew() {
         }
       }
     }
-    
-    // Only validate other sections if they're visible
+
+    // Validate booking type if section is visible
     if (showBookingType && !formData.bookingType) {
       allErrors.bookingType = 'Please select booking type';
     }
-    
+
+    // Validate coach selection if section is visible
     if (showCoachSelection && !formData.coach) {
       allErrors.coach = 'Please select a coach';
     }
-    
+
+    // Validate time slot if section is visible
     if (showTimeSlot) {
       if (!formData.bookingDate) {
         allErrors.bookingDate = 'Please select a date';
@@ -195,9 +252,9 @@ export function BookingFormNew() {
         allErrors.startTime = 'Please select a time';
       }
     }
-    
+
     setErrors(allErrors);
-  }, [formData, phoneError, showContactMethod, showCustomerInfo, showCustomerDetails, showBookingType, showCoachSelection, showTimeSlot]);
+  }, [formData, phoneError, showContactMethod, showCustomerInfo, showCustomerDetails, showBookingType, showCoachSelection, showTimeSlot, isFromChat]);
 
   // Smart package analysis for auto-detection
   const analyzePackageForAutoDetection = (pkg: Package): {bookingType: string, coach: string | null} => {
@@ -241,6 +298,42 @@ export function BookingFormNew() {
     }
   };
 
+  // Fetch customer details for chat context
+  const fetchCustomerDetails = async (customerId: string) => {
+    try {
+      const response = await fetch(`/api/customers/${customerId}`);
+      if (!response.ok) throw new Error('Failed to fetch customer details');
+      const data = await response.json();
+
+      if (data.customer) {
+        // Map the customer data to match NewCustomer interface
+        const customer: NewCustomer = {
+          id: data.customer.id,
+          customer_code: data.customer.customer_code,
+          customer_name: data.customer.customer_name,
+          contact_number: data.customer.contact_number,
+          email: data.customer.email,
+          preferred_contact_method: data.customer.preferred_contact_method,
+          customer_status: data.customer.customer_status,
+          lifetime_spending: data.customer.lifetime_spending || '0',
+          total_bookings: data.customer.total_bookings || 0,
+          last_visit_date: data.customer.last_visit_date,
+          stable_hash_id: data.customer.stable_hash_id
+        };
+
+        setSelectedCustomerCache(customer);
+        setFormData(prev => ({
+          ...prev,
+          customerName: customer.customer_name,
+          customerPhone: customer.contact_number || undefined,
+          customerStableHashId: customer.stable_hash_id
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching customer details:', error);
+    }
+  };
+
   const handleReset = () => {
     setFormData({
       ...initialFormData,
@@ -261,6 +354,16 @@ export function BookingFormNew() {
     setAutoSelectedBookingType(null);
     setSearchQuery('');
     mutateCustomers();
+  };
+
+  const handleSuccessAction = () => {
+    if (isFromChat) {
+      // Close the tab to return to chat
+      window.close();
+    } else {
+      // Regular reset for normal booking flow
+      handleReset();
+    }
   };
 
   const handleBayBlockingSuccess = (blockedBays: string[], reason: string, timeRange: string) => {
@@ -374,11 +477,11 @@ export function BookingFormNew() {
 
   // Check if form is ready for submission - only check visible sections
   const isFormComplete = Boolean(
-    Object.keys(errors).length === 0 && 
-    formData.employeeName && 
-    formData.isNewCustomer !== null &&
-    (formData.isNewCustomer ? (formData.customerName && formData.customerPhone) : formData.customerId) &&
-    formData.customerContactedVia &&
+    Object.keys(errors).length === 0 &&
+    formData.employeeName &&
+    (isFromChat || formData.isNewCustomer !== null) &&
+    (isFromChat || (formData.isNewCustomer ? (formData.customerName && formData.customerPhone) : formData.customerId)) &&
+    (isFromChat || formData.customerContactedVia) &&
     formData.bookingType &&
     formData.bookingDate &&
     formData.startTime &&
@@ -392,12 +495,13 @@ export function BookingFormNew() {
     return (
       <div className="w-full max-w-4xl mx-auto p-6">
         <SubmitStep
-          formData={formData} 
+          formData={formData}
           isSubmitting={false}
           setIsSubmitting={setIsSubmitting}
-          onSuccess={handleReset}
+          onSuccess={handleSuccessAction}
           onReset={handleReset}
           onNavigateToStep={() => {}}
+          isFromChat={isFromChat}
         />
       </div>
     );
@@ -446,54 +550,77 @@ export function BookingFormNew() {
       isSubmitting={isSubmitting}
     >
       <FormProvider value={contextValue}>
-        <div className="w-full max-w-4xl mx-auto p-6 space-y-8">
+        <div className="w-full max-w-4xl mx-auto p-3 sm:p-6 space-y-6 sm:space-y-8">
 
-          {/* Action buttons at top */}
-          <div className="flex justify-between items-center">
-            <Button
-              variant="ghost"
-              onClick={() => setShowBayBlockingModal(true)}
-              disabled={isSubmitting}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <Shield className="h-4 w-4 mr-2" />
-              Block Bays
-            </Button>
-            
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              disabled={isSubmitting}
-              className="text-gray-600 hover:text-gray-800"
-            >
-              Reset Form
-            </Button>
-          </div>
+          {/* Chat Context Customer Summary - Show at top as pre-selected */}
+          {isFromChat && selectedCustomerCache && (
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Users className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    {selectedCustomerCache.customer_name}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {selectedCustomerCache.contact_number || 'No phone'} • {selectedCustomerCache.customer_code}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
-      {/* Section 1: Employee Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Users className="h-5 w-5" />
-            <span>Staff</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <EnhancedEmployeeSelector
-            value={formData.employeeName}
-            onChange={(value) => {
-              setFormData(prev => ({ ...prev, employeeName: value }));
-              // Auto-scroll to customer type selection
-              if (value) {
-                scrollToNextSection('[data-scroll-target="customer-info"]');
-              }
-            }}
-            error={errors.employeeName}
-          />
-        </CardContent>
-      </Card>
+          {/* Action buttons at top - Hide for chat context */}
+          {!isFromChat && (
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center space-y-2 sm:space-y-0">
+              <Button
+                variant="ghost"
+                onClick={() => setShowBayBlockingModal(true)}
+                disabled={isSubmitting}
+                className="text-muted-foreground hover:text-foreground text-sm sm:text-base"
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Block Bays
+              </Button>
 
-      {/* Section 2: Customer Information */}
+              <Button
+                variant="outline"
+                onClick={handleReset}
+                disabled={isSubmitting}
+                className="text-gray-600 hover:text-gray-800 text-sm sm:text-base"
+              >
+                Reset Form
+              </Button>
+            </div>
+          )}
+
+      {/* Section 1: Employee Selection - Hidden for chat context */}
+      {!isFromChat && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Users className="h-5 w-5" />
+              <span>Staff</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EnhancedEmployeeSelector
+              value={formData.employeeName}
+              onChange={(value) => {
+                setFormData(prev => ({ ...prev, employeeName: value }));
+                // Auto-scroll to customer type selection
+                if (value) {
+                  scrollToNextSection('[data-scroll-target="customer-info"]');
+                }
+              }}
+              error={errors.employeeName}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Section 2: Customer Information - Hidden for chat context */}
       {showCustomerInfo && (
         <Card data-scroll-target="customer-info">
           <CardHeader>
@@ -520,7 +647,7 @@ export function BookingFormNew() {
               }}
               error={errors.isNewCustomer}
             />
-            
+
             {showCustomerDetails && (
               <div data-scroll-target="customer-details">
                 <CustomerDetails
@@ -547,6 +674,7 @@ export function BookingFormNew() {
           </CardContent>
         </Card>
       )}
+
 
       {/* Section 3: Package Selection (Existing Customers Only) */}
       {showPackageSelection && (
@@ -655,7 +783,7 @@ export function BookingFormNew() {
         </Card>
       )}
 
-      {/* Section 6: Contact Method */}
+      {/* Section 6: Contact Method - Hidden for chat context */}
       {showContactMethod && (
         <Card data-scroll-target="contact-method">
           <CardHeader>
@@ -746,18 +874,19 @@ export function BookingFormNew() {
 
       {/* Submit Button */}
       {isFormComplete && (
-        <div className="flex justify-end space-x-4">
+        <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
           <Button
             variant="outline"
             onClick={handleReset}
             disabled={isSubmitting}
+            className="w-full sm:w-auto order-2 sm:order-1"
           >
             Reset Form
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="min-w-[120px]"
+            className="min-w-[120px] w-full sm:w-auto order-1 sm:order-2"
           >
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />

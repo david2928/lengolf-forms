@@ -44,19 +44,19 @@ export function EnhancedEmployeeSelector({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         {employees.map((employee) => {
           const isSelected = value === employee.value
           const isManualEntryActive = value && !employees.some(emp => emp.value === value)
           const isUnselected = isManualEntryActive
-          
+
           return (
             <Card
               key={employee.value}
               className={cn(
                 "cursor-pointer transition-all duration-200 border-2 transform",
-                isSelected 
-                  ? `bg-gradient-to-br ${employee.gradient} text-white scale-102 shadow-lg ring-2 ring-white ring-opacity-60` 
+                isSelected
+                  ? `bg-gradient-to-br ${employee.gradient} text-white scale-102 shadow-lg ring-2 ring-white ring-opacity-60`
                   : isUnselected
                     ? "opacity-40 grayscale-20 scale-95"
                     : `${employee.bgColor} ${employee.borderColor} hover:scale-101 hover:shadow-md`,
@@ -64,20 +64,20 @@ export function EnhancedEmployeeSelector({
               )}
               onClick={() => handleEmployeeSelect(employee.value)}
             >
-              <CardContent className="p-6">
-                <div className="flex flex-col items-center space-y-3">
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex flex-col items-center space-y-2 sm:space-y-3">
                   <div className={cn(
-                    "p-3 rounded-full transition-all duration-200",
-                    isSelected 
-                      ? "bg-white bg-opacity-20 shadow-lg" 
+                    "p-2 sm:p-3 rounded-full transition-all duration-200",
+                    isSelected
+                      ? "bg-white bg-opacity-20 shadow-lg"
                       : isUnselected
                         ? "bg-gray-200"
                         : "bg-white shadow-sm"
                   )}>
                     <User className={cn(
-                      "h-8 w-8 transition-colors duration-200",
-                      isSelected 
-                        ? "text-white" 
+                      "h-6 w-6 sm:h-8 sm:w-8 transition-colors duration-200",
+                      isSelected
+                        ? "text-white"
                         : isUnselected
                           ? "text-gray-400"
                           : "text-gray-600"
@@ -85,9 +85,9 @@ export function EnhancedEmployeeSelector({
                   </div>
                   <div className="text-center">
                     <span className={cn(
-                      "font-semibold text-lg transition-colors duration-200",
-                      isSelected 
-                        ? "text-white" 
+                      "font-semibold text-base sm:text-lg transition-colors duration-200",
+                      isSelected
+                        ? "text-white"
                         : isUnselected
                           ? "text-gray-400"
                           : "text-gray-800"
@@ -103,7 +103,7 @@ export function EnhancedEmployeeSelector({
       </div>
 
       {/* Other Option */}
-      <Card 
+      <Card
         className={cn(
           "border-2 transition-all duration-200 transform",
           (value && !employees.some(emp => emp.value === value))
@@ -119,35 +119,35 @@ export function EnhancedEmployeeSelector({
           if (input) input.focus()
         }}
       >
-        <CardContent className="p-6">
-          <div className="flex items-center space-x-4">
+        <CardContent className="p-3 sm:p-6">
+          <div className="flex items-center space-x-3 sm:space-x-4">
             <div className={cn(
-              "p-3 rounded-full flex-shrink-0 transition-all duration-200",
+              "p-2 sm:p-3 rounded-full flex-shrink-0 transition-all duration-200",
               (value && !employees.some(emp => emp.value === value))
-                ? "bg-white bg-opacity-20 shadow-lg" 
+                ? "bg-white bg-opacity-20 shadow-lg"
                 : (value && employees.some(emp => emp.value === value))
                   ? "bg-gray-200"
                   : "bg-white shadow-sm"
             )}>
               <PenSquare className={cn(
-                "h-8 w-8 transition-colors duration-200",
+                "h-6 w-6 sm:h-8 sm:w-8 transition-colors duration-200",
                 (value && !employees.some(emp => emp.value === value))
-                  ? "text-white" 
+                  ? "text-white"
                   : (value && employees.some(emp => emp.value === value))
                     ? "text-gray-400"
                     : "text-gray-600"
               )} />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <Input
                 id="other-employee-input"
                 placeholder="Enter your name..."
                 value={otherName}
                 onChange={(e) => handleOtherNameChange(e.target.value)}
                 className={cn(
-                  "border-0 focus-visible:ring-0 bg-transparent p-0 text-lg font-semibold placeholder:text-opacity-70",
+                  "border-0 focus-visible:ring-0 bg-transparent p-0 text-base sm:text-lg font-semibold placeholder:text-opacity-70",
                   (value && !employees.some(emp => emp.value === value))
-                    ? "text-white placeholder:text-white" 
+                    ? "text-white placeholder:text-white"
                     : (value && employees.some(emp => emp.value === value))
                       ? "text-gray-400 placeholder:text-gray-400"
                       : "text-gray-800 placeholder:text-gray-500"

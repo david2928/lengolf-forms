@@ -1,6 +1,5 @@
 import { Metadata } from 'next'
-import { BookingProvider } from '@/components/booking-form/context/booking-context'
-import { BookingFormNew } from '@/components/booking-form-new'
+import { CreateBookingClient } from './create-booking-client'
 
 export const metadata: Metadata = {
   title: 'Create Booking | LENGOLF',
@@ -8,18 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function CreateBookingPage() {
-  return (
-    <div className="w-full py-6">
-      <div className="px-4 sm:px-0 text-center mb-8">
-        <h1 className="text-2xl font-bold">Create Booking</h1>
-        <p className="text-muted-foreground">
-          Book bays and manage appointments
-        </p>
-      </div>
-
-      <BookingProvider>
-        <BookingFormNew />
-      </BookingProvider>
-    </div>
-  )
+  return <CreateBookingClient />
 }

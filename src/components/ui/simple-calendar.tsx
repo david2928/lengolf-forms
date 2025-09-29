@@ -78,7 +78,7 @@ export function SimpleCalendar({
       {weekDays.map(day => (
         <div
           key={day}
-          className="text-muted-foreground flex h-9 w-9 items-center justify-center text-[0.8rem] font-normal"
+          className="text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] flex h-9 items-center justify-center"
         >
           {day}
         </div>
@@ -121,7 +121,7 @@ export function SimpleCalendar({
       day = addDays(day, 1)
     }
     rows.push(
-      <div className="flex w-full" key={day.toString()}>
+      <div className="flex w-full mt-2" key={day.toString()}>
         {days}
       </div>
     )

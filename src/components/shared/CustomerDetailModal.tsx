@@ -222,12 +222,12 @@ export const CustomerDetailModal: React.FC = () => {
         <DialogPrimitive.Content className={cn(
           "fixed z-50 bg-white",
           isTablet || isMobile
-            ? "inset-0 w-screen h-screen m-0 p-0 rounded-none"
+            ? "inset-0 w-screen h-screen max-h-screen m-0 p-0 rounded-none overflow-hidden"
             : "left-[50%] top-[50%] w-[90vw] max-w-4xl max-h-[90vh] translate-x-[-50%] translate-y-[-50%] rounded-lg shadow-lg",
           "focus:outline-none flex flex-col"
         )}>
           {/* Mobile Header */}
-          <div className="bg-gray-50 border-b border-gray-200 px-6 py-5 sm:hidden relative">
+          <div className="bg-gray-50 border-b border-gray-200 px-4 py-4 block sm:hidden relative">
             <div className="flex items-center justify-between">
               {/* Back button and Customer Info */}
               <div className="flex items-center space-x-3">
@@ -240,7 +240,7 @@ export const CustomerDetailModal: React.FC = () => {
                   </button>
                 )}
                 <div className="space-y-1">
-                  <h2 className="text-xl font-bold text-gray-900">
+                  <h2 className="text-lg font-bold text-gray-900 line-clamp-1">
                     {customerDetail?.customer.customer_name || state.customerName || 'Customer Details'}
                   </h2>
                   {(customerDetail?.customer.customer_code || state.customerCode) && (
@@ -332,39 +332,43 @@ export const CustomerDetailModal: React.FC = () => {
             <TabsList className="flex w-full flex-shrink-0 bg-white border-b border-gray-200 rounded-none p-0 h-auto">
               <TabsTrigger
                 value="overview"
-                className="flex-1 px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none"
+                className="flex-1 px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none text-sm sm:text-base"
               >
-                Overview
+                <span className="block sm:hidden">Info</span>
+                <span className="hidden sm:block">Overview</span>
               </TabsTrigger>
               <TabsTrigger
                 value="transactions"
                 disabled={isEditing}
                 className={cn(
-                  "flex-1 px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none",
+                  "flex-1 px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none text-sm sm:text-base",
                   isEditing && "opacity-50 cursor-not-allowed"
                 )}
               >
-                Transactions
+                <span className="block sm:hidden">Orders</span>
+                <span className="hidden sm:block">Transactions</span>
               </TabsTrigger>
               <TabsTrigger
                 value="packages"
                 disabled={isEditing}
                 className={cn(
-                  "flex-1 px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none",
+                  "flex-1 px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none text-sm sm:text-base",
                   isEditing && "opacity-50 cursor-not-allowed"
                 )}
               >
-                Packages
+                <span className="block sm:hidden">Pkgs</span>
+                <span className="hidden sm:block">Packages</span>
               </TabsTrigger>
               <TabsTrigger
                 value="bookings"
                 disabled={isEditing}
                 className={cn(
-                  "flex-1 px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none",
+                  "flex-1 px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent rounded-none text-sm sm:text-base",
                   isEditing && "opacity-50 cursor-not-allowed"
                 )}
               >
-                Bookings
+                <span className="block sm:hidden">Calendar</span>
+                <span className="hidden sm:block">Bookings</span>
               </TabsTrigger>
             </TabsList>
 
@@ -382,8 +386,8 @@ export const CustomerDetailModal: React.FC = () => {
 
             {/* Overview Tab */}
             <TabsContent value="overview" className={cn(
-              "space-y-6",
-              isTablet ? "px-8 py-6" : "px-6 py-4"
+              "space-y-4 sm:space-y-6",
+              isMobile ? "px-4 py-4" : isTablet ? "px-8 py-6" : "px-6 py-4"
             )}>
               {/* Basic Information */}
               <Card>
@@ -630,29 +634,41 @@ export const CustomerDetailModal: React.FC = () => {
                   {!isEditing ? (
                     <Button
                       variant="outline"
-                      size="lg"
+                      size={isMobile ? "default" : "lg"}
                       onClick={handleEditStart}
-                      className="px-6 h-12 text-sm font-medium"
+                      className={cn(
+                        "font-medium",
+                        isMobile ? "px-4 h-10 text-sm w-full" : "px-6 h-12 text-sm"
+                      )}
                     >
                       <Edit3 className="h-4 w-4 mr-2" />
-                      Edit Customer Information
+                      <span className="hidden sm:inline">Edit Customer Information</span>
+                      <span className="sm:hidden">Edit Customer</span>
                     </Button>
                   ) : (
-                    <div className="flex gap-3">
+                    <div className={cn(
+                      "flex gap-3",
+                      isMobile && "w-full"
+                    )}>
                       <Button
                         variant="outline"
-                        size="lg"
+                        size={isMobile ? "default" : "lg"}
                         onClick={handleEditCancel}
                         disabled={saving}
-                        className="px-6 h-12 text-sm"
+                        className={cn(
+                          isMobile ? "px-4 h-10 text-sm flex-1" : "px-6 h-12 text-sm"
+                        )}
                       >
                         Cancel
                       </Button>
                       <Button
-                        size="lg"
+                        size={isMobile ? "default" : "lg"}
                         onClick={handleEditSave}
                         disabled={saving}
-                        className="px-6 h-12 text-sm bg-blue-600 hover:bg-blue-700"
+                        className={cn(
+                          "bg-blue-600 hover:bg-blue-700",
+                          isMobile ? "px-4 h-10 text-sm flex-1" : "px-6 h-12 text-sm"
+                        )}
                       >
                         {saving ? 'Saving...' : 'Save Changes'}
                       </Button>
@@ -663,18 +679,24 @@ export const CustomerDetailModal: React.FC = () => {
             </TabsContent>
 
             {/* Transactions Tab */}
-            <TabsContent value="transactions" className="h-full p-0">
-              <TransactionHistoryTable customerId={state.customerId || undefined} />
+            <TabsContent value="transactions" className="h-full">
+              <div className={cn(isMobile ? "p-2" : "p-0")}>
+                <TransactionHistoryTable customerId={state.customerId || undefined} />
+              </div>
             </TabsContent>
 
             {/* Packages Tab */}
-            <TabsContent value="packages" className="h-full p-0">
-              <PackageHistoryTable customerId={state.customerId || undefined} />
+            <TabsContent value="packages" className="h-full">
+              <div className={cn(isMobile ? "p-2" : "p-0")}>
+                <PackageHistoryTable customerId={state.customerId || undefined} />
+              </div>
             </TabsContent>
 
             {/* Bookings Tab */}
-            <TabsContent value="bookings" className="h-full p-0">
-              <BookingHistoryTable customerId={state.customerId || undefined} />
+            <TabsContent value="bookings" className="h-full">
+              <div className={cn(isMobile ? "p-2" : "p-0")}>
+                <BookingHistoryTable customerId={state.customerId || undefined} />
+              </div>
             </TabsContent>
             </div>
           </Tabs>

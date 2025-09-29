@@ -186,34 +186,34 @@ export function CustomerDetails({
           
           {/* Selected Customer Display Card */}
           {selectedCustomerCache && (
-            <div className="p-5 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200 rounded-lg shadow-sm">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-lg font-bold text-blue-900">
+            <div className="p-3 sm:p-5 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200 rounded-lg shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mb-2">
+                    <h3 className="text-base sm:text-lg font-bold text-blue-900 truncate">
                       {selectedCustomerCache.customer_name}
                     </h3>
-                    <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full font-medium">
+                    <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full font-medium self-start">
                       {selectedCustomerCache.customer_code}
                     </span>
                   </div>
-                  
-                  <div className="space-y-1 text-sm">
-                    <div className="flex items-center text-blue-700">
-                      <span className="font-medium mr-2">Phone:</span>
-                      {selectedCustomerCache.contact_number || 'Not provided'}
+
+                  <div className="space-y-1 text-xs sm:text-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center text-blue-700">
+                      <span className="font-medium mr-2 min-w-0">Phone:</span>
+                      <span className="truncate">{selectedCustomerCache.contact_number || 'Not provided'}</span>
                     </div>
                     {selectedCustomerCache.email && (
-                      <div className="flex items-center text-blue-700">
-                        <span className="font-medium mr-2">Email:</span>
-                        {selectedCustomerCache.email}
+                      <div className="flex flex-col sm:flex-row sm:items-center text-blue-700">
+                        <span className="font-medium mr-2 min-w-0">Email:</span>
+                        <span className="truncate">{selectedCustomerCache.email}</span>
                       </div>
                     )}
                     <div className="flex items-center text-blue-700">
                       <span className="font-medium mr-2">Status:</span>
                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        selectedCustomerCache.customer_status === 'Active' 
-                          ? 'bg-green-100 text-green-800' 
+                        selectedCustomerCache.customer_status === 'Active'
+                          ? 'bg-green-100 text-green-800'
                           : 'bg-gray-100 text-gray-600'
                       }`}>
                         {selectedCustomerCache.customer_status}
@@ -221,16 +221,16 @@ export function CustomerDetails({
                     </div>
                   </div>
                 </div>
-                
-                <div className="text-right space-y-2 ml-6">
-                  <div className="bg-white bg-opacity-50 rounded-lg p-3 min-w-[140px]">
+
+                <div className="text-left sm:text-right space-y-2 sm:ml-6">
+                  <div className="bg-white bg-opacity-50 rounded-lg p-2 sm:p-3 min-w-0 sm:min-w-[140px]">
                     <div className="text-xs text-blue-600 font-medium mb-1">ACTIVITY</div>
                     <div className="space-y-1">
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-xs sm:text-sm">
                         <span className="text-blue-700">Bookings:</span>
                         <span className="font-semibold text-blue-900">{selectedCustomerCache.total_bookings}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-xs sm:text-sm">
                         <span className="text-blue-700">Spent:</span>
                         <span className="font-semibold text-blue-900">${Math.round(parseFloat(selectedCustomerCache.lifetime_spending) || 0).toLocaleString()}</span>
                       </div>

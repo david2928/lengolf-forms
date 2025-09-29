@@ -17,6 +17,7 @@ interface SubmitStepProps {
   onSuccess: () => void;
   onReset: () => void;
   onNavigateToStep: (step: number) => void;
+  isFromChat?: boolean;
 }
 
 const MessageBox = ({ title, message, onCopy }: { 
@@ -109,13 +110,14 @@ function formatTimeDisplay(time: string | Date | null): string {
   return '';
 }
 
-export function SubmitStep({ 
-  formData, 
-  isSubmitting, 
+export function SubmitStep({
+  formData,
+  isSubmitting,
   setIsSubmitting,
   onSuccess,
   onReset,
-  onNavigateToStep
+  onNavigateToStep,
+  isFromChat = false
 }: SubmitStepProps) {
   const [error, setError] = React.useState<string | null>(null);
   const [showSuccessDialog, setShowSuccessDialog] = React.useState(false);
@@ -149,8 +151,7 @@ export function SubmitStep({
   };
 
   const handleCreateAnother = () => {
-    onReset();
-    onNavigateToStep(1);
+    onSuccess();
   };
 
   const copyToClipboard = async (message: string) => {
@@ -239,7 +240,7 @@ export function SubmitStep({
 
         <div className="flex justify-center">
           <Button onClick={handleCreateAnother} variant="outline">
-            Create Another Booking
+            {isFromChat ? 'Back to Chat' : 'Create Another Booking'}
           </Button>
         </div>
       </div>
