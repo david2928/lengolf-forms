@@ -313,7 +313,7 @@ async function sendPushNotificationForNewMessage(
       conversationId,
       lineUserId: event.source.userId,
       customerName,
-      url: conversationId ? `/staff/line-chat?conversation=${conversationId}` : '/staff/line-chat'
+      url: conversationId ? `/staff/unified-chat?conversation=${conversationId}` : '/staff/unified-chat'
     };
 
     // Import and configure web-push directly

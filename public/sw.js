@@ -353,7 +353,7 @@ self.addEventListener('push', (event) => {
           conversationId: data.conversationId,
           lineUserId: data.lineUserId,
           customerName: data.customerName,
-          url: data.url || '/staff/line-chat'
+          url: data.url || '/staff/unified-chat'
         }
       };
     } catch (error) {
@@ -380,7 +380,7 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   // Default action or 'open' action
-  const urlToOpen = event.notification.data?.url || '/staff/line-chat';
+  const urlToOpen = event.notification.data?.url || '/staff/unified-chat';
 
   // Focus existing tab or open new one
   const promiseChain = clients.matchAll({
@@ -389,10 +389,10 @@ self.addEventListener('notificationclick', (event) => {
   }).then((windowClients) => {
     let matchingClient = null;
 
-    // Look for existing LINE chat tab
+    // Look for existing unified chat tab
     for (let i = 0; i < windowClients.length; i++) {
       const windowClient = windowClients[i];
-      if (windowClient.url.includes('/staff/line-chat')) {
+      if (windowClient.url.includes('/staff/unified-chat')) {
         matchingClient = windowClient;
         break;
       }

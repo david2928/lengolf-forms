@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       conversationId,
       lineUserId,
       customerName,
-      url: conversationId ? `/staff/line-chat?conversation=${conversationId}` : '/staff/line-chat'
+      url: conversationId ? `/staff/unified-chat?conversation=${conversationId}` : '/staff/unified-chat'
     };
 
     // Import web-push dynamically
