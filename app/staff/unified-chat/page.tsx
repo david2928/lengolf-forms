@@ -50,8 +50,6 @@ export default function UnifiedChatPage() {
   useRealtimeConversations({
     onConversationUpdate: (conversationUpdate) => {
       // Update existing conversation in the list and re-sort by lastMessageAt
-      console.log('🔄 Conversation update received:', conversationUpdate);
-
       setConversations(prev => {
         const updated = prev.map(conv =>
           conv.id === conversationUpdate.id
@@ -66,18 +64,11 @@ export default function UnifiedChatPage() {
           return bTime - aTime; // Descending order (newest first)
         });
 
-        console.log('🔄 Conversations after sort:', sorted.map(c => ({
-          id: c.id.slice(-8),
-          lastMessageAt: c.lastMessageAt,
-          lastMessageText: c.lastMessageText?.slice(0, 20)
-        })));
-
         return sorted;
       });
     },
     onNewConversation: () => {
       // Refresh the entire conversation list when a new conversation is created
-      console.log('🔔 New conversation detected - refreshing list');
       refreshConversations();
     }
   });
