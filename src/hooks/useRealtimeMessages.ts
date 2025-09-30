@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { supabaseRealtime } from '@/lib/supabase-realtime';
+import { refacSupabase } from '@/lib/refac-supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface Message {
@@ -75,6 +76,16 @@ export function useRealtimeMessages({
   // Track processed message IDs to prevent duplicates
   const processedMessagesRef = useRef<Set<string>>(new Set());
 
+  // Use refs for callbacks to avoid recreating connect callback on every parent re-render
+  const onNewMessageRef = useRef(onNewMessage);
+  const onMessageUpdateRef = useRef(onMessageUpdate);
+
+  // Keep refs up to date
+  useEffect(() => {
+    onNewMessageRef.current = onNewMessage;
+    onMessageUpdateRef.current = onMessageUpdate;
+  }, [onNewMessage, onMessageUpdate]);
+
   const disconnect = useCallback(() => {
     if (channelRef.current) {
       channelRef.current.unsubscribe();
@@ -109,6 +120,11 @@ export function useRealtimeMessages({
 
     try {
       const channelName = conversationId ? `messages-${conversationId}` : 'all-messages';
+      console.log(`[Realtime Messages] 🔌 Connecting to channel: ${channelName}`, {
+        conversationId,
+        channelType,
+        hasClient: !!supabaseRealtime
+      });
       setConnectionStatus(prev => ({ ...prev, status: 'connecting', error: undefined }));
 
       // Create channel with minimal configuration
@@ -168,9 +184,10 @@ export function useRealtimeMessages({
         let repliedToMessage = undefined;
 
         // If this is a reply, fetch the original message data from database
-        if (payload.new.reply_to_message_id) {
+        // IMPORTANT: Use refacSupabase for DB queries, not supabaseRealtime (which is for subscriptions only)
+        if (payload.new.reply_to_message_id && refacSupabase) {
           try {
-            const { data: originalMessage } = await supabaseRealtime!
+            const { data: originalMessage } = await refacSupabase
               .from('meta_messages')
               .select('id, message_text, message_type, sender_name, sender_type, platform_user_id')
               .eq('id', payload.new.reply_to_message_id)
@@ -178,7 +195,7 @@ export function useRealtimeMessages({
 
             if (originalMessage) {
               // Fetch profile picture from meta_users table
-              const { data: user } = await supabaseRealtime!
+              const { data: user } = await refacSupabase
                 .from('meta_users')
                 .select('profile_pic')
                 .eq('platform_user_id', originalMessage.platform_user_id)
@@ -232,12 +249,22 @@ export function useRealtimeMessages({
 
       // Message handler with deduplication
       const handleMessage = async (payload: any, messageType: 'line' | 'website' | 'meta' = 'line') => {
+        console.log(`[Realtime Messages] 📨 Received ${messageType} message:`, {
+          messageId: payload.new?.id,
+          conversationId: payload.new?.conversation_id,
+          messageText: payload.new?.message_text?.substring(0, 50),
+          senderType: payload.new?.sender_type,
+          timestamp: new Date().toISOString()
+        });
+
         const messageId = payload.new?.id;
         if (!messageId || processedMessagesRef.current.has(messageId)) {
+          console.log(`[Realtime Messages] ⏭️  Skipping duplicate message:`, messageId);
           return;
         }
 
         processedMessagesRef.current.add(messageId);
+        console.log(`[Realtime Messages] ✅ Processing new message:`, messageId);
 
         let message: Message;
         switch (messageType) {
@@ -253,7 +280,8 @@ export function useRealtimeMessages({
             break;
         }
 
-        onNewMessage?.(message);
+        onNewMessageRef.current?.(message);
+        console.log(`[Realtime Messages] ✅ Message processed and callback fired`);
       };
 
       // Subscribe to LINE messages if needed
@@ -318,7 +346,10 @@ export function useRealtimeMessages({
 
       // Subscribe to all configured events
       channel.subscribe((status) => {
+          console.log(`[Realtime Messages] 🔔 Subscription status changed:`, status);
+
           if (status === 'SUBSCRIBED') {
+            console.log('[Realtime Messages] ✅ Successfully subscribed to realtime channel');
             reconnectAttemptsRef.current = 0;
             setConnectionStatus({
               status: 'connected',
@@ -326,6 +357,7 @@ export function useRealtimeMessages({
               reconnectAttempts: 0
             });
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error(`[Realtime Messages] ❌ Channel error:`, status);
             setConnectionStatus(prev => ({
               status: 'error',
               error: `Connection failed: ${status}`,
@@ -335,11 +367,13 @@ export function useRealtimeMessages({
             // Retry with exponential backoff
             reconnectAttemptsRef.current++;
             const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+            console.log(`[Realtime Messages] 🔄 Retrying in ${delay}ms (attempt ${reconnectAttemptsRef.current})`);
 
             reconnectTimeoutRef.current = setTimeout(() => {
               connect();
             }, delay);
           } else if (status === 'CLOSED') {
+            console.log('[Realtime Messages] 🔌 Channel closed');
             setConnectionStatus(prev => ({ ...prev, status: 'disconnected' }));
           }
         });
@@ -354,7 +388,7 @@ export function useRealtimeMessages({
         reconnectAttempts: reconnectAttemptsRef.current
       }));
     }
-  }, [conversationId, onNewMessage, channelType]);
+  }, [conversationId, channelType]); // Removed onNewMessage dependency - using ref instead
 
   // Connect when conversationId changes OR when subscribing to all conversations
   useEffect(() => {

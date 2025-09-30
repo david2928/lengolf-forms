@@ -21,6 +21,7 @@ import { useCustomerData } from '../line-chat/hooks/useCustomerData';
 import { useUnifiedChat } from '../line-chat/hooks/useUnifiedChat';
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
 import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
+import { supabaseRealtime } from '@/lib/supabase-realtime';
 
 export default function UnifiedChatPage() {
   // Core state - using unified chat system
@@ -165,13 +166,27 @@ export default function UnifiedChatPage() {
 
   // Handle new messages from realtime - updated for unified system
   const handleNewMessage = useCallback((message: any) => {
+    console.log('[Unified Chat] 📬 handleNewMessage called:', {
+      messageId: message.id,
+      conversationId: message.conversationId,
+      currentSelectedConversation: selectedConversationRef.current,
+      messageText: message.text?.substring(0, 50),
+      type: message.type,
+      senderType: message.senderType
+    });
+
     const currentSelectedConversation = selectedConversationRef.current;
 
     // Add message to the messages list ONLY if it's for the currently selected conversation
     if (currentSelectedConversation === message.conversationId) {
+      console.log('[Unified Chat] ✅ Message is for current conversation - adding to UI');
       setMessages(prev => {
         // Prevent duplicates
-        if (prev.find((m: any) => m.id === message.id)) return prev;
+        if (prev.find((m: any) => m.id === message.id)) {
+          console.log('[Unified Chat] ⏭️  Message already exists in UI, skipping');
+          return prev;
+        }
+        console.log('[Unified Chat] ➕ Adding message to UI, new count:', prev.length + 1);
         return [...prev, message];
       });
 
@@ -180,6 +195,11 @@ export default function UnifiedChatPage() {
         const messagesEnd = document.querySelector('[data-messages-end]');
         messagesEnd?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
+    } else {
+      console.log('[Unified Chat] ⏭️  Message is for different conversation, not adding to UI', {
+        messageConversationId: message.conversationId,
+        currentConversationId: currentSelectedConversation
+      });
     }
 
     // Determine channel type from the selected conversation or message context
@@ -213,6 +233,11 @@ export default function UnifiedChatPage() {
     onNewMessage: handleNewMessage,
     channelType: 'all' // Subscribe to both LINE and website messages
   });
+
+  // Log connection status changes for debugging
+  useEffect(() => {
+    console.log('[Unified Chat] 🔗 Messages connection status:', messagesConnectionStatus);
+  }, [messagesConnectionStatus]);
 
   // Update ref whenever selectedConversation changes
   useEffect(() => {
@@ -312,8 +337,47 @@ export default function UnifiedChatPage() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 relative" style={{ height: '100dvh' }}>
-      <div className="h-full flex flex-col md:flex-row">
+    <>
+      {/* Debug Connection Status Bar - Always visible for debugging */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-gray-900 text-white text-xs px-4 py-1 flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <span className="font-semibold">Realtime Debug:</span>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${
+              messagesConnectionStatus.status === 'connected' ? 'bg-green-500' :
+              messagesConnectionStatus.status === 'connecting' ? 'bg-yellow-500 animate-pulse' :
+              messagesConnectionStatus.status === 'error' ? 'bg-red-500' :
+              'bg-gray-500'
+            }`}></div>
+            <span>Messages: {messagesConnectionStatus.status}</span>
+            {messagesConnectionStatus.error && (
+              <span className="text-red-400">({messagesConnectionStatus.error})</span>
+            )}
+          </div>
+          <span className="text-gray-400">|</span>
+          <span>Selected: {selectedConversation?.slice(-8) || 'none'}</span>
+          <span className="text-gray-400">|</span>
+          <span>Messages in UI: {messages.length}</span>
+          <span className="text-gray-400">|</span>
+          <span className="text-xs text-gray-400">Client: {!!supabaseRealtime ? '✅' : '❌'}</span>
+        </div>
+        <button
+          onClick={() => {
+            console.log('=== REALTIME DEBUG INFO ===');
+            console.log('Connection Status:', messagesConnectionStatus);
+            console.log('Selected Conversation:', selectedConversation);
+            console.log('Messages in UI:', messages.length);
+            console.log('Supabase Realtime Client:', !!supabaseRealtime);
+            console.log('Messages:', messages);
+          }}
+          className="px-2 py-0.5 bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+        >
+          Log Debug Info
+        </button>
+      </div>
+      {/* Main content with padding for debug bar */}
+      <div className="h-screen bg-gray-50 relative pt-8" style={{ height: '100dvh' }}>
+        <div className="h-full flex flex-col md:flex-row">
         {/* Left Sidebar - Conversations */}
         {!leftPanelCollapsed && (
           <div className={`transition-all duration-300 ease-in-out ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
@@ -428,7 +492,8 @@ export default function UnifiedChatPage() {
           }}
           customerName={""} // TODO: Get from selected conversation
         />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
