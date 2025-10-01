@@ -861,7 +861,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
 
       {/* Messages */}
-      <div className={`flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container min-h-0 ${isMobile ? 'pb-20' : ''}`}>
+      <div className={`flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container min-h-0 ${isMobile ? 'pb-2' : ''}`}>
         {messages.map((message, index) => {
           // Check if we need a date separator before this message
           const showDateSeparator = index === 0 ||
@@ -1012,7 +1012,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
 
       {/* Message Input - Always at bottom */}
-      <div className={`${isMobile ? 'fixed bottom-0 left-0 right-0' : 'mt-auto'} bg-white border-t z-10 flex-shrink-0`}>
+      <div className={`${isMobile ? 'sticky bottom-0 left-0 right-0' : 'mt-auto'} bg-white border-t z-10 flex-shrink-0`}>
         <MessageInput
           onSendMessage={handleSendMessage}
           replyingToMessage={replyingToMessage}

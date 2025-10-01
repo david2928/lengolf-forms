@@ -158,6 +158,16 @@ html {
   background: #94a3b8;
 }
 
+/* Hide scrollbar in chat messages container while keeping scroll functionality */
+.messages-container::-webkit-scrollbar {
+  display: none;
+}
+
+.messages-container {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 /* Mobile-first responsive design enhancements */
 @layer utilities {
   /* Touch-friendly tap targets */
