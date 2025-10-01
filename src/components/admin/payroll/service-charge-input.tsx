@@ -18,6 +18,7 @@ interface ServiceChargeInfo {
     staff_id: number
     staff_name: string
     is_eligible: boolean
+    is_service_charge_eligible: boolean
   }>
 }
 
@@ -49,7 +50,8 @@ export function ServiceChargeInput({ selectedMonth, onServiceChargeUpdated }: Se
           eligible_staff: data.staff_payroll?.map((staff: any) => ({
             staff_id: staff.staff_id,
             staff_name: staff.staff_name,
-            is_eligible: staff.service_charge > 0
+            is_eligible: staff.is_service_charge_eligible || false,
+            is_service_charge_eligible: staff.is_service_charge_eligible || false
           })) || []
         }
         
