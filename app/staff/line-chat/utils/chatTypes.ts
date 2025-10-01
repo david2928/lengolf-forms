@@ -94,6 +94,8 @@ export interface Booking {
   bay: string;
   number_of_people: number;
   status: string;
+  booking_type?: string;
+  package_name?: string;
 }
 
 export interface Package {
@@ -168,6 +170,8 @@ export interface ConversationSidebarProps {
   // Follow-up and unread features
   markAsUnread?: (conversationId: string, channelType: string) => Promise<void>;
   toggleFollowUp?: (conversationId: string, channelType: string, currentFollowingStatus: boolean) => Promise<void>;
+  // Refresh function
+  onRefresh?: () => void;
 }
 
 // Ref interface for ConversationSidebar

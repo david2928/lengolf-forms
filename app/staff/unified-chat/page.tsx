@@ -217,6 +217,8 @@ export default function UnifiedChatPage() {
     selectedConversationRef.current = conversationId; // Update ref immediately
     if (isMobile) {
       setShowMobileChat(true);
+      // Push a history state so browser back returns to conversation list
+      window.history.pushState({ inChat: true }, '', window.location.href);
     }
   };
 
@@ -258,6 +260,24 @@ export default function UnifiedChatPage() {
       }
     }, 50); // Small delay to ensure React has finished state updates
   }, []);
+
+  // Handle browser back button on mobile to return to conversation list
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (isMobile && showMobileChat) {
+        // Prevent default browser back navigation
+        event.preventDefault();
+        // Return to conversation list
+        handleMobileBackToList();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isMobile, showMobileChat, handleMobileBackToList]);
 
   // Clear messages when conversation changes and fetch new ones
   useEffect(() => {
@@ -319,6 +339,7 @@ export default function UnifiedChatPage() {
               onToggleAI={setAiSuggestionsEnabled}
               markAsUnread={markAsUnread}
               toggleFollowUp={toggleFollowUp}
+              onRefresh={refreshConversations}
             />
           </div>
         )}

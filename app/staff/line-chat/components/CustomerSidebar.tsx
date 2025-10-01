@@ -156,7 +156,7 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
 
   if (!selectedConv) {
     return (
-      <div className="w-full md:w-80 bg-white border-l transition-all duration-300 ease-in-out flex flex-col">
+      <div className="w-full md:w-96 bg-white border-l transition-all duration-300 ease-in-out flex flex-col">
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="text-center text-gray-500">
             <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -168,7 +168,7 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   }
 
   return (
-    <div className="w-full md:w-80 bg-white border-l transition-all duration-300 ease-in-out flex flex-col">
+    <div className="w-full md:w-96 bg-white border-l transition-all duration-300 ease-in-out flex flex-col">
       <div className="p-4 flex-1 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Customer Information</h3>
@@ -304,87 +304,118 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                       const booking = customerBookings[currentBookingIndex];
                       if (!booking) return null;
 
-                      const isConfirmed = booking.status === 'confirmed';
-                      const isUpcoming = isBookingUpcoming(booking);
                       const dateDisplay = formatBookingDate(booking.date);
 
+                      // Check if it's a coaching booking and extract coach name
+                      const bookingType = booking.booking_type || '';
+                      const isCoaching = bookingType.toLowerCase().includes('coaching');
+                      let coachName = '';
+
+                      if (isCoaching) {
+                        // Extract coach name from booking type - get text within parentheses
+                        const match = bookingType.match(/\(([^)]+)\)/);
+                        if (match && match[1]) {
+                          coachName = match[1];
+                        }
+                      }
+
+                      // Determine bay type display
+                      let bayTypeDisplay = '';
+                      const bayNum = booking.bay;
+
+                      if (bayNum === 'Bay 1' || bayNum === 'Bay 2' || bayNum === 'Bay 3') {
+                        bayTypeDisplay = 'Social Bay';
+                      } else if (bayNum === 'Bay 4') {
+                        bayTypeDisplay = 'AI Bay';
+                      } else {
+                        bayTypeDisplay = 'Sim'; // Default for other bays
+                      }
+
                       return (
-                        <div key={booking.id} className={`relative p-4 rounded-xl border transition-all duration-200 ${
-                          isUpcoming
-                            ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-white shadow-sm hover:shadow-md hover:border-blue-300'
-                            : 'border-gray-200 bg-white hover:bg-gray-50'
-                        }`}>
-                          {/* Status indicator line */}
-                          <div className={`absolute top-0 left-0 w-full h-1 rounded-t-xl ${
-                            isUpcoming && isConfirmed ? 'bg-green-500' :
-                            isUpcoming ? 'bg-yellow-500' : 'bg-gray-300'
-                          }`} />
-
-                          {/* Header with Bay and Status */}
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-3">
-                              <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                                isUpcoming ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
-                              }`}>
-                                {booking.bay}
-                              </div>
+                        <div
+                          key={booking.id}
+                          className="relative rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
+                        >
+                          {/* Header bar - matches LINE interactive message pattern */}
+                          <div className={`px-3 py-2.5 flex items-center justify-between ${
+                            isCoaching ? 'bg-[#7B68EE]' : 'bg-[#06C755]'
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-semibold text-sm">
+                                {isCoaching ? 'Coaching' : bayTypeDisplay}
+                              </span>
+                              {coachName && (
+                                <span className="text-white/90 text-xs">
+                                  • {coachName}
+                                </span>
+                              )}
                             </div>
-
-                            <Badge
-                              variant={isConfirmed ? 'default' : 'secondary'}
-                              className={`text-xs font-medium ${
-                                isConfirmed ? 'bg-green-100 text-green-800 hover:bg-green-100' : ''
-                              }`}
-                            >
-                              {booking.status}
-                            </Badge>
+                            {/* Bay badge - high contrast on colored background */}
+                            <div className="bg-white/20 backdrop-blur-sm px-2.5 py-0.5 rounded-full">
+                              <span className="text-white font-bold text-sm">
+                                {booking.bay}
+                              </span>
+                            </div>
                           </div>
 
-                          {/* Date and Time - Primary info */}
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between">
-                              <div className="text-lg font-semibold text-gray-900">
+                          {/* Primary info - Date & Time */}
+                          <div className="px-3 pt-3 pb-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-base font-bold text-gray-900 whitespace-nowrap">
                                 {dateDisplay}
                               </div>
-                              <div className="flex items-center space-x-3 text-sm text-gray-600">
-                                <div className="flex items-center">
-                                  <Calendar className="h-4 w-4 mr-1" />
-                                  {booking.start_time}
-                                </div>
-                                <div>
-                                  {booking.duration}h
-                                </div>
+                              <div className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                                <Calendar className="h-3.5 w-3.5" />
+                                <span className="font-medium">{booking.start_time}</span>
+                                <span className="text-gray-400">•</span>
+                                <span>{booking.duration}h</span>
                               </div>
                             </div>
                           </div>
 
-                          {/* Action Button */}
-                          {isUpcoming && isConfirmed && (
-                            <div className="pt-2 border-t border-gray-100">
-                              <Button
-                                size="sm"
-                                className={`w-full h-9 font-medium transition-all duration-200 ${
-                                  sendingConfirmation === booking.id
-                                    ? 'bg-gray-100 text-gray-600'
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md'
-                                }`}
-                                onClick={() => sendBookingConfirmation(booking.id)}
-                                disabled={sendingConfirmation === booking.id}
-                              >
-                                {sendingConfirmation === booking.id ? (
-                                  <>
-                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                                    Sending...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Send className="h-4 w-4 mr-2" />
-                                    Send Confirmation
-                                  </>
-                                )}
-                              </Button>
+                          {/* Booking type info - Package name or default rate type */}
+                          <div className="px-3 pb-3">
+                            <div className="text-sm">
+                              {booking.package_name ? (
+                                <span
+                                  className="font-medium text-gray-900 truncate block"
+                                  title={booking.package_name}
+                                >
+                                  {booking.package_name}
+                                </span>
+                              ) : (
+                                <span className="font-medium text-gray-600">
+                                  {isCoaching ? 'Coaching' : 'Normal Bay Rate'}
+                                </span>
+                              )}
                             </div>
-                          )}
+                          </div>
+
+                          {/* Action button */}
+                          <div className="px-3 pb-3">
+                            <Button
+                              size="sm"
+                              className={`w-full h-9 font-medium transition-all duration-200 ${
+                                sendingConfirmation === booking.id
+                                  ? 'bg-gray-100 text-gray-600'
+                                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+                              }`}
+                              onClick={() => sendBookingConfirmation(booking.id)}
+                              disabled={sendingConfirmation === booking.id}
+                            >
+                              {sendingConfirmation === booking.id ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  Sending...
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="h-4 w-4 mr-2" />
+                                  Send Confirmation
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       );
                     })()}
@@ -444,86 +475,66 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                       const usagePercentage = isUnlimited ? 0 : ((totalHours - hoursLeft) / totalHours) * 100;
                       const daysUntilExpiry = calculateDaysUntilExpiry(pkg.expiration_date);
 
-                      // Determine urgency level
-                      const isExpiringSoon = daysUntilExpiry <= 7;
-                      const isLowHours = !isUnlimited && hoursLeft <= 5;
-
                       return (
                         <div
                           key={pkg.id}
-                          className={`relative p-4 rounded-xl border transition-all duration-200 ${
-                            isExpiringSoon || isLowHours
-                              ? 'border-orange-200 bg-gradient-to-br from-orange-50 to-white'
-                              : 'border-green-200 bg-gradient-to-br from-green-50 to-white'
-                          } hover:shadow-md`}
+                          className="relative rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
                         >
-                          {/* Package type header */}
-                          <div className="flex items-center justify-between mb-3">
-                            <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                              isUnlimited
-                                ? 'bg-purple-100 text-purple-800'
-                                : isExpiringSoon || isLowHours
-                                  ? 'bg-orange-100 text-orange-800'
-                                  : 'bg-green-100 text-green-800'
-                            }`}>
+                          {/* Header bar with package name */}
+                          <div className={`px-3 py-2.5 border-b border-gray-100 ${
+                            pkg.package_type_name.toLowerCase().includes('coaching')
+                              ? 'bg-[#7B68EE]'
+                              : 'bg-[#06C755]'
+                          }`}>
+                            <span
+                              className="text-white font-semibold text-sm truncate block"
+                              title={pkg.package_type_name}
+                            >
                               {pkg.package_type_name}
-                            </div>
-
-                            {(isExpiringSoon || isLowHours) && (
-                              <div className="px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
-                                {isExpiringSoon ? 'EXPIRING SOON' : 'LOW HOURS'}
-                              </div>
-                            )}
+                            </span>
                           </div>
 
-                          {/* Hours remaining display */}
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-lg font-bold text-gray-900">
-                                {isUnlimited ? '∞ Unlimited' : `${hoursLeft}h remaining`}
-                              </span>
-                            </div>
-
-                            {/* Progress bar for limited packages */}
-                            {!isUnlimited && (
-                              <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                                <div
-                                  className={`h-2 rounded-full transition-all duration-300 ${
-                                    hoursLeft <= 2 ? 'bg-red-500' :
-                                    hoursLeft <= 5 ? 'bg-orange-500' :
-                                    'bg-green-500'
-                                  }`}
-                                  style={{ width: `${Math.max(5, 100 - usagePercentage)}%` }}
-                                />
-                              </div>
-                            )}
-
-                            {/* Usage statistics */}
-                            {!isUnlimited && (
-                              <div className="flex justify-between text-xs text-gray-600">
-                                <span>Used: {pkg.used_hours || 0}h</span>
-                                <span>Total: {totalHours}h</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Expiry information */}
-                          <div className="pt-2 border-t border-gray-100">
+                          {/* Package details */}
+                          <div className="px-3 py-2.5 space-y-2">
+                            {/* Usage */}
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600">
-                                {new Date(pkg.expiration_date).toLocaleDateString('en-GB', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric'
-                                })}
-                              </span>
-                              <span className={`font-medium ${
-                                daysUntilExpiry <= 3 ? 'text-red-600' :
-                                daysUntilExpiry <= 7 ? 'text-orange-600' :
-                                'text-green-600'
-                              }`}>
-                                {daysUntilExpiry > 0 ? `${daysUntilExpiry} days` : 'Expired'}
-                              </span>
+                              <span className="text-gray-600">Usage:</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`font-bold ${
+                                  isUnlimited ? 'text-purple-600' :
+                                  hoursLeft <= 2 ? 'text-red-600' :
+                                  hoursLeft <= 5 ? 'text-orange-600' :
+                                  'text-green-600'
+                                }`}>
+                                  {isUnlimited ? '∞ hours' : `${hoursLeft}h left`}
+                                </span>
+                                {!isUnlimited && (
+                                  <span className="text-gray-500">
+                                    ({pkg.used_hours || 0}h/{totalHours}h)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Expiration date */}
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-600">Expires:</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-gray-900">
+                                  {new Date(pkg.expiration_date).toLocaleDateString('en-GB', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric'
+                                  })}
+                                </span>
+                                <span className={`font-medium ${
+                                  daysUntilExpiry <= 3 ? 'text-red-600' :
+                                  daysUntilExpiry <= 7 ? 'text-orange-600' :
+                                  'text-green-600'
+                                }`}>
+                                  ({daysUntilExpiry > 0 ? `${daysUntilExpiry}d` : 'Expired'})
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>

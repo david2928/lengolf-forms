@@ -315,6 +315,57 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     }
   }, [selectedConversation?.customerId, fetchCustomerDetails]);
 
+  // Real-time subscription for bookings updates
+  useEffect(() => {
+    if (!selectedConversation?.customerId) return;
+
+    let channel: any = null;
+
+    const setupSubscription = async () => {
+      try {
+        // Use the shared realtime client
+        const { supabaseRealtime } = await import('@/lib/supabase-realtime');
+
+        if (!supabaseRealtime) {
+          console.warn('Realtime client not available for bookings subscription');
+          return;
+        }
+
+        // Subscribe to bookings table changes for this customer
+        channel = supabaseRealtime
+          .channel(`bookings:customer_id=eq.${selectedConversation.customerId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*', // Listen to INSERT, UPDATE, DELETE
+              schema: 'public',
+              table: 'bookings',
+              filter: `customer_id=eq.${selectedConversation.customerId}`
+            },
+            (payload) => {
+              console.log('🔔 Booking change detected:', payload);
+              // Refresh customer details to get updated bookings
+              if (selectedConversation?.customerId) {
+                fetchCustomerDetails(selectedConversation.customerId);
+              }
+            }
+          )
+          .subscribe();
+      } catch (error) {
+        console.error('Error setting up bookings subscription:', error);
+      }
+    };
+
+    setupSubscription();
+
+    // Cleanup subscription on unmount or when customer changes
+    return () => {
+      if (channel) {
+        channel.unsubscribe();
+      }
+    };
+  }, [selectedConversation?.customerId, fetchCustomerDetails]);
+
   return {
     customerDetails,
     customerBookings,

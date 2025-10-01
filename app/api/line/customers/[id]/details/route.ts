@@ -49,7 +49,7 @@ export async function GET(
     const thailandDate = thailandNow.toISOString().split('T')[0]; // YYYY-MM-DD format
     const currentThailandTime = thailandNow.toTimeString().slice(0, 5); // HH:MM format
 
-    // Fetch all bookings from today onwards, then filter by time in the application
+    // Fetch all confirmed bookings from today onwards, then filter by time in the application
     const { data: allBookings, error: bookingsError } = await refacSupabaseAdmin
       .from('bookings')
       .select(`
@@ -60,9 +60,12 @@ export async function GET(
         bay,
         number_of_people,
         status,
+        booking_type,
+        package_name,
         created_at
       `)
       .eq('customer_id', customerId)
+      .eq('status', 'confirmed') // Only show confirmed bookings
       .gte('date', thailandDate) // Get bookings from today onwards
       .order('date', { ascending: true })
       .order('start_time', { ascending: true });

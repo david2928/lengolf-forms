@@ -33,7 +33,8 @@ import {
   MailOpen,
   Pin,
   PinOff,
-  MoreHorizontal
+  MoreHorizontal,
+  RefreshCw
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import Image from 'next/image';
@@ -224,7 +225,8 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
   enableAISuggestions = true,
   onToggleAI,
   markAsUnread,
-  toggleFollowUp
+  toggleFollowUp,
+  onRefresh
 }, ref) => {
   // Use conversations from props if provided, otherwise use local state
   const [localConversations, setLocalConversations] = useState<Conversation[]>([]);
@@ -439,6 +441,19 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
 
           {/* Controls */}
           <div className="flex items-center space-x-2">
+            {/* Refresh Button - Available on both mobile and desktop */}
+            {onRefresh && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRefresh}
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+                title="Refresh conversations"
+              >
+                <RefreshCw className="h-4 w-4 text-gray-600" />
+              </Button>
+            )}
+
             {/* Home Button - Available on both mobile and desktop */}
             <Link href="/">
               <Button

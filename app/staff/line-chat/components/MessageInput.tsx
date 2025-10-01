@@ -3,7 +3,7 @@
 // MessageInput component extracted from main LINE chat component
 // Handles message input, file uploads, templates, and mobile/desktop layouts
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +44,30 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [showCuratedImages, setShowCuratedImages] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [sendingProgress, setSendingProgress] = useState<{current: number, total: number} | null>(null);
+  const [staffName, setStaffName] = useState<string>('');
+
+  // Fetch current user's staff name on component mount
+  useEffect(() => {
+    const fetchStaffName = async () => {
+      try {
+        const response = await fetch('/api/user/me');
+        const data = await response.json();
+
+        if (data.success && data.data.staffDisplayName) {
+          setStaffName(data.data.staffDisplayName);
+        } else {
+          // Fallback to 'Staff' if unable to get name
+          setStaffName('Staff');
+        }
+      } catch (error) {
+        console.error('Error fetching staff name:', error);
+        // Fallback to 'Staff' on error
+        setStaffName('Staff');
+      }
+    };
+
+    fetchStaffName();
+  }, []);
 
   // Handle sending message
   const handleSendMessage = async () => {
@@ -213,7 +237,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                       </button>
 
                       <Link
-                        href={`/create-booking?from=chat&conversation=${selectedConversationObj?.id || ''}&customer=${selectedConversationObj?.customerId || ''}&channel=${selectedConversationObj?.channelType || 'line'}&staff=David`}
+                        href={`/create-booking?from=chat&conversation=${selectedConversationObj?.id || ''}&customer=${selectedConversationObj?.customerId || ''}&channel=${selectedConversationObj?.channelType || 'line'}&staff=${encodeURIComponent(staffName)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -383,7 +407,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
                 {/* Create Booking Button */}
                 <Link
-                  href={`/create-booking?from=chat&conversation=${selectedConversationObj?.id || ''}&customer=${selectedConversationObj?.customerId || ''}&channel=${selectedConversationObj?.channelType || 'line'}&staff=David`}
+                  href={`/create-booking?from=chat&conversation=${selectedConversationObj?.id || ''}&customer=${selectedConversationObj?.customerId || ''}&channel=${selectedConversationObj?.channelType || 'line'}&staff=${encodeURIComponent(staffName)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
