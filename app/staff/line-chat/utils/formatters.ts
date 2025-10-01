@@ -15,12 +15,24 @@ export const formatTime = (dateString?: string | null): string => {
 
   // Check if date is valid
   if (isNaN(date.getTime())) {
+    console.error('Invalid date in formatTime:', dateString);
     return 'Invalid date';
   }
 
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const hours = diff / (1000 * 60 * 60);
+
+  // Debug logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('formatTime:', {
+      input: dateString,
+      parsed: date.toISOString(),
+      now: now.toISOString(),
+      diffHours: hours,
+      diffDays: hours / 24
+    });
+  }
 
   if (hours < 1) {
     return 'Just now';
