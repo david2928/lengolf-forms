@@ -154,7 +154,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   return (
-    <div className="sticky bottom-0 z-10">
+    <>
       {/* Reply Preview Container */}
       {replyingToMessage && (
         <div className="bg-white border-t">
@@ -177,7 +177,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       )}
 
       {/* Message Input Container */}
-      <div className={`${isMobile ? 'bg-gray-100 p-2' : 'bg-white p-4'} ${replyingToMessage ? 'border-t border-gray-200' : 'border-t'}`}>
+      <div className={`${isMobile ? 'bg-white p-2' : 'bg-white p-4'} ${replyingToMessage ? '' : 'border-t'}`}>
         {/* Mobile Input - starts single line, grows upward */}
         {isMobile ? (
           <div className="flex items-end space-x-2">
@@ -478,6 +478,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         onSelect={handleTemplateSelect}
         customerName={selectedConversationObj?.customer?.name || selectedConversationObj?.user.displayName || ''}
       />
-    </div>
+    </>
   );
 };
