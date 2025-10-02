@@ -126,6 +126,10 @@ export async function GET(
             pictureUrl: msg.reply_sender_picture_url || (msg.reply_sender_type === 'admin' ? '/favicon.svg' : (conversation as any).line_users?.picture_url),
             fileName: null
           }
+        }),
+        // Include raw_event for rich message previews (Flex Messages, booking confirmations, etc.)
+        ...(msg.raw_event && {
+          rawEvent: msg.raw_event
         })
       };
     }) || [];

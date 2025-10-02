@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button'
 import {
   MessageSquare,
   FileText,
-  ImageIcon
+  ImageIcon,
+  Users,
+  Send
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -36,6 +38,18 @@ const communicationItems = [
     title: "Image Library",
     description: "Manage standard images for customer communication",
     path: "/staff/image-library"
+  },
+  {
+    icon: Users,
+    title: "Audience Manager",
+    description: "Create audiences and send broadcast messages to LINE contacts",
+    path: "/staff/line-audiences"
+  },
+  {
+    icon: Send,
+    title: "Broadcast Campaigns",
+    description: "View and manage broadcast message campaigns and analytics",
+    path: "/staff/line-campaigns"
   }
 ];
 

@@ -177,7 +177,7 @@ export default function ManageBookingsPage() {
     }
   };
 
-  const handleDateChange = (date: Date | null) => {
+  const handleDateChange = (date: Date | null | undefined) => {
     setSelectedDate(date || undefined);
   };
 

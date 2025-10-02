@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, User, Phone, Hash, X, ChevronLeft } from 'lucide-react';
+import { Search, User, Phone, Hash, X, ChevronLeft, UserPlus, Mail } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,11 +35,27 @@ export function CustomerLinkModal({
   loading = false,
   lineUserName
 }: CustomerLinkModalProps) {
+  // Mode state
+  const [mode, setMode] = useState<'search' | 'create'>('search');
+
+  // Search mode state
   const [searchTerm, setSearchTerm] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searching, setSearching] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Create mode state
+  const [createForm, setCreateForm] = useState({
+    fullName: '',
+    primaryPhone: '',
+    email: ''
+  });
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+  const [isCreating, setIsCreating] = useState(false);
+  const [createSuccess, setCreateSuccess] = useState(false);
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -151,7 +167,98 @@ export function CustomerLinkModal({
   const handleClose = () => {
     setSearchTerm('');
     setCustomers([]);
+    setMode('search');
+    setCreateForm({ fullName: '', primaryPhone: '', email: '' });
+    setCreateErrors({});
+    setCreateSuccess(false);
     onClose();
+  };
+
+  // Pre-fill form when switching to create mode
+  useEffect(() => {
+    if (mode === 'create' && lineUserName && !createForm.fullName) {
+      setCreateForm(prev => ({
+        ...prev,
+        fullName: lineUserName
+      }));
+    }
+  }, [mode, lineUserName, createForm.fullName]);
+
+  // Validate create form
+  const validateCreateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!createForm.fullName.trim()) {
+      errors.fullName = 'Full name is required';
+    } else if (createForm.fullName.trim().length < 2) {
+      errors.fullName = 'Name must be at least 2 characters';
+    }
+
+    if (!createForm.primaryPhone.trim()) {
+      errors.primaryPhone = 'Phone number is required';
+    } else if (!/^[0-9]{9,10}$/.test(createForm.primaryPhone.replace(/\D/g, ''))) {
+      errors.primaryPhone = 'Invalid phone number format';
+    }
+
+    if (createForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createForm.email)) {
+      errors.email = 'Invalid email format';
+    }
+
+    setCreateErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle customer creation
+  const handleCreateCustomer = async () => {
+    if (!validateCreateForm()) return;
+
+    setIsCreating(true);
+    setCreateErrors({});
+
+    try {
+      // Create customer
+      const response = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: createForm.fullName.trim(),
+          primaryPhone: createForm.primaryPhone.trim(),
+          email: createForm.email?.trim() || undefined
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.duplicateFields?.includes('normalized_phone')) {
+          setCreateErrors({ primaryPhone: 'This phone number is already registered' });
+        } else {
+          setCreateErrors({ general: data.error || 'Failed to create customer' });
+        }
+        return;
+      }
+
+      // Show success and auto-link
+      setCreateSuccess(true);
+
+      // Auto-link the newly created customer
+      setTimeout(() => {
+        onCustomerSelect(data.customer.id, {
+          id: data.customer.id,
+          customer_code: data.customer.customer_code,
+          customer_name: data.customer.customer_name,
+          contact_number: data.customer.contact_number,
+          email: data.customer.email
+        });
+        handleClose();
+      }, 500);
+
+    } catch (error) {
+      console.error('Error creating customer:', error);
+      setCreateErrors({ general: 'Network error. Please try again.' });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   // Mobile full-screen modal
@@ -185,8 +292,289 @@ export function CustomerLinkModal({
 
             {/* Mobile Content */}
             <div className="flex-1 overflow-y-auto p-4 flex flex-col">
-              {/* Search Input - Sticky at top */}
-              <div className="relative mb-4 bg-white sticky top-0 z-10 pb-2">
+              {/* Mode Toggle - Sticky at top */}
+              <div className="bg-white sticky top-0 z-10 pb-4">
+                <div className="flex rounded-lg border bg-gray-50 p-1 gap-1">
+                  <button
+                    onClick={() => setMode('search')}
+                    disabled={loading || isCreating}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                      mode === 'search'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Search className="h-4 w-4" />
+                    Search
+                  </button>
+                  <button
+                    onClick={() => setMode('create')}
+                    disabled={loading || isCreating}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                      mode === 'create'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Create New
+                  </button>
+                </div>
+              </div>
+
+              {/* Search Mode */}
+              {mode === 'search' && (
+                <>
+                  {/* Search Input */}
+                  <div className="relative mb-4">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder={lineUserName
+                        ? `Search for ${lineUserName}'s customer profile...`
+                        : "Search by name, phone, or customer code..."
+                      }
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                      disabled={loading}
+                      autoFocus
+                    />
+                    {searchTerm && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSearchTerm('')}
+                        className="absolute right-2 top-2 h-6 w-6 p-0"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Search Results */}
+                  <div className="flex-1">
+                    {searchTerm.length < 1 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Type to search customers</p>
+                      </div>
+                    )}
+
+                    {searching && searchTerm.length >= 1 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+                        <p className="text-sm">Searching customers...</p>
+                      </div>
+                    )}
+
+                    {!searching && searchTerm.length >= 1 && customers.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No customers found for &ldquo;{searchTerm}&rdquo;</p>
+                      </div>
+                    )}
+
+                    {customers.length > 0 && (
+                      <div className="space-y-2">
+                        {customers.map((customer) => (
+                          <button
+                            key={customer.id}
+                            onClick={() => handleCustomerSelect(customer)}
+                            disabled={loading}
+                            className="w-full p-4 text-left border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <div className="flex flex-col space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                  <span className="font-medium text-gray-900 truncate">
+                                    {customer.customer_name}
+                                  </span>
+                                </div>
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
+                                  {customer.customer_code}
+                                </Badge>
+                              </div>
+                              {customer.contact_number && (
+                                <div className="flex items-center gap-2 text-sm text-gray-500 pl-6">
+                                  <Phone className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{customer.contact_number}</span>
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Create Mode */}
+              {mode === 'create' && (
+                <div className="flex-1 flex flex-col">
+                  {/* Success Message */}
+                  {createSuccess && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-700 font-medium">Customer created successfully! Linking...</p>
+                    </div>
+                  )}
+
+                  {/* Error Message */}
+                  {createErrors.general && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-700">{createErrors.general}</p>
+                    </div>
+                  )}
+
+                  {/* Create Form */}
+                  <div className="space-y-4 flex-1">
+                    {/* Full Name */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Enter full name"
+                          value={createForm.fullName}
+                          onChange={(e) => setCreateForm(prev => ({ ...prev, fullName: e.target.value }))}
+                          className={`pl-10 ${createErrors.fullName ? 'border-red-500' : ''}`}
+                          disabled={isCreating || createSuccess}
+                          autoFocus
+                        />
+                      </div>
+                      {createErrors.fullName && (
+                        <p className="mt-1 text-sm text-red-600">{createErrors.fullName}</p>
+                      )}
+                    </div>
+
+                    {/* Phone Number */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone Number <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="0812345678"
+                          value={createForm.primaryPhone}
+                          onChange={(e) => setCreateForm(prev => ({ ...prev, primaryPhone: e.target.value }))}
+                          className={`pl-10 ${createErrors.primaryPhone ? 'border-red-500' : ''}`}
+                          disabled={isCreating || createSuccess}
+                        />
+                      </div>
+                      {createErrors.primaryPhone && (
+                        <p className="mt-1 text-sm text-red-600">{createErrors.primaryPhone}</p>
+                      )}
+                    </div>
+
+                    {/* Email (Optional) */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email <span className="text-gray-400 text-xs">(optional)</span>
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input
+                          type="email"
+                          placeholder="customer@example.com"
+                          value={createForm.email}
+                          onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
+                          className={`pl-10 ${createErrors.email ? 'border-red-500' : ''}`}
+                          disabled={isCreating || createSuccess}
+                        />
+                      </div>
+                      {createErrors.email && (
+                        <p className="mt-1 text-sm text-red-600">{createErrors.email}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Create Button */}
+                  <div className="pt-4 mt-auto">
+                    <Button
+                      onClick={handleCreateCustomer}
+                      disabled={isCreating || createSuccess}
+                      className="w-full"
+                    >
+                      {isCreating ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                          Creating...
+                        </>
+                      ) : createSuccess ? (
+                        'Linking...'
+                      ) : (
+                        <>
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Create & Link Customer
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // Desktop modal
+  return (
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-lg max-w-[90vw]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            <div className="flex-1">
+              <div>Link to Customer</div>
+              {lineUserName && (
+                <div className="text-sm font-normal text-gray-500 mt-1">
+                  for &ldquo;{lineUserName}&rdquo;
+                </div>
+              )}
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Mode Toggle */}
+          <div className="flex rounded-lg border bg-gray-50 p-1 gap-1">
+            <button
+              onClick={() => setMode('search')}
+              disabled={loading || isCreating}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                mode === 'search'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Search className="h-4 w-4" />
+              Search Existing
+            </button>
+            <button
+              onClick={() => setMode('create')}
+              disabled={loading || isCreating}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                mode === 'create'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <UserPlus className="h-4 w-4" />
+              Create New
+            </button>
+          </div>
+
+          {/* Search Mode */}
+          {mode === 'search' && (
+            <>
+              {/* Search Input */}
+              <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder={lineUserName
@@ -197,7 +585,6 @@ export function CustomerLinkModal({
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                   disabled={loading}
-                  autoFocus
                 />
                 {searchTerm && (
                   <Button
@@ -212,7 +599,7 @@ export function CustomerLinkModal({
               </div>
 
               {/* Search Results */}
-              <div className="flex-1">
+              <div className="max-h-80 overflow-y-auto">
                 {searchTerm.length < 1 && (
                   <div className="text-center py-8 text-gray-500">
                     <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -267,124 +654,132 @@ export function CustomerLinkModal({
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }
 
-  // Desktop modal (unchanged)
-  return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg max-w-[90vw]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            <div className="flex-1">
-              <div>Link to Customer</div>
-              {lineUserName && (
-                <div className="text-sm font-normal text-gray-500 mt-1">
-                  for &ldquo;{lineUserName}&rdquo;
+              {/* Footer */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={handleClose}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Create Mode */}
+          {mode === 'create' && (
+            <>
+              {/* Success Message */}
+              {createSuccess && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-700 font-medium">Customer created successfully! Linking...</p>
                 </div>
               )}
-            </div>
-          </DialogTitle>
-        </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Search Input */}
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder={lineUserName
-                ? `Search for ${lineUserName}'s customer profile...`
-                : "Search by name, phone, or customer code..."
-              }
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              disabled={loading}
-            />
-            {searchTerm && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSearchTerm('')}
-                className="absolute right-2 top-2 h-6 w-6 p-0"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
+              {/* Error Message */}
+              {createErrors.general && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700">{createErrors.general}</p>
+                </div>
+              )}
 
-          {/* Search Results */}
-          <div className="max-h-80 overflow-y-auto">
-            {searchTerm.length < 1 && (
-              <div className="text-center py-8 text-gray-500">
-                <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Type to search customers</p>
+              {/* Create Form */}
+              <div className="space-y-4">
+                {/* Full Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Enter full name"
+                      value={createForm.fullName}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, fullName: e.target.value }))}
+                      className={`pl-10 ${createErrors.fullName ? 'border-red-500' : ''}`}
+                      disabled={isCreating || createSuccess}
+                      autoFocus
+                    />
+                  </div>
+                  {createErrors.fullName && (
+                    <p className="mt-1 text-sm text-red-600">{createErrors.fullName}</p>
+                  )}
+                </div>
+
+                {/* Phone Number */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="0812345678"
+                      value={createForm.primaryPhone}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, primaryPhone: e.target.value }))}
+                      className={`pl-10 ${createErrors.primaryPhone ? 'border-red-500' : ''}`}
+                      disabled={isCreating || createSuccess}
+                    />
+                  </div>
+                  {createErrors.primaryPhone && (
+                    <p className="mt-1 text-sm text-red-600">{createErrors.primaryPhone}</p>
+                  )}
+                </div>
+
+                {/* Email (Optional) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email <span className="text-gray-400 text-xs">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      type="email"
+                      placeholder="customer@example.com"
+                      value={createForm.email}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
+                      className={`pl-10 ${createErrors.email ? 'border-red-500' : ''}`}
+                      disabled={isCreating || createSuccess}
+                    />
+                  </div>
+                  {createErrors.email && (
+                    <p className="mt-1 text-sm text-red-600">{createErrors.email}</p>
+                  )}
+                </div>
               </div>
-            )}
 
-            {searching && searchTerm.length >= 1 && (
-              <div className="text-center py-8 text-gray-500">
-                <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
-                <p className="text-sm">Searching customers...</p>
+              {/* Create Button */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={handleClose}
+                  disabled={isCreating || createSuccess}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateCustomer}
+                  disabled={isCreating || createSuccess}
+                >
+                  {isCreating ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                      Creating...
+                    </>
+                  ) : createSuccess ? (
+                    'Linking...'
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Create & Link
+                    </>
+                  )}
+                </Button>
               </div>
-            )}
-
-            {!searching && searchTerm.length >= 1 && customers.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No customers found for &ldquo;{searchTerm}&rdquo;</p>
-              </div>
-            )}
-
-            {customers.length > 0 && (
-              <div className="space-y-2">
-                {customers.map((customer) => (
-                  <button
-                    key={customer.id}
-                    onClick={() => handleCustomerSelect(customer)}
-                    disabled={loading}
-                    className="w-full p-4 text-left border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <div className="flex flex-col space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                          <span className="font-medium text-gray-900 truncate">
-                            {customer.customer_name}
-                          </span>
-                        </div>
-                        <Badge variant="outline" className="text-xs flex-shrink-0">
-                          {customer.customer_code}
-                        </Badge>
-                      </div>
-                      {customer.contact_number && (
-                        <div className="flex items-center gap-2 text-sm text-gray-500 pl-6">
-                          <Phone className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{customer.contact_number}</span>
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={handleClose}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-          </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

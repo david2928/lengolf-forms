@@ -15,6 +15,7 @@ import { FileMessage } from '@/components/line/FileMessage';
 import { ReplyDisplay } from '@/components/line/ReplyDisplay';
 import { MessageContextMenu } from '@/components/line/MessageContextMenu';
 import { MessageInput } from './MessageInput';
+import { RichMessagePreview } from '@/components/unified-chat/RichMessagePreview';
 import {
   MessageSquare,
   Users,
@@ -863,8 +864,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <div
                 className={`flex ${message.senderType === 'admin' ? 'justify-end' : 'justify-start'}`}
               >
-            {/* Render stickers and images without background container */}
-            {message.type === 'sticker' && message.stickerId ? (
+            {/* Render rich messages (Flex Messages, booking confirmations) */}
+            {(message.type === 'flex' && message.rawEvent?.booking_details) ? (
+              <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
+                <RichMessagePreview
+                  messageType={(message.rawEvent?.flex_type === 'booking_confirmation' || message.rawEvent?.flex_type === 'booking_reminder' || message.rawEvent?.flex_type === 'flex') ? message.rawEvent.flex_type : (message.rawEvent?.type === 'booking_confirmation' || message.rawEvent?.type === 'booking_reminder') ? message.rawEvent.type : 'booking_confirmation'}
+                  bookingDetails={message.rawEvent?.booking_details}
+                  className="message-bubble"
+                />
+                <span className="text-xs text-gray-400">
+                  {formatMessageTime(message.createdAt)}
+                </span>
+              </div>
+            ) : /* Render stickers and images without background container */
+            message.type === 'sticker' && message.stickerId ? (
               <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
                 <div
                   className="message-bubble"

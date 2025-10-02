@@ -437,7 +437,9 @@ export default function SalesDashboardPage() {
 
                   {/* Row 6: Flexible Analytics */}
                   <DashboardErrorBoundary>
-                    <FlexibleChart 
+                    <FlexibleChart
+                      startDate={dateRange.start.toISOString().split('T')[0]}
+                      endDate={dateRange.end.toISOString().split('T')[0]}
                       isLoading={isLoading}
                       title="Flexible Analytics"
                     />

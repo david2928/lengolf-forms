@@ -72,6 +72,29 @@ export interface Message {
     pictureUrl?: string;
     fileName?: string;
   };
+  // Rich message data (for Flex Messages, booking confirmations, etc.)
+  rawEvent?: {
+    type?: string;
+    flex_type?: string;
+    booking_details?: BookingDetails;
+    [key: string]: any;
+  };
+}
+
+// Booking details for rich message previews
+export interface BookingDetails {
+  bookingId: string;
+  customerName: string;
+  date: string;
+  time: string;
+  bay: string;
+  duration: string;
+  packageName?: string;
+  totalAmount?: number;
+  isCoaching?: boolean;
+  coachName?: string;
+  bookingType?: string;
+  hoursUntil?: number; // For reminder messages
 }
 
 export interface CustomerDetails {

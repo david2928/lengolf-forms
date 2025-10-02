@@ -238,10 +238,104 @@ npm run dev
 ### Quality Checklist
 
 Before committing:
-- [ ] `npm run lint` passes
+- [ ] `npm run lint` passes (no warnings)
 - [ ] `npm run typecheck` passes
 - [ ] Manual testing of features
 - [ ] Check console for errors
+
+## ⚠️ Common Errors to Avoid
+
+### React Hooks - ESLint exhaustive-deps
+
+**Problem:** `React Hook useEffect has missing dependencies`
+
+**Bad:**
+```typescript
+const fetchData = async () => {
+  const response = await fetch(`/api/data/${id}`);
+  // ...
+};
+
+useEffect(() => {
+  fetchData();
+}, [id]); // ❌ Warning: fetchData is missing
+```
+
+**Good:**
+```typescript
+// Import useCallback
+import { useState, useEffect, useCallback } from 'react';
+
+// Wrap function in useCallback with proper dependencies
+const fetchData = useCallback(async () => {
+  const response = await fetch(`/api/data/${id}`);
+  // ...
+}, [id]); // ✅ Dependencies specified
+
+// Define callback BEFORE useEffect
+useEffect(() => {
+  fetchData();
+}, [fetchData]); // ✅ No warning
+```
+
+**Key Rules:**
+1. Always import `useCallback` when creating functions used in `useEffect`
+2. Declare `useCallback` functions **before** the `useEffect` that uses them
+3. Include all external dependencies in the `useCallback` dependency array
+4. Use the callback function itself in the `useEffect` dependency array
+
+### React - Unescaped Entities
+
+**Problem:** `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`
+
+**Bad:**
+```tsx
+<p>I'll be there</p>  // ❌ Warning
+<p>"User's name"</p>   // ❌ Warning
+```
+
+**Good:**
+```tsx
+<p>I&apos;ll be there</p>      // ✅ Escaped apostrophe
+<p>&ldquo;User&rsquo;s name&rdquo;</p>  // ✅ Escaped quotes
+```
+
+### TypeScript - Function Hoisting with useCallback
+
+**Problem:** `Block-scoped variable used before its declaration`
+
+**Bad:**
+```typescript
+useEffect(() => {
+  fetchData();
+}, [fetchData]);
+
+const fetchData = useCallback(async () => {
+  // ❌ Error: used before declaration
+}, []);
+```
+
+**Good:**
+```typescript
+// Declare useCallback FIRST
+const fetchData = useCallback(async () => {
+  // ✅ Correct order
+}, []);
+
+// Then use in useEffect
+useEffect(() => {
+  fetchData();
+}, [fetchData]);
+```
+
+### Customer Creation - Field Requirements
+
+**Remember:**
+- Full name is **required**, minimum 2 characters
+- Phone number is **required**, 9-10 digits
+- Email is **optional** but must be valid format if provided
+- Always validate on both client and server side
+- Handle duplicate phone numbers gracefully
 
 ## Scraper Service Architecture
 

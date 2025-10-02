@@ -3,7 +3,7 @@
 // MessageInput component extracted from main LINE chat component
 // Handles message input, file uploads, templates, and mobile/desktop layouts
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,13 +38,68 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onAIRetrigger,
   enableAISuggestions = false
 }) => {
-  const [newMessage, setNewMessage] = useState('');
+  // Generate draft key based on conversation ID
+  const draftKey = selectedConversationObj?.id ? `chat-draft-${selectedConversationObj.id}` : null;
+
+  // Track previous conversation ID to handle conversation switches properly
+  const prevConversationIdRef = useRef<string | null>(null);
+
+  // Initialize message state with persisted draft if available
+  const [newMessage, setNewMessage] = useState(() => {
+    if (typeof window !== 'undefined' && draftKey) {
+      return sessionStorage.getItem(draftKey) || '';
+    }
+    return '';
+  });
+
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [showMobileQuickActions, setShowMobileQuickActions] = useState(false);
   const [showCuratedImages, setShowCuratedImages] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [sendingProgress, setSendingProgress] = useState<{current: number, total: number} | null>(null);
   const [staffName, setStaffName] = useState<string>('');
+
+  // Handle conversation changes - save current draft and load new draft
+  useEffect(() => {
+    const currentConversationId = selectedConversationObj?.id;
+    const previousConversationId = prevConversationIdRef.current;
+
+    // Only handle when conversation actually changes
+    if (currentConversationId !== previousConversationId) {
+      // Save draft for previous conversation if it exists
+      if (typeof window !== 'undefined' && previousConversationId) {
+        const prevDraftKey = `chat-draft-${previousConversationId}`;
+        if (newMessage.trim()) {
+          sessionStorage.setItem(prevDraftKey, newMessage);
+        } else {
+          sessionStorage.removeItem(prevDraftKey);
+        }
+      }
+
+      // Load draft for new conversation
+      if (typeof window !== 'undefined' && currentConversationId) {
+        const currentDraftKey = `chat-draft-${currentConversationId}`;
+        const savedDraft = sessionStorage.getItem(currentDraftKey);
+        setNewMessage(savedDraft || '');
+      } else {
+        setNewMessage('');
+      }
+
+      // Update ref to track current conversation
+      prevConversationIdRef.current = currentConversationId || null;
+    }
+  }, [selectedConversationObj?.id, newMessage]);
+
+  // Save draft to sessionStorage whenever message changes (for current conversation only)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && draftKey) {
+      if (newMessage.trim()) {
+        sessionStorage.setItem(draftKey, newMessage);
+      } else {
+        sessionStorage.removeItem(draftKey);
+      }
+    }
+  }, [newMessage, draftKey]);
 
   // Fetch current user's staff name on component mount
   useEffect(() => {
@@ -76,6 +131,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     // Pass reply information if replying to a message - use platformMessageId for Facebook replies
     await onSendMessage(newMessage.trim(), 'text', replyingToMessage?.platformMessageId || replyingToMessage?.id);
     setNewMessage('');
+
+    // Clear draft from sessionStorage when message is sent
+    if (typeof window !== 'undefined' && draftKey) {
+      sessionStorage.removeItem(draftKey);
+    }
 
     // Clear reply state when message is sent
     if (replyingToMessage && onCancelReply) {

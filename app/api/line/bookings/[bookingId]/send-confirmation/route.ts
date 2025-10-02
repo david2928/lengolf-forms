@@ -147,7 +147,12 @@ export async function POST(
     // Calculate end time from start time and duration
     const startTime = booking.start_time;
     const [hours, minutes] = startTime.split(':').map(Number);
-    const endTime = `${String(hours + booking.duration).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+    // Convert duration (in hours) to minutes and add to start time
+    const totalMinutes = hours * 60 + minutes + (booking.duration * 60);
+    const endHours = Math.floor(totalMinutes / 60);
+    const endMinutes = Math.floor(totalMinutes % 60);
+    const endTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 
     const formData = {
       employeeName: null,

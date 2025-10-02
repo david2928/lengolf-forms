@@ -79,14 +79,28 @@ export default function UnifiedChatPage() {
 
   // Stable callback for new conversations - wrapped in useCallback to prevent recreation
   const handleNewConversation = useCallback(async (newConv: any) => {
-    // Debounce the refresh to avoid multiple rapid refreshes breaking the callback refs
-    if (refreshTimeoutRef.current) {
-      clearTimeout(refreshTimeoutRef.current);
-    }
+    // Instead of doing a full refresh (which would cause re-renders and lose input state),
+    // we check if the conversation already exists and only refresh if it doesn't
+    setConversationsRef.current(prev => {
+      const exists = prev.some(conv => conv.id === newConv.id);
 
-    refreshTimeoutRef.current = setTimeout(() => {
-      refreshConversationsRef.current();
-    }, 300); // Wait 300ms for additional events before refreshing
+      // If conversation already exists, don't do anything (it will be updated via handleConversationUpdate)
+      if (exists) {
+        return prev;
+      }
+
+      // If it's truly a new conversation, trigger a debounced refresh to get proper formatting
+      // but only if we haven't seen this conversation before
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+
+      refreshTimeoutRef.current = setTimeout(() => {
+        refreshConversationsRef.current();
+      }, 300); // Wait 300ms for additional events before refreshing
+
+      return prev; // Don't modify state yet, let the refresh handle it
+    });
   }, []); // Empty deps - using ref to access refresh function
 
   // Set up realtime conversation updates with stable callbacks

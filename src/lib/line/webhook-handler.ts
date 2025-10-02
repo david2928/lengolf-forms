@@ -617,6 +617,9 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
     const action = params.get('action');
     const bookingId = params.get('booking_id');
 
+    console.log(`Postback data: ${postbackData}`);
+    console.log(`Parsed action: ${action}`);
+
     // Ensure conversation exists before storing the response
     await ensureConversationExists(event.source.userId);
 
@@ -637,6 +640,56 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
 
     // Handle different actions
     switch (action) {
+      case 'opt_out': {
+        // Handle audience opt-out request
+        const audienceId = params.get('audience_id');
+        const campaignId = params.get('campaign_id');
+
+        if (audienceId) {
+          try {
+            // Call database function to handle opt-out
+            const { data: optOutResult, error: optOutError } = await supabase
+              .rpc('handle_audience_opt_out', {
+                p_audience_id: audienceId,
+                p_line_user_id: event.source.userId
+              });
+
+            if (optOutError) {
+              console.error('Error handling opt-out:', optOutError);
+              responseMessage = '❌ เกิดข้อผิดพลาดในการยกเลิก กรุณาติดต่อเจ้าหน้าที่ค่ะ';
+              displayText = '❌ Opt-out failed';
+            } else if (optOutResult) {
+              responseMessage = '✅ คุณได้ยกเลิกการรับข้อความจากกลุ่มนี้เรียบร้อยแล้วค่ะ\n\nหากต้องการรับข้อความอีกครั้ง กรุณาติดต่อเจ้าหน้าที่ค่ะ';
+              displayText = '✅ Opted out from broadcast';
+
+              // Log the opt-out in broadcast logs if campaign_id is provided
+              if (campaignId) {
+                await supabase
+                  .from('line_broadcast_logs')
+                  .insert({
+                    campaign_id: campaignId,
+                    line_user_id: event.source.userId,
+                    status: 'opted_out',
+                    sent_at: new Date().toISOString()
+                  });
+              }
+            } else {
+              // User was already opted out or not in audience
+              responseMessage = 'ขอบคุณค่ะ คุณไม่ได้อยู่ในรายการรับข้อความนี้แล้วค่ะ';
+              displayText = 'Already opted out';
+            }
+          } catch (error) {
+            console.error('Exception handling opt-out:', error);
+            responseMessage = '❌ เกิดข้อผิดพลาดในการยกเลิก กรุณาติดต่อเจ้าหน้าที่ค่ะ';
+            displayText = '❌ Opt-out error';
+          }
+        } else {
+          responseMessage = '❌ ข้อมูลไม่ครบถ้วน กรุณาติดต่อเจ้าหน้าที่ค่ะ';
+          displayText = '❌ Missing audience ID';
+        }
+        break;
+      }
+
       case 'confirm_booking':
         responseMessage = '✅ Thank you for confirming your booking! We look forward to seeing you.';
         displayText = '✅ Confirmed booking';
@@ -651,6 +704,23 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
         responseMessage = '❌ We\'ve received your cancellation request. Our staff will process this and contact you to confirm the cancellation.';
         displayText = '❌ Requested booking cancellation';
         break;
+
+      case 'book_slot': {
+        // Handle coaching slot booking request
+        const date = params.get('date');
+        const time = params.get('time');
+        const coachId = params.get('coach_id');
+        const coachName = params.get('coach_name') ? decodeURIComponent(params.get('coach_name')!) : 'Coach';
+
+        if (date && time && coachId) {
+          displayText = `🏌️ Book ${new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${time} with ${coachName}`;
+          responseMessage = `✅ Thank you! We've received your booking request for:\n\n📅 Date: ${new Date(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}\n⏰ Time: ${time}\n🏌️ Coach: ${coachName}\n\nOur staff will confirm your booking shortly. Please check your LINE messages for confirmation.`;
+        } else {
+          displayText = '❌ Invalid booking request';
+          responseMessage = '❌ เกิดข้อผิดพลาดในการจองค่ะ กรุณาติดต่อเจ้าหน้าที่ค่ะ';
+        }
+        break;
+      }
 
       default:
         responseMessage = '🤔 We received your response but couldn\'t understand the action. Our staff will follow up with you.';
@@ -678,7 +748,27 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
       throw postbackError;
     }
 
-    // Note: Automated responses removed per user request - only show customer button clicks
+    // Send automated response for opt-out and booking confirmations
+    if ((action === 'opt_out' || action === 'book_slot') && responseMessage && event.replyToken) {
+      try {
+        const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+        if (channelAccessToken) {
+          await fetch('https://api.line.me/v2/bot/message/reply', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${channelAccessToken}`
+            },
+            body: JSON.stringify({
+              replyToken: event.replyToken,
+              messages: [{ type: 'text', text: responseMessage }]
+            })
+          });
+        }
+      } catch (replyError) {
+        console.error('Error sending automated confirmation:', replyError);
+      }
+    }
 
     // Update conversation with the customer's action
     const { error: updateError } = await supabase.rpc('increment_conversation_unread', {

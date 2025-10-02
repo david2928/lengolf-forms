@@ -105,9 +105,11 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
     { value: 'customer_type', label: 'Customer Type' }
   ];
 
-  // Auto-adjust chart type based on dimension
+  // Auto-adjust chart type based on dimension - removed restriction
+  // Users can now use line charts with dimensions for multi-line visualization
   useEffect(() => {
-    if (dimension === 'none' && chartType !== 'line') {
+    // Only auto-switch if no dimension selected
+    if (dimension === 'none' && (chartType === 'stacked' || chartType === 'stacked100')) {
       setChartType('line');
     }
   }, [dimension, chartType]);
@@ -153,7 +155,7 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
   // Process data for charts
   const chartData = useMemo(() => {
     if (!data?.data) return [];
-    
+
     if (dimension === 'none') {
       // Simple line chart data
       return data.data.map(item => ({
@@ -162,30 +164,64 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
         raw_value: item.raw_value
       }));
     } else {
+      // Get top 5 dimensions
+      const dimensionTotals = data.data.reduce((acc, item) => {
+        acc[item.dimension] = (acc[item.dimension] || 0) + item.raw_value;
+        return acc;
+      }, {} as { [key: string]: number });
+
+      const top5 = Object.entries(dimensionTotals)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5)
+        .map(([dim]) => dim);
+
       // Group by date for stacked charts
       const groupedData: { [date: string]: any } = {};
-      
+
       data.data.forEach(item => {
         const date = formatDisplayDate(item.date);
         if (!groupedData[date]) {
-          groupedData[date] = { date };
+          groupedData[date] = { date, Others: 0, Others_raw: 0 };
         }
-        
+
         const value = chartType === 'stacked100' ? item.percentage : item.raw_value;
-        groupedData[date][item.dimension] = value;
-        groupedData[date][`${item.dimension}_raw`] = item.raw_value;
+
+        if (top5.includes(item.dimension)) {
+          groupedData[date][item.dimension] = value;
+          groupedData[date][`${item.dimension}_raw`] = item.raw_value;
+        } else {
+          // Aggregate into "Others"
+          groupedData[date].Others += value;
+          groupedData[date].Others_raw += item.raw_value;
+        }
       });
-      
+
       return Object.values(groupedData);
     }
   }, [data, chartType, dimension]);
 
-  // Get unique dimensions for stacked charts
+  // Get unique dimensions for stacked charts - limit to top 5 by total value, rest as "Others"
   const dimensions = useMemo(() => {
     if (!data?.data || dimension === 'none') return [];
-    
-    const uniqueDimensions = Array.from(new Set(data.data.map(item => item.dimension)));
-    return uniqueDimensions.sort();
+
+    // Calculate total value per dimension
+    const dimensionTotals = data.data.reduce((acc, item) => {
+      acc[item.dimension] = (acc[item.dimension] || 0) + item.raw_value;
+      return acc;
+    }, {} as { [key: string]: number });
+
+    // Sort by total value and take top 5
+    const sortedDimensions = Object.entries(dimensionTotals)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([dim]) => dim);
+
+    // Add "Others" if there are more than 5 dimensions
+    if (Object.keys(dimensionTotals).length > 5) {
+      sortedDimensions.push('Others');
+    }
+
+    return sortedDimensions;
   }, [data, dimension]);
 
   const currentMetric = availableMetrics.find(m => m.value === selectedMetric);
@@ -444,22 +480,22 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
 
         {/* Chart */}
         <ResponsiveContainer width="100%" height={400}>
-          {dimension === 'none' || chartType === 'line' ? (
+          {chartType === 'line' ? (
             <LineChart
               data={chartData}
               margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="date" 
-                stroke="#6b7280" 
+              <XAxis
+                dataKey="date"
+                stroke="#6b7280"
                 fontSize={12}
                 angle={-45}
                 textAnchor="end"
                 height={100}
               />
-              <YAxis 
-                stroke="#6b7280" 
+              <YAxis
+                stroke="#6b7280"
                 fontSize={12}
                 tickFormatter={(value) => {
                   return selectedMetric === 'revenue' || selectedMetric === 'profit' || selectedMetric === 'avg_transaction_value'
@@ -470,15 +506,31 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
                 }}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Line 
-                type="monotone"
-                dataKey="value" 
-                stroke={currentMetric?.color || '#3b82f6'}
-                strokeWidth={2}
-                dot={{ fill: currentMetric?.color || '#3b82f6', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6 }}
-                name={currentMetric?.label || 'Value'}
-              />
+              <Legend />
+              {dimension === 'none' ? (
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke={currentMetric?.color || '#3b82f6'}
+                  strokeWidth={2}
+                  dot={{ fill: currentMetric?.color || '#3b82f6', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6 }}
+                  name={currentMetric?.label || 'Value'}
+                />
+              ) : (
+                dimensions.map((dim, index) => (
+                  <Line
+                    key={dim}
+                    type="monotone"
+                    dataKey={dim}
+                    stroke={colors[index % colors.length]}
+                    strokeWidth={2}
+                    dot={{ fill: colors[index % colors.length], strokeWidth: 2, r: 3 }}
+                    activeDot={{ r: 5 }}
+                    name={dim}
+                  />
+                ))
+              )}
             </LineChart>
           ) : (
             <BarChart

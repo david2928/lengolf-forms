@@ -51,7 +51,8 @@
       "Read(//c/vs_code/lengolf-booking-new/**)",
       "Bash(code:*)",
       "Bash(cat:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []
