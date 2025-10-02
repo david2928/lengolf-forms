@@ -804,58 +804,39 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </Button>
           </div>
 
-          {/* Mobile Header Menu */}
-          <div className="relative md:hidden header-menu-container">
+          {/* Mobile Header Actions */}
+          <div className="md:hidden flex items-center space-x-1">
+            <Link href="/bookings-calendar" target="_blank" rel="noopener noreferrer">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="Bookings Calendar"
+              >
+                <Calendar className="h-4 w-4" />
+              </Button>
+            </Link>
+
+            <Link href="/coaching-assist" target="_blank" rel="noopener noreferrer">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="Coaching Assist"
+              >
+                <Target className="h-4 w-4" />
+              </Button>
+            </Link>
+
             <Button
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+              onClick={refreshData}
+              title="Refresh"
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4" />
             </Button>
-
-            {/* Mobile Header Dropdown */}
-            {showHeaderMenu && (
-              <>
-                <div
-                  className="fixed inset-0 bg-black bg-opacity-25 z-10"
-                  onClick={() => setShowHeaderMenu(false)}
-                />
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-1 z-20 min-w-[160px]">
-                  <Link href="/bookings-calendar" target="_blank" rel="noopener noreferrer">
-                    <button
-                      onClick={() => setShowHeaderMenu(false)}
-                      className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded w-full text-left text-sm"
-                    >
-                      <Calendar className="h-4 w-4 text-gray-500" />
-                      <span>Bookings Calendar</span>
-                    </button>
-                  </Link>
-
-                  <Link href="/coaching-assist" target="_blank" rel="noopener noreferrer">
-                    <button
-                      onClick={() => setShowHeaderMenu(false)}
-                      className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded w-full text-left text-sm"
-                    >
-                      <Target className="h-4 w-4 text-gray-500" />
-                      <span>Coaching Assist</span>
-                    </button>
-                  </Link>
-
-                  <button
-                    onClick={() => {
-                      refreshData();
-                      setShowHeaderMenu(false);
-                    }}
-                    className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded w-full text-left text-sm"
-                  >
-                    <RefreshCw className="h-4 w-4 text-gray-500" />
-                    <span>Refresh</span>
-                  </button>
-                </div>
-              </>
-            )}
           </div>
         </div>
       </div>

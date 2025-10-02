@@ -177,8 +177,6 @@ export function useRealtimeConversations({
 
             processedUpdatesRef.current.add(insertKey);
 
-            console.log('🔔 New LINE conversation detected:', conversationId);
-
             // Emit event instead of calling callback directly
             conversationEventTarget?.dispatchEvent(
               new CustomEvent('newConversation', { detail: payload.new })
@@ -236,8 +234,6 @@ export function useRealtimeConversations({
 
             processedUpdatesRef.current.add(insertKey);
 
-            console.log('🔔 New website conversation detected:', conversationId);
-
             // Emit event instead of calling callback directly
             conversationEventTarget?.dispatchEvent(
               new CustomEvent('newConversation', { detail: payload.new })
@@ -286,58 +282,44 @@ export function useRealtimeConversations({
             table: 'meta_conversations'
           },
           (payload: any) => {
-            console.log('📨 RAW Meta INSERT event received:', payload);
             const conversationId = payload.new?.id;
             const insertKey = `meta_insert:${conversationId}:${payload.new.created_at}`;
 
             if (!conversationId) {
-              console.warn('⚠️ Meta INSERT event missing conversation ID');
               return;
             }
 
             if (processedUpdatesRef.current.has(insertKey)) {
-              console.log('⏭️ Skipping duplicate Meta INSERT event:', conversationId);
               return;
             }
 
             processedUpdatesRef.current.add(insertKey);
-
-            console.log('🔔 New Meta conversation detected:', conversationId, payload.new.platform);
-            console.log('📋 Full conversation data:', payload.new);
 
             // Emit event instead of calling callback directly
             // This decouples the subscription from the parent component's render cycle
             conversationEventTarget?.dispatchEvent(
               new CustomEvent('newConversation', { detail: payload.new })
             );
-            console.log('✅ Event dispatched to global event target');
           }
         )
         .subscribe((status: string) => {
-          console.log('🔌 Realtime conversation subscription status:', status);
           if (status === 'SUBSCRIBED') {
-            console.log('✅ Successfully subscribed to conversation updates (LINE, Website, Meta)');
             setConnectionStatus({
               status: 'connected',
               lastConnected: new Date(),
               reconnectAttempts: 0
             });
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.error('❌ Realtime subscription error:', status);
             setConnectionStatus(prev => {
               const newAttempts = prev.reconnectAttempts + 1;
 
               // Auto-retry up to 3 times with exponential backoff
               if (newAttempts <= 3) {
                 const delay = Math.min(1000 * Math.pow(2, newAttempts - 1), 5000);
-                console.log(`🔄 Will retry connection in ${delay}ms (attempt ${newAttempts}/3)`);
 
                 reconnectTimeoutRef.current = setTimeout(() => {
-                  console.log('🔄 Retrying connection...');
                   connect();
                 }, delay);
-              } else {
-                console.error('❌ Max reconnection attempts reached');
               }
 
               return {
@@ -347,7 +329,6 @@ export function useRealtimeConversations({
               };
             });
           } else if (status === 'CLOSED') {
-            console.log('⚠️ Realtime subscription closed');
             setConnectionStatus(prev => ({ ...prev, status: 'disconnected' }));
           }
         });
@@ -373,7 +354,6 @@ export function useRealtimeConversations({
       // Delay connection by 100ms to ensure callbacks are fully initialized
       connectTimeout = setTimeout(() => {
         if (mounted) {
-          console.log('🔌 Connecting to realtime after mount delay...');
           connect();
         }
       }, 100);
@@ -386,7 +366,6 @@ export function useRealtimeConversations({
         clearTimeout(connectTimeout);
       }
       if (channelRef.current) {
-        console.log('🔌 Cleaning up realtime subscription on unmount');
         channelRef.current.unsubscribe();
         channelRef.current = null;
       }

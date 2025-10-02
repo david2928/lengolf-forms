@@ -23,15 +23,6 @@ import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
 import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 
 export default function UnifiedChatPage() {
-  // Debug: Track component mount/unmount
-  useEffect(() => {
-    const mountId = Math.random().toString(36).slice(2, 9);
-    console.log(`🏗️ UnifiedChatPage MOUNTED [${mountId}]`);
-    return () => {
-      console.log(`💥 UnifiedChatPage UNMOUNTED [${mountId}]`);
-    };
-  }, []);
-
   // Core state - using unified chat system
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const selectedConversationRef = useRef<string | null>(null);
@@ -64,7 +55,6 @@ export default function UnifiedChatPage() {
 
   // Stable callback for conversation updates - wrapped in useCallback to prevent recreation
   const handleConversationUpdate = useCallback((conversationUpdate: any) => {
-    console.log('🔄 handleConversationUpdate called with:', conversationUpdate.id);
     // Update existing conversation in the list and re-sort by lastMessageAt
     setConversationsRef.current(prev => {
       const updated = prev.map(conv =>
@@ -89,9 +79,6 @@ export default function UnifiedChatPage() {
 
   // Stable callback for new conversations - wrapped in useCallback to prevent recreation
   const handleNewConversation = useCallback(async (newConv: any) => {
-    console.log('🎯 CALLBACK IDENTITY CHECK - handleNewConversation is being called!');
-    console.log('🔔 NEW CONVERSATION EVENT RECEIVED:', newConv);
-
     // Debounce the refresh to avoid multiple rapid refreshes breaking the callback refs
     if (refreshTimeoutRef.current) {
       clearTimeout(refreshTimeoutRef.current);
