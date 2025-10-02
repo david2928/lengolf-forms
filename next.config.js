@@ -16,12 +16,8 @@ const nextConfig = {
   
   // Optimize bundle by excluding unused dependencies
   webpack: (config, { isServer, dev }) => {
-    if (!isServer) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        '@supabase/realtime-js': false,
-      }
-    }
+    // Note: Realtime-js alias removed to enable Supabase Realtime for notifications
+    // Previously was aliased to false to reduce bundle size
     
     // Bundle analyzer in development
     if (dev && process.env.ANALYZE === 'true') {
@@ -82,8 +78,8 @@ const nextConfig = {
   },
   
   // Optimize builds
-  serverExternalPackages: ['@supabase/supabase-js'],
   experimental: {
+    serverComponentsExternalPackages: ['@supabase/supabase-js'],
   },
   
   // Compression

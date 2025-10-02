@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-config'
 import { SessionProvider } from '@/components/session-provider'
 import { ConditionalNav } from '@/components/conditional-nav'
+import { NotificationsClientProvider } from '@/components/providers/NotificationsClientProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,12 +22,14 @@ export default async function RootLayout({
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body className={`${inter.className} h-full`}>
         <SessionProvider session={session}>
-          <div className="min-h-screen bg-background flex flex-col">
-            <ConditionalNav />
-            <main className="flex-1">{children}</main>
-            <Toaster />
-            <SonnerToaster position="top-right" />
-          </div>
+          <NotificationsClientProvider>
+            <div className="min-h-screen bg-background flex flex-col">
+              <ConditionalNav />
+              <main className="flex-1">{children}</main>
+              <Toaster />
+              <SonnerToaster position="top-right" />
+            </div>
+          </NotificationsClientProvider>
         </SessionProvider>
       </body>
     </html>

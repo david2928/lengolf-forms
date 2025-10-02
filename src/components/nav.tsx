@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
 import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target, Percent } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
+import { NotificationBell } from './notifications/NotificationBell'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -418,7 +419,8 @@ export function Nav() {
         )}
       </nav>
 
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-2">
+        <NotificationBell />
         <Button variant="outline" size="sm" onClick={() => signOut()} className="border border-gray-200">
           <LogOut className="h-4 w-4 mr-2" />
           Sign Out
