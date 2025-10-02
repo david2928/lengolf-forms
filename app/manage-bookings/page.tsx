@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { DatePicker } from '@/components/ui/date-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Booking } from '@/types/booking'; // Import actual Booking type
@@ -15,6 +14,9 @@ import { useToast } from "@/components/ui/use-toast"; // For showing success/err
 import { Checkbox } from '@/components/ui/checkbox'; // Add Checkbox import
 import { Info, Package, Users } from 'lucide-react'; // Import Info, Package, and Users icons
 import { CustomerLink } from '@/components/shared/CustomerLink';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { SimpleCalendar } from '@/components/ui/simple-calendar';
 
 // Helper function to calculate end_time
 const calculateEndTime = (date: string, startTime: string, duration: number): string => {
@@ -268,7 +270,25 @@ export default function ManageBookingsPage() {
         </CardHeader>
         <CardContent>
           <div className="mb-4">
-            <DatePicker value={selectedDate} onChange={handleDateChange} label="Select Booking Date"/>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Booking Date</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? format(selectedDate, 'PPP') : 'Select date...'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <SimpleCalendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={handleDateChange}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="mb-4">
             <Input 

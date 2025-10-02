@@ -94,6 +94,7 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [phoneError, setPhoneError] = useState<string>('');
+  const [submissionError, setSubmissionError] = useState<string>('');
   
   // Cache the selected customer so it persists even when SWR data changes
   const [selectedCustomerCache, setSelectedCustomerCache] = useState<NewCustomer | null>(null);
@@ -454,6 +455,7 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
     }
 
     setIsSubmitting(true);
+    setSubmissionError(''); // Clear any previous errors
     try {
       const result = await handleFormSubmit(formData);
       if (result.success) {
@@ -467,9 +469,13 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
           }
         }));
         await mutateCustomers();
+      } else if (result.error) {
+        // Display error from the API
+        setSubmissionError(result.error);
       }
     } catch (error) {
       console.error('Submission error:', error);
+      setSubmissionError(error instanceof Error ? error.message : 'An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
     }
@@ -514,13 +520,18 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
     setFormValue: (field: string, value: any) => {
       setFormData(prev => {
         const updated = { ...prev, [field]: value };
-        
+
         // Clear package selection when booking type changes
         if (field === 'bookingType' && prev.bookingType !== value) {
           updated.packageId = '';
           updated.packageName = '';
         }
-        
+
+        // Clear submission error when time is changed
+        if (field === 'startTime' || field === 'endTime') {
+          setSubmissionError('');
+        }
+
         return updated;
       });
     },
@@ -874,31 +885,50 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
 
       {/* Submit Button */}
       {isFormComplete && (
-        <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
-          <Button
-            variant="outline"
-            onClick={handleReset}
-            disabled={isSubmitting}
-            className="w-full sm:w-auto order-2 sm:order-1"
-          >
-            Reset Form
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="min-w-[120px] w-full sm:w-auto order-1 sm:order-2"
-          >
-            {isSubmitting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Create Booking
-              </>
-            )}
-          </Button>
+        <div className="space-y-4">
+          {/* Error Message Display */}
+          {submissionError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-red-800">Booking Error</h3>
+                  <p className="mt-1 text-sm text-red-700">{submissionError}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
+            <Button
+              variant="outline"
+              onClick={handleReset}
+              disabled={isSubmitting}
+              className="w-full sm:w-auto order-2 sm:order-1"
+            >
+              Reset Form
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="min-w-[120px] w-full sm:w-auto order-1 sm:order-2"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Create Booking
+                </>
+              )}
+            </Button>
           </div>
-        )}
+        </div>
+      )}
 
         {/* Bay Blocking Modal */}
         <BayBlockingModal

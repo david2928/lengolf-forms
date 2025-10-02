@@ -257,9 +257,17 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
 
     if (!bookingResponse.ok) {
       let errorBody = '';
-      try { errorBody = await bookingResponse.text(); } catch (_) { /* Ignore */ }
+      let errorMessage = `Failed to create booking record: ${bookingResponse.statusText}`;
+      try {
+        errorBody = await bookingResponse.text();
+        const errorData = JSON.parse(errorBody);
+        // Use the detailed error message from the API if available
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (_) { /* Ignore parsing errors */ }
       console.error('Failed to create booking record. Status:', bookingResponse.status, 'Body:', errorBody);
-      throw new Error(`Failed to create booking record: ${bookingResponse.statusText}`);
+      throw new Error(errorMessage);
     }
 
     // We expect the new endpoint (BKM-T4) to return { success: true, bookingId: data.id }

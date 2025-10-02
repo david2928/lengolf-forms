@@ -5,7 +5,7 @@ import { customerMappingService } from '@/lib/customer-mapping-service';
 
 export async function POST(req: Request) {
   try {
-    const bookingDataForDb: Booking & { 
+    const bookingDataForDb: Booking & {
       isNewCustomer?: boolean;
       customer_id?: string;
     } = await req.json();
@@ -14,6 +14,24 @@ export async function POST(req: Request) {
       console.error('Validation Error: Missing required fields in booking data', bookingDataForDb);
       return NextResponse.json(
         { success: false, error: 'Missing required booking fields.' },
+        { status: 400 }
+      );
+    }
+
+    // Validate booking time is between 9am and midnight (BKK time)
+    const startTimeHour = parseInt(bookingDataForDb.start_time.split(':')[0], 10);
+    if (startTimeHour < 9 || startTimeHour >= 24) {
+      console.error('Time Validation Error: Booking time outside allowed hours', {
+        start_time: bookingDataForDb.start_time,
+        hour: startTimeHour
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Bookings can only be created for times between 09:00 and 23:59',
+          selected_time: bookingDataForDb.start_time,
+          allowed_hours: '09:00 - 23:59'
+        },
         { status: 400 }
       );
     }
