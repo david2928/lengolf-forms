@@ -1,11 +1,18 @@
 # Unified Chat System Architecture
 
 **Technical Architecture and Component Documentation**
-*Last Updated: September 2025*
+*Last Updated: January 2025*
 
 ## 🏗️ Architecture Overview
 
-The Unified Chat System is built on a modern, scalable architecture that combines the existing LINE chat infrastructure with new website chat capabilities. The system follows a microservices-inspired approach within a Next.js monolith, providing clear separation of concerns while maintaining development simplicity.
+The Unified Chat System is built on a modern, scalable architecture that integrates multiple messaging platforms into a single interface. The system supports **LINE, Website Chat, Facebook Messenger, Instagram Direct, and WhatsApp Business** through a unified abstraction layer. It follows a microservices-inspired approach within a Next.js monolith, providing clear separation of concerns while maintaining development simplicity.
+
+### Supported Channels
+- **LINE** - Full messaging support with stickers, images, replies
+- **Website Chat** - Live chat widget with file uploads
+- **Facebook Messenger** - Messages, images, postbacks
+- **Instagram Direct** - Direct messages and media
+- **WhatsApp Business** - Messages, templates, media
 
 ## 📋 System Components
 
@@ -123,7 +130,7 @@ sequenceDiagram
 
 #### Supabase Real-time Integration
 ```typescript
-// Real-time subscription configuration
+// Real-time subscription configuration for all channels
 const realtimeConfig = {
   line_messages: {
     event: 'INSERT',
@@ -136,8 +143,17 @@ const realtimeConfig = {
     schema: 'public',
     table: 'web_chat_messages',
     filter: conversationId ? `conversation_id=eq.${conversationId}` : undefined
+  },
+  meta_messages: {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'meta_messages',
+    filter: conversationId ? `conversation_id=eq.${conversationId}` : undefined
   }
 };
+
+// Channel-specific subscription
+const channelType: 'line' | 'website' | 'meta' | 'all' = 'all';
 ```
 
 #### Connection Management
@@ -176,6 +192,34 @@ const websiteDelivery = {
     sender: 'staff',
     timestamp: new Date().toISOString()
   }
+};
+```
+
+#### Meta Platform APIs
+```typescript
+// Meta (Facebook, Instagram, WhatsApp) message sending
+const metaApiCall = {
+  endpoint: 'https://graph.facebook.com/v18.0/me/messages',
+  headers: {
+    'Authorization': `Bearer ${META_PAGE_ACCESS_TOKEN}`,
+    'Content-Type': 'application/json'
+  },
+  payload: {
+    recipient: { id: platformUserId },
+    message: {
+      text: messageContent,
+      // Optional: Reply to specific message
+      reply_to: { message_id: replyToMessageId }
+    },
+    messaging_type: 'RESPONSE'
+  }
+};
+
+// Platform-specific delivery
+const platforms = {
+  facebook: 'Facebook Messenger',
+  instagram: 'Instagram Direct',
+  whatsapp: 'WhatsApp Business'
 };
 ```
 

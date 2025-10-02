@@ -1,11 +1,18 @@
 # Unified Chat System Database Documentation
 
-**Complete Database Schema and Relationships for Multi-Channel Chat**
-*Last Updated: September 2025*
+**Database Design Patterns, Views, Functions, and Migrations**
+*Last Updated: January 2025*
 
 ## 📋 Database Overview
 
-The Unified Chat System uses a hybrid database architecture that combines existing LINE chat tables with new website chat tables, unified through PostgreSQL views. This approach maintains backward compatibility while enabling seamless multi-channel operations.
+The Unified Chat System uses a hybrid database architecture that combines LINE chat tables, website chat tables, and Meta platform tables (Facebook, Instagram, WhatsApp), unified through PostgreSQL views. The system maintains **19 tables and 2 views** to support multi-channel messaging operations.
+
+> 📊 **Complete Table Reference**: For detailed table schemas, fields, indexes, and relationships, see [Database Tables Reference](./UNIFIED_CHAT_DATABASE_TABLES.md)
+
+### Quick Reference
+- **19 Tables**: 8 LINE, 3 Website, 4 Meta, 2 AI, 2 supporting tables
+- **2 Views**: `unified_conversations`, `unified_messages`
+- **Multiple Functions**: Triggers, helpers, utilities
 
 ## 🏗️ Schema Architecture
 
@@ -14,6 +21,7 @@ erDiagram
     %% Core Customer Data
     customers ||--o{ line_users : "customer_id"
     customers ||--o{ profiles : "customer_id"
+    customers ||--o{ meta_users : "customer_id"
 
     %% LINE Chat System
     line_users ||--o{ line_conversations : "line_user_id"
@@ -25,11 +33,18 @@ erDiagram
     web_chat_sessions ||--o{ web_chat_conversations : "session_id"
     web_chat_conversations ||--o{ web_chat_messages : "conversation_id"
 
+    %% Meta Platform System (Facebook, Instagram, WhatsApp)
+    meta_users ||--o{ meta_conversations : "platform_user_id"
+    meta_conversations ||--o{ meta_messages : "conversation_id"
+    meta_users ||--o{ meta_messages : "platform_user_id"
+
     %% Unified Views
     line_conversations ||--o{ unified_conversations : "source"
     web_chat_conversations ||--o{ unified_conversations : "source"
+    meta_conversations ||--o{ unified_conversations : "source"
     line_messages ||--o{ unified_messages : "source"
     web_chat_messages ||--o{ unified_messages : "source"
+    meta_messages ||--o{ unified_messages : "source"
 ```
 
 ## 📊 Core Tables

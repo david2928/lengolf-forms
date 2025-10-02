@@ -50,11 +50,13 @@
       "WebFetch(domain:developers.facebook.com)",
       "Read(//c/vs_code/lengolf-booking-new/**)",
       "Bash(code:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "supabase",
     "playwright",

@@ -1,22 +1,141 @@
-# Unified Chat System Documentation
+# Unified Chat System - Documentation Index
 
-**Comprehensive Guide to the Multi-Channel Unified Chat System**
-*Last Updated: September 2025*
+**Complete Documentation Hub for the Multi-Channel Unified Chat System**
+*Last Updated: January 2025*
 
 > ⚠️ **Notice**: AI-powered chat suggestions are currently disabled while we continue development. The core unified chat functionality remains fully operational.
 
+---
 
-## 🌟 Executive Summary
+## 📚 Documentation Overview
 
-The Unified Chat System is a comprehensive multi-channel messaging platform that enables staff to manage customer conversations across both LINE and website channels from a single, streamlined interface. This system represents the evolution of the original LINE-only chat system into a full omnichannel communication platform.
+This is the main entry point for all Unified Chat System documentation. Use this index to navigate to specific topics.
+
+---
+
+## 🌟 System Overview
+
+The Unified Chat System is a comprehensive multi-channel messaging platform that enables staff to manage customer conversations across **LINE, Website Chat, Facebook Messenger, Instagram Direct, and WhatsApp** from a single, streamlined interface.
 
 ### Key Capabilities
-- **Multi-Channel Support**: Seamlessly handle LINE and website conversations
+- **Multi-Channel Support**: LINE, Website, Facebook, Instagram, WhatsApp
 - **Unified Interface**: Single staff interface for all customer communications
 - **Real-Time Updates**: Instant message delivery and read status updates
-- **Customer Linking**: Automatic customer association across channels
-- **Message Types**: Support for text, images, files, stickers, and rich content
+- **Customer Linking**: Automatic customer association across all channels
+- **Message Types**: Text, images, files, stickers, rich content, and templates
 - **Mobile-Responsive**: Optimized for both desktop and mobile staff usage
+- **AI Assistance**: Smart response suggestions (currently disabled, under development)
+
+### Supported Channels
+| Channel | Status | Icon | Features |
+|---------|--------|------|----------|
+| **LINE** | ✅ Active | 📱 | Messages, stickers, images, templates |
+| **Website Chat** | ✅ Active | 🌐 | Live chat widget, file uploads |
+| **Facebook Messenger** | ✅ Active | 📘 | Messages, images, postbacks |
+| **Instagram Direct** | ✅ Active | 📷 | Direct messages, images |
+| **WhatsApp Business** | ✅ Active | 💬 | Messages, templates, media |
+| **AI Suggestions** | 🚧 Development | 🤖 | Smart response generation |
+
+---
+
+## 📖 Complete Documentation Library
+
+### 🏗️ Architecture & Design
+- **[Architecture Documentation](./UNIFIED_CHAT_ARCHITECTURE.md)** - Technical architecture, components, data flow, performance optimization
+- **[Database Schema](./UNIFIED_CHAT_DATABASE_TABLES.md)** - Complete database tables, relationships, and indexes
+- **[Database Documentation](./UNIFIED_CHAT_DATABASE.md)** - Database design patterns, views, functions, and migrations
+
+### 🔧 API & Integration
+- **[API Reference](./UNIFIED_CHAT_API_REFERENCE.md)** - Complete REST API documentation for all endpoints
+- **[Meta Integration Guide](./META_INTEGRATION_GUIDE.md)** - Facebook, Instagram, and WhatsApp setup
+
+### 👨‍💻 Development
+- **[Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)** - Developer implementation guide, code patterns, testing
+- **[Customer Web Chat Implementation](./CUSTOMER_WEB_CHAT_IMPLEMENTATION_GUIDE.md)** - Original implementation plan (historical reference)
+
+### 🤖 AI Features (Under Development)
+- **[AI Chat Suggestions](./AI_CHAT_SUGGESTIONS.md)** - AI-powered response suggestions (disabled)
+- **[AI Function Calling](./AI_FUNCTION_CALLING_IMPLEMENTATION.md)** - Future AI automation features
+
+---
+
+## 🚀 Quick Start Guides
+
+### For Developers
+
+#### Initial Setup
+```bash
+# Clone and install
+git clone [repository-url]
+cd lengolf-forms
+npm install
+
+# Configure environment
+cp .env.example .env.local
+echo "SKIP_AUTH=true" >> .env.local  # Development bypass
+
+# Start development server
+npm run dev
+```
+
+#### Access Points
+- **Unified Chat Interface**: `http://localhost:3000/staff/unified-chat`
+- **LINE Chat (Legacy)**: `http://localhost:3000/staff/line-chat`
+- **AI Demo**: `http://localhost:3000/staff/ai-demo`
+
+### For Staff Users
+
+#### Accessing the System
+1. Navigate to `/staff/unified-chat`
+2. All conversations appear in a single list with channel indicators
+3. Click any conversation to view and respond
+4. Messages are delivered instantly to customers
+
+#### Channel Indicators
+- 📱 **Green** = LINE
+- 🌐 **Blue** = Website Chat
+- 📘 **Blue** = Facebook Messenger
+- 📷 **Pink** = Instagram Direct
+- 💬 **Green** = WhatsApp Business
+
+---
+
+## 🗄️ Database Tables Reference
+
+### Complete Table List (19 Tables + 2 Views)
+
+#### LINE Chat Tables (6 tables)
+- `line_users` - LINE user profiles and customer associations
+- `line_conversations` - LINE conversation management
+- `line_messages` - LINE message storage with rich content
+- `line_message_templates` - Pre-configured message templates
+- `line_curated_images` - Managed image library
+- `line_webhook_logs` - Webhook event logging
+- `line_group_debug` - LINE group chat debugging
+- `line_group_debug_settings` - Debug configuration
+
+#### Website Chat Tables (3 tables)
+- `web_chat_sessions` - Website user sessions
+- `web_chat_conversations` - Website conversation management
+- `web_chat_messages` - Website message storage
+
+#### Meta Platform Tables (4 tables)
+- `meta_users` - User profiles from Facebook/Instagram/WhatsApp
+- `meta_conversations` - Conversation management across Meta platforms
+- `meta_messages` - Message storage with platform-specific metadata
+- `meta_webhook_logs` - Webhook event logging
+
+#### AI & Embeddings Tables (2 tables)
+- `message_embeddings` - Vector embeddings for AI suggestions
+- `ai_suggestions` - AI suggestion tracking and feedback
+
+#### Unified Views (2 views)
+- `unified_conversations` - Combined view of all channel conversations
+- `unified_messages` - Combined view of all channel messages
+
+**📊 Detailed Documentation**: See [Database Tables Reference](./UNIFIED_CHAT_DATABASE_TABLES.md)
+
+---
 
 ## 🏗️ System Architecture Overview
 
@@ -25,347 +144,188 @@ graph TB
     subgraph "Customer Channels"
         A[LINE Mobile App]
         B[Website Chat Widget]
+        C[Facebook Messenger]
+        D[Instagram Direct]
+        E[WhatsApp Business]
     end
 
     subgraph "Unified Chat System"
-        C[Unified Chat Interface]
-        D[Real-time Message Hub]
-        E[Customer Linking Engine]
+        F[Unified Chat Interface]
+        G[Real-time Message Hub]
+        H[Customer Linking Engine]
     end
 
     subgraph "Backend Services"
-        F[LINE Webhook API]
-        G[Website Chat API]
-        H[Unified Conversations View]
-        I[Real-time Subscriptions]
+        I[LINE Webhook API]
+        J[Website Chat API]
+        K[Meta Webhook API]
+        L[Unified Conversations View]
+        M[Real-time Subscriptions]
     end
 
     subgraph "Database Layer"
-        J[(LINE Tables)]
-        K[(Website Chat Tables)]
-        L[(Unified Views)]
-        M[(Customer Profiles)]
+        N[(LINE Tables)]
+        O[(Website Tables)]
+        P[(Meta Tables)]
+        Q[(Unified Views)]
+        R[(Customer Profiles)]
     end
 
-    A --> F
-    B --> G
-    F --> D
-    G --> D
-    D --> C
-    C --> E
-    E --> M
-    H --> L
-    L --> J
-    L --> K
-    I --> C
+    A --> I
+    B --> J
+    C --> K
+    D --> K
+    E --> K
+    I --> G
+    J --> G
+    K --> G
+    G --> F
+    F --> H
+    H --> R
+    L --> Q
+    Q --> N
+    Q --> O
+    Q --> P
+    M --> F
 ```
 
-## 🎯 Core Features
-
-### 1. Multi-Channel Conversation Management
-- **Unified Inbox**: All conversations from LINE and website appear in a single list
-- **Channel Indicators**: Clear visual distinction between LINE and website conversations
-- **Consistent Interface**: Identical staff experience regardless of customer channel
-- **Cross-Channel Customer Tracking**: Customer information linked across all channels
-
-### 2. Real-Time Communication
-- **Instant Message Delivery**: Messages appear immediately without refresh
-- **Read Status Tracking**: Automatic read status updates when conversations are viewed
-- **Typing Indicators**: Real-time feedback for active conversations
-- **Connection Status**: Visual indicators for real-time connection health
-- **Conversation Sorting**: Conversations automatically re-order with newest messages at top
-- **Multi-Platform Realtime**: Comprehensive real-time updates for LINE, website, and Meta platforms
-- **Date Separators**: Visual date separators for messages spanning multiple days
-
-### 3. Customer Context & Linking
-- **Automatic Linking**: Website users automatically linked to customer profiles
-- **Manual Linking**: Staff can manually link LINE users to customer records
-- **Customer Information Panel**: Full customer details, bookings, packages, and transactions
-- **Conversation History**: Complete message history across all channels
-
-### 4. Message Types & Rich Content
-- **Text Messages**: Standard text communication with emoji support
-- **Image Sharing**: Photo uploads and curated image libraries
-- **File Attachments**: Document and file sharing capabilities
-- **LINE Stickers**: Native LINE sticker support
-- **Template Messages**: Pre-configured message templates
-- **Booking Confirmations**: Rich booking confirmation messages
-
-## 📱 User Interface Components
-
-### Main Interface Layout
-```
-┌─────────────────────────────────────────────────────────────┐
-│ [≡] Unified Chat System                              [⚙️] │
-├─────────────────────────────────────────────────────────────┤
-│ Conversations │        Chat Area        │ Customer Info     │
-│               │                         │                   │
-│ 📱 LINE       │   Selected Conversation │ 👤 Customer      │
-│ 🌐 Website    │                         │    Details        │
-│               │   [Message Input]       │                   │
-│ [+ New Chat]  │                         │ 📅 Bookings      │
-│               │                         │ 🎫 Packages      │
-│               │                         │ 💰 Transactions  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Key UI Components
-1. **ConversationSidebar**: List of all conversations with channel indicators
-2. **ChatArea**: Main message display and input area
-3. **CustomerSidebar**: Customer information and relationship management
-4. **MessageInput**: Rich message composition with file upload
-5. **Mobile Optimization**: Responsive design for staff mobile usage
-
-## 🔧 Technical Implementation
-
-### Core Technologies
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
-- **Backend**: Next.js API routes, Supabase
-- **Real-time**: Supabase real-time subscriptions
-- **Database**: PostgreSQL with unified views
-- **Authentication**: NextAuth.js with development bypass
-
-### Key Components
-
-#### 1. Unified Chat Hook (`useUnifiedChat`)
-```typescript
-// Manages conversations across all channels
-const {
-  conversations,           // All conversations (LINE + Website)
-  loading,                // Loading state
-  refreshConversations,   // Manual refresh function
-  getConversationById,    // Get specific conversation
-  updateConversationLastMessage,  // Update when new message arrives
-  updateConversationUnreadCount   // Update read status
-} = useUnifiedChat();
-```
-
-#### 2. Real-time Message Hook (`useRealtimeMessages`)
-```typescript
-// Handles real-time message subscriptions
-const {
-  connectionStatus,       // Connection health
-  reconnect,             // Manual reconnection
-  disconnect             // Cleanup function
-} = useRealtimeMessages({
-  conversationId: null,  // Subscribe to all conversations
-  onNewMessage: handleNewMessage,
-  channelType: 'all'     // Listen to both LINE and website
-});
-```
-
-#### 3. Chat Operations Hook (`useChatOperations`)
-```typescript
-// Manages message sending and file uploads
-const chatOps = useChatOperations(selectedConversation, handleMessageSent, selectedConversationObj);
-```
-
-## 📊 Database Architecture
-
-### Unified Views
-The system uses PostgreSQL views to create a unified interface over separate LINE and website tables:
-
-#### `unified_conversations` View
-Combines conversations from both channels:
-```sql
--- LINE conversations
-SELECT
-  'line'::text AS channel_type,
-  lc.id,
-  lc.line_user_id AS channel_user_id,
-  COALESCE(lc.customer_id, lu.customer_id) AS customer_id,
-  -- ... other fields
-FROM line_conversations lc
-LEFT JOIN line_users lu ON lc.line_user_id = lu.line_user_id
-
-UNION ALL
-
--- Website conversations
-SELECT
-  'website'::text AS channel_type,
-  wcc.id,
-  wcc.session_id::text AS channel_user_id,
-  COALESCE(wcs.customer_id, p.customer_id) AS customer_id,
-  -- ... other fields
-FROM web_chat_conversations wcc
-LEFT JOIN web_chat_sessions wcs ON wcc.session_id::text = wcs.id::text
-LEFT JOIN profiles p ON wcs.user_id = p.id
-```
-
-#### `unified_messages` View
-Combines messages from both channels with standardized fields.
-
-### Core Tables
-
-#### LINE Tables
-- `line_conversations`: LINE conversation management
-- `line_messages`: LINE message storage
-- `line_users`: LINE user profiles
-- `line_message_templates`: Message templates
-- `line_curated_images`: Image management
-
-#### Website Chat Tables
-- `web_chat_conversations`: Website conversation management
-- `web_chat_messages`: Website message storage
-- `web_chat_sessions`: Website user sessions
-- `profiles`: User profile linking
-
-## 🚀 Getting Started
-
-### For Developers
-
-#### 1. Environment Setup
-```bash
-# Add to .env.local
-SKIP_AUTH=true  # Development authentication bypass
-```
-
-#### 2. Access the Interface
-```bash
-# Start development server
-npm run dev
-
-# Access unified chat
-open http://localhost:3000/staff/unified-chat
-```
-
-#### 3. Test Different Scenarios
-- **LINE Conversations**: Conversations from LINE webhook
-- **Website Conversations**: Conversations from website chat widget
-- **Customer Linking**: Test automatic and manual customer association
-- **Real-time Updates**: Test message delivery and read status
-
-### For Staff Users
-
-#### 1. Accessing the System
-Navigate to `/staff/unified-chat` to access the unified interface.
-
-#### 2. Managing Conversations
-- **View All Conversations**: Both LINE and website conversations appear in the left sidebar
-- **Channel Identification**: Look for channel indicators (📱 LINE, 🌐 Website)
-- **Select Conversations**: Click any conversation to view messages
-- **Read Status**: Unread count automatically clears when viewing
-
-#### 3. Sending Messages
-- **Text Messages**: Type and press Enter or click Send
-- **File Uploads**: Click attachment icon to upload files
-- **Templates**: Use pre-configured message templates
-- **Images**: Send from curated image library
-
-#### 4. Customer Management
-- **View Customer Info**: Customer details appear in right sidebar
-- **Link Customers**: Manually link LINE users to customer records
-- **Booking Confirmations**: Send booking confirmations directly from chat
-- **Package Information**: View customer packages and usage
-
-## 🔄 Message Flow
-
-### Incoming Messages
-
-#### LINE Messages
-1. LINE webhook receives message
-2. Stored in `line_messages` table
-3. Real-time subscription triggers update
-4. Message appears in unified interface
-5. Conversation list updates with latest message
-
-#### Website Messages
-1. Website chat widget sends message via API
-2. Stored in `web_chat_messages` table
-3. Real-time subscription triggers update
-4. Message appears in unified interface
-5. Conversation list updates with latest message
-
-### Outgoing Messages
-
-#### To LINE Users
-1. Staff sends message via unified interface
-2. Message sent to LINE API
-3. Stored in `line_messages` table
-4. Real-time update to interface
-
-#### To Website Users
-1. Staff sends message via unified interface
-2. Message stored in `web_chat_messages` table
-3. Real-time subscription delivers to website widget
-4. Interface updates immediately
-
-## 📈 Performance & Scalability
-
-### Real-Time Optimization
-- **Selective Subscriptions**: Only subscribe to active conversations
-- **Connection Management**: Automatic reconnection on failures
-- **Message Batching**: Efficient handling of high-message volumes
-
-### Database Performance
-- **Indexed Views**: Optimized queries for unified data
-- **Selective Loading**: Load only necessary conversation data
-- **Caching Strategy**: Message caching for frequently accessed conversations
-
-### Mobile Performance
-- **Responsive Design**: Optimized for staff mobile devices
-- **Touch-Friendly Interface**: Large touch targets and swipe gestures
-- **Offline Resilience**: Graceful handling of connection issues
-
-## 🔒 Security & Privacy
-
-### Authentication & Authorization
-- **Staff Authentication**: NextAuth.js with Google OAuth
-- **Development Bypass**: Complete authentication bypass for development
-- **Role-Based Access**: Future support for role-based permissions
-
-### Data Protection
-- **Message Encryption**: Secure storage of sensitive conversations
-- **Customer Privacy**: Proper handling of customer personal information
-- **Audit Trails**: Complete logging of staff actions
-
-### API Security
-- **CSRF Protection**: Built-in Next.js CSRF protection
-- **Input Validation**: Comprehensive validation of all inputs
-- **Rate Limiting**: Protection against abuse
-
-## 🛠️ Maintenance & Monitoring
-
-### Health Checks
-- **Real-time Connection Status**: Visual indicators for connection health
-- **API Endpoint Monitoring**: Automatic health checks for critical endpoints
-- **Database Performance**: Query performance monitoring
-
-### Troubleshooting
-- **Connection Issues**: Automatic reconnection with exponential backoff
-- **Message Delivery**: Retry mechanisms for failed message delivery
-- **Error Logging**: Comprehensive error tracking and reporting
-
-### Updates & Migrations
-- **Database Migrations**: Supabase migration system
-- **Feature Rollouts**: Gradual rollout of new features
-- **Backward Compatibility**: Maintaining compatibility with existing data
-
-## 📚 Related Documentation
-
-- **[Unified Chat Architecture](./UNIFIED_CHAT_ARCHITECTURE.md)** - Technical architecture details
-- **[Unified Chat API Reference](./UNIFIED_CHAT_API_REFERENCE.md)** - Complete API documentation
-- **[Unified Chat Database](./UNIFIED_CHAT_DATABASE.md)** - Database schema and relationships
-- **[Unified Chat Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)** - Developer implementation guide
-- **[Customer Web Chat Implementation Guide](./CUSTOMER_WEB_CHAT_IMPLEMENTATION_GUIDE.md)** - Original implementation plan
-
-## 🎯 Future Enhancements
-
-### Planned Features
-- **Message Search**: Full-text search across all conversations
-- **Conversation Tags**: Categorization and organization
-- **Staff Assignment**: Route conversations to specific staff members
-- **Analytics Dashboard**: Conversation metrics and performance tracking
-- **Advanced Templates**: Dynamic templates with customer data
-- **Multi-Language Support**: Support for multiple languages
-
-### Technical Improvements
-- **Message Threading**: Support for conversation threads
-- **Voice Messages**: Audio message support
-- **Video Calls**: Integration with video calling platforms
-- **Chatbot Integration**: AI-powered automated responses
-- **Workflow Automation**: Automated routing and responses
+**📖 Detailed Architecture**: See [Architecture Documentation](./UNIFIED_CHAT_ARCHITECTURE.md)
 
 ---
 
-*This documentation is part of the Lengolf Forms comprehensive documentation system. For additional information, see the [Documentation Index](../../DOCUMENTATION_INDEX.md).*
+## 🎯 Core Features Summary
+
+### 1. Multi-Channel Conversation Management
+- Unified Inbox for all channels (LINE, Website, Facebook, Instagram, WhatsApp)
+- Channel indicators with visual distinction
+- Consistent staff interface across all channels
+- Cross-channel customer tracking and linking
+
+### 2. Real-Time Communication
+- Instant message delivery without page refresh
+- Read status tracking and typing indicators
+- Connection health monitoring
+- Automatic conversation sorting by most recent
+- Date separators for multi-day conversations
+
+### 3. Customer Context & Linking
+- Automatic linking for website users to customer profiles
+- Manual linking for LINE users to customer records
+- Customer information panel with bookings, packages, transactions
+- Complete conversation history across all channels
+
+### 4. Message Types & Rich Content
+- Text messages with emoji support
+- Image sharing with curated image libraries
+- File attachments and document sharing
+- LINE stickers (native support)
+- Pre-configured message templates
+- Rich booking confirmation messages
+
+**📖 Full Feature Details**: See sections below and [Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
+
+---
+
+## 📱 User Interface
+
+### Main Components
+- **ConversationSidebar**: Multi-channel conversation list
+- **ChatArea**: Message display and input
+- **CustomerSidebar**: Customer info, bookings, packages
+- **MessageInput**: Rich composition with file upload
+- **Mobile Responsive**: Optimized for all devices
+
+**📖 Component Details**: See [Architecture Documentation](./UNIFIED_CHAT_ARCHITECTURE.md)
+
+---
+
+## 🔧 Technical Stack
+
+### Technologies
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
+- **Backend**: Next.js API routes, Supabase
+- **Real-time**: Supabase real-time subscriptions
+- **Database**: PostgreSQL with unified views (19 tables + 2 views)
+- **Authentication**: NextAuth.js with development bypass
+
+### Key Hooks
+- `useUnifiedChat` - Conversation management across all channels
+- `useRealtimeMessages` - Real-time message subscriptions
+- `useChatOperations` - Message sending and file uploads
+
+**📖 Implementation Details**: See [Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
+
+---
+
+## 💡 Common Use Cases
+
+### For Staff
+1. **Respond to Customer Inquiries** - View and reply to messages from any channel
+2. **Link Customers** - Associate LINE/social media users with customer records
+3. **Send Templates** - Use pre-configured messages for common scenarios
+4. **View Customer History** - Access bookings, packages, transactions in-chat
+
+### For Administrators
+1. **Monitor Conversations** - Track all customer interactions across channels
+2. **Manage Templates** - Create and organize message templates
+3. **Review Analytics** - Track response times and conversation metrics
+4. **Configure Integrations** - Set up new messaging channels
+
+**📖 Detailed Use Cases**: See [Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
+
+---
+
+## 🔗 Additional Resources
+
+### Technical Documentation
+- **[Architecture](./UNIFIED_CHAT_ARCHITECTURE.md)** - System design, components, data flow
+- **[Database Tables](./UNIFIED_CHAT_DATABASE_TABLES.md)** - Complete table reference (19 tables + 2 views)
+- **[Database Design](./UNIFIED_CHAT_DATABASE.md)** - Views, functions, migrations, patterns
+- **[API Reference](./UNIFIED_CHAT_API_REFERENCE.md)** - Complete REST API documentation
+
+### Integration Guides
+- **[Meta Platforms](./META_INTEGRATION_GUIDE.md)** - Facebook, Instagram, WhatsApp setup
+- **[Customer Web Chat](./CUSTOMER_WEB_CHAT_IMPLEMENTATION_GUIDE.md)** - Website widget implementation
+
+### AI Features (Under Development)
+- **[AI Chat Suggestions](./AI_CHAT_SUGGESTIONS.md)** - GPT-4o-mini powered suggestions
+- **[AI Function Calling](./AI_FUNCTION_CALLING_IMPLEMENTATION.md)** - Future automation features
+
+### Project Documentation
+- **[Main Documentation Index](../../DOCUMENTATION_INDEX.md)** - Project-wide documentation hub
+
+---
+
+## 🎯 System Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| LINE Chat | ✅ Production | Fully operational |
+| Website Chat | ✅ Production | Fully operational |
+| Facebook Messenger | ✅ Production | Active integration |
+| Instagram Direct | ✅ Production | Active integration |
+| WhatsApp Business | ✅ Production | Active integration |
+| AI Suggestions | 🚧 Development | Feature disabled, under development |
+| Real-time Messaging | ✅ Production | All channels supported |
+| Customer Linking | ✅ Production | Automatic + manual linking |
+
+---
+
+## 📞 Support & Troubleshooting
+
+### Common Issues
+- **Messages not appearing**: Check real-time connection status in UI
+- **Customer not linked**: Use manual linking feature in customer sidebar
+- **Webhook failures**: Check Meta/LINE webhook logs tables
+
+### Debug Resources
+- **Database logs**: `line_webhook_logs`, `meta_webhook_logs`
+- **AI logs**: `ai_suggestions`, `message_embeddings` (when enabled)
+- **Development mode**: Set `SKIP_AUTH=true` in `.env.local`
+
+**📖 Detailed Troubleshooting**: See [Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md#troubleshooting)
+
+---
+
+*Last Updated: January 2025*
+*For questions or updates, see the [Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)*

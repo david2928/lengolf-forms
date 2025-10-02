@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { supabaseRealtime } from '@/lib/supabase-realtime';
+import { refacSupabase } from '@/lib/refac-supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface LineUser {
@@ -41,6 +41,10 @@ interface UseRealtimeConversationsOptions {
   onNewConversation?: (conversation: Conversation) => void;
 }
 
+// Create a global event emitter for conversation events
+// This ensures events are emitted even if the parent component re-renders
+const conversationEventTarget = typeof window !== 'undefined' ? new EventTarget() : null;
+
 export function useRealtimeConversations({
   onConversationUpdate,
   onNewConversation
@@ -48,21 +52,40 @@ export function useRealtimeConversations({
   const channelRef = useRef<RealtimeChannel | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<RealtimeConnectionStatus>({
-    status: supabaseRealtime ? 'disconnected' : 'error',
-    error: supabaseRealtime ? undefined : 'Realtime client not available',
+    status: refacSupabase ? 'disconnected' : 'error',
+    error: refacSupabase ? undefined : 'Realtime client not available',
     reconnectAttempts: 0
   });
 
   // Track processed conversation updates to prevent duplicates
   const processedUpdatesRef = useRef<Set<string>>(new Set());
 
-  // Use refs to store callback functions to avoid dependency issues
-  const onConversationUpdateRef = useRef(onConversationUpdate);
-  const onNewConversationRef = useRef(onNewConversation);
+  // Listen to global events and call callbacks
+  useEffect(() => {
+    if (!conversationEventTarget) return;
 
-  // Update refs when callbacks change
-  onConversationUpdateRef.current = onConversationUpdate;
-  onNewConversationRef.current = onNewConversation;
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (onConversationUpdate) {
+        onConversationUpdate(customEvent.detail);
+      }
+    };
+
+    const handleNew = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (onNewConversation) {
+        onNewConversation(customEvent.detail);
+      }
+    };
+
+    conversationEventTarget.addEventListener('conversationUpdate', handleUpdate);
+    conversationEventTarget.addEventListener('newConversation', handleNew);
+
+    return () => {
+      conversationEventTarget.removeEventListener('conversationUpdate', handleUpdate);
+      conversationEventTarget.removeEventListener('newConversation', handleNew);
+    };
+  }, [onConversationUpdate, onNewConversation]);
 
   const disconnect = useCallback(() => {
     if (channelRef.current) {
@@ -77,7 +100,7 @@ export function useRealtimeConversations({
   }, []);
 
   const connect = useCallback(async () => {
-    if (!supabaseRealtime) {
+    if (!refacSupabase) {
       setConnectionStatus(prev => ({
         ...prev,
         status: 'error',
@@ -100,7 +123,7 @@ export function useRealtimeConversations({
       setConnectionStatus(prev => ({ ...prev, status: 'connecting', error: undefined }));
 
       // Create channel for conversation updates
-      const channel = supabaseRealtime
+      const channel = refacSupabase
         .channel('conversations-updates')
         // Listen to LINE conversation updates
         .on(
@@ -130,7 +153,10 @@ export function useRealtimeConversations({
               unreadCount: payload.new.unread_count
             };
 
-            onConversationUpdateRef.current?.(conversationUpdate);
+            // Emit event instead of calling callback directly
+            conversationEventTarget?.dispatchEvent(
+              new CustomEvent('conversationUpdate', { detail: conversationUpdate })
+            );
           }
         )
         // Listen to LINE conversation inserts (new conversations)
@@ -151,10 +177,12 @@ export function useRealtimeConversations({
 
             processedUpdatesRef.current.add(insertKey);
 
-            // Trigger conversation list refresh for new conversations
-            // The onNewConversation callback will be handled by the parent component
             console.log('🔔 New LINE conversation detected:', conversationId);
-            onNewConversationRef.current?.(payload.new as Conversation);
+
+            // Emit event instead of calling callback directly
+            conversationEventTarget?.dispatchEvent(
+              new CustomEvent('newConversation', { detail: payload.new })
+            );
           }
         )
         // Listen to website conversation updates
@@ -180,11 +208,14 @@ export function useRealtimeConversations({
               id: conversationId,
               lastMessageAt: payload.new.last_message_at,
               lastMessageText: payload.new.last_message_text,
-              lastMessageBy: 'user' as const, // Website messages are typically from users (customers)
+              lastMessageBy: 'user' as const,
               unreadCount: payload.new.unread_count
             };
 
-            onConversationUpdateRef.current?.(conversationUpdate);
+            // Emit event instead of calling callback directly
+            conversationEventTarget?.dispatchEvent(
+              new CustomEvent('conversationUpdate', { detail: conversationUpdate })
+            );
           }
         )
         // Listen to website conversation inserts (new conversations)
@@ -205,9 +236,12 @@ export function useRealtimeConversations({
 
             processedUpdatesRef.current.add(insertKey);
 
-            // Trigger conversation list refresh for new website conversations
             console.log('🔔 New website conversation detected:', conversationId);
-            onNewConversationRef.current?.(payload.new as any);
+
+            // Emit event instead of calling callback directly
+            conversationEventTarget?.dispatchEvent(
+              new CustomEvent('newConversation', { detail: payload.new })
+            );
           }
         )
         // Listen to Meta conversation updates
@@ -237,7 +271,10 @@ export function useRealtimeConversations({
               unreadCount: payload.new.unread_count
             };
 
-            onConversationUpdateRef.current?.(conversationUpdate);
+            // Emit event instead of calling callback directly
+            conversationEventTarget?.dispatchEvent(
+              new CustomEvent('conversationUpdate', { detail: conversationUpdate })
+            );
           }
         )
         // Listen to Meta conversation inserts (new conversations)
@@ -249,34 +286,68 @@ export function useRealtimeConversations({
             table: 'meta_conversations'
           },
           (payload: any) => {
+            console.log('📨 RAW Meta INSERT event received:', payload);
             const conversationId = payload.new?.id;
             const insertKey = `meta_insert:${conversationId}:${payload.new.created_at}`;
 
-            if (!conversationId || processedUpdatesRef.current.has(insertKey)) {
+            if (!conversationId) {
+              console.warn('⚠️ Meta INSERT event missing conversation ID');
+              return;
+            }
+
+            if (processedUpdatesRef.current.has(insertKey)) {
+              console.log('⏭️ Skipping duplicate Meta INSERT event:', conversationId);
               return;
             }
 
             processedUpdatesRef.current.add(insertKey);
 
-            // Trigger conversation list refresh for new Meta conversations
             console.log('🔔 New Meta conversation detected:', conversationId, payload.new.platform);
-            onNewConversationRef.current?.(payload.new as any);
+            console.log('📋 Full conversation data:', payload.new);
+
+            // Emit event instead of calling callback directly
+            // This decouples the subscription from the parent component's render cycle
+            conversationEventTarget?.dispatchEvent(
+              new CustomEvent('newConversation', { detail: payload.new })
+            );
+            console.log('✅ Event dispatched to global event target');
           }
         )
-        .subscribe((status) => {
+        .subscribe((status: string) => {
+          console.log('🔌 Realtime conversation subscription status:', status);
           if (status === 'SUBSCRIBED') {
+            console.log('✅ Successfully subscribed to conversation updates (LINE, Website, Meta)');
             setConnectionStatus({
               status: 'connected',
               lastConnected: new Date(),
               reconnectAttempts: 0
             });
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            setConnectionStatus(prev => ({
-              status: 'error',
-              error: `Connection failed: ${status}`,
-              reconnectAttempts: prev.reconnectAttempts + 1
-            }));
+            console.error('❌ Realtime subscription error:', status);
+            setConnectionStatus(prev => {
+              const newAttempts = prev.reconnectAttempts + 1;
+
+              // Auto-retry up to 3 times with exponential backoff
+              if (newAttempts <= 3) {
+                const delay = Math.min(1000 * Math.pow(2, newAttempts - 1), 5000);
+                console.log(`🔄 Will retry connection in ${delay}ms (attempt ${newAttempts}/3)`);
+
+                reconnectTimeoutRef.current = setTimeout(() => {
+                  console.log('🔄 Retrying connection...');
+                  connect();
+                }, delay);
+              } else {
+                console.error('❌ Max reconnection attempts reached');
+              }
+
+              return {
+                status: 'error',
+                error: `Connection failed: ${status}`,
+                reconnectAttempts: newAttempts
+              };
+            });
           } else if (status === 'CLOSED') {
+            console.log('⚠️ Realtime subscription closed');
             setConnectionStatus(prev => ({ ...prev, status: 'disconnected' }));
           }
         });
@@ -293,20 +364,39 @@ export function useRealtimeConversations({
     }
   }, []);
 
-  // Connect on mount
+  // Connect on mount - delay slightly to ensure refs are populated
   useEffect(() => {
-    if (supabaseRealtime) {
-      connect();
-    }
-    return disconnect;
-  }, [connect, disconnect]);
+    let mounted = true;
+    let connectTimeout: NodeJS.Timeout;
 
-  // Cleanup on unmount
-  useEffect(() => {
+    if (refacSupabase && mounted) {
+      // Delay connection by 100ms to ensure callbacks are fully initialized
+      connectTimeout = setTimeout(() => {
+        if (mounted) {
+          console.log('🔌 Connecting to realtime after mount delay...');
+          connect();
+        }
+      }, 100);
+    }
+
+    // Cleanup on unmount
     return () => {
-      disconnect();
+      mounted = false;
+      if (connectTimeout) {
+        clearTimeout(connectTimeout);
+      }
+      if (channelRef.current) {
+        console.log('🔌 Cleaning up realtime subscription on unmount');
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
     };
-  }, [disconnect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - connect once and refs will handle callback updates
 
   // Manual reconnect function
   const reconnect = useCallback(() => {

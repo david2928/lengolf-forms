@@ -1,11 +1,18 @@
 # Unified Chat System API Reference
 
 **Complete API Documentation for the Multi-Channel Chat System**
-*Last Updated: September 2025*
+*Last Updated: January 2025*
 
 ## 📋 Overview
 
-The Unified Chat System provides a comprehensive set of REST API endpoints for managing conversations, messages, and customer interactions across LINE and website channels. All endpoints follow RESTful conventions and return JSON responses.
+The Unified Chat System provides a comprehensive set of REST API endpoints for managing conversations, messages, and customer interactions across **LINE, Website Chat, Facebook Messenger, Instagram Direct, and WhatsApp Business**. All endpoints follow RESTful conventions and return JSON responses.
+
+### Supported Channels
+- **LINE** (`line`) - LINE messaging platform
+- **Website** (`website`) - Website chat widget
+- **Facebook** (`facebook`) - Facebook Messenger
+- **Instagram** (`instagram`) - Instagram Direct messages
+- **WhatsApp** (`whatsapp`) - WhatsApp Business
 
 ## 🔗 Base URLs
 
@@ -45,7 +52,7 @@ GET /api/conversations
 #### Query Parameters
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `channel` | string | all | Filter by channel: `line`, `website`, `all` |
+| `channel` | string | all | Filter by channel: `line`, `website`, `facebook`, `instagram`, `whatsapp`, `all` |
 | `includeInactive` | boolean | false | Include inactive conversations |
 | `limit` | number | 50 | Maximum conversations to return |
 | `offset` | number | 0 | Number of conversations to skip |
@@ -326,10 +333,108 @@ PUT /api/conversations/website/{conversationId}/mark-read
 }
 ```
 
+## 📱 Meta Platform API
+
+### Send Meta Message
+Send a message to Facebook Messenger, Instagram Direct, or WhatsApp.
+
+```http
+POST /api/meta/send-message
+```
+
+#### Request Body
+```json
+{
+  "platformUserId": "1234567890",
+  "platform": "facebook",
+  "message": "Thank you for your message!",
+  "conversationId": "conv_123",
+  "replyToMessageId": "msg_456"
+}
+```
+
+#### Parameters
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `platformUserId` | string | ✅ | Platform-specific user ID |
+| `platform` | string | ✅ | Platform: `facebook`, `instagram`, `whatsapp` |
+| `message` | string | ✅ | Message text content |
+| `conversationId` | string | ✅ | Conversation ID |
+| `replyToMessageId` | string | ❌ | Message ID to reply to (for threaded replies) |
+
+#### Response Format
+```json
+{
+  "success": true,
+  "message": {
+    "id": "msg_128",
+    "platform_message_id": "mid.1234567890",
+    "conversation_id": "conv_123",
+    "message_text": "Thank you for your message!",
+    "platform": "facebook",
+    "sender_type": "business",
+    "created_at": "2025-09-23T10:50:00Z"
+  }
+}
+```
+
+### Handle Meta Webhook
+Process incoming webhooks from Meta platforms.
+
+```http
+POST /api/meta/webhook
+```
+
+#### Webhook Verification (GET)
+```http
+GET /api/meta/webhook?hub.mode=subscribe&hub.verify_token=<token>&hub.challenge=<challenge>
+```
+
+#### Webhook Payload (POST)
+```json
+{
+  "object": "page",
+  "entry": [{
+    "id": "page_id",
+    "time": 1234567890,
+    "messaging": [{
+      "sender": { "id": "user_id" },
+      "recipient": { "id": "page_id" },
+      "timestamp": 1234567890,
+      "message": {
+        "mid": "mid.1234567890",
+        "text": "Hello!"
+      }
+    }]
+  }]
+}
+```
+
+#### Supported Webhook Events
+- **Messages** - Incoming text, images, attachments
+- **Postbacks** - Button clicks and quick replies
+- **Message Reads** - Read receipt events
+- **Delivery** - Message delivery confirmations
+
+### Mark Meta Conversation as Read
+Mark a Meta platform conversation as read.
+
+```http
+PUT /api/meta/conversations/{conversationId}/mark-read
+```
+
+#### Response Format
+```json
+{
+  "success": true,
+  "message": "Conversation marked as read"
+}
+```
+
 ## 👥 Customer Management API
 
 ### Link Customer to Conversation
-Associate a customer with a LINE user or website session.
+Associate a customer with a LINE user, website session, or Meta platform user.
 
 ```http
 POST /api/line/users/link-customer
@@ -502,7 +607,7 @@ Connect to real-time message updates.
 const supabase = createClient(url, key);
 const channel = supabase.channel('unified-chat');
 
-// Subscribe to message updates
+// Subscribe to message updates from all channels
 channel
   .on('postgres_changes', {
     event: 'INSERT',
@@ -517,6 +622,14 @@ channel
     table: 'web_chat_messages'
   }, (payload) => {
     console.log('New website message:', payload.new);
+  })
+  .on('postgres_changes', {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'meta_messages'
+  }, (payload) => {
+    console.log('New Meta message:', payload.new);
+    // payload.new.platform = 'facebook' | 'instagram' | 'whatsapp'
   })
   .subscribe();
 ```

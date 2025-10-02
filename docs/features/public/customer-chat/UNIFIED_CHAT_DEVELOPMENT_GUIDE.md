@@ -1,14 +1,16 @@
 # Unified Chat System Development Guide
 
 **Complete Developer Implementation Guide for Multi-Channel Chat**
-*Last Updated: September 2025*
+*Last Updated: January 2025*
 
 ## 🚀 Quick Start Guide
 
 ### Prerequisites
 - Node.js 18+ and npm
 - Supabase account and project
-- LINE Developer account (for LINE integration)
+- **LINE Developer account** (for LINE integration)
+- **Meta Developer account** (for Facebook, Instagram, WhatsApp)
+- **WhatsApp Business account** (for WhatsApp integration)
 - Basic understanding of Next.js, TypeScript, and React
 
 ### Environment Setup
@@ -39,6 +41,12 @@ REFAC_SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token
 LINE_CHANNEL_SECRET=your_line_channel_secret
 
+# Meta Platform Integration (Facebook, Instagram, WhatsApp)
+META_APP_SECRET=your_meta_app_secret
+META_WEBHOOK_VERIFY_TOKEN=your_custom_verify_token
+META_PAGE_ACCESS_TOKEN=your_page_access_token
+META_WA_PHONE_NUMBER_ID=your_phone_number_id  # WhatsApp only
+
 # Authentication (Production)
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
@@ -48,6 +56,8 @@ NEXTAUTH_URL=http://localhost:3000
 # Development Features
 SKIP_AUTH=true  # Bypass authentication for development
 ```
+
+> 📘 **Meta Platform Setup**: See [Meta Integration Guide](./META_INTEGRATION_GUIDE.md) for complete setup instructions
 
 #### 4. Start Development Server
 ```bash
@@ -334,6 +344,139 @@ export async function POST(request: NextRequest) {
 }
 ```
 
+## 📱 Meta Platform Integration
+
+### Sending Meta Messages
+Send messages to Facebook Messenger, Instagram Direct, or WhatsApp.
+
+```typescript
+// Send Meta platform message
+export async function sendMetaMessage(
+  platformUserId: string,
+  platform: 'facebook' | 'instagram' | 'whatsapp',
+  message: string,
+  conversationId: string,
+  replyToMessageId?: string
+) {
+  const response = await fetch('/api/meta/send-message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      platformUserId,
+      platform,
+      message,
+      conversationId,
+      replyToMessageId
+    })
+  });
+
+  return response.json();
+}
+
+// Example usage
+await sendMetaMessage(
+  '1234567890',
+  'facebook',
+  'Hello from staff!',
+  'conv_123',
+  'msg_456' // Optional: Reply to specific message
+);
+```
+
+### Handling Meta Webhooks
+Process incoming messages from Meta platforms.
+
+```typescript
+// app/api/meta/webhook/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
+
+export async function POST(request: NextRequest) {
+  const body = await request.text();
+  const signature = request.headers.get('x-hub-signature-256');
+
+  // Verify webhook signature
+  const expectedSignature = crypto
+    .createHmac('sha256', process.env.META_APP_SECRET!)
+    .update(body)
+    .digest('hex');
+
+  if (`sha256=${expectedSignature}` !== signature) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  }
+
+  const data = JSON.parse(body);
+
+  // Process webhook events
+  for (const entry of data.entry) {
+    for (const event of entry.messaging || []) {
+      if (event.message) {
+        // Store message in database
+        await supabase.from('meta_messages').insert({
+          platform_user_id: event.sender.id,
+          platform_message_id: event.message.mid,
+          message_text: event.message.text,
+          platform: determinePlatform(entry),
+          sender_type: 'user'
+        });
+      }
+    }
+  }
+
+  return NextResponse.json({ success: true });
+}
+```
+
+### Meta Reply Support
+Reply to specific messages (threaded conversations).
+
+```typescript
+// components/MetaMessageReply.tsx
+export function MetaMessageReply({
+  originalMessage,
+  onSend
+}: {
+  originalMessage: Message;
+  onSend: (text: string) => void;
+}) {
+  const [replyText, setReplyText] = useState('');
+
+  const handleSend = async () => {
+    await fetch('/api/meta/send-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        platformUserId: originalMessage.platformUserId,
+        platform: originalMessage.platform,
+        message: replyText,
+        conversationId: originalMessage.conversationId,
+        replyToMessageId: originalMessage.platformMessageId // Thread reply
+      })
+    });
+
+    onSend(replyText);
+    setReplyText('');
+  };
+
+  return (
+    <div className="border-l-4 border-blue-500 pl-3 mb-2">
+      <p className="text-sm text-gray-600">
+        Replying to: {originalMessage.text?.substring(0, 50)}...
+      </p>
+      <input
+        value={replyText}
+        onChange={(e) => setReplyText(e.target.value)}
+        placeholder="Type your reply..."
+        className="w-full mt-2 p-2 border rounded"
+      />
+      <button onClick={handleSend} className="mt-2 px-4 py-2 bg-blue-600 text-white rounded">
+        Send Reply
+      </button>
+    </div>
+  );
+}
+```
+
 ## 🔄 Real-time Implementation
 
 ### 1. Setting Up Real-time Subscriptions
@@ -446,7 +589,7 @@ export const useMultiTableRealtime = (subscriptions: UseRealtimeOptions[]) => {
 import { refacSupabase } from '@/lib/refac-supabase';
 
 export const broadcastMessage = async (
-  channelType: 'line' | 'website',
+  channelType: 'line' | 'website' | 'meta',
   conversationId: string,
   message: any
 ) => {
