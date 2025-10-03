@@ -52,7 +52,11 @@
       "Bash(code:*)",
       "Bash(cat:*)",
       "Bash(find:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(del cleanup-test-sessions.js)",
+      "Bash(cd:*)",
+      "Bash(npm run lint:*)",
+      "Bash(gh pr create --title \"feat: Add animated toast notifications for booking events\" --body \"$(cat <<''EOF''\n## Summary\n- Implement animated toast notifications for booking events (create/modify/cancel)\n- Replace browser notifications with Sonner toast library\n- Add color-coded notifications: green for new bookings, yellow for modifications, red for cancellations\n- Display Booking ID and Customer ID inline with customer name in notifications\n- Show detailed change tracking for modified bookings\n\n## Changes\n- **NotificationsContext.tsx**: Added Sonner toast notifications with color-coded messages\n- **NotificationItem.tsx**: Display booking/customer IDs inline and show modification changes\n- **CancelBookingModal.tsx**: Removed duplicate notification creation (now handled by DB trigger)\n- **EditBookingModal.tsx**: Removed duplicate notification creation (now handled by DB trigger)\n\n## Implementation Details\n- Toast notifications appear on any page when new booking events occur\n- Colors match existing notification badge system (green/yellow/red)\n- Notification count badge updates in real-time via Realtime subscriptions\n- All notification creation now handled automatically by database trigger\n\n## Test Plan\n- [x] Create booking → green toast appears\n- [x] Modify booking → yellow toast appears  \n- [x] Cancel booking → red toast appears\n- [x] Verify booking/customer IDs display correctly\n- [x] Verify change tracking shows for modifications\n- [x] Clean up test data\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

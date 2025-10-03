@@ -1,0 +1,839 @@
+{
+  "page": {
+    "name": "Notifications Log",
+    "route": "/notifications",
+    "layout": {
+      "type": "container",
+      "minHeight": "100vh",
+      "background": "hsl(var(--background))",
+      "padding": "24px",
+      "spacing": "24px",
+      "direction": "vertical"
+    }
+  },
+  "designSystem": {
+    "colors": {
+      "light": {
+        "background": "hsl(0, 0%, 100%)",
+        "foreground": "hsl(222.2, 84%, 4.9%)",
+        "card": "hsl(0, 0%, 100%)",
+        "cardForeground": "hsl(222.2, 84%, 4.9%)",
+        "primary": "hsl(222.2, 47.4%, 11.2%)",
+        "primaryForeground": "hsl(210, 40%, 98%)",
+        "secondary": "hsl(210, 40%, 96.1%)",
+        "secondaryForeground": "hsl(222.2, 47.4%, 11.2%)",
+        "muted": "hsl(210, 40%, 96.1%)",
+        "mutedForeground": "hsl(215.4, 16.3%, 46.9%)",
+        "accent": "hsl(210, 40%, 96.1%)",
+        "accentForeground": "hsl(222.2, 47.4%, 11.2%)",
+        "destructive": "hsl(0, 84.2%, 60.2%)",
+        "destructiveForeground": "hsl(210, 40%, 98%)",
+        "border": "hsl(214.3, 31.8%, 91.4%)",
+        "input": "hsl(214.3, 31.8%, 91.4%)",
+        "ring": "hsl(222.2, 84%, 4.9%)"
+      },
+      "dark": {
+        "background": "hsl(222.2, 84%, 4.9%)",
+        "foreground": "hsl(210, 40%, 98%)",
+        "card": "hsl(222.2, 84%, 4.9%)",
+        "cardForeground": "hsl(210, 40%, 98%)",
+        "primary": "hsl(210, 40%, 98%)",
+        "primaryForeground": "hsl(222.2, 47.4%, 11.2%)",
+        "secondary": "hsl(217.2, 32.6%, 17.5%)",
+        "secondaryForeground": "hsl(210, 40%, 98%)",
+        "muted": "hsl(217.2, 32.6%, 17.5%)",
+        "mutedForeground": "hsl(215, 20.2%, 65.1%)",
+        "accent": "hsl(217.2, 32.6%, 17.5%)",
+        "accentForeground": "hsl(210, 40%, 98%)",
+        "destructive": "hsl(0, 62.8%, 30.6%)",
+        "destructiveForeground": "hsl(210, 40%, 98%)",
+        "border": "hsl(217.2, 32.6%, 17.5%)",
+        "input": "hsl(217.2, 32.6%, 17.5%)",
+        "ring": "hsl(212.7, 26.8%, 83.9%)"
+      }
+    },
+    "borderRadius": {
+      "lg": "0.5rem",
+      "md": "calc(0.5rem - 2px)",
+      "sm": "calc(0.5rem - 4px)"
+    },
+    "typography": {
+      "h1": {
+        "fontSize": "24px",
+        "fontWeight": "700",
+        "lineHeight": "1.2"
+      },
+      "body": {
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "lineHeight": "1.5"
+      },
+      "small": {
+        "fontSize": "12px",
+        "fontWeight": "400",
+        "lineHeight": "1.4"
+      }
+    },
+    "spacing": {
+      "xs": "4px",
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "24px",
+      "2xl": "32px"
+    }
+  },
+  "components": [
+    {
+      "id": "header",
+      "type": "header",
+      "layout": {
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "space-between",
+        "marginBottom": "24px"
+      },
+      "children": [
+        {
+          "id": "header-left",
+          "type": "div",
+          "children": [
+            {
+              "id": "page-title",
+              "type": "heading",
+              "level": 1,
+              "content": "Notification Log",
+              "style": {
+                "fontSize": "24px",
+                "fontWeight": "700",
+                "color": "hsl(var(--foreground))",
+                "display": "flex",
+                "alignItems": "center",
+                "gap": "8px"
+              },
+              "icon": {
+                "name": "Bell",
+                "library": "lucide-react",
+                "size": 24,
+                "color": "currentColor"
+              }
+            },
+            {
+              "id": "page-subtitle",
+              "type": "text",
+              "content": "View and manage all booking notifications",
+              "style": {
+                "fontSize": "14px",
+                "color": "hsl(var(--muted-foreground))",
+                "marginTop": "4px"
+              }
+            }
+          ]
+        },
+        {
+          "id": "unread-badge",
+          "type": "badge",
+          "variant": "destructive",
+          "content": "{unreadCount} Unread",
+          "style": {
+            "fontSize": "14px",
+            "padding": "4px 12px",
+            "backgroundColor": "hsl(var(--destructive))",
+            "color": "hsl(var(--destructive-foreground))",
+            "borderRadius": "var(--radius)"
+          },
+          "conditionalRender": {
+            "condition": "unreadCount > 0"
+          }
+        }
+      ]
+    },
+    {
+      "id": "filters-card",
+      "type": "card",
+      "style": {
+        "backgroundColor": "hsl(var(--card))",
+        "border": "1px solid hsl(var(--border))",
+        "borderRadius": "var(--radius)",
+        "marginBottom": "24px"
+      },
+      "children": [
+        {
+          "id": "filters-content",
+          "type": "card-content",
+          "style": {
+            "paddingTop": "24px"
+          },
+          "children": [
+            {
+              "id": "filters-container",
+              "type": "div",
+              "layout": {
+                "display": "flex",
+                "flexDirection": "column",
+                "gap": "12px"
+              },
+              "responsive": {
+                "md": {
+                  "flexDirection": "row"
+                }
+              },
+              "children": [
+                {
+                  "id": "search-input",
+                  "type": "input",
+                  "inputType": "text",
+                  "placeholder": "Search notifications...",
+                  "style": {
+                    "flex": "1",
+                    "width": "100%",
+                    "height": "40px",
+                    "padding": "8px 12px",
+                    "fontSize": "14px",
+                    "border": "1px solid hsl(var(--input))",
+                    "borderRadius": "var(--radius)",
+                    "backgroundColor": "hsl(var(--background))",
+                    "color": "hsl(var(--foreground))"
+                  },
+                  "focus": {
+                    "outline": "2px solid hsl(var(--ring))",
+                    "outlineOffset": "2px"
+                  }
+                },
+                {
+                  "id": "type-filter",
+                  "type": "select",
+                  "value": "filterType",
+                  "style": {
+                    "width": "100%"
+                  },
+                  "responsive": {
+                    "md": {
+                      "width": "176px"
+                    }
+                  },
+                  "options": [
+                    { "value": "all", "label": "All Types" },
+                    { "value": "created", "label": "New Bookings" },
+                    { "value": "cancelled", "label": "Cancellations" },
+                    { "value": "modified", "label": "Modifications" }
+                  ],
+                  "trigger": {
+                    "height": "40px",
+                    "padding": "8px 12px",
+                    "fontSize": "14px",
+                    "border": "1px solid hsl(var(--input))",
+                    "borderRadius": "var(--radius)",
+                    "backgroundColor": "hsl(var(--background))"
+                  },
+                  "dropdown": {
+                    "backgroundColor": "hsl(var(--popover))",
+                    "border": "1px solid hsl(var(--border))",
+                    "borderRadius": "var(--radius)",
+                    "zIndex": 50
+                  }
+                },
+                {
+                  "id": "status-filter",
+                  "type": "select",
+                  "value": "filterStatus",
+                  "style": {
+                    "width": "100%"
+                  },
+                  "responsive": {
+                    "md": {
+                      "width": "176px"
+                    }
+                  },
+                  "options": [
+                    { "value": "all", "label": "All Status" },
+                    { "value": "unread", "label": "Unread" },
+                    { "value": "acknowledged", "label": "Acknowledged" }
+                  ],
+                  "trigger": {
+                    "height": "40px",
+                    "padding": "8px 12px",
+                    "fontSize": "14px",
+                    "border": "1px solid hsl(var(--input))",
+                    "borderRadius": "var(--radius)",
+                    "backgroundColor": "hsl(var(--background))"
+                  },
+                  "dropdown": {
+                    "backgroundColor": "hsl(var(--popover))",
+                    "border": "1px solid hsl(var(--border))",
+                    "borderRadius": "var(--radius)",
+                    "zIndex": 50
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notifications-list-card",
+      "type": "card",
+      "style": {
+        "backgroundColor": "hsl(var(--card))",
+        "border": "1px solid hsl(var(--border))",
+        "borderRadius": "var(--radius)",
+        "marginBottom": "24px"
+      },
+      "children": [
+        {
+          "id": "notifications-header",
+          "type": "card-header",
+          "children": [
+            {
+              "id": "notifications-title",
+              "type": "heading",
+              "level": 3,
+              "content": "All Notifications ({count})",
+              "style": {
+                "fontSize": "18px",
+                "fontWeight": "600",
+                "color": "hsl(var(--card-foreground))"
+              }
+            }
+          ]
+        },
+        {
+          "id": "notifications-content",
+          "type": "card-content",
+          "style": {
+            "padding": "0"
+          },
+          "children": [
+            {
+              "id": "notifications-list",
+              "type": "div",
+              "style": {
+                "borderTop": "1px solid hsl(var(--border))"
+              },
+              "emptyState": {
+                "id": "empty-state",
+                "type": "div",
+                "layout": {
+                  "display": "flex",
+                  "flexDirection": "column",
+                  "alignItems": "center",
+                  "justifyContent": "center",
+                  "padding": "48px 0"
+                },
+                "children": [
+                  {
+                    "type": "icon",
+                    "name": "Bell",
+                    "library": "lucide-react",
+                    "size": 48,
+                    "color": "hsl(var(--muted-foreground))",
+                    "marginBottom": "16px"
+                  },
+                  {
+                    "type": "text",
+                    "content": "No notifications found",
+                    "style": {
+                      "fontSize": "14px",
+                      "color": "hsl(var(--muted-foreground))"
+                    }
+                  }
+                ]
+              },
+              "children": [
+                {
+                  "id": "notification-item-template",
+                  "type": "notification-item",
+                  "variant": "page",
+                  "style": {
+                    "padding": "10px",
+                    "borderBottom": "1px solid hsl(var(--border))",
+                    "transition": "all 0.2s"
+                  },
+                  "hover": {
+                    "backgroundColor": "hsl(var(--accent) / 0.3)"
+                  },
+                  "states": {
+                    "unread": {
+                      "backgroundColor": "hsl(var(--primary) / 0.05)",
+                      "borderLeft": "2px solid hsl(var(--primary))"
+                    }
+                  },
+                  "layout": {
+                    "display": "flex",
+                    "gap": "10px"
+                  },
+                  "children": [
+                    {
+                      "id": "notification-icon",
+                      "type": "icon",
+                      "library": "lucide-react",
+                      "size": 16,
+                      "marginTop": "2px",
+                      "variants": {
+                        "created": {
+                          "name": "CalendarPlus",
+                          "color": "hsl(120, 60%, 40%)"
+                        },
+                        "cancelled": {
+                          "name": "CalendarX",
+                          "color": "hsl(var(--destructive))"
+                        },
+                        "modified": {
+                          "name": "CalendarClock",
+                          "color": "hsl(220, 60%, 50%)"
+                        }
+                      }
+                    },
+                    {
+                      "id": "notification-content",
+                      "type": "div",
+                      "layout": {
+                        "flex": "1",
+                        "display": "flex",
+                        "flexDirection": "column",
+                        "gap": "8px",
+                        "minWidth": "0"
+                      },
+                      "children": [
+                        {
+                          "id": "notification-header-row",
+                          "type": "div",
+                          "layout": {
+                            "display": "flex",
+                            "alignItems": "flex-start",
+                            "justifyContent": "space-between",
+                            "gap": "8px"
+                          },
+                          "children": [
+                            {
+                              "id": "notification-info",
+                              "type": "div",
+                              "layout": {
+                                "display": "flex",
+                                "flexDirection": "column",
+                                "gap": "4px"
+                              },
+                              "children": [
+                                {
+                                  "id": "notification-type-and-name-row",
+                                  "type": "div",
+                                  "layout": {
+                                    "display": "flex",
+                                    "alignItems": "center",
+                                    "gap": "8px"
+                                  },
+                                  "children": [
+                                    {
+                                      "id": "notification-type-badge",
+                                      "type": "badge",
+                                      "variant": "outline",
+                                      "style": {
+                                        "fontSize": "12px",
+                                        "border": "1px solid"
+                                      },
+                                      "variants": {
+                                        "created": {
+                                          "backgroundColor": "hsl(120, 60%, 97%)",
+                                          "color": "hsl(120, 60%, 35%)",
+                                          "borderColor": "hsl(120, 40%, 85%)",
+                                          "content": "New Booking"
+                                        },
+                                        "cancelled": {
+                                          "backgroundColor": "hsl(0, 60%, 97%)",
+                                          "color": "hsl(var(--destructive))",
+                                          "borderColor": "hsl(0, 40%, 85%)",
+                                          "content": "Booking Cancelled"
+                                        },
+                                        "modified": {
+                                          "backgroundColor": "hsl(220, 60%, 97%)",
+                                          "color": "hsl(220, 60%, 35%)",
+                                          "borderColor": "hsl(220, 40%, 85%)",
+                                          "content": "Booking Modified"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "id": "customer-name",
+                                      "type": "text",
+                                      "style": {
+                                        "fontSize": "14px",
+                                        "fontWeight": "500",
+                                        "color": "hsl(var(--foreground))"
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "id": "booking-details",
+                                  "type": "text",
+                                  "style": {
+                                    "fontSize": "12px",
+                                    "color": "hsl(var(--muted-foreground))"
+                                  }
+                                },
+                                {
+                                  "id": "timestamp",
+                                  "type": "text",
+                                  "format": "relative",
+                                  "style": {
+                                    "fontSize": "12px",
+                                    "color": "hsl(var(--muted-foreground))"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "id": "notification-action",
+                              "type": "conditional",
+                              "conditions": [
+                                {
+                                  "when": "isUnread",
+                                  "render": {
+                                    "type": "button",
+                                    "variant": "default",
+                                    "size": "sm",
+                                    "content": "Mark as Read",
+                                    "style": {
+                                      "height": "28px",
+                                      "padding": "0 12px",
+                                      "fontSize": "12px",
+                                      "backgroundColor": "hsl(var(--primary))",
+                                      "color": "hsl(var(--primary-foreground))"
+                                    },
+                                    "hover": {
+                                      "backgroundColor": "hsl(var(--primary) / 0.9)"
+                                    },
+                                    "onClick": "handleAcknowledge"
+                                  }
+                                },
+                                {
+                                  "when": "isRead",
+                                  "render": {
+                                    "type": "badge",
+                                    "variant": "secondary",
+                                    "content": "Acknowledged",
+                                    "style": {
+                                      "height": "24px",
+                                      "padding": "0 8px",
+                                      "fontSize": "12px"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "id": "notes-section",
+                          "type": "div",
+                          "layout": {
+                            "display": "flex",
+                            "flexDirection": "column",
+                            "gap": "6px",
+                            "paddingTop": "6px",
+                            "borderTop": "1px solid hsl(var(--border) / 0.5)"
+                          },
+                          "children": [
+                            {
+                              "id": "notes-header",
+                              "type": "div",
+                              "layout": {
+                                "display": "flex",
+                                "alignItems": "center",
+                                "justifyContent": "space-between"
+                              },
+                              "children": [
+                                {
+                                  "type": "label",
+                                  "content": "Notes",
+                                  "style": {
+                                    "fontSize": "12px",
+                                    "fontWeight": "500",
+                                    "color": "hsl(var(--foreground))"
+                                  }
+                                },
+                                {
+                                  "type": "button",
+                                  "variant": "link",
+                                  "size": "sm",
+                                  "conditionalRender": {
+                                    "condition": "!isEditingNotes"
+                                  },
+                                  "content": "{hasNotes ? 'Edit' : '+ Add'}",
+                                  "style": {
+                                    "height": "auto",
+                                    "padding": "0",
+                                    "fontSize": "12px",
+                                    "color": "hsl(var(--primary))"
+                                  },
+                                  "hover": {
+                                    "color": "hsl(var(--primary) / 0.8)"
+                                  },
+                                  "onClick": "startEditingNotes"
+                                }
+                              ]
+                            },
+                            {
+                              "id": "notes-display-edit",
+                              "type": "conditional",
+                              "conditions": [
+                                {
+                                  "when": "isEditingNotes",
+                                  "render": {
+                                    "type": "div",
+                                    "layout": {
+                                      "display": "flex",
+                                      "flexDirection": "column",
+                                      "gap": "6px"
+                                    },
+                                    "children": [
+                                      {
+                                        "type": "textarea",
+                                        "placeholder": "Add internal notes...",
+                                        "style": {
+                                          "width": "100%",
+                                          "minHeight": "60px",
+                                          "fontSize": "12px",
+                                          "padding": "8px",
+                                          "border": "1px solid hsl(var(--input))",
+                                          "borderRadius": "var(--radius)",
+                                          "backgroundColor": "hsl(var(--background))",
+                                          "resize": "none"
+                                        },
+                                        "focus": {
+                                          "ring": "1px solid hsl(var(--primary) / 0.2)",
+                                          "borderColor": "hsl(var(--primary))"
+                                        }
+                                      },
+                                      {
+                                        "type": "div",
+                                        "layout": {
+                                          "display": "flex",
+                                          "gap": "6px"
+                                        },
+                                        "children": [
+                                          {
+                                            "type": "button",
+                                            "variant": "default",
+                                            "size": "sm",
+                                            "content": "Save",
+                                            "style": {
+                                              "height": "28px",
+                                              "padding": "0 12px",
+                                              "fontSize": "12px",
+                                              "backgroundColor": "hsl(var(--primary))"
+                                            },
+                                            "hover": {
+                                              "backgroundColor": "hsl(var(--primary) / 0.9)"
+                                            },
+                                            "onClick": "handleSaveNotes"
+                                          },
+                                          {
+                                            "type": "button",
+                                            "variant": "outline",
+                                            "size": "sm",
+                                            "content": "Cancel",
+                                            "style": {
+                                              "height": "28px",
+                                              "padding": "0 12px",
+                                              "fontSize": "12px"
+                                            },
+                                            "onClick": "cancelEditingNotes"
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                },
+                                {
+                                  "when": "hasNotes && !isEditingNotes",
+                                  "render": {
+                                    "type": "div",
+                                    "content": "{notesText}",
+                                    "style": {
+                                      "fontSize": "12px",
+                                      "color": "hsl(var(--foreground))",
+                                      "backgroundColor": "hsl(var(--muted) / 0.5)",
+                                      "padding": "8px",
+                                      "borderRadius": "var(--radius)",
+                                      "border": "1px solid hsl(var(--border) / 0.5)"
+                                    }
+                                  }
+                                },
+                                {
+                                  "when": "!hasNotes && !isEditingNotes",
+                                  "render": {
+                                    "type": "button",
+                                    "content": "Click to add notes...",
+                                    "style": {
+                                      "width": "100%",
+                                      "textAlign": "left",
+                                      "fontSize": "12px",
+                                      "color": "hsl(var(--muted-foreground))",
+                                      "backgroundColor": "hsl(var(--muted) / 0.3)",
+                                      "padding": "8px",
+                                      "borderRadius": "var(--radius)",
+                                      "border": "1px dashed hsl(var(--border) / 0.5)"
+                                    },
+                                    "hover": {
+                                      "color": "hsl(var(--foreground))",
+                                      "backgroundColor": "hsl(var(--muted) / 0.5)",
+                                      "borderColor": "hsl(var(--border))"
+                                    },
+                                    "onClick": "startEditingNotes"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pagination",
+      "type": "div",
+      "conditionalRender": {
+        "condition": "totalPages > 1"
+      },
+      "layout": {
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "space-between"
+      },
+      "children": [
+        {
+          "id": "pagination-info",
+          "type": "text",
+          "content": "Showing {startIndex + 1} to {endIndex} of {totalCount} notifications",
+          "style": {
+            "fontSize": "14px",
+            "color": "hsl(var(--muted-foreground))"
+          }
+        },
+        {
+          "id": "pagination-controls",
+          "type": "div",
+          "layout": {
+            "display": "flex",
+            "alignItems": "center",
+            "gap": "8px"
+          },
+          "children": [
+            {
+              "id": "previous-button",
+              "type": "button",
+              "variant": "outline",
+              "size": "sm",
+              "content": "Previous",
+              "disabled": "currentPage === 1",
+              "style": {
+                "height": "36px",
+                "padding": "0 12px",
+                "fontSize": "14px"
+              },
+              "icon": {
+                "name": "ChevronLeft",
+                "library": "lucide-react",
+                "size": 16,
+                "position": "left"
+              },
+              "onClick": "goToPreviousPage"
+            },
+            {
+              "id": "page-indicator",
+              "type": "text",
+              "content": "Page {currentPage} of {totalPages}",
+              "style": {
+                "fontSize": "14px",
+                "color": "hsl(var(--muted-foreground))"
+              }
+            },
+            {
+              "id": "next-button",
+              "type": "button",
+              "variant": "outline",
+              "size": "sm",
+              "content": "Next",
+              "disabled": "currentPage === totalPages",
+              "style": {
+                "height": "36px",
+                "padding": "0 12px",
+                "fontSize": "14px"
+              },
+              "icon": {
+                "name": "ChevronRight",
+                "library": "lucide-react",
+                "size": 16,
+                "position": "right"
+              },
+              "onClick": "goToNextPage"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "interactions": {
+    "filterByType": {
+      "trigger": "typeFilterChange",
+      "action": "updateNotificationsList",
+      "description": "Filters notifications by type (all, created, cancelled, modified)"
+    },
+    "filterByStatus": {
+      "trigger": "statusFilterChange",
+      "action": "updateNotificationsList",
+      "description": "Filters notifications by status (all, unread, acknowledged)"
+    },
+    "searchNotifications": {
+      "trigger": "searchInputChange",
+      "action": "filterNotificationsByText",
+      "description": "Searches notifications by customer name, booking details"
+    },
+    "acknowledgeNotification": {
+      "trigger": "markAsReadClick",
+      "action": "updateNotificationStatus",
+      "description": "Marks a notification as read/acknowledged"
+    },
+    "addEditNotes": {
+      "trigger": "notesButtonClick",
+      "action": "toggleNotesEditMode",
+      "description": "Allows adding or editing notes for a notification"
+    },
+    "saveNotes": {
+      "trigger": "saveNotesClick",
+      "action": "persistNotesToDatabase",
+      "description": "Saves notes to the notification record"
+    },
+    "pagination": {
+      "trigger": "paginationButtonClick",
+      "action": "updateCurrentPage",
+      "description": "Navigates between pages of notifications"
+    }
+  },
+  "responsiveBreakpoints": {
+    "mobile": "< 768px",
+    "tablet": "768px - 1024px",
+    "desktop": "> 1024px"
+  },
+  "animations": {
+    "hoverTransition": {
+      "property": "all",
+      "duration": "0.2s",
+      "timingFunction": "ease"
+    },
+    "focusRing": {
+      "property": "ring",
+      "duration": "0.15s",
+      "timingFunction": "ease-out"
+    }
+  }
+}

@@ -93,6 +93,9 @@ const nextConfig = {
       }
     }
 
+    // Note: Realtime-js alias removed to enable Supabase Realtime for notifications
+    // Previously was aliased to false to reduce bundle size
+
     // Bundle analyzer in development
     if (dev && process.env.ANALYZE === 'true') {
       const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
@@ -158,12 +161,11 @@ const nextConfig = {
     
     return config
   },
-  
+
   // Optimize builds
   // Removed realtime-js from server externals to enable realtime functionality
-  experimental: {
-  },
-  
+  serverExternalPackages: ['@supabase/supabase-js'],
+
   // Compression
   compress: true,
   

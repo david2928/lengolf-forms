@@ -34,9 +34,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Calculate payroll for the month
     const payrollResults = await calculatePayrollForMonth(month);
     
-    // Get service charge information
+    // Get staff compensation data for eligibility flags
+    const { getStaffCompensation } = await import('@/lib/payroll-calculations');
+    const staffCompensation = await getStaffCompensation(month);
+    
+    // Get service charge information - fix eligibility calculation
     const totalServiceCharge = await getServiceCharge(month);
-    const eligibleStaffCount = payrollResults.filter(result => result.service_charge > 0).length;
+    const eligibleStaffCount = Array.from(staffCompensation.values())
+      .filter(comp => comp.is_service_charge_eligible).length;
     const serviceChargePerStaff = eligibleStaffCount > 0 ? totalServiceCharge / eligibleStaffCount : 0;
     
     // Group results by category for the UI
@@ -53,22 +58,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       summary,
       
       // Staff payroll data for UI tables
-      staff_payroll: payrollResults.map(result => ({
-        staff_id: result.staff_id,
-        staff_name: result.staff_name,
-        compensation_type: result.compensation_type,
-        base_salary: result.base_salary,
-        hourly_rate: result.hourly_rate,
-        regular_hours: result.total_hours,
-        ot_hours: result.overtime_hours,
-        ot_pay: result.overtime_pay,
-        holiday_hours: result.holiday_hours,
-        holiday_pay: result.holiday_pay,
-        working_days: result.working_days,
-        total_allowance: result.daily_allowance,
-        service_charge: result.service_charge,
-        total_payout: result.total_payout
-      })),
+      staff_payroll: payrollResults.map(result => {
+        const compensation = staffCompensation.get(result.staff_id);
+        return {
+          staff_id: result.staff_id,
+          staff_name: result.staff_name,
+          compensation_type: result.compensation_type,
+          base_salary: result.base_salary,
+          hourly_rate: result.hourly_rate,
+          regular_hours: result.total_hours,
+          ot_hours: result.overtime_hours,
+          ot_pay: result.overtime_pay,
+          holiday_hours: result.holiday_hours,
+          holiday_pay: result.holiday_pay,
+          working_days: result.working_days,
+          total_allowance: result.daily_allowance,
+          service_charge: result.service_charge,
+          total_payout: result.total_payout,
+          is_service_charge_eligible: compensation?.is_service_charge_eligible || false
+        };
+      }),
       
       // Service charge summary
       service_charge_summary: {

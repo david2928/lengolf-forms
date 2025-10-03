@@ -561,66 +561,10 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
         description: "The booking has been successfully updated.",
       });
       onSuccess(updatedBookingData || responseData);
-      
-      if (updatedBookingData && booking) {
-        try {
-          const changesSummary: string[] = [];
-          if (originalSlot) {
-            if (payload.date && originalSlot.date !== payload.date) changesSummary.push(`Date: ${originalSlot.date} -> ${payload.date}`);
-            if (payload.start_time && originalSlot.start_time !== payload.start_time) changesSummary.push(`Time: ${originalSlot.start_time} -> ${payload.start_time}`);
-            if (payload.bay && originalSlot.bay !== payload.bay) changesSummary.push(`Bay: ${originalSlot.bay} -> ${payload.bay}`);
-            if (payload.duration && originalSlot.duration !== payload.duration) changesSummary.push(`Duration: ${originalSlot.duration/60}h -> ${payload.duration/60}h`);
-          }
-          if (payload.number_of_people && booking.number_of_people !== payload.number_of_people) changesSummary.push(`Pax: ${booking.number_of_people} -> ${payload.number_of_people}`);
-          if (payload.customer_notes !== undefined && (booking.customer_notes || '') !== (payload.customer_notes || '')) changesSummary.push('Notes updated');
-          
-          // Track new editable fields
-          if (payload.booking_type && booking.booking_type !== payload.booking_type) changesSummary.push(`Type: ${booking.booking_type || 'None'} -> ${payload.booking_type}`);
-          if (payload.package_id !== undefined && booking.package_id !== payload.package_id) {
-            const oldPackage = booking.package_name || 'None';
-            let newPackage = 'None';
-            if (payload.package_id === null) {
-              newPackage = 'Keep Current';
-            } else if (payload.package_id === '') {
-              newPackage = 'None';
-            } else {
-              // Use the updated package name, or try to get it from the current formData if available
-              newPackage = updatedBookingData.package_name || 
-                          (formData.package_name && formData.package_name !== '' ? formData.package_name : 'Package Selected');
-            }
-            changesSummary.push(`Package: ${oldPackage} -> ${newPackage}`);
-          }
-          if (payload.referral_source && booking.referral_source !== payload.referral_source) changesSummary.push(`Referral: ${booking.referral_source || 'None'} -> ${payload.referral_source}`);
 
-          const summaryText = changesSummary.length > 0 ? changesSummary.join(', ') : 'Details updated';
-          const overriddenText = (payload.availability_overridden) ? "\n⚠️ AVAILABILITY OVERRIDDEN ⚠️" : "";
-
-          const referralInfo = updatedBookingData.referral_source ? `\n📍 Referral: ${updatedBookingData.referral_source}` : '';
-          const newCustomerBadge = updatedBookingData.is_new_customer ? ' ⭐ NEW' : '';
-          
-          const lineMessage = `ℹ️ BOOKING MODIFIED (ID: ${updatedBookingData.id}) 🔄\n----------------------------------\n👤 Customer: ${updatedBookingData.name}${newCustomerBadge}\n📞 Phone: ${updatedBookingData.phone_number || 'N/A'}\n👥 Pax: ${updatedBookingData.number_of_people || 1}\n🗓️ Date: ${format(new Date(updatedBookingData.date), 'EEE, MMM dd')}\n⏰ Time: ${updatedBookingData.start_time} (Duration: ${updatedBookingData.duration}H)\n⛳ Bay: ${updatedBookingData.bay || 'N/A'}\n💡 Type: ${updatedBookingData.booking_type || 'N/A'}${(updatedBookingData.package_name) ? ` (${updatedBookingData.package_name})` : ''}${referralInfo}${overriddenText}\n----------------------------------\n🛠️ Changes: ${summaryText}\n🧑‍💼 By: ${formData.employee_name?.trim() || 'Staff'}`;
-
-          const notifyResponse = await fetch('/api/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              message: lineMessage, 
-              bookingType: updatedBookingData.booking_type || undefined,
-              customer_notes: updatedBookingData.customer_notes
-            })
-          });
-
-          if (!notifyResponse.ok) {
-            const notifyErrorText = await notifyResponse.text();
-            console.error('EditBookingModal: Failed to send LINE notification:', notifyErrorText);
-          } else {
-          }
-        } catch (notifyError) {
-          console.error('EditBookingModal: Error sending LINE notification:', notifyError);
-        }
-      } else {
-        console.warn('EditBookingModal: Updated or original booking data not available for LINE notification.');
-      }
+      // Notification is now handled automatically by database trigger
+      // The trigger creates in-app notification when booking is modified
+      // LINE notifications can be sent separately if needed
 
       onClose();
 
