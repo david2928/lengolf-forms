@@ -9,6 +9,7 @@ import { SessionProvider } from '@/components/session-provider'
 import { ConditionalNav } from '@/components/conditional-nav'
 import { CustomerModalProvider } from '@/contexts/CustomerModalContext'
 import { CustomerDetailModal } from '@/components/shared/CustomerDetailModal'
+import { NotificationsClientProvider } from '@/components/providers/NotificationsClientProvider'
 import type { Metadata } from 'next'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -38,15 +39,17 @@ export default async function RootLayout({
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body className={`${inter.className} h-full`}>
         <SessionProvider session={session}>
-          <CustomerModalProvider>
-            <div className="min-h-screen bg-background flex flex-col">
-              <ConditionalNav />
-              <main className="flex-1">{children}</main>
-              <Toaster />
-              <SonnerToaster position="top-right" />
-            </div>
-            <CustomerDetailModal />
-          </CustomerModalProvider>
+          <NotificationsClientProvider>
+            <CustomerModalProvider>
+              <div className="min-h-screen bg-background flex flex-col">
+                <ConditionalNav />
+                <main className="flex-1">{children}</main>
+                <Toaster />
+                <SonnerToaster position="top-right" />
+              </div>
+              <CustomerDetailModal />
+            </CustomerModalProvider>
+          </NotificationsClientProvider>
         </SessionProvider>
       </body>
     </html>

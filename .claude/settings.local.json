@@ -52,7 +52,9 @@
       "Bash(code:*)",
       "Bash(cat:*)",
       "Bash(find:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(del cleanup-test-sessions.js)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "ask": []
