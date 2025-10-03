@@ -10,6 +10,7 @@ import { ConditionalNav } from '@/components/conditional-nav'
 import { CustomerModalProvider } from '@/contexts/CustomerModalContext'
 import { CustomerDetailModal } from '@/components/shared/CustomerDetailModal'
 import { NotificationsClientProvider } from '@/components/providers/NotificationsClientProvider'
+import { Analytics } from '@vercel/analytics/react'
 import type { Metadata } from 'next'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -51,6 +52,7 @@ export default async function RootLayout({
             </CustomerModalProvider>
           </NotificationsClientProvider>
         </SessionProvider>
+        <Analytics />
       </body>
     </html>
   )

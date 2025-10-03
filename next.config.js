@@ -164,10 +164,8 @@ const nextConfig = {
 
   // Optimize builds
   // Removed realtime-js from server externals to enable realtime functionality
-  experimental: {
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
-  },
-  
+  serverExternalPackages: ['@supabase/supabase-js'],
+
   // Compression
   compress: true,
   

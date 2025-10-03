@@ -196,41 +196,47 @@ export function Nav() {
           </Link>
         )}
 
-        {/* Staff Time Clock - Available to All Users */}
-        <Link href="/time-clock">
-          <Button
-            variant={pathname === '/time-clock' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <Timer className="h-4 w-4" />
-            Time Clock
-          </Button>
-        </Link>
+        {/* Staff Time Clock - Available to Non-Admin/Non-Staff Users */}
+        {!isAdmin && !isStaff && (
+          <Link href="/time-clock">
+            <Button
+              variant={pathname === '/time-clock' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Timer className="h-4 w-4" />
+              Time Clock
+            </Button>
+          </Link>
+        )}
 
-        {/* POS System - Available to All Users */}
-        <Link href="/pos">
-          <Button
-            variant={pathname === '/pos' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <ShoppingCart className="h-4 w-4" />
-            POS
-          </Button>
-        </Link>
+        {/* POS System - Available to Non-Admin/Non-Staff Users */}
+        {!isAdmin && !isStaff && (
+          <Link href="/pos">
+            <Button
+              variant={pathname === '/pos' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              POS
+            </Button>
+          </Link>
+        )}
 
-        {/* Staff Schedule - Available to All Users */}
-        <Link href="/staff-schedule">
-          <Button
-            variant={pathname === '/staff-schedule' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <Clock className="h-4 w-4" />
-            My Schedule
-          </Button>
-        </Link>
+        {/* Staff Schedule - Available to Non-Admin Users */}
+        {!isAdmin && (
+          <Link href="/staff-schedule">
+            <Button
+              variant={pathname === '/staff-schedule' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Clock className="h-4 w-4" />
+              My Schedule
+            </Button>
+          </Link>
+        )}
 
         {/* Staff Panel - Only for Staff Users */}
         {isStaff && (
@@ -512,26 +518,29 @@ export function Nav() {
         </Button>
       </Link>
       <Link href="/bookings-calendar" className="flex-1">
-        <Button 
-          variant={pathname === '/bookings-calendar' ? 'secondary' : 'ghost'} 
-          size="sm" 
+        <Button
+          variant={pathname === '/bookings-calendar' ? 'secondary' : 'ghost'}
+          size="sm"
           className="w-full flex justify-center"
         >
           <Calendar className="h-3.5 w-3.5" />
         </Button>
       </Link>
-      <Link href="/pos" className="flex-1">
-        <Button 
-          variant={pathname === '/pos' ? 'default' : 'outline'} 
-          size="sm" 
-          className={cn(
-            "w-full flex justify-center font-bold text-xs",
-            pathname === '/pos' ? 'bg-black text-white' : 'bg-white text-black border-black'
-          )}
-        >
-          POS
-        </Button>
-      </Link>
+      {/* POS - Only show for non-staff, non-admin users */}
+      {!isStaff && !isAdmin && (
+        <Link href="/pos" className="flex-1">
+          <Button
+            variant={pathname === '/pos' ? 'default' : 'outline'}
+            size="sm"
+            className={cn(
+              "w-full flex justify-center font-bold text-xs",
+              pathname === '/pos' ? 'bg-black text-white' : 'bg-white text-black border-black'
+            )}
+          >
+            POS
+          </Button>
+        </Link>
+      )}
       <PackageMonitorNavButton />
       {isAdmin && (
         <Link href="/staff/unified-chat" className="flex-1">
@@ -568,15 +577,19 @@ export function Nav() {
       )}
       {isAdmin && (
         <Link href="/admin" className="flex-1">
-          <Button 
-            variant={pathname.startsWith('/admin') && !pathname.startsWith('/admin/customers') ? 'secondary' : 'ghost'} 
-            size="sm" 
+          <Button
+            variant={pathname.startsWith('/admin') && !pathname.startsWith('/admin/customers') ? 'secondary' : 'ghost'}
+            size="sm"
             className="w-full flex justify-center"
           >
             <Settings className="h-3.5 w-3.5" />
           </Button>
         </Link>
       )}
+      {/* Notification Bell - Available to All Users */}
+      <div className="flex-1 flex justify-center">
+        <NotificationBell />
+      </div>
       <Button variant="outline" size="sm" onClick={() => signOut()} className="flex-1 border border-gray-200">
         <LogOut className="h-3.5 w-3.5" />
       </Button>
