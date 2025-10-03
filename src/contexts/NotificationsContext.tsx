@@ -13,6 +13,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 import {
   subscribeToNotifications,
   unsubscribeFromNotifications,
@@ -284,7 +285,15 @@ export function NotificationsProvider({
         // Increment unread count (new notifications are always unread)
         setUnreadCount((prev) => prev + 1);
 
-        // TODO: Trigger browser notification and sound (Story 7)
+        // Show toast notification
+        const toastMessage = `${notification.customer_name} - ${notification.booking_time || 'No time'}`;
+        if (notification.type === 'created') {
+          toast.success('New Booking', { description: toastMessage });
+        } else if (notification.type === 'cancelled') {
+          toast.error('Booking Cancelled', { description: toastMessage });
+        } else {
+          toast.warning('Booking Modified', { description: toastMessage });
+        }
       },
       onUpdate: (notification, old) => {
         console.log('[NotificationsContext] Notification updated:', notification);

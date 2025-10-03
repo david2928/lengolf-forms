@@ -161,9 +161,19 @@ export function NotificationItem({
       {/* Content */}
       <div className="flex-1 min-w-0 ml-7">{/* ml-7 to align with icon offset */}
 
-          {/* Customer Name */}
-          <p className="font-semibold text-gray-900 text-sm truncate mb-1">
+          {/* Customer Name with IDs */}
+          <p className="font-semibold text-gray-900 text-sm mb-1">
             {notification.customer_name}
+            {notification.metadata?.bookingId && (
+              <span className="ml-2 text-xs font-mono text-blue-600 font-normal">
+                [{notification.metadata.bookingId}]
+              </span>
+            )}
+            {notification.metadata?.customerId && (
+              <span className="ml-2 text-xs font-mono text-gray-500 font-normal">
+                (Cust: {notification.metadata.customerId.substring(0, 8)}...)
+              </span>
+            )}
           </p>
 
           {/* Booking Details (compact) */}
@@ -176,41 +186,60 @@ export function NotificationItem({
 
           {/* Booking Details (page variant - compact grid) */}
           {!isDropdown && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-xs">
-              {notification.customer_phone && (
-                <div>
-                  <span className="text-gray-500 font-medium">Phone:</span>{' '}
-                  <span className="text-gray-900">{notification.customer_phone}</span>
-                </div>
-              )}
-              {notification.booking_time && (
-                <div>
-                  <span className="text-gray-500 font-medium">Time:</span>{' '}
-                  <span className="text-gray-900">{notification.booking_time}</span>
-                </div>
-              )}
-              {notification.bay && (
-                <div>
-                  <span className="text-gray-500 font-medium">Bay:</span>{' '}
-                  <span className="text-gray-900">{notification.bay}</span>
-                </div>
-              )}
-              {notification.metadata?.numberOfPeople && (
-                <div>
-                  <span className="text-gray-500 font-medium">Pax:</span>{' '}
-                  <span className="text-gray-900">{notification.metadata.numberOfPeople}</span>
-                </div>
-              )}
-              {notification.metadata?.bookingType && (
-                <div>
-                  <span className="text-gray-500 font-medium">Type:</span>{' '}
-                  <span className="text-gray-900">{notification.metadata.bookingType}</span>
-                </div>
-              )}
-              {notification.metadata?.formattedDate && (
-                <div>
-                  <span className="text-gray-500 font-medium">Date:</span>{' '}
-                  <span className="text-gray-900">{notification.metadata.formattedDate}</span>
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-xs">
+                {notification.customer_phone && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Phone:</span>{' '}
+                    <span className="text-gray-900">{notification.customer_phone}</span>
+                  </div>
+                )}
+                {notification.booking_time && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Time:</span>{' '}
+                    <span className="text-gray-900">{notification.booking_time}</span>
+                  </div>
+                )}
+                {notification.bay && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Bay:</span>{' '}
+                    <span className="text-gray-900">{notification.bay}</span>
+                  </div>
+                )}
+                {notification.metadata?.numberOfPeople && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Pax:</span>{' '}
+                    <span className="text-gray-900">{notification.metadata.numberOfPeople}</span>
+                  </div>
+                )}
+                {notification.metadata?.bookingType && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Type:</span>{' '}
+                    <span className="text-gray-900">{notification.metadata.bookingType}</span>
+                  </div>
+                )}
+                {notification.metadata?.formattedDate && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Date:</span>{' '}
+                    <span className="text-gray-900">{notification.metadata.formattedDate}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Changes (for modified bookings) */}
+              {notification.type === 'modified' && notification.metadata?.changes && Array.isArray(notification.metadata.changes) && notification.metadata.changes.length > 0 && (
+                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                  <span className="font-semibold text-yellow-900">Changes:</span>
+                  <ul className="mt-1 space-y-0.5 ml-4">
+                    {notification.metadata.changes.map((change: any, idx: number) => (
+                      <li key={idx} className="text-yellow-900">
+                        <span className="font-medium capitalize">{change.field.replace('_', ' ')}:</span>{' '}
+                        <span className="line-through text-gray-600">{change.old || 'none'}</span>
+                        {' → '}
+                        <span className="font-semibold">{change.new || 'none'}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>
