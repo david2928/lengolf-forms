@@ -54,13 +54,15 @@ export function NotificationDropdown({
 }: NotificationDropdownProps) {
   const { notifications, unreadCount, acknowledgeNotification } = useNotifications();
 
-  // Get latest N notifications
-  const latestNotifications = notifications.slice(0, maxItems);
+  // Get latest N unread notifications for dropdown (show only unread)
+  const latestNotifications = notifications
+    .filter(n => !n.read)
+    .slice(0, maxItems);
 
   return (
     <div
       className={`
-        w-96 max-h-[600px] bg-white rounded-lg shadow-xl border border-gray-200
+        w-full h-full md:w-96 md:h-auto md:max-h-[600px] bg-white md:rounded-lg shadow-xl border-0 md:border border-gray-200
         overflow-hidden flex flex-col
         ${className}
       `}
@@ -68,24 +70,36 @@ export function NotificationDropdown({
       {/* Header */}
       <div className="p-4 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">Notifications</h3>
-          {unreadCount > 0 && (
-            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">
-              {unreadCount} unread
-            </span>
-          )}
+          <h3 className="font-semibold text-gray-900 text-lg md:text-base">Notifications</h3>
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">
+                {unreadCount} unread
+              </span>
+            )}
+            {/* Close button for mobile */}
+            <button
+              onClick={onClose}
+              className="md:hidden p-1 hover:bg-gray-200 rounded-full transition-colors"
+              aria-label="Close notifications"
+            >
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Notifications List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar-hide">
         {latestNotifications.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <p className="text-sm">No notifications yet</p>
             <p className="text-xs mt-1">New booking notifications will appear here</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-200">
             {latestNotifications.map((notification) => (
               <NotificationItem
                 key={notification.id}

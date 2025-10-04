@@ -116,14 +116,14 @@ export function NotificationItem({
     <div
       className={`
         ${!notification.read ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'bg-white'}
-        ${isDropdown ? 'p-2' : 'p-3'}
+        ${isDropdown ? 'p-2' : 'p-3 sm:p-4'}
         ${onClick ? 'cursor-pointer hover:bg-gray-50' : ''}
         ${className}
       `}
       onClick={onClick}
     >
       {/* Header with Acknowledge button */}
-      <div className="flex items-start justify-between gap-2 mb-0.5">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-1">
         <div className="flex items-start gap-2 flex-1 min-w-0">
           {/* Type Icon */}
           <div className="flex-shrink-0 mt-0.5">
@@ -132,7 +132,7 @@ export function NotificationItem({
 
           {/* Type Badge + Time */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getBadgeColor(notification.type)}`}>
                 {getBadgeText(notification.type)}
               </span>
@@ -144,14 +144,14 @@ export function NotificationItem({
           </div>
         </div>
 
-        {/* Acknowledge Button (top right) */}
+        {/* Acknowledge Button */}
         {!notification.read && onAcknowledge && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               onAcknowledge();
             }}
-            className="px-3 py-1 bg-blue-500 text-white rounded text-xs font-semibold hover:bg-blue-600 transition-colors flex-shrink-0"
+            className="px-4 py-2 sm:py-1.5 bg-blue-500 text-white rounded text-sm sm:text-xs font-semibold hover:bg-blue-600 transition-colors flex-shrink-0 min-h-[44px] sm:min-h-0 w-full sm:w-auto"
           >
             Acknowledge
           </button>
@@ -159,18 +159,18 @@ export function NotificationItem({
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 ml-7">{/* ml-7 to align with icon offset */}
+      <div className="flex-1 min-w-0 ml-6 sm:ml-7">{/* ml-6 on mobile, ml-7 on desktop to align with icon */}
 
           {/* Customer Name with IDs */}
-          <p className="font-semibold text-gray-900 text-sm mb-1">
+          <p className="font-semibold text-gray-900 text-sm sm:text-base mb-1 break-words">
             {notification.customer_name}
             {notification.metadata?.bookingId && (
-              <span className="ml-2 text-xs font-mono text-blue-600 font-normal">
-                [{notification.metadata.bookingId}]
+              <span className="ml-1.5 sm:ml-2 text-xs font-mono text-blue-600 font-normal break-all">
+                [{notification.metadata.bookingId.length > 12 ? `${notification.metadata.bookingId.substring(0, 12)}...` : notification.metadata.bookingId}]
               </span>
             )}
             {notification.metadata?.customerId && (
-              <span className="ml-2 text-xs font-mono text-gray-500 font-normal">
+              <span className="ml-1.5 sm:ml-2 text-xs font-mono text-gray-500 font-normal">
                 (Cust: {notification.metadata.customerId.substring(0, 8)}...)
               </span>
             )}
@@ -184,12 +184,12 @@ export function NotificationItem({
             </div>
           )}
 
-          {/* Booking Details (page variant - compact grid) */}
+          {/* Booking Details (page variant - responsive grid) */}
           {!isDropdown && (
             <div className="space-y-2">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1.5 sm:gap-y-1 text-xs sm:text-sm">
                 {notification.customer_phone && (
-                  <div>
+                  <div className="break-all">
                     <span className="text-gray-500 font-medium">Phone:</span>{' '}
                     <span className="text-gray-900">{notification.customer_phone}</span>
                   </div>
@@ -228,11 +228,11 @@ export function NotificationItem({
 
               {/* Changes (for modified bookings) */}
               {notification.type === 'modified' && notification.metadata?.changes && Array.isArray(notification.metadata.changes) && notification.metadata.changes.length > 0 && (
-                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                <div className="mt-2 p-2 sm:p-2.5 bg-yellow-50 border border-yellow-200 rounded text-xs sm:text-sm">
                   <span className="font-semibold text-yellow-900">Changes:</span>
-                  <ul className="mt-1 space-y-0.5 ml-4">
+                  <ul className="mt-1 space-y-1 sm:space-y-0.5 ml-4">
                     {notification.metadata.changes.map((change: any, idx: number) => (
-                      <li key={idx} className="text-yellow-900">
+                      <li key={idx} className="text-yellow-900 break-words">
                         <span className="font-medium capitalize">{change.field.replace('_', ' ')}:</span>{' '}
                         <span className="line-through text-gray-600">{change.old || 'none'}</span>
                         {' → '}
@@ -247,8 +247,8 @@ export function NotificationItem({
 
           {/* Acknowledgment Status (page variant) */}
           {!isDropdown && notification.read && notification.acknowledged_at && (
-            <p className="text-xs text-green-600 mt-1">
-              ✅ Acknowledged by Staff #{notification.acknowledged_by} {formatDistanceToNow(new Date(notification.acknowledged_at), { addSuffix: true })}
+            <p className="text-xs sm:text-sm text-green-600 mt-2 break-words">
+              ✅ Acknowledged by {notification.acknowledged_by_email || `Staff #${notification.acknowledged_by}`} {formatDistanceToNow(new Date(notification.acknowledged_at), { addSuffix: true })}
             </p>
           )}
         </div>

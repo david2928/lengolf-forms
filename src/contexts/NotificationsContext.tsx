@@ -284,14 +284,23 @@ export function NotificationsProvider({
         // Increment unread count (new notifications are always unread)
         setUnreadCount((prev) => prev + 1);
 
-        // Show toast notification
+        // Show toast notification with auto-dismiss
         const toastMessage = `${notification.customer_name} - ${notification.booking_time || 'No time'}`;
         if (notification.type === 'created') {
-          toast.success('New Booking', { description: toastMessage });
+          toast.success('New Booking', {
+            description: toastMessage,
+            duration: 5000 // Auto-dismiss after 5 seconds
+          });
         } else if (notification.type === 'cancelled') {
-          toast.error('Booking Cancelled', { description: toastMessage });
+          toast.error('Booking Cancelled', {
+            description: toastMessage,
+            duration: 5000 // Auto-dismiss after 5 seconds
+          });
         } else {
-          toast.warning('Booking Modified', { description: toastMessage });
+          toast.warning('Booking Modified', {
+            description: toastMessage,
+            duration: 5000 // Auto-dismiss after 5 seconds
+          });
         }
       },
       onUpdate: (notification, old) => {

@@ -21,7 +21,7 @@
 import { useState } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationItem } from '@/components/notifications/NotificationItem';
-import { Bell, Search, Filter, Pencil } from 'lucide-react';
+import { Bell, Search, Filter, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function NotificationsPage() {
   const {
@@ -38,6 +38,7 @@ export default function NotificationsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'created' | 'cancelled' | 'modified'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'acknowledged'>('all');
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
 
   // Notes editing
   const [notesInputs, setNotesInputs] = useState<{ [key: string]: string }>({});
@@ -85,87 +86,113 @@ export default function NotificationsPage() {
     );
   }
 
+  // Count active filters
+  const activeFiltersCount = [
+    searchQuery !== '',
+    typeFilter !== 'all',
+    statusFilter !== 'all'
+  ].filter(Boolean).length;
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Bell size={32} className="text-gray-700" />
-            <h1 className="text-3xl font-bold text-gray-900">Notification Log</h1>
+        {/* Header - Responsive */}
+        <div className="mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Bell size={24} className="text-gray-700 sm:w-8 sm:h-8" />
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Notification Log</h1>
+            </div>
             {unreadCount > 0 && (
-              <span className="px-3 py-1 bg-red-500 text-white rounded-full text-sm font-semibold">
+              <span className="px-2.5 py-1 bg-red-500 text-white rounded-full text-xs sm:text-sm font-semibold w-fit">
                 {unreadCount} unread
               </span>
             )}
           </div>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600">
             All booking notifications with acknowledgment tracking and notes
           </p>
         </div>
 
-        {/* Filters Card */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter size={20} className="text-gray-500" />
-            <h2 className="font-semibold text-gray-900">Filters</h2>
-          </div>
+        {/* Filters Card - Collapsible on Mobile */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
+          {/* Filter Header - Always visible */}
+          <button
+            onClick={() => setFiltersExpanded(!filtersExpanded)}
+            className="w-full p-3 sm:p-4 flex items-center justify-between hover:bg-gray-50 transition-colors md:cursor-default"
+          >
+            <div className="flex items-center gap-2">
+              <Filter size={18} className="text-gray-500 sm:w-5 sm:h-5" />
+              <h2 className="font-semibold text-gray-900 text-sm sm:text-base">Filters</h2>
+              {activeFiltersCount > 0 && (
+                <span className="px-2 py-0.5 bg-blue-500 text-white rounded-full text-xs font-semibold">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </div>
+            <div className="md:hidden">
+              {filtersExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            </div>
+          </button>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Search */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Search
-              </label>
-              <div className="relative">
-                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Customer, phone, ID, notes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+          {/* Filter Inputs - Collapsible */}
+          <div className={`${filtersExpanded ? 'block' : 'hidden'} md:block px-3 pb-3 sm:px-4 sm:pb-4`}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+              {/* Search */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Search
+                </label>
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 sm:w-[18px] sm:h-[18px]" />
+                  <input
+                    type="text"
+                    placeholder="Customer, phone, ID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Type Filter */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Type
+                </label>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
+                  className="w-full px-3 py-2 sm:py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Types</option>
+                  <option value="created">Created</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="modified">Modified</option>
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                  className="w-full px-3 py-2 sm:py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Status</option>
+                  <option value="unread">Unread Only</option>
+                  <option value="acknowledged">Acknowledged Only</option>
+                </select>
               </div>
             </div>
 
-            {/* Type Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Type
-              </label>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">All Types</option>
-                <option value="created">Created</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="modified">Modified</option>
-              </select>
+            {/* Results Count */}
+            <div className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-600">
+              Showing {filteredNotifications.length} of {notifications.length} notifications
             </div>
-
-            {/* Status Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="unread">Unread Only</option>
-                <option value="acknowledged">Acknowledged Only</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Results Count */}
-          <div className="mt-4 text-sm text-gray-600">
-            Showing {filteredNotifications.length} of {notifications.length} notifications
           </div>
         </div>
 
@@ -197,9 +224,9 @@ export default function NotificationsPage() {
 
                 {/* LINE Status & Retry */}
                 {!notification.line_notification_sent && notification.line_notification_error && (
-                  <div className="px-4 pb-4">
-                    <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
-                      <p className="text-sm font-semibold text-yellow-800 mb-1">
+                  <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded p-2.5 sm:p-3">
+                      <p className="text-xs sm:text-sm font-semibold text-yellow-800 mb-1">
                         LINE notification failed
                       </p>
                       <p className="text-xs text-yellow-700 mb-2">
@@ -207,7 +234,7 @@ export default function NotificationsPage() {
                       </p>
                       <button
                         onClick={() => retryLineNotification(notification.id)}
-                        className="px-3 py-1.5 bg-yellow-500 text-white rounded text-sm font-medium hover:bg-yellow-600 transition-colors"
+                        className="px-3 py-2 sm:py-1.5 bg-yellow-500 text-white rounded text-xs sm:text-sm font-medium hover:bg-yellow-600 transition-colors min-h-[44px] sm:min-h-0"
                       >
                         Retry LINE Notification
                       </button>
@@ -216,31 +243,31 @@ export default function NotificationsPage() {
                 )}
 
                 {/* Internal Notes Section */}
-                <div className={`px-3 pb-3 border-t border-gray-100 pt-2 ${!notification.read ? 'bg-blue-50' : ''}`}>
-                  <div className="flex items-center justify-between mb-1.5">
+                <div className={`px-3 pb-3 sm:px-4 sm:pb-4 border-t border-gray-100 pt-2 ${!notification.read ? 'bg-blue-50' : ''}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 mb-1.5">
                     <label className="text-xs font-semibold text-gray-700">
                       Internal Notes
                     </label>
                     {notification.notes_updated_at && (
                       <span className="text-xs text-gray-500">
-                        Updated by Staff #{notification.notes_updated_by} {new Date(notification.notes_updated_at).toLocaleString()}
+                        {notification.notes_updated_by_email || `Staff #${notification.notes_updated_by}`} • {new Date(notification.notes_updated_at).toLocaleDateString()}
                       </span>
                     )}
                   </div>
 
                   {/* Show existing notes or edit mode */}
                   {editingNotes[notification.id] ? (
-                    <div className="flex gap-2 items-start">
+                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-start">
                       <textarea
                         value={notesInputs[notification.id] ?? notification.internal_notes ?? ''}
                         onChange={(e) =>
                           setNotesInputs((prev) => ({ ...prev, [notification.id]: e.target.value }))
                         }
                         placeholder="Add internal notes (visible to all staff, searchable)..."
-                        rows={2}
-                        className="flex-1 px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                        rows={3}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                       />
-                      <div className="flex flex-col gap-1.5">
+                      <div className="flex sm:flex-col gap-2">
                         <button
                           onClick={() => {
                             const notes = notesInputs[notification.id] ?? notification.internal_notes ?? '';
@@ -249,7 +276,7 @@ export default function NotificationsPage() {
                               setEditingNotes((prev) => ({ ...prev, [notification.id]: false }));
                             }
                           }}
-                          className="px-3 py-1 bg-blue-500 text-white rounded text-xs font-semibold hover:bg-blue-600 transition-colors whitespace-nowrap"
+                          className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 bg-blue-500 text-white rounded text-sm font-semibold hover:bg-blue-600 transition-colors min-h-[44px] sm:min-h-0 whitespace-nowrap"
                         >
                           Save
                         </button>
@@ -259,7 +286,7 @@ export default function NotificationsPage() {
                               setNotesInputs((prev) => ({ ...prev, [notification.id]: notification.internal_notes || '' }));
                               setEditingNotes((prev) => ({ ...prev, [notification.id]: false }));
                             }}
-                            className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs font-semibold hover:bg-gray-300 transition-colors whitespace-nowrap"
+                            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 bg-gray-200 text-gray-700 rounded text-sm font-semibold hover:bg-gray-300 transition-colors min-h-[44px] sm:min-h-0 whitespace-nowrap"
                           >
                             Cancel
                           </button>
@@ -272,15 +299,15 @@ export default function NotificationsPage() {
                         setNotesInputs((prev) => ({ ...prev, [notification.id]: notification.internal_notes || '' }));
                         setEditingNotes((prev) => ({ ...prev, [notification.id]: true }));
                       }}
-                      className="w-full bg-yellow-50 border border-yellow-200 rounded p-2 text-left hover:bg-yellow-100 transition-colors group"
+                      className="w-full bg-yellow-50 border border-yellow-200 rounded p-2.5 sm:p-2 text-left hover:bg-yellow-100 transition-colors group min-h-[44px] sm:min-h-0 flex items-center"
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-2 w-full">
                         {notification.internal_notes ? (
-                          <p className="text-xs text-gray-800 whitespace-pre-wrap flex-1">{notification.internal_notes}</p>
+                          <p className="text-xs sm:text-sm text-gray-800 whitespace-pre-wrap flex-1">{notification.internal_notes}</p>
                         ) : (
-                          <p className="text-xs text-gray-400 italic flex-1">Notes...</p>
+                          <p className="text-xs sm:text-sm text-gray-400 italic flex-1">Add notes...</p>
                         )}
-                        <Pencil size={14} className="text-gray-400 group-hover:text-blue-600 flex-shrink-0 mt-0.5" />
+                        <Pencil size={16} className="text-gray-400 group-hover:text-blue-600 flex-shrink-0 mt-0.5" />
                       </div>
                     </button>
                   )}
