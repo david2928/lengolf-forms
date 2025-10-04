@@ -191,12 +191,12 @@ export default function TestNotificationsPage() {
               {/* Acknowledgment Status */}
               {notification.read && notification.acknowledged_at ? (
                 <div className="text-sm text-green-600 mb-3">
-                  ✅ Acknowledged by Staff #{notification.acknowledged_by} at{' '}
+                  ✅ Acknowledged by {notification.acknowledged_by_email || `Staff #${notification.acknowledged_by}`} at{' '}
                   {new Date(notification.acknowledged_at).toLocaleString()}
                 </div>
               ) : (
                 <button
-                  onClick={() => acknowledgeNotification(notification.id, MOCK_STAFF_ID)}
+                  onClick={() => acknowledgeNotification(notification.id)}
                   className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm mb-3"
                 >
                   Mark as Read
@@ -211,7 +211,7 @@ export default function TestNotificationsPage() {
                     <p>{notification.internal_notes}</p>
                     {notification.notes_updated_at && (
                       <p className="text-xs text-gray-500 mt-1">
-                        Updated by Staff #{notification.notes_updated_by} at{' '}
+                        Updated by {notification.notes_updated_by_email || `Staff #${notification.notes_updated_by}`} at{' '}
                         {new Date(notification.notes_updated_at).toLocaleString()}
                       </p>
                     )}
@@ -233,7 +233,7 @@ export default function TestNotificationsPage() {
                     onClick={() => {
                       const notes = notesInput[notification.id];
                       if (notes?.trim()) {
-                        addNotes(notification.id, notes, MOCK_STAFF_ID);
+                        addNotes(notification.id, notes);
                         setNotesInput((prev) => ({ ...prev, [notification.id]: '' }));
                       }
                     }}

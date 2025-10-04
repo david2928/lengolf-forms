@@ -371,23 +371,33 @@ button:focus-visible,
 =======
 
 >>>>>>> e1aca89 (scheduling feature)
+/* Hide scrollbar while maintaining scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
+
 /* Mobile-specific optimizations */
 @media (max-width: 640px) {
   /* Reduce padding on small screens */
   .mobile-padding {
     @apply px-3 py-2;
   }
-  
+
   /* Stack elements vertically on mobile */
   .mobile-stack {
     @apply flex-col space-y-2 space-x-0;
   }
-  
+
   /* Full width buttons on mobile */
   .mobile-full-width {
     @apply w-full;
   }
-  
+
   /* Larger touch targets on mobile */
   .mobile-touch-target {
     min-height: 48px;

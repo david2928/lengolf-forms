@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getDevSession } from '@/lib/dev-session';
+import { authOptions } from '@/lib/auth-config';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!;
@@ -10,17 +12,39 @@ const MAX_NOTES_LENGTH = 5000;
  * PUT /api/notifications/:id/notes
  *
  * Update internal notes for a notification
+ * Requires staff or admin authentication
  *
  * Request body:
  * - notes: string (max 5000 chars)
- * - staff_id: number (in production, this would come from session)
  */
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Authentication check
+    const session = await getDevSession(authOptions, request);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify staff/admin role and get user ID
+    const { data: user } = await supabase
+      .schema('backoffice')
+      .from('allowed_users')
+      .select('id, is_staff, is_admin')
+      .eq('email', session.user.email)
+      .single();
+
+    if (!user?.is_staff && !user?.is_admin) {
+      return NextResponse.json(
+        { error: "Forbidden: Staff or admin access required" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
 
     // Validate UUID format
@@ -34,7 +58,7 @@ export async function PUT(
 
     // Parse request body
     const body = await request.json();
-    const { notes, staff_id } = body;
+    const { notes } = body;
 
     // Validate notes
     if (notes === undefined || notes === null) {
@@ -58,14 +82,6 @@ export async function PUT(
       );
     }
 
-    // Validate staff_id
-    if (!staff_id || typeof staff_id !== 'number') {
-      return NextResponse.json(
-        { error: 'staff_id is required and must be a number' },
-        { status: 400 }
-      );
-    }
-
     // Verify notification exists
     const { data: notification, error: fetchError } = await supabase
       .from('notifications')
@@ -85,7 +101,7 @@ export async function PUT(
       .from('notifications')
       .update({
         internal_notes: notes,
-        notes_updated_by: staff_id,
+        notes_updated_by_user_id: user.id,
         notes_updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -103,7 +119,7 @@ export async function PUT(
     return NextResponse.json({
       success: true,
       internal_notes: updated.internal_notes,
-      notes_updated_by: updated.notes_updated_by,
+      notes_updated_by_user_id: updated.notes_updated_by_user_id,
       notes_updated_at: updated.notes_updated_at,
       notification: updated,
     });

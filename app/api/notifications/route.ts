@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getDevSession } from '@/lib/dev-session';
+import { authOptions } from '@/lib/auth-config';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!;
@@ -8,6 +10,7 @@ const supabaseServiceKey = process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!;
  * GET /api/notifications
  *
  * Query notifications with filtering, search, and pagination
+ * Requires staff or admin authentication
  *
  * Query parameters:
  * - type: Filter by notification type (created|cancelled|modified)
@@ -20,7 +23,28 @@ const supabaseServiceKey = process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!;
  */
 export async function GET(request: NextRequest) {
   try {
+    // Authentication check
+    const session = await getDevSession(authOptions, request);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify staff/admin role
+    const { data: user } = await supabase
+      .schema('backoffice')
+      .from('allowed_users')
+      .select('id, is_staff, is_admin')
+      .eq('email', session.user.email)
+      .single();
+
+    if (!user?.is_staff && !user?.is_admin) {
+      return NextResponse.json(
+        { error: "Forbidden: Staff or admin access required" },
+        { status: 403 }
+      );
+    }
 
     // Parse query parameters
     const searchParams = request.nextUrl.searchParams;
@@ -40,7 +64,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Start building query
+    // Start building query - we'll join staff emails in the app layer
     let query = supabase
       .from('notifications')
       .select('*', { count: 'exact' })
@@ -84,7 +108,7 @@ export async function GET(request: NextRequest) {
     query = query.range(from, to);
 
     // Execute query
-    const { data: notifications, error, count } = await query;
+    const { data: rawNotifications, error, count } = await query;
 
     if (error) {
       console.error('Error fetching notifications:', error);
@@ -93,6 +117,38 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Collect unique user IDs to fetch emails
+    const userIds = new Set<string>();
+    (rawNotifications || []).forEach((n: any) => {
+      if (n.acknowledged_by_user_id) userIds.add(n.acknowledged_by_user_id);
+      if (n.notes_updated_by_user_id) userIds.add(n.notes_updated_by_user_id);
+    });
+
+    // Fetch user emails in bulk
+    const userEmailMap = new Map<string, string>();
+    if (userIds.size > 0) {
+      const { data: users } = await supabase
+        .schema('backoffice')
+        .from('allowed_users')
+        .select('id, email')
+        .in('id', Array.from(userIds));
+
+      (users || []).forEach((u: any) => {
+        userEmailMap.set(u.id, u.email);
+      });
+    }
+
+    // Add staff emails to notifications
+    const notifications = (rawNotifications || []).map((notification: any) => ({
+      ...notification,
+      acknowledged_by_email: notification.acknowledged_by_user_id
+        ? userEmailMap.get(notification.acknowledged_by_user_id) || null
+        : null,
+      notes_updated_by_email: notification.notes_updated_by_user_id
+        ? userEmailMap.get(notification.notes_updated_by_user_id) || null
+        : null,
+    }));
 
     // Get unread count
     const { count: unreadCount } = await supabase
@@ -105,7 +161,7 @@ export async function GET(request: NextRequest) {
     const totalPages = Math.ceil(totalCount / limit);
 
     return NextResponse.json({
-      notifications: notifications || [],
+      notifications,
       pagination: {
         page,
         limit,

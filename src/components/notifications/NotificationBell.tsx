@@ -66,6 +66,27 @@ export function NotificationBell({
     }
   }, [isOpen]);
 
+  // Prevent body scroll when modal is open on mobile
+  useEffect(() => {
+    if (isOpen) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+
+      // Prevent body scroll
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+
+      return () => {
+        // Restore body scroll
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isOpen]);
+
   return (
     <div className={`relative ${className}`} ref={containerRef}>
       {/* Bell Icon Button */}
@@ -95,12 +116,17 @@ export function NotificationBell({
         )}
       </button>
 
-      {/* Dropdown */}
+      {/* Dropdown - Full screen on mobile, dropdown on desktop */}
       {isOpen && (
-        <NotificationDropdown
-          onClose={() => setIsOpen(false)}
-          className="absolute right-0 mt-2 z-50"
-        />
+        <>
+          {/* Mobile: Full-screen overlay */}
+          <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsOpen(false)} />
+
+          <NotificationDropdown
+            onClose={() => setIsOpen(false)}
+            className="fixed inset-0 z-50 md:absolute md:right-0 md:left-auto md:inset-auto md:mt-2 md:z-50"
+          />
+        </>
       )}
     </div>
   );
