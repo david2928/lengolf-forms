@@ -34,9 +34,6 @@ export default function NotificationsPage() {
     retryLineNotification,
   } = useNotifications();
 
-  // Mock staff ID (TODO: get from session)
-  const STAFF_ID = 1;
-
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'created' | 'cancelled' | 'modified'>('all');
@@ -195,7 +192,7 @@ export default function NotificationsPage() {
                 <NotificationItem
                   notification={notification}
                   variant="page"
-                  onAcknowledge={() => acknowledgeNotification(notification.id, STAFF_ID)}
+                  onAcknowledge={() => acknowledgeNotification(notification.id)}
                 />
 
                 {/* LINE Status & Retry */}
@@ -248,7 +245,7 @@ export default function NotificationsPage() {
                           onClick={() => {
                             const notes = notesInputs[notification.id] ?? notification.internal_notes ?? '';
                             if (notes.trim()) {
-                              addNotes(notification.id, notes, STAFF_ID);
+                              addNotes(notification.id, notes);
                               setEditingNotes((prev) => ({ ...prev, [notification.id]: false }));
                             }
                           }}

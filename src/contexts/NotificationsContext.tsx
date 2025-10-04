@@ -40,10 +40,10 @@ interface NotificationsContextValue {
   isConnected: boolean;
 
   /** Mark a notification as acknowledged/read */
-  acknowledgeNotification: (id: string, staffId: number) => Promise<void>;
+  acknowledgeNotification: (id: string) => Promise<void>;
 
   /** Add or update internal notes on a notification */
-  addNotes: (id: string, notes: string, staffId: number) => Promise<void>;
+  addNotes: (id: string, notes: string) => Promise<void>;
 
   /** Refresh notifications from API */
   refreshNotifications: () => Promise<void>;
@@ -149,12 +149,11 @@ export function NotificationsProvider({
   /**
    * Mark notification as acknowledged
    */
-  const acknowledgeNotification = useCallback(async (id: string, currentStaffId: number) => {
+  const acknowledgeNotification = useCallback(async (id: string) => {
     try {
       const response = await fetch(`/api/notifications/${id}/acknowledge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_id: currentStaffId }),
       });
 
       if (!response.ok) {
@@ -170,7 +169,7 @@ export function NotificationsProvider({
             ? {
                 ...n,
                 read: true,
-                acknowledged_by: data.acknowledged_by,
+                acknowledged_by_user_id: data.acknowledged_by_user_id,
                 acknowledged_at: data.acknowledged_at,
               }
             : n
@@ -188,12 +187,12 @@ export function NotificationsProvider({
   /**
    * Add or update internal notes
    */
-  const addNotes = useCallback(async (id: string, notes: string, currentStaffId: number) => {
+  const addNotes = useCallback(async (id: string, notes: string) => {
     try {
       const response = await fetch(`/api/notifications/${id}/notes`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes, staff_id: currentStaffId }),
+        body: JSON.stringify({ notes }),
       });
 
       if (!response.ok) {
@@ -209,7 +208,7 @@ export function NotificationsProvider({
             ? {
                 ...n,
                 internal_notes: data.internal_notes,
-                notes_updated_by: data.notes_updated_by,
+                notes_updated_by_user_id: data.notes_updated_by_user_id,
                 notes_updated_at: data.notes_updated_at,
               }
             : n

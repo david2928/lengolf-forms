@@ -92,7 +92,7 @@ export function NotificationDropdown({
                 notification={notification}
                 variant="dropdown"
                 onAcknowledge={() => {
-                  acknowledgeNotification(notification.id, staffId);
+                  acknowledgeNotification(notification.id);
                 }}
                 onClick={() => {
                   // TODO: Navigate to booking details or notification log

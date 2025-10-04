@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getDevSession } from '@/lib/dev-session';
+import { authOptions } from '@/lib/auth-config';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!;
@@ -7,18 +9,37 @@ const supabaseServiceKey = process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!;
 /**
  * POST /api/notifications/:id/acknowledge
  *
- * Mark a notification as acknowledged (read) by the current user
- *
- * Note: In the current implementation, we use a staff_id from the request body
- * since authentication is handled at the API layer. In production, this would
- * come from the session.
+ * Mark a notification as acknowledged (read) by the current authenticated user
+ * Requires staff or admin authentication
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Authentication check
+    const session = await getDevSession(authOptions, request);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify staff/admin role and get user ID
+    const { data: user } = await supabase
+      .schema('backoffice')
+      .from('allowed_users')
+      .select('id, is_staff, is_admin')
+      .eq('email', session.user.email)
+      .single();
+
+    if (!user?.is_staff && !user?.is_admin) {
+      return NextResponse.json(
+        { error: "Forbidden: Staff or admin access required" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
 
     // Validate UUID format
@@ -26,17 +47,6 @@ export async function POST(
     if (!uuidRegex.test(id)) {
       return NextResponse.json(
         { error: 'Invalid notification ID format' },
-        { status: 400 }
-      );
-    }
-
-    // Get staff_id from request body (in production, this would come from session)
-    const body = await request.json();
-    const { staff_id } = body;
-
-    if (!staff_id || typeof staff_id !== 'number') {
-      return NextResponse.json(
-        { error: 'staff_id is required and must be a number' },
         { status: 400 }
       );
     }
@@ -59,7 +69,7 @@ export async function POST(
     const { data: updated, error: updateError } = await supabase
       .from('notifications')
       .update({
-        acknowledged_by: staff_id,
+        acknowledged_by_user_id: user.id,
         acknowledged_at: new Date().toISOString(),
         read: true,
       })
@@ -77,7 +87,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      acknowledged_by: updated.acknowledged_by,
+      acknowledged_by_user_id: updated.acknowledged_by_user_id,
       acknowledged_at: updated.acknowledged_at,
       notification: updated,
     });

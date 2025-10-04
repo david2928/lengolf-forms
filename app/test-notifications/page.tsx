@@ -196,7 +196,7 @@ export default function TestNotificationsPage() {
                 </div>
               ) : (
                 <button
-                  onClick={() => acknowledgeNotification(notification.id, MOCK_STAFF_ID)}
+                  onClick={() => acknowledgeNotification(notification.id)}
                   className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm mb-3"
                 >
                   Mark as Read
@@ -233,7 +233,7 @@ export default function TestNotificationsPage() {
                     onClick={() => {
                       const notes = notesInput[notification.id];
                       if (notes?.trim()) {
-                        addNotes(notification.id, notes, MOCK_STAFF_ID);
+                        addNotes(notification.id, notes);
                         setNotesInput((prev) => ({ ...prev, [notification.id]: '' }));
                       }
                     }}
