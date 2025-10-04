@@ -104,9 +104,33 @@ export function CancelBookingModal({ isOpen, onClose, booking, onSuccess }: Canc
 
       onSuccess(booking.id);
 
-      // Notification is now handled automatically by database trigger
-      // The trigger creates in-app notification when booking status changes to 'cancelled'
-      // LINE notifications can be sent separately if needed
+      // Send LINE notification from client-side
+      if (cancelledBookingData) {
+        try {
+          const bookingDate = format(new Date(cancelledBookingData.date), 'EEE, MMM dd');
+          const lineMessage = `🚫 BOOKING CANCELLED (ID: ${cancelledBookingData.id}) 🚫\n----------------------------------\n👤 Customer: ${cancelledBookingData.name}\n📞 Phone: ${cancelledBookingData.phone_number}\n🗓️ Date: ${bookingDate}\n⏰ Time: ${cancelledBookingData.start_time} (Duration: ${cancelledBookingData.duration}h)\n⛳ Bay: ${cancelledBookingData.bay || 'N/A'}\n🧑‍🤝‍🧑 Pax: ${cancelledBookingData.number_of_people}\n----------------------------------\n🗑️ Cancelled By: ${employeeName.trim()}${cancellationReason.trim() ? `\n💬 Reason: ${cancellationReason.trim()}` : ''}`;
+
+          const notifyResponse = await fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: lineMessage,
+              bookingType: cancelledBookingData.booking_type,
+              customer_notes: cancelledBookingData.customer_notes
+            })
+          });
+          if (!notifyResponse.ok) {
+            const notifyErrorText = await notifyResponse.text();
+            console.error('CancelBookingModal: Failed to send LINE notification:', notifyErrorText);
+          } else {
+            console.log('CancelBookingModal: LINE notification for cancellation sent successfully.');
+          }
+        } catch (notifyError) {
+          console.error('CancelBookingModal: Error sending LINE notification:', notifyError);
+        }
+      } else {
+        console.warn('CancelBookingModal: Cancelled booking data not available for LINE notification.');
+      }
 
       onClose(); // Close modal on success
     } catch (e: any) {
