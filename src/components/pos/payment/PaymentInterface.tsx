@@ -25,7 +25,7 @@ interface PaymentInterfaceProps {
   onPaymentComplete: (result: PaymentProcessingResponse) => void;
 }
 
-type PaymentStep = 'method-selection' | 'split-management' | 'payment-screen' | 'processing' | 'success';
+type PaymentStep = 'method-selection' | 'split-management' | 'split-payment-screen' | 'payment-screen' | 'processing' | 'success';
 
 export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   order,
@@ -52,6 +52,8 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
   const [isBluetoothSupported, setIsBluetoothSupported] = useState<boolean>(false);
   const [bluetoothConnected, setBluetoothConnected] = useState<boolean>(false);
   const [hasLoadedFreshData, setHasLoadedFreshData] = useState(false);
+  const [currentSplitPaymentIndex, setCurrentSplitPaymentIndex] = useState<number>(0);
+  const [splitPaymentQRs, setSplitPaymentQRs] = useState<Map<number, string>>(new Map());
 
   // Fetch current session data to get updated total amount
   const fetcher = (url: string) => fetch(url).then(res => res.json());
@@ -288,6 +290,39 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
     return totalAmount - getTotalSplitAmount();
   };
 
+  const startSplitPaymentFlow = async () => {
+    // Generate QR codes for all PromptPay payments upfront
+    const qrMap = new Map<number, string>();
+
+    for (let i = 0; i < splitPayments.length; i++) {
+      if (splitPayments[i].method === PaymentMethod.PROMPTPAY_MANUAL) {
+        try {
+          const qrResponse = await generatePromptPayQR(splitPayments[i].amount);
+          qrMap.set(i, qrResponse.qrCodeDataURL);
+        } catch (error) {
+          console.error(`Failed to generate QR for payment ${i}:`, error);
+          alert(`Failed to generate QR code for payment ${i + 1}`);
+          return;
+        }
+      }
+    }
+
+    setSplitPaymentQRs(qrMap);
+    setCurrentSplitPaymentIndex(0);
+    setCurrentStep('split-payment-screen');
+  };
+
+  const handleNextSplitPayment = () => {
+    const nextIndex = currentSplitPaymentIndex + 1;
+
+    if (nextIndex < splitPayments.length) {
+      setCurrentSplitPaymentIndex(nextIndex);
+    } else {
+      // All payments confirmed, process the transaction
+      completeSplitPayment();
+    }
+  };
+
   const completeSplitPayment = async (providedPin?: string) => {
     // Check if we have a PIN - if not, show the PIN modal
     if (!providedPin && !staffPin) {
@@ -295,9 +330,9 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
       setShowStaffPinModal(true);
       return;
     }
-    
+
     setIsProcessing(true);
-    
+
     try {
       const paymentRequest = {
         tableSessionId: tableSessionId || order?.tableSessionId,
@@ -309,18 +344,18 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
         tableNumber,
         closeTableSession: true
       };
-      
+
       console.log('🔍 Split Payment Request:', JSON.stringify(paymentRequest, null, 2));
-      
+
       const response = await fetch('/api/pos/payments/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(paymentRequest)
       });
-      
+
       const result = await response.json();
       console.log('🔍 Split Payment Response:', JSON.stringify(result, null, 2));
-      
+
       if (!response.ok) {
         // Check if staff authentication is required
         if (result.requiresStaffAuth) {
@@ -329,16 +364,16 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
           setIsProcessing(false);
           return;
         }
-        
+
         // Handle errors
         const errorMessage = result.errors?.join(', ') || 'Split payment processing failed';
         throw new Error(errorMessage);
       }
-      
+
       setPaymentResult(result);
       setIsProcessing(false); // Ensure processing state is reset on success
       setCurrentStep('success');
-      
+
     } catch (error) {
       console.error('Split payment failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -734,22 +769,111 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
         )}
       </div>
 
-      {/* Complete Button */}
+      {/* Process Payments Button */}
       <div className="p-4 bg-white border-t border-slate-200">
         <Button
           className="w-full h-12 text-base font-semibold"
-          onClick={() => completeSplitPayment()}
+          onClick={() => startSplitPaymentFlow()}
           disabled={isProcessing || getRemainingAmount() !== 0 || splitPayments.length === 0}
         >
-          {isProcessing ? 'Processing...' : `Complete Payment (${formatCurrency(getTotalSplitAmount())})`}
+          {isProcessing ? 'Processing...' : `Process Payments (${formatCurrency(getTotalSplitAmount())})`}
         </Button>
       </div>
     </>
   );
 
+  const renderSplitPaymentScreen = () => {
+    const currentPayment = splitPayments[currentSplitPaymentIndex];
+    if (!currentPayment) return null;
+
+    const currentMethodData = paymentMethods.find(m => m.id === currentPayment.method);
+    const currentQRCode = splitPaymentQRs.get(currentSplitPaymentIndex);
+
+    return (
+      <>
+        {/* Header with Progress */}
+        <div className="bg-white border-b border-slate-200 p-4">
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" onClick={() => setCurrentStep('split-management')} className="p-2 -ml-2">
+              <ArrowLeft className="w-6 h-6" />
+            </Button>
+            <div className="flex-1">
+              <h1 className="text-xl font-semibold text-slate-900">
+                Payment {currentSplitPaymentIndex + 1} of {splitPayments.length}
+              </h1>
+              <div className="text-sm text-slate-500">
+                {currentMethodData?.name} • {formatCurrency(currentPayment.amount)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Content */}
+        <div className="flex-1 flex flex-col items-center justify-center p-6 min-h-0">
+          {currentPayment.method === PaymentMethod.PROMPTPAY_MANUAL && currentQRCode ? (
+            <div className="text-center max-w-sm w-full flex flex-col">
+              <div className="text-2xl font-semibold text-slate-900 mb-1">PromptPay</div>
+              <div className="text-slate-600 mb-4 text-base">Scan QR code to pay</div>
+
+              <div className="w-[28rem] h-[28rem] mx-auto bg-white p-8 rounded-lg border border-slate-200 mb-4 flex-shrink-0">
+                <Image src={currentQRCode} alt="PromptPay QR Code" width={384} height={384} className="w-full h-full" />
+              </div>
+
+              <div className="text-3xl font-bold text-slate-900 mb-4">
+                {formatCurrency(currentPayment.amount)}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center max-w-md">
+              <div className="w-24 h-24 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-8">
+                {currentMethodData?.icon}
+              </div>
+
+              <div className="text-3xl font-semibold text-slate-900 mb-2">
+                {currentMethodData?.name}
+              </div>
+
+              <div className="text-4xl font-bold text-slate-900 mb-6">
+                {formatCurrency(currentPayment.amount)}
+              </div>
+
+              <div className="text-slate-600 mb-8">
+                Please process the {currentMethodData?.name.toLowerCase()} payment with the customer
+              </div>
+            </div>
+          )}
+
+          {/* Warning */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 max-w-lg mb-4 mx-4">
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-amber-400 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                <div className="text-white text-sm font-bold">!</div>
+              </div>
+              <div className="text-amber-800 text-base">
+                <div className="font-semibold mb-2 text-lg">Verify Payment</div>
+                <div className="leading-relaxed">Please confirm the payment has been approved before pressing confirm.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Confirm Button */}
+        <div className="p-4 bg-white border-t border-slate-200 flex-shrink-0">
+          <Button
+            className="w-full h-12 text-base font-semibold"
+            onClick={handleNextSplitPayment}
+            disabled={isProcessing}
+          >
+            {currentSplitPaymentIndex < splitPayments.length - 1 ? 'Confirm & Next Payment' : 'Confirm & Complete All Payments'}
+          </Button>
+        </div>
+      </>
+    );
+  };
+
   const renderPaymentScreen = () => {
     const selectedMethodData = paymentMethods.find(m => m.id === selectedMethod);
-    
+
     return (
       <>
         {/* Header */}
@@ -905,6 +1029,7 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
     <div className="fixed inset-0 flex flex-col bg-slate-50">
       {currentStep === 'method-selection' && renderMethodSelection()}
       {currentStep === 'split-management' && renderSplitManagement()}
+      {currentStep === 'split-payment-screen' && renderSplitPaymentScreen()}
       {currentStep === 'payment-screen' && renderPaymentScreen()}
       {currentStep === 'success' && renderSuccessScreen()}
       
