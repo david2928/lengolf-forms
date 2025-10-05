@@ -6,6 +6,7 @@ export const LINE_MESSAGING = {
     default: process.env.LINE_GROUP_ID || "",
     ratchavin: process.env.LINE_GROUP_RATCHAVIN_ID || "",
     coaching: process.env.LINE_GROUP_COACHING_ID || "",
-    noon: process.env.LINE_GROUP_NOON_ID || ""
+    noon: process.env.LINE_GROUP_NOON_ID || "",
+    min: process.env.LINE_GROUP_MIN_ID || ""
   }
 } as const;

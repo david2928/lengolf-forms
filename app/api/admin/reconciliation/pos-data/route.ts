@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Validate reconciliation type
-    const validTypes = ['restaurant', 'golf_coaching_ratchavin', 'golf_coaching_boss', 'golf_coaching_noon', 'smith_and_co_restaurant'];
+    const validTypes = ['restaurant', 'golf_coaching_ratchavin', 'golf_coaching_boss', 'golf_coaching_noon', 'golf_coaching_min', 'smith_and_co_restaurant'];
     if (!validTypes.includes(reconciliationType)) {
       return NextResponse.json({
         error: `Invalid reconciliation type: ${reconciliationType}`,
@@ -147,7 +147,9 @@ export async function GET(request: NextRequest) {
           ? 'BOSS'
           : reconciliationType === 'golf_coaching_noon'
             ? 'NOON'
-            : null;
+            : reconciliationType === 'golf_coaching_min'
+              ? 'MIN'
+              : null;
 
       if (!coachName) {
         return NextResponse.json({

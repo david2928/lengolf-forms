@@ -58,6 +58,17 @@ const reconciliationTypes = [
     borderColor: 'border-purple-200',
     selectedBorder: 'border-purple-500',
     selectedBg: 'bg-purple-100'
+  },
+  {
+    id: 'golf_coaching_min',
+    label: 'Golf Coaching - Pro Min',
+    description: 'Match golf lesson invoices with lesson usage records for Pro Min',
+    icon: Trophy,
+    color: 'text-pink-600',
+    bgColor: 'bg-pink-50',
+    borderColor: 'border-pink-200',
+    selectedBorder: 'border-pink-500',
+    selectedBg: 'bg-pink-100'
   }
 ];
 

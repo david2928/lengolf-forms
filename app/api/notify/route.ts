@@ -30,6 +30,9 @@ async function sendLineMessage(message: string, bookingType?: string, customerNo
   } else if (bookingType === "Coaching (Noon)" && LINE_MESSAGING.groups.noon) {
     console.log('Booking is Noon coaching, will send to Noon group');
     groups.push(LINE_MESSAGING.groups.noon);
+  } else if (bookingType === "Coaching (Min)" && LINE_MESSAGING.groups.min) {
+    console.log('Booking is Min coaching, will send to Min group');
+    groups.push(LINE_MESSAGING.groups.min);
   }
   
   if (groups.length === 0) {

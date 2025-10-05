@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid invoice data' }, { status: 400 });
     }
 
-    if (!reconciliationType || !['golf_coaching_ratchavin', 'golf_coaching_boss', 'golf_coaching_noon', 'smith_and_co_restaurant'].includes(reconciliationType)) {
+    if (!reconciliationType || !['golf_coaching_ratchavin', 'golf_coaching_boss', 'golf_coaching_noon', 'golf_coaching_min', 'smith_and_co_restaurant'].includes(reconciliationType)) {
       return NextResponse.json({ error: 'Invalid reconciliation type' }, { status: 400 });
     }
 
@@ -157,14 +157,17 @@ async function fetchPOSData(reconciliationType: string, dateRange: { start: stri
       }));
 
     case 'golf_coaching_ratchavin':
-    case 'golf_coaching_boss':  
+    case 'golf_coaching_boss':
     case 'golf_coaching_noon':
+    case 'golf_coaching_min':
       // Golf coaching reconciliation: use coach earnings data for actual lesson values
       const coachName = reconciliationType === 'golf_coaching_ratchavin'
         ? 'RATCHAVIN'
         : reconciliationType === 'golf_coaching_boss'
           ? 'BOSS'
-          : 'NOON';
+          : reconciliationType === 'golf_coaching_noon'
+            ? 'NOON'
+            : 'MIN';
 
       const { data: earningsData, error: earningsError } = await supabase
         .schema('backoffice')

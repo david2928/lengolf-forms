@@ -91,6 +91,18 @@ const PARSING_CONFIGS = {
     },
     dateFormats: ['M/D/YYYY', 'MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD', 'DD-MM-YYYY'],
     currencySymbols: ['฿', 'THB', '$', 'บาท']
+  },
+  golf_coaching_min: {
+    expectedColumns: {
+      date: ['Date', 'Lesson Date', 'Class Date', 'date', 'วันที่', 'เวลา', 'Date/Time'],
+      customer: ['Name', 'Student', 'Student Name', 'Customer', 'customer_name', 'ชื่อ', 'ลูกค้า'],
+      quantity: ['QTY', 'Qty', 'Lessons', 'Lesson Count', 'Sessions', 'quantity', 'จำนวน', 'จำนวนครั้ง', 'Count'],
+      amount: ['AMOUNT', 'Amount', 'Total', 'Fee', 'Price', 'total_amount', 'ราคา', 'จำนวนเงิน'],
+      unitPrice: ['UNIT PRICE', 'Unit Price', 'Per Lesson', 'Lesson Fee', 'Rate', 'unit_price', 'ราคาต่อครั้ง'],
+      product: ['Type', 'Service', 'Lesson Type', 'Product', 'บริการ', 'ประเภท']
+    },
+    dateFormats: ['M/D/YYYY', 'MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD', 'DD-MM-YYYY'],
+    currencySymbols: ['฿', 'THB', '$', 'บาท']
   }
 };
 
@@ -417,8 +429,8 @@ function parseRecord(record: any, config: any, rowNumber: number, reconciliation
     skuValue = productValue;
   }
 
-  if (!dateValue || !quantityValue || !amountValue) {
-    throw new Error('Missing required fields (date, quantity, amount)');
+  if (!dateValue || !amountValue) {
+    throw new Error('Missing required fields (date, amount)');
   }
   if (!customerValue && !skuValue) {
     throw new Error('Missing required customer or SKU identifier');
@@ -429,7 +441,7 @@ function parseRecord(record: any, config: any, rowNumber: number, reconciliation
     throw new Error(`Invalid date format: ${dateValue}`);
   }
 
-  const quantity = parseNumber(quantityValue);
+  const quantity = quantityValue ? parseNumber(quantityValue) : 1;
   const totalAmount = parseNumber(amountValue, config.currencySymbols);
   const unitPrice = unitPriceValue ? parseNumber(unitPriceValue, config.currencySymbols) : (quantity > 0 ? totalAmount / quantity : 0);
 

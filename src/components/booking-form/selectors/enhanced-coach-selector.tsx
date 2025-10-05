@@ -24,29 +24,37 @@ export function EnhancedCoachSelector({
   packageName
 }: EnhancedCoachSelectorProps) {
   const allCoaches = [
-    { 
-      value: 'Boss', 
-      label: 'Boss', 
+    {
+      value: 'Boss',
+      label: 'Boss',
       initials: 'B',
-      gradient: 'from-blue-600 to-blue-700', 
-      bgColor: 'bg-blue-50', 
-      borderColor: 'border-blue-200' 
+      gradient: 'from-blue-600 to-blue-700',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200'
     },
-    { 
-      value: 'Boss - Ratchavin', 
-      label: 'Ratchavin', 
+    {
+      value: 'Boss - Ratchavin',
+      label: 'Ratchavin',
       initials: 'R',
-      gradient: 'from-teal-500 to-teal-600', 
-      bgColor: 'bg-teal-50', 
-      borderColor: 'border-teal-200' 
+      gradient: 'from-teal-500 to-teal-600',
+      bgColor: 'bg-teal-50',
+      borderColor: 'border-teal-200'
     },
-    { 
-      value: 'Noon', 
-      label: 'Noon', 
+    {
+      value: 'Noon',
+      label: 'Noon',
       initials: 'N',
-      gradient: 'from-orange-500 to-orange-600', 
-      bgColor: 'bg-orange-50', 
-      borderColor: 'border-orange-200' 
+      gradient: 'from-orange-500 to-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200'
+    },
+    {
+      value: 'Min',
+      label: 'Min',
+      initials: 'M',
+      gradient: 'from-pink-500 to-pink-600',
+      bgColor: 'bg-pink-50',
+      borderColor: 'border-pink-200'
     },
   ]
 
@@ -92,7 +100,7 @@ export function EnhancedCoachSelector({
   return (
     <div className="space-y-4">
       
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {coaches.map((coach) => {
           const isSelected = value === coach.value || value === coach.label
           const isUnselected = value && value !== coach.value && value !== coach.label
@@ -123,15 +131,17 @@ export function EnhancedCoachSelector({
                   )}>
                     <span className={cn(
                       "text-lg font-bold transition-colors duration-200",
-                      isSelected 
-                        ? "text-white" 
+                      isSelected
+                        ? "text-white"
                         : isUnselected
                           ? "text-gray-400"
-                          : coach.value === 'Boss' 
+                          : coach.value === 'Boss'
                             ? "text-blue-600"
                             : coach.value === 'Boss - Ratchavin'
-                              ? "text-teal-600"  
-                              : "text-orange-600"
+                              ? "text-teal-600"
+                              : coach.value === 'Noon'
+                                ? "text-orange-600"
+                                : "text-pink-600"
                     )}>
                       {coach.initials}
                     </span>
