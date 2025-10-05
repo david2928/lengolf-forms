@@ -11,6 +11,7 @@
  * @module NotificationDropdown
  */
 
+import React from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationItem } from './NotificationItem';
 import Link from 'next/link';
@@ -53,11 +54,25 @@ export function NotificationDropdown({
   staffId = 1, // TODO: Get from session in production
 }: NotificationDropdownProps) {
   const { notifications, unreadCount, acknowledgeNotification } = useNotifications();
+  const [justConfirmedIds, setJustConfirmedIds] = React.useState<Set<string>>(new Set());
 
-  // Get latest N unread notifications for dropdown (show only unread)
+  // Get latest N unread notifications for dropdown
+  // Include notifications that were just confirmed in this session
   const latestNotifications = notifications
-    .filter(n => !n.read)
+    .filter(n => !n.read || justConfirmedIds.has(n.id))
     .slice(0, maxItems);
+
+  // Handle confirmation and track which ones were just confirmed
+  const handleConfirm = (notificationId: string) => {
+    setJustConfirmedIds(prev => new Set(prev).add(notificationId));
+    acknowledgeNotification(notificationId);
+  };
+
+  // Clear just-confirmed tracking when dropdown closes
+  const handleClose = () => {
+    setJustConfirmedIds(new Set());
+    if (onClose) onClose();
+  };
 
   return (
     <div
@@ -69,9 +84,17 @@ export function NotificationDropdown({
     >
       {/* Header */}
       <div className="p-4 border-b border-gray-200 bg-gray-50">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h3 className="font-semibold text-gray-900 text-lg md:text-base">Notifications</h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* View All Link */}
+            <Link
+              href="/notifications"
+              className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+              onClick={handleClose}
+            >
+              View All
+            </Link>
             {unreadCount > 0 && (
               <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">
                 {unreadCount} unread
@@ -79,7 +102,7 @@ export function NotificationDropdown({
             )}
             {/* Close button for mobile */}
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="md:hidden p-1 hover:bg-gray-200 rounded-full transition-colors"
               aria-label="Close notifications"
             >
@@ -99,18 +122,18 @@ export function NotificationDropdown({
             <p className="text-xs mt-1">New booking notifications will appear here</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
+          <div>
             {latestNotifications.map((notification) => (
               <NotificationItem
                 key={notification.id}
                 notification={notification}
                 variant="dropdown"
                 onAcknowledge={() => {
-                  acknowledgeNotification(notification.id);
+                  handleConfirm(notification.id);
                 }}
                 onClick={() => {
                   // TODO: Navigate to booking details or notification log
-                  if (onClose) onClose();
+                  handleClose();
                 }}
               />
             ))}
@@ -118,18 +141,6 @@ export function NotificationDropdown({
         )}
       </div>
 
-      {/* Footer */}
-      {latestNotifications.length > 0 && (
-        <div className="p-3 border-t border-gray-200 bg-gray-50">
-          <Link
-            href="/notifications"
-            className="block w-full text-center text-sm font-medium text-blue-600 hover:text-blue-700 py-2"
-            onClick={onClose}
-          >
-            View All Notifications
-          </Link>
-        </div>
-      )}
     </div>
   );
 }
