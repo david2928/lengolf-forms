@@ -19,6 +19,7 @@ export function SimpleBookingTypeSelector({
     'Coaching (Boss)',
     'Coaching (Boss - Ratchavin)',
     'Coaching (Noon)',
+    'Coaching (Min)',
     'Normal Bay Rate',
     'ClassPass',
     'Others (e.g. Events)'

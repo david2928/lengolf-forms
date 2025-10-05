@@ -441,7 +441,21 @@ function parseRecord(record: any, config: any, rowNumber: number, reconciliation
     throw new Error(`Invalid date format: ${dateValue}`);
   }
 
-  const quantity = quantityValue ? parseNumber(quantityValue) : 1;
+  // For coaching reconciliation, default quantity to 1 if missing (typically 1 lesson per entry)
+  // For smith_and_co_restaurant, default quantity to 1 (each row = 1 item sold)
+  // For other restaurant reconciliations, require quantity to catch data mapping issues
+  const isCoachingReconciliation = reconciliationType.startsWith('golf_coaching_');
+  const isSmithAndCoRestaurant = reconciliationType === 'smith_and_co_restaurant';
+  let quantity: number;
+
+  if (isCoachingReconciliation || isSmithAndCoRestaurant) {
+    quantity = quantityValue ? parseNumber(quantityValue) : 1;
+  } else {
+    if (!quantityValue) {
+      throw new Error('Missing required field: quantity');
+    }
+    quantity = parseNumber(quantityValue);
+  }
   const totalAmount = parseNumber(amountValue, config.currencySymbols);
   const unitPrice = unitPriceValue ? parseNumber(unitPriceValue, config.currencySymbols) : (quantity > 0 ? totalAmount / quantity : 0);
 

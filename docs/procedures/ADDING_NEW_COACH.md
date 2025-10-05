@@ -403,7 +403,11 @@ LINE_GROUP_[COACHKEY]_ID=your-line-group-id
 LINE_GROUP_MIN_ID=C1234567890abcdef
 ```
 
-Then add to Vercel environment variables for production deployment.
+**Important**:
+- Add this variable to **all environments** (local, staging, production)
+- In Vercel: Settings → Environment Variables → Add New
+- Without this variable, coach notifications will default to the main LINE group
+- This is **optional** - omitting it just means notifications go to the default group
 
 ---
 
@@ -505,9 +509,11 @@ After adding the coach to the system, they should:
 - Confirm LINE bot is added to the group
 
 ### Reconciliation Not Working
-- Verify coach name in `coach_earnings` table matches exactly
+- **For new coaches**: Coach won't appear in reconciliation until they have earnings data in `coach_earnings` table
+- Verify coach name in `coach_earnings` table matches exactly (case-sensitive: 'MIN' not 'min')
 - Check all reconciliation files updated (4 files)
 - Review case-sensitive matching in pos-data and reconcile routes
+- **Note**: Reconciliation system requires actual earnings records - it won't show data for coaches with zero lessons
 
 ---
 
