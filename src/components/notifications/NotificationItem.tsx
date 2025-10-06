@@ -192,7 +192,7 @@ export function NotificationItem({
               customerName={notification.customer_name}
               fromLocation="notifications-dropdown"
               fromLabel="Notification Dropdown"
-              className="font-semibold text-base leading-tight text-gray-900"
+              className="font-semibold text-base leading-tight"
             />
             {notification.customer_phone && (
               <span className="text-xs text-gray-500 font-normal">
@@ -305,7 +305,7 @@ export function NotificationItem({
             customerName={notification.customer_name}
             fromLocation="notifications-page"
             fromLabel="Notifications Log"
-            className="font-semibold text-base leading-tight text-gray-900"
+            className="font-semibold text-base leading-tight"
           />
           {notification.customer_phone && (
             <span className="text-xs text-gray-500 font-normal">
