@@ -37,9 +37,10 @@ export interface Notification {
   internal_notes: string | null;
   notes_updated_by_user_id: string | null;
   notes_updated_at: string | null;
-  // Joined fields from allowed_users (populated by API)
-  acknowledged_by_email?: string | null;
-  notes_updated_by_email?: string | null;
+  // Joined fields from allowed_users and customers (populated by API)
+  acknowledged_by_display_name?: string | null;
+  notes_updated_by_display_name?: string | null;
+  customer_code?: string | null;
   line_notification_sent: boolean;
   line_notification_error: string | null;
   created_at: string;

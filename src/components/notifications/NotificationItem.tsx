@@ -161,17 +161,17 @@ export function NotificationItem({
       {/* Content */}
       <div className="flex-1 min-w-0 ml-6 sm:ml-7">{/* ml-6 on mobile, ml-7 on desktop to align with icon */}
 
-          {/* Customer Name with IDs */}
+          {/* Customer Name with Booking ID and Customer Code */}
           <p className="font-semibold text-gray-900 text-sm sm:text-base mb-1 break-words">
             {notification.customer_name}
             {notification.metadata?.bookingId && (
               <span className="ml-1.5 sm:ml-2 text-xs font-mono text-blue-600 font-normal break-all">
-                [{notification.metadata.bookingId.length > 12 ? `${notification.metadata.bookingId.substring(0, 12)}...` : notification.metadata.bookingId}]
+                [{notification.metadata.bookingId}]
               </span>
             )}
-            {notification.metadata?.customerId && (
-              <span className="ml-1.5 sm:ml-2 text-xs font-mono text-gray-500 font-normal">
-                (Cust: {notification.metadata.customerId.substring(0, 8)}...)
+            {notification.customer_code && (
+              <span className="ml-1.5 sm:ml-2 text-xs font-mono text-gray-600 font-normal">
+                ({notification.customer_code})
               </span>
             )}
           </p>
@@ -248,7 +248,7 @@ export function NotificationItem({
           {/* Acknowledgment Status (page variant) */}
           {!isDropdown && notification.read && notification.acknowledged_at && (
             <p className="text-xs sm:text-sm text-green-600 mt-2 break-words">
-              ✅ Acknowledged by {notification.acknowledged_by_email || `Staff #${notification.acknowledged_by}`} {formatDistanceToNow(new Date(notification.acknowledged_at), { addSuffix: true })}
+              ✅ Acknowledged by {notification.acknowledged_by_display_name || `Staff #${notification.acknowledged_by}`} {formatDistanceToNow(new Date(notification.acknowledged_at), { addSuffix: true })}
             </p>
           )}
         </div>

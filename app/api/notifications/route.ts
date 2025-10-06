@@ -118,37 +118,80 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Collect unique user IDs to fetch emails
+    // Collect unique user IDs, customer IDs, and booking IDs
     const userIds = new Set<string>();
+    const customerIds = new Set<string>();
+    const bookingIds = new Set<string>();
     (rawNotifications || []).forEach((n: any) => {
       if (n.acknowledged_by_user_id) userIds.add(n.acknowledged_by_user_id);
       if (n.notes_updated_by_user_id) userIds.add(n.notes_updated_by_user_id);
+      if (n.customer_id) customerIds.add(n.customer_id);
+      // Also collect booking IDs from metadata
+      if (n.metadata?.bookingId) bookingIds.add(n.metadata.bookingId);
     });
 
-    // Fetch user emails in bulk
-    const userEmailMap = new Map<string, string>();
+    // Fetch user display names in bulk
+    const userDisplayNameMap = new Map<string, string>();
     if (userIds.size > 0) {
       const { data: users } = await supabase
         .schema('backoffice')
         .from('allowed_users')
-        .select('id, email')
+        .select('id, display_name')
         .in('id', Array.from(userIds));
 
       (users || []).forEach((u: any) => {
-        userEmailMap.set(u.id, u.email);
+        userDisplayNameMap.set(u.id, u.display_name);
       });
     }
 
-    // Add staff emails to notifications
-    const notifications = (rawNotifications || []).map((notification: any) => ({
-      ...notification,
-      acknowledged_by_email: notification.acknowledged_by_user_id
-        ? userEmailMap.get(notification.acknowledged_by_user_id) || null
-        : null,
-      notes_updated_by_email: notification.notes_updated_by_user_id
-        ? userEmailMap.get(notification.notes_updated_by_user_id) || null
-        : null,
-    }));
+    // Fetch customer IDs from bookings for notifications that don't have customer_id
+    const bookingToCustomerMap = new Map<string, string>();
+    if (bookingIds.size > 0) {
+      const { data: bookings } = await supabase
+        .from('bookings')
+        .select('id, customer_id')
+        .in('id', Array.from(bookingIds));
+
+      (bookings || []).forEach((b: any) => {
+        if (b.customer_id) {
+          bookingToCustomerMap.set(b.id, b.customer_id);
+          customerIds.add(b.customer_id);
+        }
+      });
+    }
+
+    // Fetch customer codes in bulk
+    const customerCodeMap = new Map<string, string>();
+    if (customerIds.size > 0) {
+      const { data: customers } = await supabase
+        .from('customers')
+        .select('id, customer_code')
+        .in('id', Array.from(customerIds));
+
+      (customers || []).forEach((c: any) => {
+        customerCodeMap.set(c.id, c.customer_code);
+      });
+    }
+
+    // Add staff display names and customer codes to notifications
+    const notifications = (rawNotifications || []).map((notification: any) => {
+      // Determine customer_id: use direct customer_id or look up from booking
+      const customerId = notification.customer_id ||
+        (notification.metadata?.bookingId ? bookingToCustomerMap.get(notification.metadata.bookingId) : null);
+
+      return {
+        ...notification,
+        acknowledged_by_display_name: notification.acknowledged_by_user_id
+          ? userDisplayNameMap.get(notification.acknowledged_by_user_id) || null
+          : null,
+        notes_updated_by_display_name: notification.notes_updated_by_user_id
+          ? userDisplayNameMap.get(notification.notes_updated_by_user_id) || null
+          : null,
+        customer_code: customerId
+          ? customerCodeMap.get(customerId) || null
+          : null,
+      };
+    });
 
     // Get unread count
     const { count: unreadCount } = await supabase

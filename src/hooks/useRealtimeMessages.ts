@@ -398,6 +398,53 @@ export function useRealtimeMessages({
     };
   }, [conversationId, channelType, connect]);
 
+  // Handle page visibility changes - reconnect when page becomes visible
+  useEffect(() => {
+    if (typeof window === 'undefined' || !supabaseRealtime) return;
+
+    const lastActivityRef = { current: Date.now() };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const timeSinceLastActivity = Date.now() - lastActivityRef.current;
+
+        // If page was hidden for more than 30 seconds, reconnect
+        if (timeSinceLastActivity > 30000) {
+          console.log('🔄 Page visible after inactivity, reconnecting realtime messages...');
+          connect();
+        }
+      } else {
+        // Update last activity time when page becomes hidden
+        lastActivityRef.current = Date.now();
+      }
+    };
+
+    const handleFocus = () => {
+      const timeSinceLastActivity = Date.now() - lastActivityRef.current;
+
+      // If window was unfocused for more than 30 seconds, reconnect
+      if (timeSinceLastActivity > 30000) {
+        console.log('🔄 Window focused after inactivity, reconnecting realtime messages...');
+        connect();
+      }
+    };
+
+    const handleBlur = () => {
+      lastActivityRef.current = Date.now();
+    };
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [connect]);
+
   // Note: Cleanup is handled in the main useEffect above
 
   // Manual reconnect function

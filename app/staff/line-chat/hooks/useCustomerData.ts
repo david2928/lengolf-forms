@@ -315,6 +315,33 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     }
   }, [selectedConversation?.customerId, fetchCustomerDetails]);
 
+  // Refresh bookings when page becomes visible (e.g., returning from booking creation)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !selectedConversation?.customerId) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && selectedConversation?.customerId) {
+        console.log('🔄 Page visible, refreshing customer bookings...');
+        fetchCustomerDetails(selectedConversation.customerId);
+      }
+    };
+
+    const handleFocus = () => {
+      if (selectedConversation?.customerId) {
+        console.log('🔄 Window focused, refreshing customer bookings...');
+        fetchCustomerDetails(selectedConversation.customerId);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [selectedConversation?.customerId, fetchCustomerDetails]);
+
   // Real-time subscription for bookings updates
   useEffect(() => {
     if (!selectedConversation?.customerId) return;
@@ -350,7 +377,9 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
               }
             }
           )
-          .subscribe();
+          .subscribe((status) => {
+            console.log(`📡 Bookings subscription status: ${status} for customer ${selectedConversation.customerId}`);
+          });
       } catch (error) {
         console.error('Error setting up bookings subscription:', error);
       }

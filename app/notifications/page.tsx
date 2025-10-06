@@ -250,7 +250,7 @@ export default function NotificationsPage() {
                     </label>
                     {notification.notes_updated_at && (
                       <span className="text-xs text-gray-500">
-                        {notification.notes_updated_by_email || `Staff #${notification.notes_updated_by}`} • {new Date(notification.notes_updated_at).toLocaleDateString()}
+                        {notification.notes_updated_by_display_name || `Staff #${notification.notes_updated_by}`} • {new Date(notification.notes_updated_at).toLocaleDateString()}
                       </span>
                     )}
                   </div>

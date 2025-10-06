@@ -342,11 +342,26 @@ export default function UnifiedChatPage() {
     if (!selectedCustomerForLink || !selectedConversation) return;
 
     try {
+      // Optimistically update the conversation in state immediately for better UX
+      setConversations(prev =>
+        prev.map(conv =>
+          conv.id === selectedConversation
+            ? { ...conv, customerId: selectedCustomerForLink.id, customer: selectedCustomerForLink }
+            : conv
+        )
+      );
+
       await customerOps.linkCustomer(selectedCustomerForLink.id, selectedCustomerForLink);
+
+      // Refresh conversations to get the updated customer_id and full customer details from database
+      await refreshConversations();
+
       setShowConfirmationModal(false);
       setSelectedCustomerForLink(null);
     } catch (error) {
       console.error('Error linking customer:', error);
+      // On error, refresh to revert the optimistic update
+      await refreshConversations();
     }
   };
 

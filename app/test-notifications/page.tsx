@@ -191,7 +191,7 @@ export default function TestNotificationsPage() {
               {/* Acknowledgment Status */}
               {notification.read && notification.acknowledged_at ? (
                 <div className="text-sm text-green-600 mb-3">
-                  ✅ Acknowledged by {notification.acknowledged_by_email || `Staff #${notification.acknowledged_by}`} at{' '}
+                  ✅ Acknowledged by {notification.acknowledged_by_display_name || `Staff #${notification.acknowledged_by}`} at{' '}
                   {new Date(notification.acknowledged_at).toLocaleString()}
                 </div>
               ) : (
@@ -211,7 +211,7 @@ export default function TestNotificationsPage() {
                     <p>{notification.internal_notes}</p>
                     {notification.notes_updated_at && (
                       <p className="text-xs text-gray-500 mt-1">
-                        Updated by {notification.notes_updated_by_email || `Staff #${notification.notes_updated_by}`} at{' '}
+                        Updated by {notification.notes_updated_by_display_name || `Staff #${notification.notes_updated_by}`} at{' '}
                         {new Date(notification.notes_updated_at).toLocaleString()}
                       </p>
                     )}
