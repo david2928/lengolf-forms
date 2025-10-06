@@ -144,18 +144,22 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch customer IDs from bookings for notifications that don't have customer_id
+    // Fetch customer IDs and duration from bookings for notifications that don't have customer_id
     const bookingToCustomerMap = new Map<string, string>();
+    const bookingToDurationMap = new Map<string, number>();
     if (bookingIds.size > 0) {
       const { data: bookings } = await supabase
         .from('bookings')
-        .select('id, customer_id')
+        .select('id, customer_id, duration')
         .in('id', Array.from(bookingIds));
 
       (bookings || []).forEach((b: any) => {
         if (b.customer_id) {
           bookingToCustomerMap.set(b.id, b.customer_id);
           customerIds.add(b.customer_id);
+        }
+        if (b.duration) {
+          bookingToDurationMap.set(b.id, b.duration);
         }
       });
     }
@@ -173,11 +177,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Add staff display names and customer codes to notifications
+    // Add staff display names, customer codes, and duration to notifications
     const notifications = (rawNotifications || []).map((notification: any) => {
       // Determine customer_id: use direct customer_id or look up from booking
       const customerId = notification.customer_id ||
         (notification.metadata?.bookingId ? bookingToCustomerMap.get(notification.metadata.bookingId) : null);
+
+      // Get duration from booking
+      const duration = notification.metadata?.bookingId
+        ? bookingToDurationMap.get(notification.metadata.bookingId) || null
+        : null;
 
       return {
         ...notification,
@@ -190,6 +199,7 @@ export async function GET(request: NextRequest) {
         customer_code: customerId
           ? customerCodeMap.get(customerId) || null
           : null,
+        duration: duration,
       };
     });
 

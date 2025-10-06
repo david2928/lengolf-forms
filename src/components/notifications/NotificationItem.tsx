@@ -11,7 +11,7 @@
  * @module NotificationItem
  */
 
-import { CalendarPlus, CalendarX, CalendarClock } from 'lucide-react';
+import { CalendarPlus, CalendarX, CalendarClock, Calendar, Clock } from 'lucide-react';
 import { Notification } from '@/lib/notifications-realtime';
 import { formatDistanceToNow, format } from 'date-fns';
 import { CustomerLink } from '@/components/shared/CustomerLink';
@@ -177,28 +177,79 @@ export function NotificationItem({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Customer Name */}
-          <div className="mb-1">
+          {/* Row 1: Notification Type + Timestamp */}
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className={`inline-flex px-2 py-0.5 rounded-full font-medium text-xs ${getBadgeColor(notification.type)}`}>
+              {getBadgeText(notification.type)}
+            </span>
+            <span className="text-xs text-gray-500">{timeAgo}</span>
+          </div>
+
+          {/* Row 2: Customer Identity */}
+          <div className="flex items-baseline gap-1.5 mb-1.5 flex-wrap">
             <CustomerLink
               customerId={notification.customer_id}
               customerName={notification.customer_name}
               fromLocation="notifications-dropdown"
               fromLabel="Notification Dropdown"
-              className="font-medium text-base leading-tight"
+              className="font-semibold text-base leading-tight text-gray-900"
             />
+            {notification.customer_phone && (
+              <span className="text-xs text-gray-500 font-normal">
+                {notification.customer_phone}
+              </span>
+            )}
           </div>
 
-          {/* Time and Bay */}
-          <p className="text-sm text-gray-600 mb-1">
-            {notification.booking_time}
-            {notification.booking_time && notification.bay && ' • '}
-            {notification.bay}
-          </p>
+          {/* Row 3: Date & Time with Icons */}
+          <div className="flex items-center gap-3 text-sm text-gray-700 mb-1.5 flex-wrap">
+            {notification.metadata?.formattedDate && (
+              <div className="flex items-center gap-1">
+                <Calendar className="w-4 h-4 text-gray-500" />
+                <span className="font-medium">{notification.metadata.formattedDate}</span>
+              </div>
+            )}
+            {notification.booking_time && (
+              <div className="flex items-center gap-1">
+                <Clock className="w-4 h-4 text-gray-500" />
+                <span className="font-medium">
+                  {notification.booking_time}
+                  {notification.duration && (
+                    <>
+                      <span className="text-gray-400 mx-1">•</span>
+                      {notification.duration}h
+                    </>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
 
-          {/* Type and Timestamp */}
-          <p className="text-sm text-gray-500">
-            {getBadgeText(notification.type)} • {exactTime}
-          </p>
+          {/* Row 4: Bay + Pax + Type (Pills) */}
+          <div className="flex items-center flex-wrap gap-2 text-xs mb-1">
+            {notification.bay && (
+              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
+                {notification.bay}
+              </span>
+            )}
+            {notification.metadata?.numberOfPeople && (
+              <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded font-medium">
+                {notification.metadata.numberOfPeople} pax
+              </span>
+            )}
+            {notification.metadata?.bookingType && (
+              <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded font-medium">
+                {notification.metadata.bookingType}
+              </span>
+            )}
+          </div>
+
+          {/* Row 5: Confirmation Status (Only if confirmed) */}
+          {notification.read && notification.acknowledged_at && (
+            <div className="text-xs text-gray-400 mt-1">
+              ✓ Confirmed by {notification.acknowledged_by_display_name || `Staff #${notification.acknowledged_by}`} • {formatDistanceToNow(new Date(notification.acknowledged_at), { addSuffix: true })}
+            </div>
+          )}
         </div>
 
         {/* Checkmark for acknowledged or Confirm button */}
@@ -225,7 +276,7 @@ export function NotificationItem({
     );
   }
 
-  // Full page variant - minimalist design matching dropdown
+  // Full page variant - enhanced visual hierarchy
   return (
     <div
       className={`
@@ -239,75 +290,93 @@ export function NotificationItem({
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        {/* Top Row: Customer Name with IDs + Confirmation Status */}
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <div className="flex-1 min-w-0">
-            <CustomerLink
-              customerId={notification.customer_id}
-              customerName={notification.customer_name}
-              fromLocation="notifications-page"
-              fromLabel="Notifications Log"
-              className="font-medium text-base leading-tight"
-            />
-            {notification.metadata?.bookingId && (
-              <span className="ml-2 text-xs font-mono text-blue-600 font-normal break-all">
-                [{notification.metadata.bookingId}]
-              </span>
-            )}
-            {notification.customer_code && (
-              <span className="ml-2 text-xs font-mono text-gray-600 font-normal">
-                ({notification.customer_code})
-              </span>
-            )}
-          </div>
+        {/* Row 1: Notification Type + Timestamp */}
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className={`inline-flex px-2 py-0.5 rounded-full font-medium text-xs ${getBadgeColor(notification.type)}`}>
+            {getBadgeText(notification.type)}
+          </span>
+          <span className="text-xs text-gray-500" title={exactTime}>{timeAgo}</span>
+        </div>
 
-          {/* Confirmation Status - Right Justified */}
-          {notification.read && notification.acknowledged_at && (
-            <p className="text-xs text-green-600 flex-shrink-0">
-              ✅ Confirmed by {notification.acknowledged_by_display_name || `Staff #${notification.acknowledged_by}`} {formatDistanceToNow(new Date(notification.acknowledged_at), { addSuffix: true })}
-            </p>
+        {/* Row 2: Customer Identity */}
+        <div className="flex items-baseline gap-1.5 flex-wrap mb-1.5">
+          <CustomerLink
+            customerId={notification.customer_id}
+            customerName={notification.customer_name}
+            fromLocation="notifications-page"
+            fromLabel="Notifications Log"
+            className="font-semibold text-base leading-tight text-gray-900"
+          />
+          {notification.customer_phone && (
+            <span className="text-xs text-gray-500 font-normal">
+              {notification.customer_phone}
+            </span>
           )}
         </div>
 
-        {/* Time and Bay */}
-        <p className="text-sm text-gray-600 mb-1">
-          {notification.booking_time}
-          {notification.booking_time && notification.bay && ' • '}
-          {notification.bay}
-          {notification.customer_phone && ` • ${notification.customer_phone}`}
-        </p>
+        {/* Row 3: Date & Time with Icons */}
+        <div className="flex items-center flex-wrap gap-3 text-sm text-gray-700 mb-1.5">
+          {notification.metadata?.formattedDate && (
+            <div className="flex items-center gap-1">
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <span className="font-medium">{notification.metadata.formattedDate}</span>
+            </div>
+          )}
+          {notification.booking_time && (
+            <div className="flex items-center gap-1">
+              <Clock className="w-4 h-4 text-gray-500" />
+              <span className="font-medium">
+                {notification.booking_time}
+                {notification.duration && (
+                  <>
+                    <span className="text-gray-400 mx-1">•</span>
+                    {notification.duration}h
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
 
-        {/* Type and Timestamp */}
-        <p className="text-sm text-gray-500 mb-2">
-          {getBadgeText(notification.type)} • {exactTime}
-        </p>
+        {/* Row 4: Bay + Pax + Type (Pills) */}
+        <div className="flex items-center flex-wrap gap-2 text-xs mb-1">
+          {notification.bay && (
+            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
+              {notification.bay}
+            </span>
+          )}
+          {notification.metadata?.numberOfPeople && (
+            <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded font-medium">
+              {notification.metadata.numberOfPeople} pax
+            </span>
+          )}
+          {notification.metadata?.bookingType && (
+            <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded font-medium">
+              {notification.metadata.bookingType}
+            </span>
+          )}
+        </div>
 
-        {/* Additional Details */}
-        {(notification.metadata?.numberOfPeople || notification.metadata?.bookingType || notification.metadata?.formattedDate) && (
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 mb-2">
-            {notification.metadata?.formattedDate && (
-              <span>Date: {notification.metadata.formattedDate}</span>
-            )}
-            {notification.metadata?.numberOfPeople && (
-              <span>Pax: {notification.metadata.numberOfPeople}</span>
-            )}
-            {notification.metadata?.bookingType && (
-              <span>Type: {notification.metadata.bookingType}</span>
-            )}
+        {/* Row 5: Confirmation Status (Only if confirmed) */}
+        {notification.read && notification.acknowledged_at && (
+          <div className="text-xs text-gray-400 mt-1.5">
+            ✓ Confirmed by {notification.acknowledged_by_display_name || `Staff #${notification.acknowledged_by}`} • {formatDistanceToNow(new Date(notification.acknowledged_at), { addSuffix: true })}
           </div>
         )}
 
-        {/* Changes (for modified bookings) */}
+        {/* Changes Section (for modified bookings) - Collapsible style */}
         {notification.type === 'modified' && notification.metadata?.changes && Array.isArray(notification.metadata.changes) && notification.metadata.changes.length > 0 && (
-          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-            <span className="font-semibold text-yellow-900">Changes:</span>
-            <ul className="mt-1 space-y-0.5 ml-4">
+          <div className="mt-2 p-2.5 bg-yellow-50 border border-yellow-200 rounded-md text-xs">
+            <div className="font-semibold text-yellow-900 mb-1.5">Changes:</div>
+            <ul className="space-y-1">
               {notification.metadata.changes.map((change: any, idx: number) => (
-                <li key={idx} className="text-yellow-900 break-words">
-                  <span className="font-medium capitalize">{change.field.replace('_', ' ')}:</span>{' '}
-                  <span className="line-through text-gray-600">{change.old || 'none'}</span>
-                  {' → '}
-                  <span className="font-semibold">{change.new || 'none'}</span>
+                <li key={idx} className="text-yellow-900 flex items-baseline gap-1.5">
+                  <span className="font-medium capitalize min-w-[60px]">{change.field.replace('_', ' ')}:</span>
+                  <span className="flex-1">
+                    <span className="line-through text-gray-600">{change.old || 'none'}</span>
+                    <span className="mx-1.5 text-yellow-700">→</span>
+                    <span className="font-semibold text-yellow-900">{change.new || 'none'}</span>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -315,7 +384,7 @@ export function NotificationItem({
         )}
       </div>
 
-      {/* Checkmark for acknowledged or Confirm button */}
+      {/* Action Button Area */}
       <div className="flex-shrink-0">
         {notification.read ? (
           <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -328,7 +397,7 @@ export function NotificationItem({
                 e.stopPropagation();
                 onAcknowledge();
               }}
-              className="px-3 py-1.5 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition-colors"
+              className="px-3 py-1.5 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition-colors shadow-sm"
             >
               Confirm
             </button>
