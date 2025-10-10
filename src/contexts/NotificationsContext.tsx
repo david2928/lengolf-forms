@@ -284,22 +284,34 @@ export function NotificationsProvider({
         // Increment unread count (new notifications are always unread)
         setUnreadCount((prev) => prev + 1);
 
-        // Show toast notification with auto-dismiss
+        // Show toast notification with auto-dismiss and close button
         const toastMessage = `${notification.customer_name} - ${notification.booking_time || 'No time'}`;
         if (notification.type === 'created') {
           toast.success('New Booking', {
             description: toastMessage,
-            duration: 5000 // Auto-dismiss after 5 seconds
+            duration: 5000, // Auto-dismiss after 5 seconds
+            cancel: {
+              label: '×',
+              onClick: () => {} // Dismiss action (does nothing, just closes)
+            }
           });
         } else if (notification.type === 'cancelled') {
           toast.error('Booking Cancelled', {
             description: toastMessage,
-            duration: 5000 // Auto-dismiss after 5 seconds
+            duration: 5000, // Auto-dismiss after 5 seconds
+            cancel: {
+              label: '×',
+              onClick: () => {} // Dismiss action (does nothing, just closes)
+            }
           });
         } else {
           toast.warning('Booking Modified', {
             description: toastMessage,
-            duration: 5000 // Auto-dismiss after 5 seconds
+            duration: 5000, // Auto-dismiss after 5 seconds
+            cancel: {
+              label: '×',
+              onClick: () => {} // Dismiss action (does nothing, just closes)
+            }
           });
         }
       },

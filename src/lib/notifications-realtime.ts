@@ -27,6 +27,7 @@ export interface Notification {
   booking_date: string | null;
   booking_time: string | null;
   bay: string | null;
+  duration?: number | null;
   // Legacy fields (deprecated but kept for backward compatibility)
   acknowledged_by: number | null;
   notes_updated_by: number | null;

@@ -501,7 +501,7 @@ export function Nav() {
       </nav>
 
       <div className="ml-auto flex items-center gap-2">
-        <NotificationBell />
+        <NotificationBell iconSize={16} />
         <Button variant="outline" size="sm" onClick={() => signOut()} className="border border-gray-200">
           <LogOut className="h-4 w-4 mr-2" />
           Sign Out
@@ -588,7 +588,7 @@ export function Nav() {
       )}
       {/* Notification Bell - Available to All Users */}
       <div className="flex-1 flex justify-center">
-        <NotificationBell />
+        <NotificationBell iconSize={16} />
       </div>
       <Button variant="outline" size="sm" onClick={() => signOut()} className="flex-1 border border-gray-200">
         <LogOut className="h-3.5 w-3.5" />

@@ -4,7 +4,7 @@
 **Status:** ✅ **PRODUCTION READY** (Stories 1-7 Complete) | 🎯 Optional Enhancements Available
 **Access Level:** All authenticated staff
 **Related PRD:** `/docs/technical/lengolf_inapp_notifications_prd_UPDATED.md`
-**Last Updated:** October 2, 2025
+**Last Updated:** January 10, 2025
 
 ---
 
@@ -1145,24 +1145,48 @@ This Context Provider is ready for UI components (Story 7):
 
 ### Story 7: Frontend UI Components
 
-**Status:** ✅ Core Features Complete | 🚧 Optional Enhancements Pending
+**Status:** ✅ **COMPLETE** (Production Ready)
 
 **Completed Components:**
 
-1. ✅ **NotificationBell** - Bell icon with unread badge integrated next to Sign Out button
+1. ✅ **NotificationBell** - Bell icon with unread badge integrated into navigation
    - File: `src/components/notifications/NotificationBell.tsx`
-   - Features: Unread count badge, click-outside detection, real-time updates
-   - Integration: `src/components/nav.tsx:423`
+   - Features:
+     - Unread count badge
+     - Click-outside detection
+     - Real-time updates
+     - **Icon size: 16px** (matches other header icons)
+   - Integration: `src/components/nav.tsx` (both desktop and mobile nav)
 
-2. ✅ **NotificationDropdown** - Latest 5 notifications popup
+2. ✅ **NotificationDropdown** - Minimalist popup showing latest notifications
    - File: `src/components/notifications/NotificationDropdown.tsx`
-   - Features: Shows latest 5, "Mark as Read" button, "View All" link
+   - Design: **Minimalist UI with clean typography**
+   - Layout:
+     - "View All" link positioned in header (between title and unread count)
+     - Shows unread notifications only
+     - **Smart visibility**: Just-confirmed notifications remain visible until dropdown closes
+     - Disappear on reopen after being confirmed
    - Max height: 600px with scroll
 
 3. ✅ **NotificationItem** - Reusable notification display component
    - File: `src/components/notifications/NotificationItem.tsx`
    - Variants: `dropdown` (compact), `page` (full details)
-   - Features: Type icons, badges, timestamps, acknowledgment
+
+   **Dropdown Variant (Minimalist Design):**
+   - Colored circle icons (20px): Green (created), Red (cancelled), Yellow (modified)
+   - Customer name as clickable link → Opens customer modal
+   - Time & Bay condensed on single line (e.g., "14:30 • Bay 3")
+   - Type & timestamp on separate line (e.g., "New Booking • Oct 4, 1:37 PM")
+   - No booking/customer IDs (cleaner view)
+   - "Confirm" button for unread (was "Acknowledge")
+   - Checkmark (✓) icon for confirmed notifications
+
+   **Page Variant (Full Details):**
+   - Same minimalist design as dropdown
+   - Shows booking ID and customer ID
+   - Customer name as clickable link → Opens customer modal
+   - Confirmation status on top row (right-justified)
+   - Additional metadata (date, pax, type) shown inline
 
 4. ✅ **NotificationLog Page** - Full page at `/notifications` with filters/search
    - File: `app/notifications/page.tsx`
@@ -1170,19 +1194,57 @@ This Context Provider is ready for UI components (Story 7):
      - Search by customer name, phone, booking ID, notes
      - Filter by type (created/cancelled/modified)
      - Filter by status (all/unread/acknowledged)
-     - Inline notes editing with Save/Cancel
+     - **Inline notes editing with auto-focus**
+     - **Gray styling for notes section** (was yellow, now minimalist gray)
+     - Reduced padding above notes section
+     - Customer names as clickable links to customer modal
      - LINE retry for failed notifications
      - Real-time updates
 
 5. ✅ **Inline Notes Editor** - Built into NotificationLog page
    - Edit mode with Save/Cancel buttons
+   - **Auto-focus textarea on first click** (no double-click needed)
    - Auto-saves with staff ID and timestamp
    - Searchable notes content
+   - **Minimalist gray styling** (bg-gray-50, border-gray-200)
+
+6. ✅ **Toast Notifications** - Real-time popup alerts using Sonner
+   - File: `src/contexts/NotificationsContext.tsx`
+   - Features:
+     - Color-coded by type: Green (created), Red (cancelled), Yellow (modified)
+     - **Dismiss "×" button** on all toasts (top-right corner)
+     - Auto-dismiss after 5 seconds
+     - Shows customer name and booking time
+     - Does NOT require confirmation (just informational)
+
+7. ✅ **Customer Modal Integration**
+   - Customer names in notifications are clickable links
+   - Uses `CustomerLink` component from `@/components/shared/CustomerLink`
+   - Opens customer detail modal overlay
+   - Tracks click source ("notifications-dropdown" or "notifications-page")
+
+**UI/UX Improvements (January 2025):**
+
+✅ **Minimalist Design System**
+- Removed busy UI elements (colored badges, blue bars)
+- Simple colored circles for notification types
+- Clean typography hierarchy
+- Consistent spacing and padding
+
+✅ **Smart Behavior**
+- Confirmed notifications stay visible until dropdown closes
+- Immediate visual feedback on confirm (button → checkmark)
+- Auto-focus on note editing (single-click to type)
+- Clickable customer names throughout
+
+✅ **Terminology**
+- "Acknowledge" → "Confirm" (shorter, clearer)
+- "Confirmed by" instead of "Acknowledged by"
 
 **Optional Enhancements (Not Implemented):**
 
-6. **Browser Notification Integration** - Permission prompt + desktop alerts
-7. **Audible Ping** - Sound notification (excludes super admins: David, Chris Rall)
+8. **Browser Notification Integration** - Permission prompt + desktop alerts
+9. **Audible Ping** - Sound notification (excludes super admins: David, Chris Rall)
 
 **Implementation Notes:**
 
@@ -1191,6 +1253,7 @@ This Context Provider is ready for UI components (Story 7):
 - Responsive design with Tailwind CSS
 - TypeScript type safety throughout
 - Server/client component boundaries properly handled
+- Customer modal integration via existing `CustomerModalContext`
 
 ---
 
@@ -1395,7 +1458,20 @@ Failed to update notification LINE status: [error details]
 - ✅ useNotifications hook for components
 - ✅ Test page for verification (`app/test-notifications/page.tsx`)
 
+### January 2025 Update - UI/UX Redesign Complete
+
+**Stories 7-8: Frontend UI Components & Testing**
+- ✅ NotificationBell with 16px icon (matches header icons)
+- ✅ NotificationDropdown with minimalist design
+- ✅ NotificationItem with colored circle icons and clean layout
+- ✅ NotificationLog page with inline notes auto-focus
+- ✅ Toast notifications with dismiss "×" button
+- ✅ Customer modal integration (clickable names)
+- ✅ TypeScript type checking passed
+- ✅ ESLint passed (no warnings/errors)
+- ✅ Production build successful
+- ✅ All modified files tested
+
 ### Next Steps
-- 🚧 Story 7: Build frontend UI components (NotificationBell, Dropdown, Log page)
-- 🚧 Story 8: Integration testing & bug fixes
-- 🚧 Story 9: Production deployment & monitoring
+- 🎯 Story 9: Production deployment & monitoring
+- 🎯 Optional: Browser notifications & audible ping

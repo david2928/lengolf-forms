@@ -18,7 +18,7 @@
  * @module NotificationsPage
  */
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationItem } from '@/components/notifications/NotificationItem';
 import { Bell, Search, Filter, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
@@ -43,6 +43,16 @@ export default function NotificationsPage() {
   // Notes editing
   const [notesInputs, setNotesInputs] = useState<{ [key: string]: string }>({});
   const [editingNotes, setEditingNotes] = useState<{ [key: string]: boolean }>({});
+  const textareaRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>({});
+
+  // Auto-focus textarea when editing mode is activated
+  useEffect(() => {
+    Object.keys(editingNotes).forEach((notificationId) => {
+      if (editingNotes[notificationId] && textareaRefs.current[notificationId]) {
+        textareaRefs.current[notificationId]?.focus();
+      }
+    });
+  }, [editingNotes]);
 
   // Filter notifications
   const filteredNotifications = notifications.filter((n) => {
@@ -243,7 +253,7 @@ export default function NotificationsPage() {
                 )}
 
                 {/* Internal Notes Section */}
-                <div className={`px-3 pb-3 sm:px-4 sm:pb-4 border-t border-gray-100 pt-2 ${!notification.read ? 'bg-blue-50' : ''}`}>
+                <div className="px-3 pb-3 sm:px-4 sm:pb-4 pt-2">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 mb-1.5">
                     <label className="text-xs font-semibold text-gray-700">
                       Internal Notes
@@ -259,6 +269,7 @@ export default function NotificationsPage() {
                   {editingNotes[notification.id] ? (
                     <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-start">
                       <textarea
+                        ref={(el) => { textareaRefs.current[notification.id] = el; }}
                         value={notesInputs[notification.id] ?? notification.internal_notes ?? ''}
                         onChange={(e) =>
                           setNotesInputs((prev) => ({ ...prev, [notification.id]: e.target.value }))
@@ -299,7 +310,7 @@ export default function NotificationsPage() {
                         setNotesInputs((prev) => ({ ...prev, [notification.id]: notification.internal_notes || '' }));
                         setEditingNotes((prev) => ({ ...prev, [notification.id]: true }));
                       }}
-                      className="w-full bg-yellow-50 border border-yellow-200 rounded p-2.5 sm:p-2 text-left hover:bg-yellow-100 transition-colors group min-h-[44px] sm:min-h-0 flex items-center"
+                      className="w-full bg-gray-50 border border-gray-200 rounded p-2.5 sm:p-2 text-left hover:bg-gray-100 transition-colors group min-h-[44px] sm:min-h-0 flex items-center"
                     >
                       <div className="flex items-start justify-between gap-2 w-full">
                         {notification.internal_notes ? (
