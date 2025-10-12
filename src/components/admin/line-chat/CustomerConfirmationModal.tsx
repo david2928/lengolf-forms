@@ -50,6 +50,8 @@ interface Booking {
   bay: string;
   number_of_people: number;
   status: string;
+  booking_type?: string;
+  package_name?: string;
 }
 
 interface Transaction {
