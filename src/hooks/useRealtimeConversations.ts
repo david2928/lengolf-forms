@@ -389,7 +389,6 @@ export function useRealtimeConversations({
 
         // If page was hidden for more than 30 seconds, reconnect
         if (timeSinceLastActivity > 30000) {
-          console.log('🔄 Page visible after inactivity, reconnecting realtime conversations...');
           connect();
         }
       } else {
@@ -403,7 +402,6 @@ export function useRealtimeConversations({
 
       // If window was unfocused for more than 30 seconds, reconnect
       if (timeSinceLastActivity > 30000) {
-        console.log('🔄 Window focused after inactivity, reconnecting realtime conversations...');
         connect();
       }
     };

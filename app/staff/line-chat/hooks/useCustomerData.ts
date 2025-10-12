@@ -557,14 +557,12 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && selectedConversation?.customerId) {
-        console.log('🔄 Page visible, refreshing customer bookings...');
         fetchCustomerDetails(selectedConversation.customerId);
       }
     };
 
     const handleFocus = () => {
       if (selectedConversation?.customerId) {
-        console.log('🔄 Window focused, refreshing customer bookings...');
         fetchCustomerDetails(selectedConversation.customerId);
       }
     };
