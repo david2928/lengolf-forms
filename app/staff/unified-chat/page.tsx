@@ -43,7 +43,8 @@ export default function UnifiedChatPage() {
     updateConversationLastMessage,
     updateConversationUnreadCount,
     markAsUnread,
-    toggleFollowUp
+    toggleFollowUp,
+    toggleSpam
   } = useUnifiedChat();
 
   // Create refs to avoid callback recreation
@@ -390,6 +391,7 @@ export default function UnifiedChatPage() {
               onToggleAI={setAiSuggestionsEnabled}
               markAsUnread={markAsUnread}
               toggleFollowUp={toggleFollowUp}
+              toggleSpam={toggleSpam}
               onRefresh={refreshConversations}
             />
           </div>

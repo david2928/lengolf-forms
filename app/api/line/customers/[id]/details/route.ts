@@ -33,7 +33,8 @@ export async function GET(
         total_lifetime_value,
         total_visits,
         last_visit_date,
-        customer_profiles
+        customer_profiles,
+        notes
       `)
       .eq('id', customerId)
       .single();
@@ -88,6 +89,62 @@ export async function GET(
       // Past dates are excluded
       return false;
     }).slice(0, 10) || []; // Limit to 10 upcoming bookings
+
+    // Fetch past/cancelled bookings:
+    // - Past confirmed/completed bookings (date < today)
+    // - All cancelled bookings (any date)
+    // Limit to 3 most recent
+
+    // First, get all cancelled bookings
+    const { data: cancelledBookings } = await refacSupabaseAdmin
+      .from('bookings')
+      .select(`
+        id,
+        date,
+        start_time,
+        duration,
+        bay,
+        number_of_people,
+        status,
+        booking_type,
+        package_name,
+        created_at
+      `)
+      .eq('customer_id', customerId)
+      .eq('status', 'cancelled')
+      .order('date', { ascending: false })
+      .order('start_time', { ascending: false });
+
+    // Then get past confirmed/completed bookings
+    const { data: pastCompletedBookings } = await refacSupabaseAdmin
+      .from('bookings')
+      .select(`
+        id,
+        date,
+        start_time,
+        duration,
+        bay,
+        number_of_people,
+        status,
+        booking_type,
+        package_name,
+        created_at
+      `)
+      .eq('customer_id', customerId)
+      .in('status', ['confirmed', 'completed'])
+      .lt('date', thailandDate)
+      .order('date', { ascending: false })
+      .order('start_time', { ascending: false });
+
+    // Combine and sort by date, then limit to 3
+    const combinedBookings = [...(cancelledBookings || []), ...(pastCompletedBookings || [])];
+    const pastBookings = combinedBookings
+      .sort((a, b) => {
+        const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateCompare !== 0) return dateCompare;
+        return b.start_time.localeCompare(a.start_time);
+      })
+      .slice(0, 3);
 
     // Fetch ALL active packages for this customer (not just package monitor categories)
     const { data: packages, error: packagesError } = await refacSupabaseAdmin
@@ -183,9 +240,11 @@ export async function GET(
         lifetimeValue: customer.total_lifetime_value || 0,
         totalVisits: customer.total_visits || 0,
         lastVisitDate: customer.last_visit_date,
-        profiles: customer.customer_profiles
+        profiles: customer.customer_profiles,
+        notes: customer.notes
       },
       bookings: bookings || [],
+      pastBookings: pastBookings || [],
       packages: processedPackages || [],
       transactions: transactions || [],
       stats: {

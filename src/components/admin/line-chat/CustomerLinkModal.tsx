@@ -381,27 +381,25 @@ export function CustomerLinkModal({
                             key={customer.id}
                             onClick={() => handleCustomerSelect(customer)}
                             disabled={loading}
-                            className="w-full p-4 text-left border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="w-full p-3 text-left border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
-                            <div className="flex flex-col space-y-2">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                                  <span className="font-medium text-gray-900 truncate">
-                                    {customer.customer_name}
-                                  </span>
-                                </div>
-                                <Badge variant="outline" className="text-xs flex-shrink-0">
-                                  {customer.customer_code}
-                                </Badge>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                <span className="font-medium text-gray-900 truncate">
+                                  {customer.customer_name}
+                                </span>
                               </div>
-                              {customer.contact_number && (
-                                <div className="flex items-center gap-2 text-sm text-gray-500 pl-6">
-                                  <Phone className="h-3 w-3 flex-shrink-0" />
-                                  <span className="truncate">{customer.contact_number}</span>
-                                </div>
-                              )}
+                              <Badge variant="outline" className="text-xs flex-shrink-0">
+                                {customer.customer_code}
+                              </Badge>
                             </div>
+                            {customer.contact_number && (
+                              <div className="flex items-center gap-2 text-sm text-gray-500 mt-1 pl-6">
+                                <Phone className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{customer.contact_number}</span>
+                              </div>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -628,27 +626,25 @@ export function CustomerLinkModal({
                         key={customer.id}
                         onClick={() => handleCustomerSelect(customer)}
                         disabled={loading}
-                        className="w-full p-4 text-left border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="w-full p-3 text-left border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        <div className="flex flex-col space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                              <span className="font-medium text-gray-900 truncate">
-                                {customer.customer_name}
-                              </span>
-                            </div>
-                            <Badge variant="outline" className="text-xs flex-shrink-0">
-                              {customer.customer_code}
-                            </Badge>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <span className="font-medium text-gray-900 truncate">
+                              {customer.customer_name}
+                            </span>
                           </div>
-                          {customer.contact_number && (
-                            <div className="flex items-center gap-2 text-sm text-gray-500 pl-6">
-                              <Phone className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{customer.contact_number}</span>
-                            </div>
-                          )}
+                          <Badge variant="outline" className="text-xs flex-shrink-0">
+                            {customer.customer_code}
+                          </Badge>
                         </div>
+                        {customer.contact_number && (
+                          <div className="flex items-center gap-2 text-sm text-gray-500 mt-1 pl-6">
+                            <Phone className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">{customer.contact_number}</span>
+                          </div>
+                        )}
                       </button>
                     ))}
                   </div>

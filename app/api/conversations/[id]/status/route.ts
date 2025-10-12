@@ -68,6 +68,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         };
         break;
 
+      case 'markSpam':
+        updateData = {
+          is_spam: true,
+          marked_spam_at: now
+        };
+        break;
+
+      case 'unmarkSpam':
+        updateData = {
+          is_spam: false,
+          marked_spam_at: null
+        };
+        break;
+
       default:
         return NextResponse.json({
           success: false,

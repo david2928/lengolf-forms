@@ -34,7 +34,9 @@ import {
   Pin,
   PinOff,
   MoreHorizontal,
-  RefreshCw
+  RefreshCw,
+  AlertOctagon,
+  ShieldCheck
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import Image from 'next/image';
@@ -226,6 +228,7 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
   onToggleAI,
   markAsUnread,
   toggleFollowUp,
+  toggleSpam,
   onRefresh
 }, ref) => {
   // Use conversations from props if provided, otherwise use local state
@@ -234,6 +237,9 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
   const setConversations = propSetConversations || setLocalConversations;
   const [searchTerm, setSearchTerm] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+
+  // Filter state - 'all' excludes spam, 'following' shows followed, 'spam' shows spam only
+  const [filter, setFilter] = useState<'all' | 'following' | 'spam'>('all');
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState<string | null>(null);
@@ -332,6 +338,17 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
     }
   }, [toggleFollowUp]);
 
+  const handleToggleSpam = useCallback(async (conversation: Conversation) => {
+    if (!toggleSpam) return;
+    try {
+      const channelType = conversation.channelType || 'line';
+      await toggleSpam(conversation.id, channelType, conversation.isSpam || false);
+      setContextMenuOpen(null);
+    } catch (error) {
+      console.error('Failed to toggle spam status:', error);
+    }
+  }, [toggleSpam]);
+
   // Long press handlers for mobile
   const handleTouchStart = useCallback((conversationId: string) => {
     if (!isMobile) return;
@@ -426,18 +443,36 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
     }
   }, [fetchConversations, propConversations]);
 
-  // Filter conversations by search term
-  const filteredConversations = conversations.filter(conv =>
-    conv.user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.lastMessageText?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter conversations by search term and filter type
+  const filteredConversations = conversations.filter(conv => {
+    // First apply search filter
+    const matchesSearch =
+      conv.user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conv.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conv.lastMessageText?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    // Then apply tab filter
+    if (filter === 'all') {
+      // 'All' shows everything EXCEPT spam
+      return !conv.isSpam;
+    } else if (filter === 'following') {
+      // 'Follow-up' shows only followed conversations (not spam)
+      return conv.isFollowing && !conv.isSpam;
+    } else if (filter === 'spam') {
+      // 'Spam' shows only spam conversations
+      return conv.isSpam;
+    }
+
+    return true;
+  });
 
   return (
     <div className="w-full md:w-96 bg-white border-r flex flex-col transition-all duration-300 ease-in-out">
-      <div className="p-4 border-b">
+      <div className="p-4 border-b bg-[#1a4d2e]">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-semibold">Conversations</h1>
+          <h1 className="text-xl font-semibold text-white">Conversations</h1>
 
           {/* Controls */}
           <div className="flex items-center space-x-2">
@@ -447,10 +482,10 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                 variant="ghost"
                 size="sm"
                 onClick={onRefresh}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
+                className="h-8 w-8 p-0 hover:bg-[#2a6d4e] text-white"
                 title="Refresh conversations"
               >
-                <RefreshCw className="h-4 w-4 text-gray-600" />
+                <RefreshCw className="h-4 w-4" />
               </Button>
             )}
 
@@ -459,10 +494,10 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 hover:bg-gray-100"
+                className="h-8 w-8 p-0 hover:bg-[#2a6d4e] text-white"
                 title="Go to Home"
               >
-                <Home className="h-4 w-4 text-gray-600" />
+                <Home className="h-4 w-4" />
               </Button>
             </Link>
 
@@ -493,7 +528,7 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                       size="sm"
                       onClick={unsubscribeFromNotifications}
                       disabled={notificationLoading}
-                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                      className="text-white hover:bg-[#2a6d4e]"
                       title="Notifications enabled - Click to disable"
                     >
                       <Bell className="h-4 w-4" />
@@ -503,7 +538,7 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                       size="sm"
                       onClick={sendTestNotification}
                       disabled={notificationLoading}
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      className="text-white hover:bg-[#2a6d4e]"
                       title="Send test notification"
                     >
                       <Zap className="h-3 w-3" />
@@ -515,7 +550,7 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                     size="sm"
                     onClick={subscribeToNotifications}
                     disabled={notificationLoading}
-                    className="text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                    className="text-white/70 hover:text-white hover:bg-[#2a6d4e]"
                     title="Enable notifications for new messages"
                   >
                     <BellOff className="h-4 w-4" />
@@ -533,14 +568,54 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
           </div>
         )}
 
-        <div className="relative">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search conversations..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
+        {/* Filter and Search Bar */}
+        <div className="flex gap-2">
+          {/* Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="flex items-center gap-2 px-3 h-10 bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/40 transition-colors rounded-md"
+              >
+                <span className="text-sm font-medium">
+                  {filter === 'all' && '≡ All'}
+                  {filter === 'following' && '≡ Follow-up'}
+                  {filter === 'spam' && '≡ Spam'}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-40">
+              <DropdownMenuItem
+                onClick={() => setFilter('all')}
+                className={`cursor-pointer ${filter === 'all' ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
+              >
+                All
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setFilter('following')}
+                className={`cursor-pointer ${filter === 'following' ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
+              >
+                Follow-up
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setFilter('spam')}
+                className={`cursor-pointer ${filter === 'spam' ? 'bg-red-50 text-red-600 font-medium' : ''}`}
+              >
+                Spam
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Search Box - Full width */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 h-10 bg-white border-white/20 rounded-md focus:border-white/40 focus:ring-0"
+            />
+          </div>
         </div>
       </div>
 
@@ -596,6 +671,12 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {getConversationDisplayName(conversation)}
                       </p>
+                      {/* Spam badge */}
+                      {conversation.isSpam && (
+                        <Badge variant="destructive" className="text-xs bg-red-500 text-white">
+                          Spam
+                        </Badge>
+                      )}
                       {/* Following badge */}
                       {conversation.isFollowing && (
                         <Badge variant="default" className="text-xs bg-blue-500 text-white">
@@ -715,6 +796,22 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                         </>
                       )}
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleToggleSpam(conversation)}
+                      className="cursor-pointer"
+                    >
+                      {conversation.isSpam ? (
+                        <>
+                          <ShieldCheck className="mr-2 h-4 w-4 text-green-600" />
+                          <span className="text-green-600">Not Spam</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertOctagon className="mr-2 h-4 w-4 text-red-600" />
+                          <span className="text-red-600">Mark as Spam</span>
+                        </>
+                      )}
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 </div>
@@ -773,6 +870,31 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                       )}
                       <span className="text-base text-gray-900">
                         {isFollowing ? 'Unfollow' : 'Follow up'}
+                      </span>
+                    </>
+                  );
+                })()}
+              </button>
+
+              <button
+                onClick={() => {
+                  const conversation = conversations.find(c => c.id === contextMenuOpen);
+                  if (conversation) handleToggleSpam(conversation);
+                }}
+                className="w-full px-6 py-4 text-left hover:bg-gray-50 flex items-center space-x-3"
+              >
+                {(() => {
+                  const conversation = conversations.find(c => c.id === contextMenuOpen);
+                  const isSpam = conversation?.isSpam || false;
+                  return (
+                    <>
+                      {isSpam ? (
+                        <ShieldCheck className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <AlertOctagon className="h-5 w-5 text-red-600" />
+                      )}
+                      <span className={`text-base ${isSpam ? 'text-green-600' : 'text-red-600'}`}>
+                        {isSpam ? 'Not Spam' : 'Mark as Spam'}
                       </span>
                     </>
                   );

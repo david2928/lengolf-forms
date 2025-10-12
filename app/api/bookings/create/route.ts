@@ -69,7 +69,7 @@ export async function POST(req: Request) {
           }
         }
 
-        const { data: newCustomer, error: customerError } = await refacSupabaseAdmin
+        const { data: newCustomer, error: customerError} = await refacSupabaseAdmin
           .from('customers')
           .insert({
             customer_name: bookingDataForDb.name,
@@ -77,7 +77,6 @@ export async function POST(req: Request) {
             // Set email only if it's not the default placeholder
             email: bookingDataForDb.email !== 'info@len.golf' ? bookingDataForDb.email : null,
             preferred_contact_method: 'Phone',
-            notes: `Created during booking ${bookingDataForDb.id} on ${new Date().toISOString().split('T')[0]}`,
             is_active: true
           })
           .select('id, customer_code')

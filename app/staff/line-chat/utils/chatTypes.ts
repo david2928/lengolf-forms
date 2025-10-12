@@ -35,6 +35,9 @@ export interface Conversation {
   isFollowing?: boolean;
   markedUnreadAt?: string;
   followUpAt?: string;
+  // Spam marking features
+  isSpam?: boolean;
+  markedSpamAt?: string;
 }
 
 export interface Message {
@@ -107,6 +110,7 @@ export interface CustomerDetails {
   totalVisits: number;
   lastVisitDate?: string;
   profiles?: any;
+  notes?: string;
 }
 
 export interface Booking {
@@ -162,15 +166,20 @@ export interface ChatOperations {
 export interface CustomerOperations {
   customerDetails: CustomerDetails | null;
   customerBookings: Booking[];
+  customerPastBookings: Booking[];
   customerPackages: Package[];
   customerTransactions: Transaction[];
   currentBookingIndex: number;
   fetchCustomerDetails: (customerId: string) => Promise<void>;
   linkCustomer: (customerId: string, customer: any) => Promise<void>;
   sendBookingConfirmation: (bookingId: string) => Promise<void>;
+  sendCancellationConfirmation: (bookingId: string) => Promise<void>;
   setCurrentBookingIndex: (index: number) => void;
   linkingCustomer: boolean;
   sendingConfirmation: string | null;
+  sendingCancellation: string | null;
+  updateCustomerNotes: (customerId: string, notes: string) => Promise<void>;
+  updatingNotes: boolean;
 }
 
 export interface PanelState {
@@ -193,6 +202,8 @@ export interface ConversationSidebarProps {
   // Follow-up and unread features
   markAsUnread?: (conversationId: string, channelType: string) => Promise<void>;
   toggleFollowUp?: (conversationId: string, channelType: string, currentFollowingStatus: boolean) => Promise<void>;
+  // Spam marking features
+  toggleSpam?: (conversationId: string, channelType: string, currentSpamStatus: boolean) => Promise<void>;
   // Refresh function
   onRefresh?: () => void;
 }
@@ -281,6 +292,9 @@ export interface UnifiedConversation {
   is_following?: boolean;
   marked_unread_at?: string;
   follow_up_at?: string;
+  // Spam marking features
+  is_spam?: boolean;
+  marked_spam_at?: string;
 }
 
 export interface UnifiedMessage {

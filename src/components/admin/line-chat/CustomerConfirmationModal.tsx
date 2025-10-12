@@ -272,37 +272,87 @@ export function CustomerConfirmationModal({
                         <div className="space-y-3">
                           {customerDetails.bookings.slice(0, 2).map((booking) => {
                             const bookingDate = new Date(booking.date);
-                            const isConfirmed = booking.status === 'confirmed';
+                            const bookingType = booking.booking_type || '';
+                            const isCoaching = bookingType.toLowerCase().includes('coaching');
+
+                            // Extract coach name if coaching booking
+                            let coachName = '';
+                            if (isCoaching) {
+                              const match = bookingType.match(/\(([^)]+)\)/);
+                              if (match && match[1]) {
+                                coachName = match[1];
+                              }
+                            }
+
+                            // Determine bay type display
+                            let bayTypeDisplay = '';
+                            const bayNum = booking.bay;
+                            if (bayNum === 'Bay 1' || bayNum === 'Bay 2' || bayNum === 'Bay 3') {
+                              bayTypeDisplay = 'Social Bay';
+                            } else if (bayNum === 'Bay 4') {
+                              bayTypeDisplay = 'AI Bay';
+                            } else {
+                              bayTypeDisplay = 'Sim';
+                            }
 
                             return (
-                              <div key={booking.id} className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-sm font-medium text-gray-900">{booking.bay}</span>
-                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                      isConfirmed
-                                        ? 'bg-green-100 text-green-700'
-                                        : 'bg-yellow-100 text-yellow-700'
-                                    }`}>
-                                      {isConfirmed ? 'Confirmed' : 'Pending'}
+                              <div
+                                key={booking.id}
+                                className="relative rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
+                              >
+                                {/* Header bar - matches CustomerSidebar style */}
+                                <div className={`px-3 py-2.5 flex items-center justify-between ${
+                                  isCoaching ? 'bg-[#7B68EE]' : 'bg-[#06C755]'
+                                }`}>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-white font-semibold text-sm">
+                                      {isCoaching ? 'Coaching' : bayTypeDisplay}
+                                    </span>
+                                    {coachName && (
+                                      <span className="text-white/90 text-xs">
+                                        • {coachName}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {/* Bay badge */}
+                                  <div className="bg-white/20 backdrop-blur-sm px-2.5 py-0.5 rounded-full">
+                                    <span className="text-white font-bold text-sm">
+                                      {booking.bay}
                                     </span>
                                   </div>
-                                  <span className="text-xs text-gray-500">{booking.number_of_people} people</span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3 text-sm">
-                                  <div className="bg-gray-50 p-2 rounded-lg">
-                                    <div className="text-xs text-gray-500 mb-1">Date</div>
-                                    <div className="font-medium">
+
+                                {/* Primary info - Date & Time */}
+                                <div className="px-3 pt-3 pb-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="text-base font-bold text-gray-900 whitespace-nowrap">
                                       {bookingDate.toLocaleDateString('en-GB', {
                                         weekday: 'short',
                                         day: 'numeric',
                                         month: 'short'
                                       })}
                                     </div>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                                      <Calendar className="h-3.5 w-3.5" />
+                                      <span className="font-medium">{booking.start_time}</span>
+                                      <span className="text-gray-400">•</span>
+                                      <span>{booking.duration}h</span>
+                                    </div>
                                   </div>
-                                  <div className="bg-gray-50 p-2 rounded-lg">
-                                    <div className="text-xs text-gray-500 mb-1">Time</div>
-                                    <div className="font-medium">{booking.start_time} ({booking.duration}min)</div>
+                                </div>
+
+                                {/* Booking type info */}
+                                <div className="px-3 pb-3">
+                                  <div className="text-sm">
+                                    {booking.package_name ? (
+                                      <span className="font-medium text-gray-900 truncate block" title={booking.package_name}>
+                                        {booking.package_name}
+                                      </span>
+                                    ) : (
+                                      <span className="font-medium text-gray-600">
+                                        {isCoaching ? 'Coaching' : 'Normal Bay Rate'}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -590,37 +640,87 @@ export function CustomerConfirmationModal({
                     <div className="space-y-3">
                       {customerDetails.bookings.slice(0, 1).map((booking) => {
                         const bookingDate = new Date(booking.date);
-                        const isConfirmed = booking.status === 'confirmed';
+                        const bookingType = booking.booking_type || '';
+                        const isCoaching = bookingType.toLowerCase().includes('coaching');
+
+                        // Extract coach name if coaching booking
+                        let coachName = '';
+                        if (isCoaching) {
+                          const match = bookingType.match(/\(([^)]+)\)/);
+                          if (match && match[1]) {
+                            coachName = match[1];
+                          }
+                        }
+
+                        // Determine bay type display
+                        let bayTypeDisplay = '';
+                        const bayNum = booking.bay;
+                        if (bayNum === 'Bay 1' || bayNum === 'Bay 2' || bayNum === 'Bay 3') {
+                          bayTypeDisplay = 'Social Bay';
+                        } else if (bayNum === 'Bay 4') {
+                          bayTypeDisplay = 'AI Bay';
+                        } else {
+                          bayTypeDisplay = 'Sim';
+                        }
 
                         return (
-                          <div key={booking.id} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium text-gray-900">{booking.bay}</span>
-                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                  isConfirmed
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-yellow-100 text-yellow-700'
-                                }`}>
-                                  {isConfirmed ? 'Confirmed' : 'Pending'}
+                          <div
+                            key={booking.id}
+                            className="relative rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
+                          >
+                            {/* Header bar - matches CustomerSidebar style */}
+                            <div className={`px-3 py-2.5 flex items-center justify-between ${
+                              isCoaching ? 'bg-[#7B68EE]' : 'bg-[#06C755]'
+                            }`}>
+                              <div className="flex items-center gap-2">
+                                <span className="text-white font-semibold text-sm">
+                                  {isCoaching ? 'Coaching' : bayTypeDisplay}
+                                </span>
+                                {coachName && (
+                                  <span className="text-white/90 text-xs">
+                                    • {coachName}
+                                  </span>
+                                )}
+                              </div>
+                              {/* Bay badge */}
+                              <div className="bg-white/20 backdrop-blur-sm px-2.5 py-0.5 rounded-full">
+                                <span className="text-white font-bold text-sm">
+                                  {booking.bay}
                                 </span>
                               </div>
-                              <span className="text-xs text-gray-500">{booking.number_of_people} people</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                              <div className="bg-gray-50 p-2 rounded-lg">
-                                <div className="text-xs text-gray-500 mb-1">Date</div>
-                                <div className="font-medium">
+
+                            {/* Primary info - Date & Time */}
+                            <div className="px-3 pt-3 pb-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="text-base font-bold text-gray-900 whitespace-nowrap">
                                   {bookingDate.toLocaleDateString('en-GB', {
                                     weekday: 'short',
                                     day: 'numeric',
                                     month: 'short'
                                   })}
                                 </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                                  <Calendar className="h-3.5 w-3.5" />
+                                  <span className="font-medium">{booking.start_time}</span>
+                                  <span className="text-gray-400">•</span>
+                                  <span>{booking.duration}h</span>
+                                </div>
                               </div>
-                              <div className="bg-gray-50 p-2 rounded-lg">
-                                <div className="text-xs text-gray-500 mb-1">Time</div>
-                                <div className="font-medium">{booking.start_time} ({booking.duration}min)</div>
+                            </div>
+
+                            {/* Booking type info */}
+                            <div className="px-3 pb-3">
+                              <div className="text-sm">
+                                {booking.package_name ? (
+                                  <span className="font-medium text-gray-900 truncate block" title={booking.package_name}>
+                                    {booking.package_name}
+                                  </span>
+                                ) : (
+                                  <span className="font-medium text-gray-600">
+                                    {isCoaching ? 'Coaching' : 'Normal Bay Rate'}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>

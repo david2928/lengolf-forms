@@ -219,7 +219,7 @@ export class CustomerMappingService {
         contact_number: bookingData.primaryPhone,
         email: bookingData.email,
         preferred_contact_method: bookingData.preferredContactMethod || 'Phone',
-        notes: bookingData.notes || `Created during booking on ${new Date().toLocaleDateString()}`
+        notes: bookingData.notes || null
       })
       .select('id, customer_code, customer_name, contact_number, email, normalized_phone')
       .single();

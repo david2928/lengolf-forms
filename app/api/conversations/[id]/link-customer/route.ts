@@ -123,10 +123,13 @@ async function linkLineUserToCustomer(lineUserId: string, customerId: string) {
 async function linkWebsiteUserToCustomer(sessionId: string, customerId: string) {
   try {
     // Update web chat session with customer ID
+    // Note: sessionId here is actually the UUID 'id' field from web_chat_sessions,
+    // not the text 'session_id' field. This comes from unified_conversations.channel_user_id
+    // which is set to wcc.session_id::text (where wcc.session_id is the UUID id).
     const { error: sessionError } = await refacSupabaseAdmin
       .from('web_chat_sessions')
       .update({ customer_id: customerId })
-      .eq('session_id', sessionId);
+      .eq('id', sessionId);
 
     if (sessionError) {
       return { success: false, error: `Error linking website user: ${sessionError.message}` };

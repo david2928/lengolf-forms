@@ -25,6 +25,7 @@ interface UseUnifiedChatReturn {
   updateConversationUnreadCount: (conversationId: string, unreadCount: number) => void;
   markAsUnread: (conversationId: string, channelType: string) => Promise<void>;
   toggleFollowUp: (conversationId: string, channelType: string, currentFollowingStatus: boolean) => Promise<void>;
+  toggleSpam: (conversationId: string, channelType: string, currentSpamStatus: boolean) => Promise<void>;
 }
 
 const resolvePreferredName = (metadata: any, fallback: string) => {
@@ -118,7 +119,10 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
             // Follow-up and unread features
             isFollowing: conv.is_following || false,
             markedUnreadAt: conv.marked_unread_at,
-            followUpAt: conv.follow_up_at
+            followUpAt: conv.follow_up_at,
+            // Spam marking features
+            isSpam: conv.is_spam || false,
+            markedSpamAt: conv.marked_spam_at
           };
         } else if (conv.channel_type === 'website') {
           // Website conversation - transform to legacy format
@@ -152,7 +156,10 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
             // Follow-up and unread features
             isFollowing: conv.is_following || false,
             markedUnreadAt: conv.marked_unread_at,
-            followUpAt: conv.follow_up_at
+            followUpAt: conv.follow_up_at,
+            // Spam marking features
+            isSpam: conv.is_spam || false,
+            markedSpamAt: conv.marked_spam_at
           };
         } else if (['facebook', 'instagram', 'whatsapp'].includes(conv.channel_type)) {
           // Meta platforms conversation - transform to legacy format
@@ -186,7 +193,10 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
             // Follow-up and unread features
             isFollowing: conv.is_following || false,
             markedUnreadAt: conv.marked_unread_at,
-            followUpAt: conv.follow_up_at
+            followUpAt: conv.follow_up_at,
+            // Spam marking features
+            isSpam: conv.is_spam || false,
+            markedSpamAt: conv.marked_spam_at
           };
         } else {
           // Unknown channel type - fallback
@@ -219,7 +229,10 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
             // Follow-up and unread features
             isFollowing: conv.is_following || false,
             markedUnreadAt: conv.marked_unread_at,
-            followUpAt: conv.follow_up_at
+            followUpAt: conv.follow_up_at,
+            // Spam marking features
+            isSpam: conv.is_spam || false,
+            markedSpamAt: conv.marked_spam_at
           };
         }
       });
@@ -417,6 +430,47 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
     }
   }, []);
 
+  // Toggle spam status
+  const toggleSpam = useCallback(async (conversationId: string, channelType: string, currentSpamStatus: boolean) => {
+    try {
+      const action = currentSpamStatus ? 'unmarkSpam' : 'markSpam';
+      const response = await fetch(`/api/conversations/${conversationId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          channelType
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${action} conversation`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Update local state
+        setConversations(prev =>
+          prev.map(conv => {
+            if (conv.id === conversationId) {
+              return {
+                ...conv,
+                isSpam: !currentSpamStatus,
+                markedSpamAt: !currentSpamStatus ? new Date().toISOString() : undefined
+              } as Conversation;
+            }
+            return conv;
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error toggling spam status:', error);
+      throw error;
+    }
+  }, []);
+
   // Initial fetch on mount
   useEffect(() => {
     fetchConversations();
@@ -433,7 +487,8 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
     updateConversationLastMessage,
     updateConversationUnreadCount,
     markAsUnread,
-    toggleFollowUp
+    toggleFollowUp,
+    toggleSpam
   };
 };
 

@@ -375,6 +375,180 @@ export function createBookingReminderMessage(booking: BookingDetails & { hoursUn
 }
 
 /**
+ * Creates a booking cancellation confirmation Flex Message
+ */
+export function createBookingCancellationMessage(booking: BookingDetails) {
+  // Determine header text and color based on booking type
+  const headerText = booking.isCoaching ? 'COACHING SESSION CANCELLED' : 'BOOKING CANCELLED';
+  const altTextType = booking.isCoaching ? 'Coaching Session' : 'Booking';
+
+  return {
+    type: 'flex',
+    altText: `${altTextType} Cancellation - ${booking.date} ${booking.time}`,
+    contents: {
+      type: 'bubble',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: headerText,
+            weight: 'bold',
+            color: '#ffffff',
+            size: 'sm',
+            align: 'center'
+          }
+        ],
+        backgroundColor: '#FF3B30', // Red for cancellation
+        paddingAll: '16px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: booking.customerName,
+            weight: 'bold',
+            size: 'lg',
+            color: '#333333',
+            wrap: true
+          },
+          {
+            type: 'text',
+            text: `ID: ${booking.bookingId}`,
+            size: 'xs',
+            color: '#999999'
+          },
+          {
+            type: 'text',
+            text: 'This booking has been cancelled.',
+            size: 'sm',
+            color: '#666666',
+            margin: 'md',
+            wrap: true
+          },
+          ...(booking.isCoaching && booking.coachName ? [{
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'sm',
+            margin: 'md',
+            contents: [
+              {
+                type: 'text',
+                text: '🏌️',
+                size: 'sm',
+                flex: 0
+              },
+              {
+                type: 'text',
+                text: `Coach: ${booking.coachName}`,
+                size: 'md',
+                weight: 'bold',
+                color: '#7B68EE',
+                flex: 1,
+                wrap: true
+              }
+            ]
+          }] : []),
+          {
+            type: 'separator',
+            margin: 'md'
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: booking.date,
+                size: 'md',
+                weight: 'bold',
+                color: '#333333',
+                wrap: true
+              },
+              {
+                type: 'text',
+                text: booking.time,
+                size: 'sm',
+                color: '#666666'
+              }
+            ]
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'md',
+            contents: [
+              {
+                type: 'box',
+                layout: 'vertical',
+                flex: 1,
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'Bay',
+                    size: 'xs',
+                    color: '#999999'
+                  },
+                  {
+                    type: 'text',
+                    text: booking.bay,
+                    size: 'sm',
+                    weight: 'bold',
+                    color: '#333333'
+                  }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                flex: 1,
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'Duration',
+                    size: 'xs',
+                    color: '#999999'
+                  },
+                  {
+                    type: 'text',
+                    text: booking.duration,
+                    size: 'sm',
+                    weight: 'bold',
+                    color: '#333333'
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        paddingAll: '16px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'xs',
+        contents: [
+          {
+            type: 'text',
+            text: 'If you have any questions, please contact us.',
+            size: 'xs',
+            color: '#999999',
+            align: 'center',
+            wrap: true
+          }
+        ],
+        paddingAll: '16px'
+      }
+    }
+  };
+}
+
+/**
  * Quick Reply buttons for common booking actions
  */
 export function createBookingQuickReplies() {

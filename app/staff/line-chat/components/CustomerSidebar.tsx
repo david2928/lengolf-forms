@@ -4,11 +4,12 @@
 // This ELIMINATES the mobile/desktop duplication by using responsive design
 // Handles customer information, bookings, packages in a single implementation
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Users,
   Phone,
@@ -19,7 +20,10 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
-  Globe
+  Globe,
+  FileText,
+  Save,
+  X
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import type { CustomerSidebarProps, Conversation, UnifiedConversation, ChannelType } from '../utils/chatTypes';
@@ -143,13 +147,58 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   const {
     customerDetails,
     customerBookings,
+    customerPastBookings,
     customerPackages,
     currentBookingIndex,
     setCurrentBookingIndex,
     sendBookingConfirmation,
+    sendCancellationConfirmation,
     sendingConfirmation,
-    linkingCustomer
+    sendingCancellation,
+    linkingCustomer,
+    updateCustomerNotes,
+    updatingNotes
   } = customerOperations;
+
+  // Local state for notes editing
+  const [notesText, setNotesText] = useState('');
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notesModified, setNotesModified] = useState(false);
+
+  // Local state for past bookings carousel
+  const [currentPastBookingIndex, setCurrentPastBookingIndex] = useState(0);
+
+  // Sync notes text with customer details
+  useEffect(() => {
+    if (customerDetails?.notes) {
+      setNotesText(customerDetails.notes);
+    } else {
+      setNotesText('');
+    }
+    setIsEditingNotes(false);
+    setNotesModified(false);
+  }, [customerDetails?.id, customerDetails?.notes]);
+
+  // Handle notes text change
+  const handleNotesChange = (value: string) => {
+    setNotesText(value);
+    setNotesModified(value !== (customerDetails?.notes || ''));
+  };
+
+  // Handle save notes
+  const handleSaveNotes = async () => {
+    if (!customerDetails?.id || !notesModified) return;
+    await updateCustomerNotes(customerDetails.id, notesText);
+    setIsEditingNotes(false);
+    setNotesModified(false);
+  };
+
+  // Handle cancel editing
+  const handleCancelNotes = () => {
+    setNotesText(customerDetails?.notes || '');
+    setIsEditingNotes(false);
+    setNotesModified(false);
+  };
 
   // Use the real conversation object passed from parent
   const selectedConv = selectedConversationObj;
@@ -258,6 +307,84 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
         {/* Customer Details (if linked) */}
         {customerDetails && (
           <>
+            {/* Customer Notes */}
+            <Card className="mb-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Customer Notes
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {!isEditingNotes && !notesText ? (
+                  // Compact view when no notes and not editing
+                  <button
+                    onClick={() => setIsEditingNotes(true)}
+                    className="w-full text-left text-sm text-gray-500 hover:text-gray-700 py-2 px-3 rounded border border-dashed border-gray-300 hover:border-gray-400 transition-colors"
+                  >
+                    Click to add notes...
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <Textarea
+                      value={notesText}
+                      onChange={(e) => handleNotesChange(e.target.value)}
+                      onFocus={() => setIsEditingNotes(true)}
+                      placeholder="Add notes about this customer..."
+                      className={`min-h-[80px] resize-y text-sm ${
+                        notesModified ? 'border-blue-500 ring-1 ring-blue-500' : ''
+                      }`}
+                      disabled={updatingNotes}
+                    />
+
+                    {/* Character count */}
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>{notesText.length} characters</span>
+                      {notesModified && (
+                        <span className="text-blue-600 font-medium">Unsaved changes</span>
+                      )}
+                    </div>
+
+                    {/* Action buttons - show when editing or modified */}
+                    {(isEditingNotes || notesModified) && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={handleSaveNotes}
+                          disabled={!notesModified || updatingNotes}
+                          className="flex-1"
+                        >
+                          {updatingNotes ? (
+                            <>
+                              <RefreshCw className="h-3 w-3 mr-1.5 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-3 w-3 mr-1.5" />
+                              Save
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelNotes}
+                          disabled={updatingNotes}
+                          className="flex-1"
+                        >
+                          <X className="h-3 w-3 mr-1.5" />
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Customer Stats */}
             <Card className="mb-4">
               <CardContent className="p-4">
@@ -458,7 +585,7 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
             </Card>
 
             {/* Active Packages */}
-            <Card>
+            <Card className="mb-4">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center">
                   <Package className="h-4 w-4 mr-2" />
@@ -545,6 +672,200 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                   <div className="text-center py-6">
                     <Package className="h-8 w-8 mx-auto text-gray-400 mb-2" />
                     <p className="text-sm text-gray-500">No active packages</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Past/Cancelled Bookings */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Past/Cancelled Bookings
+                  </div>
+                  {customerPastBookings.length > 1 && (
+                    <span className="text-xs text-gray-500 font-normal">
+                      {customerPastBookings.length} bookings
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {customerPastBookings && customerPastBookings.length > 0 ? (
+                  <div className="space-y-3">
+                    {/* Current Past Booking Display */}
+                    {(() => {
+                      const booking = customerPastBookings[currentPastBookingIndex];
+                      if (!booking) return null;
+
+                      const dateDisplay = formatBookingDate(booking.date);
+
+                      // Check if it's a coaching booking and extract coach name
+                      const bookingType = booking.booking_type || '';
+                      const isCoaching = bookingType.toLowerCase().includes('coaching');
+                      let coachName = '';
+
+                      if (isCoaching) {
+                        // Extract coach name from booking type - get text within parentheses
+                        const match = bookingType.match(/\(([^)]+)\)/);
+                        if (match && match[1]) {
+                          coachName = match[1];
+                        }
+                      }
+
+                      // Determine bay type display
+                      let bayTypeDisplay = '';
+                      const bayNum = booking.bay;
+
+                      if (bayNum === 'Bay 1' || bayNum === 'Bay 2' || bayNum === 'Bay 3') {
+                        bayTypeDisplay = 'Social Bay';
+                      } else if (bayNum === 'Bay 4') {
+                        bayTypeDisplay = 'AI Bay';
+                      } else {
+                        bayTypeDisplay = 'Sim'; // Default for other bays
+                      }
+
+                      return (
+                        <div
+                          key={booking.id}
+                          className="relative rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
+                        >
+                          {/* Header bar - matches LINE interactive message pattern */}
+                          <div className={`px-3 py-2.5 flex items-center justify-between ${
+                            isCoaching ? 'bg-[#7B68EE]' : 'bg-[#06C755]'
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-semibold text-sm">
+                                {isCoaching ? 'Coaching' : bayTypeDisplay}
+                              </span>
+                              {coachName && (
+                                <span className="text-white/90 text-xs">
+                                  • {coachName}
+                                </span>
+                              )}
+                            </div>
+                            {/* Bay badge - high contrast on colored background */}
+                            <div className="bg-white/20 backdrop-blur-sm px-2.5 py-0.5 rounded-full">
+                              <span className="text-white font-bold text-sm">
+                                {booking.bay}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Primary info - Date & Time */}
+                          <div className="px-3 pt-3 pb-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-base font-bold text-gray-900 whitespace-nowrap">
+                                {dateDisplay}
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                                <Calendar className="h-3.5 w-3.5" />
+                                <span className="font-medium">{booking.start_time}</span>
+                                <span className="text-gray-400">•</span>
+                                <span>{booking.duration}h</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Booking type info - Package name or default rate type */}
+                          <div className="px-3 pb-2">
+                            <div className="text-sm">
+                              {booking.package_name ? (
+                                <span
+                                  className="font-medium text-gray-900 truncate block"
+                                  title={booking.package_name}
+                                >
+                                  {booking.package_name}
+                                </span>
+                              ) : (
+                                <span className="font-medium text-gray-600">
+                                  {isCoaching ? 'Coaching' : 'Normal Bay Rate'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Status Badge */}
+                          <div className="px-3 pb-2">
+                            <Badge
+                              variant={booking.status === 'cancelled' ? 'destructive' : 'secondary'}
+                              className={`text-xs ${
+                                booking.status === 'cancelled'
+                                  ? 'bg-red-100 text-red-700 border-red-300'
+                                  : 'bg-green-100 text-green-700 border-green-300'
+                              }`}
+                            >
+                              {booking.status === 'cancelled' ? 'Cancelled' : 'Completed'}
+                            </Badge>
+                          </div>
+
+                          {/* Cancellation Confirmation Button - Only for cancelled bookings */}
+                          {booking.status === 'cancelled' && (
+                            <div className="px-3 pb-3">
+                              <Button
+                                size="sm"
+                                className={`w-full h-9 font-medium transition-all duration-200 ${
+                                  sendingCancellation === booking.id
+                                    ? 'bg-gray-100 text-gray-600'
+                                    : 'bg-red-600 hover:bg-red-700 text-white border-red-700'
+                                }`}
+                                onClick={() => sendCancellationConfirmation(booking.id)}
+                                disabled={sendingCancellation === booking.id}
+                              >
+                                {sendingCancellation === booking.id ? (
+                                  <>
+                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                    Sending...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Send className="h-4 w-4 mr-2" />
+                                    Send Cancellation Notice
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Past Booking Navigation */}
+                    {customerPastBookings.length > 1 && (
+                      <div className="flex items-center justify-center space-x-3 pt-3 border-t border-gray-100">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-gray-100"
+                          onClick={() => setCurrentPastBookingIndex(Math.max(0, currentPastBookingIndex - 1))}
+                          disabled={currentPastBookingIndex === 0}
+                          title="Previous booking"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+
+                        <span className="text-sm text-gray-600 font-medium">
+                          {currentPastBookingIndex + 1}/{customerPastBookings.length}
+                        </span>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-gray-100"
+                          onClick={() => setCurrentPastBookingIndex(Math.min(customerPastBookings.length - 1, currentPastBookingIndex + 1))}
+                          disabled={currentPastBookingIndex === customerPastBookings.length - 1}
+                          title="Next booking"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-gray-500">No past bookings</p>
                   </div>
                 )}
               </CardContent>

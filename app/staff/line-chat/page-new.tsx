@@ -23,7 +23,8 @@ import type { Conversation } from './utils/chatTypes';
 
 export default function LineChatPage() {
   // Basic state only - much simpler!
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [showMobileCustomer, setShowMobileCustomer] = useState(false);
@@ -36,6 +37,9 @@ export default function LineChatPage() {
   const [showCuratedImages, setShowCuratedImages] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
+  // Get the selected conversation object
+  const selectedConversation = conversations.find(c => c.id === selectedConversationId) || null;
+
   // Extract panel state to custom hook - reduces useState count
   const {
     leftPanelCollapsed,
@@ -46,8 +50,9 @@ export default function LineChatPage() {
   } = usePanelState();
 
   // Extract complex operations to custom hooks - major complexity reduction
-  const chatOps = useChatOperations(selectedConversation);
-  const customerOps = useCustomerData(selectedConversation);
+  // Pass BOTH the ID and the full conversation object to the hooks
+  const chatOps = useChatOperations(selectedConversationId);
+  const customerOps = useCustomerData(selectedConversationId, selectedConversation);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -75,13 +80,13 @@ export default function LineChatPage() {
     reconnect: reconnectMessages,
     disconnect: disconnectMessages
   } = useRealtimeMessages({
-    conversationId: selectedConversation,
+    conversationId: selectedConversationId,
     onNewMessage: handleNewMessage
   });
 
   // Handle conversation selection
   const handleConversationSelect = (conversationId: string) => {
-    setSelectedConversation(conversationId);
+    setSelectedConversationId(conversationId);
     if (isMobile) {
       setShowMobileChat(true);
     }
@@ -101,7 +106,7 @@ export default function LineChatPage() {
   };
 
   const linkCustomerToLineUser = async () => {
-    if (!selectedCustomerForLink || !selectedConversation) return;
+    if (!selectedCustomerForLink || !selectedConversationId) return;
 
     try {
       await customerOps.linkCustomer(selectedCustomerForLink.id, selectedCustomerForLink);
@@ -134,16 +139,19 @@ export default function LineChatPage() {
       {!leftPanelCollapsed && (
         <div className={`transition-all duration-300 ease-in-out ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
           <ConversationSidebar
-            selectedConversation={selectedConversation}
+            selectedConversation={selectedConversationId}
             onConversationSelect={handleConversationSelect}
+            conversations={conversations}
+            setConversations={setConversations}
           />
         </div>
       )}
 
       {/* Center - Chat Area */}
-      <div className={`flex-1 transition-all duration-300 ease-in-out ${!showMobileChat && selectedConversation ? 'hidden md:flex' : ''} ${!selectedConversation ? 'hidden md:flex' : ''}`}>
+      <div className={`flex-1 transition-all duration-300 ease-in-out ${!showMobileChat && selectedConversationId ? 'hidden md:flex' : ''} ${!selectedConversationId ? 'hidden md:flex' : ''}`}>
         <ChatArea
-          selectedConversation={selectedConversation}
+          selectedConversation={selectedConversationId}
+          selectedConversationObj={selectedConversation}
           chatOperations={chatOps}
           leftPanelCollapsed={leftPanelCollapsed}
           rightPanelCollapsed={rightPanelCollapsed}
@@ -155,14 +163,15 @@ export default function LineChatPage() {
       {!rightPanelCollapsed && (
         <div className={`transition-all duration-300 ease-in-out ${!showMobileCustomer ? 'hidden md:flex' : 'hidden md:flex'}`}>
           <CustomerSidebar
-            selectedConversation={selectedConversation}
+            selectedConversation={selectedConversationId}
+            selectedConversationObj={selectedConversation}
             customerOperations={customerOps}
           />
         </div>
       )}
 
       {/* Mobile Customer Panel - Full Screen Modal */}
-      {showMobileCustomer && selectedConversation && (
+      {showMobileCustomer && selectedConversationId && (
         <div className="fixed inset-0 bg-white z-50 md:hidden flex flex-col">
           {/* Mobile Customer Header */}
           <div className="bg-white border-b p-4 flex items-center justify-between flex-shrink-0">
@@ -180,7 +189,8 @@ export default function LineChatPage() {
           {/* Mobile Customer Content - Reuse CustomerSidebar */}
           <div className="flex-1 overflow-y-auto">
             <CustomerSidebar
-              selectedConversation={selectedConversation}
+              selectedConversation={selectedConversationId}
+              selectedConversationObj={selectedConversation}
               customerOperations={customerOps}
             />
           </div>

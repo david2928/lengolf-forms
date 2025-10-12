@@ -213,6 +213,8 @@ graph TB
 - Manual linking for LINE users to customer records
 - Customer information panel with bookings, packages, transactions
 - Complete conversation history across all channels
+- Internal notes management for customer profiles
+- Past bookings history with cancellation tracking
 
 ### 4. Message Types & Rich Content
 - Text messages with emoji support
@@ -221,6 +223,7 @@ graph TB
 - LINE stickers (native support)
 - Pre-configured message templates
 - Rich booking confirmation messages
+- Booking cancellation confirmation messages (LINE and Website)
 
 **📖 Full Feature Details**: See sections below and [Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
 
@@ -252,6 +255,7 @@ graph TB
 - `useUnifiedChat` - Conversation management across all channels
 - `useRealtimeMessages` - Real-time message subscriptions
 - `useChatOperations` - Message sending and file uploads
+- `useCustomerData` - Customer details, bookings, packages, notes management
 
 **📖 Implementation Details**: See [Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
 
@@ -264,6 +268,9 @@ graph TB
 2. **Link Customers** - Associate LINE/social media users with customer records
 3. **Send Templates** - Use pre-configured messages for common scenarios
 4. **View Customer History** - Access bookings, packages, transactions in-chat
+5. **Send Booking Confirmations** - Send confirmation messages for active bookings
+6. **Send Cancellation Notifications** - Send cancellation confirmations for cancelled bookings
+7. **Manage Customer Notes** - Add and update internal notes for customer profiles
 
 ### For Administrators
 1. **Monitor Conversations** - Track all customer interactions across channels
