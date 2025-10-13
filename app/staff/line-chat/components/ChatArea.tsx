@@ -864,12 +864,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <div
                 className={`flex ${message.senderType === 'admin' ? 'justify-end' : 'justify-start'}`}
               >
-            {/* Render rich messages (Flex Messages, booking confirmations) */}
-            {(message.type === 'flex' && message.rawEvent?.booking_details) ? (
+            {/* Render rich messages (Flex Messages, booking confirmations, cancellations, package info) */}
+            {(message.type === 'flex' && (message.rawEvent?.booking_details || message.rawEvent?.package_details)) ? (
               <div className={`flex flex-col space-y-1 ${message.senderType === 'admin' ? 'items-end' : 'items-start'}`}>
                 <RichMessagePreview
-                  messageType={(message.rawEvent?.flex_type === 'booking_confirmation' || message.rawEvent?.flex_type === 'booking_reminder' || message.rawEvent?.flex_type === 'flex') ? message.rawEvent.flex_type : (message.rawEvent?.type === 'booking_confirmation' || message.rawEvent?.type === 'booking_reminder') ? message.rawEvent.type : 'booking_confirmation'}
+                  messageType={(message.rawEvent?.flex_type === 'booking_confirmation' || message.rawEvent?.flex_type === 'booking_reminder' || message.rawEvent?.flex_type === 'booking_cancellation' || message.rawEvent?.flex_type === 'package_info' || message.rawEvent?.flex_type === 'flex') ? message.rawEvent.flex_type : (message.rawEvent?.type === 'booking_confirmation' || message.rawEvent?.type === 'booking_reminder' || message.rawEvent?.type === 'booking_cancellation' || message.rawEvent?.type === 'package_info') ? message.rawEvent.type : 'booking_confirmation'}
                   bookingDetails={message.rawEvent?.booking_details}
+                  packageDetails={message.rawEvent?.package_details}
                   className="message-bubble"
                 />
                 <span className="text-xs text-gray-400">

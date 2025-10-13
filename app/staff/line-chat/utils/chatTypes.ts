@@ -174,10 +174,12 @@ export interface CustomerOperations {
   linkCustomer: (customerId: string, customer: any) => Promise<void>;
   sendBookingConfirmation: (bookingId: string) => Promise<void>;
   sendCancellationConfirmation: (bookingId: string) => Promise<void>;
+  sendPackageInfo: (packageId: string) => Promise<void>;
   setCurrentBookingIndex: (index: number) => void;
   linkingCustomer: boolean;
   sendingConfirmation: string | null;
   sendingCancellation: string | null;
+  sendingPackageInfo: string | null;
   updateCustomerNotes: (customerId: string, notes: string) => Promise<void>;
   updatingNotes: boolean;
 }

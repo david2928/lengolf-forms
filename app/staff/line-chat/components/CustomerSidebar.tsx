@@ -11,6 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Users,
   Phone,
   Mail,
@@ -153,8 +161,10 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     setCurrentBookingIndex,
     sendBookingConfirmation,
     sendCancellationConfirmation,
+    sendPackageInfo,
     sendingConfirmation,
     sendingCancellation,
+    sendingPackageInfo,
     linkingCustomer,
     updateCustomerNotes,
     updatingNotes
@@ -167,6 +177,13 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
 
   // Local state for past bookings carousel
   const [currentPastBookingIndex, setCurrentPastBookingIndex] = useState(0);
+
+  // Local state for confirmation dialogs
+  const [confirmingSend, setConfirmingSend] = useState<{
+    type: 'confirmation' | 'cancellation' | 'package';
+    id: string;
+    displayName?: string;
+  } | null>(null);
 
   // Sync notes text with customer details
   useEffect(() => {
@@ -198,6 +215,29 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     setNotesText(customerDetails?.notes || '');
     setIsEditingNotes(false);
     setNotesModified(false);
+  };
+
+  // Handle confirmation dialog actions
+  const handleConfirmSend = async () => {
+    if (!confirmingSend) return;
+
+    const { type, id } = confirmingSend;
+
+    // Close dialog first
+    setConfirmingSend(null);
+
+    // Call the appropriate send function
+    if (type === 'confirmation') {
+      await sendBookingConfirmation(id);
+    } else if (type === 'cancellation') {
+      await sendCancellationConfirmation(id);
+    } else if (type === 'package') {
+      await sendPackageInfo(id);
+    }
+  };
+
+  const handleCancelSend = () => {
+    setConfirmingSend(null);
   };
 
   // Use the real conversation object passed from parent
@@ -522,12 +562,16 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                           <div className="px-3 pb-3">
                             <Button
                               size="sm"
-                              className={`w-full h-9 font-medium transition-all duration-200 ${
-                                sendingConfirmation === booking.id
-                                  ? 'bg-gray-100 text-gray-600'
-                                  : 'bg-blue-600 hover:bg-blue-700 text-white'
-                              }`}
-                              onClick={() => sendBookingConfirmation(booking.id)}
+                              variant="default"
+                              className={`w-full h-9 font-medium transition-all duration-200
+                                bg-blue-600 hover:bg-blue-700 text-white
+                                md:bg-transparent md:text-blue-600 md:border-blue-600 md:hover:bg-blue-50
+                              `}
+                              onClick={() => setConfirmingSend({
+                                type: 'confirmation',
+                                id: booking.id,
+                                displayName: formatBookingDate(booking.date) + ' at ' + booking.start_time
+                              })}
                               disabled={sendingConfirmation === booking.id}
                             >
                               {sendingConfirmation === booking.id ? (
@@ -663,6 +707,37 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                                 </span>
                               </div>
                             </div>
+                          </div>
+
+                          {/* Action button */}
+                          <div className="px-3 pb-3">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className={`w-full h-9 font-medium transition-all duration-200 ${
+                                pkg.package_type_name.toLowerCase().includes('coaching')
+                                  ? 'bg-purple-600 hover:bg-purple-700 text-white md:bg-transparent md:text-purple-600 md:border-purple-600 md:hover:bg-purple-50'
+                                  : 'bg-indigo-600 hover:bg-indigo-700 text-white md:bg-transparent md:text-indigo-600 md:border-indigo-600 md:hover:bg-indigo-50'
+                              }`}
+                              onClick={() => setConfirmingSend({
+                                type: 'package',
+                                id: pkg.id,
+                                displayName: pkg.package_type_name
+                              })}
+                              disabled={sendingPackageInfo === pkg.id}
+                            >
+                              {sendingPackageInfo === pkg.id ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  Sending...
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="h-4 w-4 mr-2" />
+                                  Send Package Info
+                                </>
+                              )}
+                            </Button>
                           </div>
                         </div>
                       );
@@ -806,12 +881,16 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                             <div className="px-3 pb-3">
                               <Button
                                 size="sm"
-                                className={`w-full h-9 font-medium transition-all duration-200 ${
-                                  sendingCancellation === booking.id
-                                    ? 'bg-gray-100 text-gray-600'
-                                    : 'bg-red-600 hover:bg-red-700 text-white border-red-700'
-                                }`}
-                                onClick={() => sendCancellationConfirmation(booking.id)}
+                                variant="default"
+                                className="w-full h-9 font-medium transition-all duration-200
+                                  bg-red-600 hover:bg-red-700 text-white
+                                  md:bg-transparent md:text-red-600 md:border-red-600 md:hover:bg-red-50
+                                "
+                                onClick={() => setConfirmingSend({
+                                  type: 'cancellation',
+                                  id: booking.id,
+                                  displayName: formatBookingDate(booking.date) + ' at ' + booking.start_time
+                                })}
                                 disabled={sendingCancellation === booking.id}
                               >
                                 {sendingCancellation === booking.id ? (
@@ -873,6 +952,66 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
           </>
         )}
       </div>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={!!confirmingSend} onOpenChange={(open) => !open && handleCancelSend()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {confirmingSend?.type === 'confirmation' && 'Send Booking Confirmation'}
+              {confirmingSend?.type === 'cancellation' && 'Send Cancellation Notice'}
+              {confirmingSend?.type === 'package' && 'Send Package Information'}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmingSend?.type === 'confirmation' && (
+                <>
+                  Send booking confirmation to <strong>{customerDetails?.name}</strong> for:
+                  <br />
+                  <span className="text-blue-600 font-medium">{confirmingSend.displayName}</span>
+                </>
+              )}
+              {confirmingSend?.type === 'cancellation' && (
+                <>
+                  Send cancellation notice to <strong>{customerDetails?.name}</strong> for:
+                  <br />
+                  <span className="text-red-600 font-medium">{confirmingSend.displayName}</span>
+                </>
+              )}
+              {confirmingSend?.type === 'package' && (
+                <>
+                  Send package information to <strong>{customerDetails?.name}</strong> for:
+                  <br />
+                  <span className="text-purple-600 font-medium">{confirmingSend.displayName}</span>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancelSend}
+              className="flex-1 sm:flex-none"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmSend}
+              className={`flex-1 sm:flex-none ${
+                confirmingSend?.type === 'confirmation'
+                  ? 'bg-blue-600 hover:bg-blue-700'
+                  : confirmingSend?.type === 'cancellation'
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : 'bg-purple-600 hover:bg-purple-700'
+              }`}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

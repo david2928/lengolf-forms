@@ -65,7 +65,8 @@
       "mcp__flight-search__get_reference_data",
       "mcp__flight-search__discover_flights",
       "mcp__flight-search__search_calendar",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(npx eslint:*)"
     ],
     "deny": [],
     "ask": []

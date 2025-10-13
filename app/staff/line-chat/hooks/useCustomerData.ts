@@ -21,6 +21,7 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
   const [linkingCustomer, setLinkingCustomer] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState<string | null>(null);
   const [sendingCancellation, setSendingCancellation] = useState<string | null>(null);
+  const [sendingPackageInfo, setSendingPackageInfo] = useState<string | null>(null);
   const [updatingNotes, setUpdatingNotes] = useState(false);
   const { toast } = useToast();
 
@@ -485,6 +486,194 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     }
   }, [conversationId, selectedConversation?.channelType, selectedConversation?.lineUserId, selectedConversation?.user?.displayName, toast]);
 
+  // Send package information function
+  const sendPackageInfo = useCallback(async (packageId: string) => {
+    if (!conversationId) return;
+
+    try {
+      setSendingPackageInfo(packageId);
+
+      // Get package details from customerPackages array
+      const pkg = customerPackages.find(p => p.id === packageId);
+      if (!pkg) {
+        toast({
+          variant: "destructive",
+          title: "Package not found",
+          description: "Unable to find package details"
+        });
+        return;
+      }
+
+      // Calculate days until expiry
+      const expiryDate = new Date(pkg.expiration_date);
+      const today = new Date();
+      const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Determine if this is a coaching package
+      const isCoaching = pkg.package_type_name.toLowerCase().includes('coaching') ||
+                        pkg.package_type_name.toLowerCase().includes('coach');
+
+      // Format package data for flex template
+      const packageDetails = {
+        packageId: pkg.id,
+        customerName: customerDetails?.name || 'Customer',
+        packageName: pkg.package_type_name,
+        isCoaching: isCoaching,
+        hoursLeft: pkg.remaining_hours.toString(),
+        usedHours: pkg.used_hours || 0,
+        totalHours: pkg.hours_remaining !== null ? Number(pkg.remaining_hours) + (pkg.used_hours || 0) : undefined,
+        expirationDate: expiryDate.toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        }),
+        daysUntilExpiry: daysUntilExpiry
+      };
+
+      // Generate plain text message for non-LINE channels
+      const plainTextMessage = `Package Information\n\n` +
+        `Customer: ${packageDetails.customerName}\n` +
+        `Package: ${packageDetails.packageName}\n\n` +
+        `Usage:\n` +
+        `${packageDetails.hoursLeft === 'Unlimited' ? '∞ hours remaining' : `${packageDetails.hoursLeft}h remaining`}` +
+        (packageDetails.totalHours ? ` (${packageDetails.usedHours}h / ${packageDetails.totalHours}h used)` : '') + `\n\n` +
+        `Expiration:\n` +
+        `${packageDetails.expirationDate}` +
+        (daysUntilExpiry > 0 ? ` (${daysUntilExpiry} days remaining)` : ' (Expired)') + `\n\n` +
+        `For bookings or questions, please contact us.`;
+
+      // Handle different channel types
+      const channelType = selectedConversation?.channelType;
+
+      if (channelType === 'website') {
+        // Send message to website chat
+        const messageResponse = await fetch('/api/conversations/website/send-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            conversationId: conversationId,
+            sessionId: selectedConversation?.lineUserId, // Session ID for website
+            messageText: plainTextMessage,
+            senderType: 'staff',
+            senderName: 'Admin'
+          }),
+        });
+
+        const messageData = await messageResponse.json();
+
+        if (messageData.success) {
+          console.log('Package information sent successfully to website chat');
+          const userName = selectedConversation?.user?.displayName || 'Website User';
+          toast({
+            title: userName,
+            description: "Package information sent successfully"
+          });
+        } else {
+          const userName = selectedConversation?.user?.displayName || 'Website User';
+          toast({
+            variant: "destructive",
+            title: userName,
+            description: `Failed to send package information: ${messageData.error}`
+          });
+        }
+      } else if (channelType && ['facebook', 'instagram', 'whatsapp'].includes(channelType)) {
+        // Send message to META platforms (Facebook, Instagram, WhatsApp)
+        const platformUserId = selectedConversation?.lineUserId;
+
+        if (!platformUserId) {
+          toast({
+            variant: "destructive",
+            title: "Unable to send package information",
+            description: "Platform user ID not found"
+          });
+          return;
+        }
+
+        const messageResponse = await fetch('/api/meta/send-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            platformUserId: platformUserId,
+            message: plainTextMessage,
+            platform: channelType,
+            messageType: 'text'
+          }),
+        });
+
+        const messageData = await messageResponse.json();
+
+        if (messageData.success) {
+          console.log(`Package information sent successfully to ${channelType}`);
+          const userName = selectedConversation?.user?.displayName || `${channelType.charAt(0).toUpperCase() + channelType.slice(1)} User`;
+          toast({
+            title: userName,
+            description: "Package information sent successfully"
+          });
+        } else {
+          // Handle Facebook's 24-hour messaging window limitation
+          const userName = selectedConversation?.user?.displayName || `${channelType.charAt(0).toUpperCase() + channelType.slice(1)} User`;
+          if (messageData.error && messageData.error.includes('sent outside of allowed window')) {
+            toast({
+              variant: "destructive",
+              title: userName,
+              description: "Message cannot be sent - customer must message first to reopen 24-hour window"
+            });
+          } else {
+            toast({
+              variant: "destructive",
+              title: userName,
+              description: `Failed to send package information: ${messageData.error}`
+            });
+          }
+        }
+      } else {
+        // For LINE conversations, use the dedicated API endpoint (same pattern as booking confirmation)
+        const response = await fetch(`/api/line/packages/${packageId}/send-info`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messageFormat: 'flex',
+            senderName: 'Admin'
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          console.log('Package information sent successfully to LINE');
+          const userName = selectedConversation?.user?.displayName || 'LINE User';
+          toast({
+            title: userName,
+            description: "Package information sent successfully"
+          });
+        } else {
+          const userName = selectedConversation?.user?.displayName || 'LINE User';
+          toast({
+            variant: "destructive",
+            title: userName,
+            description: `Failed to send package information: ${data.error}`
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error sending package information:', error);
+      const userName = selectedConversation?.user?.displayName || 'User';
+      toast({
+        variant: "destructive",
+        title: userName,
+        description: "Failed to send package information - please try again"
+      });
+    } finally {
+      setSendingPackageInfo(null);
+    }
+  }, [conversationId, customerPackages, customerDetails?.name, selectedConversation?.channelType, selectedConversation?.lineUserId, selectedConversation?.user?.displayName, toast]);
+
   // Enhanced setCurrentBookingIndex with bounds checking
   const setCurrentBookingIndexSafe = useCallback((index: number) => {
     if (customerBookings.length > 0 && index >= 0 && index < customerBookings.length) {
@@ -640,10 +829,12 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     linkCustomer,
     sendBookingConfirmation,
     sendCancellationConfirmation,
+    sendPackageInfo,
     setCurrentBookingIndex: setCurrentBookingIndexSafe,
     linkingCustomer,
     sendingConfirmation,
     sendingCancellation,
+    sendingPackageInfo,
     updateCustomerNotes,
     updatingNotes
   };

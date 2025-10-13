@@ -548,6 +548,174 @@ export function createBookingCancellationMessage(booking: BookingDetails) {
   };
 }
 
+interface PackageDetails {
+  packageId: string;
+  customerName: string;
+  packageName: string;
+  isCoaching: boolean;
+  hoursLeft: string; // Can be 'Unlimited' or a number as string
+  usedHours: number;
+  totalHours?: number;
+  expirationDate: string;
+  daysUntilExpiry: number;
+  purchaseDate?: string;
+}
+
+/**
+ * Creates a package information Flex Message
+ */
+export function createPackageInfoMessage(pkg: PackageDetails) {
+  // Determine header color based on package type
+  const headerColor = pkg.isCoaching ? '#7B68EE' : '#6366F1'; // Purple for coaching, indigo for regular
+  const isUnlimited = pkg.hoursLeft === 'Unlimited';
+
+  // Determine urgency color for hours
+  const hoursColor = isUnlimited ? '#9333EA' : // Purple for unlimited
+    Number(pkg.hoursLeft) <= 2 ? '#DC2626' : // Red for critical
+    Number(pkg.hoursLeft) <= 5 ? '#F59E0B' : // Orange for warning
+    '#059669'; // Green for good
+
+  // Determine urgency color for expiration
+  const expiryColor = pkg.daysUntilExpiry <= 3 ? '#DC2626' :
+    pkg.daysUntilExpiry <= 7 ? '#F59E0B' :
+    '#059669';
+
+  return {
+    type: 'flex',
+    altText: `Package Info - ${pkg.packageName}`,
+    contents: {
+      type: 'bubble',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'PACKAGE INFORMATION',
+            weight: 'bold',
+            color: '#ffffff',
+            size: 'sm',
+            align: 'center'
+          }
+        ],
+        backgroundColor: headerColor,
+        paddingAll: '16px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: pkg.customerName,
+            weight: 'bold',
+            size: 'lg',
+            color: '#333333',
+            wrap: true
+          },
+          {
+            type: 'text',
+            text: pkg.packageName,
+            size: 'md',
+            weight: 'bold',
+            color: headerColor,
+            wrap: true,
+            margin: 'xs'
+          },
+          {
+            type: 'separator',
+            margin: 'md'
+          },
+          // Usage Information
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            margin: 'md',
+            contents: [
+              {
+                type: 'text',
+                text: 'Usage',
+                size: 'xs',
+                color: '#999999',
+                weight: 'bold'
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: isUnlimited ? '∞ hours' : `${pkg.hoursLeft}h left`,
+                    size: 'xl',
+                    weight: 'bold',
+                    color: hoursColor,
+                    flex: 1
+                  },
+                  ...(!isUnlimited && pkg.totalHours ? [{
+                    type: 'text',
+                    text: `(${pkg.usedHours}h / ${pkg.totalHours}h)`,
+                    size: 'sm',
+                    color: '#666666',
+                    flex: 0,
+                    align: 'end' as const
+                  }] : [])
+                ]
+              }
+            ]
+          },
+          {
+            type: 'separator',
+            margin: 'md'
+          },
+          // Expiration Information
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            margin: 'md',
+            contents: [
+              {
+                type: 'text',
+                text: 'Expiration',
+                size: 'xs',
+                color: '#999999',
+                weight: 'bold'
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: pkg.expirationDate,
+                    size: 'md',
+                    color: '#333333',
+                    flex: 1
+                  },
+                  {
+                    type: 'text',
+                    text: pkg.daysUntilExpiry > 0 ? `${pkg.daysUntilExpiry} days` : 'Expired',
+                    size: 'md',
+                    weight: 'bold',
+                    color: expiryColor,
+                    flex: 0,
+                    align: 'end'
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        paddingAll: '16px'
+      }
+    }
+  };
+}
+
 /**
  * Quick Reply buttons for common booking actions
  */
