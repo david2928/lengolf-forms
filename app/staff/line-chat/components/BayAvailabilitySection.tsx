@@ -23,6 +23,13 @@ interface BayAvailabilitySectionProps {
 }
 
 const BAYS = ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4'] as const;
+
+// Bay groupings
+const BAY_GROUPS = {
+  'social': ['Bay 1', 'Bay 2', 'Bay 3'],
+  'ai': ['Bay 4']
+} as const;
+
 const DURATIONS = [
   { value: 0.5, label: '30 min' },
   { value: 1, label: '1 hour' },
@@ -74,7 +81,15 @@ export function BayAvailabilitySection({
     }
   }, [staffName]);
 
-  // Fetch availability for single bay
+  // Get the list of bays to fetch based on selection
+  const getBaysToFetch = useCallback(() => {
+    if (selectedBay === 'all') return BAYS;
+    if (selectedBay === 'social') return BAY_GROUPS.social;
+    if (selectedBay === 'ai') return BAY_GROUPS.ai;
+    return [];
+  }, [selectedBay]);
+
+  // Fetch availability for single bay (not used when group is selected)
   const {
     availableSlots,
     loading: singleBayLoading,
@@ -82,20 +97,22 @@ export function BayAvailabilitySection({
     refreshAvailability
   } = useAvailability({
     date: dateStr,
-    bay: selectedBay === 'all' ? 'Bay 1' : selectedBay, // Default to Bay 1 for single fetch
+    bay: 'Bay 1', // Default bay (not used when groups are selected)
     duration,
     startHour: 10,
     endHour: 22,
-    autoRefresh: selectedBay !== 'all' // Only auto-refresh for single bay
+    autoRefresh: false // Disabled to prevent constant API calls
   });
 
-  // Fetch all bays when "All Bays" is selected
+  // Fetch bays when "All Bays", "Social Bay", or "AI Bay" is selected
   useEffect(() => {
-    if (selectedBay === 'all') {
-      const fetchAllBays = async () => {
+    const baysToFetch = getBaysToFetch();
+
+    if (baysToFetch.length > 0) {
+      const fetchBays = async () => {
         setLoadingAllBays(true);
         try {
-          const promises = BAYS.map(async (bay) => {
+          const promises = baysToFetch.map(async (bay) => {
             const response = await fetch(
               `/api/bookings/available-slots?date=${dateStr}&bay=${encodeURIComponent(bay)}&duration=${duration}&startHour=10&endHour=22`
             );
@@ -107,18 +124,18 @@ export function BayAvailabilitySection({
           const combined = results.flat();
           setAllBaysSlots(combined);
         } catch (err) {
-          console.error('Error fetching all bays:', err);
+          console.error('Error fetching bays:', err);
           setAllBaysSlots([]);
         } finally {
           setLoadingAllBays(false);
         }
       };
 
-      fetchAllBays();
+      fetchBays();
     }
-  }, [selectedBay, dateStr, duration]);
+  }, [selectedBay, dateStr, duration, getBaysToFetch]);
 
-  const loading = selectedBay === 'all' ? loadingAllBays : singleBayLoading;
+  const loading = loadingAllBays;
 
   // Helper function to check if a time slot is in the past
   const isSlotInPast = useCallback((slotTime: string): boolean => {
@@ -142,39 +159,29 @@ export function BayAvailabilitySection({
 
   // Convert slots to include bay information and filter out past slots
   const slotsWithBays = useMemo(() => {
-    if (selectedBay === 'all') {
-      // Group all bay slots by time
-      const slotsByTime: Record<string, string[]> = {};
+    // Group all bay slots by time
+    const slotsByTime: Record<string, string[]> = {};
 
-      allBaysSlots.forEach(slot => {
-        // Skip past time slots
-        if (isSlotInPast(slot.time)) {
-          return;
-        }
+    allBaysSlots.forEach(slot => {
+      // Skip past time slots
+      if (isSlotInPast(slot.time)) {
+        return;
+      }
 
-        if (!slotsByTime[slot.time]) {
-          slotsByTime[slot.time] = [];
-        }
-        slotsByTime[slot.time].push(slot.bay);
-      });
+      if (!slotsByTime[slot.time]) {
+        slotsByTime[slot.time] = [];
+      }
+      slotsByTime[slot.time].push(slot.bay);
+    });
 
-      // Convert to array and sort by time
-      return Object.entries(slotsByTime)
-        .map(([time, bays]) => ({
-          time,
-          availableBays: bays
-        }))
-        .sort((a, b) => a.time.localeCompare(b.time));
-    } else {
-      // Single bay selected - filter out past slots
-      return availableSlots
-        .filter(slot => !isSlotInPast(slot.time))
-        .map(slot => ({
-          time: slot.time,
-          availableBays: [selectedBay]
-        }));
-    }
-  }, [selectedBay, availableSlots, allBaysSlots, isSlotInPast]);
+    // Convert to array and sort by time
+    return Object.entries(slotsByTime)
+      .map(([time, bays]) => ({
+        time,
+        availableBays: bays
+      }))
+      .sort((a, b) => a.time.localeCompare(b.time));
+  }, [allBaysSlots, isSlotInPast]);
 
   const handleSlotClick = (time: string, availableBays: string[]) => {
     if (onSlotSelect) {
@@ -257,7 +264,9 @@ export function BayAvailabilitySection({
 
       // Format the availability message
       const dateFormatted = DateTime.fromFormat(dateStr, 'yyyy-MM-dd').toFormat('EEEE, MMMM d');
-      const bayText = selectedBay === 'all' ? 'All Bays' : selectedBay;
+      const bayText = selectedBay === 'all' ? 'All Bays' :
+                      selectedBay === 'social' ? 'Social Bay' :
+                      selectedBay === 'ai' ? 'AI Bay' : selectedBay;
       const durationText = DURATIONS.find(d => d.value === duration)?.label || `${duration}h`;
 
       let message = `Bay Availability for ${dateFormatted}\n`;
@@ -356,64 +365,64 @@ export function BayAvailabilitySection({
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-end">
-          {/* Date Selector */}
-          <div className="flex-1 sm:flex-none space-y-1">
+        <div className="space-y-2">
+          {/* Date Selector - Full width on mobile */}
+          <div className="space-y-1">
             <Label className="text-xs">Date</Label>
             <input
               type="date"
               value={format(selectedDate, 'yyyy-MM-dd')}
               onChange={(e) => setSelectedDate(new Date(e.target.value))}
-              className="w-full sm:w-40 h-9 px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              className="w-full h-9 px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
           </div>
 
-          {/* Bay Selector */}
-          <div className="flex-1 sm:flex-none space-y-1">
-            <Label className="text-xs">Bay</Label>
-            <Select value={selectedBay} onValueChange={setSelectedBay}>
-              <SelectTrigger className="w-full sm:w-32 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Bays</SelectItem>
-                {BAYS.map(bay => (
-                  <SelectItem key={bay} value={bay}>{bay}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Bay and Duration Selectors - Side by side on mobile */}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Bay Selector */}
+            <div className="space-y-1">
+              <Label className="text-xs">Bay Type</Label>
+              <Select value={selectedBay} onValueChange={setSelectedBay}>
+                <SelectTrigger className="w-full h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Bays</SelectItem>
+                  <SelectItem value="social">Social Bay</SelectItem>
+                  <SelectItem value="ai">AI Bay</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Duration Selector */}
+            <div className="space-y-1">
+              <Label className="text-xs">Duration</Label>
+              <Select value={duration.toString()} onValueChange={(v) => setDuration(parseFloat(v))}>
+                <SelectTrigger className="w-full h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DURATIONS.map(d => (
+                    <SelectItem key={d.value} value={d.value.toString()}>
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Duration Selector */}
-          <div className="flex-1 sm:flex-none space-y-1">
-            <Label className="text-xs">Duration</Label>
-            <Select value={duration.toString()} onValueChange={(v) => setDuration(parseFloat(v))}>
-              <SelectTrigger className="w-full sm:w-32 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DURATIONS.map(d => (
-                  <SelectItem key={d.value} value={d.value.toString()}>
-                    {d.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Refresh Button */}
-          <div className="flex-1 sm:flex-none">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={refreshAvailability}
-              disabled={loading}
-              className="w-full sm:w-auto h-9"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-          </div>
+          {/* Refresh Button - Full width on mobile */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshAvailability}
+            disabled={loading}
+            className="w-full h-9"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         {/* Available Slots Grid */}
@@ -504,7 +513,10 @@ export function BayAvailabilitySection({
 
         {/* Footer Info */}
         <div className="text-xs text-gray-500 pt-2 border-t">
-          <p>Click a time slot to create a booking. {selectedBay === 'all' && 'Yellow slots have limited availability (1 bay only).'}</p>
+          <p>Click a time slot to create a booking.</p>
+          <p className="mt-1 text-gray-400">
+            Social Bay: Bay 1-3 • AI Bay: Bay 4
+          </p>
         </div>
       </div>
     </Card>
