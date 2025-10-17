@@ -183,6 +183,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   selectedConversation,
   selectedConversationObj,
   chatOperations,
+  customerOperations,
   leftPanelCollapsed,
   rightPanelCollapsed,
   onTogglePanel,
@@ -1018,6 +1019,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           onTemplateSelect={handleTemplateSelect}
           onCuratedImagesSelect={handleCuratedImagesSelect}
           onFileUpload={chatOperations.handleFileUpload}
+          onSendCoachingAvailability={customerOperations?.sendCoachingAvailability}
+          sendingCoachingAvailability={customerOperations?.sendingAvailability}
+          hasLinkedCustomer={!!customerOperations?.customerDetails}
         />
       </div>
 

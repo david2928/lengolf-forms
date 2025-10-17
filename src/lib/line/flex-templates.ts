@@ -757,3 +757,246 @@ export function createBookingQuickReplies() {
     ]
   };
 }
+
+/**
+ * Groups consecutive time slots into ranges
+ * Example: ["12:00", "13:00", "14:00", "16:00", "17:00"] → ["12.00–15.00", "16.00–18.00"]
+ */
+function groupConsecutiveSlots(timeSlots: string[]): string[] {
+  if (timeSlots.length === 0) return [];
+
+  // Sort slots and convert to numbers for easier comparison
+  const sortedSlots = timeSlots.map(time => {
+    const [hour] = time.split(':').map(Number);
+    return hour;
+  }).sort((a, b) => a - b);
+
+  const grouped: string[] = [];
+  let currentStart = sortedSlots[0];
+  let currentEnd = sortedSlots[0] + 1; // End time is start + 1 hour
+
+  for (let i = 1; i < sortedSlots.length; i++) {
+    const hour = sortedSlots[i];
+
+    // Check if current slot is consecutive (starts where previous ends)
+    if (hour === currentEnd) {
+      // Extend the current group
+      currentEnd = hour + 1;
+    } else {
+      // End current group and start new one
+      grouped.push(`${currentStart.toString().padStart(2, '0')}.00–${currentEnd.toString().padStart(2, '0')}.00`);
+      currentStart = hour;
+      currentEnd = hour + 1;
+    }
+  }
+
+  // Add the last group
+  grouped.push(`${currentStart.toString().padStart(2, '0')}.00–${currentEnd.toString().padStart(2, '0')}.00`);
+
+  return grouped;
+}
+
+/**
+ * Helper function to format coaching availability into minimal, clean Flex message content
+ * Structured by: Coach → Date → Time slots (as plain text, non-clickable)
+ * Matches the coaching assist format with simple informational display
+ * Shows all coaches and all dates (no limits needed for text-only format)
+ */
+function formatAvailabilityForFlex(coaches: any[]): any[] {
+  if (!coaches || coaches.length === 0) {
+    return [{
+      type: 'text',
+      text: 'No available slots',
+      color: '#999999',
+      size: 'sm',
+      align: 'center',
+      margin: 'md'
+    }];
+  }
+
+  const components: any[] = [];
+
+  coaches.forEach((coach: any, coachIndex: number) => {
+    if (!coach.dates || coach.dates.length === 0) return;
+
+    // Add spacing between coaches
+    if (coachIndex > 0) {
+      components.push({
+        type: 'separator',
+        margin: 'lg'
+      });
+    }
+
+    // Coach name header - simple and clean
+    components.push({
+      type: 'text',
+      text: `Pro ${coach.coach_name}`,
+      weight: 'bold',
+      size: 'md',
+      color: '#000000',
+      margin: 'lg'
+    });
+
+    // Process all dates for this coach (no limit needed)
+    coach.dates.forEach((dateInfo: any) => {
+      // Group consecutive time slots into ranges
+      const groupedRanges = groupConsecutiveSlots(dateInfo.slots);
+      const timeSlotsText = groupedRanges.join(' / ');
+
+      // Format date consistently for better alignment
+      // Parse the date to get day and month
+      const date = new Date(dateInfo.date);
+      const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+      const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      // Use bullet point for better visual separation
+      components.push({
+        type: 'text',
+        text: `• ${weekday}, ${monthDay}: ${timeSlotsText}`,
+        size: 'sm',
+        color: '#333333',
+        margin: 'sm',
+        wrap: true
+      });
+    });
+  });
+
+  return components;
+}
+
+/**
+ * Creates a coaching availability Flex Message showing next 14 days of slots
+ * Used for both unified chat and broadcast campaigns
+ */
+export function createCoachingAvailabilityMessage(coaches: any[], options?: { includeUnsubscribe?: boolean; campaignId?: string; audienceId?: string }) {
+  const scheduleContents = formatAvailabilityForFlex(coaches);
+
+  const flexMessage: any = {
+    type: 'bubble',
+    hero: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [{
+        type: 'text',
+        text: 'Coaching Availability',
+        weight: 'bold',
+        size: 'xl',
+        color: '#FFFFFF'
+      }],
+      backgroundColor: '#17C964',
+      paddingAll: '20px'
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'text',
+          text: 'Available Next 14 Days',
+          size: 'sm',
+          color: '#999999',
+          margin: 'none'
+        },
+        {
+          type: 'separator',
+          margin: 'md'
+        },
+        {
+          type: 'box',
+          layout: 'vertical',
+          margin: 'lg',
+          spacing: 'sm',
+          contents: scheduleContents
+        }
+      ]
+    }
+  };
+
+  // Add footer with unsubscribe button only if specified (for campaigns)
+  if (options?.includeUnsubscribe && options?.campaignId && options?.audienceId) {
+    flexMessage.footer = {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'separator',
+          margin: 'md'
+        },
+        {
+          type: 'button',
+          style: 'link',
+          height: 'sm',
+          action: {
+            type: 'postback',
+            label: 'Unsubscribe',
+            data: `action=opt_out&campaign_id=${options.campaignId}&audience_id=${options.audienceId}`
+          },
+          color: '#999999'
+        }
+      ],
+      spacing: 'sm',
+      paddingAll: '8px'
+    };
+  }
+
+  return {
+    type: 'flex',
+    altText: 'Coaching Availability',
+    contents: flexMessage
+  };
+}
+
+/**
+ * Formats coaching availability as plain text for all channels
+ * Matches the coaching assist format exactly with month grouping
+ */
+export function formatCoachingAvailabilityAsText(coaches: any[]): string {
+  if (!coaches || coaches.length === 0) {
+    return 'No coaching availability for the next 14 days.';
+  }
+
+  let text = 'Coaching Availability Overview\n\n';
+
+  coaches.forEach((coach: any, coachIndex: number) => {
+    if (!coach.dates || coach.dates.length === 0) return;
+
+    if (coachIndex > 0) {
+      text += '\n';
+    }
+
+    text += `Pro ${coach.coach_name}'s Coaching Availability:\n`;
+
+    // Group dates by month
+    const monthGroups: { [month: string]: any[] } = {};
+    coach.dates.forEach((dateInfo: any) => {
+      const date = new Date(dateInfo.date);
+      const monthKey = date.toLocaleDateString('en-US', { month: 'long' });
+
+      if (!monthGroups[monthKey]) {
+        monthGroups[monthKey] = [];
+      }
+
+      monthGroups[monthKey].push(dateInfo);
+    });
+
+    // Output by month
+    Object.entries(monthGroups).forEach(([month, dates]) => {
+      text += `${month}\n`;
+
+      dates.forEach((dateInfo: any) => {
+        // Group consecutive time slots into ranges
+        const groupedRanges = groupConsecutiveSlots(dateInfo.slots);
+        const timeSlotsText = groupedRanges.join(' / ');
+
+        // Format date - just weekday and day number
+        const date = new Date(dateInfo.date);
+        const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const day = date.getDate();
+
+        text += `• ${weekday} ${day}: ${timeSlotsText}\n`;
+      });
+    });
+  });
+
+  return text.trim();
+}

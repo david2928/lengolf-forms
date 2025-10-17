@@ -181,7 +181,7 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   // Local state for confirmation dialogs
   const [confirmingSend, setConfirmingSend] = useState<{
     type: 'confirmation' | 'cancellation' | 'package';
-    id: string;
+    id?: string;
     displayName?: string;
   } | null>(null);
 
@@ -227,11 +227,11 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     setConfirmingSend(null);
 
     // Call the appropriate send function
-    if (type === 'confirmation') {
+    if (type === 'confirmation' && id) {
       await sendBookingConfirmation(id);
-    } else if (type === 'cancellation') {
+    } else if (type === 'cancellation' && id) {
       await sendCancellationConfirmation(id);
-    } else if (type === 'package') {
+    } else if (type === 'package' && id) {
       await sendPackageInfo(id);
     }
   };

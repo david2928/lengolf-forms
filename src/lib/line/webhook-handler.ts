@@ -266,28 +266,44 @@ async function sendPushNotificationForNewMessage(
   displayText: string
 ): Promise<void> {
   try {
-    // Get user profile for notification
-    let userProfile: LineUserProfile | null = null;
+    // Get customer name for notification (prioritize linked customer over LINE display name)
+    let customerName = 'Unknown Customer';
+
     if (event.source.userId) {
       try {
-        const { data: userData } = await supabase
-          .from('line_users')
-          .select('display_name')
-          .eq('line_user_id', event.source.userId)
+        // First, try to get the linked customer name from the conversation
+        const { data: conversationData } = await supabase
+          .from('line_conversations')
+          .select(`
+            customer_id,
+            customers:customer_id (name)
+          `)
+          .eq('id', conversationId)
           .single();
 
-        if (userData) {
-          userProfile = {
-            userId: event.source.userId,
-            displayName: userData.display_name
-          };
+        if (conversationData?.customers && typeof conversationData.customers === 'object') {
+          const customerRecord = conversationData.customers as { name?: string };
+          if (customerRecord.name) {
+            customerName = customerRecord.name;
+          }
+        }
+
+        // Fallback to LINE display name if no linked customer
+        if (customerName === 'Unknown Customer') {
+          const { data: userData } = await supabase
+            .from('line_users')
+            .select('display_name')
+            .eq('line_user_id', event.source.userId)
+            .single();
+
+          if (userData?.display_name) {
+            customerName = userData.display_name;
+          }
         }
       } catch (error) {
-        console.error('Failed to get user profile for notification:', error);
+        console.error('Failed to get customer name for notification:', error);
       }
     }
-
-    const customerName = userProfile?.displayName || 'Unknown Customer';
 
     // Get active subscriptions directly from database
     const { data: subscriptions, error } = await supabase

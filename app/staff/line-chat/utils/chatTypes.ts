@@ -175,11 +175,13 @@ export interface CustomerOperations {
   sendBookingConfirmation: (bookingId: string) => Promise<void>;
   sendCancellationConfirmation: (bookingId: string) => Promise<void>;
   sendPackageInfo: (packageId: string) => Promise<void>;
+  sendCoachingAvailability: () => Promise<void>;
   setCurrentBookingIndex: (index: number) => void;
   linkingCustomer: boolean;
   sendingConfirmation: string | null;
   sendingCancellation: string | null;
   sendingPackageInfo: string | null;
+  sendingAvailability: boolean;
   updateCustomerNotes: (customerId: string, notes: string) => Promise<void>;
   updatingNotes: boolean;
 }
@@ -219,6 +221,7 @@ export interface ChatAreaProps {
   selectedConversation: string | null;
   selectedConversationObj?: Conversation | null;
   chatOperations: ChatOperations;
+  customerOperations?: CustomerOperations;
   leftPanelCollapsed: boolean;
   rightPanelCollapsed: boolean;
   onTogglePanel: (panel: 'left' | 'right') => void;
@@ -249,6 +252,10 @@ export interface MessageInputProps {
   // AI suggestions
   onAIRetrigger?: () => void;
   enableAISuggestions?: boolean;
+  // Coaching availability
+  onSendCoachingAvailability?: () => Promise<void>;
+  sendingCoachingAvailability?: boolean;
+  hasLinkedCustomer?: boolean;
 }
 
 // ========== UNIFIED MULTI-CHANNEL TYPES ==========

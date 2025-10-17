@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { TableSession, Customer } from '@/types/pos';
-import { ArrowLeft, Table2, Home, User, LogOut, Menu, Receipt, Users, X, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Table2, Home, User, LogOut, Menu, Receipt, Users, X, RefreshCw, CalendarCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useStaffAuth } from '@/hooks/use-staff-auth';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,7 @@ export interface POSHeaderProps {
   onReprintReceipt?: () => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  onCloseDay?: () => void;
 }
 
 export const POSHeader: React.FC<POSHeaderProps> = ({
@@ -49,7 +50,8 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
   onViewChange,
   onReprintReceipt,
   onRefresh,
-  isRefreshing
+  isRefreshing,
+  onCloseDay
 }) => {
   const router = useRouter();
   const { staff, logout } = useStaffAuth();
@@ -85,6 +87,17 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
         setIsMenuOpen(false);
       },
       enabled: true
+    },
+    {
+      id: 'close-day',
+      label: 'Close Day',
+      icon: CalendarCheck,
+      action: () => {
+        onCloseDay?.();
+        setIsMenuOpen(false);
+      },
+      enabled: !!onCloseDay,
+      dividerAfter: true
     }
   ];
 
@@ -231,29 +244,33 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
               <div className="flex-1 p-4">
                 <div className="space-y-2">
                   {menuItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={item.action}
-                      disabled={!item.enabled}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${
-                        item.enabled
-                          ? 'hover:bg-gray-100 text-gray-900'
-                          : 'text-gray-400 cursor-not-allowed'
-                      } ${
-                        (item.id === 'tables' && currentView === 'tables') ||
-                        (item.id === 'transactions' && currentView === 'transactions')
-                          ? 'bg-blue-50 text-blue-700'
-                          : ''
-                      }`}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      <span className="font-medium">{item.label}</span>
-                      {item.badge && (
-                        <Badge variant="secondary" className="ml-auto">
-                          {item.badge}
-                        </Badge>
+                    <React.Fragment key={item.id}>
+                      <button
+                        onClick={item.action}
+                        disabled={!item.enabled}
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${
+                          item.enabled
+                            ? 'hover:bg-gray-100 text-gray-900'
+                            : 'text-gray-400 cursor-not-allowed'
+                        } ${
+                          (item.id === 'tables' && currentView === 'tables') ||
+                          (item.id === 'transactions' && currentView === 'transactions')
+                            ? 'bg-blue-50 text-blue-700'
+                            : ''
+                        }`}
+                      >
+                        <item.icon className="h-5 w-5" />
+                        <span className="font-medium">{item.label}</span>
+                        {item.badge && (
+                          <Badge variant="secondary" className="ml-auto">
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </button>
+                      {item.dividerAfter && (
+                        <div className="my-2 border-t border-gray-200"></div>
                       )}
-                    </button>
+                    </React.Fragment>
                   ))}
                 </div>
               </div>

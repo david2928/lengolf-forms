@@ -403,6 +403,7 @@ export default function UnifiedChatPage() {
             selectedConversation={selectedConversation}
             selectedConversationObj={selectedConversationObj}
             chatOperations={chatOps}
+            customerOperations={customerOps}
             leftPanelCollapsed={leftPanelCollapsed}
             rightPanelCollapsed={rightPanelCollapsed}
             onTogglePanel={togglePanel}

@@ -203,25 +203,25 @@ export function BayBlockingModal({
   if (showSuccess && successInfo) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px]">
-          <div className="flex flex-col items-center space-y-4 py-8">
-            <CheckCircle2 className="h-12 w-12 text-green-600" />
-            <div className="text-center space-y-2">
-              <h3 className="text-lg font-semibold">Bays Blocked Successfully</h3>
-              <p className="text-sm text-muted-foreground">
+        <DialogContent className="w-screen h-screen max-w-none sm:w-auto sm:h-auto sm:max-w-[500px] p-4 sm:p-6 rounded-none sm:rounded-lg flex items-center justify-center">
+          <div className="flex flex-col items-center space-y-3 sm:space-y-4 py-4 sm:py-8">
+            <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 text-green-600" />
+            <div className="text-center space-y-1 sm:space-y-2">
+              <h3 className="text-base sm:text-lg font-semibold">Bays Blocked Successfully</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 {successInfo.bays.length} bay(s) blocked from {successInfo.timeRange}
               </p>
             </div>
             <Card className="w-full border-green-200 bg-green-50">
-              <CardContent className="p-4">
-                <div className="space-y-2">
+              <CardContent className="p-3 sm:p-4">
+                <div className="space-y-1.5 sm:space-y-2">
                   <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-green-600" />
-                    <span className="font-medium text-green-900">
+                    <Shield className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span className="font-medium text-green-900 text-xs sm:text-sm">
                       Blocked Bays: {successInfo.bays.join(', ')}
                     </span>
                   </div>
-                  <p className="text-sm text-green-700">
+                  <p className="text-xs sm:text-sm text-green-700">
                     Reason: {successInfo.reason}
                   </p>
                 </div>
@@ -235,38 +235,38 @@ export function BayBlockingModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="w-screen h-screen max-w-none sm:w-auto sm:h-auto sm:max-w-[600px] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-none sm:rounded-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Shield className="h-4 w-4 sm:h-5 sm:w-5" />
             Block Bays
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm">
             Block one or more bays for maintenance or events
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="space-y-6">
+
+        <div className="space-y-4 sm:space-y-6">
           {/* Bay Selection */}
-          <div className="space-y-3">
-            <Label className="text-base">Select Bays to Block</Label>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2 sm:space-y-3">
+            <Label className="text-sm sm:text-base">Select Bays to Block</Label>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {BAYS.map((bay) => (
                 <label key={bay.id} className="cursor-pointer">
                   <div className={cn(
-                    "flex items-center rounded-lg border p-3 transition-colors",
-                    selectedBays.includes(bay.id) 
-                      ? "bg-destructive/10 border-destructive" 
+                    "flex items-center rounded-lg border p-2 sm:p-3 transition-colors",
+                    selectedBays.includes(bay.id)
+                      ? "bg-destructive/10 border-destructive"
                       : "hover:bg-accent"
                   )}>
-                    <Checkbox 
+                    <Checkbox
                       checked={selectedBays.includes(bay.id)}
                       onCheckedChange={() => handleBayToggle(bay.id)}
-                      className="mr-3" 
+                      className="mr-2 sm:mr-3"
                     />
-                    <div className="flex items-center gap-3">
-                      <MapPin className="h-5 w-5 text-muted-foreground" />
-                      <span className="font-medium">{bay.name}</span>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                      <span className="font-medium text-sm sm:text-base">{bay.name}</span>
                     </div>
                   </div>
                 </label>
@@ -276,38 +276,38 @@ export function BayBlockingModal({
 
           {/* Employee Selection */}
           <div className="space-y-2">
-            <Label className="text-base">Staff Member</Label>
+            <Label className="text-sm sm:text-base">Staff Member</Label>
             {employeeName ? (
-              <div className="flex items-center p-3 bg-muted rounded-md">
-                <span className="font-medium">{employeeName}</span>
-                <span className="text-sm text-muted-foreground ml-2">(from booking form)</span>
+              <div className="flex items-center p-2 sm:p-3 bg-muted rounded-md">
+                <span className="font-medium text-sm sm:text-base">{employeeName}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground ml-2">(from booking form)</span>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 <Select value={localEmployeeName} onValueChange={(value) => {
                   setLocalEmployeeName(value);
                   if (value !== 'Other') {
                     setOtherEmployeeName(''); // Clear other name when selecting predefined staff
                   }
                 }}>
-                  <SelectTrigger>
+                  <SelectTrigger className="text-sm sm:text-base">
                     <SelectValue placeholder="Select staff member who is blocking bays" />
                   </SelectTrigger>
                   <SelectContent>
                     {STAFF_MEMBERS.map((staff) => (
-                      <SelectItem key={staff} value={staff}>
+                      <SelectItem key={staff} value={staff} className="text-sm sm:text-base">
                         {staff}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                
+
                 {localEmployeeName === 'Other' && (
                   <Input
                     placeholder="Enter staff member name..."
                     value={otherEmployeeName}
                     onChange={(e) => setOtherEmployeeName(e.target.value)}
-                    className="mt-2"
+                    className="mt-2 text-sm sm:text-base"
                   />
                 )}
               </div>
@@ -315,9 +315,9 @@ export function BayBlockingModal({
           </div>
 
           {/* Date and Time Selection */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="date" className="flex items-center gap-2">
+              <Label htmlFor="date" className="flex items-center gap-2 text-sm sm:text-base">
                 <Calendar className="h-4 w-4" />
                 Date
               </Label>
@@ -326,44 +326,47 @@ export function BayBlockingModal({
                 type="date"
                 value={format(date, 'yyyy-MM-dd')}
                 onChange={(e) => setDate(new Date(e.target.value))}
+                className="text-sm sm:text-base"
               />
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
+              <Label className="flex items-center gap-2 text-sm sm:text-base">
                 <Clock className="h-4 w-4" />
                 Duration: {calculateDuration()}h
               </Label>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs sm:text-sm text-muted-foreground">
                 Auto-calculated from time range
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="startTime">Start Time</Label>
+              <Label htmlFor="startTime" className="text-sm sm:text-base">Start Time</Label>
               <Input
                 id="startTime"
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
+                className="text-sm sm:text-base"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="endTime">End Time</Label>
+              <Label htmlFor="endTime" className="text-sm sm:text-base">End Time</Label>
               <Input
                 id="endTime"
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
+                className="text-sm sm:text-base"
               />
             </div>
           </div>
 
           {/* Reason Selection */}
-          <div className="space-y-3">
-            <Label className="text-base">Reason for Blocking</Label>
-            <div className="flex gap-2 flex-wrap">
+          <div className="space-y-2 sm:space-y-3">
+            <Label className="text-sm sm:text-base">Reason for Blocking</Label>
+            <div className="flex gap-1.5 sm:gap-2 flex-wrap">
               {BAY_BLOCKING_TEMPLATES.map((template) => (
                 <Button
                   key={template}
@@ -371,6 +374,7 @@ export function BayBlockingModal({
                   size="sm"
                   onClick={() => handleTemplateClick(template)}
                   className={cn(
+                    "text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 h-auto",
                     reason === template && "bg-accent text-accent-foreground"
                   )}
                 >
@@ -383,27 +387,33 @@ export function BayBlockingModal({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
+              className="text-sm sm:text-base"
             />
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto order-2 sm:order-1 text-sm sm:text-base"
+          >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleSubmit}
             disabled={!isFormValid() || isSubmitting}
+            className="w-full sm:w-auto order-1 sm:order-2 text-sm sm:text-base"
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Blocking Bays...
+                <span className="text-sm sm:text-base">Blocking Bays...</span>
               </>
             ) : (
               <>
                 <Shield className="h-4 w-4 mr-2" />
-                Block {selectedBays.length} Bay{selectedBays.length !== 1 ? 's' : ''}
+                <span className="text-sm sm:text-base">Block {selectedBays.length} Bay{selectedBays.length !== 1 ? 's' : ''}</span>
               </>
             )}
           </Button>

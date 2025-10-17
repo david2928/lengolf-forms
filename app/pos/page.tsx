@@ -10,12 +10,14 @@ import { POSHeader, POSView } from '@/components/pos/POSHeader';
 import { ReprintReceiptModal } from '@/components/pos/ReprintReceiptModal';
 import { POSTransactionList } from '@/components/pos/transactions/POSTransactionList';
 import { CustomerManagementInterface } from '@/components/pos/customer-management/CustomerManagementInterface';
+import { DailyClosingModal } from '@/components/pos/closing/DailyClosingModal';
 
 // Inner component that uses the staff auth context
 function POSContent() {
   const [activeTableSession, setActiveTableSession] = useState<TableSession | null>(null);
   const [currentView, setCurrentView] = useState<POSView>('tables');
   const [showReprintModal, setShowReprintModal] = useState(false);
+  const [showClosingModal, setShowClosingModal] = useState(false);
   const [transactionRefresh, setTransactionRefresh] = useState<(() => void) | null>(null);
   const [isTransactionRefreshing, setIsTransactionRefreshing] = useState(false);
   const { isAuthenticated, isLoading, login } = useStaffAuth();
@@ -70,6 +72,7 @@ function POSContent() {
               onReprintReceipt={() => setShowReprintModal(true)}
               onRefresh={handleRefresh}
               isRefreshing={isTransactionRefreshing}
+              onCloseDay={() => setShowClosingModal(true)}
             />
             
             {/* Main Content Area */}
@@ -107,6 +110,16 @@ function POSContent() {
           <ReprintReceiptModal
             isOpen={showReprintModal}
             onClose={() => setShowReprintModal(false)}
+          />
+
+          {/* Daily Closing Modal */}
+          <DailyClosingModal
+            isOpen={showClosingModal}
+            onClose={() => setShowClosingModal(false)}
+            onComplete={(reconciliationId) => {
+              console.log('Closing complete:', reconciliationId);
+              setShowClosingModal(false);
+            }}
           />
         </>
       ) : (

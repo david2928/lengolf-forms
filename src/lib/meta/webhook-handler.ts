@@ -603,6 +603,31 @@ async function sendPushNotificationForMetaMessage(
   platform: string
 ): Promise<void> {
   try {
+    // Get customer name for notification (prioritize linked customer over platform display name)
+    let customerName = senderName; // Start with the platform display name as fallback
+
+    try {
+      // First, try to get the linked customer name from the conversation
+      const { data: conversationData } = await supabase
+        .from('meta_conversations')
+        .select(`
+          customer_id,
+          customers:customer_id (name)
+        `)
+        .eq('id', conversationId)
+        .single();
+
+      if (conversationData?.customers && typeof conversationData.customers === 'object') {
+        const customerRecord = conversationData.customers as { name?: string };
+        if (customerRecord.name) {
+          customerName = customerRecord.name;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get customer name for Meta notification:', error);
+      // Keep the platform display name as fallback
+    }
+
     // Get active subscriptions
     const { data: subscriptions, error } = await supabase
       .schema('backoffice')
@@ -617,11 +642,11 @@ async function sendPushNotificationForMetaMessage(
 
     // Prepare notification payload
     const notificationPayload = {
-      title: senderName,
+      title: customerName,
       body: messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText,
       conversationId,
       platform,
-      customerName: senderName,
+      customerName,
       url: `/staff/unified-chat?conversation=${conversationId}`
     };
 

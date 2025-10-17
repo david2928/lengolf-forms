@@ -1,0 +1,226 @@
+🚀 Starting Meta Ads Analysis...
+
+============================================================
+📊 Fetching campaigns data...
+🎨 Fetching creatives data...
+📈 Fetching overview metrics...
+
+=== OVERVIEW METRICS (30d) ===
+
+Spend & Bookings:
+  Total Spend: ฿20,329.84 (5.0%)
+  Meta Bookings: 19 (18.8%)
+  Cost per Booking: ฿1069.99 (-11.6%)
+
+Performance:
+  Impressions: 418,117 (34.5%)
+  Clicks: 11,612 (106.8%)
+  Average CTR: 2.65% (14.5%)
+  Conversions: 19 (18.8%)
+
+Platform Breakdown:
+  Facebook:
+    Spend: ฿18,372.02
+    Bookings: 14
+    Impressions: 406,583
+    Clicks: 11,283.5
+  Instagram:
+    Spend: ฿1,957.82
+    Bookings: 5
+    Impressions: 11,534
+    Clicks: 328.5
+
+Platform Efficiency:
+  Facebook Cost/Booking: ฿1312.29
+  Instagram Cost/Booking: ฿391.56
+
+
+=== CAMPAIGN ANALYSIS ===
+
+Total Campaigns: 4
+Total Spend (30d): ฿20,329.84
+Total Impressions: 418,117
+Total Clicks: 11,612
+Average Performance Score: 97
+
+Performance Distribution:
+  🟢 Excellent: 4
+  🔵 Good: 0
+  🔴 Needs Review: 0
+
+Budget Recommendations:
+  🚀 Scale Up: 4
+  ✅ Maintain: 0
+  📉 Scale Down: 0
+  🛑 Pause: 0
+
+Top 10 Campaigns by Spend:
+
+1. marketyze_ct:th_ch:fb_obj:con_gl:lead_fm:instant-form
+   Objective: OUTCOME_LEADS
+   Spend: ฿9,637.96
+   Performance Score: 97/100 (Excellent)
+   CTR: 2.64% | CPC: ฿6.01 | CPM: ฿155.09
+   Recommendation: Scale Up
+   Leads: 24 | Cost/Lead: ฿401.58
+
+2. Sales - Book Now
+   Objective: OUTCOME_SALES
+   Spend: ฿4,811.79
+   Performance Score: 100/100 (Excellent)
+   CTR: 6.13% | CPC: ฿0.66 | CPM: ฿38.64
+   Recommendation: Scale Up
+
+3. marketyze_ct:th_ch:fb_obj:con_gl:engagement
+   Objective: OUTCOME_ENGAGEMENT
+   Spend: ฿3,483.3
+   Performance Score: 97/100 (Excellent)
+   CTR: 0.98% | CPC: ฿1.69 | CPM: ฿16.08
+   Recommendation: Scale Up
+
+4. marketyze_ct:th_ch:fb_obj:con_gl:b2b-lead_fm:instant-form
+   Objective: OUTCOME_LEADS
+   Spend: ฿2,396.79
+   Performance Score: 92/100 (Excellent)
+   CTR: 2.18% | CPC: ฿16.07 | CPM: ฿262.50
+   Recommendation: Scale Up
+   Leads: 1 | Cost/Lead: ฿2396.79
+
+Campaigns by Objective:
+
+OUTCOME_LEADS:
+  Campaigns: 2
+  Total Spend: ฿12,034.75
+  Avg Performance: 94.5/100
+
+OUTCOME_SALES:
+  Campaigns: 1
+  Total Spend: ฿4,811.79
+  Avg Performance: 100.0/100
+
+OUTCOME_ENGAGEMENT:
+  Campaigns: 1
+  Total Spend: ฿3,483.3
+  Avg Performance: 97.0/100
+
+
+=== CREATIVE ANALYSIS ===
+
+Total Campaigns with Creatives: 4
+Total Active Ads: 49
+Last 7d Spend: ฿4,653.09
+Last 7d Results (Leads): 0
+
+Total Creatives: 49
+
+Creatives by Action Status:
+
+PAUSE: 9 creatives
+  7d Spend: ฿2,817.02
+
+KEEP: 27 creatives
+  7d Spend: ฿1,409.29
+
+MONITOR: 10 creatives
+  7d Spend: ฿418.53
+
+SCALE: 3 creatives
+  7d Spend: ฿8.25
+
+Top 10 Creatives by 7d Spend:
+
+1. ad:mtz_post:dating_media:vdo_pm:bau_fm:single
+   Campaign: marketyze_ct:th_ch:fb_obj:con_gl:lead_fm:instant-form
+   Adset: marketyze_ct:th_ch:fb_obj:cov_gl:lead_ta:b2b_aud:pro
+   Type: video | Status: ENABLED
+   7d Spend: ฿487.56
+   7d Leads: 0
+   CTR: 0.02% | CPC: ฿10.14
+   Action: pause - High spend with no leads
+
+2. ad:lengolf_post:All in bay:vdo_pm:bau_fm:single - Copy
+   Campaign: Sales - Book Now
+   Adset: Lengolf_ct:th_ch:fb_obj:cov_gl:booking-site_ta:retargeting_aud - Copy
+   Type: video | Status: ENABLED
+   7d Spend: ฿426.24
+   7d Leads: 0
+   CTR: 0.07% | CPC: ฿0.50
+   Action: pause - High spend with no leads
+
+3. ad:mtz_post:teams_media:vdo_pm:bau_fm:vdo
+   Campaign: marketyze_ct:th_ch:fb_obj:con_gl:lead_fm:instant-form
+   Adset: marketyze_ct:th_ch:fb_obj:cov_gl:lead_ta:expat_aud:pro
+   Type: video | Status: ENABLED
+   7d Spend: ฿389.67
+   7d Leads: 0
+   CTR: 0.03% | CPC: ฿6.41
+   Action: pause - High spend with no leads
+
+4. ad:mtz_post:all-in-bay_media:vdo_pm:bau_fm:single
+   Campaign: marketyze_ct:th_ch:fb_obj:con_gl:lead_fm:instant-form
+   Adset: marketyze_ct:th_ch:fb_obj:cov_gl:lead_ta:high-intent-men25-35_aud:pro
+   Type: video | Status: ENABLED
+   7d Spend: ฿329.65
+   7d Leads: 0
+   CTR: 0.02% | CPC: ฿6.40
+   Action: pause - High spend with no leads
+
+5. ad:lengolf_post:Customer at LENGOLF:vdo_pm:bau_fm:single - Copy
+   Campaign: marketyze_ct:th_ch:fb_obj:con_gl:lead_fm:instant-form
+   Adset: marketyze_ct:th_ch:fb_obj:cov_gl:lead_ta:high-intent-men25-35_aud:pro
+   Type: video | Status: ENABLED
+   7d Spend: ฿311.06
+   7d Leads: 0
+   CTR: 0.04% | CPC: ฿3.72
+   Action: pause - High spend with no leads
+
+6. ad:mtz_post:all-in-bay_media:vdo_pm:bau_fm:single
+   Campaign: marketyze_ct:th_ch:fb_obj:con_gl:lead_fm:instant-form
+   Adset: marketyze_ct:th_ch:fb_obj:cov_gl:lead_ta:leisure_aud:pro
+   Type: video | Status: ENABLED
+   7d Spend: ฿298.71
+   7d Leads: 0
+   CTR: 0.03% | CPC: ฿4.49
+   Action: pause - High spend with no leads
+
+7. ad:lengolf_post:SimxDriving Range:vdo_pm:bau_fm:single - Copy
+   Campaign: Sales - Book Now
+   Adset: Lengolf_ct:th_ch:fb_obj:cov_gl:booking-site_ta:retargeting_aud - Copy
+   Type: video | Status: ENABLED
+   7d Spend: ฿289.35
+   7d Leads: 0
+   CTR: 0.07% | CPC: ฿0.66
+   Action: pause - High spend with no leads
+
+8. ad:mtz_post:weekend-catch-up_media:vdo_pm:bau_fm:single - Copy
+   Campaign: Sales - Book Now
+   Adset: Lengolf_ct:th_ch:fb_obj:cov_gl:booking-site_ta:retargeting_aud - Copy
+   Type: video | Status: ENABLED
+   7d Spend: ฿276.98
+   7d Leads: 0
+   CTR: 0.07% | CPC: ฿0.51
+   Action: keep - Performing within benchmarks
+
+9. ad:mtz_post:all-in-bay_media:vdo_pm:bau_fm:single - Copy
+   Campaign: marketyze_ct:th_ch:fb_obj:con_gl:lead_fm:instant-form
+   Adset: marketyze_ct:th_ch:fb_obj:cov_gl:lead_ta:expat_aud:pro
+   Type: video | Status: ENABLED
+   7d Spend: ฿242.67
+   7d Leads: 0
+   CTR: 0.03% | CPC: ฿5.47
+   Action: pause - High spend with no leads
+
+10. ad:lgf_post:praewa party_media:vdo_pm:bau_fm:single
+   Campaign: marketyze_ct:th_ch:fb_obj:con_gl:b2b-lead_fm:instant-form
+   Adset: marketyze_ct:th_ch:fb_obj:cov_gl:lead_ta:b2b-hr_aud:pro
+   Type: UNKNOWN | Status: ENABLED
+   7d Spend: ฿174.6
+   7d Leads: 0
+   CTR: 0.02% | CPC: ฿14.80
+   Action: keep - Performing within benchmarks
+
+============================================================
+
+✅ Analysis Complete!
+
+Analysis results saved to variable: results

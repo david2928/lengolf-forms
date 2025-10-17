@@ -224,6 +224,7 @@ graph TB
 - Pre-configured message templates
 - Rich booking confirmation messages
 - Booking cancellation confirmation messages (LINE and Website)
+- Coaching availability messages with next 14 days schedule
 
 **📖 Full Feature Details**: See sections below and [Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
 
@@ -270,7 +271,9 @@ graph TB
 4. **View Customer History** - Access bookings, packages, transactions in-chat
 5. **Send Booking Confirmations** - Send confirmation messages for active bookings
 6. **Send Cancellation Notifications** - Send cancellation confirmations for cancelled bookings
-7. **Manage Customer Notes** - Add and update internal notes for customer profiles
+7. **Send Package Information** - Share package details, usage, and expiration information
+8. **Send Coaching Availability** - Share available coaching slots for the next 14 days
+9. **Manage Customer Notes** - Add and update internal notes for customer profiles
 
 ### For Administrators
 1. **Monitor Conversations** - Track all customer interactions across channels
@@ -279,6 +282,95 @@ graph TB
 4. **Configure Integrations** - Set up new messaging channels
 
 **📖 Detailed Use Cases**: See [Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
+
+---
+
+## 🎓 Coaching Availability Feature
+
+### Overview
+The Coaching Availability feature allows staff to send customers the current coaching schedule for the next 14 days directly through any messaging channel. This helps customers easily find and book coaching sessions.
+
+### How It Works
+1. **Access**: Open any conversation with a linked customer in the unified chat
+2. **Location**: Find the "Send Coaching Availability" button in the **chat input area** (next to the "Create Booking" button)
+   - **Desktop**: Graduation cap icon (🎓) button in the message input toolbar
+   - **Mobile**: "Send Coaching Availability" option in the quick actions menu
+3. **Action**: Click the button to send availability
+4. **Delivery**: System automatically fetches and sends available coaching slots with a toast notification confirming success
+
+### Message Format by Channel
+
+#### All Channels (Unified Plain Text Format)
+All channels use the same plain text format, matching the coaching assist display:
+
+- **Header**: "Coaching Availability Overview"
+- **Layout**: Coach sections with month grouping
+- **Time Slots**: Consecutive slots grouped into ranges (e.g., `12.00–15.00 / 16.00–20.00`)
+- **Date Format**: Bullet points with short weekday and day (e.g., `• Fri 17: 12.00–20.00`)
+- **Grouping**: Dates organized by month for better readability
+- **Coverage**: Shows all coaches and all available dates
+
+**Example Format:**
+```
+Coaching Availability Overview
+
+Pro Min's Coaching Availability:
+October
+• Fri 17: 12.00–20.00
+• Mon 20: 12.00–15.00 / 16.00–20.00
+• Tue 21: 12.00–20.00
+November
+• Sat 1: 12.00–20.00
+
+Pro Boss's Coaching Availability:
+October
+• Fri 17: 16.00–19.00
+```
+
+**Delivery by Channel:**
+- **LINE**: Plain text message via LINE Push API
+- **Website**: Stored in `web_chat_messages` table
+- **Meta Platforms**: Via Meta Graph API (respects 24-hour messaging window)
+
+### Technical Implementation
+
+#### Backend Components
+- **API Endpoint**: `POST /api/coaching/send-availability`
+  - **Parameters**: `conversationId`, `channelType`, `channelUserId`
+  - **Data Source**: `/api/coaching-assist/slots` (next 14 days)
+  - **Multi-Channel**: Handles LINE, Website, Facebook, Instagram, WhatsApp
+
+#### Frontend Components
+- **Message Input**: "Send Coaching Availability" button in chat input area (next to "Create Booking")
+  - Desktop: Graduation cap (🎓) icon button
+  - Mobile: Quick actions menu option
+- **Hook**: `useCustomerData.sendCoachingAvailability()`
+- **State**: `sendingAvailability` boolean for loading indication
+- **Visibility**: Only shown when customer is linked (`hasLinkedCustomer` prop)
+
+#### Template Functions
+Located in `src/lib/line/flex-templates.ts`:
+- `formatCoachingAvailabilityAsText(coaches)` - Formats plain text version (used for all channels)
+- `groupConsecutiveSlots(timeSlots)` - Groups consecutive time slots into ranges
+
+### Error Handling
+- **No Availability**: Returns 404 if no coaching slots available in next 14 days
+- **Channel Issues**: Displays appropriate error messages for each platform
+- **24-Hour Window**: Meta platforms show specific message about messaging window
+- **Missing User ID**: Validates channel user ID before attempting to send
+
+### User Experience
+- **Visual Feedback**: Button shows loading spinner (gray spinning icon) while sending
+- **Toast Notifications**: Success/failure messages displayed to staff
+- **Button Location**: Integrated into chat input area for quick access (next to Create Booking button)
+- **Button Styling**: Neutral gray color matching other chat input buttons
+- **Multi-Channel**: Same feature works across all platforms with appropriate formatting
+- **Responsive Design**:
+  - Desktop: Icon button with graduation cap (🎓) in toolbar
+  - Mobile: Menu option in quick actions drawer
+- **Complete Information**: Shows all coaches and all available dates (no truncation)
+
+**📖 API Details**: See [API Reference](./UNIFIED_CHAT_API_REFERENCE.md)
 
 ---
 

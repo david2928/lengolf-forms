@@ -21,7 +21,8 @@ import {
   Plus,
   CheckCircle,
   CalendarPlus,
-  Sparkles
+  Sparkles,
+  GraduationCap
 } from 'lucide-react';
 import type { MessageInputProps, MessageType } from '../utils/chatTypes';
 
@@ -36,7 +37,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onCuratedImagesSelect,
   onFileUpload,
   onAIRetrigger,
-  enableAISuggestions = false
+  enableAISuggestions = false,
+  onSendCoachingAvailability,
+  sendingCoachingAvailability = false,
+  hasLinkedCustomer = false
 }) => {
   // Generate draft key based on conversation ID
   const draftKey = selectedConversationObj?.id ? `chat-draft-${selectedConversationObj.id}` : null;
@@ -310,6 +314,25 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                         </button>
                       </Link>
 
+                      {/* Send Coaching Availability Button (Mobile) */}
+                      {hasLinkedCustomer && onSendCoachingAvailability && (
+                        <button
+                          onClick={() => {
+                            onSendCoachingAvailability();
+                            setShowMobileQuickActions(false);
+                          }}
+                          disabled={sendingCoachingAvailability}
+                          className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded w-full text-left disabled:opacity-50"
+                        >
+                          {sendingCoachingAvailability ? (
+                            <RefreshCw className="h-4 w-4 text-gray-500 animate-spin" />
+                          ) : (
+                            <GraduationCap className="h-4 w-4 text-gray-500" />
+                          )}
+                          <span className="text-sm">Send Coaching Availability</span>
+                        </button>
+                      )}
+
                       {/* AI Re-trigger Button (Mobile) - TEMPORARILY HIDDEN */}
                       {false && onAIRetrigger && enableAISuggestions && (
                         <button
@@ -480,6 +503,24 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                     <CalendarPlus className="h-5 w-5 text-gray-600" />
                   </Button>
                 </Link>
+
+                {/* Send Coaching Availability Button */}
+                {hasLinkedCustomer && onSendCoachingAvailability && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onSendCoachingAvailability}
+                    disabled={sendingCoachingAvailability}
+                    className="h-9 w-9 p-0 rounded-full hover:bg-gray-100"
+                    title="Send Coaching Availability"
+                  >
+                    {sendingCoachingAvailability ? (
+                      <RefreshCw className="h-5 w-5 text-gray-600 animate-spin" />
+                    ) : (
+                      <GraduationCap className="h-5 w-5 text-gray-600" />
+                    )}
+                  </Button>
+                )}
 
                 {/* AI Re-trigger Button - TEMPORARILY HIDDEN */}
                 {false && onAIRetrigger && enableAISuggestions && (

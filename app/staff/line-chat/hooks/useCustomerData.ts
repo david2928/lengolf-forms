@@ -725,6 +725,77 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     }
   }, [fetchCustomerDetails, toast]);
 
+  // Send coaching availability function
+  const [sendingAvailability, setSendingAvailability] = useState(false);
+
+  const sendCoachingAvailability = useCallback(async () => {
+    if (!conversationId) return;
+
+    try {
+      setSendingAvailability(true);
+
+      const channelType = selectedConversation?.channelType || 'line';
+      const channelUserId = selectedConversation?.lineUserId;
+
+      if (!channelUserId) {
+        toast({
+          variant: "destructive",
+          title: "Unable to send availability",
+          description: "Channel user ID not found"
+        });
+        return;
+      }
+
+      const response = await fetch('/api/coaching/send-availability', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId,
+          channelType,
+          channelUserId
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('Coaching availability sent successfully');
+        const userName = selectedConversation?.user?.displayName || 'User';
+        toast({
+          title: userName,
+          description: "Coaching availability sent successfully"
+        });
+      } else {
+        const userName = selectedConversation?.user?.displayName || 'User';
+        if (data.error?.includes('sent outside of allowed window')) {
+          toast({
+            variant: "destructive",
+            title: userName,
+            description: "Message cannot be sent - customer must message first to reopen 24-hour window"
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: userName,
+            description: `Failed to send availability: ${data.error}`
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error sending coaching availability:', error);
+      const userName = selectedConversation?.user?.displayName || 'User';
+      toast({
+        variant: "destructive",
+        title: userName,
+        description: "Failed to send coaching availability - please try again"
+      });
+    } finally {
+      setSendingAvailability(false);
+    }
+  }, [conversationId, selectedConversation?.channelType, selectedConversation?.lineUserId, selectedConversation?.user?.displayName, toast]);
+
   // Auto-fetch customer data when conversation changes and has a linked customer
   useEffect(() => {
     if (selectedConversation?.customerId) {
@@ -830,11 +901,13 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     sendBookingConfirmation,
     sendCancellationConfirmation,
     sendPackageInfo,
+    sendCoachingAvailability,
     setCurrentBookingIndex: setCurrentBookingIndexSafe,
     linkingCustomer,
     sendingConfirmation,
     sendingCancellation,
     sendingPackageInfo,
+    sendingAvailability,
     updateCustomerNotes,
     updatingNotes
   };
