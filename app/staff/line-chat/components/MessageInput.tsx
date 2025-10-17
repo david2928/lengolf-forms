@@ -315,7 +315,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                       </Link>
 
                       {/* Send Coaching Availability Button (Mobile) */}
-                      {hasLinkedCustomer && onSendCoachingAvailability && (
+                      {onSendCoachingAvailability && (
                         <button
                           onClick={() => {
                             onSendCoachingAvailability();
@@ -505,7 +505,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 </Link>
 
                 {/* Send Coaching Availability Button */}
-                {hasLinkedCustomer && onSendCoachingAvailability && (
+                {onSendCoachingAvailability && (
                   <Button
                     variant="ghost"
                     size="sm"
