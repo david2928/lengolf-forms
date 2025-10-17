@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { 
-  Coach, 
-  WeeklySchedule, 
-  AvailableSlot, 
-  StudentsData, 
-  GroupedAvailableSlots, 
-  CoachGroupedSlots 
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Coach,
+  WeeklySchedule,
+  AvailableSlot,
+  StudentsData,
+  GroupedAvailableSlots,
+  CoachGroupedSlots
 } from '@/types/coaching';
 
 interface UseCoachingDashboardProps {
@@ -29,6 +29,7 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
   const [coachesWithoutSchedule, setCoachesWithoutSchedule] = useState(0);
   const [groupedSlots, setGroupedSlots] = useState<GroupedAvailableSlots>({});
   const [coachGroupedSlots, setCoachGroupedSlots] = useState<CoachGroupedSlots>({});
+  const isInitialLoad = useRef(true);
 
   const fetchAllStudentsData = useCallback(async () => {
     try {
@@ -214,21 +215,21 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
   const fetchAvailabilityData = useCallback(async () => {
     try {
       // Only show loading for initial load, not for week changes
-      if (Object.keys(weeklySchedule).length === 0) {
+      if (isInitialLoad.current) {
         setLoading(true);
       }
       setError(null);
-      
+
       const startDateStr = selectedStartDate.toLocaleDateString('en-CA');
       const endDateStr = selectedEndDate.toLocaleDateString('en-CA');
       const weekStr = selectedWeek.toLocaleDateString('en-CA');
-      
+
       const availabilityUrl = (startDateStr !== weekStr || endDateStr !== weekStr) ?
         `/api/coaching-assist/availability?fromDate=${startDateStr}&toDate=${endDateStr}` :
         `/api/coaching-assist/availability?date=${weekStr}`;
-      
+
       console.log('Fetching availability with URL:', availabilityUrl);
-      
+
       const availabilityRes = await fetch(availabilityUrl);
 
       if (availabilityRes.ok) {
@@ -236,13 +237,15 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
         processAvailabilityData(availabilityData, coaches);
       }
 
+      isInitialLoad.current = false;
+
     } catch (error) {
       console.error('Error fetching availability data:', error);
       setError('Failed to load availability data');
     } finally {
       setLoading(false);
     }
-  }, [selectedStartDate, selectedEndDate, selectedWeek, coaches, weeklySchedule, processAvailabilityData]);
+  }, [selectedStartDate, selectedEndDate, selectedWeek, coaches, processAvailabilityData]);
 
   const generateTimeSlotsForDate = (coach: Coach, dateString: string, status: string): AvailableSlot[] => {
     const slots: AvailableSlot[] = [];

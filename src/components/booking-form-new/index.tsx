@@ -84,12 +84,19 @@ interface ChatContext {
   staffName?: string | null
 }
 
+interface BookingPreFill {
+  date?: string | null
+  time?: string | null
+  duration?: number
+}
+
 interface BookingFormNewProps {
   chatContext?: ChatContext
+  bookingPreFill?: BookingPreFill
 }
 
 export function BookingFormNew(props: BookingFormNewProps = {}) {
-  const { chatContext } = props;
+  const { chatContext, bookingPreFill } = props;
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -185,6 +192,49 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
       }, 1000)
     }
   }, [chatContext])
+
+  // Pre-fill booking date, time, and duration from URL parameters
+  useEffect(() => {
+    if (bookingPreFill && (bookingPreFill.date || bookingPreFill.time || bookingPreFill.duration)) {
+      setFormData(prev => {
+        const updates: Partial<FormData> = {};
+
+        // Convert date string to Date object (avoid timezone issues by parsing manually)
+        let dateObj: Date;
+        if (bookingPreFill.date) {
+          const [year, month, day] = bookingPreFill.date.split('-').map(Number);
+          dateObj = new Date(year, month - 1, day); // month is 0-indexed
+          updates.bookingDate = dateObj;
+        } else {
+          dateObj = new Date();
+        }
+
+        if (bookingPreFill.time) {
+          // Convert time string to Date object for the form components
+          const [hours, minutes] = bookingPreFill.time.split(':').map(Number);
+          const startTimeDate = new Date(dateObj);
+          startTimeDate.setHours(hours, minutes, 0, 0);
+          updates.startTime = startTimeDate;
+        }
+
+        if (bookingPreFill.duration && bookingPreFill.time) {
+          // Convert hours to minutes
+          updates.duration = bookingPreFill.duration * 60;
+
+          // Calculate end time as Date object
+          const [hours, minutes] = bookingPreFill.time.split(':').map(Number);
+          const startTimeDate = new Date(dateObj);
+          startTimeDate.setHours(hours, minutes, 0, 0);
+
+          const endTimeDate = new Date(startTimeDate);
+          endTimeDate.setMinutes(endTimeDate.getMinutes() + (bookingPreFill.duration * 60));
+          updates.endTime = endTimeDate;
+        }
+
+        return { ...prev, ...updates };
+      });
+    }
+  }, [bookingPreFill])
 
   // Auto-scroll function
   const scrollToNextSection = (selector: string) => {

@@ -16,6 +16,7 @@ import { ReplyDisplay } from '@/components/line/ReplyDisplay';
 import { MessageContextMenu } from '@/components/line/MessageContextMenu';
 import { MessageInput } from './MessageInput';
 import { RichMessagePreview } from '@/components/unified-chat/RichMessagePreview';
+import { BayAvailabilitySection } from './BayAvailabilitySection';
 import {
   MessageSquare,
   Users,
@@ -29,7 +30,8 @@ import {
   MoreHorizontal,
   Monitor,
   Smartphone,
-  Globe
+  Globe,
+  Clock
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import type {
@@ -204,6 +206,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [contextMenuMessageElement, setContextMenuMessageElement] = useState<HTMLElement | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showBayAvailability, setShowBayAvailability] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -798,6 +801,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => setShowBayAvailability(!showBayAvailability)}
+              className={`h-8 w-8 p-0 hover:bg-gray-100 ${showBayAvailability ? 'bg-blue-50' : ''}`}
+              title={showBayAvailability ? "Hide Bay Availability" : "Show Bay Availability"}
+            >
+              <Clock className={`h-4 w-4 ${showBayAvailability ? 'text-blue-600' : 'text-gray-600'}`} />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={refreshData}
               className="h-8 w-8 p-0 hover:bg-gray-100"
               title="Refresh conversations and messages"
@@ -833,6 +846,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             <Button
               variant="ghost"
               size="sm"
+              className={`h-8 w-8 p-0 ${showBayAvailability ? 'bg-blue-50' : ''}`}
+              onClick={() => setShowBayAvailability(!showBayAvailability)}
+              title={showBayAvailability ? "Hide Bay Availability" : "Show Bay Availability"}
+            >
+              <Clock className={`h-4 w-4 ${showBayAvailability ? 'text-blue-600' : ''}`} />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
               className="h-8 w-8 p-0"
               onClick={refreshData}
               title="Refresh"
@@ -842,6 +865,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Bay Availability Section */}
+      {showBayAvailability && (
+        <BayAvailabilitySection
+          onClose={() => setShowBayAvailability(false)}
+          conversationId={selectedConversationObj?.id}
+          customerId={selectedConversationObj?.customerId}
+          channelType={selectedConversationObj?.channelType || (isUnifiedConversation(selectedConversationObj) ? selectedConversationObj.channel_type : 'line')}
+          channelUserId={selectedConversationObj?.lineUserId || (isUnifiedConversation(selectedConversationObj) ? selectedConversationObj.channel_user_id : undefined)}
+          userName={getConversationDisplayName(selectedConversationObj)}
+        />
+      )}
 
       {/* Messages */}
       <div className={`flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container min-h-0 ${isMobile ? 'pb-[80px]' : ''}`}>

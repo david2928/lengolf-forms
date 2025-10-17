@@ -18,6 +18,13 @@ export function CreateBookingClient() {
     staffName: searchParams.get('staff')
   }
 
+  // Extract booking pre-fill parameters
+  const bookingPreFill = {
+    date: searchParams.get('date'),
+    time: searchParams.get('time'),
+    duration: searchParams.get('duration') ? parseFloat(searchParams.get('duration')!) : undefined
+  }
+
   const isFromChat = chatContext.from === 'chat'
 
   const getChannelDisplayName = (channel: string | null) => {
@@ -60,7 +67,7 @@ export function CreateBookingClient() {
       )}
 
       <BookingProvider>
-        <BookingFormNew chatContext={chatContext} />
+        <BookingFormNew chatContext={chatContext} bookingPreFill={bookingPreFill} />
       </BookingProvider>
     </div>
   )

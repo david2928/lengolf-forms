@@ -41,6 +41,7 @@ export function BookingTimeSelector({
   const [legacySlots, setLegacySlots] = useState<Array<{time: DateTime, availableBays: string[]}>>([]);
 
   // Use our new availability hook for real-time updates
+  // Disable auto-refresh to prevent constant API calls - manual refresh available via button
   const {
     availableSlots,
     loading: availabilityLoading,
@@ -52,7 +53,7 @@ export function BookingTimeSelector({
     duration,
     startHour: 10,
     endHour: 22,
-    autoRefresh: true
+    autoRefresh: false
   });
 
   const isBayAvailable = useCallback((bay: string, time: DateTime, busyTimesByBay: Record<string, BayAvailability>): boolean => {
