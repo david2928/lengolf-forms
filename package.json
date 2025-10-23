@@ -44,7 +44,13 @@
     "test:install": "playwright install chromium",
     "import-lead-feedback": "tsx scripts/import-lead-feedback.ts",
     "test:vercel": "node scripts/test-vercel-build.js",
-    "audit:react19": "node scripts/react19-audit.js"
+    "audit:react19": "node scripts/react19-audit.js",
+    "ai:extract-samples": "tsx scripts/extract-test-samples.ts",
+    "ai:label-samples": "tsx scripts/label-test-samples.ts",
+    "ai:evaluate": "tsx scripts/evaluate-ai-suggestions.ts",
+    "ai:test": "npm run ai:extract-samples && npm run ai:label-samples && npm run ai:evaluate",
+    "ai:evaluate-multi-turn": "tsx scripts/evaluate-multi-turn.ts"
+    ,"ai:judge": "tsx scripts/evaluate-llm-judge.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.107",

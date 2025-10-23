@@ -374,6 +374,7 @@ SCRAPER_API_KEY=your_api_key
 - `npm run dev` is usually running and skip auth is already set to true when local
 - Scraper service runs separately on port 8080 for local testing
 
+
 ### Custom Product Feature (Added Jan 2025)
 - **Location**: POS Product Catalog - subtle "Add Custom Product" button at bottom of views
 - **Implementation**: Uses existing `products.products` table with `is_custom_product = true`

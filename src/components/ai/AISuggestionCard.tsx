@@ -31,13 +31,45 @@ export interface AISuggestion {
     content: string;
   };
   similarMessagesCount: number;
+  // Function calling metadata
+  functionCalled?: string;
+  functionResult?: {
+    success: boolean;
+    data?: any;
+    error?: string;
+    requiresApproval?: boolean;
+    approvalMessage?: string;
+    functionName?: string;
+  };
+  requiresApproval?: boolean;
+  approvalMessage?: string;
+  // Debug context for transparency
+  debugContext?: {
+    customerMessage: string;
+    conversationHistory: Array<{
+      content: string;
+      senderType: string;
+      createdAt: string;
+    }>;
+    customerData?: any;
+    similarMessagesUsed: Array<{
+      message: string;
+      response: string;
+      similarity: number;
+    }>;
+    systemPromptExcerpt: string;
+    functionSchemas?: any[];
+    toolChoice?: string;
+    model: string;
+  };
 }
 
 interface AISuggestionCardProps {
   suggestion: AISuggestion;
   onAccept: (suggestion: AISuggestion) => void;
   onEdit: (suggestion: AISuggestion) => void;
-  onDecline: (suggestion: AISuggestion) => void;
+  onDecline: (suggestion: AISuggestion, feedback?: string) => void;
+  onApprove?: (suggestion: AISuggestion) => void; // For approval-required functions
   isVisible: boolean;
   className?: string;
 }
@@ -82,15 +114,21 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
   onAccept,
   onEdit,
   onDecline,
+  onApprove,
   isVisible,
   className
 }) => {
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showAIContext, setShowAIContext] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showFeedbackInput, setShowFeedbackInput] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [isApproving, setIsApproving] = useState(false); // Loading state for approval
 
   const confidenceStyle = getConfidenceStyle(suggestion.confidenceScore);
+  const requiresApproval = suggestion.requiresApproval || false;
 
   // Extract internal notes from the suggestion
   const internalNoteRegex = /\[INTERNAL NOTE: ([^\]]+)\]/;
@@ -142,22 +180,38 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
     onEdit(cleanedSuggestion);
   };
 
-  // Handle decline action
+  // Handle decline action - show feedback input first
   const handleDecline = () => {
+    setShowFeedbackInput(true);
+  };
+
+  // Handle feedback submission
+  const handleSubmitFeedback = () => {
+    setIsDismissed(true);
+    onDecline(suggestion, feedbackText.trim() || undefined);
+  };
+
+  // Handle skip feedback
+  const handleSkipFeedback = () => {
     setIsDismissed(true);
     onDecline(suggestion);
   };
 
-  // Auto-dismiss after 30 seconds if no action taken
-  useEffect(() => {
-    if (isVisible && !isDismissed) {
-      const timer = setTimeout(() => {
+  // Handle approve action (for approval-required functions)
+  const handleApprove = async () => {
+    if (onApprove) {
+      setIsApproving(true); // Show loading state
+      try {
+        await onApprove(suggestion);
         setIsDismissed(true);
-        onDecline(suggestion);
-      }, 30000);
-      return () => clearTimeout(timer);
+      } catch (error) {
+        console.error('Error approving suggestion:', error);
+        setIsApproving(false); // Reset loading state on error
+      }
     }
-  }, [isVisible, isDismissed, onDecline, suggestion]);
+  };
+
+  // Auto-dismiss removed - let staff decide when to dismiss suggestions
 
   if (!isVisible || isDismissed) {
     return null;
@@ -207,6 +261,33 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
           )}
         </div>
 
+        {/* Function calling badge - if function was called */}
+        {suggestion.functionCalled && (
+          <div className="bg-purple-50 border border-purple-200 rounded px-2 py-1 text-xs">
+            <div className="flex items-center space-x-1">
+              <Brain className="h-3 w-3 text-purple-600" />
+              <span className="text-purple-700 font-medium">
+                Function: {suggestion.functionCalled.replace(/_/g, ' ')}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Approval required notice */}
+        {requiresApproval && (
+          <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            <div className="flex items-start space-x-2">
+              <span className="text-amber-600 text-lg">⚠️</span>
+              <div className="flex-1">
+                <div className="font-medium text-amber-900 text-xs">Requires Approval</div>
+                <div className="text-xs text-amber-700 mt-0.5">
+                  This action will create a booking. Please review the details before approving.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Context metadata - subtle */}
         <div className="text-xs text-gray-500 border-t pt-2">
           {suggestion.contextSummary}
@@ -218,44 +299,276 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
           )}
         </div>
 
+        {/* AI Context Viewer - Collapsible */}
+        {suggestion.debugContext && (
+          <div className="border-t pt-2">
+            <button
+              onClick={() => setShowAIContext(!showAIContext)}
+              className="flex items-center space-x-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              <Brain className="h-3 w-3" />
+              <span className="font-medium">{showAIContext ? 'Hide' : 'View'} AI Context</span>
+              <span className="text-gray-400">({showAIContext ? '▼' : '▶'})</span>
+            </button>
+
+            {showAIContext && (
+              <div className="mt-2 space-y-3 text-xs">
+                {/* Customer Message */}
+                <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                  <div className="font-semibold text-blue-900 mb-1 flex items-center space-x-1">
+                    <MessageSquare className="h-3 w-3" />
+                    <span>Customer Message</span>
+                  </div>
+                  <div className="text-blue-800 italic">&ldquo;{suggestion.debugContext.customerMessage}&rdquo;</div>
+                </div>
+
+                {/* Conversation History */}
+                {suggestion.debugContext.conversationHistory && suggestion.debugContext.conversationHistory.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-200 rounded p-2">
+                    <div className="font-semibold text-gray-900 mb-1 flex items-center space-x-1">
+                      <MessageSquare className="h-3 w-3" />
+                      <span>Recent Conversation ({suggestion.debugContext.conversationHistory.length} messages)</span>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto space-y-1">
+                      {suggestion.debugContext.conversationHistory.slice(-10).map((msg, idx) => (
+                        <div key={idx} className={`text-xs ${msg.senderType === 'user' ? 'text-blue-700' : 'text-green-700'}`}>
+                          <span className="font-medium">{msg.senderType === 'user' ? 'Customer' : 'Staff'}:</span> {msg.content.substring(0, 100)}{msg.content.length > 100 ? '...' : ''}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Customer Profile */}
+                {suggestion.debugContext.customerData && (
+                  <div className="bg-purple-50 border border-purple-200 rounded p-2">
+                    <div className="font-semibold text-purple-900 mb-1 flex items-center justify-between">
+                      <span>Customer Profile</span>
+                      {suggestion.debugContext.customerData.totalVisits !== undefined && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          suggestion.debugContext.customerData.totalVisits === 0
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {suggestion.debugContext.customerData.totalVisits === 0 ? '🆕 NEW CUSTOMER' : '✅ EXISTING CUSTOMER'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-0.5 text-purple-800">
+                      {suggestion.debugContext.customerData.name && <div>Name: {suggestion.debugContext.customerData.name}</div>}
+                      {suggestion.debugContext.customerData.phone && <div>Phone: {suggestion.debugContext.customerData.phone}</div>}
+                      {suggestion.debugContext.customerData.totalVisits !== undefined && <div>Total Visits: {suggestion.debugContext.customerData.totalVisits}</div>}
+                      {suggestion.debugContext.customerData.lifetimeValue !== undefined && <div>Lifetime Value: ฿{suggestion.debugContext.customerData.lifetimeValue.toLocaleString()}</div>}
+                      {suggestion.debugContext.customerData.activePackages && (
+                        <div>
+                          <div className="font-medium">Active Packages ({suggestion.debugContext.customerData.activePackages.count}):</div>
+                          {suggestion.debugContext.customerData.activePackages.packages && suggestion.debugContext.customerData.activePackages.packages.length > 0 ? (
+                            <div className="ml-2 space-y-0.5">
+                              {suggestion.debugContext.customerData.activePackages.packages.map((pkg: any, idx: number) => (
+                                <div key={idx}>
+                                  • {pkg.name}: {pkg.type === 'Unlimited' ? 'Unlimited' : `${pkg.remainingHours}h remaining`}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="ml-2">{suggestion.debugContext.customerData.activePackages.totalHoursRemaining}h total</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Similar Messages Used - Only show if valid messages exist */}
+                {suggestion.debugContext.similarMessagesUsed && suggestion.debugContext.similarMessagesUsed.length > 0 &&
+                 suggestion.debugContext.similarMessagesUsed.some(s => s.message && s.response) && (
+                  <div className="bg-green-50 border border-green-200 rounded p-2">
+                    <div className="font-semibold text-green-900 mb-1 flex items-center space-x-1">
+                      <TrendingUp className="h-3 w-3" />
+                      <span>Similar Past Messages ({suggestion.debugContext.similarMessagesUsed.filter(s => s.message && s.response).length})</span>
+                    </div>
+                    <div className="max-h-24 overflow-y-auto space-y-1">
+                      {suggestion.debugContext.similarMessagesUsed
+                        .filter(s => s.message && s.response)
+                        .slice(0, 3)
+                        .map((similar, idx) => (
+                          <div key={idx} className="text-green-800">
+                            <div className="font-medium">Q: {similar.message.substring(0, 50)}...</div>
+                            <div className="text-green-700">A: {similar.response.substring(0, 50)}...</div>
+                            <div className="text-green-600 text-xs">Similarity: {(similar.similarity * 100).toFixed(1)}%</div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Function Call Details */}
+                {suggestion.functionCalled && suggestion.functionResult && (
+                  <div className="bg-purple-50 border border-purple-200 rounded p-2">
+                    <div className="font-semibold text-purple-900 mb-1 flex items-center space-x-1">
+                      <Brain className="h-3 w-3" />
+                      <span>Function Call: {suggestion.functionCalled.replace(/_/g, ' ')}</span>
+                    </div>
+                    <div className="text-purple-800 space-y-1">
+                      <div className="font-medium text-xs text-purple-600">Result:</div>
+                      <pre className="text-xs bg-purple-100 p-2 rounded overflow-x-auto whitespace-pre-wrap">
+                        {JSON.stringify(suggestion.functionResult.data, null, 2)}
+                      </pre>
+                      {suggestion.functionResult.requiresApproval && (
+                        <div className="text-amber-700 font-medium text-xs mt-1">
+                          ⚠️ {suggestion.functionResult.approvalMessage}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Model Info */}
+                <div className="bg-gray-50 border border-gray-200 rounded p-2">
+                  <div className="font-semibold text-gray-900 mb-1 flex items-center space-x-1">
+                    <Brain className="h-3 w-3" />
+                    <span>AI Model</span>
+                  </div>
+                  <div className="text-gray-700">
+                    <div>Model: {suggestion.debugContext.model}</div>
+                    <div>Tool Choice: {suggestion.debugContext.toolChoice || 'auto'}</div>
+                  </div>
+                </div>
+
+                {/* System Prompt Excerpt */}
+                <div className="bg-amber-50 border border-amber-200 rounded p-2">
+                  <div className="font-semibold text-amber-900 mb-1 flex items-center space-x-1">
+                    <FileText className="h-3 w-3" />
+                    <span>System Instructions (excerpt)</span>
+                  </div>
+                  <div className="text-amber-800 text-xs max-h-24 overflow-y-auto whitespace-pre-wrap font-mono">
+                    {suggestion.debugContext.systemPromptExcerpt}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Feedback input (shown when declining) */}
+        {showFeedbackInput && (
+          <div className="border-t pt-3 space-y-2">
+            <div className="text-sm font-medium text-gray-700">
+              Why are you declining this suggestion? (optional)
+            </div>
+            <textarea
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+              placeholder="e.g., The tone is too formal, Missing important details, Incorrect information..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+              rows={3}
+              autoFocus
+            />
+            <div className="flex space-x-2">
+              <Button
+                onClick={handleSubmitFeedback}
+                size="sm"
+                className="h-7 text-xs px-3 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                Submit Feedback
+              </Button>
+              <Button
+                onClick={handleSkipFeedback}
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs px-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+              >
+                Skip
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Modern action buttons */}
-        <div className="flex items-center justify-between pt-1">
+        {!showFeedbackInput && (
+          <div className="flex items-center justify-between pt-1">
           <div className="flex space-x-2">
-            <Button
-              onClick={handleAccept}
-              size="sm"
-              className="h-7 text-xs px-3 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
-            >
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Accept
-            </Button>
-            <Button
-              onClick={handleEdit}
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs px-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-            >
-              <Edit3 className="h-3 w-3 mr-1" />
-              Edit
-            </Button>
-            <Button
-              onClick={handleDecline}
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs px-3 text-gray-500 hover:text-red-600 hover:bg-red-50"
-            >
-              <X className="h-3 w-3 mr-1" />
-              Decline
-            </Button>
+            {requiresApproval ? (
+              <>
+                {/* Approval workflow buttons */}
+                <Button
+                  onClick={handleApprove}
+                  size="sm"
+                  disabled={isApproving}
+                  className="h-7 text-xs px-3 bg-green-600 hover:bg-green-700 text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isApproving ? (
+                    <>
+                      <span className="inline-block animate-spin mr-1">⏳</span>
+                      Approving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Approve & Send
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleEdit}
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs px-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                >
+                  <Edit3 className="h-3 w-3 mr-1" />
+                  Edit
+                </Button>
+                <Button
+                  onClick={handleDecline}
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs px-3 text-gray-500 hover:text-red-600 hover:bg-red-50"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Decline
+                </Button>
+              </>
+            ) : (
+              <>
+                {/* Standard buttons */}
+                <Button
+                  onClick={handleAccept}
+                  size="sm"
+                  className="h-7 text-xs px-3 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+                >
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Accept
+                </Button>
+                <Button
+                  onClick={handleEdit}
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs px-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                >
+                  <Edit3 className="h-3 w-3 mr-1" />
+                  Edit
+                </Button>
+                <Button
+                  onClick={handleDecline}
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs px-3 text-gray-500 hover:text-red-600 hover:bg-red-50"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Decline
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Subtle keyboard hints - Hidden on mobile */}
-          {!isMobile && (
+          {!isMobile && !requiresApproval && (
             <div className="text-xs text-gray-400">
               ⏎ Accept • E Edit • Esc Decline
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );

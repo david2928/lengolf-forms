@@ -17,6 +17,7 @@ import { MessageContextMenu } from '@/components/line/MessageContextMenu';
 import { MessageInput } from './MessageInput';
 import { RichMessagePreview } from '@/components/unified-chat/RichMessagePreview';
 import { BayAvailabilitySection } from './BayAvailabilitySection';
+import { AISuggestionCard } from '@/components/ai/AISuggestionCard';
 import {
   MessageSquare,
   Users,
@@ -193,7 +194,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   setMessages: propSetMessages,
   onShowMobileCustomer,
   onMarkConversationRead,
-  onMobileBackToList
+  onMobileBackToList,
+  enableAISuggestions,
+  onAIRetrigger,
+  aiSuggestion,
+  aiSuggestionLoading,
+  onAcceptSuggestion,
+  onEditSuggestion,
+  onDeclineSuggestion,
+  onApproveSuggestion,
+  aiPrefillMessage: propAIPrefillMessage,
+  onAIPrefillMessageClear
 }) => {
   // Use messages from props if provided, otherwise use local state
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -207,6 +218,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showBayAvailability, setShowBayAvailability] = useState(false);
+  const [localAIPrefillMessage, setLocalAIPrefillMessage] = useState<string | undefined>(undefined);
+
+  // Use prefill message from props if provided, otherwise use local state
+  const aiPrefillMessage = propAIPrefillMessage || localAIPrefillMessage;
+  const setAIPrefillMessage = onAIPrefillMessageClear
+    ? (value: string | undefined) => {
+        if (value === undefined) {
+          onAIPrefillMessageClear();
+        }
+      }
+    : setLocalAIPrefillMessage;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -1042,6 +1064,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         <div ref={messagesEndRef} className="messages-end" />
       </div>
 
+      {/* AI Suggestion Card - Shows between messages and input */}
+      {enableAISuggestions && aiSuggestion && onAcceptSuggestion && onEditSuggestion && onDeclineSuggestion && (
+        <div className="border-t bg-gray-50 p-3">
+          <AISuggestionCard
+            suggestion={aiSuggestion}
+            onAccept={() => onAcceptSuggestion(aiSuggestion)}
+            onEdit={() => onEditSuggestion(aiSuggestion)}
+            onDecline={() => onDeclineSuggestion(aiSuggestion)}
+            onApprove={onApproveSuggestion ? () => onApproveSuggestion(aiSuggestion) : undefined}
+            isVisible={true}
+          />
+        </div>
+      )}
+
       {/* Message Input - Always at bottom */}
       <div className={`${isMobile ? 'fixed bottom-0 left-0 right-0 safe-area-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.1)]' : 'mt-auto'} bg-white border-t z-10 flex-shrink-0`}>
         <MessageInput
@@ -1057,6 +1093,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           onSendCoachingAvailability={customerOperations?.sendCoachingAvailability}
           sendingCoachingAvailability={customerOperations?.sendingAvailability}
           hasLinkedCustomer={!!customerOperations?.customerDetails}
+          enableAISuggestions={enableAISuggestions}
+          onAIRetrigger={onAIRetrigger}
+          aiSuggestionLoading={aiSuggestionLoading}
+          prefillMessage={aiPrefillMessage}
+          onMessageChange={() => setAIPrefillMessage(undefined)}
         />
       </div>
 

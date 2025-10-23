@@ -10,7 +10,11 @@ interface SuggestResponseRequest {
   conversationId: string;
   channelType: 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp';
   customerId?: string;
+  messageId?: string; // Message ID for database storage
   includeCustomerContext?: boolean;
+  dryRun?: boolean; // For evaluation/testing without side effects
+  overrideModel?: string; // For model comparison testing
+  includeDebugContext?: boolean; // Include full AI context for transparency
 }
 
 /**
@@ -43,16 +47,18 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get conversation context (recent messages)
-    const conversationContext = await getConversationContext(
+    // Get conversation context (recent messages) and customer ID
+    const { conversationContext, customerId } = await getConversationContext(
       body.conversationId,
       body.channelType
     );
 
-    // Get customer context if requested and customerId provided
+    // Get customer context automatically if customer is linked to conversation
+    // OR if explicitly requested with customerId
     let customerContext;
-    if (body.includeCustomerContext && body.customerId) {
-      customerContext = await getCustomerContext(body.customerId);
+    const customerIdToUse = body.customerId || customerId;
+    if (customerIdToUse) {
+      customerContext = await getCustomerContext(customerIdToUse);
     }
 
     // Prepare parameters for AI suggestion
@@ -60,7 +66,11 @@ export async function POST(request: NextRequest) {
       customerMessage: body.customerMessage,
       conversationContext,
       customerContext,
-      staffUserEmail: session.user.email
+      staffUserEmail: session.user.email,
+      messageId: body.messageId, // Pass message ID for database storage
+      dryRun: body.dryRun || false, // Support evaluation mode
+      overrideModel: body.overrideModel, // Support model comparison testing
+      includeDebugContext: body.includeDebugContext || false // Support context transparency
     };
 
     // Generate AI suggestion
@@ -77,7 +87,15 @@ export async function POST(request: NextRequest) {
         responseTime: suggestion.responseTimeMs,
         contextSummary: suggestion.contextSummary,
         templateUsed: suggestion.templateUsed,
-        similarMessagesCount: suggestion.similarMessagesUsed.length
+        similarMessagesCount: suggestion.similarMessagesUsed.length,
+        // Function calling metadata
+        functionCalled: suggestion.functionCalled,
+        functionResult: suggestion.functionResult,
+        functionParameters: suggestion.functionResult?.data,
+        requiresApproval: suggestion.requiresApproval,
+        approvalMessage: suggestion.approvalMessage,
+        // Full context for transparency (when enabled)
+        ...(body.includeDebugContext && suggestion.debugContext && { debugContext: suggestion.debugContext })
       }
     });
 
@@ -91,7 +109,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Get conversation context (recent messages)
+// Get conversation context (recent messages) and customer ID
 async function getConversationContext(
   conversationId: string,
   channelType: 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp'
@@ -101,14 +119,28 @@ async function getConversationContext(
       throw new Error('Supabase admin client not available');
     }
 
-    // Get recent messages from the conversation
+    // Get conversation details including customer_id
+    const { data: conversation } = await refacSupabaseAdmin
+      .from('unified_conversations')
+      .select('customer_id')
+      .eq('id', conversationId)
+      .eq('channel_type', channelType)
+      .single();
+
+    const customerId = conversation?.customer_id || null;
+
+    // Get recent messages from the conversation (last 30 days for now, will optimize later)
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 30); // Temporarily 30 days for testing with older data
+
     const { data: messages, error } = await refacSupabaseAdmin
       .from('unified_messages')
       .select('content, sender_type, created_at')
       .eq('conversation_id', conversationId)
       .eq('channel_type', channelType)
+      .gte('created_at', twoDaysAgo.toISOString())
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(100); // Safety limit
 
     if (error) {
       console.warn(`Warning fetching conversation messages: ${error.message}`);
@@ -116,37 +148,43 @@ async function getConversationContext(
     }
 
     return {
-      id: conversationId,
-      channelType,
-      recentMessages: (messages || [])
-        .reverse() // Reverse to get chronological order
-        .map((msg: any) => ({
-          content: msg.content || '',
-          senderType: msg.sender_type || 'unknown',
-          createdAt: msg.created_at
-        }))
+      conversationContext: {
+        id: conversationId,
+        channelType,
+        recentMessages: (messages || [])
+          .reverse() // Reverse to get chronological order
+          .map((msg: any) => ({
+            content: msg.content || '',
+            senderType: msg.sender_type || 'unknown',
+            createdAt: msg.created_at
+          }))
+      },
+      customerId
     };
   } catch (error) {
     console.error('Error getting conversation context:', error);
     return {
-      id: conversationId,
-      channelType,
-      recentMessages: []
+      conversationContext: {
+        id: conversationId,
+        channelType,
+        recentMessages: []
+      },
+      customerId: null
     };
   }
 }
 
-// Get customer context information
+// Get enhanced customer context information
 async function getCustomerContext(customerId: string) {
   try {
     if (!refacSupabaseAdmin) {
       throw new Error('Supabase admin client not available');
     }
 
-    // Get customer basic information
+    // Get customer basic information with materialized stats
     const { data: customer, error: customerError } = await refacSupabaseAdmin
       .from('customers')
-      .select('id, customer_name, email, contact_number')
+      .select('id, customer_name, email, contact_number, notes, total_lifetime_value, total_visits, last_visit_date')
       .eq('id', customerId)
       .single();
 
@@ -155,39 +193,158 @@ async function getCustomerContext(customerId: string) {
       return undefined;
     }
 
-    // Get booking statistics
-    const { data: bookingStats } = await refacSupabaseAdmin
-      .from('bookings')
-      .select('id, booking_date, bay_type')
+    // Use materialized columns for stats (these are automatically updated by database triggers)
+    const lifetimeValue = customer.total_lifetime_value || 0;
+    const totalVisits = customer.total_visits || 0;
+    const lastVisitDate = customer.last_visit_date;
+
+    // Get active packages summary (from backoffice schema, same as customer sidebar)
+    const { data: packages } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('packages')
+      .select(`
+        id,
+        package_types!inner(
+          name,
+          type,
+          hours
+        ),
+        expiration_date
+      `)
       .eq('customer_id', customerId)
+      .gte('expiration_date', new Date().toISOString().split('T')[0]) // Not expired
+      .order('expiration_date', { ascending: true });
+
+    // Calculate usage for each package
+    let processedPackages: any[] = [];
+    if (packages) {
+      const packageIds = packages.map((p: any) => p.id);
+      const { data: usageData } = await refacSupabaseAdmin
+        .schema('backoffice')
+        .from('package_usage')
+        .select('package_id, used_hours')
+        .in('package_id', packageIds);
+
+      processedPackages = packages.map((pkg: any) => {
+        const totalUsed = usageData
+          ?.filter((usage: any) => usage.package_id === pkg.id)
+          ?.reduce((sum: number, usage: any) => sum + Number(usage.used_hours || 0), 0) || 0;
+
+        const totalHours = Number(pkg.package_types.hours || 0);
+        const remainingHours = pkg.package_types.type === 'Unlimited'
+          ? 'Unlimited'
+          : Math.max(0, totalHours - totalUsed);
+
+        return {
+          name: pkg.package_types.name,
+          type: pkg.package_types.type,
+          remainingHours,
+          expirationDate: pkg.expiration_date
+        };
+      }).filter((pkg: any) => {
+        // Only show packages that have remaining hours or are unlimited
+        return pkg.type === 'Unlimited' || pkg.remainingHours > 0;
+      });
+    }
+
+    const packagesSummary = {
+      count: processedPackages?.length || 0,
+      totalHoursRemaining: processedPackages?.reduce((sum: number, pkg: any) => {
+        const hours = pkg.type === 'Unlimited' ? 9999 : Number(pkg.remainingHours) || 0;
+        return sum + hours;
+      }, 0) || 0,
+      hasUnlimited: processedPackages?.some((pkg: any) => pkg.type === 'Unlimited') || false,
+      earliestExpiration: processedPackages?.[0]?.expirationDate || null,
+      packages: processedPackages // Include individual package details
+    };
+
+    // Get upcoming bookings
+    const today = new Date().toISOString().split('T')[0];
+    const { data: upcomingBookings } = await refacSupabaseAdmin
+      .from('bookings')
+      .select('id, booking_date, start_time, bay_type, booking_type, bay_number')
+      .eq('customer_id', customerId)
+      .gte('booking_date', today)
+      .in('status', ['confirmed', 'pending'])
+      .order('booking_date', { ascending: true })
+      .order('start_time', { ascending: true })
+      .limit(5);
+
+    const upcomingBookingsSummary = {
+      count: upcomingBookings?.length || 0,
+      nextBooking: upcomingBookings?.[0] ? {
+        date: upcomingBookings[0].booking_date,
+        time: upcomingBookings[0].start_time,
+        bayType: upcomingBookings[0].bay_type || determineBayType(upcomingBookings[0].bay_number),
+        isCoaching: (upcomingBookings[0].booking_type || '').toLowerCase().includes('coaching'),
+        coachName: extractCoachName(upcomingBookings[0].booking_type)
+      } : null
+    };
+
+    // Get recent bookings (last 3 completed or cancelled)
+    const { data: pastBookings } = await refacSupabaseAdmin
+      .from('bookings')
+      .select('id, booking_date, start_time, bay_type, booking_type, bay_number, status, package_name')
+      .eq('customer_id', customerId)
+      .in('status', ['completed', 'cancelled'])
       .order('booking_date', { ascending: false })
-      .limit(10);
+      .order('start_time', { ascending: false })
+      .limit(3);
 
-    const totalBookings = bookingStats?.length || 0;
-    const lastBookingDate = bookingStats?.[0]?.booking_date || null;
-
-    // Determine preferred bay type
-    const bayTypes = bookingStats?.map((b: any) => b.bay_type).filter(Boolean) || [];
-    const bayTypeCounts = bayTypes.reduce((acc: Record<string, number>, type: string) => {
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const preferredBayType = Object.entries(bayTypeCounts)
-      .sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0];
+    const recentBookings = pastBookings?.map((booking: any) => ({
+      date: booking.booking_date,
+      time: booking.start_time,
+      bayType: booking.bay_type || determineBayType(booking.bay_number),
+      isCoaching: (booking.booking_type || '').toLowerCase().includes('coaching'),
+      coachName: extractCoachName(booking.booking_type),
+      status: booking.status as 'completed' | 'cancelled',
+      packageName: booking.package_name
+    })) || [];
 
     return {
       id: customer.id,
       name: customer.customer_name,
       email: customer.email,
       phone: customer.contact_number,
-      totalBookings,
-      lastBookingDate,
-      preferredBayType,
-      language: 'auto' as 'auto' // Could be enhanced with language detection
+      language: 'auto' as 'auto',
+
+      // Lifetime stats
+      totalVisits: totalVisits || 0,
+      lifetimeValue,
+      lastVisitDate,
+
+      // Package summary
+      activePackages: packagesSummary,
+
+      // Upcoming bookings
+      upcomingBookings: upcomingBookingsSummary,
+
+      // Recent bookings
+      recentBookings,
+
+      // Customer notes
+      notes: customer.notes
     };
   } catch (error) {
     console.error('Error getting customer context:', error);
     return undefined;
   }
+}
+
+// Helper function to determine bay type from bay number
+function determineBayType(bayNumber: string | null): string {
+  if (!bayNumber) return 'Unknown';
+  if (bayNumber === 'Bay 1' || bayNumber === 'Bay 2' || bayNumber === 'Bay 3') {
+    return 'Social Bay';
+  } else if (bayNumber === 'Bay 4') {
+    return 'AI Bay';
+  }
+  return 'Sim';
+}
+
+// Helper function to extract coach name from booking type
+function extractCoachName(bookingType: string | null): string | undefined {
+  if (!bookingType) return undefined;
+  const match = bookingType.match(/\(([^)]+)\)/);
+  return match?.[1] || undefined;
 }

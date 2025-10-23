@@ -21,6 +21,8 @@ import { useCustomerData } from '../line-chat/hooks/useCustomerData';
 import { useUnifiedChat } from '../line-chat/hooks/useUnifiedChat';
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
 import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
+import { useAISuggestions } from '@/hooks/useAISuggestions';
+import { AISuggestionCard, AISuggestion } from '@/components/ai/AISuggestionCard';
 
 export default function UnifiedChatPage() {
   // Core state - using unified chat system
@@ -32,6 +34,9 @@ export default function UnifiedChatPage() {
 
   // Ref for ConversationSidebar to control scrolling
   const conversationSidebarRef = useRef<ConversationSidebarRef>(null);
+
+  // Store scroll position for restoration when returning to list
+  const savedScrollPositionRef = useRef<number>(0);
 
   // Use unified chat hook for multi-channel conversations
   const {
@@ -124,8 +129,14 @@ export default function UnifiedChatPage() {
   const [selectedCustomerForLink, setSelectedCustomerForLink] = useState<any>(null);
   const [showCuratedImages, setShowCuratedImages] = useState(false);
 
-  // AI suggestions toggle
-  const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
+  // AI suggestions toggle - persisted in localStorage, default OFF for safety
+  const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ai-suggestions-enabled');
+      return saved === 'true'; // Default to false (disabled)
+    }
+    return false;
+  });
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
   // Additional modal states from original component
@@ -174,6 +185,68 @@ export default function UnifiedChatPage() {
   const chatOps = useChatOperations(selectedConversation, handleMessageSent, selectedConversationObj);
   const customerOps = useCustomerData(selectedConversation, selectedConversationObj);
 
+  // Message state needs to be managed at this level for realtime to work
+  const [messages, setMessages] = useState<any[]>([]);
+
+  // AI prefill message for edit functionality
+  const [aiPrefillMessage, setAIPrefillMessage] = useState<string | undefined>(undefined);
+
+  // AI suggestions integration - only active when enabled
+  const aiSuggestions = useAISuggestions({
+    conversationId: selectedConversation || '',
+    channelType: selectedConversationObj?.channelType || 'line',
+    customerId: selectedConversationObj?.customer?.id,
+    onSuggestionAccepted: async (suggestion, response) => {
+      // Send the AI-suggested message directly
+      if (response && response.trim()) {
+        await chatOps.sendMessage(response.trim());
+      }
+    },
+    onSuggestionEdited: (suggestion, originalResponse, editedResponse) => {
+      // Prefill the message input with the AI suggestion for editing
+      // This will be handled by the ChatArea component via prop drilling
+      setAIPrefillMessage(editedResponse);
+    },
+    onSuggestionDeclined: (suggestion) => {
+      console.log('AI suggestion declined');
+    },
+    onSuggestionApproved: async (suggestion, bookingResult) => {
+      console.log('AI suggestion approved (booking created):', bookingResult);
+      // Refresh customer data to show new booking
+      if (customerOps && selectedConversationObj?.customer?.id) {
+        await customerOps.fetchCustomerDetails(selectedConversationObj.customer.id);
+      }
+    }
+  });
+
+  // Manual AI retrigger function - gets last customer message and generates suggestion
+  const handleAIRetrigger = useCallback(() => {
+    if (!aiSuggestionsEnabled || !messages.length) return;
+
+    // Find the last customer message
+    const lastCustomerMessage = [...messages]
+      .reverse()
+      .find(m => m.senderType === 'user' && m.text);
+
+    if (lastCustomerMessage && lastCustomerMessage.text) {
+      aiSuggestions.generateSuggestion(lastCustomerMessage.text, lastCustomerMessage.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiSuggestionsEnabled, messages]);
+
+  // Clear AI suggestion when conversation changes
+  useEffect(() => {
+    aiSuggestions.clearSuggestion();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConversation]);
+
+  // Save AI suggestions toggle to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ai-suggestions-enabled', String(aiSuggestionsEnabled));
+    }
+  }, [aiSuggestionsEnabled]);
+
   // Detect mobile screen size
   useEffect(() => {
     const checkMobile = () => {
@@ -187,9 +260,6 @@ export default function UnifiedChatPage() {
       window.removeEventListener('resize', checkMobile);
     };
   }, []);
-
-  // Message state needs to be managed at this level for realtime to work
-  const [messages, setMessages] = useState<any[]>([]);
 
   // Handle new messages from realtime - updated for unified system
   const handleNewMessage = useCallback((message: any) => {
@@ -208,6 +278,14 @@ export default function UnifiedChatPage() {
         const messagesEnd = document.querySelector('[data-messages-end]');
         messagesEnd?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
+
+      // Trigger AI suggestion if enabled and message is from customer
+      if (aiSuggestionsEnabled && message.senderType === 'user' && message.text && message.text.trim()) {
+        // Small delay to avoid race conditions
+        setTimeout(() => {
+          aiSuggestions.generateSuggestion(message.text, message.id);
+        }, 100);
+      }
     }
 
     // Determine channel type from the selected conversation or message context
@@ -230,7 +308,8 @@ export default function UnifiedChatPage() {
     });
 
     // NOTE: Sorting is now handled inside updateConversationLastMessage() to avoid race conditions
-  }, [updateConversationLastMessage, getConversationById, selectedConversation]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateConversationLastMessage, getConversationById, selectedConversation, aiSuggestionsEnabled]);
 
   const {
     connectionStatus: messagesConnectionStatus,
@@ -250,6 +329,11 @@ export default function UnifiedChatPage() {
 
   // Handle conversation selection
   const handleConversationSelect = (conversationId: string) => {
+    // Save scroll position before navigating to chat
+    if (conversationSidebarRef.current) {
+      savedScrollPositionRef.current = conversationSidebarRef.current.saveScrollPosition();
+    }
+
     setSelectedConversation(conversationId);
     selectedConversationRef.current = conversationId; // Update ref immediately
     if (isMobile) {
@@ -265,35 +349,14 @@ export default function UnifiedChatPage() {
     setSelectedConversation(null);
     selectedConversationRef.current = null;
 
-    // Use ref to scroll to top - much more reliable than querySelector
+    // Restore scroll position instead of scrolling to top
     setTimeout(() => {
       if (conversationSidebarRef.current) {
-        conversationSidebarRef.current.scrollToTop();
+        // Get saved position from ref or sessionStorage as fallback
+        const position = savedScrollPositionRef.current ||
+          (typeof window !== 'undefined' ? parseInt(sessionStorage.getItem('unified-chat-scroll-position') || '0', 10) : 0);
 
-        // Also try scrolling parent containers as backup
-        setTimeout(() => {
-          // Try scrolling various containers that might be the actual scroll parent
-          const containers = [
-            document.querySelector('[data-conversations-list]'),
-            document.querySelector('.conversations-container'),
-            document.querySelector('.w-full.md\\:w-80'), // sidebar
-            document.body,
-            document.documentElement
-          ];
-
-          containers.forEach((container) => {
-            if (container) {
-              if ('scrollTo' in container) {
-                (container as any).scrollTo({ top: 0, behavior: 'smooth' });
-              }
-              if ('scrollTop' in container) {
-                (container as any).scrollTop = 0;
-              }
-            }
-          });
-        }, 150);
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        conversationSidebarRef.current.restoreScrollPosition(position);
       }
     }, 50); // Small delay to ensure React has finished state updates
   }, []);
@@ -412,6 +475,16 @@ export default function UnifiedChatPage() {
             onShowMobileCustomer={() => setShowMobileCustomer(true)}
             onMarkConversationRead={handleMarkConversationRead}
             onMobileBackToList={handleMobileBackToList}
+            enableAISuggestions={aiSuggestionsEnabled}
+            onAIRetrigger={handleAIRetrigger}
+            aiSuggestion={aiSuggestions.suggestion}
+            aiSuggestionLoading={aiSuggestions.isLoading}
+            onAcceptSuggestion={aiSuggestions.acceptSuggestion}
+            onEditSuggestion={aiSuggestions.editSuggestion}
+            onDeclineSuggestion={aiSuggestions.declineSuggestion}
+            onApproveSuggestion={aiSuggestions.approveSuggestion}
+            aiPrefillMessage={aiPrefillMessage}
+            onAIPrefillMessageClear={() => setAIPrefillMessage(undefined)}
           />
         </div>
 

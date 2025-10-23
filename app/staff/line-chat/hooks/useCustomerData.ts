@@ -811,30 +811,11 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     }
   }, [selectedConversation?.customerId, fetchCustomerDetails]);
 
-  // Refresh bookings when page becomes visible (e.g., returning from booking creation)
-  useEffect(() => {
-    if (typeof window === 'undefined' || !selectedConversation?.customerId) return;
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && selectedConversation?.customerId) {
-        fetchCustomerDetails(selectedConversation.customerId);
-      }
-    };
-
-    const handleFocus = () => {
-      if (selectedConversation?.customerId) {
-        fetchCustomerDetails(selectedConversation.customerId);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [selectedConversation?.customerId, fetchCustomerDetails]);
+  // Note: Removed visibilitychange and focus listeners as they were too aggressive
+  // and caused excessive API calls. Customer data is already refreshed via:
+  // 1. Realtime subscription on booking changes (below)
+  // 2. Manual refresh after linking/unlinking customers
+  // 3. Initial fetch when conversation changes
 
   // Real-time subscription for bookings updates
   useEffect(() => {

@@ -22,7 +22,8 @@ import {
   CheckCircle,
   CalendarPlus,
   Sparkles,
-  GraduationCap
+  GraduationCap,
+  Loader2
 } from 'lucide-react';
 import type { MessageInputProps, MessageType } from '../utils/chatTypes';
 
@@ -38,6 +39,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onFileUpload,
   onAIRetrigger,
   enableAISuggestions = false,
+  aiSuggestionLoading = false,
+  prefillMessage,
+  onMessageChange,
   onSendCoachingAvailability,
   sendingCoachingAvailability = false,
   hasLinkedCustomer = false
@@ -104,6 +108,22 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       }
     }
   }, [newMessage, draftKey]);
+
+  // Handle prefill message from parent (e.g., AI suggestion edit)
+  useEffect(() => {
+    if (prefillMessage) {
+      setNewMessage(prefillMessage);
+      // Focus the textarea after prefilling
+      setTimeout(() => {
+        const textarea = document.querySelector('textarea');
+        if (textarea) {
+          textarea.focus();
+          // Move cursor to end
+          textarea.selectionStart = textarea.selectionEnd = prefillMessage.length;
+        }
+      }, 100);
+    }
+  }, [prefillMessage]);
 
   // Fetch current user's staff name on component mount
   useEffect(() => {
@@ -202,7 +222,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   // Auto-resize textarea - now works for both mobile and desktop
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNewMessage(e.target.value);
+    const value = e.target.value;
+    setNewMessage(value);
+
+    // Notify parent of message change
+    if (onMessageChange) {
+      onMessageChange(value);
+    }
 
     // Auto-resize textarea
     const textarea = e.target;
@@ -333,17 +359,22 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                         </button>
                       )}
 
-                      {/* AI Re-trigger Button (Mobile) - TEMPORARILY HIDDEN */}
-                      {false && onAIRetrigger && enableAISuggestions && (
+                      {/* AI Re-trigger Button (Mobile) */}
+                      {onAIRetrigger && enableAISuggestions && (
                         <button
                           onClick={() => {
                             onAIRetrigger?.();
                             setShowMobileQuickActions(false);
                           }}
-                          className="flex items-center space-x-2 p-2 hover:bg-purple-50 rounded w-full text-left"
+                          disabled={aiSuggestionLoading}
+                          className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded w-full text-left disabled:opacity-50"
                         >
-                          <Sparkles className="h-4 w-4 text-purple-600" />
-                          <span className="text-sm">Re-trigger AI</span>
+                          {aiSuggestionLoading ? (
+                            <Loader2 className="h-4 w-4 text-purple-600 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4 text-gray-600" />
+                          )}
+                          <span className="text-sm">{aiSuggestionLoading ? 'Getting AI Suggestion...' : 'Get AI Suggestion'}</span>
                         </button>
                       )}
                     </div>
@@ -522,16 +553,21 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                   </Button>
                 )}
 
-                {/* AI Re-trigger Button - TEMPORARILY HIDDEN */}
-                {false && onAIRetrigger && enableAISuggestions && (
+                {/* AI Re-trigger Button */}
+                {onAIRetrigger && enableAISuggestions && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={onAIRetrigger}
-                    className="h-9 w-9 p-0 rounded-full hover:bg-purple-50"
-                    title="Re-trigger AI suggestion"
+                    disabled={aiSuggestionLoading}
+                    className="h-9 w-9 p-0 rounded-full hover:bg-gray-100 disabled:opacity-50"
+                    title={aiSuggestionLoading ? "Getting AI suggestion..." : "Get AI suggestion for last customer message"}
                   >
-                    <Sparkles className="h-5 w-5 text-purple-600" />
+                    {aiSuggestionLoading ? (
+                      <Loader2 className="h-5 w-5 text-purple-600 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-5 w-5 text-gray-600" />
+                    )}
                   </Button>
                 )}
               </div>

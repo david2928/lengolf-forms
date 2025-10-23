@@ -230,6 +230,17 @@ export interface ChatAreaProps {
   onShowMobileCustomer?: () => void;
   onMarkConversationRead?: (conversationId: string) => void;
   onMobileBackToList?: () => void;
+  // AI suggestions
+  enableAISuggestions?: boolean;
+  onAIRetrigger?: () => void;
+  aiSuggestion?: any; // AISuggestion type from @/components/ai/AISuggestionCard
+  aiSuggestionLoading?: boolean;
+  onAcceptSuggestion?: (suggestion: any) => void;
+  onEditSuggestion?: (suggestion: any) => void;
+  onDeclineSuggestion?: (suggestion: any) => void;
+  onApproveSuggestion?: (suggestion: any) => void;
+  aiPrefillMessage?: string; // Message to prefill in input (for edit)
+  onAIPrefillMessageClear?: () => void; // Clear prefill message
 }
 
 export interface CustomerSidebarProps {
@@ -252,6 +263,9 @@ export interface MessageInputProps {
   // AI suggestions
   onAIRetrigger?: () => void;
   enableAISuggestions?: boolean;
+  aiSuggestionLoading?: boolean;
+  prefillMessage?: string; // Allow parent to prefill message text (for AI edit)
+  onMessageChange?: (message: string) => void; // Notify parent when message changes
   // Coaching availability
   onSendCoachingAvailability?: () => Promise<void>;
   sendingCoachingAvailability?: boolean;

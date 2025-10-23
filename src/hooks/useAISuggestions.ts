@@ -11,6 +11,7 @@ interface UseAISuggestionsProps {
   onSuggestionAccepted?: (suggestion: AISuggestion, response: string) => void;
   onSuggestionEdited?: (suggestion: AISuggestion, originalResponse: string, editedResponse: string) => void;
   onSuggestionDeclined?: (suggestion: AISuggestion) => void;
+  onSuggestionApproved?: (suggestion: AISuggestion, bookingResult: any) => void;
 }
 
 interface GenerateSuggestionResponse {
@@ -28,6 +29,19 @@ interface GenerateSuggestionResponse {
       content: string;
     };
     similarMessagesCount: number;
+    // Function calling metadata
+    functionCalled?: string;
+    functionResult?: {
+      success: boolean;
+      data?: any;
+      error?: string;
+      requiresApproval?: boolean;
+      approvalMessage?: string;
+      functionName?: string;
+    };
+    requiresApproval?: boolean;
+    approvalMessage?: string;
+    debugContext?: any; // Debug context for transparency
   };
   error?: string;
 }
@@ -45,7 +59,8 @@ export const useAISuggestions = ({
   customerId,
   onSuggestionAccepted,
   onSuggestionEdited,
-  onSuggestionDeclined
+  onSuggestionDeclined,
+  onSuggestionApproved
 }: UseAISuggestionsProps) => {
   const [state, setState] = useState<SuggestionState>({
     isLoading: false,
@@ -58,7 +73,7 @@ export const useAISuggestions = ({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Generate AI suggestion for a customer message
-  const generateSuggestion = useCallback(async (customerMessage: string) => {
+  const generateSuggestion = useCallback(async (customerMessage: string, messageId?: string) => {
     // Prevent duplicate processing of the same message
     if (state.lastMessageProcessed === customerMessage) {
       return;
@@ -96,7 +111,9 @@ export const useAISuggestions = ({
           conversationId,
           channelType,
           customerId,
-          includeCustomerContext: !!customerId
+          messageId, // Include message ID for database storage
+          includeCustomerContext: !!customerId,
+          includeDebugContext: true // Always include for staff transparency
         }),
         signal: abortControllerRef.current.signal
       });
@@ -130,7 +147,14 @@ export const useAISuggestions = ({
         responseTime: data.suggestion.responseTime,
         contextSummary: data.suggestion.contextSummary,
         templateUsed: data.suggestion.templateUsed,
-        similarMessagesCount: data.suggestion.similarMessagesCount
+        similarMessagesCount: data.suggestion.similarMessagesCount,
+        // Function calling metadata
+        functionCalled: data.suggestion.functionCalled,
+        functionResult: data.suggestion.functionResult,
+        requiresApproval: data.suggestion.requiresApproval,
+        approvalMessage: data.suggestion.approvalMessage,
+        // Debug context (for transparency)
+        debugContext: data.suggestion.debugContext
       };
 
       setState(prev => ({
@@ -211,8 +235,8 @@ export const useAISuggestions = ({
   }, [onSuggestionEdited]);
 
   // Handle suggestion decline
-  const declineSuggestion = useCallback((suggestion: AISuggestion) => {
-    sendFeedback(suggestion.id, 'decline');
+  const declineSuggestion = useCallback((suggestion: AISuggestion, feedback?: string) => {
+    sendFeedback(suggestion.id, 'decline', undefined, feedback);
 
     if (onSuggestionDeclined) {
       onSuggestionDeclined(suggestion);
@@ -223,6 +247,52 @@ export const useAISuggestions = ({
       suggestion: null
     }));
   }, [sendFeedback, onSuggestionDeclined]);
+
+  // Handle suggestion approval (for booking creation)
+  const approveSuggestion = useCallback(async (suggestion: AISuggestion) => {
+    try {
+      // Call approval API to execute the booking
+      const response = await fetch('/api/ai/approve-booking', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          suggestionId: suggestion.id,
+          functionResult: suggestion.functionResult,
+          customerId: customerId, // Pass customer ID for existing customers
+          conversationId: conversationId // Pass conversation ID for sending LINE confirmation
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to approve booking');
+      }
+
+      // Send feedback for approval
+      sendFeedback(suggestion.id, 'accept', suggestion.suggestedResponse, 'Approved and executed');
+
+      // Call callback with booking result
+      if (onSuggestionApproved) {
+        onSuggestionApproved(suggestion, result.booking);
+      }
+
+      setState(prev => ({
+        ...prev,
+        suggestion: null
+      }));
+
+    } catch (error) {
+      console.error('Error approving suggestion:', error);
+      // Don't clear suggestion on error - let user retry
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to approve booking'
+      }));
+    }
+  }, [sendFeedback, onSuggestionApproved, customerId, conversationId]);
 
   // Complete edit feedback (called when user sends edited message)
   const completeEditFeedback = useCallback((
@@ -272,6 +342,7 @@ export const useAISuggestions = ({
     acceptSuggestion,
     editSuggestion,
     declineSuggestion,
+    approveSuggestion,
     completeEditFeedback,
     clearSuggestion,
     cleanup

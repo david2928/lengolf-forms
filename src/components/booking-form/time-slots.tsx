@@ -13,28 +13,31 @@ export function TimeSlots({ startTime, endTime, onEndTimeSelect, error }: TimeSl
   const slots = [];
   const currentTime = new Date(startTime);
   const lastAllowedTime = set(new Date(currentTime), { hours: 23, minutes: 0 });
-  
-  let maxHours = 5;
-  for (let i = 1; i <= 5; i++) {
-    const potentialEndTime = addHours(currentTime, i);
-    if (isAfter(potentialEndTime, lastAllowedTime)) {
-      maxHours = i - 1;
-      break;
-    }
-  }
 
-  for (let i = 1; i <= maxHours; i++) {
-    const slotEndTime = addHours(currentTime, i);
-    const isSelected = endTime && 
+  // Define duration options in hours (including half-hour increments)
+  const durationOptions = [1, 1.5, 2, 2.5, 3, 4, 5];
+
+  // Filter out options that would exceed the last allowed time
+  const validDurations = durationOptions.filter(hours => {
+    const potentialEndTime = addHours(currentTime, hours);
+    return !isAfter(potentialEndTime, lastAllowedTime);
+  });
+
+  for (const hours of validDurations) {
+    const slotEndTime = addHours(currentTime, hours);
+    const isSelected = endTime &&
       format(new Date(endTime), 'HH:mm') === format(slotEndTime, 'HH:mm');
-      
-    const durationText = i === 1 
+
+    const minutes = hours * 60;
+    const durationText = hours === 1
       ? '60min (1 hour)'
-      : `${i * 60}min (${i} hours)`;
+      : hours % 1 === 0
+      ? `${minutes}min (${hours} hours)`
+      : `${minutes}min (${hours} hours)`;
 
     slots.push(
       <Button
-        key={i}
+        key={hours}
         type="button"
         variant={isSelected ? "default" : "outline"}
         className={`h-auto py-3 text-center ${isSelected ? 'bg-blue-600 text-white' : ''}`}

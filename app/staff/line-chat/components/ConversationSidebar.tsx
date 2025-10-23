@@ -217,6 +217,8 @@ const SafeImage = ({ src, alt, width, height, className }: {
 // Export interface for imperative methods
 export interface ConversationSidebarRef {
   scrollToTop: () => void;
+  saveScrollPosition: () => number;
+  restoreScrollPosition: (position: number) => void;
 }
 
 export const ConversationSidebar = forwardRef<ConversationSidebarRef, ConversationSidebarProps>(({
@@ -296,6 +298,40 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
             parent.scrollTop = 0;
           });
         }, 100);
+      }
+    },
+    saveScrollPosition: () => {
+      if (conversationsContainerRef.current) {
+        const position = conversationsContainerRef.current.scrollTop;
+        // Also save to sessionStorage as backup
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('unified-chat-scroll-position', String(position));
+        }
+        return position;
+      }
+      return 0;
+    },
+    restoreScrollPosition: (position: number) => {
+      if (conversationsContainerRef.current) {
+        const container = conversationsContainerRef.current;
+
+        // Set scroll position immediately
+        container.scrollTop = position;
+
+        // Also try with scrollTo for better browser compatibility
+        container.scrollTo({ top: position, behavior: 'auto' });
+
+        // Verify after a small delay and force if needed
+        setTimeout(() => {
+          if (conversationsContainerRef.current && conversationsContainerRef.current.scrollTop !== position) {
+            conversationsContainerRef.current.scrollTop = position;
+          }
+        }, 50);
+
+        // Clear sessionStorage after restoring
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('unified-chat-scroll-position');
+        }
       }
     }
   }), []);
@@ -501,16 +537,16 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
               </Button>
             </Link>
 
-            {/* AI Suggestions Toggle - TEMPORARILY HIDDEN */}
-            {false && onToggleAI && (
+            {/* AI Suggestions Toggle */}
+            {onToggleAI && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onToggleAI?.(!enableAISuggestions)}
                 className={`transition-all duration-200 ${
                   enableAISuggestions
-                    ? 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'
-                    : 'text-gray-400 hover:text-purple-600 hover:bg-purple-50'
+                    ? 'text-white hover:bg-[#2a6d4e]'
+                    : 'text-white/50 hover:text-white hover:bg-[#2a6d4e]'
                 }`}
                 title={enableAISuggestions ? "Disable AI suggestions" : "Enable AI suggestions"}
               >

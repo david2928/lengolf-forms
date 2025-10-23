@@ -8,6 +8,7 @@ export async function POST(req: Request) {
     const bookingDataForDb: Booking & {
       isNewCustomer?: boolean;
       customer_id?: string;
+      bay_type?: 'social' | 'ai';
     } = await req.json();
 
     if (!bookingDataForDb.id || !bookingDataForDb.user_id || !bookingDataForDb.name || !bookingDataForDb.email || !bookingDataForDb.phone_number || !bookingDataForDb.date || !bookingDataForDb.start_time || !bookingDataForDb.duration || !bookingDataForDb.number_of_people || !bookingDataForDb.status) {
@@ -130,8 +131,9 @@ export async function POST(req: Request) {
     const finalBookingData = {
       ...bookingDataForDb,
       customer_id: finalCustomerId,
-      // Remove temporary fields
-      isNewCustomer: undefined
+      // Remove temporary fields that don't exist in database
+      isNewCustomer: undefined,
+      bay_type: undefined // bay_type is for internal logic only, not a database column
     };
 
     // Clean up undefined fields
@@ -144,6 +146,27 @@ export async function POST(req: Request) {
     // Log package_id for debugging
     if (finalBookingData.package_id) {
       console.log('Booking includes package_id:', finalBookingData.package_id);
+    }
+
+    // AUTO BAY ALLOCATION - Assign available bay if not already specified
+    if (!finalBookingData.bay) {
+      // Preserve bay_type before it gets deleted (needed for auto-assignment logic)
+      const requestedBayType = bookingDataForDb.bay_type as 'social' | 'ai' | undefined;
+
+      const assignedBay = await autoAssignBay(
+        finalBookingData.date,
+        finalBookingData.start_time,
+        finalBookingData.duration,
+        finalBookingData.number_of_people,
+        requestedBayType // Pass bay_type preference if specified
+      );
+
+      if (assignedBay) {
+        finalBookingData.bay = assignedBay;
+        console.log(`Auto-assigned bay: ${assignedBay}`);
+      } else {
+        console.warn('No available bay found for auto-assignment');
+      }
     }
 
     console.log('Creating booking with customer_id:', finalCustomerId);
@@ -165,9 +188,10 @@ export async function POST(req: Request) {
     }
 
 
-    return NextResponse.json({ 
-      success: true, 
-      bookingId: insertedData.id
+    return NextResponse.json({
+      success: true,
+      bookingId: insertedData.id,
+      booking: insertedData // Return full booking object including bay assignment
     });
 
   } catch (error) {
@@ -180,5 +204,102 @@ export async function POST(req: Request) {
       },
       { status: error instanceof Error && error.message.startsWith('Validation Error') ? 400 : 500 }
     );
+  }
+}
+
+/**
+ * Auto-assign an available bay based on booking requirements
+ * Priority: Social bays (Bay 1-3) for <= 5 people, AI bay (Bay 4) for <= 2 people
+ * Checks which bays are available for the requested time slot
+ * Respects bay_type preference when specified
+ */
+async function autoAssignBay(
+  date: string,
+  startTime: string,
+  duration: number,
+  numberOfPeople: number,
+  bayType?: 'social' | 'ai'
+): Promise<string | null> {
+  try {
+    // Determine which bays are suitable based on bay_type preference and number of people
+    // Social bays (Bay 1-3): up to 5 people
+    // AI bay (Bay 4): up to 2 people
+    const candidateBays: string[] = [];
+
+    // If bay_type is explicitly specified, respect it
+    if (bayType === 'ai') {
+      // Customer wants AI bay specifically
+      if (numberOfPeople > 2) {
+        console.warn(`Cannot use AI bay: ${numberOfPeople} people exceeds AI bay capacity (max 2)`);
+        return null;
+      }
+      candidateBays.push('Bay 4');
+    } else if (bayType === 'social') {
+      // Customer wants social bay specifically
+      if (numberOfPeople > 5) {
+        console.warn(`Cannot use social bay: ${numberOfPeople} people exceeds social bay capacity (max 5)`);
+        return null;
+      }
+      candidateBays.push('Bay 1', 'Bay 2', 'Bay 3');
+    } else {
+      // No preference - use existing logic based on number of people
+      if (numberOfPeople <= 2) {
+        // Can use any bay - prefer social bays first, then AI bay
+        candidateBays.push('Bay 1', 'Bay 2', 'Bay 3', 'Bay 4');
+      } else if (numberOfPeople <= 5) {
+        // Must use social bays only
+        candidateBays.push('Bay 1', 'Bay 2', 'Bay 3');
+      } else {
+        // Too many people - no suitable bay
+        console.warn(`Cannot auto-assign bay: ${numberOfPeople} people exceeds capacity`);
+        return null;
+      }
+    }
+
+    // Calculate end time
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const endHour = startHour + Math.floor(duration);
+    const endMinute = startMinute + ((duration % 1) * 60);
+    const endTime = `${String(endHour + Math.floor(endMinute / 60)).padStart(2, '0')}:${String(endMinute % 60).padStart(2, '0')}`;
+
+    // Check each candidate bay for availability
+    for (const bay of candidateBays) {
+      const { data: conflicts } = await refacSupabaseAdmin
+        .from('bookings')
+        .select('id, start_time, duration')
+        .eq('bay', bay)
+        .eq('date', date)
+        .eq('status', 'confirmed');
+
+      // Check if there are any time conflicts
+      let hasConflict = false;
+
+      if (conflicts && conflicts.length > 0) {
+        for (const booking of conflicts) {
+          const existingStart = booking.start_time;
+          const [existingHour, existingMinute] = existingStart.split(':').map(Number);
+          const existingEndHour = existingHour + Math.floor(booking.duration);
+          const existingEndMinute = existingMinute + ((booking.duration % 1) * 60);
+          const existingEnd = `${String(existingEndHour + Math.floor(existingEndMinute / 60)).padStart(2, '0')}:${String(existingEndMinute % 60).padStart(2, '0')}`;
+
+          // Check for overlap: (start1 < end2) AND (start2 < end1)
+          if (startTime < existingEnd && existingStart < endTime) {
+            hasConflict = true;
+            break;
+          }
+        }
+      }
+
+      // If no conflict, assign this bay
+      if (!hasConflict) {
+        return bay;
+      }
+    }
+
+    // No available bay found
+    return null;
+  } catch (error) {
+    console.error('Error in autoAssignBay:', error);
+    return null;
   }
 }

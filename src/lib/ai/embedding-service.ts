@@ -10,7 +10,7 @@ export interface MessageEmbedding {
   webMessageId?: string;
   conversationId: string;
   customerId?: string;
-  channelType: 'line' | 'website';
+  channelType: 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp';
   content: string;
   contentTranslated?: string;
   embedding?: number[];
@@ -18,6 +18,7 @@ export interface MessageEmbedding {
   intentDetected?: string;
   responseUsed?: string;
   languageDetected?: 'th' | 'en' | 'auto';
+  senderType?: 'customer' | 'staff'; // Track message source
 }
 
 export interface SimilarMessage {
@@ -152,6 +153,7 @@ export async function storeMessageEmbedding(embedding: MessageEmbedding): Promis
         intent_detected: embedding.intentDetected || null,
         response_used: embedding.responseUsed || null,
         language_detected: embedding.languageDetected || 'auto',
+        sender_type: embedding.senderType || 'customer', // Default to customer for backward compatibility
       })
       .select('id')
       .single();
@@ -172,9 +174,10 @@ export async function processMessageEmbedding(
   messageId: string,
   content: string,
   conversationId: string,
-  channelType: 'line' | 'website',
+  channelType: 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp',
   customerId?: string,
-  responseUsed?: string
+  responseUsed?: string,
+  senderType: 'customer' | 'staff' = 'customer' // NEW: Track message source
 ): Promise<string> {
   try {
     // Generate embedding
@@ -186,8 +189,9 @@ export async function processMessageEmbedding(
     const category = getMessageCategory(intent);
 
     // Prepare embedding object
+    // For Meta platforms (Facebook/Instagram/WhatsApp), we don't store message FK
+    // since message_embeddings table only has foreign keys for line_messages and web_chat_messages
     const embeddingData: MessageEmbedding = {
-      [channelType === 'line' ? 'lineMessageId' : 'webMessageId']: messageId,
       conversationId,
       customerId,
       channelType,
@@ -197,7 +201,17 @@ export async function processMessageEmbedding(
       intentDetected: intent,
       responseUsed,
       languageDetected: language,
+      senderType, // Track whether this is customer or staff message
     };
+
+    // Only set message ID foreign keys for LINE and Website channels
+    if (channelType === 'line') {
+      embeddingData.lineMessageId = messageId;
+    } else if (channelType === 'website') {
+      embeddingData.webMessageId = messageId;
+    }
+    // For Meta channels (facebook, instagram, whatsapp), we skip the message FK
+    // The conversation_id is sufficient for linking embeddings to conversations
 
     // Store in database
     return await storeMessageEmbedding(embeddingData);
@@ -258,10 +272,14 @@ export async function batchProcessHistoricalMessages(
       throw new Error('Supabase admin client not available');
     }
 
-    // Get messages from unified view that don't have embeddings yet
+    // Get CUSTOMER messages only from unified view that don't have embeddings yet
+    // IMPORTANT: Only embed customer messages for intent detection
+    // We'll fetch the corresponding staff response separately to store in response_used field
+    // Note: sender_type 'user' and 'customer' both represent customer messages in unified_messages
     const { data: messages, error } = await refacSupabaseAdmin
       .from('unified_messages')
       .select('*')
+      .in('sender_type', ['user', 'customer']) // ✅ Both user and customer are customer messages
       .gte('created_at', new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString())
       .not('content', 'is', null)
       .limit(1000) // Process in chunks
@@ -282,22 +300,62 @@ export async function batchProcessHistoricalMessages(
         batch.map(async (message: any) => {
           try {
             // Check if embedding already exists
-            const { data: existing } = await refacSupabaseAdmin
-              .from('message_embeddings')
-              .select('id')
-              .eq(message.channel_type === 'line' ? 'line_message_id' : 'web_message_id', message.id)
-              .single();
+            // For LINE and Website, check by message_id FK
+            // For Meta channels, check by conversation_id + content (no message FK)
+            let existing = null;
+
+            if (message.channel_type === 'line') {
+              const { data } = await refacSupabaseAdmin
+                .from('message_embeddings')
+                .select('id')
+                .eq('line_message_id', message.id)
+                .single();
+              existing = data;
+            } else if (message.channel_type === 'website') {
+              const { data } = await refacSupabaseAdmin
+                .from('message_embeddings')
+                .select('id')
+                .eq('web_message_id', message.id)
+                .single();
+              existing = data;
+            } else {
+              // For Meta channels (facebook, instagram, whatsapp),
+              // check by conversation_id + content since we don't have message FK
+              const { data } = await refacSupabaseAdmin
+                .from('message_embeddings')
+                .select('id')
+                .eq('conversation_id', message.conversation_id)
+                .eq('content', message.content)
+                .eq('channel_type', message.channel_type)
+                .single();
+              existing = data;
+            }
 
             if (existing) {
               return; // Skip if already processed
             }
+
+            // Fetch the staff response that followed this customer message
+            // This will be stored in response_used for RAG retrieval
+            // Note: staff responses can be 'admin' or 'staff' sender_type
+            const { data: staffResponse } = await refacSupabaseAdmin
+              .from('unified_messages')
+              .select('content')
+              .eq('conversation_id', message.conversation_id)
+              .in('sender_type', ['admin', 'staff']) // Both admin and staff are staff responses
+              .gt('created_at', message.created_at)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .single();
 
             await processMessageEmbedding(
               message.id,
               message.content,
               message.conversation_id,
               message.channel_type,
-              message.customer_id
+              message.customer_id,
+              staffResponse?.content || undefined, // Store staff response for RAG
+              'customer' // This is a customer message
             );
             processed++;
           } catch (error) {

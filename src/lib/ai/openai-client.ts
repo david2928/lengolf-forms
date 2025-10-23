@@ -17,7 +17,7 @@ export const AI_CONFIG = {
   embeddingModel: process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small',
   enabled: process.env.AI_SUGGESTION_ENABLED === 'true',
   confidenceThreshold: parseFloat(process.env.AI_CONFIDENCE_THRESHOLD || '0.6'),
-  maxTokens: 150, // Keep responses concise
+  maxTokens: 500, // Increased from 150 to allow function calls with parameters
   temperature: 0.7, // Balance creativity and consistency
   maxSimilarMessages: 5, // Number of similar messages to use for context
 } as const;
