@@ -706,10 +706,43 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
         break;
       }
 
-      case 'confirm_booking':
-        responseMessage = '✅ Thank you for confirming your booking! We look forward to seeing you.';
-        displayText = '✅ Confirmed booking';
+      case 'confirm_booking': {
+        // Fetch booking details to include in display text
+        if (bookingId) {
+          try {
+            const { data: booking } = await supabase
+              .from('bookings')
+              .select('date, start_time, duration')
+              .eq('id', bookingId)
+              .single();
+
+            if (booking) {
+              const bookingDate = new Date(booking.date);
+              const shortDate = bookingDate.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+              });
+
+              // Calculate end time
+              const [hours, minutes] = booking.start_time.split(':');
+              const startHour = parseInt(hours);
+              const endHour = startHour + booking.duration;
+              const endTime = `${String(endHour).padStart(2, '0')}:${minutes}`;
+
+              displayText = `✅ Confirmed booking - ${shortDate} ${booking.start_time}-${endTime} (ID: ${bookingId})`;
+            } else {
+              displayText = `✅ Confirmed booking (ID: ${bookingId})`;
+            }
+          } catch (error) {
+            console.error('Error fetching booking details:', error);
+            displayText = `✅ Confirmed booking (ID: ${bookingId})`;
+          }
+        } else {
+          displayText = '✅ Confirmed booking';
+        }
         break;
+      }
 
       case 'request_changes':
         responseMessage = '📝 We\'ve received your request to make changes to your booking. Our staff will contact you shortly to assist with the modifications.';

@@ -53,6 +53,27 @@ export interface TaxInvoiceData {
   dueDate?: string;
 }
 
+export interface DailyClosingData {
+  closingDate: string;
+  shiftIdentifier?: string;
+  closedByStaffName: string;
+  expectedCash: number;
+  expectedCreditCard: number;
+  qrPaymentsTotal: number;
+  otherPaymentsTotal?: number;
+  totalSales: number;
+  actualCash: number;
+  actualCreditCard: number;
+  creditCardBatchReference?: string;
+  cashVariance: number;
+  creditCardVariance: number;
+  transactionCount: number;
+  voidedCount: number;
+  voidedAmount: number;
+  varianceNotes?: string;
+  createdAt: string;
+}
+
 export class ReceiptFormatter {
   /**
    * Generate ESC/POS command sequence for thermal printer
@@ -421,5 +442,228 @@ export class ReceiptFormatter {
       isTaxInvoice: false,
       isBill: true
     };
+  }
+
+  /**
+   * Generate ESC/POS command sequence for daily closing report
+   * Thermal receipt format as specified in POS_DAILY_CLOSING.md
+   */
+  static generateDailyClosingReport(data: DailyClosingData): Uint8Array {
+    const commands: number[] = [];
+
+    // ESC/POS Commands
+    const ESC = 0x1B;
+    const GS = 0x1D;
+
+    // Initialize printer
+    commands.push(ESC, 0x40);
+
+    // Header - centered
+    commands.push(ESC, 0x61, 0x01); // Center alignment
+
+    // Company name
+    commands.push(ESC, 0x21, 0x30); // Double size
+    this.addText(commands, 'LENGOLF CO. LTD.');
+    commands.push(0x0A, 0x0A);
+
+    commands.push(ESC, 0x21, 0x00); // Normal size
+
+    // Report title
+    commands.push(ESC, 0x21, 0x20); // Double height
+    this.addText(commands, 'DAILY CLOSING REPORT');
+    commands.push(0x0A);
+    commands.push(ESC, 0x21, 0x00); // Reset
+
+    this.addText(commands, '========================================');
+    commands.push(0x0A);
+
+    // Report metadata - left aligned
+    commands.push(ESC, 0x61, 0x00);
+
+    const closingDate = new Date(data.closingDate);
+    const dateStr = closingDate.toLocaleDateString('en-GB');
+    this.addText(commands, `Date: ${dateStr}`);
+    commands.push(0x0A);
+
+    if (data.shiftIdentifier) {
+      this.addText(commands, `Shift: ${data.shiftIdentifier}`);
+      commands.push(0x0A);
+    }
+
+    this.addText(commands, `Closed By: ${data.closedByStaffName}`);
+    commands.push(0x0A);
+
+    const createdAt = new Date(data.createdAt);
+    const timeStr = createdAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    this.addText(commands, `Time: ${timeStr}`);
+    commands.push(0x0A, 0x0A);
+
+    // Expected Amounts Section
+    commands.push(ESC, 0x61, 0x01); // Center alignment
+    this.addText(commands, '========================================');
+    commands.push(0x0A);
+    commands.push(ESC, 0x21, 0x10); // Bold
+    this.addText(commands, 'EXPECTED AMOUNTS');
+    commands.push(ESC, 0x21, 0x00); // Reset
+    commands.push(0x0A);
+    this.addText(commands, '========================================');
+    commands.push(0x0A);
+
+    commands.push(ESC, 0x61, 0x00); // Left alignment
+
+    const formatAmount = (label: string, amount: number) => {
+      const amountStr = `\u0E3F${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const spacing = ' '.repeat(Math.max(1, 40 - label.length - amountStr.length));
+      return `${label}${spacing}${amountStr}`;
+    };
+
+    this.addText(commands, formatAmount('Cash:', data.expectedCash));
+    commands.push(0x0A);
+    this.addText(commands, formatAmount('Credit Card:', data.expectedCreditCard));
+    commands.push(0x0A);
+    this.addText(commands, formatAmount('QR Payments:', data.qrPaymentsTotal));
+    commands.push(0x0A);
+
+    if (data.otherPaymentsTotal && data.otherPaymentsTotal > 0) {
+      this.addText(commands, formatAmount('Other:', data.otherPaymentsTotal));
+      commands.push(0x0A);
+    }
+
+    this.addText(commands, '                          ------------');
+    commands.push(0x0A);
+    this.addText(commands, formatAmount('Total Sales:', data.totalSales));
+    commands.push(0x0A, 0x0A);
+
+    // Actual Amounts Section
+    commands.push(ESC, 0x61, 0x01); // Center alignment
+    this.addText(commands, '========================================');
+    commands.push(0x0A);
+    commands.push(ESC, 0x21, 0x10); // Bold
+    this.addText(commands, 'ACTUAL AMOUNTS');
+    commands.push(ESC, 0x21, 0x00); // Reset
+    commands.push(0x0A);
+    this.addText(commands, '========================================');
+    commands.push(0x0A);
+
+    commands.push(ESC, 0x61, 0x00); // Left alignment
+
+    this.addText(commands, formatAmount('Cash Counted:', data.actualCash));
+    commands.push(0x0A);
+    this.addText(commands, formatAmount('Credit Card Batch:', data.actualCreditCard));
+    commands.push(0x0A);
+
+    if (data.creditCardBatchReference) {
+      this.addText(commands, `Batch Ref: ${data.creditCardBatchReference}`);
+      commands.push(0x0A);
+    }
+    commands.push(0x0A);
+
+    // Variances Section
+    commands.push(ESC, 0x61, 0x01); // Center alignment
+    this.addText(commands, '========================================');
+    commands.push(0x0A);
+    commands.push(ESC, 0x21, 0x10); // Bold
+    this.addText(commands, 'VARIANCES');
+    commands.push(ESC, 0x21, 0x00); // Reset
+    commands.push(0x0A);
+    this.addText(commands, '========================================');
+    commands.push(0x0A);
+
+    commands.push(ESC, 0x61, 0x00); // Left alignment
+
+    const cashVarianceStr = data.cashVariance >= 0 ?
+      `\u0E3F${data.cashVariance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
+      `-\u0E3F${Math.abs(data.cashVariance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const cashLine = formatAmount('Cash Variance:', data.cashVariance);
+    this.addText(commands, `${cashLine}${Math.abs(data.cashVariance) > 0.01 ? ' *' : ''}`);
+    commands.push(0x0A);
+
+    const creditVarianceStr = data.creditCardVariance >= 0 ?
+      `\u0E3F${data.creditCardVariance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
+      `-\u0E3F${Math.abs(data.creditCardVariance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const creditLine = formatAmount('Credit Card Variance:', data.creditCardVariance);
+    this.addText(commands, `${creditLine}${Math.abs(data.creditCardVariance) > 0.01 ? ' *' : ''}`);
+    commands.push(0x0A, 0x0A);
+
+    this.addText(commands, '* Negative = Under, Positive = Over');
+    commands.push(0x0A, 0x0A);
+
+    // Transaction Summary Section
+    commands.push(ESC, 0x61, 0x01); // Center alignment
+    this.addText(commands, '========================================');
+    commands.push(0x0A);
+    commands.push(ESC, 0x21, 0x10); // Bold
+    this.addText(commands, 'TRANSACTION SUMMARY');
+    commands.push(ESC, 0x21, 0x00); // Reset
+    commands.push(0x0A);
+    this.addText(commands, '========================================');
+    commands.push(0x0A);
+
+    commands.push(ESC, 0x61, 0x00); // Left alignment
+
+    const formatNumber = (label: string, num: number) => {
+      const numStr = num.toString();
+      const spacing = ' '.repeat(Math.max(1, 40 - label.length - numStr.length));
+      return `${label}${spacing}${numStr}`;
+    };
+
+    this.addText(commands, formatNumber('Total Transactions:', data.transactionCount));
+    commands.push(0x0A);
+    this.addText(commands, formatNumber('Voided Transactions:', data.voidedCount));
+    commands.push(0x0A);
+    this.addText(commands, formatAmount('Voided Amount:', data.voidedAmount));
+    commands.push(0x0A, 0x0A);
+
+    // Notes Section (if present)
+    if (data.varianceNotes && data.varianceNotes.trim()) {
+      commands.push(ESC, 0x61, 0x01); // Center alignment
+      this.addText(commands, '========================================');
+      commands.push(0x0A);
+      commands.push(ESC, 0x21, 0x10); // Bold
+      this.addText(commands, 'NOTES');
+      commands.push(ESC, 0x21, 0x00); // Reset
+      commands.push(0x0A);
+      this.addText(commands, '========================================');
+      commands.push(0x0A);
+
+      commands.push(ESC, 0x61, 0x00); // Left alignment
+
+      // Word wrap the notes to fit 40 characters
+      const notes = data.varianceNotes.trim();
+      const words = notes.split(' ');
+      let currentLine = '';
+
+      words.forEach((word) => {
+        if ((currentLine + word).length > 40) {
+          if (currentLine) {
+            this.addText(commands, currentLine.trim());
+            commands.push(0x0A);
+            currentLine = '';
+          }
+        }
+        currentLine += word + ' ';
+      });
+
+      if (currentLine) {
+        this.addText(commands, currentLine.trim());
+        commands.push(0x0A);
+      }
+
+      commands.push(0x0A);
+    }
+
+    // Final separator
+    commands.push(ESC, 0x61, 0x01); // Center alignment
+    this.addText(commands, '========================================');
+    commands.push(0x0A, 0x0A, 0x0A);
+
+    // Add line feeds
+    commands.push(0x0A, 0x0A, 0x0A, 0x0A);
+
+    // Feed and cut paper
+    commands.push(ESC, 0x64, 0x03); // Feed 3 lines
+    commands.push(GS, 0x56, 0x01);  // Cut paper
+
+    return new Uint8Array(commands);
   }
 }

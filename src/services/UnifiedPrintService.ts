@@ -6,8 +6,9 @@ import { usbThermalPrinter } from './USBThermalPrinter';
 
 export enum PrintType {
   TAX_INV_ABB = 'TAX_INV_ABB',        // After payment - Tax Invoice ABB format
-  TAX_INV_RECEIPT = 'TAX_INV_RECEIPT', // From transaction management - Tax Invoice Receipt  
-  BILL = 'BILL'                       // Before payment - Bill/check
+  TAX_INV_RECEIPT = 'TAX_INV_RECEIPT', // From transaction management - Tax Invoice Receipt
+  BILL = 'BILL',                      // Before payment - Bill/check
+  DAILY_CLOSING = 'DAILY_CLOSING'     // Daily closing reconciliation report
 }
 
 export type PrintMethod = 'auto' | 'usb' | 'bluetooth';
@@ -107,7 +108,7 @@ export class UnifiedPrintService {
       },
       [PrintType.TAX_INV_RECEIPT]: {
         endpoints: {
-          bluetooth: '/api/pos/print-tax-invoice-bluetooth', 
+          bluetooth: '/api/pos/print-tax-invoice-bluetooth',
           usb: '/api/pos/print-tax-invoice-bluetooth' // Same data, different printer
         },
         requiresTableSession: false
@@ -118,6 +119,13 @@ export class UnifiedPrintService {
           usb: '/api/pos/print-bill-usb'
         },
         requiresTableSession: true
+      },
+      [PrintType.DAILY_CLOSING]: {
+        endpoints: {
+          bluetooth: '/api/pos/closing/print-thermal',
+          usb: '/api/pos/closing/print-thermal' // Same endpoint for both methods
+        },
+        requiresTableSession: false
       }
     };
 
@@ -129,9 +137,11 @@ export class UnifiedPrintService {
    */
   private getRequestBody(type: PrintType, id: string): any {
     const mapping = this.getServiceMapping(type);
-    
+
     if (mapping.requiresTableSession) {
       return { tableSessionId: id };
+    } else if (type === PrintType.DAILY_CLOSING) {
+      return { reconciliationId: id };
     } else {
       return { receiptNumber: id };
     }

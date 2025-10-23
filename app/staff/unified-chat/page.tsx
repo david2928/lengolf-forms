@@ -379,6 +379,63 @@ export default function UnifiedChatPage() {
     };
   }, [isMobile, showMobileChat, handleMobileBackToList]);
 
+  // Page Visibility API + Page Lifecycle handling for mobile refresh
+  // This handles when users return to the tab/app after being away
+  useEffect(() => {
+    let lastRefreshTime = Date.now();
+    const REFRESH_THRESHOLD = 30000; // 30 seconds - only refresh if away longer than this
+
+    // Handle visibilitychange - works for tab switching and app switching (most cases)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page became visible
+        const timeSinceLastRefresh = Date.now() - lastRefreshTime;
+
+        // Only refresh if it's been more than the threshold since last refresh
+        if (timeSinceLastRefresh > REFRESH_THRESHOLD) {
+          console.log('🔄 Page visible after', Math.round(timeSinceLastRefresh / 1000), 'seconds - refreshing conversations');
+          refreshConversations();
+          lastRefreshTime = Date.now();
+        }
+      }
+    };
+
+    // Handle pageshow - specifically for iOS Safari bfcache (back/forward cache)
+    // This fires when page is loaded from cache (e.g., using back button)
+    const handlePageShow = (event: PageTransitionEvent) => {
+      // event.persisted is true when page loaded from bfcache
+      if (event.persisted) {
+        console.log('🔄 Page restored from bfcache - refreshing conversations');
+        refreshConversations();
+        lastRefreshTime = Date.now();
+      }
+    };
+
+    // Handle focus - additional coverage for some mobile scenarios
+    const handleFocus = () => {
+      const timeSinceLastRefresh = Date.now() - lastRefreshTime;
+
+      // More conservative refresh on focus (only after 60 seconds)
+      if (timeSinceLastRefresh > 60000) {
+        console.log('🔄 Window focused after', Math.round(timeSinceLastRefresh / 1000), 'seconds - refreshing conversations');
+        refreshConversations();
+        lastRefreshTime = Date.now();
+      }
+    };
+
+    // Add all event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', handleFocus);
+
+    // Cleanup on unmount
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshConversations]);
+
   // Clear messages when conversation changes and fetch new ones
   useEffect(() => {
     if (selectedConversation) {
@@ -504,15 +561,15 @@ export default function UnifiedChatPage() {
         {showMobileCustomer && selectedConversation && (
           <div className="fixed inset-0 bg-white z-50 md:hidden flex flex-col">
             {/* Mobile Customer Header */}
-            <div className="bg-white border-b p-4 flex items-center justify-between flex-shrink-0">
+            <div className="bg-[#1a4d2e] border-b p-4 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <button
                   onClick={() => setShowMobileCustomer(false)}
-                  className="h-8 w-8 p-0 flex items-center justify-center"
+                  className="h-8 w-8 p-0 flex items-center justify-center text-white hover:bg-white/10 rounded"
                 >
                   ←
                 </button>
-                <h3 className="font-semibold text-lg">Customer Information</h3>
+                <h3 className="font-semibold text-lg text-white">Customer Information</h3>
               </div>
             </div>
 

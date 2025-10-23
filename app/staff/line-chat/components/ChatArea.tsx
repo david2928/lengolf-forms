@@ -578,25 +578,25 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     return (
       <div className="flex-1 flex flex-col">
         {/* Global Panel Controls for Empty State */}
-        <div className="bg-white border-b p-4 flex items-center justify-between flex-shrink-0">
+        <div className="bg-[#1a4d2e] border-b p-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center space-x-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onTogglePanel('left')}
-              className="h-8 w-8 p-0 hover:bg-gray-100"
+              className="h-8 w-8 p-0 hover:bg-white/10"
               title={leftPanelCollapsed ? "Show conversations" : "Hide conversations"}
             >
-              <PanelLeft className={`h-4 w-4 transition-all duration-200 ${leftPanelCollapsed ? 'text-gray-400' : 'text-gray-600'}`} />
+              <PanelLeft className={`h-4 w-4 transition-all duration-200 ${leftPanelCollapsed ? 'text-white/50' : 'text-white/90'}`} />
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onTogglePanel('right')}
-              className="h-8 w-8 p-0 hover:bg-gray-100"
+              className="h-8 w-8 p-0 hover:bg-white/10"
               title={rightPanelCollapsed ? "Show customer info" : "Hide customer info"}
             >
-              <PanelRight className={`h-4 w-4 transition-all duration-200 ${rightPanelCollapsed ? 'text-gray-400' : 'text-gray-600'}`} />
+              <PanelRight className={`h-4 w-4 transition-all duration-200 ${rightPanelCollapsed ? 'text-white/50' : 'text-white/90'}`} />
             </Button>
             {leftPanelCollapsed && rightPanelCollapsed && (
               <Button
@@ -606,10 +606,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   onTogglePanel('left');
                   onTogglePanel('right');
                 }}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
+                className="h-8 w-8 p-0 hover:bg-white/10"
                 title="Show all panels"
               >
-                <Maximize2 className="h-4 w-4 text-blue-600" />
+                <Maximize2 className="h-4 w-4 text-white" />
               </Button>
             )}
           </div>
@@ -691,7 +691,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       onTouchEnd={handleTouchEnd}
     >
       {/* Chat Header */}
-      <div className="bg-white border-b p-2 md:p-4 flex items-center justify-between sticky top-0 z-10 md:static md:z-auto">
+      <div className="bg-[#1a4d2e] border-b p-2 md:p-4 flex items-center justify-between sticky top-0 z-10 md:static md:z-auto">
         <div className="flex items-center space-x-2 md:space-x-3 flex-1 min-w-0">
           {/* Panel Controls - Desktop Only */}
           <div className="hidden md:flex items-center space-x-2 mr-4">
@@ -699,19 +699,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => onTogglePanel('left')}
-              className="h-8 w-8 p-0 hover:bg-gray-100"
+              className="h-8 w-8 p-0 hover:bg-white/10"
               title={leftPanelCollapsed ? "Show conversations" : "Hide conversations"}
             >
-              <PanelLeft className={`h-4 w-4 transition-all duration-200 ${leftPanelCollapsed ? 'text-gray-400' : 'text-gray-600'}`} />
+              <PanelLeft className={`h-4 w-4 transition-all duration-200 ${leftPanelCollapsed ? 'text-white/50' : 'text-white/90'}`} />
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onTogglePanel('right')}
-              className="h-8 w-8 p-0 hover:bg-gray-100"
+              className="h-8 w-8 p-0 hover:bg-white/10"
               title={rightPanelCollapsed ? "Show customer info" : "Hide customer info"}
             >
-              <PanelRight className={`h-4 w-4 transition-all duration-200 ${rightPanelCollapsed ? 'text-gray-400' : 'text-gray-600'}`} />
+              <PanelRight className={`h-4 w-4 transition-all duration-200 ${rightPanelCollapsed ? 'text-white/50' : 'text-white/90'}`} />
             </Button>
             {leftPanelCollapsed && rightPanelCollapsed && (
               <Button
@@ -721,10 +721,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   onTogglePanel('left');
                   onTogglePanel('right');
                 }}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
+                className="h-8 w-8 p-0 hover:bg-white/10"
                 title="Show all panels"
               >
-                <Maximize2 className="h-4 w-4 text-blue-600" />
+                <Maximize2 className="h-4 w-4 text-white" />
               </Button>
             )}
           </div>
@@ -733,10 +733,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            className="md:hidden h-8 w-8 p-0"
+            className="md:hidden h-8 w-8 p-0 hover:bg-white/10"
             onClick={onMobileBackToList}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4 text-white" />
           </Button>
 
           {/* User Avatar */}
@@ -772,7 +772,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               {isUnifiedConversation(selectedConv) && (
                 <ChatHeaderChannelIndicator channelType={selectedConv.channel_type} />
               )}
-              <h2 className="font-semibold text-sm md:text-base truncate">
+              <h2 className="font-semibold text-sm md:text-base truncate text-white">
                 {getConversationDisplayName(selectedConv)}
               </h2>
             </div>
@@ -780,7 +780,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             {/* Show different metadata based on channel type */}
             {isUnifiedConversation(selectedConv) ? (
               selectedConv.channel_type === 'line' && selectedConv.channel_metadata?.display_name && (
-                <p className="text-xs text-gray-500 truncate hidden md:block">
+                <p className="text-xs text-white/70 truncate hidden md:block">
                   User: {selectedConv.channel_metadata.display_name}
                 </p>
               )
@@ -802,10 +802,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 hover:bg-gray-100"
+                className="h-8 w-8 p-0 hover:bg-white/10"
                 title="Bookings Calendar"
               >
-                <Calendar className="h-4 w-4 text-gray-600" />
+                <Calendar className="h-4 w-4 text-white/90" />
               </Button>
             </Link>
 
@@ -813,10 +813,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 hover:bg-gray-100"
+                className="h-8 w-8 p-0 hover:bg-white/10"
                 title="Coaching Assist"
               >
-                <Target className="h-4 w-4 text-gray-600" />
+                <Target className="h-4 w-4 text-white/90" />
               </Button>
             </Link>
 
@@ -824,20 +824,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => setShowBayAvailability(!showBayAvailability)}
-              className={`h-8 w-8 p-0 hover:bg-gray-100 ${showBayAvailability ? 'bg-blue-50' : ''}`}
+              className={`h-8 w-8 p-0 hover:bg-white/10 ${showBayAvailability ? 'bg-white/20' : ''}`}
               title={showBayAvailability ? "Hide Bay Availability" : "Show Bay Availability"}
             >
-              <Clock className={`h-4 w-4 ${showBayAvailability ? 'text-blue-600' : 'text-gray-600'}`} />
+              <Clock className={`h-4 w-4 ${showBayAvailability ? 'text-white' : 'text-white/90'}`} />
             </Button>
 
             <Button
               variant="ghost"
               size="sm"
               onClick={refreshData}
-              className="h-8 w-8 p-0 hover:bg-gray-100"
+              className="h-8 w-8 p-0 hover:bg-white/10"
               title="Refresh conversations and messages"
             >
-              <RefreshCw className="h-4 w-4 text-gray-600" />
+              <RefreshCw className="h-4 w-4 text-white/90" />
             </Button>
           </div>
 
@@ -847,10 +847,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 hover:bg-white/10"
                 title="Bookings Calendar"
               >
-                <Calendar className="h-4 w-4" />
+                <Calendar className="h-4 w-4 text-white/90" />
               </Button>
             </Link>
 
@@ -858,31 +858,31 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 hover:bg-white/10"
                 title="Coaching Assist"
               >
-                <Target className="h-4 w-4" />
+                <Target className="h-4 w-4 text-white/90" />
               </Button>
             </Link>
 
             <Button
               variant="ghost"
               size="sm"
-              className={`h-8 w-8 p-0 ${showBayAvailability ? 'bg-blue-50' : ''}`}
+              className={`h-8 w-8 p-0 hover:bg-white/10 ${showBayAvailability ? 'bg-white/20' : ''}`}
               onClick={() => setShowBayAvailability(!showBayAvailability)}
               title={showBayAvailability ? "Hide Bay Availability" : "Show Bay Availability"}
             >
-              <Clock className={`h-4 w-4 ${showBayAvailability ? 'text-blue-600' : ''}`} />
+              <Clock className={`h-4 w-4 ${showBayAvailability ? 'text-white' : 'text-white/90'}`} />
             </Button>
 
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0"
+              className="h-8 w-8 p-0 hover:bg-white/10"
               onClick={refreshData}
               title="Refresh"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4 text-white/90" />
             </Button>
           </div>
         </div>

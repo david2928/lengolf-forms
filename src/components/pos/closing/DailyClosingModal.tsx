@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, DollarSign, CreditCard, QrCode, AlertTriangle, CheckCircle, Printer, X, Calendar } from 'lucide-react';
 import { StaffPinModal } from '../payment/StaffPinModal';
+import { bluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
+import { usbThermalPrinter } from '@/services/USBThermalPrinter';
 
 interface ClosingSummary {
   closing_date: string;
@@ -64,6 +66,7 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showPinModal, setShowPinModal] = useState(false);
   const [reconciliationId, setReconciliationId] = useState<string | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -181,12 +184,77 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     }
   };
 
-  const handlePrint = () => {
-    if (reconciliationId) {
-      // TODO: Implement print functionality
-      console.log('Print reconciliation:', reconciliationId);
-      onComplete(reconciliationId);
-      // Don't auto-close - let user decide when to close
+  const handlePrint = async () => {
+    if (!reconciliationId || isPrinting) return;
+
+    setIsPrinting(true);
+    try {
+      console.log('🖨️ Printing daily closing report:', reconciliationId);
+
+      // Determine which printer to use (check for Bluetooth support first)
+      const hasBluetoothSupport = typeof navigator !== 'undefined' && 'bluetooth' in navigator;
+      const hasUSBSupport = typeof navigator !== 'undefined' && 'usb' in navigator;
+
+      // Get thermal data from API
+      const response = await fetch('/api/pos/closing/print-thermal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reconciliationId })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch print data');
+      }
+
+      const result = await response.json();
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'No print data received');
+      }
+
+      console.log('✅ Thermal data received, preparing to print...');
+
+      // Try Bluetooth first (better for mobile/tablets)
+      let printed = false;
+      if (hasBluetoothSupport) {
+        try {
+          console.log('📱 Attempting Bluetooth print...');
+          await bluetoothThermalPrinter.printReceipt(result.data);
+          alert('✅ Daily closing report printed successfully via Bluetooth!');
+          printed = true;
+        } catch (bluetoothError) {
+          console.warn('⚠️ Bluetooth print failed, trying USB...', bluetoothError);
+        }
+      }
+
+      // Fallback to USB if Bluetooth failed or not available
+      if (!printed && hasUSBSupport) {
+        try {
+          console.log('🖨️ Attempting USB print...');
+          await usbThermalPrinter.printReceipt(result.data);
+          alert('✅ Daily closing report printed successfully via USB!');
+          printed = true;
+        } catch (usbError) {
+          console.error('❌ USB print failed:', usbError);
+          throw new Error('Both Bluetooth and USB printing failed');
+        }
+      }
+
+      if (!printed) {
+        throw new Error('No compatible printer found. Please connect a thermal printer via Bluetooth or USB.');
+      }
+
+      console.log('✅ Daily closing report printed successfully');
+      if (step === 'complete') {
+        onComplete(reconciliationId);
+      }
+
+    } catch (error) {
+      console.error('❌ Print failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`❌ Print failed: ${errorMessage}\n\nPlease check printer connection and try again.`);
+    } finally {
+      setIsPrinting(false);
     }
   };
 
@@ -387,10 +455,11 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 <div className="flex gap-3">
                   <Button
                     onClick={handlePrint}
+                    disabled={isPrinting}
                     className="flex-1 bg-[#265020] hover:bg-green-700 text-white"
                   >
                     <Printer className="h-5 w-5 mr-2" />
-                    Print Report
+                    {isPrinting ? 'Printing...' : 'Print Report'}
                   </Button>
                   <Button
                     onClick={resetAndClose}
@@ -648,10 +717,11 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 <div className="flex gap-3">
                   <Button
                     onClick={handlePrint}
+                    disabled={isPrinting}
                     className="flex-1 bg-[#265020] hover:bg-green-700 text-white"
                   >
                     <Printer className="h-5 w-5 mr-2" />
-                    Print Report
+                    {isPrinting ? 'Printing...' : 'Print Report'}
                   </Button>
                   <Button
                     onClick={resetAndClose}

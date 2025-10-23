@@ -256,9 +256,14 @@ export async function POST(
 
     // Store confirmation message in database if we have a conversation
     if (conversationId) {
+      const shortDate = bookingDate.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      });
       const messageText = isCoaching
-        ? '🏌️ Coaching session confirmation with interactive options'
-        : '📋 Booking confirmation with interactive options';
+        ? `🏌️ Coaching - ${shortDate} ${booking.start_time}-${endTime} (ID: ${booking.id})`
+        : `📋 Booking - ${shortDate} ${booking.start_time}-${endTime} (ID: ${booking.id})`;
 
       const { data: storedMessage, error: messageError } = await refacSupabaseAdmin
         .from('line_messages')
