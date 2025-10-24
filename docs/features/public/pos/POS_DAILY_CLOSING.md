@@ -632,74 +632,99 @@ const formatCurrency = (value: number | string): string => {
 ### Thermal Receipt Format
 
 **Reconciliation Report Structure:**
+
+Uses 48-character width thermal format matching receipts/bills. Plain numbers (no currency symbols) for better thermal printer compatibility.
+
 ```
+                LENGOLF CO. LTD.
+
+         DAILY CLOSING REPORT
 ========================================
-           DAILY CLOSING REPORT
-========================================
-Date: 2025-01-15
-Shift: Morning
-Closed By: John Doe
-Time: 18:30
+Date: 23/10/2025
+Closed By: David
+Time: 22:28
 
 ========================================
-           EXPECTED AMOUNTS
+          EXPECTED AMOUNTS
 ========================================
-Cash:                      ฿12,500.00
-Credit Card:               ฿19,977.50
-QR Payments:                ฿5,600.00
-Other:                        ฿250.00
+Cash:                            15,395.00
+Credit Card:                     15,710.00
+QR Payments:                     16,507.00
                           ------------
-Total Sales:               ฿38,327.50
+Total Sales:                     17,612.00
 
 ========================================
-            ACTUAL AMOUNTS
+           ACTUAL AMOUNTS
 ========================================
-Cash Counted:              ฿12,480.00
-Credit Card Batch:         ฿19,977.50
-Batch Ref: BATCH-20250115-001
+Cash Counted:                    15,395.00
+Credit Card Batch:               15,710.00
+Batch Ref: 000403
 
 ========================================
-              VARIANCES
+             VARIANCES
 ========================================
-Cash Variance:                -฿20.00 *
-Credit Card Variance:           ฿0.00
+Cash Variance:                       +0.00
+Credit Card Variance:                +0.00
 
 * Negative = Under, Positive = Over
 
 ========================================
-         TRANSACTION SUMMARY
+        TRANSACTION SUMMARY
 ========================================
-Total Transactions:                 45
-Voided Transactions:                 2
-Voided Amount:                 ฿850.00
+Total Transactions:                     14
+Voided Transactions:                     0
+Voided Amount:                        0.00
 
-========================================
-              NOTES
-========================================
-Short ฿20 in cash - customer returned
-฿20 overpayment
+         ________________________
+              Staff Signature
 
 ========================================
 ```
 
+**Key Format Features:**
+- **Width**: 48 characters (standard thermal printer)
+- **Currency**: Plain numbers (12,500.00) - no Thai Baht symbols
+- **Variance**: +/- prefix (+0.00 or -20.00) with * for non-zero
+- **Signature**: Staff signature line at end (like tax invoices)
+- **Alignment**: Consistent right-alignment for all amounts
+
 **Print Implementation:**
 ```typescript
 const handlePrint = async () => {
-  if (!reconciliationId) return;
+  if (!reconciliationId || isPrinting) return;
 
+  setIsPrinting(true);
   try {
-    const response = await fetch(`/api/pos/closing/print/${reconciliationId}`);
-    const data = await response.json();
+    // Fetch structured closing data from API
+    const response = await fetch('/api/pos/closing/print-thermal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reconciliationId })
+    });
 
-    if (data.success) {
-      // Format for thermal printer
-      const receiptData = formatClosingReceipt(data.reconciliation);
+    const result = await response.json();
 
-      // Send to printer (implementation varies by printer type)
-      await thermalPrinter.print(receiptData);
+    // Generate ESC/POS thermal data client-side
+    const thermalData = ReceiptFormatter.generateDailyClosingReport(result.closingData);
+
+    // Connect to printer if needed
+    if (!bluetoothThermalPrinter.getConnectionStatus()) {
+      await bluetoothThermalPrinter.connect();
     }
+
+    // Write chunks to printer
+    const chunks = ReceiptFormatter.splitIntoChunks(thermalData, 100);
+    for (const chunk of chunks) {
+      await characteristic.writeValue(chunk);
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+
+    alert('✅ Daily closing report printed successfully!');
   } catch (error) {
     console.error('Print failed:', error);
+    alert(`❌ Print failed: ${error.message}`);
+  } finally {
+    setIsPrinting(false);
   }
 };
 ```

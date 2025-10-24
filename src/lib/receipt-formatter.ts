@@ -447,6 +447,7 @@ export class ReceiptFormatter {
   /**
    * Generate ESC/POS command sequence for daily closing report
    * Thermal receipt format as specified in POS_DAILY_CLOSING.md
+   * Matches the working receipt/bill formatting pattern
    */
   static generateDailyClosingReport(data: DailyClosingData): Uint8Array {
     const commands: number[] = [];
@@ -454,6 +455,7 @@ export class ReceiptFormatter {
     // ESC/POS Commands
     const ESC = 0x1B;
     const GS = 0x1D;
+    const width = 48; // Standard thermal printer width
 
     // Initialize printer
     commands.push(ESC, 0x40);
@@ -511,9 +513,10 @@ export class ReceiptFormatter {
 
     commands.push(ESC, 0x61, 0x00); // Left alignment
 
+    // Format helper - use plain numbers like working receipts
     const formatAmount = (label: string, amount: number) => {
-      const amountStr = `\u0E3F${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      const spacing = ' '.repeat(Math.max(1, 40 - label.length - amountStr.length));
+      const amountStr = amount.toFixed(2);
+      const spacing = ' '.repeat(Math.max(1, width - label.length - amountStr.length));
       return `${label}${spacing}${amountStr}`;
     };
 
@@ -571,18 +574,17 @@ export class ReceiptFormatter {
 
     commands.push(ESC, 0x61, 0x00); // Left alignment
 
-    const cashVarianceStr = data.cashVariance >= 0 ?
-      `\u0E3F${data.cashVariance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
-      `-\u0E3F${Math.abs(data.cashVariance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const cashLine = formatAmount('Cash Variance:', data.cashVariance);
-    this.addText(commands, `${cashLine}${Math.abs(data.cashVariance) > 0.01 ? ' *' : ''}`);
-    commands.push(0x0A);
+    // Format variance with +/- sign, no Unicode symbols
+    const formatVariance = (label: string, variance: number) => {
+      const sign = variance >= 0 ? '+' : '-';
+      const amountStr = `${sign}${Math.abs(variance).toFixed(2)}`;
+      const spacing = ' '.repeat(Math.max(1, width - label.length - amountStr.length));
+      return `${label}${spacing}${amountStr}`;
+    };
 
-    const creditVarianceStr = data.creditCardVariance >= 0 ?
-      `\u0E3F${data.creditCardVariance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
-      `-\u0E3F${Math.abs(data.creditCardVariance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const creditLine = formatAmount('Credit Card Variance:', data.creditCardVariance);
-    this.addText(commands, `${creditLine}${Math.abs(data.creditCardVariance) > 0.01 ? ' *' : ''}`);
+    this.addText(commands, formatVariance('Cash Variance:', data.cashVariance) + (Math.abs(data.cashVariance) > 0.01 ? ' *' : ''));
+    commands.push(0x0A);
+    this.addText(commands, formatVariance('Credit Card Variance:', data.creditCardVariance) + (Math.abs(data.creditCardVariance) > 0.01 ? ' *' : ''));
     commands.push(0x0A, 0x0A);
 
     this.addText(commands, '* Negative = Under, Positive = Over');
@@ -603,7 +605,7 @@ export class ReceiptFormatter {
 
     const formatNumber = (label: string, num: number) => {
       const numStr = num.toString();
-      const spacing = ' '.repeat(Math.max(1, 40 - label.length - numStr.length));
+      const spacing = ' '.repeat(Math.max(1, width - label.length - numStr.length));
       return `${label}${spacing}${numStr}`;
     };
 
@@ -628,13 +630,13 @@ export class ReceiptFormatter {
 
       commands.push(ESC, 0x61, 0x00); // Left alignment
 
-      // Word wrap the notes to fit 40 characters
+      // Word wrap the notes to fit width
       const notes = data.varianceNotes.trim();
       const words = notes.split(' ');
       let currentLine = '';
 
       words.forEach((word) => {
-        if ((currentLine + word).length > 40) {
+        if ((currentLine + word).length > width) {
           if (currentLine) {
             this.addText(commands, currentLine.trim());
             commands.push(0x0A);
@@ -651,6 +653,14 @@ export class ReceiptFormatter {
 
       commands.push(0x0A);
     }
+
+    // Signature Section (like tax invoices)
+    commands.push(0x0A);
+    commands.push(ESC, 0x61, 0x01); // Center alignment
+    this.addText(commands, '________________________');
+    commands.push(0x0A);
+    this.addText(commands, 'Staff Signature');
+    commands.push(0x0A, 0x0A);
 
     // Final separator
     commands.push(ESC, 0x61, 0x01); // Center alignment
