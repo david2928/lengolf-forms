@@ -124,6 +124,26 @@ const resolveChannelDisplayName = (metadata: any, fallback: string): string => {
   return resolved || fallback;
 };
 
+// Get the channel/platform display name (excluding customer_name)
+const getChannelDisplayName = (metadata: any, fallback: string): string => {
+  if (!metadata) return fallback;
+
+  const candidates = [
+    metadata.display_name,     // LINE display_name
+    metadata.displayName,
+    metadata.full_name,        // Facebook/Instagram full_name
+    metadata.username,         // Instagram/Facebook username
+    metadata.ig_username,
+    metadata.profile_name,
+    metadata.profileName,
+    metadata.name,
+    metadata.sender_name
+  ];
+
+  const resolved = candidates.find(name => typeof name === 'string' && name.trim().length > 0);
+  return resolved || fallback;
+};
+
 const getConversationDisplayName = (conversation: any): string => {
   if (isUnifiedConversation(conversation)) {
     if (conversation.channel_type === 'line') {
@@ -710,20 +730,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               </h2>
             </div>
 
-            {/* Show different metadata based on channel type */}
-            {isUnifiedConversation(selectedConv) ? (
-              selectedConv.channel_type === 'line' && selectedConv.channel_metadata && (
+            {/* Show channel/platform name below customer name */}
+            {(() => {
+              // Support both unified (channel_metadata) and legacy (channelMetadata) formats
+              const metadata = isUnifiedConversation(selectedConv)
+                ? selectedConv.channel_metadata
+                : selectedConv?.channelMetadata;
+              const channelType = isUnifiedConversation(selectedConv)
+                ? selectedConv.channel_type
+                : selectedConv?.channelType;
+
+              if (!metadata || !channelType) return null;
+
+              return (
                 <p className="text-xs text-white/90 truncate hidden md:block">
-                  LINE: {resolveChannelDisplayName(selectedConv.channel_metadata, 'Unknown User')}
+                  {channelType === 'line' && 'LINE: '}
+                  {channelType === 'facebook' && 'Facebook: '}
+                  {channelType === 'instagram' && 'Instagram: '}
+                  {channelType === 'whatsapp' && 'WhatsApp: '}
+                  {channelType === 'website' && 'Website: '}
+                  {getChannelDisplayName(metadata, 'User')}
                 </p>
-              )
-            ) : (
-              selectedConv?.customer && (
-                <p className="text-xs text-white/90 truncate hidden md:block">
-                  User: {selectedConv.user.displayName}
-                </p>
-              )
-            )}
+              );
+            })()}
           </div>
         </div>
 

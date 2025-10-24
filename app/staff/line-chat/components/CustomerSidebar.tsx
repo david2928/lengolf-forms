@@ -70,7 +70,7 @@ const PlatformLogoBadge = ({ channelType }: { channelType: ChannelType }) => {
   );
 };
 
-// Helper function to get platform display name
+// Helper function to get platform display name (including customer_name)
 const resolveChannelDisplayName = (metadata: any, fallback: string): string => {
   if (!metadata) return fallback;
 
@@ -80,6 +80,26 @@ const resolveChannelDisplayName = (metadata: any, fallback: string): string => {
     metadata.displayName,
     metadata.full_name,
     metadata.username,
+    metadata.ig_username,
+    metadata.profile_name,
+    metadata.profileName,
+    metadata.name,
+    metadata.sender_name
+  ];
+
+  const resolved = candidates.find(name => typeof name === 'string' && name.trim().length > 0);
+  return resolved || fallback;
+};
+
+// Get the channel/platform display name (excluding customer_name)
+const getChannelDisplayName = (metadata: any, fallback: string): string => {
+  if (!metadata) return fallback;
+
+  const candidates = [
+    metadata.display_name,     // LINE display_name
+    metadata.displayName,
+    metadata.full_name,        // Facebook/Instagram full_name
+    metadata.username,         // Instagram/Facebook username
     metadata.ig_username,
     metadata.profile_name,
     metadata.profileName,
@@ -288,23 +308,35 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                 <h4 className="font-medium">
                   {customerDetails ? customerDetails.name : getPlatformDisplayName(selectedConv)}
                 </h4>
-                <p className="text-sm text-gray-500">
-                  {isUnifiedConversation(selectedConv) && selectedConv.channel_type === 'line' ? (
-                    <>LINE: {resolveChannelDisplayName(selectedConv.channel_metadata, 'Unknown User')}</>
-                  ) : (
-                    getPlatformDisplayName(selectedConv)
-                  )}
-                </p>
+                {/* Show channel/platform name below customer name */}
+                {(() => {
+                  // Support both unified (channel_metadata) and legacy (channelMetadata) formats
+                  const metadata = isUnifiedConversation(selectedConv)
+                    ? selectedConv.channel_metadata
+                    : selectedConv?.channelMetadata;
+                  const channelType = isUnifiedConversation(selectedConv)
+                    ? selectedConv.channel_type
+                    : selectedConv?.channelType;
+
+                  if (!metadata || !channelType) return null;
+
+                  return (
+                    <p className="text-sm text-gray-500">
+                      {channelType === 'line' && 'LINE: '}
+                      {channelType === 'facebook' && 'Facebook: '}
+                      {channelType === 'instagram' && 'Instagram: '}
+                      {channelType === 'whatsapp' && 'WhatsApp: '}
+                      {channelType === 'website' && 'Website: '}
+                      {getChannelDisplayName(metadata, 'User')}
+                    </p>
+                  );
+                })()}
               </div>
             </div>
 
             {customerDetails ? (
               <div className="space-y-3">
                 <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Users className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm">{customerDetails.name}</span>
-                  </div>
                   {customerDetails.phone && (
                     <div className="flex items-center space-x-2">
                       <Phone className="h-4 w-4 text-gray-400" />
