@@ -201,7 +201,7 @@ export function createBookingConfirmationMessage(booking: BookingDetails) {
               type: 'postback',
               label: 'Confirm',
               data: `action=confirm_booking&booking_id=${booking.bookingId}`,
-              displayText: 'Booking confirmed!'
+              displayText: `✅ Confirmed - ${booking.date} ${booking.time} (${booking.bookingId})`
             }
           },
           {

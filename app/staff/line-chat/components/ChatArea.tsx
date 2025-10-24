@@ -219,6 +219,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [isMobile, setIsMobile] = useState(false);
   const [showBayAvailability, setShowBayAvailability] = useState(false);
   const [localAIPrefillMessage, setLocalAIPrefillMessage] = useState<string | undefined>(undefined);
+  const [templatePrefillMessage, setTemplatePrefillMessage] = useState<string | undefined>(undefined);
 
   // Use prefill message from props if provided, otherwise use local state
   const aiPrefillMessage = propAIPrefillMessage || localAIPrefillMessage;
@@ -229,6 +230,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         }
       }
     : setLocalAIPrefillMessage;
+
+  // Combine AI and template prefill messages (template takes priority)
+  const combinedPrefillMessage = templatePrefillMessage || aiPrefillMessage;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -380,93 +384,22 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const handleTemplateSelect = useCallback(async (template: any) => {
     if (!selectedConversation || !selectedConversationObj) return;
 
-    try {
-      const customerName = selectedConversationObj.customer?.name || selectedConversationObj.user.displayName || '';
+    // Get customer name for template variable substitution
+    const customerName = selectedConversationObj.customer?.name || selectedConversationObj.user.displayName || '';
 
-      // Check if this is a unified conversation and route to appropriate API
-      if (isUnifiedConversation(selectedConversationObj)) {
+    // Extract template text and replace variables
+    let templateText = '';
 
-        if (['facebook', 'instagram', 'whatsapp'].includes(selectedConversationObj.channel_type)) {
-          // For Meta conversations, use the Meta send-message API with template
-          const response = await fetch('/api/meta/send-message', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              platformUserId: selectedConversationObj.channel_user_id,
-              platform: selectedConversationObj.channel_type,
-              message: template.text?.replace(/\{\{customer_name\}\}/g, customerName) || template.name || 'Template message',
-              messageType: selectedConversationObj.channel_type === 'whatsapp' ? 'template' : 'text',
-              templateName: selectedConversationObj.channel_type === 'whatsapp' ? template.name : undefined
-            }),
-          });
-
-          const data = await response.json();
-          if (data.success) {
-            // Scroll to bottom after template is sent
-            setTimeout(() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-          } else {
-            console.error('Failed to send template:', data.error);
-          }
-
-        } else if (selectedConversationObj.channel_type === 'website') {
-          // For Website conversations, use the website send-message API
-          const response = await fetch('/api/conversations/website/send-message', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              conversationId: selectedConversation,
-              sessionId: selectedConversationObj.channel_user_id, // For website, channel_user_id is the session_id
-              messageText: template.text?.replace(/\{\{customer_name\}\}/g, customerName) || template.name || 'Template message',
-              senderType: 'staff',
-              senderName: 'Admin'
-            }),
-          });
-
-          const data = await response.json();
-          if (data.success) {
-            // Scroll to bottom after template is sent
-            setTimeout(() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-          } else {
-            console.error('Failed to send template:', data.error);
-          }
-        } else {
-          console.error('Unsupported unified conversation type:', selectedConversationObj.channel_type);
-        }
-      } else {
-        // For LINE conversations, use the original LINE API
-        const response = await fetch(`/api/line/templates/${template.id}/send`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            conversationId: selectedConversation,
-            variables: { customer_name: customerName },
-            senderName: 'Admin'
-          }),
-        });
-
-        const data = await response.json();
-        if (data.success) {
-          // Scroll to bottom after template is sent
-          setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-          }, 100);
-        } else {
-          console.error('Failed to send template:', data.error);
-        }
-      }
-    } catch (error) {
-      console.error('Error sending template:', error);
+    if (isUnifiedConversation(selectedConversationObj)) {
+      // For unified conversations (Meta, Website)
+      templateText = template.text?.replace(/\{\{customer_name\}\}/g, customerName) || template.name || 'Template message';
+    } else {
+      // For LINE conversations, the template content might be structured differently
+      templateText = template.content?.replace(/\{\{customer_name\}\}/g, customerName) || template.text?.replace(/\{\{customer_name\}\}/g, customerName) || 'Template message';
     }
+
+    // Prefill the message input instead of sending immediately
+    setTemplatePrefillMessage(templateText);
   }, [selectedConversation, selectedConversationObj]);
 
   // Handle curated images selection
@@ -1096,8 +1029,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           enableAISuggestions={enableAISuggestions}
           onAIRetrigger={onAIRetrigger}
           aiSuggestionLoading={aiSuggestionLoading}
-          prefillMessage={aiPrefillMessage}
-          onMessageChange={() => setAIPrefillMessage(undefined)}
+          prefillMessage={combinedPrefillMessage}
+          onMessageChange={() => {
+            setAIPrefillMessage(undefined);
+            setTemplatePrefillMessage(undefined);
+          }}
         />
       </div>
 
