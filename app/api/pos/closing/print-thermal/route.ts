@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin as supabase } from '@/lib/refac-supabase';
-import { ReceiptFormatter, DailyClosingData } from '@/lib/receipt-formatter';
+import { DailyClosingData } from '@/lib/receipt-formatter';
 
 export async function POST(request: NextRequest) {
   const session = await getDevSession(authOptions, request);
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       staff: reconciliation.closed_by_staff_name
     });
 
-    // Format data for thermal printer
+    // Format data for thermal printer (return structured data, not ESC/POS commands)
     const closingData: DailyClosingData = {
       closingDate: reconciliation.closing_date,
       shiftIdentifier: reconciliation.shift_identifier,
@@ -65,18 +65,13 @@ export async function POST(request: NextRequest) {
       createdAt: reconciliation.created_at
     };
 
-    // Generate ESC/POS thermal data
-    const thermalData = ReceiptFormatter.generateDailyClosingReport(closingData);
+    console.log('✅ Daily closing data prepared for client-side thermal printing');
 
-    console.log('✅ Thermal data generated, size:', thermalData.length, 'bytes');
-
-    // Return thermal data as base64 for transmission
-    const base64Data = Buffer.from(thermalData).toString('base64');
-
+    // Return structured data (not base64) - matches working receipt pattern
     return NextResponse.json({
       success: true,
-      data: base64Data,
-      message: 'Daily closing report thermal data ready'
+      closingData: closingData,
+      message: 'Daily closing report data ready for printing'
     });
 
   } catch (error) {

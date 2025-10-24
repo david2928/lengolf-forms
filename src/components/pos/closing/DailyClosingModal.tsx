@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, DollarSign, CreditCard, QrCode, AlertTriangle, C
 import { StaffPinModal } from '../payment/StaffPinModal';
 import { bluetoothThermalPrinter } from '@/services/BluetoothThermalPrinter';
 import { usbThermalPrinter } from '@/services/USBThermalPrinter';
+import { ReceiptFormatter } from '@/lib/receipt-formatter';
 
 interface ClosingSummary {
   closing_date: string;
@@ -191,11 +192,7 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     try {
       console.log('🖨️ Printing daily closing report:', reconciliationId);
 
-      // Determine which printer to use (check for Bluetooth support first)
-      const hasBluetoothSupport = typeof navigator !== 'undefined' && 'bluetooth' in navigator;
-      const hasUSBSupport = typeof navigator !== 'undefined' && 'usb' in navigator;
-
-      // Get thermal data from API
+      // Get daily closing data from API
       const response = await fetch('/api/pos/closing/print-thermal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -204,24 +201,59 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch print data');
+        throw new Error(errorData.error || 'Failed to fetch closing data');
       }
 
       const result = await response.json();
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'No print data received');
+      if (!result.success || !result.closingData) {
+        throw new Error(result.error || 'No closing data received');
       }
 
-      console.log('✅ Thermal data received, preparing to print...');
+      console.log('✅ Daily closing data received, generating thermal data...');
+
+      // Generate ESC/POS thermal data from structured data
+      const thermalData = ReceiptFormatter.generateDailyClosingReport(result.closingData);
+      console.log(`📊 Generated thermal data: ${thermalData.length} bytes`);
+
+      // Determine which printer to use
+      const hasBluetoothSupport = typeof navigator !== 'undefined' && 'bluetooth' in navigator;
+      const hasUSBSupport = typeof navigator !== 'undefined' && 'usb' in navigator;
 
       // Try Bluetooth first (better for mobile/tablets)
       let printed = false;
       if (hasBluetoothSupport) {
         try {
           console.log('📱 Attempting Bluetooth print...');
-          await bluetoothThermalPrinter.printReceipt(result.data);
+
+          // Connect to Bluetooth printer if not already connected
+          if (!bluetoothThermalPrinter.getConnectionStatus()) {
+            console.log('🔗 Connecting to Bluetooth printer...');
+            const connected = await bluetoothThermalPrinter.connect();
+            if (!connected) {
+              throw new Error('Failed to connect to Bluetooth printer');
+            }
+          }
+
+          // Send thermal data in chunks (like the working implementation)
+          const chunkSize = 100;
+          const chunks = ReceiptFormatter.splitIntoChunks(thermalData, chunkSize);
+          console.log(`📤 Sending ${chunks.length} chunks to Bluetooth printer...`);
+
+          // Get the characteristic and write chunks
+          const characteristic = (bluetoothThermalPrinter as any).characteristic;
+          if (!characteristic) {
+            throw new Error('Printer characteristic not available');
+          }
+
+          for (let i = 0; i < chunks.length; i++) {
+            await characteristic.writeValue(chunks[i]);
+            // Small delay between chunks for reliability
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+
           alert('✅ Daily closing report printed successfully via Bluetooth!');
           printed = true;
+
         } catch (bluetoothError) {
           console.warn('⚠️ Bluetooth print failed, trying USB...', bluetoothError);
         }
@@ -231,12 +263,38 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       if (!printed && hasUSBSupport) {
         try {
           console.log('🖨️ Attempting USB print...');
-          await usbThermalPrinter.printReceipt(result.data);
+
+          // Connect to USB printer if not already connected
+          if (!usbThermalPrinter.getConnectionStatus()) {
+            console.log('🔗 Connecting to USB printer...');
+            const connected = await usbThermalPrinter.connect();
+            if (!connected) {
+              throw new Error('Failed to connect to USB printer');
+            }
+          }
+
+          // Send thermal data in chunks
+          const chunkSize = 512;
+          const chunks = ReceiptFormatter.splitIntoChunks(thermalData, chunkSize);
+          console.log(`📤 Sending ${chunks.length} chunks to USB printer...`);
+
+          // Get the interface and write chunks
+          const usbInterface = (usbThermalPrinter as any).interface;
+          const endpointNumber = (usbThermalPrinter as any).endpointNumber;
+          if (!usbInterface || !endpointNumber) {
+            throw new Error('USB printer interface not available');
+          }
+
+          for (const chunk of chunks) {
+            await usbInterface.transferOut(endpointNumber, chunk);
+          }
+
           alert('✅ Daily closing report printed successfully via USB!');
           printed = true;
+
         } catch (usbError) {
           console.error('❌ USB print failed:', usbError);
-          throw new Error('Both Bluetooth and USB printing failed');
+          throw new Error('Both Bluetooth and USB printing failed. Please check printer connection.');
         }
       }
 
