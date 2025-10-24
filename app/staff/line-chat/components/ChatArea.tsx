@@ -712,14 +712,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
             {/* Show different metadata based on channel type */}
             {isUnifiedConversation(selectedConv) ? (
-              selectedConv.channel_type === 'line' && selectedConv.channel_metadata?.display_name && (
-                <p className="text-xs text-white/70 truncate hidden md:block">
-                  User: {selectedConv.channel_metadata.display_name}
+              selectedConv.channel_type === 'line' && selectedConv.channel_metadata && (
+                <p className="text-xs text-white/90 truncate hidden md:block">
+                  LINE: {resolveChannelDisplayName(selectedConv.channel_metadata, 'Unknown User')}
                 </p>
               )
             ) : (
               selectedConv?.customer && (
-                <p className="text-xs text-gray-500 truncate hidden md:block">
+                <p className="text-xs text-white/90 truncate hidden md:block">
                   User: {selectedConv.user.displayName}
                 </p>
               )
