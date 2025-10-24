@@ -286,11 +286,11 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
               </div>
               <div>
                 <h4 className="font-medium">
-                  {customerDetails ? customerDetails.name : selectedConv.user.displayName}
+                  {customerDetails ? customerDetails.name : getPlatformDisplayName(selectedConv)}
                 </h4>
                 <p className="text-sm text-gray-500">
-                  {customerDetails ? (
-                    <>User: {selectedConv.user.displayName}</>
+                  {isUnifiedConversation(selectedConv) && selectedConv.channel_type === 'line' ? (
+                    <>LINE: {resolveChannelDisplayName(selectedConv.channel_metadata, 'Unknown User')}</>
                   ) : (
                     getPlatformDisplayName(selectedConv)
                   )}
