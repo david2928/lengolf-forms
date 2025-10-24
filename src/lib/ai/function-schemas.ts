@@ -39,11 +39,11 @@ Do NOT use when:
         },
         start_time: {
           type: 'string',
-          description: 'Preferred start time in HH:00 or HH:30 format (e.g., "14:00", "14:30"). Use empty string "" for general availability.'
+          description: 'Preferred start time in HH:00 or HH:30 format (e.g., "14:00", "14:30"). Use empty string "" for general availability. CRITICAL: "2-4pm available?" is asking about TIME RANGE (what slots exist between 2-4pm), NOT a 2-hour booking - use start_time="" to check that range.'
         },
         duration: {
           type: 'number',
-          description: 'Duration in hours. Must be 0.5, 1, 1.5, 2, 2.5, or 3. Default: 1',
+          description: 'Booking duration in hours. Must be 0.5, 1, 1.5, 2, 2.5, or 3. Default: 1. ONLY use duration=2 if customer explicitly says "2 hours" or "2hr". For "2-4pm available?", use duration=1 (they want to see available slots in that time range, not book 2 hours).',
           enum: [0.5, 1, 1.5, 2, 2.5, 3]
         },
         bay_type: {

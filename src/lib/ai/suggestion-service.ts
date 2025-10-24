@@ -200,6 +200,16 @@ TYPICAL CUSTOMER FLOWS:
 
    Note: If customer already got availability confirmation in conversation history, they're at Step 2 (ready to book)
 
+   **IMPORTANT - Time Range vs Duration**:
+   - When customer asks "2-4 available?" or "2-4pm free?", they are asking about a TIME RANGE (what slots exist between 2-4 PM), NOT requesting a 2-hour booking
+   - Use start_time="" (empty) and duration=1 (default) to show all available slots in that time window
+   - Only use duration=2 if customer explicitly says "2 hours" or "2hr booking"
+   - Examples:
+     * "2-4 available?" → start_time="", duration=1 (show all 1-hour slots between 2-4 PM)
+     * "2-4pm any slot?" → start_time="", duration=1 (show available slots in that range)
+     * "I need 2 hours starting at 2pm" → start_time="14:00", duration=2 (specific 2-hour request)
+     * "2pm for 2 hours?" → start_time="14:00", duration=2 (explicit duration request)
+
 3. Direct Booking (skip availability check)
    - Customer says "I want to book 2pm tomorrow" or "ขอจอง 14:00" → Use create_booking immediately
    - Customer confirms time after availability shown (e.g., "3.30pm please!", "Confirm 19:00") → Use create_booking
