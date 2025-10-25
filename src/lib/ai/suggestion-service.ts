@@ -503,13 +503,6 @@ Study these examples to understand WHEN and WHEN NOT to call functions:
 **AI Action**: cancel_booking
 **✅ CORRECT**: "Cancel on Wednesday" = clear cancellation intent, even if casual
 
-### ❌ Example 10 - Providing Additional Info (NO FUNCTION)
-**Customer**: "We will use my friends package Maxime who has eight lessons left"
-**Previous Context**: Customer asked "can we book a golf lesson tomorrow around 12pm with boss?"
-**AI Action**: NO FUNCTION - just acknowledge and ask for remaining info (friend's phone number to verify package)
-**❌ WRONG**: Don't call get_coaching_availability (they already asked about availability, now providing booking details)
-**✅ CORRECT**: This is ADDITIONAL INFO for the booking, not a new availability question
-
 ---
 
 ## 🎯 KEY DECISION RULES
@@ -532,12 +525,7 @@ Study these examples to understand WHEN and WHEN NOT to call functions:
 
 6. **Booking Intent + Info Missing** → Ask for info first (NO FUNCTION yet)
 
-7. **Providing Additional Info** → NO FUNCTION (just acknowledge)
-   - Customer says "We'll use my friend's package" or "My name is John" or "Phone: 123456"
-   - These are ANSWERS to staff questions, not new requests
-   - Just acknowledge and ask for any remaining missing info
-
-8. **General Questions** → Text response only (NO FUNCTION)
+7. **General Questions** → Text response only (NO FUNCTION)
    - Pricing, location, facilities, equipment, how things work
 `;
 
