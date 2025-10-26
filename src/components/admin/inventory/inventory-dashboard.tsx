@@ -23,6 +23,7 @@ import { ProductCard } from './product-card'
 import { CollapsedProductCard } from './collapsed-product-card'
 import { InventorySearchFilters } from './inventory-search-filters'
 import { InventoryCostModal } from './inventory-cost-modal'
+import { GloveSizeStatusCard } from './glove-size-status-card'
 import { AdminInventoryProductWithStatus } from '@/types/inventory'
 
 export function InventoryDashboard() {
@@ -45,6 +46,7 @@ export function InventoryDashboard() {
   const [isCostModalOpen, setIsCostModalOpen] = useState(false)
   
   // Section refs for scrolling
+  const gloveSizesRef = useRef<HTMLDivElement>(null)
   const needsReorderRef = useRef<HTMLDivElement>(null)
   const lowStockRef = useRef<HTMLDivElement>(null)
 
@@ -69,9 +71,16 @@ export function InventoryDashboard() {
   }
 
   const handleLowStockClick = () => {
-    lowStockRef.current?.scrollIntoView({ 
-      behavior: 'smooth', 
-      block: 'start' 
+    lowStockRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+  }
+
+  const handleGloveSizesClick = () => {
+    gloveSizesRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
     })
   }
 
@@ -144,6 +153,9 @@ export function InventoryDashboard() {
     const lowStockSeparated = separateProducts(data.products.low_stock || [])
     const sufficientStockSeparated = separateProducts(data.products.sufficient_stock || [])
 
+    // NEW: Filter glove products with critical sizes
+    const gloveProductsWithCritical = filterProducts(data.products.glove_products_with_critical_sizes || [])
+
     const filteredProducts = {
       cash_management: [
         ...needsReorderSeparated.cashProducts,
@@ -152,7 +164,8 @@ export function InventoryDashboard() {
       ],
       needs_reorder: needsReorderSeparated.regularProducts,
       low_stock: lowStockSeparated.regularProducts,
-      sufficient_stock: sufficientStockSeparated.regularProducts
+      sufficient_stock: sufficientStockSeparated.regularProducts,
+      glove_products_with_critical_sizes: gloveProductsWithCritical
     }
 
     const totalCount = allProducts.length
@@ -191,7 +204,7 @@ export function InventoryDashboard() {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card 
           className="cursor-pointer hover:shadow-md transition-shadow"
           onClick={handleCostCardClick}
@@ -214,7 +227,7 @@ export function InventoryDashboard() {
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
           onClick={handleNeedsReorderClick}
         >
@@ -236,7 +249,29 @@ export function InventoryDashboard() {
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={handleGloveSizesClick}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Critical Glove Sizes</CardTitle>
+            <Package className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" style={{ color: '#B00020' }}>
+              {isLoading ? (
+                <Skeleton className="h-8 w-12" />
+              ) : (
+                data?.summary?.critical_glove_sizes_count || 0
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Individual sizes low
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
           onClick={handleLowStockClick}
         >
@@ -356,6 +391,28 @@ export function InventoryDashboard() {
                     ...product,
                     unit: product.unit === 'dollars' ? 'THB' : product.unit
                   }}
+                  onUpdate={handleRefresh}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Golf Glove Sizes Critical Section - NEW */}
+        {filteredData?.products?.glove_products_with_critical_sizes && filteredData.products.glove_products_with_critical_sizes.length > 0 && (
+          <div ref={gloveSizesRef}>
+            <div className="flex items-center gap-2 mb-4">
+              <Badge variant="destructive" className="flex items-center gap-1">
+                <Package className="h-3 w-3" />
+                Golf Glove Sizes - {data?.summary?.critical_glove_sizes_count || 0} sizes need reorder
+              </Badge>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredData.products.glove_products_with_critical_sizes.map((product: any) => (
+                <GloveSizeStatusCard
+                  key={product.id}
+                  product={product}
                   onUpdate={handleRefresh}
                 />
               ))}
