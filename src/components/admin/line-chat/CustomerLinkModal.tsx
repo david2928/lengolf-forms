@@ -196,8 +196,13 @@ export function CustomerLinkModal({
 
     if (!createForm.primaryPhone.trim()) {
       errors.primaryPhone = 'Phone number is required';
-    } else if (!/^[0-9]{9,10}$/.test(createForm.primaryPhone.replace(/\D/g, ''))) {
-      errors.primaryPhone = 'Invalid phone number format';
+    } else {
+      // Support international phone numbers (e.g., +86 13651689124, +1 5551234567)
+      // Extract only digits and validate length (9-15 digits for international support)
+      const digitsOnly = createForm.primaryPhone.replace(/\D/g, '');
+      if (digitsOnly.length < 9 || digitsOnly.length > 15) {
+        errors.primaryPhone = 'Phone number must be 9-15 digits';
+      }
     }
 
     if (createForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createForm.email)) {

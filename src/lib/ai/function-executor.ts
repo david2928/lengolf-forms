@@ -98,22 +98,31 @@ export class AIFunctionExecutor {
         ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4']; // 'all'
 
       // Fetch availability for each bay in parallel
-      const promises = bays.map(async (bay) => {
-        // Use absolute URL for server-side fetch (localhost during dev, actual domain in production)
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-        const url = `${baseUrl}/api/bookings/available-slots?date=${date}&bay=${encodeURIComponent(bay)}&duration=${duration}&startHour=${startHour}&endHour=22`;
-        const response = await fetch(url);
+      // If duration > 1, also fetch 1-hour slots as fallback options
+      const durationsToCheck = duration > 1 ? [duration, 1] : [duration];
 
-        if (!response.ok) {
-          console.error(`Failed to fetch availability for ${bay}:`, response.statusText);
-          return { bay, slots: [] };
-        }
+      const promises = bays.flatMap(bay =>
+        durationsToCheck.map(async (dur) => {
+          // Use absolute URL for server-side fetch (localhost during dev, actual domain in production)
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+          const url = `${baseUrl}/api/bookings/available-slots?date=${date}&bay=${encodeURIComponent(bay)}&duration=${dur}&startHour=${startHour}&endHour=22`;
+          const response = await fetch(url);
 
-        const data = await response.json();
-        return { bay, slots: data.slots || [] };
-      });
+          if (!response.ok) {
+            console.error(`Failed to fetch availability for ${bay}:`, response.statusText);
+            return { bay, duration: dur, slots: [] };
+          }
 
-      const results = await Promise.all(promises);
+          const data = await response.json();
+          return { bay, duration: dur, slots: data.slots || [] };
+        })
+      );
+
+      const allResults = await Promise.all(promises);
+
+      // Group results by requested duration and 1-hour fallback
+      const results = allResults.filter(r => r.duration === duration);
+      const fallbackResults = duration > 1 ? allResults.filter(r => r.duration === 1) : [];
 
       // Find which bays are available
       let availableBays: string[];
@@ -139,6 +148,8 @@ export class AIFunctionExecutor {
       // For specific time requests, only return yes/no availability
       if (start_time) {
         // Specific time request - minimal response
+        // IMPORTANT: Do NOT include internal bay names (Bay 1, Bay 2, Bay 4)
+        // AI should only mention "Social bay" or "AI bay" to customers
         return {
           success: true,
           functionName: 'check_bay_availability',
@@ -150,9 +161,8 @@ export class AIFunctionExecutor {
             available: availableBays.length > 0,
             social_bays_available: socialBaysAvailable.length > 0,
             ai_bay_available: aiBayAvailable,
-            available_bay_count: availableBays.length,
-            // Only include bay names if requested
-            ...(availableBays.length > 0 && { available_bays: availableBays.slice(0, 3) }) // Max 3 bays
+            available_bay_count: availableBays.length
+            // Removed: available_bays field - internal bay names should not be exposed to customers
           }
         };
       }
@@ -211,6 +221,31 @@ export class AIFunctionExecutor {
       const socialRanges = groupIntoRanges(socialSlots);
       const aiRanges = groupIntoRanges(aiSlots);
 
+      // If requested duration > 1 and no availability, check 1-hour fallback
+      let fallbackInfo = {};
+      if (duration > 1 && fallbackResults.length > 0) {
+        const fallbackSocialSlots = fallbackResults
+          .filter(r => ['Bay 1', 'Bay 2', 'Bay 3'].includes(r.bay) && r.slots.length > 0)
+          .flatMap(r => r.slots.map((s: any) => s.time));
+
+        const fallbackAiSlots = fallbackResults
+          .filter(r => r.bay === 'Bay 4' && r.slots.length > 0)
+          .flatMap(r => r.slots.map((s: any) => s.time));
+
+        const fallbackSocialRanges = groupIntoRanges(fallbackSocialSlots);
+        const fallbackAiRanges = groupIntoRanges(fallbackAiSlots);
+
+        // Only include fallback if main duration has no availability
+        if (socialBaysAvailable.length === 0 && aiBayAvailable === false && (fallbackSocialRanges.length > 0 || fallbackAiRanges.length > 0)) {
+          fallbackInfo = {
+            fallback_duration: 1,
+            fallback_social_availability: fallbackSocialRanges.length > 0 ? fallbackSocialRanges.join(', ') : 'None',
+            fallback_ai_availability: fallbackAiRanges.length > 0 ? fallbackAiRanges.join(', ') : 'None',
+            fallback_message: `No ${duration}-hour slots available, but 1-hour slots are available`
+          };
+        }
+      }
+
       return {
         success: true,
         functionName: 'check_bay_availability',
@@ -223,7 +258,8 @@ export class AIFunctionExecutor {
           social_availability: socialRanges.length > 0 ? socialRanges.join(', ') : 'None',
           ai_availability: aiRanges.length > 0 ? aiRanges.join(', ') : 'None',
           // Condensed availability summary
-          availability_summary: `${socialBaysAvailable.length > 0 ? `Social bays (${socialBaysAvailable.length}): ${socialRanges[0] || 'available'}` : 'Social bays: None'} | ${aiBayAvailable ? `AI bay: ${aiRanges[0] || 'available'}` : 'AI bay: None'}`
+          availability_summary: `${socialBaysAvailable.length > 0 ? `Social bays (${socialBaysAvailable.length}): ${socialRanges[0] || 'available'}` : 'Social bays: None'} | ${aiBayAvailable ? `AI bay: ${aiRanges[0] || 'available'}` : 'AI bay: None'}`,
+          ...fallbackInfo
         }
       };
     } catch (error) {

@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { enhanceMessageDisplay } from '@/lib/line/emoji-display-utils';
 import { StickerMessage } from '@/components/line/StickerMessage';
 import { ImageMessage } from '@/components/line/ImageMessage';
@@ -863,7 +864,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       )}
 
       {/* Messages */}
-      <div className={`flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container min-h-0 ${isMobile ? 'pb-[80px]' : ''}`}>
+      <div className={`flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container min-h-0 ${isMobile ? (enableAISuggestions && aiSuggestion ? 'pb-[280px]' : 'pb-[80px]') : ''}`}>
         {messages.map((message, index) => {
           // Check if we need a date separator before this message
           const showDateSeparator = index === 0 ||
@@ -1024,24 +1025,37 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           );
         })}
         <div ref={messagesEndRef} className="messages-end" />
+
+        {/* AI Suggestion Card - Inside scrollable container for mobile accessibility */}
+        {enableAISuggestions && aiSuggestion && onAcceptSuggestion && onEditSuggestion && onDeclineSuggestion && (
+          <div
+            className={cn(
+              isMobile
+                ? 'fixed left-0 right-0 z-20 shadow-lg'
+                : 'mt-4',
+              'bg-gray-50 border-t'
+            )}
+            style={isMobile ? {
+              bottom: '80px', // Above message input
+              maxHeight: 'calc(100vh - 160px)', // Leave space for header and input
+            } : undefined}
+          >
+            <div className={cn(isMobile ? 'overflow-y-auto h-full p-3' : 'p-3')}>
+              <AISuggestionCard
+                suggestion={aiSuggestion}
+                onAccept={() => onAcceptSuggestion(aiSuggestion)}
+                onEdit={() => onEditSuggestion(aiSuggestion)}
+                onDecline={() => onDeclineSuggestion(aiSuggestion)}
+                onApprove={onApproveSuggestion ? () => onApproveSuggestion(aiSuggestion) : undefined}
+                isVisible={true}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* AI Suggestion Card - Shows between messages and input */}
-      {enableAISuggestions && aiSuggestion && onAcceptSuggestion && onEditSuggestion && onDeclineSuggestion && (
-        <div className="border-t bg-gray-50 p-3">
-          <AISuggestionCard
-            suggestion={aiSuggestion}
-            onAccept={() => onAcceptSuggestion(aiSuggestion)}
-            onEdit={() => onEditSuggestion(aiSuggestion)}
-            onDecline={() => onDeclineSuggestion(aiSuggestion)}
-            onApprove={onApproveSuggestion ? () => onApproveSuggestion(aiSuggestion) : undefined}
-            isVisible={true}
-          />
-        </div>
-      )}
-
       {/* Message Input - Always at bottom */}
-      <div className={`${isMobile ? 'fixed bottom-0 left-0 right-0 safe-area-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.1)]' : 'mt-auto'} bg-white border-t z-10 flex-shrink-0`}>
+      <div className={`${isMobile ? 'fixed bottom-0 left-0 right-0 safe-area-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.1)]' : 'mt-auto'} bg-white border-t z-30 flex-shrink-0`}>
         <MessageInput
           onSendMessage={handleSendMessage}
           replyingToMessage={replyingToMessage}

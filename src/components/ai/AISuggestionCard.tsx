@@ -228,9 +228,18 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
       )}
     >
       {/* Modern single-container design inspired by ChatGPT/Claude */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm space-y-3">
-        {/* Header with AI branding and metadata */}
-        <div className="flex items-start justify-between">
+      <div className={cn(
+        'bg-white border border-gray-200 rounded-lg shadow-sm',
+        // Mobile: Add flex column (height controlled by parent container)
+        isMobile ? 'flex flex-col' : 'space-y-3'
+      )}>
+        {/* Scrollable content area */}
+        <div className={cn(
+          // Mobile: Make content scrollable, not the whole card
+          isMobile ? 'overflow-y-auto flex-1 p-3 space-y-3' : 'p-4 space-y-3'
+        )}>
+          {/* Header with AI branding and metadata */}
+          <div className="flex items-start justify-between">
           <div className="flex items-center space-x-2">
             <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-purple-600 rounded-md flex items-center justify-center">
               <Sparkles className="h-3.5 w-3.5 text-white" />
@@ -312,9 +321,16 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
             </button>
 
             {showAIContext && (
-              <div className="mt-2 space-y-3 text-xs">
+              <div className={cn(
+                'mt-2 space-y-3 text-xs',
+                // Mobile: Make scrollable with max height
+                isMobile ? 'max-h-[30vh] overflow-y-auto' : 'max-h-[40vh] overflow-y-auto'
+              )}>
                 {/* Customer Message */}
-                <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                <div className={cn(
+                  'bg-blue-50 border border-blue-200 rounded',
+                  isMobile ? 'p-1.5' : 'p-2'
+                )}>
                   <div className="font-semibold text-blue-900 mb-1 flex items-center space-x-1">
                     <MessageSquare className="h-3 w-3" />
                     <span>Customer Message</span>
@@ -385,10 +401,10 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
                   <div className="bg-green-50 border border-green-200 rounded p-2">
                     <div className="font-semibold text-green-900 mb-1 flex items-center space-x-1">
                       <TrendingUp className="h-3 w-3" />
-                      <span>Similar Past Messages ({suggestion.debugContext.similarMessagesUsed.filter(s => s.message && s.response).length})</span>
+                      <span>Similar Past Messages ({suggestion.debugContext.similarMessagesUsed?.filter(s => s.message && s.response).length || 0})</span>
                     </div>
                     <div className="max-h-24 overflow-y-auto space-y-1">
-                      {suggestion.debugContext.similarMessagesUsed
+                      {(suggestion.debugContext.similarMessagesUsed || [])
                         .filter(s => s.message && s.response)
                         .slice(0, 3)
                         .map((similar, idx) => (
@@ -483,11 +499,20 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
             </div>
           </div>
         )}
+        </div>
 
-        {/* Modern action buttons */}
+        {/* Sticky action buttons at bottom - Outside scrollable area */}
         {!showFeedbackInput && (
-          <div className="flex items-center justify-between pt-1">
-          <div className="flex space-x-2">
+          <div className={cn(
+            'flex items-center justify-between border-t bg-white',
+            // Mobile: Sticky at bottom with padding
+            isMobile ? 'flex-shrink-0 p-3 pt-3' : 'p-4 pt-1'
+          )}>
+          <div className={cn(
+            'flex space-x-2',
+            // Mobile: Stack buttons vertically for better touch targets
+            isMobile ? 'flex-col space-y-2 space-x-0 w-full' : 'flex-row'
+          )}>
             {requiresApproval ? (
               <>
                 {/* Approval workflow buttons */}
@@ -495,7 +520,10 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
                   onClick={handleApprove}
                   size="sm"
                   disabled={isApproving}
-                  className="h-7 text-xs px-3 bg-green-600 hover:bg-green-700 text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={cn(
+                    'bg-green-600 hover:bg-green-700 text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed',
+                    isMobile ? 'h-10 text-sm px-4 w-full' : 'h-7 text-xs px-3'
+                  )}
                 >
                   {isApproving ? (
                     <>
@@ -504,29 +532,37 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="h-3 w-3 mr-1" />
+                      <CheckCircle className={cn(isMobile ? 'h-4 w-4 mr-2' : 'h-3 w-3 mr-1')} />
                       Approve & Send
                     </>
                   )}
                 </Button>
-                <Button
-                  onClick={handleEdit}
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs px-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-                >
-                  <Edit3 className="h-3 w-3 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  onClick={handleDecline}
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs px-3 text-gray-500 hover:text-red-600 hover:bg-red-50"
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Decline
-                </Button>
+                <div className={cn(isMobile ? 'flex space-x-2' : 'contents')}>
+                  <Button
+                    onClick={handleEdit}
+                    size="sm"
+                    variant="ghost"
+                    className={cn(
+                      'text-gray-600 hover:text-gray-800 hover:bg-gray-100',
+                      isMobile ? 'h-10 text-sm px-4 flex-1' : 'h-7 text-xs px-3'
+                    )}
+                  >
+                    <Edit3 className={cn(isMobile ? 'h-4 w-4 mr-2' : 'h-3 w-3 mr-1')} />
+                    Edit
+                  </Button>
+                  <Button
+                    onClick={handleDecline}
+                    size="sm"
+                    variant="ghost"
+                    className={cn(
+                      'text-gray-500 hover:text-red-600 hover:bg-red-50',
+                      isMobile ? 'h-10 text-sm px-4 flex-1' : 'h-7 text-xs px-3'
+                    )}
+                  >
+                    <X className={cn(isMobile ? 'h-4 w-4 mr-2' : 'h-3 w-3 mr-1')} />
+                    Decline
+                  </Button>
+                </div>
               </>
             ) : (
               <>
@@ -534,29 +570,40 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
                 <Button
                   onClick={handleAccept}
                   size="sm"
-                  className="h-7 text-xs px-3 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+                  className={cn(
+                    'bg-purple-600 hover:bg-purple-700 text-white shadow-sm',
+                    isMobile ? 'h-10 text-sm px-4 w-full' : 'h-7 text-xs px-3'
+                  )}
                 >
-                  <CheckCircle className="h-3 w-3 mr-1" />
+                  <CheckCircle className={cn(isMobile ? 'h-4 w-4 mr-2' : 'h-3 w-3 mr-1')} />
                   Accept
                 </Button>
-                <Button
-                  onClick={handleEdit}
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs px-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-                >
-                  <Edit3 className="h-3 w-3 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  onClick={handleDecline}
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs px-3 text-gray-500 hover:text-red-600 hover:bg-red-50"
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Decline
-                </Button>
+                <div className={cn(isMobile ? 'flex space-x-2' : 'contents')}>
+                  <Button
+                    onClick={handleEdit}
+                    size="sm"
+                    variant="ghost"
+                    className={cn(
+                      'text-gray-600 hover:text-gray-800 hover:bg-gray-100',
+                      isMobile ? 'h-10 text-sm px-4 flex-1' : 'h-7 text-xs px-3'
+                    )}
+                  >
+                    <Edit3 className={cn(isMobile ? 'h-4 w-4 mr-2' : 'h-3 w-3 mr-1')} />
+                    Edit
+                  </Button>
+                  <Button
+                    onClick={handleDecline}
+                    size="sm"
+                    variant="ghost"
+                    className={cn(
+                      'text-gray-500 hover:text-red-600 hover:bg-red-50',
+                      isMobile ? 'h-10 text-sm px-4 flex-1' : 'h-7 text-xs px-3'
+                    )}
+                  >
+                    <X className={cn(isMobile ? 'h-4 w-4 mr-2' : 'h-3 w-3 mr-1')} />
+                    Decline
+                  </Button>
+                </div>
               </>
             )}
           </div>
