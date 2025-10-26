@@ -3,8 +3,10 @@
 /**
  * NotificationBell Component
  *
- * Displays a bell icon with an unread notification count badge.
- * Clicking the bell opens the NotificationDropdown.
+ * Displays a golf-themed notification icon with an unread notification count badge.
+ * Shows a golf tee with a ball on top when there are notifications.
+ * Ball disappears when there are no notifications, showing only the tee.
+ * Clicking the icon opens the NotificationDropdown.
  *
  * Story: NOTIF-007
  *
@@ -12,9 +14,9 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { Bell } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationDropdown } from './NotificationDropdown';
+import { GolfNotificationIcon } from './GolfNotificationIcon';
 
 /**
  * NotificationBell Props
@@ -33,7 +35,8 @@ interface NotificationBellProps {
 /**
  * NotificationBell Component
  *
- * Displays a bell icon with unread count badge and dropdown.
+ * Displays a golf-themed icon with unread count badge and dropdown.
+ * Golf ball appears on tee when notifications exist, disappears when none.
  *
  * @example
  * ```tsx
@@ -89,14 +92,18 @@ export function NotificationBell({
 
   return (
     <div className={`relative ${className}`} ref={containerRef}>
-      {/* Bell Icon Button */}
+      {/* Golf Notification Icon Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
         aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
         title={`${unreadCount} unread notifications`}
       >
-        <Bell size={iconSize} className="text-gray-700" />
+        <GolfNotificationIcon
+          hasNotifications={unreadCount > 0}
+          size={iconSize}
+          teeColor="#374151"
+        />
 
         {/* Unread Count Badge */}
         {unreadCount > 0 && (

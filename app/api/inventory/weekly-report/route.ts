@@ -177,24 +177,37 @@ function generateWeeklyReport(inventoryData: InventoryItem[], reportDate: string
   
   inventoryData.forEach(item => {
     const { product_name, supplier, current_value, reorder_threshold, input_type, category_name } = item;
-    
+
     let needsReorder = false;
-    
+
     if (input_type === 'number' && typeof current_value === 'number' && reorder_threshold !== null) {
       needsReorder = current_value <= reorder_threshold;
     } else if (input_type === 'stock_slider') {
       const valueDisplay = typeof current_value === 'string' ? current_value : 'Unknown status';
       needsReorder = valueDisplay === 'Need to Order' || valueDisplay === 'Out of Stock';
+    } else if (input_type === 'glove_sizes' && typeof current_value === 'string') {
+      // NEW: Handle glove sizes - check if any individual size needs reorder
+      try {
+        const gloveData = JSON.parse(current_value);
+        const lowSizes = Object.entries(gloveData).filter(([size, qty]) => {
+          return typeof qty === 'number' && qty <= (reorder_threshold || 0);
+        });
+        if (lowSizes.length > 0) {
+          needsReorder = true;
+        }
+      } catch (e) {
+        // Invalid JSON, skip
+      }
     }
-    
+
     if (needsReorder) {
       totalLowStockItems++;
-      
+
       // Special handling for Cash
       if (product_name.toLowerCase().includes('cash')) {
         cashNeedsCollection = true;
       }
-      
+
       if (!categoriesWithLowStock.has(category_name)) {
         categoriesWithLowStock.set(category_name, []);
       }
@@ -227,29 +240,58 @@ function generateWeeklyReport(inventoryData: InventoryItem[], reportDate: string
     message += `${'─'.repeat(categoryName.length + 4)}\n`;
     
     items.forEach(item => {
-      const { product_name, supplier, current_value, input_type } = item;
-      
+      const { product_name, supplier, current_value, input_type, reorder_threshold } = item;
+
+      // Special handling for Cash
+      if (product_name.toLowerCase().includes('cash')) {
+        let valueDisplay = 'Unknown';
+        if (input_type === 'number' && typeof current_value === 'number') {
+          valueDisplay = current_value.toString();
+        } else if (typeof current_value === 'string') {
+          valueDisplay = current_value;
+        }
+        message += `💰 ${product_name}: ${valueDisplay} - NEEDS COLLECTION\n`;
+        return;
+      }
+
+      const supplierText = supplier && supplier.trim() !== ''
+        ? ` (Re-order from ${supplier})`
+        : ' (Supplier: TBD)';
+
+      // NEW: Handle glove_sizes products with per-size breakdown
+      if (input_type === 'glove_sizes' && typeof current_value === 'string') {
+        try {
+          const gloveData = JSON.parse(current_value);
+          const lowSizes = Object.entries(gloveData).filter(([size, qty]) => {
+            return typeof qty === 'number' && qty <= (reorder_threshold || 0);
+          });
+
+          if (lowSizes.length > 0) {
+            message += `👔 ${product_name} - ${lowSizes.length} size${lowSizes.length !== 1 ? 's' : ''} need reorder${supplierText}:\n`;
+            lowSizes.forEach(([size, qty]) => {
+              message += `   • Size ${size}: ${qty} in stock\n`;
+            });
+          }
+        } catch (e) {
+          // Fallback if JSON parse fails
+          message += `• ${product_name}: Error reading stock data${supplierText}\n`;
+        }
+        return;
+      }
+
+      // Handle regular products
       let valueDisplay = 'Unknown';
       if (input_type === 'number' && typeof current_value === 'number') {
         valueDisplay = current_value.toString();
       } else if (typeof current_value === 'string') {
         valueDisplay = current_value;
       }
-      
-      // Special handling for Cash
-      if (product_name.toLowerCase().includes('cash')) {
-        message += `💰 ${product_name}: ${valueDisplay} - NEEDS COLLECTION\n`;
+
+      // Handle slider products differently - don't add "in stock"
+      if (input_type === 'stock_slider') {
+        message += `• ${product_name}: ${valueDisplay}${supplierText}\n`;
       } else {
-        const supplierText = supplier && supplier.trim() !== '' 
-          ? ` (Re-order from ${supplier})` 
-          : ' (Supplier: TBD)';
-        
-        // Handle slider products differently - don't add "in stock"
-        if (input_type === 'stock_slider') {
-          message += `• ${product_name}: ${valueDisplay}${supplierText}\n`;
-        } else {
-          message += `• ${product_name}: ${valueDisplay} in stock${supplierText}\n`;
-        }
+        message += `• ${product_name}: ${valueDisplay} in stock${supplierText}\n`;
       }
     });
     

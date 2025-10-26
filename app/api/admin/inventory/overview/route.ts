@@ -38,6 +38,17 @@ export async function GET(request: NextRequest) {
     const lowStock = reorderData?.filter((item: any) => item.reorder_status === 'LOW_STOCK') || []
     const sufficientStock = reorderData?.filter((item: any) => item.reorder_status === 'ADEQUATE') || []
 
+    // NEW: Separate glove products with critical sizes
+    const gloveProductsWithCritical = reorderData?.filter(
+      (item: any) => item.input_type === 'glove_sizes' && item.has_critical_sizes === true
+    ) || []
+
+    // NEW: Calculate glove-specific metrics
+    const criticalGloveSizesCount = gloveProductsWithCritical.reduce(
+      (sum: number, item: any) => sum + (item.critical_size_count || 0),
+      0
+    )
+
     // Calculate summary statistics
     const totalInventoryValue = reorderData?.reduce((total: number, item: any) => {
       const value = (item.unit_cost || 0) * (item.current_stock || 0)
@@ -50,11 +61,16 @@ export async function GET(request: NextRequest) {
         needs_reorder_count: needsReorder.length,
         low_stock_count: lowStock.length,
         sufficient_stock_count: sufficientStock.length,
+        // NEW: Glove-specific summary counts
+        critical_glove_sizes_count: criticalGloveSizesCount,
+        glove_products_with_critical_sizes: gloveProductsWithCritical.length,
       },
       products: {
         needs_reorder: needsReorder.map(mapToAdminProduct),
         low_stock: lowStock.map(mapToAdminProduct),
         sufficient_stock: sufficientStock.map(mapToAdminProduct),
+        // NEW: Glove products with critical sizes
+        glove_products_with_critical_sizes: gloveProductsWithCritical.map(mapToAdminProduct),
       }
     }
 
@@ -88,8 +104,12 @@ function mapToAdminProduct(item: any) {
     last_updated_date: item.last_submission_date || item.date,
     reorder_status: item.reorder_status,
     stock_difference: item.stock_difference,
-    inventory_value: item.unit_cost && item.current_stock 
-      ? Math.round(item.unit_cost * item.current_stock * 100) / 100 
+    inventory_value: item.unit_cost && item.current_stock
+      ? Math.round(item.unit_cost * item.current_stock * 100) / 100
       : null,
+    // NEW: Glove size specific fields
+    size_breakdown: item.size_breakdown || undefined,
+    has_critical_sizes: item.has_critical_sizes || false,
+    critical_size_count: item.critical_size_count || 0,
   }
 } 
