@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
-import { formatCoachingAvailabilityAsText } from '@/lib/line/flex-templates';
+import { formatCoachingAvailabilityAsText, createCoachingAvailabilityMessage } from '@/lib/line/flex-templates';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 /**
@@ -109,12 +109,15 @@ export async function POST(request: NextRequest) {
 
     // Send based on channel type
     if (channelType === 'line') {
-      // Send plain text for LINE (same as other channels for better readability)
-      const textMessage = formatCoachingAvailabilityAsText(coaches);
-      const result = await sendLineMessage(channelUserId, {
-        type: 'text',
-        text: textMessage
+      // Send rich Flex message carousel for LINE
+      // For testing, we'll include unsubscribe with real test audience
+      const flexMessage = createCoachingAvailabilityMessage(coaches, {
+        includeUnsubscribe: true,
+        campaignId: 'test-campaign-' + Date.now(),
+        audienceId: '4a619615-26b4-4f33-8931-177abc711a66'  // Real test audience ID
       });
+
+      const result = await sendLineMessage(channelUserId, flexMessage);
 
       if (!result.success) {
         return NextResponse.json({
@@ -129,8 +132,8 @@ export async function POST(request: NextRequest) {
         .insert({
           conversation_id: conversationId,
           line_user_id: channelUserId,
-          message_text: textMessage,
-          message_type: 'text',
+          message_text: 'Coaching availability (carousel)',
+          message_type: 'flex',
           sender_type: 'admin',
           sender_name: session.user.email || 'Admin',
           timestamp: Date.now(),
@@ -154,7 +157,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: 'Coaching availability sent via LINE'
+        message: 'Coaching availability sent via LINE (Flex carousel)'
       });
 
     } else if (channelType === 'website') {

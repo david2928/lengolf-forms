@@ -672,10 +672,10 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
 
             if (optOutError) {
               console.error('Error handling opt-out:', optOutError);
-              responseMessage = '❌ เกิดข้อผิดพลาดในการยกเลิก กรุณาติดต่อเจ้าหน้าที่ค่ะ';
+              responseMessage = '❌ An error occurred while unsubscribing. Please contact our staff.';
               displayText = '❌ Opt-out failed';
             } else if (optOutResult) {
-              responseMessage = '✅ คุณได้ยกเลิกการรับข้อความจากกลุ่มนี้เรียบร้อยแล้วค่ะ\n\nหากต้องการรับข้อความอีกครั้ง กรุณาติดต่อเจ้าหน้าที่ค่ะ';
+              responseMessage = '✅ You have successfully unsubscribed from this list.\n\nIf you would like to receive messages again, please contact our staff.';
               displayText = '✅ Opted out from broadcast';
 
               // Log the opt-out in broadcast logs if campaign_id is provided
@@ -691,16 +691,16 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
               }
             } else {
               // User was already opted out or not in audience
-              responseMessage = 'ขอบคุณค่ะ คุณไม่ได้อยู่ในรายการรับข้อความนี้แล้วค่ะ';
+              responseMessage = 'Thank you. You are already unsubscribed from this list.';
               displayText = 'Already opted out';
             }
           } catch (error) {
             console.error('Exception handling opt-out:', error);
-            responseMessage = '❌ เกิดข้อผิดพลาดในการยกเลิก กรุณาติดต่อเจ้าหน้าที่ค่ะ';
+            responseMessage = '❌ An error occurred while unsubscribing. Please contact our staff.';
             displayText = '❌ Opt-out error';
           }
         } else {
-          responseMessage = '❌ ข้อมูลไม่ครบถ้วน กรุณาติดต่อเจ้าหน้าที่ค่ะ';
+          responseMessage = '❌ Missing information. Please contact our staff.';
           displayText = '❌ Missing audience ID';
         }
         break;

@@ -797,62 +797,67 @@ function groupConsecutiveSlots(timeSlots: string[]): string[] {
 }
 
 /**
- * Helper function to format coaching availability into minimal, clean Flex message content
- * Structured by: Coach → Date → Time slots (as plain text, non-clickable)
- * Matches the coaching assist format with simple informational display
- * Shows all coaches and all dates (no limits needed for text-only format)
+ * Helper function to create a single coach card bubble for carousel
  */
-function formatAvailabilityForFlex(coaches: any[]): any[] {
-  if (!coaches || coaches.length === 0) {
-    return [{
-      type: 'text',
-      text: 'No available slots',
-      color: '#999999',
-      size: 'sm',
-      align: 'center',
-      margin: 'md'
-    }];
-  }
+function createCoachCard(coach: any, coachIndex: number): any {
+  if (!coach.dates || coach.dates.length === 0) return null;
 
-  const components: any[] = [];
+  // Coach-specific colors
+  const coachColors: Record<string, string> = {
+    'Ratchavin': '#7B68EE',
+    'Boss': '#FF6B6B',
+    'Min': '#4ECDC4',
+    'Noon': '#FF69B4'  // Hot pink - more feminine
+  };
 
-  coaches.forEach((coach: any, coachIndex: number) => {
-    if (!coach.dates || coach.dates.length === 0) return;
+  const coachColor = coachColors[coach.coach_name] || '#17C964';
 
-    // Add spacing between coaches
-    if (coachIndex > 0) {
-      components.push({
+  // Group dates by month
+  const monthGroups: { [month: string]: any[] } = {};
+  coach.dates.forEach((dateInfo: any) => {
+    const date = new Date(dateInfo.date);
+    const monthKey = date.toLocaleDateString('en-US', { month: 'long' });
+
+    if (!monthGroups[monthKey]) {
+      monthGroups[monthKey] = [];
+    }
+
+    monthGroups[monthKey].push(dateInfo);
+  });
+
+  // Build availability content by month
+  const availabilityContent: any[] = [];
+
+  Object.entries(monthGroups).forEach(([month, dates], monthIndex) => {
+    // Month header
+    if (monthIndex > 0) {
+      availabilityContent.push({
         type: 'separator',
-        margin: 'lg'
+        margin: 'md'
       });
     }
 
-    // Coach name header - simple and clean
-    components.push({
+    availabilityContent.push({
       type: 'text',
-      text: `Pro ${coach.coach_name}`,
+      text: month,
       weight: 'bold',
-      size: 'md',
-      color: '#000000',
-      margin: 'lg'
+      size: 'sm',
+      color: '#666666',
+      margin: monthIndex === 0 ? 'md' : 'lg'
     });
 
-    // Process all dates for this coach (no limit needed)
-    coach.dates.forEach((dateInfo: any) => {
-      // Group consecutive time slots into ranges
+    // Dates for this month
+    dates.forEach((dateInfo: any) => {
       const groupedRanges = groupConsecutiveSlots(dateInfo.slots);
       const timeSlotsText = groupedRanges.join(' / ');
 
-      // Format date consistently for better alignment
-      // Parse the date to get day and month
       const date = new Date(dateInfo.date);
       const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
-      const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const day = date.getDate();
 
-      // Use bullet point for better visual separation
-      components.push({
+      availabilityContent.push({
         type: 'text',
-        text: `• ${weekday}, ${monthDay}: ${timeSlotsText}`,
+        text: `• ${weekday} ${day}: ${timeSlotsText}`,
         size: 'sm',
         color: '#333333',
         margin: 'sm',
@@ -861,29 +866,19 @@ function formatAvailabilityForFlex(coaches: any[]): any[] {
     });
   });
 
-  return components;
-}
-
-/**
- * Creates a coaching availability Flex Message showing next 14 days of slots
- * Used for both unified chat and broadcast campaigns
- */
-export function createCoachingAvailabilityMessage(coaches: any[], options?: { includeUnsubscribe?: boolean; campaignId?: string; audienceId?: string }) {
-  const scheduleContents = formatAvailabilityForFlex(coaches);
-
-  const flexMessage: any = {
+  return {
     type: 'bubble',
     hero: {
       type: 'box',
       layout: 'vertical',
       contents: [{
         type: 'text',
-        text: 'Coaching Availability',
+        text: `Pro ${coach.coach_name}`,
         weight: 'bold',
         size: 'xl',
         color: '#FFFFFF'
       }],
-      backgroundColor: '#17C964',
+      backgroundColor: coachColor,
       paddingAll: '20px'
     },
     body: {
@@ -892,57 +887,134 @@ export function createCoachingAvailabilityMessage(coaches: any[], options?: { in
       contents: [
         {
           type: 'text',
-          text: 'Available Next 14 Days',
+          text: 'Available Slots',
           size: 'sm',
           color: '#999999',
           margin: 'none'
         },
-        {
-          type: 'separator',
-          margin: 'md'
-        },
-        {
-          type: 'box',
-          layout: 'vertical',
-          margin: 'lg',
-          spacing: 'sm',
-          contents: scheduleContents
-        }
-      ]
+        ...availabilityContent
+      ],
+      paddingAll: '16px'
     }
   };
+}
 
-  // Add footer with unsubscribe button only if specified (for campaigns)
-  if (options?.includeUnsubscribe && options?.campaignId && options?.audienceId) {
-    flexMessage.footer = {
+/**
+ * Create an unsubscribe action card
+ */
+function createUnsubscribeCard(campaignId: string, audienceId: string): any {
+  return {
+    type: 'bubble',
+    body: {
       type: 'box',
       layout: 'vertical',
       contents: [
         {
-          type: 'separator',
+          type: 'text',
+          text: '⚙️',
+          size: 'xxl',
+          align: 'center',
+          margin: 'md'
+        },
+        {
+          type: 'text',
+          text: 'Manage Subscription',
+          weight: 'bold',
+          size: 'lg',
+          align: 'center',
+          margin: 'md'
+        },
+        {
+          type: 'text',
+          text: 'Not interested in coaching availability updates?',
+          size: 'sm',
+          color: '#666666',
+          align: 'center',
+          wrap: true,
           margin: 'md'
         },
         {
           type: 'button',
-          style: 'link',
-          height: 'sm',
+          style: 'primary',
+          color: '#999999',
+          margin: 'lg',
           action: {
             type: 'postback',
             label: 'Unsubscribe',
-            data: `action=opt_out&campaign_id=${options.campaignId}&audience_id=${options.audienceId}`
-          },
-          color: '#999999'
+            data: `action=opt_out&campaign_id=${campaignId}&audience_id=${audienceId}`,
+            displayText: 'Unsubscribe from coaching updates'
+          }
         }
       ],
-      spacing: 'sm',
-      paddingAll: '8px'
+      paddingAll: '20px'
+    }
+  };
+}
+
+/**
+ * Creates a coaching availability Flex Message as a carousel
+ * Used for both unified chat and broadcast campaigns
+ * Each coach gets their own card, plus an optional unsubscribe card at the end
+ */
+export function createCoachingAvailabilityMessage(coaches: any[], options?: { includeUnsubscribe?: boolean; campaignId?: string; audienceId?: string }) {
+  if (!coaches || coaches.length === 0) {
+    // Fallback single bubble for empty state
+    return {
+      type: 'flex',
+      altText: 'No coaching availability',
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [{
+            type: 'text',
+            text: 'No coaching availability for the next 14 days.',
+            wrap: true,
+            color: '#666666',
+            align: 'center'
+          }]
+        }
+      }
+    };
+  }
+
+  // Create a card for each coach (sorted alphabetically)
+  const coachCards: any[] = [];
+
+  // Sort coaches alphabetically by coach name
+  const sortedCoaches = [...coaches].sort((a, b) =>
+    a.coach_name.localeCompare(b.coach_name)
+  );
+
+  sortedCoaches.forEach((coach: any, index: number) => {
+    const card = createCoachCard(coach, index);
+    if (card) {
+      coachCards.push(card);
+    }
+  });
+
+  // Add unsubscribe card if requested (for campaigns)
+  if (options?.includeUnsubscribe && options?.campaignId && options?.audienceId) {
+    coachCards.push(createUnsubscribeCard(options.campaignId, options.audienceId));
+  }
+
+  // Return carousel if we have multiple cards, otherwise single bubble
+  if (coachCards.length === 1) {
+    return {
+      type: 'flex',
+      altText: 'Coaching Availability',
+      contents: coachCards[0]
     };
   }
 
   return {
     type: 'flex',
-    altText: 'Coaching Availability',
-    contents: flexMessage
+    altText: 'Coaching Availability - Swipe to view all coaches',
+    contents: {
+      type: 'carousel',
+      contents: coachCards
+    }
   };
 }
 
