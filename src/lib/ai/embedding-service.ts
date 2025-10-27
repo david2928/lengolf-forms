@@ -19,6 +19,9 @@ export interface MessageEmbedding {
   responseUsed?: string;
   languageDetected?: 'th' | 'en' | 'auto';
   senderType?: 'customer' | 'staff'; // Track message source
+  // Image support for multi-modal embeddings
+  curatedImageId?: string; // Reference to curated image sent in response
+  imageDescription?: string; // GPT-4 Vision description of the image
 }
 
 export interface SimilarMessage {
@@ -30,6 +33,9 @@ export interface SimilarMessage {
   messageCategory?: string;
   channelType: 'line' | 'website';
   createdAt: string;
+  // Image metadata for multi-modal suggestions
+  curatedImageId?: string;
+  imageDescription?: string;
 }
 
 // Intent detection patterns based on analysis of existing messages
@@ -154,6 +160,9 @@ export async function storeMessageEmbedding(embedding: MessageEmbedding): Promis
         response_used: embedding.responseUsed || null,
         language_detected: embedding.languageDetected || 'auto',
         sender_type: embedding.senderType || 'customer', // Default to customer for backward compatibility
+        // Image support for multi-modal embeddings
+        curated_image_id: embedding.curatedImageId || null,
+        image_description: embedding.imageDescription || null,
       })
       .select('id')
       .single();
@@ -255,6 +264,9 @@ export async function findSimilarMessages(
       messageCategory: row.message_category,
       channelType: row.channel_type,
       createdAt: row.created_at,
+      // Image metadata for multi-modal suggestions
+      curatedImageId: row.curated_image_id || undefined,
+      imageDescription: row.image_description || undefined,
     }));
   } catch (error) {
     console.error('Error finding similar messages:', error);

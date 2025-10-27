@@ -43,6 +43,15 @@ export interface AISuggestion {
   };
   requiresApproval?: boolean;
   approvalMessage?: string;
+  // Image suggestion metadata for multi-modal responses
+  suggestedImages?: Array<{
+    imageId: string;
+    imageUrl: string;
+    title: string;
+    description: string;
+    reason: string;
+    similarityScore?: number;
+  }>;
   // Debug context for transparency
   debugContext?: {
     customerMessage: string;
@@ -72,6 +81,9 @@ interface AISuggestionCardProps {
   onApprove?: (suggestion: AISuggestion) => void; // For approval-required functions
   isVisible: boolean;
   className?: string;
+  // Image suggestion handlers
+  onSendImage?: (imageId: string) => void;
+  onSendWithText?: (imageId: string, text: string) => void;
 }
 
 // Confidence level styling
@@ -116,7 +128,9 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
   onDecline,
   onApprove,
   isVisible,
-  className
+  className,
+  onSendImage,
+  onSendWithText
 }) => {
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);

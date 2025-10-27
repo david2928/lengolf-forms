@@ -112,6 +112,15 @@ export interface AISuggestion {
   approvalMessage?: string;
   // Debug context for transparency
   debugContext?: AIDebugContext;
+  // Image suggestion metadata for multi-modal responses
+  suggestedImages?: Array<{
+    imageId: string;
+    imageUrl: string;
+    title: string;
+    description: string;
+    reason: string; // Why this image is suggested
+    similarityScore?: number;
+  }>;
 }
 
 export interface GenerateSuggestionParams {
@@ -1318,6 +1327,61 @@ IMPORTANT:
       };
     }
 
+    // 7.5. Extract image suggestions from similar messages
+    const suggestedImages: Array<{
+      imageId: string;
+      imageUrl: string;
+      title: string;
+      description: string;
+      reason: string;
+      similarityScore?: number;
+    }> = [];
+
+    // Collect unique image IDs from similar messages that have images
+    const imageIds = new Set<string>();
+    const imageReasons = new Map<string, { score: number; customerQuestion: string }>();
+
+    for (const msg of similarMessages) {
+      if (msg.curatedImageId) {
+        imageIds.add(msg.curatedImageId);
+        // Store the reason (what customer asked and how similar it is)
+        if (!imageReasons.has(msg.curatedImageId) ||
+            msg.similarityScore > (imageReasons.get(msg.curatedImageId)?.score || 0)) {
+          imageReasons.set(msg.curatedImageId, {
+            score: msg.similarityScore,
+            customerQuestion: msg.content
+          });
+        }
+      }
+    }
+
+    // Fetch image details from database
+    if (imageIds.size > 0 && refacSupabaseAdmin) {
+      try {
+        const { data: images, error } = await refacSupabaseAdmin
+          .from('line_curated_images')
+          .select('id, name, category, file_url, description')
+          .in('id', Array.from(imageIds));
+
+        if (!error && images) {
+          for (const image of images) {
+            const reasonData = imageReasons.get(image.id);
+            suggestedImages.push({
+              imageId: image.id,
+              imageUrl: image.file_url,
+              title: image.name,
+              description: image.description || `${image.category}: ${image.name}`,
+              reason: `Similar to: "${reasonData?.customerQuestion || 'previous question'}"`,
+              similarityScore: reasonData?.score
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch curated image details:', error);
+        // Non-critical error, continue without images
+      }
+    }
+
     // 8. Create suggestion object
     const suggestion: Omit<AISuggestion, 'id'> & { debugInfo?: any } = {
       suggestedResponse,
@@ -1335,6 +1399,8 @@ IMPORTANT:
       functionResult,
       requiresApproval,
       approvalMessage,
+      // Image suggestions (multi-modal responses)
+      suggestedImages: suggestedImages.length > 0 ? suggestedImages : undefined,
       // Debug context (for staff transparency)
       debugContext,
       // Debug info (only in dry run mode)
