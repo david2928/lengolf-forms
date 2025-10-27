@@ -81,7 +81,7 @@ async function main() {
     // Filter images that need descriptions
     const imagesToProcess = forceRegenerate
       ? images
-      : images.filter(img => !img.description);
+      : images.filter((img: CuratedImage) => !img.description);
 
     console.log(`${imagesToProcess.length} images need descriptions\n`);
 

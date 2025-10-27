@@ -230,6 +230,19 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
                 onEdit={editSuggestion}
                 onDecline={declineSuggestion}
                 isVisible={true}
+                onSendImage={(imageId) => {
+                  if (onCuratedImagesSelect) {
+                    onCuratedImagesSelect([imageId]);
+                  }
+                }}
+                onSendWithText={async (imageId, text) => {
+                  // Send text first
+                  await onSendMessage(text, 'text');
+                  // Then send image
+                  if (onCuratedImagesSelect) {
+                    onCuratedImagesSelect([imageId]);
+                  }
+                }}
               />
               {/* Re-generate button - TEMPORARILY HIDDEN */}
               {false && enableAISuggestions && lastCustomerMessage && (

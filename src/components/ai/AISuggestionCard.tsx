@@ -17,6 +17,7 @@ import {
   FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ImageSuggestionPreview } from './ImageSuggestionPreview';
 
 export interface AISuggestion {
   id: string;
@@ -321,6 +322,24 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
             <span className="ml-2">• {suggestion.templateUsed.title}</span>
           )}
         </div>
+
+        {/* Image Suggestions - Multi-modal support */}
+        {suggestion.suggestedImages && suggestion.suggestedImages.length > 0 && (
+          <ImageSuggestionPreview
+            images={suggestion.suggestedImages}
+            onSendImage={(imageId) => {
+              if (onSendImage) {
+                onSendImage(imageId);
+              }
+            }}
+            onSendWithText={(imageId, text) => {
+              if (onSendWithText) {
+                onSendWithText(imageId, cleanedResponse);
+              }
+            }}
+            suggestedText={cleanedResponse}
+          />
+        )}
 
         {/* AI Context Viewer - Collapsible */}
         {suggestion.debugContext && (
