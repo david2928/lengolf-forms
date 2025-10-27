@@ -131,7 +131,6 @@ export async function POST(request: NextRequest) {
       .from('line_broadcast_campaigns')
       .insert({
         name: `Coaching Availability - ${new Date().toISOString().split('T')[0]}`,
-        description: 'Weekly coaching availability update',
         audience_id: audience.id,
         message_type: 'flex',
         scheduled_at: new Date().toISOString(),
