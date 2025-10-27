@@ -1,3 +1,4 @@
+#!/usr/bin/env tsx
 /**
  * Batch script to describe ALL curated images using GPT-4 Vision
  *
@@ -11,6 +12,10 @@
  *   npx tsx scripts/describe-all-curated-images.ts
  *   npx tsx scripts/describe-all-curated-images.ts --force  (re-describe all, even if description exists)
  */
+
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
 import { refacSupabaseAdmin } from '../src/lib/refac-supabase';
 
