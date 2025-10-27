@@ -104,7 +104,7 @@ export class AIFunctionExecutor {
       const promises = bays.flatMap(bay =>
         durationsToCheck.map(async (dur) => {
           // Use absolute URL for server-side fetch (localhost during dev, actual domain in production)
-          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+          const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
           const url = `${baseUrl}/api/bookings/available-slots?date=${date}&bay=${encodeURIComponent(bay)}&duration=${dur}&startHour=${startHour}&endHour=22`;
           const response = await fetch(url);
 
@@ -282,7 +282,7 @@ export class AIFunctionExecutor {
       const { date, coach_name, preferred_time } = params;
 
       // Use absolute URL for server-side fetch
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
       const url = `${baseUrl}/api/coaching-assist/availability?date=${date}`;
       const response = await fetch(url);
 
@@ -489,7 +489,7 @@ export class AIFunctionExecutor {
       try {
         const isCoachingBooking = params.booking_type && params.booking_type.toLowerCase().includes('coaching');
 
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
         const response = await fetch(`${baseUrl}/api/line/customers/${customerId}/details`);
         if (response.ok) {
           const data = await response.json();
@@ -593,7 +593,7 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
           const isCoachingBooking = params.booking_type && params.booking_type.toLowerCase().includes('coaching');
 
           // Fetch customer's active packages using the correct endpoint
-          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+          const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
           const response = await fetch(`${baseUrl}/api/line/customers/${customerId}/details`);
           if (response.ok) {
             const data = await response.json();
@@ -697,7 +697,7 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
       }
 
       // Use absolute URL for server-side fetch
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
       const response = await fetch(`${baseUrl}/api/bookings/create`, {
         method: 'POST',
         headers: {
@@ -912,7 +912,7 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
       }
 
       // Use absolute URL for server-side fetch
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
       const response = await fetch(`${baseUrl}/api/bookings/${bookingId}/cancel`, {
         method: 'POST',
         headers: {

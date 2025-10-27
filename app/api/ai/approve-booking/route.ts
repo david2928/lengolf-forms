@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     // Send booking confirmation to conversation if conversationId is provided
     if (body.conversationId && result.data?.booking_id && body.functionResult.functionName === 'create_booking') {
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/line/bookings/${result.data.booking_id}/send-confirmation`, {
+        await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/line/bookings/${result.data.booking_id}/send-confirmation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
