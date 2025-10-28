@@ -944,6 +944,7 @@ async function storeSuggestion(
           })),
           contextSummary: suggestion.contextSummary
         },
+        suggested_images: suggestion.suggestedImages || null,
         staff_user_email: params.staffUserEmail || null,
       })
       .select('id')
@@ -1356,12 +1357,15 @@ IMPORTANT:
     }
 
     // Fetch image details from database
+    console.log('[IMAGE SUGGESTIONS] Image IDs collected:', Array.from(imageIds));
     if (imageIds.size > 0 && refacSupabaseAdmin) {
       try {
         const { data: images, error } = await refacSupabaseAdmin
           .from('line_curated_images')
           .select('id, name, category, file_url, description')
           .in('id', Array.from(imageIds));
+
+        console.log('[IMAGE SUGGESTIONS] Fetched images:', images?.length || 0, 'Error:', error);
 
         if (!error && images) {
           for (const image of images) {
@@ -1375,6 +1379,7 @@ IMPORTANT:
               similarityScore: reasonData?.score
             });
           }
+          console.log('[IMAGE SUGGESTIONS] Final suggestedImages array:', suggestedImages);
         }
       } catch (error) {
         console.warn('Failed to fetch curated image details:', error);

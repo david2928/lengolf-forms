@@ -88,6 +88,8 @@ export async function POST(request: NextRequest) {
         contextSummary: suggestion.contextSummary,
         templateUsed: suggestion.templateUsed,
         similarMessagesCount: suggestion.similarMessagesUsed.length,
+        // Image suggestions for multi-modal responses
+        suggestedImages: suggestion.suggestedImages,
         // Function calling metadata
         functionCalled: suggestion.functionCalled,
         functionResult: suggestion.functionResult,

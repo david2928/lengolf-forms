@@ -140,6 +140,9 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
   const [feedbackText, setFeedbackText] = useState('');
   const [isApproving, setIsApproving] = useState(false); // Loading state for approval
 
+  // Debug: Log suggested images
+  console.log('[FRONTEND] Suggestion suggestedImages:', suggestion.suggestedImages);
+
   const confidenceStyle = getConfidenceStyle(suggestion.confidenceScore);
   const requiresApproval = suggestion.requiresApproval || false;
 
