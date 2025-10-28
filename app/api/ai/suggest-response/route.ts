@@ -76,9 +76,6 @@ export async function POST(request: NextRequest) {
     // Generate AI suggestion
     const suggestion = await generateAISuggestion(suggestionParams);
 
-    // Debug: Log what we're about to return
-    console.log('[API ROUTE] suggestion.suggestedImages:', suggestion.suggestedImages);
-
     // Return suggestion
     return NextResponse.json({
       success: true,

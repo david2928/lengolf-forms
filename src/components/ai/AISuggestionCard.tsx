@@ -141,11 +141,6 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
   const [isApproving, setIsApproving] = useState(false); // Loading state for approval
 
   const confidenceStyle = getConfidenceStyle(suggestion.confidenceScore);
-
-  // Debug: Log suggested images only when they change
-  useEffect(() => {
-    console.log('[FRONTEND] Suggestion suggestedImages:', suggestion.suggestedImages);
-  }, [suggestion.suggestedImages]);
   const requiresApproval = suggestion.requiresApproval || false;
 
   // Extract internal notes from the suggestion
