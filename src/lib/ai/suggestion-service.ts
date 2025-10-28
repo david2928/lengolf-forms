@@ -1090,6 +1090,15 @@ Write naturally in English, be friendly and professional.`;
       msg.senderType === 'staff' || msg.senderType === 'assistant'
     );
 
+    // Also check if staff has already greeted today (to prevent "Hello! ... Hello! ..." repetition)
+    const hasGreetedToday = todaysMessages.some(msg => {
+      if (msg.senderType !== 'staff' && msg.senderType !== 'assistant') return false;
+      const content = (msg.content || '').toLowerCase();
+      return content.startsWith('hello') || content.startsWith('hi') ||
+             content.includes('สวัสดี') || content.startsWith('good morning') ||
+             content.startsWith('good afternoon') || content.startsWith('good evening');
+    });
+
     // Add previous days' messages as text summary to system prompt
     let finalContextPrompt = contextualPrompt;
     if (previousDaysMessages.length > 0) {
@@ -1101,7 +1110,8 @@ ${previousDaysMessages.map(msg => `${msg.senderType}: ${msg.content}`).join('\n'
 
     // Add greeting instruction if this is the first staff message of the day
     // Only greet if we haven't found ANY assistant messages in today's conversation
-    if (!hasAssistantMessageToday) {
+    // AND haven't greeted yet (to prevent "Hello! ... Hello! ..." repetition)
+    if (!hasAssistantMessageToday && !hasGreetedToday) {
       finalContextPrompt += `\n👋 FIRST MESSAGE OF THE DAY:
 This is the FIRST staff response today in this conversation. You MUST start your response with a greeting.
 
@@ -1113,6 +1123,13 @@ IMPORTANT:
 - Greet on the first message of each new day
 - Do NOT greet again during ongoing conversation on the same day
 - If customer already received staff response today, skip the greeting
+
+`;
+    } else if (hasGreetedToday) {
+      // Explicitly tell AI NOT to greet again
+      finalContextPrompt += `\n⚠️ DO NOT GREET AGAIN:
+Staff has already greeted the customer today. Do NOT start with "Hello", "Hi", "สวัสดี", or any greeting.
+Just answer the customer's question directly.
 
 `;
     }
