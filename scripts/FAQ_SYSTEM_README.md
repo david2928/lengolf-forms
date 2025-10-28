@@ -55,13 +55,20 @@ npx tsx --env-file=.env.local scripts/import-faq-csv.ts
 1. Staff fills form with question(s), answer, and selects images
 2. System generates embeddings for English and Thai questions
 3. Embeddings stored in `message_embeddings` with special conversation ID
-4. Image associations created
+4. Image associations created in `faq_image_associations` table
+5. Image descriptions kept simple (e.g., "Social Bay 1") for staff clarity
 
-### When Customer Asks Question:
+### When Customer Asks Question (End-to-End Flow):
 1. AI generates embedding for customer's question
-2. Finds similar FAQs using vector similarity search
-3. Returns FAQ answer + associated images as suggestions
-4. Staff sees similar messages in debug context
+2. Finds similar FAQs using vector similarity search (0.7 threshold)
+3. Fetches associated curated images from `line_curated_images` table
+4. Creates `suggestedImages` array with image metadata:
+   - imageId, imageUrl, title, description
+   - Similarity score and match reason
+5. Saves complete suggestion to `ai_suggestions` table (including images)
+6. API returns suggestion with `suggestedImages` field
+7. Frontend displays images in `ImageSuggestionPreview` component
+8. Staff can send image alone or with text suggestion
 
 ## Categories
 
@@ -130,11 +137,66 @@ Delete FAQ and remove its embeddings
 
 ## Technical Notes
 
+### Vector Embeddings
 - Embeddings use OpenAI `text-embedding-3-small` model
 - FAQ embeddings have special conversation_id: `00000000-0000-0000-0000-000000000001`
-- Embeddings auto-regenerate on FAQ update
+- Embeddings auto-regenerate on FAQ update via `regenerate-single-faq.ts` script
 - Similarity threshold: 0.7 (70% match)
 - Max similar messages returned: 5
+
+### Database Schema
+- **`ai_suggestions`** table includes `suggested_images JSONB` column
+- Index on `suggested_images IS NOT NULL` for performance
+- Image metadata stored as JSON array with: imageId, imageUrl, title, description, reason, similarityScore
+
+### Image Descriptions
+- Keep descriptions simple and staff-friendly (e.g., "Social Bay 1", "Bay Rate Card")
+- Avoid verbose GPT-4 Vision auto-generated descriptions
+- Update via: `UPDATE line_curated_images SET description = name WHERE id = '...'`
+
+### Debugging & Regeneration
+- Server logs: `[IMAGE SUGGESTIONS]` prefix shows backend image processing
+- Frontend logs: `[FRONTEND]` prefix shows component rendering
+- To regenerate single FAQ: `npx tsx --env-file=.env.local scripts/regenerate-single-faq.ts`
+- Clean up old embeddings: `DELETE FROM message_embeddings WHERE conversation_id = '00000000-...' AND created_at < 'YYYY-MM-DD'`
+
+## Troubleshooting
+
+### Images Not Showing in UI
+**Symptoms:** Backend logs show `[IMAGE SUGGESTIONS] Final suggestedImages array: [...]` but frontend receives `undefined`
+
+**Common Causes:**
+1. Missing `suggested_images` column in `ai_suggestions` table
+2. `storeSuggestion()` not saving images field
+3. API route not returning `suggestedImages` in response
+4. Frontend component not receiving field
+
+**Fix Applied (Oct 2025):**
+- Added `suggested_images JSONB` column to `ai_suggestions` table
+- Updated `storeSuggestion()` in `suggestion-service.ts` to save images
+- Updated `/api/ai/suggest-response` route to return `suggestedImages` field
+- Added debug logging throughout the chain
+
+### Duplicate FAQ Matches
+**Symptoms:** Old or incorrect FAQ answers matching instead of updated ones
+
+**Solution:** Clean up old embeddings and regenerate:
+```sql
+DELETE FROM message_embeddings
+WHERE conversation_id = '00000000-0000-0000-0000-000000000001'
+  AND created_at < 'YYYY-MM-DD HH:MM:SS';
+```
+Then regenerate embeddings using `regenerate-single-faq.ts` script.
+
+### Verbose Image Descriptions
+**Symptoms:** Debug context shows long GPT-4 Vision descriptions that aren't helpful
+
+**Solution:** Replace with simple labels:
+```sql
+UPDATE line_curated_images
+SET description = name
+WHERE id IN (SELECT DISTINCT curated_image_id FROM faq_image_associations);
+```
 
 ## Future Enhancements
 
