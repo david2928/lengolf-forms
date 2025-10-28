@@ -379,7 +379,7 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
                     <div className="max-h-32 overflow-y-auto space-y-1">
                       {suggestion.debugContext.conversationHistory.slice(-10).map((msg, idx) => (
                         <div key={idx} className={`text-xs ${msg.senderType === 'user' ? 'text-blue-700' : 'text-green-700'}`}>
-                          <span className="font-medium">{msg.senderType === 'user' ? 'Customer' : 'Staff'}:</span> {msg.content.substring(0, 100)}{msg.content.length > 100 ? '...' : ''}
+                          <span className="font-medium">{msg.senderType === 'user' ? 'Customer' : 'Staff'}:</span> {msg.content ? (msg.content.substring(0, 100) + (msg.content.length > 100 ? '...' : '')) : '[No content]'}
                         </div>
                       ))}
                     </div>

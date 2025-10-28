@@ -28,7 +28,7 @@ export function EnhancedPromotionSelector({
       gradient: 'from-green-500 to-green-600',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
-      newCustomerOnly: true
+      newCustomerOnly: false
     },
     {
       value: 'Student 15%',
