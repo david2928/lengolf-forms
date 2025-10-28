@@ -20,6 +20,7 @@ interface BayAvailabilitySectionProps {
   channelUserId?: string;
   staffName?: string;
   userName?: string;
+  onShareToInput?: (message: string) => void;
 }
 
 const BAYS = ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4'] as const;
@@ -47,7 +48,8 @@ export function BayAvailabilitySection({
   channelType,
   channelUserId,
   staffName,
-  userName
+  userName,
+  onShareToInput
 }: BayAvailabilitySectionProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedBay, setSelectedBay] = useState<string>('all');
@@ -55,7 +57,6 @@ export function BayAvailabilitySection({
   const [allBaysSlots, setAllBaysSlots] = useState<Array<{time: string, bay: string}>>([]);
   const [loadingAllBays, setLoadingAllBays] = useState(false);
   const [fetchedStaffName, setFetchedStaffName] = useState<string>('');
-  const [sendingAvailability, setSendingAvailability] = useState(false);
   const { toast } = useToast();
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -105,35 +106,41 @@ export function BayAvailabilitySection({
   });
 
   // Fetch bays when "All Bays", "Social Bay", or "AI Bay" is selected
-  useEffect(() => {
+  const fetchAllBaysData = useCallback(async () => {
     const baysToFetch = getBaysToFetch();
+    console.log('[BayAvailability] Fetching bay data:', {
+      selectedBay,
+      baysToFetch,
+      date: dateStr,
+      duration
+    });
 
     if (baysToFetch.length > 0) {
-      const fetchBays = async () => {
-        setLoadingAllBays(true);
-        try {
-          const promises = baysToFetch.map(async (bay) => {
-            const response = await fetch(
-              `/api/bookings/available-slots?date=${dateStr}&bay=${encodeURIComponent(bay)}&duration=${duration}&startHour=10&endHour=22`
-            );
-            const data = await response.json();
-            return data.slots || [];
-          });
+      setLoadingAllBays(true);
+      try {
+        const promises = baysToFetch.map(async (bay) => {
+          const response = await fetch(
+            `/api/bookings/available-slots?date=${dateStr}&bay=${encodeURIComponent(bay)}&duration=${duration}&startHour=10&endHour=22`
+          );
+          const data = await response.json();
+          return data.slots || [];
+        });
 
-          const results = await Promise.all(promises);
-          const combined = results.flat();
-          setAllBaysSlots(combined);
-        } catch (err) {
-          console.error('Error fetching bays:', err);
-          setAllBaysSlots([]);
-        } finally {
-          setLoadingAllBays(false);
-        }
-      };
-
-      fetchBays();
+        const results = await Promise.all(promises);
+        const combined = results.flat();
+        setAllBaysSlots(combined);
+      } catch (err) {
+        console.error('Error fetching bays:', err);
+        setAllBaysSlots([]);
+      } finally {
+        setLoadingAllBays(false);
+      }
     }
-  }, [selectedBay, dateStr, duration, getBaysToFetch]);
+  }, [getBaysToFetch, dateStr, duration]);
+
+  useEffect(() => {
+    fetchAllBaysData();
+  }, [fetchAllBaysData]);
 
   const loading = loadingAllBays;
 
@@ -239,8 +246,8 @@ export function BayAvailabilitySection({
     return ranges;
   }, []);
 
-  // Function to send availability message to chat
-  const handleShareAvailability = useCallback(async () => {
+  // Function to populate chat input with availability message
+  const handleShareAvailability = useCallback(() => {
     if (slotsWithBays.length === 0) {
       toast({
         variant: "destructive",
@@ -250,93 +257,70 @@ export function BayAvailabilitySection({
       return;
     }
 
-    if (!conversationId || !channelUserId) {
-      toast({
-        variant: "destructive",
-        title: "Unable to send availability",
-        description: "Conversation information is missing"
-      });
-      return;
-    }
+    // Format the date
+    const dateFormatted = DateTime.fromFormat(dateStr, 'yyyy-MM-dd').toFormat('EEEE, MMMM d');
 
-    try {
-      setSendingAvailability(true);
+    // Group slots by bay type (Social Bay: Bay 1-3, AI Bay: Bay 4)
+    const socialBaySlots: Array<{time: string, availableBays: string[]}> = [];
+    const aiBaySlots: Array<{time: string, availableBays: string[]}> = [];
 
-      // Format the availability message
-      const dateFormatted = DateTime.fromFormat(dateStr, 'yyyy-MM-dd').toFormat('EEEE, MMMM d');
-      const bayText = selectedBay === 'all' ? 'All Bays' :
-                      selectedBay === 'social' ? 'Social Bay' :
-                      selectedBay === 'ai' ? 'AI Bay' : selectedBay;
-      const durationText = DURATIONS.find(d => d.value === duration)?.label || `${duration}h`;
+    slotsWithBays.forEach(slot => {
+      const hasSocialBay = slot.availableBays.some(bay => ['Bay 1', 'Bay 2', 'Bay 3'].includes(bay));
+      const hasAiBay = slot.availableBays.some(bay => bay === 'Bay 4');
 
-      let message = `Bay Availability for ${dateFormatted}\n`;
-      message += `${bayText} - ${durationText} slots\n\n`;
+      if (hasSocialBay) {
+        socialBaySlots.push(slot);
+      }
+      if (hasAiBay) {
+        aiBaySlots.push(slot);
+      }
+    });
 
-      const ranges = groupConsecutiveSlots(slotsWithBays);
+    // Build the message
+    let message = `Bay Availability for ${dateFormatted}\n\n`;
 
-      ranges.forEach(range => {
+    // Add Social Bay section if there are slots
+    if (socialBaySlots.length > 0) {
+      message += `Social Bay\n`;
+      const socialRanges = groupConsecutiveSlots(socialBaySlots);
+      socialRanges.forEach(range => {
         const startTime = DateTime.fromFormat(range.start, 'HH:mm').toFormat('h:mm a');
 
         if (range.start === range.end) {
-          // Single slot - show just the start time
           message += `• ${startTime}\n`;
         } else {
-          // Range of slots - end time is the last slot's start time + 30 minutes (one slot duration)
           const endTime = DateTime.fromFormat(range.end, 'HH:mm').plus({ minutes: 30 }).toFormat('h:mm a');
           message += `• ${startTime} - ${endTime}\n`;
         }
       });
-
-      // Send to the API endpoint
-      const response = await fetch('/api/bay-availability/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          conversationId,
-          channelType: channelType || 'line',
-          channelUserId,
-          availabilityMessage: message
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        const displayName = userName || 'User';
-        toast({
-          title: displayName,
-          description: "Bay availability sent successfully"
-        });
-      } else {
-        const displayName = userName || 'User';
-        if (data.error?.includes('sent outside of allowed window')) {
-          toast({
-            variant: "destructive",
-            title: displayName,
-            description: "Message cannot be sent - customer must message first to reopen 24-hour window"
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: displayName,
-            description: `Failed to send availability: ${data.error}`
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error sending bay availability:', error);
-      const displayName = userName || 'User';
-      toast({
-        variant: "destructive",
-        title: displayName,
-        description: "Failed to send bay availability - please try again"
-      });
-    } finally {
-      setSendingAvailability(false);
+      message += `\n`;
     }
-  }, [slotsWithBays, dateStr, selectedBay, duration, groupConsecutiveSlots, conversationId, channelType, channelUserId, userName, toast]);
+
+    // Add AI Bay section if there are slots
+    if (aiBaySlots.length > 0) {
+      message += `AI Bay\n`;
+      const aiRanges = groupConsecutiveSlots(aiBaySlots);
+      aiRanges.forEach(range => {
+        const startTime = DateTime.fromFormat(range.start, 'HH:mm').toFormat('h:mm a');
+
+        if (range.start === range.end) {
+          message += `• ${startTime}\n`;
+        } else {
+          const endTime = DateTime.fromFormat(range.end, 'HH:mm').plus({ minutes: 30 }).toFormat('h:mm a');
+          message += `• ${startTime} - ${endTime}\n`;
+        }
+      });
+    }
+
+    // Populate the chat input
+    if (onShareToInput) {
+      onShareToInput(message.trim());
+      toast({
+        title: "Success",
+        description: "Bay availability added to message input"
+      });
+    }
+  }, [slotsWithBays, dateStr, groupConsecutiveSlots, onShareToInput, toast]);
 
   return (
     <Card className="border-b rounded-none shadow-md">
@@ -416,7 +400,7 @@ export function BayAvailabilitySection({
           <Button
             variant="outline"
             size="sm"
-            onClick={refreshAvailability}
+            onClick={fetchAllBaysData}
             disabled={loading}
             className="w-full h-9"
           >
@@ -444,7 +428,7 @@ export function BayAvailabilitySection({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={refreshAvailability}
+                onClick={fetchAllBaysData}
               >
                 Try Again
               </Button>
@@ -467,11 +451,10 @@ export function BayAvailabilitySection({
                   variant="outline"
                   size="sm"
                   onClick={handleShareAvailability}
-                  disabled={sendingAvailability}
                   className="h-8 gap-1.5"
                 >
-                  <Share2 className={`h-3.5 w-3.5 ${sendingAvailability ? 'animate-spin' : ''}`} />
-                  <span className="text-xs">{sendingAvailability ? 'Sending...' : 'Share in Chat'}</span>
+                  <Share2 className="h-3.5 w-3.5" />
+                  <span className="text-xs">Share in Chat</span>
                 </Button>
               </div>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 max-h-64 overflow-y-auto">

@@ -11,7 +11,7 @@ import { CustomerModalProvider } from '@/contexts/CustomerModalContext'
 import { CustomerDetailModal } from '@/components/shared/CustomerDetailModal'
 import { NotificationsClientProvider } from '@/components/providers/NotificationsClientProvider'
 import { Analytics } from '@vercel/analytics/react'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,6 +21,12 @@ export const metadata: Metadata = {
     shortcut: '/favicon.svg',
     apple: '/favicon.svg',
   },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  interactiveWidget: 'resizes-content', // Helps keep chat input above keyboard (Chrome/Firefox)
 }
 
 export default async function RootLayout({

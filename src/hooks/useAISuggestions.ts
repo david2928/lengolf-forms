@@ -29,6 +29,15 @@ interface GenerateSuggestionResponse {
       content: string;
     };
     similarMessagesCount: number;
+    // Image suggestions for multi-modal responses
+    suggestedImages?: Array<{
+      imageId: string;
+      imageUrl: string;
+      title: string;
+      description: string;
+      reason: string;
+      similarityScore?: number;
+    }>;
     // Function calling metadata
     functionCalled?: string;
     functionResult?: {
@@ -148,6 +157,8 @@ export const useAISuggestions = ({
         contextSummary: data.suggestion.contextSummary,
         templateUsed: data.suggestion.templateUsed,
         similarMessagesCount: data.suggestion.similarMessagesCount,
+        // Image suggestions (multi-modal responses)
+        suggestedImages: data.suggestion.suggestedImages,
         // Function calling metadata
         functionCalled: data.suggestion.functionCalled,
         functionResult: data.suggestion.functionResult,

@@ -203,6 +203,21 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
+  // Handle textarea focus - scroll into view for mobile keyboard
+  const handleTextareaFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    if (isMobile) {
+      // Wait for keyboard animation to complete, then scroll input into view
+      setTimeout(() => {
+        e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 150);
+    }
+
+    // Apply existing focus styles
+    e.target.style.outline = 'none';
+    e.target.style.border = 'none';
+    e.target.style.boxShadow = 'none';
+  };
+
   // Handle Enter key - different behavior for mobile vs desktop
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
@@ -389,6 +404,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 value={newMessage}
                 onChange={handleTextareaChange}
                 onKeyDown={handleKeyDown}
+                onFocus={handleTextareaFocus}
                 placeholder={isMobile ? "Type a message..." : "Type a message... (Shift + Enter for new line)"}
                 disabled={disabled}
                 className="w-full bg-transparent border-0 focus:border-0 focus:ring-0 focus:outline-none focus:shadow-none text-sm resize-none min-h-[20px] p-0 leading-5 overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
@@ -407,11 +423,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                   WebkitAppearance: 'none',
                   MozAppearance: 'none',
                   appearance: 'none'
-                }}
-                onFocus={(e) => {
-                  e.target.style.outline = 'none';
-                  e.target.style.border = 'none';
-                  e.target.style.boxShadow = 'none';
                 }}
               />
             </div>
@@ -436,6 +447,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               value={newMessage}
               onChange={handleTextareaChange}
               onKeyDown={handleKeyDown}
+              onFocus={handleTextareaFocus}
               placeholder={isMobile ? "Type a message..." : "Type a message... (Shift + Enter for new line)"}
               disabled={disabled}
               className="w-full min-h-[80px] resize-none border-0 focus:border-0 focus:ring-0 focus:outline-none focus:shadow-none active:border-0 active:ring-0 hover:border-0 overflow-hidden mb-3 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
@@ -453,11 +465,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 WebkitAppearance: 'none',
                 MozAppearance: 'none',
                 appearance: 'none'
-              }}
-              onFocus={(e) => {
-                e.target.style.outline = 'none';
-                e.target.style.border = 'none';
-                e.target.style.boxShadow = 'none';
               }}
             />
 
