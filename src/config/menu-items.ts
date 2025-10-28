@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -218,6 +218,12 @@ export const menuItems: MenuItem[] = [
     title: "Message Templates",
     path: '/staff/line-templates',
     description: "Manage standard reply templates for customer communication"
+  },
+  {
+    icon: Brain,
+    title: "FAQ Knowledge Base",
+    path: '/staff/faq-knowledge',
+    description: "Manage AI learning questions and answers with image associations"
   },
   {
     icon: MessageSquare,

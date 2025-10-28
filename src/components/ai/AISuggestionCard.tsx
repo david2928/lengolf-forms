@@ -14,9 +14,11 @@ import {
   Brain,
   TrendingUp,
   MessageSquare,
-  FileText
+  FileText,
+  Image as ImageIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { SimilarMessage } from '@/lib/ai/embedding-service';
 import { ImageSuggestionPreview } from './ImageSuggestionPreview';
 
 export interface AISuggestion {
@@ -62,11 +64,7 @@ export interface AISuggestion {
       createdAt: string;
     }>;
     customerData?: any;
-    similarMessagesUsed: Array<{
-      message: string;
-      response: string;
-      similarity: number;
-    }>;
+    similarMessagesUsed: SimilarMessage[];
     systemPromptExcerpt: string;
     functionSchemas?: any[];
     toolChoice?: string;
@@ -430,21 +428,30 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
 
                 {/* Similar Messages Used - Only show if valid messages exist */}
                 {suggestion.debugContext.similarMessagesUsed && suggestion.debugContext.similarMessagesUsed.length > 0 &&
-                 suggestion.debugContext.similarMessagesUsed.some(s => s.message && s.response) && (
+                 suggestion.debugContext.similarMessagesUsed.some(s => s.content && s.responseUsed) && (
                   <div className="bg-green-50 border border-green-200 rounded p-2">
                     <div className="font-semibold text-green-900 mb-1 flex items-center space-x-1">
                       <TrendingUp className="h-3 w-3" />
-                      <span>Similar Past Messages ({suggestion.debugContext.similarMessagesUsed?.filter(s => s.message && s.response).length || 0})</span>
+                      <span>Similar Past Messages ({suggestion.debugContext.similarMessagesUsed?.filter(s => s.content && s.responseUsed).length || 0})</span>
                     </div>
-                    <div className="max-h-24 overflow-y-auto space-y-1">
+                    <div className="max-h-48 overflow-y-auto space-y-2">
                       {(suggestion.debugContext.similarMessagesUsed || [])
-                        .filter(s => s.message && s.response)
-                        .slice(0, 3)
+                        .filter(s => s.content && s.responseUsed)
                         .map((similar, idx) => (
-                          <div key={idx} className="text-green-800">
-                            <div className="font-medium">Q: {similar.message.substring(0, 50)}...</div>
-                            <div className="text-green-700">A: {similar.response.substring(0, 50)}...</div>
-                            <div className="text-green-600 text-xs">Similarity: {(similar.similarity * 100).toFixed(1)}%</div>
+                          <div key={idx} className="text-green-800 border-b border-green-200 pb-2 last:border-0">
+                            <div className="font-medium flex items-center space-x-1">
+                              <span>Q: {similar.content}</span>
+                              {similar.curatedImageId && (
+                                <ImageIcon className="h-3 w-3 text-blue-600" aria-label="Includes image" />
+                              )}
+                            </div>
+                            <div className="text-green-700 mt-1">A: {similar.responseUsed}</div>
+                            <div className="text-green-600 text-xs mt-1">
+                              Similarity: {(similar.similarityScore * 100).toFixed(1)}%
+                              {similar.curatedImageId && similar.imageDescription && (
+                                <div className="mt-1 text-blue-600">📷 {similar.imageDescription}</div>
+                              )}
+                            </div>
                           </div>
                         ))}
                     </div>
