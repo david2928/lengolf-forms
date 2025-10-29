@@ -509,6 +509,42 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   };
 
+  // Handler for sending image only from AI suggestions
+  const handleSendSuggestedImage = useCallback(async (imageId: string) => {
+    if (!aiSuggestion) return;
+
+    try {
+      await chatOperations.sendBatchImages([imageId]);
+
+      // Dismiss suggestion after sending (treat as accepted)
+      if (onAcceptSuggestion) {
+        onAcceptSuggestion(aiSuggestion);
+      }
+    } catch (error) {
+      console.error('Error sending suggested image:', error);
+    }
+  }, [chatOperations, aiSuggestion, onAcceptSuggestion]);
+
+  // Handler for sending text + image from AI suggestions
+  const handleSendSuggestedImageWithText = useCallback(async (imageId: string, text: string) => {
+    if (!aiSuggestion) return;
+
+    try {
+      // Send text first
+      await handleSendMessage(text);
+
+      // Then send image
+      await chatOperations.sendBatchImages([imageId]);
+
+      // Dismiss suggestion after sending (treat as accepted)
+      if (onAcceptSuggestion) {
+        onAcceptSuggestion(aiSuggestion);
+      }
+    } catch (error) {
+      console.error('Error sending text with image:', error);
+    }
+  }, [chatOperations, aiSuggestion, onAcceptSuggestion, handleSendMessage]);
+
   // Handle copy message text
   const handleCopyMessage = () => {
     console.log('Message text copied to clipboard');
@@ -1051,6 +1087,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 onEdit={() => onEditSuggestion(aiSuggestion)}
                 onDecline={() => onDeclineSuggestion(aiSuggestion)}
                 onApprove={onApproveSuggestion ? () => onApproveSuggestion(aiSuggestion) : undefined}
+                onSendImage={handleSendSuggestedImage}
+                onSendWithText={handleSendSuggestedImageWithText}
                 isVisible={true}
               />
             </div>
