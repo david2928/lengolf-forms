@@ -76,10 +76,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 403 });
     }
 
-    // Build query
+    // Build query - note: We'll fetch package info separately to avoid complex joins
     let query = supabase
       .from('bookings')
-      .select('id, customer_name:name, contact_number:phone_number, booking_date:date, start_time, duration, number_of_pax:number_of_people, bay_number:bay, package_name, notes:customer_notes, status, booking_type')
+      .select('id, customer_name:name, contact_number:phone_number, booking_date:date, start_time, duration, number_of_pax:number_of_people, bay_number:bay, notes:customer_notes, status, booking_type, customer_id')
       .ilike('booking_type', 'Coaching%');
 
     // Create precise booking type filter to prevent data mixing between coaches
@@ -144,11 +144,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch bookings' }, { status: 500 });
     }
     
+    // Fetch package names for all bookings in one query
+    const bookingIds = data?.map(b => b.id) || [];
+    const { data: packageData } = await supabase
+      .schema('backoffice')
+      .from('package_usage')
+      .select('booking_id, packages(package_types(name))')
+      .in('booking_id', bookingIds);
+
+    // Create a map of booking_id to package_name
+    const packageMap = new Map();
+    packageData?.forEach(pu => {
+      packageMap.set(pu.booking_id, pu.packages?.package_types?.name);
+    });
+
     const bookingsWithEndTime = data?.map(b => {
         if (!b.start_time) {
             return {
                 ...b,
-                end_time: ''
+                end_time: '',
+                package_name: packageMap.get(b.id) || null
             }
         }
         const [hours, minutes] = b.start_time.split(':').map(Number);
@@ -158,7 +173,8 @@ export async function GET(request: NextRequest) {
 
         return {
             ...b,
-            end_time
+            end_time,
+            package_name: packageMap.get(b.id) || null
         }
     })
 
