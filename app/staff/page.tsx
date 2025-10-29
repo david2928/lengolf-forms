@@ -7,7 +7,8 @@ import {
   FileText,
   ImageIcon,
   Users,
-  Send
+  Send,
+  Brain
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -50,6 +51,12 @@ const communicationItems = [
     title: "Broadcast Campaigns",
     description: "View and manage broadcast message campaigns and analytics",
     path: "/staff/line-campaigns"
+  },
+  {
+    icon: Brain,
+    title: "FAQ Knowledge Base",
+    description: "Manage AI learning questions and answers with image associations",
+    path: "/staff/faq-knowledge"
   }
 ];
 
