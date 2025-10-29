@@ -153,9 +153,11 @@ export async function GET(request: NextRequest) {
       .in('booking_id', bookingIds);
 
     // Create a map of booking_id to package_name
-    const packageMap = new Map();
-    packageData?.forEach(pu => {
-      packageMap.set(pu.booking_id, pu.packages?.package_types?.name);
+    const packageMap = new Map<string, string | null>();
+    packageData?.forEach((pu: any) => {
+      // Supabase returns nested data, packages is an object with package_types array
+      const packageName = pu.packages?.package_types?.[0]?.name || null;
+      packageMap.set(pu.booking_id, packageName);
     });
 
     const bookingsWithEndTime = data?.map(b => {
