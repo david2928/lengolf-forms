@@ -144,20 +144,35 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch bookings' }, { status: 500 });
     }
     
-    // Fetch package names for all bookings in one query
+    // Fetch package names for all bookings using a simplified query with explicit joins
     const bookingIds = data?.map(b => b.id) || [];
-    const { data: packageData } = await supabase
+
+    // Use a raw SQL query through RPC or direct table query with proper joins
+    const { data: packageData, error: pkgError } = await supabase
       .schema('backoffice')
       .from('package_usage')
-      .select('booking_id, packages(package_types(name))')
+      .select(`
+        booking_id,
+        packages!inner(
+          package_types!inner(
+            name
+          )
+        )
+      `)
       .in('booking_id', bookingIds);
+
+    if (pkgError) {
+      console.error('Error fetching package data:', pkgError);
+    }
 
     // Create a map of booking_id to package_name
     const packageMap = new Map<string, string | null>();
     packageData?.forEach((pu: any) => {
-      // Supabase returns nested data, packages is an object with package_types array
-      const packageName = pu.packages?.package_types?.[0]?.name || null;
-      packageMap.set(pu.booking_id, packageName);
+      // Supabase nested query: packages is an object, package_types is an object inside it
+      const packageName = pu.packages?.package_types?.name || null;
+      if (packageName) {
+        packageMap.set(pu.booking_id, packageName);
+      }
     });
 
     const bookingsWithEndTime = data?.map(b => {
