@@ -178,10 +178,25 @@ export const STOCK_LEVEL_VALUES = {
 
 export type StockLevelValue = keyof typeof STOCK_LEVEL_VALUES;
 
-// Golf glove sizes (Change #3)  
+// Golf glove sizes (Change #3)
 export const GLOVE_SIZES = ['18', '19', '20', '21', '22', '23', '24', '25'] as const;
 export type GloveSize = typeof GLOVE_SIZES[number];
 export type GloveSizeData = Record<GloveSize, number>;
+
+// Glove size status for individual sizes
+export interface GloveSizeStatus {
+  size: GloveSize;
+  quantity: number;
+  status: 'REORDER_NEEDED' | 'LOW_STOCK' | 'ADEQUATE';
+}
+
+// Glove size breakdown with summary
+export interface GloveSizeBreakdown {
+  sizes: GloveSizeStatus[];
+  critical_count: number;
+  low_count: number;
+  total_quantity: number;
+}
 
 // Admin Dashboard Types
 export interface AdminInventoryProductWithStatus {
@@ -202,6 +217,10 @@ export interface AdminInventoryProductWithStatus {
   reorder_status: 'REORDER_NEEDED' | 'LOW_STOCK' | 'ADEQUATE';
   stock_difference?: number;
   inventory_value?: number;
+  // NEW: Glove size specific fields
+  size_breakdown?: GloveSizeBreakdown; // Only present for glove_sizes products
+  has_critical_sizes?: boolean;
+  critical_size_count?: number;
 }
 
 // Admin product update request type
@@ -227,10 +246,15 @@ export interface AdminInventoryOverview {
     needs_reorder_count: number;
     low_stock_count: number;
     sufficient_stock_count: number;
+    // NEW: Glove-specific counts
+    critical_glove_sizes_count: number; // Total individual sizes needing reorder
+    glove_products_with_critical_sizes: number; // Number of glove products with critical sizes
   };
   products: {
     needs_reorder: AdminInventoryProductWithStatus[];
     low_stock: AdminInventoryProductWithStatus[];
     sufficient_stock: AdminInventoryProductWithStatus[];
+    // NEW: Separate section for glove products with critical sizes
+    glove_products_with_critical_sizes?: AdminInventoryProductWithStatus[];
   };
 } 
