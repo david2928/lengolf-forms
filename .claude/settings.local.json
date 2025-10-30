@@ -17,7 +17,10 @@
       "Bash(git commit:*)",
       "Bash(git revert:*)",
       "mcp__supabase__list_tables",
-      "mcp__supabase__apply_migration"
+      "mcp__supabase__apply_migration",
+      "Bash(ipconfig:*)",
+      "Bash(rm:*)",
+      "Bash(powershell -Command \"Get-NetFirewallRule -DisplayName ''Node.js Dev Server (Port 3000)'' | Format-List DisplayName,Enabled,Direction,Action\")"
     ],
     "deny": [],
     "ask": []

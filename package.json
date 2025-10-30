@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
+    "dev:mobile": "node scripts/dev-mobile.js",
     "build": "next build",
     "build:production": "node scripts/production-build.js",
     "start": "next start",

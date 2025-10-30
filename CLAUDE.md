@@ -36,7 +36,8 @@ npm run dev
 
 ### Key Commands
 ```bash
-npm run dev          # Development server
+npm run dev          # Development server (accessible on all network interfaces)
+npm run dev:mobile   # Development server with mobile testing info and QR code
 npm run build        # Production build
 npm run lint         # ESLint
 npm run typecheck    # TypeScript validation
@@ -169,6 +170,48 @@ const { data, error } = await supabase
 ```
 
 ## Testing & Development
+
+### Mobile Testing (Same WiFi Network) - FREE & FASTEST
+
+Test your app on real mobile devices without deploying to production!
+
+**Quick Start:**
+```bash
+# Option 1: Use the helper script (recommended)
+npm run dev:mobile
+
+# Option 2: Standard dev server (also works)
+npm run dev
+```
+
+**How It Works:**
+1. Your PC and phone are on the same WiFi network
+2. The dev server is accessible at your PC's IP address
+3. Open the displayed URL on your mobile browser
+4. Test real keyboard behavior instantly!
+
+**Your Setup:**
+- **PC IP Address:** `192.168.1.196`
+- **Mobile URL:** `http://192.168.1.196:3000`
+
+**Instructions:**
+1. Make sure your phone is on the SAME WiFi as your PC
+2. Run `npm run dev:mobile` (or `npm run dev`)
+3. On your phone, open Safari/Chrome
+4. Navigate to: `http://192.168.1.196:3000`
+5. Bookmark this URL for quick access!
+
+**Features:**
+- ✅ Real device, real keyboard behavior
+- ✅ Hot reload works instantly
+- ✅ No deployment needed
+- ✅ Completely free
+- ✅ Test keyboard overlay, viewport resize, input behavior
+
+**Troubleshooting:**
+- **Can't connect?** Verify both devices on same WiFi
+- **Connection refused?** Make sure dev server is running
+- **IP changed?** Re-run `ipconfig` to get new IP address
 
 ### Development Authentication Bypass
 
