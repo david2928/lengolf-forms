@@ -22,13 +22,17 @@ export const AI_FUNCTION_SCHEMAS: FunctionSchema[] = [
     name: 'check_bay_availability',
     description: `Check real-time bay availability for Social bays (up to 5 players) or AI bay (1-2 players with analytics).
 
+⚠️ CRITICAL: ALWAYS call this function when customer asks about availability, slots, or free times.
+
 Use this when:
-- Customer asks "available tomorrow 2pm?", "ว่างมั้ย", "do you have any slots?"
+- Customer asks "available?", "ว่างมั้ย", "do you have any slots?", "free tonight?", "open tomorrow?"
+- Customer asks "availability for tonight", "any time available", "when are you free"
 - Customer wants to know free time slots without booking yet
+- NEVER respond conversationally without calling this function for availability questions
 
 Do NOT use when:
 - Customer already confirmed booking (e.g., "book it", "3pm please!" after availability shown)
-- Customer is asking general questions about facilities`,
+- Customer is asking general questions about facilities ("Do you have gloves?")`,
     strict: true,
     parameters: {
       type: 'object',
