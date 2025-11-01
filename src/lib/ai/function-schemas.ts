@@ -100,6 +100,8 @@ Do NOT use when:
     name: 'create_booking',
     description: `Create a bay or coaching booking. Requires staff approval before execution.
 
+🚨 CRITICAL: PHONE NUMBER IS MANDATORY - Check before calling this function! 🚨
+
 Use this when:
 - Customer confirms time after availability check: "3.30pm please!", "Confirm 19:00", "book it"
 - Customer directly requests booking: "I want to book 2pm", "ขอจอง 14:00", "reserve tomorrow"
@@ -108,10 +110,22 @@ Use this when:
 Do NOT use when:
 - Customer only asks "available?" without confirming (use check_bay_availability first)
 - Customer is asking general questions
+- Phone number is missing or empty (ask for it first!)
 
-Customer info handling:
-- If CUSTOMER INFORMATION shows ✅ AVAILABLE or ✅ EXISTING: Use exact name and phone from context
-- If shows ⚠️ NEW CUSTOMER: Ask for name and phone before calling this function
+Customer info handling - READ CAREFULLY:
+1. Check CUSTOMER INFORMATION section for name AND phone
+2. If BOTH name and phone are present (not "Unknown", not "Not provided", not empty):
+   → Use exact name and phone from context
+   → Call this function
+3. If EITHER name OR phone is missing:
+   → DO NOT call this function
+   → Ask customer for the missing information first
+   → Only call function after customer provides both name and phone
+
+Validation before calling:
+- customer_name must NOT be: "", "Unknown", or empty
+- phone_number must NOT be: "", "Not provided", or empty
+- If validation fails → Ask for missing info instead of calling function
 
 Defaults if not specified: 1 hour duration, 1 player, social bay`,
     strict: true,
@@ -120,11 +134,11 @@ Defaults if not specified: 1 hour duration, 1 player, social bay`,
       properties: {
         customer_name: {
           type: 'string',
-          description: 'Customer full name. IMPORTANT: If CUSTOMER INFORMATION section shows a name, USE IT. Only use empty string "" if customer context is completely unavailable.'
+          description: 'Customer full name. CRITICAL: Must be a real name (not "Unknown", not empty). If CUSTOMER INFORMATION shows a real name, USE IT. If name is missing, DO NOT call this function - ask customer for name first.'
         },
         phone_number: {
           type: 'string',
-          description: 'Customer phone number. IMPORTANT: If CUSTOMER INFORMATION section shows a phone, USE IT. Only use empty string "" if customer context is completely unavailable.'
+          description: 'Customer phone number (MANDATORY - never empty!). CRITICAL: Must be a real phone number (not "Not provided", not empty, not ""). If CUSTOMER INFORMATION shows a real phone, USE IT. If phone is missing or empty, DO NOT call this function - ask customer for phone number first.'
         },
         email: {
           type: 'string',
