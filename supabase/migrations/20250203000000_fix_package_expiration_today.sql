@@ -60,7 +60,9 @@ COMMENT ON FUNCTION backoffice.get_available_packages() IS
 -- PART 2: Fix customer_active_packages view
 -- ============================================================================
 
-CREATE OR REPLACE VIEW backoffice.customer_active_packages AS
+DROP VIEW IF EXISTS backoffice.customer_active_packages CASCADE;
+
+CREATE VIEW backoffice.customer_active_packages AS
 SELECT
     p.id AS package_id,
     p.customer_id,
@@ -112,7 +114,9 @@ COMMENT ON VIEW backoffice.customer_active_packages IS
 -- PART 3: Fix customer_analytics view
 -- ============================================================================
 
-CREATE OR REPLACE VIEW customer_analytics AS
+DROP VIEW IF EXISTS customer_analytics CASCADE;
+
+CREATE VIEW customer_analytics AS
 SELECT
   c.id,
   c.customer_code,
@@ -280,7 +284,9 @@ COMMENT ON FUNCTION get_customer_kpis(DATE, DATE) IS
 -- PART 5: Fix customer_marketing_analytics view (for consistency)
 -- ============================================================================
 
-CREATE OR REPLACE VIEW public.customer_marketing_analytics AS
+DROP VIEW IF EXISTS public.customer_marketing_analytics CASCADE;
+
+CREATE VIEW public.customer_marketing_analytics AS
 SELECT
     c.id,
     c.customer_code,
