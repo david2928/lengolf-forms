@@ -54,16 +54,26 @@ export function DateRangePicker({
       return 'Select date range...'
     }
 
+    const currentYear = new Date().getFullYear()
+
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear()
+      // Show year only if different from current year
+      return year === currentYear
+        ? format(date, 'MMM d')
+        : format(date, 'MMM d, yyyy')
+    }
+
     if (startDate && !endDate) {
-      return `${format(startDate, 'MMM dd, yyyy')} - Select end date`
+      return `From ${formatDate(startDate)}`
     }
 
     if (!startDate && endDate) {
-      return `Select start date - ${format(endDate, 'MMM dd, yyyy')}`
+      return `Until ${formatDate(endDate)}`
     }
 
     if (startDate && endDate) {
-      return `${format(startDate, 'MMM dd, yyyy')} - ${format(endDate, 'MMM dd, yyyy')}`
+      return `${formatDate(startDate)} - ${formatDate(endDate)}`
     }
 
     return 'Select date range...'
@@ -171,26 +181,22 @@ export function DateRangePicker({
     </>
   )
 
-  const TriggerButton = () => (
-    <Button
-      variant="outline"
-      className={cn(
-        'w-full justify-start text-left font-normal text-sm h-8',
-        (!startDate && !endDate) && 'text-muted-foreground'
-      )}
-      disabled={disabled}
-      onClick={() => setIsOpen(true)}
-    >
-      <CalendarIcon className="mr-2 h-4 w-4" />
-      {formatDateRange()}
-    </Button>
-  )
-
   return (
     <div className={cn("space-y-2", className)}>
       {isMobile ? (
         <>
-          <TriggerButton />
+          <Button
+            variant="outline"
+            className={cn(
+              'w-full justify-start text-left font-normal text-sm h-8',
+              (!startDate && !endDate) && 'text-muted-foreground'
+            )}
+            disabled={disabled}
+            onClick={() => setIsOpen(true)}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {formatDateRange()}
+          </Button>
           <Dialog open={isOpen} onOpenChange={() => {}}>
             <DialogContent
               className="max-w-full w-full h-full max-h-screen p-0 gap-0 flex flex-col [&>button[aria-label='Close']]:hidden [&>button:last-child]:hidden"
@@ -213,7 +219,17 @@ export function DateRangePicker({
       ) : (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
-            <TriggerButton />
+            <Button
+              variant="outline"
+              className={cn(
+                'w-full justify-start text-left font-normal text-sm h-8',
+                (!startDate && !endDate) && 'text-muted-foreground'
+              )}
+              disabled={disabled}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {formatDateRange()}
+            </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-4" align="start">
             <DesktopCalendarContent />

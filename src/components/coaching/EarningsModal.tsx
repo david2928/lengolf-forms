@@ -70,8 +70,8 @@ export function EarningsModal({ isOpen, onClose, coachId }: EarningsModalProps) 
     coachId,
     rateType: rateTypeFilter,
     period: period || undefined,
-    startDate: startDate && endDate ? startDate.toLocaleDateString('en-CA') : undefined,
-    endDate: startDate && endDate ? endDate.toLocaleDateString('en-CA') : undefined,
+    startDate: startDate ? startDate.toLocaleDateString('en-CA') : undefined,
+    endDate: endDate ? endDate.toLocaleDateString('en-CA') : undefined,
   };
 
   const { earningsData: data, isLoading: loading, mutate } = useCoachEarnings(filters, isOpen);

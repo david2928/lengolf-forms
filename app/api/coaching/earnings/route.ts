@@ -101,11 +101,11 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('coach', targetCoachCode);
 
-    // Apply date filters - only apply custom date filters when both start and end are provided
-    if (calculatedStartDate && (period || (startDate && endDate))) {
+    // Apply date filters - support both period-based and custom date ranges (including partial ranges)
+    if (calculatedStartDate) {
       query = query.gte('date', calculatedStartDate);
     }
-    if (calculatedEndDate && (period || (startDate && endDate))) {
+    if (calculatedEndDate) {
       // Use lte to include records on the end date
       query = query.lte('date', calculatedEndDate);
     }
@@ -135,10 +135,10 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact', head: true })
       .eq('coach', targetCoachCode);
 
-    if (calculatedStartDate && (period || (startDate && endDate))) {
+    if (calculatedStartDate) {
       countQuery = countQuery.gte('date', calculatedStartDate);
     }
-    if (calculatedEndDate && (period || (startDate && endDate))) {
+    if (calculatedEndDate) {
       // Use lte to include records on the end date
       countQuery = countQuery.lte('date', calculatedEndDate);
     }

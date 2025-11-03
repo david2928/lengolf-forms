@@ -40,31 +40,34 @@ export function SimpleCalendar({
   const startDate = startOfWeek(monthStart)
   const endDate = endOfWeek(monthEnd)
 
-  const dateFormat = 'MMM yyyy'
   const rows = []
   let days = []
   let day = startDate
   let formattedDate = ''
 
+  // Format month header - always show year since we have space now
+  const monthHeaderFormat = 'MMM yyyy'
+
   // Create header
   const header = (
-    <div className="flex items-center justify-between p-2">
+    <div className="flex items-center p-2">
       <Button
         variant="outline"
         size="sm"
         onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-        className="h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+        className="h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100 flex-shrink-0"
       >
         <ChevronLeft className="h-4 w-4" />
       </Button>
-      <div className="text-sm font-medium">
-        {format(monthStart, dateFormat)}
+      <div className="text-sm font-medium whitespace-nowrap ml-3">
+        {format(monthStart, monthHeaderFormat)}
       </div>
+      <div className="flex-1"></div>
       <Button
         variant="outline"
         size="sm"
         onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-        className="h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+        className="h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100 flex-shrink-0"
       >
         <ChevronRight className="h-4 w-4" />
       </Button>
@@ -129,7 +132,7 @@ export function SimpleCalendar({
   }
 
   return (
-    <div className={cn("p-3", className)}>
+    <div className={cn("p-3 min-w-[280px]", className)}>
       {header}
       {weekdaysRow}
       <div className="space-y-1">
