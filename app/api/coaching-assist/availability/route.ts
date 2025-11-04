@@ -12,9 +12,16 @@ const supabase = createClient(
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getDevSession(authOptions, request);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Allow internal server calls from cron jobs
+    const internalSecret = request.headers.get('x-internal-secret');
+    const isInternalCall = internalSecret === process.env.CRON_SECRET;
+
+    // Check authentication for external calls
+    if (!isInternalCall) {
+      const session = await getDevSession(authOptions, request);
+      if (!session?.user?.email) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     // Staff access - all authenticated users can access coaching assistance data

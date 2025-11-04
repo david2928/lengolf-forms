@@ -29,9 +29,18 @@ export async function GET(request: NextRequest) {
     })();
 
     // Fetch availability data
+    const headers: Record<string, string> = {};
+
+    // Pass internal secret if this is an internal call
+    if (isInternalCall) {
+      headers['X-Internal-Secret'] = process.env.CRON_SECRET || '';
+    } else {
+      headers['cookie'] = request.headers.get('cookie') || '';
+    }
+
     const response = await fetch(
       `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/coaching-assist/availability?fromDate=${fromDate}&toDate=${toDate}`,
-      { headers: { cookie: request.headers.get('cookie') || '' } }
+      { headers }
     );
 
     if (!response.ok) {
