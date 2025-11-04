@@ -1,26 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dir:*)",
-      "Bash(cat:*)",
-      "Read(//c/c/vs_code/lengolf-forms-feature/lengolf-forms/**)",
-      "Bash(npx tsx:*)",
-      "Bash(npm run typecheck:*)",
-      "mcp__supabase__execute_sql",
-      "Bash(npm run lint)",
-      "Bash(curl:*)",
-      "Bash(git log:*)",
-      "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Complete AI function calling implementation and improvements\n\nMajor AI System Enhancements:\n- Implemented OpenAI function calling for 6 core functions (check_bay_availability, get_coaching_availability, create_booking, lookup_booking, lookup_customer, cancel_booking)\n- Added staff approval workflow for booking creation and cancellation\n- Improved coaching availability to return detailed time slots grouped into ranges\n- Added tomorrow date handling to system prompt for better date context\n- Fixed AI cancellation to send LINE staff notifications matching manual cancellation format\n\nTechnical Improvements:\n- Added function schemas with strict mode validation (function-schemas.ts)\n- Created function executor with approval workflow (function-executor.ts)\n- Enhanced suggestion service with comprehensive context and conversation history\n- Added TypeScript type safety for bay_type parameter in booking creation\n- Fixed type errors in coaching availability and booking routes\n\nDocumentation & Testing:\n- Added comprehensive AI evaluation framework and test scripts\n- Created detailed documentation for function calling implementation\n- Added test samples for AI behavior validation\n- Documented cancellation implementation and test results\n\nBug Fixes:\n- Fixed TypeScript errors in booking create route (bay_type type)\n- Fixed implicit any type in coaching availability filter\n- Standardized LINE notification format for AI cancellations to match staff cancellations\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git push:*)",
-      "WebSearch",
-      "Bash(git commit:*)",
-      "Bash(git revert:*)",
-      "mcp__supabase__list_tables",
-      "mcp__supabase__apply_migration",
-      "Bash(ipconfig:*)",
-      "Bash(rm:*)",
-      "Bash(powershell -Command \"Get-NetFirewallRule -DisplayName ''Node.js Dev Server (Port 3000)'' | Format-List DisplayName,Enabled,Direction,Action\")"
+      "mcp__supabase__get_logs"
     ],
     "deny": [],
     "ask": []

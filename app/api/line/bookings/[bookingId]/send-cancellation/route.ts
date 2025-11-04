@@ -7,6 +7,7 @@ import { createBookingCancellationMessage } from '@/lib/line/flex-templates';
 interface CancellationConfirmationRequest {
   messageFormat?: 'text' | 'flex' | 'both';
   senderName?: string;
+  lineUserId?: string; // Optional: Use this LINE user ID if provided (from conversation context)
 }
 
 /**
@@ -36,7 +37,7 @@ export async function POST(
     }
 
     const { bookingId } = await params;
-    const { messageFormat = 'flex', senderName = 'Admin' }: CancellationConfirmationRequest = await request.json();
+    const { messageFormat = 'flex', senderName = 'Admin', lineUserId: providedLineUserId }: CancellationConfirmationRequest = await request.json();
 
     // Fetch booking details with customer information
     const { data: booking, error: bookingError } = await refacSupabaseAdmin
@@ -83,10 +84,25 @@ export async function POST(
     }
 
     // Find linked LINE user for this customer
-    let lineUserId: string | null = null;
+    // Priority: Use provided lineUserId from conversation context if available
+    let lineUserId: string | null = providedLineUserId || null;
     let conversationId: string | null = null;
 
-    if (booking.customer_id) {
+    // If lineUserId was provided, get the conversation ID
+    if (lineUserId) {
+      const { data: conversation } = await refacSupabaseAdmin
+        .from('line_conversations')
+        .select('id')
+        .eq('line_user_id', lineUserId)
+        .single();
+
+      if (conversation) {
+        conversationId = conversation.id;
+      }
+    }
+
+    // Fallback: If no LINE user ID provided, try to find by customer_id
+    if (!lineUserId && booking.customer_id) {
       // Check if customer has a linked LINE user
       const { data: lineUser } = await refacSupabaseAdmin
         .from('line_users')
@@ -110,7 +126,7 @@ export async function POST(
       }
     }
 
-    // If no LINE user found, try to find by phone number
+    // Fallback: If still no LINE user found, try to find by phone number
     if (!lineUserId && booking.phone_number) {
       const { data: customerWithLineUser } = await refacSupabaseAdmin
         .from('customers')

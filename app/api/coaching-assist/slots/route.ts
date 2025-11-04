@@ -7,9 +7,16 @@ import { authOptions } from '@/lib/auth-config';
  * GET /api/coaching-assist/slots
  */
 export async function GET(request: NextRequest) {
-  const session = await getDevSession(authOptions, request);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Allow internal server calls from cron jobs
+  const internalSecret = request.headers.get('x-internal-secret');
+  const isInternalCall = internalSecret === process.env.CRON_SECRET;
+
+  // Check authentication for external calls
+  if (!isInternalCall) {
+    const session = await getDevSession(authOptions, request);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   try {

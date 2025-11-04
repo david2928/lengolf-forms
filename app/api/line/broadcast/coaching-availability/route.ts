@@ -13,11 +13,16 @@ async function getCoachingAvailability() {
 
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
     const response = await fetch(
-      `${baseUrl}/api/coaching-assist/slots?fromDate=${today.toISOString().split('T')[0]}&toDate=${fourteenDaysLater.toISOString().split('T')[0]}`
+      `${baseUrl}/api/coaching-assist/slots?fromDate=${today.toISOString().split('T')[0]}&toDate=${fourteenDaysLater.toISOString().split('T')[0]}`,
+      {
+        headers: {
+          'X-Internal-Secret': process.env.CRON_SECRET || ''
+        }
+      }
     );
 
     if (!response.ok) {
-      console.error('Failed to fetch coaching slots');
+      console.error('Failed to fetch coaching slots:', response.status, await response.text());
       return null;
     }
 

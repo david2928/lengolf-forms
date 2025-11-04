@@ -431,7 +431,8 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
           },
           body: JSON.stringify({
             messageFormat: 'flex', // Send interactive flex message for LINE
-            senderName: 'Admin'
+            senderName: 'Admin',
+            lineUserId: selectedConversation?.lineUserId // Pass the LINE user ID from current conversation
           }),
         });
 
