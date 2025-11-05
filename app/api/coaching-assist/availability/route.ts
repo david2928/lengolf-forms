@@ -87,15 +87,15 @@ export async function GET(request: NextRequest) {
     const availabilitySlots = (coaches || []).map((coach) => {
       // Find coach's schedules and blocks
       const weeklySchedule = weeklySchedulesResult.data?.find(s => s.coach_id === coach.id && s.day_of_week === todayDayOfWeek);
-      const dateOverride = dateOverridesResult.data?.find(d => d.coach_id === coach.id);
+      const dateOverrides = dateOverridesResult.data?.filter(d => d.coach_id === coach.id) || [];
       const recurringBlocks = recurringBlocksResult.data?.filter(b => b.coach_id === coach.id) || [];
-      
+
       // Get today's bookings for this coach using precise filtering
       const coachBookingType = getBookingTypeFilter(coach.coach_display_name || coach.coach_name);
-      const allTodayBookings = todayBookingsResult.data?.filter(b => 
+      const allTodayBookings = todayBookingsResult.data?.filter(b =>
         b.booking_type === coachBookingType
       ) || [];
-      
+
       // Determine availability based on priority: override > weekly schedule
       let isAvailableToday = false;
       let availableHoursActual = 0;
@@ -103,30 +103,44 @@ export async function GET(request: NextRequest) {
       let scheduleStart = 0;
       let scheduleEnd = 0;
 
-      if (dateOverride) {
-        // Date override takes precedence
-        isAvailableToday = dateOverride.override_type === 'available';
-        if (isAvailableToday && dateOverride.start_time && dateOverride.end_time) {
-          scheduleStart = parseInt(dateOverride.start_time.split(':')[0]);
-          scheduleEnd = parseInt(dateOverride.end_time.split(':')[0]);
-          availableHoursActual = scheduleEnd - scheduleStart;
-          nextAvailable = dateOverride.start_time;
-        }
+      // Separate available and unavailable overrides
+      const availableOverrides = dateOverrides.filter(o => o.override_type === 'available');
+      const unavailableOverrides = dateOverrides.filter(o => o.override_type === 'unavailable');
+
+      if (availableOverrides.length > 0) {
+        // Available overrides take precedence - replace weekly schedule entirely
+        isAvailableToday = true;
+        const firstOverride = availableOverrides[0];
+        scheduleStart = parseInt(firstOverride.start_time.split(':')[0]);
+        scheduleEnd = parseInt(firstOverride.end_time.split(':')[0]);
+        availableHoursActual = scheduleEnd - scheduleStart;
+        nextAvailable = firstOverride.start_time;
       } else if (weeklySchedule && weeklySchedule.is_available) {
-        // Use weekly schedule
+        // Use weekly schedule as base
         isAvailableToday = true;
         scheduleStart = parseInt(weeklySchedule.start_time.split(':')[0]);
         scheduleEnd = parseInt(weeklySchedule.end_time.split(':')[0]);
         availableHoursActual = scheduleEnd - scheduleStart;
-        
+
         // Subtract recurring blocks
         const blockedHours = recurringBlocks.reduce((sum, block) => {
           const blockStart = parseInt(block.start_time.split(':')[0]);
           const blockEnd = parseInt(block.end_time.split(':')[0]);
           return sum + (blockEnd - blockStart);
         }, 0);
-        
-        availableHoursActual = Math.max(0, availableHoursActual - blockedHours);
+
+        // Subtract unavailable override blocks
+        const overrideBlockedHours = unavailableOverrides.reduce((sum, override) => {
+          const overrideStart = parseInt(override.start_time.split(':')[0]);
+          const overrideEnd = parseInt(override.end_time.split(':')[0]);
+          return sum + (overrideEnd - overrideStart);
+        }, 0);
+
+        availableHoursActual = Math.max(0, availableHoursActual - blockedHours - overrideBlockedHours);
+      } else if (unavailableOverrides.length > 0) {
+        // Only unavailable overrides exist with no weekly schedule - show as unavailable
+        isAvailableToday = false;
+        availableHoursActual = 0;
       } else {
         // No availability setup - show as unavailable
         isAvailableToday = false;
@@ -142,10 +156,10 @@ export async function GET(request: NextRequest) {
 
       // Calculate utilization and availability
       const bookedHours = todayBookings.reduce((sum, booking) => sum + (booking.duration || 1), 0);
-      
+
       // Get next available slot with filtered bookings
-      if (weeklySchedule && weeklySchedule.is_available) {
-        nextAvailable = getNextAvailableSlotReal(weeklySchedule, recurringBlocks, todayBookings);
+      if (weeklySchedule && weeklySchedule.is_available && availableOverrides.length === 0) {
+        nextAvailable = getNextAvailableSlotReal(weeklySchedule, recurringBlocks, unavailableOverrides, todayBookings);
       }
 
       // Get unique students count from all bookings (not just today) using precise filtering
@@ -240,17 +254,17 @@ export async function GET(request: NextRequest) {
         ) || [];
 
         // Get coach's availability settings for this day
-        const weeklySchedule = allWeeklySchedules?.find(s => 
+        const weeklySchedule = allWeeklySchedules?.find(s =>
           s.coach_id === coach.id && s.day_of_week === dayOfWeek
         );
 
-        // Check for date overrides
-        const dateOverride = allDateOverrides?.find(d => 
+        // Check for date overrides - get all for this coach/day
+        const dateOverrides = allDateOverrides?.filter(d =>
           d.coach_id === coach.id && d.override_date === dayString
-        );
+        ) || [];
 
         // Check recurring blocks
-        const recurringBlocks = allRecurringBlocks?.filter(b => 
+        const recurringBlocks = allRecurringBlocks?.filter(b =>
           b.coach_id === coach.id && b.day_of_week === dayOfWeek
         ) || [];
 
@@ -260,29 +274,43 @@ export async function GET(request: NextRequest) {
         let scheduleStart = 0;
         let scheduleEnd = 0;
 
-        if (dateOverride) {
-          // Date override takes precedence
-          isCoachAvailable = dateOverride.override_type === 'available';
-          if (isCoachAvailable && dateOverride.start_time && dateOverride.end_time) {
-            scheduleStart = parseInt(dateOverride.start_time.split(':')[0]);
-            scheduleEnd = parseInt(dateOverride.end_time.split(':')[0]);
-            availableHours = scheduleEnd - scheduleStart;
-          }
+        // Separate available and unavailable overrides
+        const availableOverrides = dateOverrides.filter(o => o.override_type === 'available');
+        const unavailableOverrides = dateOverrides.filter(o => o.override_type === 'unavailable');
+
+        if (availableOverrides.length > 0) {
+          // Available overrides take precedence - replace weekly schedule entirely
+          isCoachAvailable = true;
+          const firstOverride = availableOverrides[0];
+          scheduleStart = parseInt(firstOverride.start_time.split(':')[0]);
+          scheduleEnd = parseInt(firstOverride.end_time.split(':')[0]);
+          availableHours = scheduleEnd - scheduleStart;
         } else if (weeklySchedule && weeklySchedule.is_available) {
-          // Use weekly schedule
+          // Use weekly schedule as base
           isCoachAvailable = true;
           scheduleStart = parseInt(weeklySchedule.start_time.split(':')[0]);
           scheduleEnd = parseInt(weeklySchedule.end_time.split(':')[0]);
           availableHours = scheduleEnd - scheduleStart;
-          
+
           // Subtract recurring blocks
           const blockedHours = recurringBlocks.reduce((sum, block) => {
             const blockStart = parseInt(block.start_time.split(':')[0]);
             const blockEnd = parseInt(block.end_time.split(':')[0]);
             return sum + (blockEnd - blockStart);
           }, 0);
-          
-          availableHours = Math.max(0, availableHours - blockedHours);
+
+          // Subtract unavailable override blocks
+          const overrideBlockedHours = unavailableOverrides.reduce((sum, override) => {
+            const overrideStart = parseInt(override.start_time.split(':')[0]);
+            const overrideEnd = parseInt(override.end_time.split(':')[0]);
+            return sum + (overrideEnd - overrideStart);
+          }, 0);
+
+          availableHours = Math.max(0, availableHours - blockedHours - overrideBlockedHours);
+        } else if (unavailableOverrides.length > 0) {
+          // Only unavailable overrides exist with no weekly schedule - show as unavailable
+          isCoachAvailable = false;
+          availableHours = 0;
         }
 
         // Filter bookings to only count those within scheduled hours
@@ -294,9 +322,9 @@ export async function GET(request: NextRequest) {
 
         // Calculate booking status
         const totalBookedHours = dayBookings.reduce((sum, booking) => sum + (booking.duration || 1), 0);
-        
-        // IMPORTANT: If no schedule exists (not dateOverride and not weeklySchedule), show as unavailable
-        if (!dateOverride && !weeklySchedule) {
+
+        // IMPORTANT: If no schedule exists (no dateOverrides and no weeklySchedule), show as unavailable
+        if (dateOverrides.length === 0 && !weeklySchedule) {
           // No availability configured for this coach on this day
           weeklyAvailability[dayString][coach.id] = {
             status: 'unavailable',
@@ -325,20 +353,26 @@ export async function GET(request: NextRequest) {
           }
 
           // Include schedule information
-          const schedule = dateOverride ? {
+          // If available overrides exist, use those times; otherwise use weekly schedule
+          const schedule = availableOverrides.length > 0 ? {
             status,
-            start_time: dateOverride.start_time,
-            end_time: dateOverride.end_time,
+            start_time: availableOverrides[0].start_time,
+            end_time: availableOverrides[0].end_time,
             available_hours: availableHours,
             booked_hours: totalBookedHours,
-            bookings: dayBookings.map(b => ({ start_time: b.start_time, duration: b.duration }))
+            bookings: dayBookings.map(b => ({ start_time: b.start_time, duration: b.duration })),
+            blocked_periods: [] // No blocked periods when using available override
           } : {
             status,
             start_time: weeklySchedule.start_time,
             end_time: weeklySchedule.end_time,
             available_hours: availableHours,
             booked_hours: totalBookedHours,
-            bookings: dayBookings.map(b => ({ start_time: b.start_time, duration: b.duration }))
+            bookings: dayBookings.map(b => ({ start_time: b.start_time, duration: b.duration })),
+            blocked_periods: [
+              ...recurringBlocks.map((b: any) => ({ start_time: b.start_time, end_time: b.end_time, type: 'recurring' })),
+              ...unavailableOverrides.map((o: any) => ({ start_time: o.start_time, end_time: o.end_time, type: 'override' }))
+            ]
           };
 
           weeklyAvailability[dayString][coach.id] = schedule;
@@ -372,35 +406,49 @@ export async function GET(request: NextRequest) {
 }
 
 // Helper function to find next available slot using real availability data
-function getNextAvailableSlotReal(weeklySchedule: any, recurringBlocks: any[], bookings: any[]): string | null {
+function getNextAvailableSlotReal(
+  weeklySchedule: any,
+  recurringBlocks: any[],
+  unavailableOverrides: any[],
+  bookings: any[]
+): string | null {
   if (!weeklySchedule || !weeklySchedule.is_available) return null;
-  
+
   const startHour = parseInt(weeklySchedule.start_time.split(':')[0]);
   const endHour = parseInt(weeklySchedule.end_time.split(':')[0]);
-  
+
   for (let hour = startHour; hour < endHour; hour++) {
     const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
-    
+
     // Check if this time is blocked by recurring blocks
     const isBlocked = recurringBlocks.some(block => {
       const blockStart = parseInt(block.start_time.split(':')[0]);
       const blockEnd = parseInt(block.end_time.split(':')[0]);
       return hour >= blockStart && hour < blockEnd;
     });
-    
+
     if (isBlocked) continue;
-    
+
+    // Check if this time is blocked by unavailable overrides
+    const isOverrideBlocked = unavailableOverrides.some(override => {
+      const overrideStart = parseInt(override.start_time.split(':')[0]);
+      const overrideEnd = parseInt(override.end_time.split(':')[0]);
+      return hour >= overrideStart && hour < overrideEnd;
+    });
+
+    if (isOverrideBlocked) continue;
+
     // Check if this time is booked
     const isBooked = bookings.some(booking => {
       const bookingStart = parseInt(booking.start_time.split(':')[0]);
       const bookingEnd = bookingStart + (booking.duration || 1);
       return hour >= bookingStart && hour < bookingEnd;
     });
-    
+
     if (!isBooked) {
       return timeSlot;
     }
   }
-  
+
   return null; // No availability
 }

@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
             const startTime = schedule.start_time;
             const endTime = schedule.end_time;
             const bookedSlots = schedule.bookings || [];
+            const blockedPeriods = schedule.blocked_periods || [];
 
             if (startTime && endTime) {
               const availableSlots: string[] = [];
@@ -90,12 +91,22 @@ export async function GET(request: NextRequest) {
               for (let hour = startHour; hour < endHour; hour++) {
                 const timeStr = `${hour.toString().padStart(2, '0')}:00`;
 
+                // Check if this time is booked
                 const isBooked = bookedSlots.some((booking: any) => {
                   const bookingHour = parseInt(booking.start_time.split(':')[0]);
                   return hour >= bookingHour && hour < bookingHour + booking.duration;
                 });
 
-                if (!isBooked) {
+                if (isBooked) continue;
+
+                // Check if this time is in a blocked period
+                const isBlocked = blockedPeriods.some((period: any) => {
+                  const periodStartHour = parseInt(period.start_time.split(':')[0]);
+                  const periodEndHour = parseInt(period.end_time.split(':')[0]);
+                  return hour >= periodStartHour && hour < periodEndHour;
+                });
+
+                if (!isBlocked) {
                   availableSlots.push(timeStr);
                 }
               }
