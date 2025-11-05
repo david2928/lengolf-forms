@@ -169,8 +169,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch current period data using the enhanced functions
-    const { data: currentData, error: currentError } = await refacSupabaseAdmin.rpc('get_dashboard_summary_enhanced', {
+    // Fetch current period data using the OPTIMIZED enhanced function
+    // This uses a materialized view for customer first purchase dates to avoid expensive NOT EXISTS queries
+    // Falls back to the original function if the optimized one is not available
+    const useOptimizedFunction = process.env.USE_OPTIMIZED_DASHBOARD !== 'false'; // Default to true
+    const functionName = useOptimizedFunction ? 'get_dashboard_summary_enhanced_optimized' : 'get_dashboard_summary_enhanced';
+
+    const { data: currentData, error: currentError } = await refacSupabaseAdmin.rpc(functionName, {
       start_date: startDate,
       end_date: endDate,
       comparison_start_date: comparison_start_date,
