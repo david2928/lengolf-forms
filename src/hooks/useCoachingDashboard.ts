@@ -263,7 +263,7 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
 
   const generateTimeSlotsFromSchedule = (coach: Coach, dateString: string, schedule: any): AvailableSlot[] => {
     const slots: AvailableSlot[] = [];
-    
+
     if (!schedule || !schedule.start_time || !schedule.end_time) {
       return slots;
     }
@@ -271,7 +271,7 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
     // Parse start and end times
     const startHour = parseInt(schedule.start_time.split(':')[0]);
     const endHour = parseInt(schedule.end_time.split(':')[0]);
-    
+
     // Get booked slots from schedule
     const bookedSlots = new Set();
     if (schedule.bookings) {
@@ -283,11 +283,28 @@ export function useCoachingDashboard({ selectedWeek, selectedStartDate, selected
       });
     }
 
-    // Generate slots for each hour in the schedule
+    // Get blocked hours from blocked_periods (recurring blocks + unavailable overrides)
+    const blockedHours = new Set();
+    if (schedule.blocked_periods) {
+      schedule.blocked_periods.forEach((period: any) => {
+        const periodStartHour = parseInt(period.start_time.split(':')[0]);
+        const periodEndHour = parseInt(period.end_time.split(':')[0]);
+        for (let hour = periodStartHour; hour < periodEndHour; hour++) {
+          blockedHours.add(hour);
+        }
+      });
+    }
+
+    // Generate slots for each hour in the schedule, excluding blocked periods
     for (let hour = startHour; hour < endHour; hour++) {
+      // Skip this hour if it's in a blocked period
+      if (blockedHours.has(hour)) {
+        continue;
+      }
+
       const time = `${hour.toString().padStart(2, '0')}:00`;
       const isBooked = bookedSlots.has(hour);
-      
+
       slots.push({
         coach_id: coach.coach_id,
         coach_name: coach.coach_display_name,
