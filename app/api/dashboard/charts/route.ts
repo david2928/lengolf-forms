@@ -83,9 +83,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Call the database function using your existing Supabase setup
+    // Call the OPTIMIZED database function that uses materialized view for better YTD performance
+    // Falls back to the original function if the optimized one is not available
+    const useOptimizedFunction = process.env.USE_OPTIMIZED_DASHBOARD !== 'false'; // Default to true
+    const functionName = useOptimizedFunction ? 'get_dashboard_charts_optimized' : 'get_dashboard_charts';
+
     const { data, error } = await refacSupabaseAdmin
-      .rpc('get_dashboard_charts', {
+      .rpc(functionName, {
         start_date: startDate,
         end_date: endDate
       });
