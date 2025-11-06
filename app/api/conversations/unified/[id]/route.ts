@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { refacSupabase } from '@/lib/supabase';
+import { refacSupabase } from '@/lib/refac-supabase';
 
 /**
  * GET /api/conversations/unified/[id]
@@ -8,10 +8,10 @@ import { refacSupabase } from '@/lib/supabase';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
