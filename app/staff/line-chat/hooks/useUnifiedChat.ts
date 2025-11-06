@@ -302,15 +302,18 @@ export const useUnifiedChat = (options: UseUnifiedChatOptions = {}): UseUnifiedC
         return conv;
       });
 
-      // IMMEDIATELY sort the updated conversations by lastMessageAt (newest first)
+      // Sort the updated conversations by lastMessageAt (newest first)
       const sorted = updated.sort((a, b) => {
         const aTime = new Date(a.lastMessageAt || 0).getTime();
         const bTime = new Date(b.lastMessageAt || 0).getTime();
         return bTime - aTime; // Descending order
       });
 
+      // Check if order actually changed by comparing conversation IDs
+      const orderChanged = sorted.some((conv, i) => conv.id !== prev[i]?.id);
 
-      return sorted;
+      // Return same reference if order unchanged to prevent unnecessary re-renders
+      return orderChanged ? sorted : prev;
     });
   }, []);
 

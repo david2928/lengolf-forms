@@ -1,12 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { formatFileSize } from '@/lib/image-library-compression';
+import {
+  formatFileSize,
+  validateLibraryImage,
+  compressLibraryImage,
+  getCompressionSavings,
+  type CompressionResult
+} from '@/lib/image-library-compression';
 import {
   PREDEFINED_CATEGORIES,
   CATEGORY_DESCRIPTIONS,
@@ -21,7 +27,9 @@ import {
   Calendar,
   FileImage,
   Tag,
-  BarChart3
+  BarChart3,
+  Upload,
+  Zap
 } from 'lucide-react';
 
 interface CuratedImage {
@@ -43,9 +51,16 @@ interface ImageEditModalProps {
   onSuccess: (updatedImage: CuratedImage) => void;
 }
 
+interface ProcessedImageData {
+  originalFile: File;
+  compressionResult: CompressionResult;
+  preview: string;
+}
+
 export function ImageEditModal({ isOpen, onClose, image, onSuccess }: ImageEditModalProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form fields
   const [name, setName] = useState('');
@@ -53,6 +68,11 @@ export function ImageEditModal({ isOpen, onClose, image, onSuccess }: ImageEditM
   const [category, setCategory] = useState('');
   const [tags, setTags] = useState('');
   const [customCategory, setCustomCategory] = useState('');
+
+  // File replacement state
+  const [newFile, setNewFile] = useState<ProcessedImageData | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
   // Initialize form with image data
   useEffect(() => {
@@ -89,6 +109,100 @@ export function ImageEditModal({ isOpen, onClose, image, onSuccess }: ImageEditM
     }
   };
 
+  // Process file (compression and validation)
+  const processFile = useCallback(async (file: File) => {
+    setProcessing(true);
+    setError('');
+
+    try {
+      // Validate file
+      const validation = validateLibraryImage(file);
+      if (!validation.valid) {
+        throw new Error(validation.error || 'Invalid file');
+      }
+
+      // Compress
+      const compressionResult = await compressLibraryImage(file);
+
+      // Generate preview
+      const preview = URL.createObjectURL(compressionResult.compressedFile);
+
+      setNewFile({
+        originalFile: file,
+        compressionResult,
+        preview
+      });
+    } catch (err) {
+      console.error('Error processing file:', err);
+      setError(err instanceof Error ? err.message : 'Failed to process file');
+    } finally {
+      setProcessing(false);
+    }
+  }, []);
+
+  // Handle file selection
+  const handleFileSelect = useCallback((file: File) => {
+    processFile(file);
+  }, [processFile]);
+
+  // Handle file input change
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  // Handle drag and drop
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  // Handle paste
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      // Only handle paste if modal is open
+      if (!isOpen) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            handleFileSelect(file);
+            break;
+          }
+        }
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('paste', handlePaste);
+      return () => document.removeEventListener('paste', handlePaste);
+    }
+  }, [isOpen, handleFileSelect]);
+
   const resetForm = () => {
     setName('');
     setDescription('');
@@ -97,6 +211,14 @@ export function ImageEditModal({ isOpen, onClose, image, onSuccess }: ImageEditM
     setCustomCategory('');
     setError('');
     setSaving(false);
+    setNewFile(null);
+    setProcessing(false);
+    setDragActive(false);
+
+    // Clean up preview URL
+    if (newFile?.preview) {
+      URL.revokeObjectURL(newFile.preview);
+    }
   };
 
   const handleClose = () => {
@@ -110,6 +232,7 @@ export function ImageEditModal({ isOpen, onClose, image, onSuccess }: ImageEditM
     const originalTags = image.tags;
 
     return (
+      newFile !== null || // File replacement counts as a change
       name.trim() !== image.name ||
       description.trim() !== (image.description || '') ||
       category.trim() !== (image.category || '') ||
@@ -132,26 +255,51 @@ export function ImageEditModal({ isOpen, onClose, image, onSuccess }: ImageEditM
       // Use custom category if provided, otherwise use selected predefined category
       const finalCategory = category === 'custom' ? customCategory.trim() : category.trim();
 
-      const response = await fetch(`/api/line/curated-images/${image.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          description: description.trim() || null,
-          category: finalCategory || null,
-          tags: tags.split(',').map(tag => tag.trim()).filter(Boolean)
-        }),
-      });
+      // If file is being replaced, use FormData
+      if (newFile) {
+        const formData = new FormData();
+        formData.append('file', newFile.compressionResult.compressedFile);
+        formData.append('name', name.trim());
+        formData.append('description', description.trim() || '');
+        formData.append('category', finalCategory || '');
+        formData.append('tags', JSON.stringify(tags.split(',').map(tag => tag.trim()).filter(Boolean)));
 
-      const data = await response.json();
+        const response = await fetch(`/api/line/curated-images/${image.id}`, {
+          method: 'PUT',
+          body: formData,
+        });
 
-      if (data.success) {
-        onSuccess(data.image);
-        handleClose();
+        const data = await response.json();
+
+        if (data.success) {
+          onSuccess(data.image);
+          handleClose();
+        } else {
+          throw new Error(data.error || 'Failed to update image');
+        }
       } else {
-        throw new Error(data.error || 'Failed to update image');
+        // No file replacement, use JSON (original behavior)
+        const response = await fetch(`/api/line/curated-images/${image.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: name.trim(),
+            description: description.trim() || null,
+            category: finalCategory || null,
+            tags: tags.split(',').map(tag => tag.trim()).filter(Boolean)
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          onSuccess(data.image);
+          handleClose();
+        } else {
+          throw new Error(data.error || 'Failed to update image');
+        }
       }
     } catch (err) {
       console.error('Error updating image:', err);
@@ -190,19 +338,53 @@ export function ImageEditModal({ isOpen, onClose, image, onSuccess }: ImageEditM
           <div className="grid md:grid-cols-2 gap-6">
             {/* Left: Image Preview & Stats */}
             <div className="space-y-4">
-              {/* Image Preview */}
-              <div>
-                <div className="text-sm font-medium mb-2">Image Preview</div>
-                <div className="aspect-square relative border rounded-lg overflow-hidden bg-gray-50">
-                  <Image
-                    src={image.file_url}
-                    alt={image.name}
-                    fill
-                    className="object-contain"
-                    unoptimized={true}
-                  />
+              {/* Image Preview - Side by Side if replacing */}
+              {newFile ? (
+                <div>
+                  <div className="text-sm font-medium mb-2">Image Comparison</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Original Image */}
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Current</div>
+                      <div className="aspect-square relative border rounded-lg overflow-hidden bg-gray-50">
+                        <Image
+                          src={image.file_url}
+                          alt={image.name}
+                          fill
+                          className="object-contain"
+                          unoptimized={true}
+                        />
+                      </div>
+                    </div>
+                    {/* New Image */}
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">New</div>
+                      <div className="aspect-square relative border-2 border-blue-500 rounded-lg overflow-hidden bg-gray-50">
+                        <Image
+                          src={newFile.preview}
+                          alt="New image"
+                          fill
+                          className="object-contain"
+                          unoptimized={true}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <div className="text-sm font-medium mb-2">Current Image</div>
+                  <div className="aspect-square relative border rounded-lg overflow-hidden bg-gray-50">
+                    <Image
+                      src={image.file_url}
+                      alt={image.name}
+                      fill
+                      className="object-contain"
+                      unoptimized={true}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Image Stats */}
               <div className="border rounded-lg p-4 space-y-3">
@@ -239,7 +421,7 @@ export function ImageEditModal({ isOpen, onClose, image, onSuccess }: ImageEditM
               </div>
 
               {/* Current Tags Display */}
-              {image.tags.length > 0 && (
+              {image.tags.length > 0 && !newFile && (
                 <div>
                   <div className="text-sm font-medium mb-2">Current Tags</div>
                   <div className="flex flex-wrap gap-2">
@@ -250,6 +432,126 @@ export function ImageEditModal({ isOpen, onClose, image, onSuccess }: ImageEditM
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* Compression Results */}
+              {newFile && (
+                <div className="border rounded-lg p-4 bg-green-50 border-green-200">
+                  <div className="flex items-center mb-3">
+                    <Zap className="w-4 h-4 text-green-600 mr-2" />
+                    <span className="font-medium text-green-800 text-sm">
+                      Compression Complete
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-gray-600 text-xs">Original Size</div>
+                      <div className="font-medium">
+                        {formatFileSize(newFile.compressionResult.originalSize)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-gray-600 text-xs">Compressed Size</div>
+                      <div className="font-medium text-green-700">
+                        {formatFileSize(newFile.compressionResult.compressedSize)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-gray-600 text-xs">Saved</div>
+                      <div className="font-medium text-green-700">
+                        {(() => {
+                          const savings = getCompressionSavings(
+                            newFile.compressionResult.originalSize,
+                            newFile.compressionResult.compressedSize
+                          );
+                          return `${savings.saved} (${savings.percentage}%)`;
+                        })()}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-gray-600 text-xs">Dimensions</div>
+                      <div className="font-medium">
+                        {newFile.compressionResult.dimensions.compressed.width} × {newFile.compressionResult.dimensions.compressed.height}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Badge variant="secondary" className="mt-3 text-xs">
+                    {getCompressionSavings(
+                      newFile.compressionResult.originalSize,
+                      newFile.compressionResult.compressedSize
+                    ).description}
+                  </Badge>
+                </div>
+              )}
+
+              {/* Replace Image Button / Drop Zone */}
+              {!newFile && !processing && (
+                <div
+                  onDragEnter={handleDrag}
+                  onDragOver={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDrop={handleDrop}
+                  className={`border-2 border-dashed rounded-lg p-4 transition-colors ${
+                    dragActive
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    onChange={handleFileInputChange}
+                    className="hidden"
+                  />
+                  <div className="text-center">
+                    <Upload className={`w-8 h-8 mx-auto mb-2 ${
+                      dragActive ? 'text-blue-500' : 'text-gray-400'
+                    }`} />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="mb-2"
+                    >
+                      Choose File
+                    </Button>
+                    <div className="text-xs text-gray-500">
+                      {dragActive ? 'Drop image here' : 'Or drag & drop / paste (Ctrl+V)'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Processing Indicator */}
+              {processing && (
+                <div className="flex items-center justify-center p-6 text-gray-500 border rounded-lg">
+                  <RefreshCw className="w-5 h-5 animate-spin mr-2" />
+                  Compressing image...
+                </div>
+              )}
+
+              {/* Cancel File Replacement */}
+              {newFile && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (newFile.preview) {
+                      URL.revokeObjectURL(newFile.preview);
+                    }
+                    setNewFile(null);
+                  }}
+                  className="w-full"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Cancel File Replacement
+                </Button>
               )}
             </div>
 

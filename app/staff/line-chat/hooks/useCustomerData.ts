@@ -834,28 +834,26 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
           return;
         }
 
-        // Subscribe to bookings table changes for this customer
+        // Subscribe to ALL bookings table changes (global subscription for cross-tab updates)
         channel = supabaseRealtime
-          .channel(`bookings:customer_id=eq.${selectedConversation.customerId}`)
+          .channel('all-bookings-updates')
           .on(
             'postgres_changes',
             {
               event: '*', // Listen to INSERT, UPDATE, DELETE
               schema: 'public',
-              table: 'bookings',
-              filter: `customer_id=eq.${selectedConversation.customerId}`
+              table: 'bookings'
+              // No filter - receive ALL booking changes for cross-tab updates
             },
             (payload) => {
-              console.log('🔔 Booking change detected:', payload);
-              // Refresh customer details to get updated bookings
-              if (selectedConversation?.customerId) {
+              // Only refresh if this booking belongs to currently selected customer
+              const bookingCustomerId = payload.new?.customer_id || payload.old?.customer_id;
+              if (selectedConversation?.customerId === bookingCustomerId) {
                 fetchCustomerDetails(selectedConversation.customerId);
               }
             }
           )
-          .subscribe((status) => {
-            console.log(`📡 Bookings subscription status: ${status} for customer ${selectedConversation.customerId}`);
-          });
+          .subscribe();
       } catch (error) {
         console.error('Error setting up bookings subscription:', error);
       }

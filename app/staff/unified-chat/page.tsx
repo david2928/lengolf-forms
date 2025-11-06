@@ -85,28 +85,37 @@ export default function UnifiedChatPage() {
 
   // Stable callback for new conversations - wrapped in useCallback to prevent recreation
   const handleNewConversation = useCallback(async (newConv: any) => {
-    // Instead of doing a full refresh (which would cause re-renders and lose input state),
-    // we check if the conversation already exists and only refresh if it doesn't
-    setConversationsRef.current(prev => {
-      const exists = prev.some(conv => conv.id === newConv.id);
+    // Fetch full conversation data with proper formatting from API
+    try {
+      const response = await fetch(`/api/conversations/unified/${newConv.id}`);
+      const data = await response.json();
 
-      // If conversation already exists, don't do anything (it will be updated via handleConversationUpdate)
-      if (exists) {
-        return prev;
-      }
+      if (data.success && data.conversation) {
+        setConversationsRef.current(prev => {
+          // Check if conversation already exists
+          const exists = prev.some(conv => conv.id === data.conversation.id);
+          if (exists) {
+            return prev; // Already exists, will be updated via handleConversationUpdate
+          }
 
-      // If it's truly a new conversation, trigger a debounced refresh to get proper formatting
-      // but only if we haven't seen this conversation before
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
+          // Add directly with proper formatting - no refresh needed
+          const newList = [data.conversation, ...prev];
 
-      refreshTimeoutRef.current = setTimeout(() => {
+          // Sort by last message time
+          return newList.sort((a, b) => {
+            const aTime = new Date(a.lastMessageAt || 0).getTime();
+            const bTime = new Date(b.lastMessageAt || 0).getTime();
+            return bTime - aTime;
+          });
+        });
+      } else {
+        // Fallback to full refresh if API call fails
         refreshConversationsRef.current();
-      }, 300); // Wait 300ms for additional events before refreshing
-
-      return prev; // Don't modify state yet, let the refresh handle it
-    });
+      }
+    } catch (error) {
+      // Fallback to full refresh on error
+      refreshConversationsRef.current();
+    }
   }, []); // Empty deps - using ref to access refresh function
 
   // Set up realtime conversation updates with stable callbacks
@@ -378,63 +387,6 @@ export default function UnifiedChatPage() {
       window.removeEventListener('popstate', handlePopState);
     };
   }, [isMobile, showMobileChat, handleMobileBackToList]);
-
-  // Page Visibility API + Page Lifecycle handling for mobile refresh
-  // This handles when users return to the tab/app after being away
-  useEffect(() => {
-    let lastRefreshTime = Date.now();
-    const REFRESH_THRESHOLD = 30000; // 30 seconds - only refresh if away longer than this
-
-    // Handle visibilitychange - works for tab switching and app switching (most cases)
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // Page became visible
-        const timeSinceLastRefresh = Date.now() - lastRefreshTime;
-
-        // Only refresh if it's been more than the threshold since last refresh
-        if (timeSinceLastRefresh > REFRESH_THRESHOLD) {
-          console.log('🔄 Page visible after', Math.round(timeSinceLastRefresh / 1000), 'seconds - refreshing conversations');
-          refreshConversations();
-          lastRefreshTime = Date.now();
-        }
-      }
-    };
-
-    // Handle pageshow - specifically for iOS Safari bfcache (back/forward cache)
-    // This fires when page is loaded from cache (e.g., using back button)
-    const handlePageShow = (event: PageTransitionEvent) => {
-      // event.persisted is true when page loaded from bfcache
-      if (event.persisted) {
-        console.log('🔄 Page restored from bfcache - refreshing conversations');
-        refreshConversations();
-        lastRefreshTime = Date.now();
-      }
-    };
-
-    // Handle focus - additional coverage for some mobile scenarios
-    const handleFocus = () => {
-      const timeSinceLastRefresh = Date.now() - lastRefreshTime;
-
-      // More conservative refresh on focus (only after 60 seconds)
-      if (timeSinceLastRefresh > 60000) {
-        console.log('🔄 Window focused after', Math.round(timeSinceLastRefresh / 1000), 'seconds - refreshing conversations');
-        refreshConversations();
-        lastRefreshTime = Date.now();
-      }
-    };
-
-    // Add all event listeners
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pageshow', handlePageShow);
-    window.addEventListener('focus', handleFocus);
-
-    // Cleanup on unmount
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pageshow', handlePageShow);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [refreshConversations]);
 
   // Clear messages when conversation changes and fetch new ones
   useEffect(() => {

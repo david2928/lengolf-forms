@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { deleteImage } from '@/lib/line/storage-handler';
+import { deleteImage, uploadCuratedImage } from '@/lib/line/storage-handler';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!,
@@ -49,7 +49,7 @@ export async function GET(
 }
 
 /**
- * Update a curated image's metadata
+ * Update a curated image's metadata and optionally replace the file
  * PUT /api/line/curated-images/[id]
  */
 export async function PUT(
@@ -58,8 +58,39 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const body = await request.json();
-    const { name, description, category, tags } = body;
+    const contentType = request.headers.get('content-type') || '';
+
+    let name: string;
+    let description: string | null | undefined;
+    let category: string | null | undefined;
+    let tags: string[] | undefined;
+    let file: File | null = null;
+
+    // Check if this is FormData (file upload) or JSON (metadata only)
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+
+      // Extract file if present
+      const fileEntry = formData.get('file');
+      if (fileEntry && fileEntry instanceof File) {
+        file = fileEntry;
+      }
+
+      // Extract metadata
+      name = formData.get('name') as string;
+      description = formData.get('description') as string | null;
+      category = formData.get('category') as string | null;
+
+      const tagsJson = formData.get('tags') as string;
+      tags = tagsJson ? JSON.parse(tagsJson) : undefined;
+    } else {
+      // JSON payload (original behavior)
+      const body = await request.json();
+      name = body.name;
+      description = body.description;
+      category = body.category;
+      tags = body.tags;
+    }
 
     // Validation
     if (!name || typeof name !== 'string' || !name.trim()) {
@@ -120,6 +151,21 @@ export async function PUT(
       name: name.trim(),
       updated_at: new Date().toISOString()
     };
+
+    // If file is provided, upload it and update file_url
+    if (file) {
+      const uploadResult = await uploadCuratedImage(file, id);
+
+      if (!uploadResult.success) {
+        return NextResponse.json({
+          success: false,
+          error: uploadResult.error || 'Failed to upload image file'
+        }, { status: 500 });
+      }
+
+      // Update file_url with new URL
+      updateData.file_url = uploadResult.url;
+    }
 
     if (description !== undefined) {
       updateData.description = description?.trim() || null;
