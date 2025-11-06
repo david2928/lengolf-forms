@@ -847,8 +847,8 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
             },
             (payload) => {
               // Only refresh if this booking belongs to currently selected customer
-              const bookingCustomerId = payload.new?.customer_id || payload.old?.customer_id;
-              if (selectedConversation?.customerId === bookingCustomerId) {
+              const bookingCustomerId = (payload.new as any)?.customer_id || (payload.old as any)?.customer_id;
+              if (selectedConversation?.customerId && selectedConversation.customerId === bookingCustomerId) {
                 fetchCustomerDetails(selectedConversation.customerId);
               }
             }
