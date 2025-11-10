@@ -92,6 +92,8 @@ Always run tests after making changes
 Version Control
 
 Stage changes early and often with git add
+CRITICAL: ALWAYS run 'npm run typecheck' AND 'npm run lint' before every commit
+NEVER commit code without passing typecheck - TypeScript errors will break production builds
 Make meaningful, atomic commits
 Use descriptive commit messages
 Handle merge conflicts carefully
