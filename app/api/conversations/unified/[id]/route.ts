@@ -28,6 +28,16 @@ export async function GET(
       .single();
 
     if (error) {
+      // PGRST116 means no rows found - this is expected for new conversations
+      // that don't have messages yet (view filters on non-empty last_message_text)
+      if (error.code === 'PGRST116') {
+        console.log(`Conversation ${id} not found in unified view (may not have messages yet)`);
+        return NextResponse.json(
+          { success: false, error: 'Conversation not found' },
+          { status: 404 }
+        );
+      }
+
       console.error('Error fetching conversation:', error);
       return NextResponse.json(
         { success: false, error: 'Failed to fetch conversation' },

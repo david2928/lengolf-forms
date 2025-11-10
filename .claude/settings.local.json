@@ -13,7 +13,17 @@
       "Bash(npm run typecheck:*)",
       "Bash(npx tsc:*)",
       "Bash(npx eslint:*)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(cat:*)",
+      "Bash(lsof:*)",
+      "WebSearch",
+      "WebFetch(domain:www.ppcmastery.com)",
+      "WebFetch(domain:www.interteammarketing.com)",
+      "WebFetch(domain:www.ruleranalytics.com)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []

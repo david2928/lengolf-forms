@@ -163,8 +163,11 @@ export async function PUT(
         }, { status: 500 });
       }
 
-      // Update file_url with new URL
-      updateData.file_url = uploadResult.url;
+      // Update file_url with cache-busting timestamp
+      // This ensures browsers reload the new image even though the path is the same
+      const timestamp = Date.now();
+      const urlWithCacheBust = `${uploadResult.url}?v=${timestamp}`;
+      updateData.file_url = urlWithCacheBust;
     }
 
     if (description !== undefined) {

@@ -266,20 +266,28 @@ async function sendPushNotificationForNewMessage(
   displayText: string
 ): Promise<void> {
   try {
-    // Get customer name for notification (prioritize linked customer over LINE display name)
+    // Get customer name and spam status for notification (prioritize linked customer over LINE display name)
     let customerName = 'Unknown Customer';
+    let isSpam = false;
 
     if (event.source.userId) {
       try {
-        // First, try to get the linked customer name from the conversation
+        // First, try to get the linked customer name and spam status from the conversation
         const { data: conversationData } = await supabase
           .from('line_conversations')
           .select(`
             customer_id,
+            is_spam,
             customers:customer_id (name)
           `)
           .eq('id', conversationId)
           .single();
+
+        // Check if conversation is marked as spam
+        if (conversationData?.is_spam) {
+          console.log(`Skipping push notification for spam conversation: ${conversationId}`);
+          return; // Exit early - don't send notifications for spam
+        }
 
         if (conversationData?.customers && typeof conversationData.customers === 'object') {
           const customerRecord = conversationData.customers as { name?: string };

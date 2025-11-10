@@ -321,6 +321,70 @@ Required information:
       required: ['booking_id', 'date', 'customer_name', 'phone_number', 'cancellation_reason', 'staff_name'],
       additionalProperties: false
     }
+  },
+
+  {
+    name: 'modify_booking',
+    description: `Modify an existing booking (reschedule time/date, change duration, or update details). Requires staff approval before execution.
+
+Use this when:
+- Customer wants to reschedule/change booking time:
+  * English: "change my booking to 3pm", "can I move it to tomorrow?", "reschedule to Friday"
+  * Thai: "ขอเปลี่ยนเวลา", "ย้ายไปวันศุกร์", "เลื่อนไปบ่าย 3"
+- Customer wants to change booking duration: "can I extend to 2 hours?", "make it 1.5 hours instead"
+- Customer wants to change bay type: "switch to AI bay", "change to social bay"
+- Message contains modification intent with specific new details
+
+Do NOT use when:
+- Customer is just asking IF they can modify (answer yes, don't call function)
+- Customer wants to cancel entirely (use cancel_booking instead)
+- Booking doesn't exist in UPCOMING BOOKINGS (use lookup_booking first)
+- Customer hasn't specified what to change to
+
+Workflow:
+1. First check UPCOMING BOOKINGS in context to find the booking
+2. Identify what customer wants to change (date, time, duration, bay_type)
+3. Call this function with booking_id and ONLY the fields that need to change
+4. Function will check availability before requesting staff approval
+
+Required information:
+- booking_id from UPCOMING BOOKINGS context
+- At least ONE field to modify (date, start_time, duration, or bay_type)
+- modification_reason helps staff understand why`,
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        booking_id: {
+          type: 'string',
+          description: 'Booking ID to modify (e.g., "BK123456"). Get this from UPCOMING BOOKINGS in context. Cannot be empty.'
+        },
+        date: {
+          type: 'string',
+          description: 'New booking date in YYYY-MM-DD format. Use empty string "" if not changing date.'
+        },
+        start_time: {
+          type: 'string',
+          description: 'New start time in HH:00 or HH:30 format (e.g., "14:00", "14:30"). Use empty string "" if not changing time.'
+        },
+        duration: {
+          type: 'number',
+          description: 'New duration in hours. Must be 0.5, 1, 1.5, 2, 2.5, or 3. Use 0 if not changing duration.',
+          enum: [0, 0.5, 1, 1.5, 2, 2.5, 3]
+        },
+        bay_type: {
+          type: 'string',
+          enum: ['', 'social', 'ai'],
+          description: 'Change to different bay type: "social" (up to 5 players) or "ai" (1-2 players). Use empty string "" if not changing bay type.'
+        },
+        modification_reason: {
+          type: 'string',
+          description: 'Brief reason for modification. Use empty string "" if not provided. Examples: "Time conflict", "Customer requested earlier time", "Duration change"'
+        }
+      },
+      required: ['booking_id', 'date', 'start_time', 'duration', 'bay_type', 'modification_reason'],
+      additionalProperties: false
+    }
   }
 ];
 
@@ -383,6 +447,39 @@ export function validateFunctionCall(name: string, parameters: Record<string, an
     }
     if (parameters.bay_type === 'social' && parameters.number_of_people > 5) {
       return { valid: false, error: 'Social bay supports maximum 5 players' };
+    }
+  }
+
+  if (name === 'modify_booking') {
+    // Validate booking_id is not empty
+    if (!parameters.booking_id || parameters.booking_id === '') {
+      return { valid: false, error: 'booking_id is required and cannot be empty' };
+    }
+
+    // Validate at least one field is being modified
+    const hasDateChange = parameters.date && parameters.date !== '';
+    const hasTimeChange = parameters.start_time && parameters.start_time !== '';
+    const hasDurationChange = parameters.duration && parameters.duration > 0;
+    const hasBayTypeChange = parameters.bay_type && parameters.bay_type !== '';
+
+    if (!hasDateChange && !hasTimeChange && !hasDurationChange && !hasBayTypeChange) {
+      return { valid: false, error: 'At least one field must be modified (date, start_time, duration, or bay_type)' };
+    }
+
+    // Validate time range if provided
+    if (hasTimeChange) {
+      const hour = parseInt(parameters.start_time.split(':')[0]);
+      if (hour < 9 || hour >= 24) {
+        return { valid: false, error: `Invalid start_time: ${parameters.start_time}. Must be between 09:00 and 23:00` };
+      }
+    }
+
+    // Validate duration if provided
+    if (hasDurationChange) {
+      const validDurations = [0.5, 1, 1.5, 2, 2.5, 3];
+      if (!validDurations.includes(parameters.duration)) {
+        return { valid: false, error: `Invalid duration: ${parameters.duration}. Must be one of: ${validDurations.join(', ')}` };
+      }
     }
   }
 

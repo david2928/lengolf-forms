@@ -603,19 +603,26 @@ async function sendPushNotificationForMetaMessage(
   platform: string
 ): Promise<void> {
   try {
-    // Get customer name for notification (prioritize linked customer over platform display name)
+    // Get customer name and spam status for notification (prioritize linked customer over platform display name)
     let customerName = senderName; // Start with the platform display name as fallback
 
     try {
-      // First, try to get the linked customer name from the conversation
+      // First, try to get the linked customer name and spam status from the conversation
       const { data: conversationData } = await supabase
         .from('meta_conversations')
         .select(`
           customer_id,
+          is_spam,
           customers:customer_id (name)
         `)
         .eq('id', conversationId)
         .single();
+
+      // Check if conversation is marked as spam
+      if (conversationData?.is_spam) {
+        console.log(`Skipping push notification for spam conversation: ${conversationId} (${platform})`);
+        return; // Exit early - don't send notifications for spam
+      }
 
       if (conversationData?.customers && typeof conversationData.customers === 'object') {
         const customerRecord = conversationData.customers as { name?: string };

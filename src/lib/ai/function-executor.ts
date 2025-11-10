@@ -62,6 +62,9 @@ export class AIFunctionExecutor {
       case 'cancel_booking':
         return this.prepareCancellationForApproval(functionCall.parameters);
 
+      case 'modify_booking':
+        return await this.prepareModificationForApproval(functionCall.parameters);
+
       default:
         return {
           success: false,
@@ -1021,6 +1024,174 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
   }
 
   /**
+   * Execute approved booking modification
+   * Called after staff approves the modification
+   * Calls PUT /api/bookings/{bookingId} with the changes
+   */
+  async executeApprovedModification(params: any): Promise<FunctionResult> {
+    try {
+      const {
+        booking_id,
+        date,
+        start_time,
+        duration,
+        bay_type,
+        modification_reason
+      } = params;
+
+      // DRY RUN MODE: Return mock success without modifying
+      if (this.dryRun) {
+        console.log('[DRY RUN] Would modify booking:', booking_id, params);
+        return {
+          success: true,
+          functionName: 'modify_booking',
+          data: {
+            booking_id,
+            booking_modified: false,
+            dry_run: true,
+            changes: params
+          }
+        };
+      }
+
+      // Prepare update payload for PUT /api/bookings/{bookingId}
+      // IMPORTANT: Duration must be in MINUTES for the API
+      const updatePayload: any = {
+        employee_name: 'AI Assistant', // Required field for audit trail
+        customer_notes: `🤖 AI MODIFICATION: ${modification_reason || 'Customer requested change'}`,
+        availability_overridden: false // Don't skip availability checks
+      };
+
+      // Only include fields that are being changed
+      if (date) {
+        updatePayload.date = date;
+      }
+      if (start_time) {
+        updatePayload.start_time = start_time;
+      }
+      if (duration && duration > 0) {
+        // Convert hours to minutes for the API
+        updatePayload.duration = duration * 60;
+      }
+      if (bay_type) {
+        // Note: API expects specific bay name or null, but we'll let it auto-assign
+        // by not including the bay field - the API will handle bay assignment based on bay_type
+        updatePayload.bay_type = bay_type;
+      }
+
+      // Call PUT /api/bookings/{bookingId}
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      const response = await fetch(`${baseUrl}/api/bookings/${booking_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatePayload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        // Handle specific error cases
+        if (response.status === 409) {
+          return {
+            success: false,
+            error: result.error || 'The proposed time slot is not available.',
+            functionName: 'modify_booking'
+          };
+        }
+
+        return {
+          success: false,
+          error: result.error || 'Failed to modify booking',
+          functionName: 'modify_booking'
+        };
+      }
+
+      console.log('✅ Booking modified successfully:', booking_id);
+
+      // Note: Booking confirmation will be sent by approve-booking endpoint if conversationId is provided
+
+      // Send staff channel notification
+      try {
+        const { refacSupabaseAdmin } = await import('@/lib/refac-supabase');
+        const { format: formatDate } = await import('date-fns');
+
+        // Get the updated booking details
+        const { data: booking } = await refacSupabaseAdmin
+          .from('bookings')
+          .select('*')
+          .eq('id', booking_id)
+          .single();
+
+        if (booking) {
+          // Format date (e.g., "Wed, Oct 23")
+          const bookingDate = formatDate(new Date(booking.date), 'EEE, MMM dd');
+
+          // Build modification notification message
+          let lineMessage = `🔄 BOOKING MODIFIED (ID: ${booking.id}) 🔄\n`;
+          lineMessage += `----------------------------------\n`;
+          lineMessage += `👤 Customer: ${booking.name}\n`;
+          lineMessage += `📞 Phone: ${booking.phone_number}\n`;
+          lineMessage += `🗓️ Date: ${bookingDate}\n`;
+          lineMessage += `⏰ Time: ${booking.start_time} (Duration: ${booking.duration}h)\n`;
+          lineMessage += `⛳ Bay: ${booking.bay || 'TBD'}\n`;
+          lineMessage += `🧑‍🤝‍🧑 Pax: ${booking.number_of_people}\n`;
+          lineMessage += `----------------------------------\n`;
+          lineMessage += `✏️ Modified By: AI Assistant`;
+          if (modification_reason) {
+            lineMessage += `\n💬 Reason: ${modification_reason}`;
+          }
+
+          // Send to LINE staff channel
+          const notifyResponse = await fetch(`${baseUrl}/api/notify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: lineMessage,
+              bookingType: booking.booking_type,
+              customer_notes: booking.customer_notes
+            })
+          });
+
+          if (notifyResponse.ok) {
+            console.log('✅ LINE staff modification notification sent');
+          } else {
+            console.warn('⚠️ Failed to send LINE staff modification notification');
+          }
+        }
+      } catch (error) {
+        console.error('Error sending staff modification notification:', error);
+        // Don't fail the modification if notification fails
+      }
+
+      return {
+        success: true,
+        functionName: 'modify_booking',
+        data: {
+          booking_id,
+          booking_modified: true,
+          updated_booking: result.booking,
+          changes: {
+            date,
+            start_time,
+            duration,
+            bay_type,
+            modification_reason
+          }
+        }
+      };
+    } catch (error) {
+      console.error('Error modifying booking:', error);
+      return {
+        success: false,
+        error: 'Failed to modify booking. Please try again.',
+        functionName: 'modify_booking'
+      };
+    }
+  }
+
+  /**
    * Look up booking(s) for a customer
    * Searches by booking ID, customer name, phone, or date
    */
@@ -1299,6 +1470,152 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
         staff_name: staff_name
       }
     };
+  }
+
+  /**
+   * Prepare booking modification for staff approval
+   * Looks up existing booking, validates changes, checks availability if needed
+   */
+  private async prepareModificationForApproval(params: any): Promise<FunctionResult> {
+    try {
+      const {
+        booking_id,
+        date,
+        start_time,
+        duration,
+        bay_type,
+        modification_reason
+      } = params;
+
+      // STEP 1: Lookup existing booking to get current details
+      const lookupResult = await this.lookupBooking({
+        booking_id,
+        customer_name: '',
+        phone_number: '',
+        date: '',
+        status: 'upcoming'
+      });
+
+      if (!lookupResult.success || !lookupResult.data?.found || !lookupResult.data?.bookings?.length) {
+        return {
+          success: false,
+          error: `Booking ${booking_id} not found. Cannot modify a non-existent booking.`,
+          functionName: 'modify_booking'
+        };
+      }
+
+      const existingBooking = lookupResult.data.bookings[0];
+
+      // STEP 2: Determine what's changing
+      const newDate = date && date !== '' ? date : existingBooking.date;
+      const newTime = start_time && start_time !== '' ? start_time : existingBooking.time;
+      const newDuration = duration && duration > 0 ? duration : existingBooking.duration;
+      const newBayType = bay_type && bay_type !== '' ? bay_type : (existingBooking.bay_type === 'AI Bay' ? 'ai' : 'social');
+
+      // STEP 3: Check if time/date/duration changes require availability check
+      const timeChanged = newDate !== existingBooking.date ||
+                         newTime !== existingBooking.time ||
+                         newDuration !== existingBooking.duration ||
+                         newBayType !== (existingBooking.bay_type === 'AI Bay' ? 'ai' : 'social');
+
+      if (timeChanged) {
+        // Check availability for the new time slot
+        const availCheck = await this.checkBayAvailability({
+          date: newDate,
+          start_time: newTime,
+          duration: newDuration,
+          bay_type: newBayType
+        });
+
+        if (!availCheck.success || !availCheck.data?.available) {
+          // New time not available - return error with alternatives
+          const socialAvailable = availCheck.data?.social_bays_available;
+          const aiAvailable = availCheck.data?.ai_bay_available;
+
+          let errorMessage = `Sorry, ${newBayType === 'social' ? 'social bays are' : 'the AI bay is'} not available at ${newTime} on ${newDate}.`;
+
+          // Suggest alternative bay type if available
+          if (newBayType === 'ai' && socialAvailable) {
+            errorMessage += ' However, social bays are available at that time.';
+          } else if (newBayType === 'social' && aiAvailable) {
+            errorMessage += ' However, the AI bay is available at that time.';
+          } else {
+            errorMessage += ' Would you like to try a different time?';
+          }
+
+          return {
+            success: false,
+            error: errorMessage,
+            functionName: 'modify_booking',
+            data: {
+              booking_id,
+              requested_date: newDate,
+              requested_time: newTime,
+              requested_duration: newDuration,
+              social_bays_available: socialAvailable,
+              ai_bay_available: aiAvailable
+            }
+          };
+        }
+
+        console.log(`✅ Availability confirmed for modification: ${newBayType} at ${newTime} on ${newDate}`);
+      }
+
+      // STEP 4: Build approval message showing old → new
+      let approvalMessage = `Modify booking ${booking_id}\n`;
+      approvalMessage += `Customer: ${existingBooking.customer_name}\n`;
+      approvalMessage += `\n`;
+
+      // Show what's changing
+      if (newDate !== existingBooking.date) {
+        approvalMessage += `📅 Date: ${existingBooking.date} → ${newDate}\n`;
+      }
+      if (newTime !== existingBooking.time) {
+        approvalMessage += `🕐 Time: ${existingBooking.time} → ${newTime}\n`;
+      }
+      if (newDuration !== existingBooking.duration) {
+        approvalMessage += `⏱️ Duration: ${existingBooking.duration}h → ${newDuration}h\n`;
+      }
+      if (newBayType !== (existingBooking.bay_type === 'AI Bay' ? 'ai' : 'social')) {
+        const oldType = existingBooking.bay_type;
+        const newType = newBayType === 'ai' ? 'AI Bay' : 'Social Bay';
+        approvalMessage += `⛳ Bay Type: ${oldType} → ${newType}\n`;
+      }
+
+      if (modification_reason && modification_reason !== '') {
+        approvalMessage += `\n💬 Reason: ${modification_reason}`;
+      }
+
+      // STEP 5: Return approval request
+      return {
+        success: true,
+        requiresApproval: true,
+        functionName: 'modify_booking',
+        approvalMessage: approvalMessage.trim(),
+        data: {
+          booking_id,
+          // Only include changed fields
+          date: date && date !== '' ? date : undefined,
+          start_time: start_time && start_time !== '' ? start_time : undefined,
+          duration: duration && duration > 0 ? duration : undefined,
+          bay_type: bay_type && bay_type !== '' ? bay_type : undefined,
+          modification_reason: modification_reason || 'Customer requested',
+          // Include current values for reference
+          current_date: existingBooking.date,
+          current_time: existingBooking.time,
+          current_duration: existingBooking.duration,
+          current_bay: existingBooking.bay
+        }
+      };
+
+    } catch (error) {
+      console.error('Error preparing modification for approval:', error);
+      return {
+        success: false,
+        error: 'Failed to prepare booking modification. Please try again.',
+        functionName: 'modify_booking'
+      };
+    }
   }
 
   // Helper methods

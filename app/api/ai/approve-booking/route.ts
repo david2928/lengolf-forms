@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify this is a supported function
-    const supportedFunctions = ['create_booking', 'cancel_booking'];
+    const supportedFunctions = ['create_booking', 'cancel_booking', 'modify_booking'];
     if (!supportedFunctions.includes(body.functionResult.functionName || '')) {
       return NextResponse.json({
         error: `Only ${supportedFunctions.join(', ')} functions can be approved`
@@ -64,6 +64,10 @@ export async function POST(request: NextRequest) {
       result = await functionExecutor.executeApprovedCancellation(
         body.functionResult.data
       );
+    } else if (body.functionResult.functionName === 'modify_booking') {
+      result = await functionExecutor.executeApprovedModification(
+        body.functionResult.data
+      );
     } else {
       return NextResponse.json({
         success: false,
@@ -79,27 +83,47 @@ export async function POST(request: NextRequest) {
     }
 
     // Send booking confirmation to conversation if conversationId is provided
-    if (body.conversationId && result.data?.booking_id && body.functionResult.functionName === 'create_booking') {
+    if (body.conversationId && result.data?.booking_id) {
       try {
-        await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/line/bookings/${result.data.booking_id}/send-confirmation`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messageFormat: 'flex',
-            senderName: 'AI Assistant'
-          })
-        });
-        console.log('✅ Booking confirmation sent to conversation');
+        if (body.functionResult.functionName === 'create_booking') {
+          // Send booking creation confirmation
+          await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/line/bookings/${result.data.booking_id}/send-confirmation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messageFormat: 'flex',
+              senderName: 'AI Assistant'
+            })
+          });
+          console.log('✅ Booking confirmation sent to conversation');
+        } else if (body.functionResult.functionName === 'modify_booking') {
+          // Send booking modification confirmation Flex card
+          // The AI will handle the friendly text message in the conversation
+          await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/line/bookings/${result.data.booking_id}/send-confirmation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messageFormat: 'flex',
+              senderName: 'AI Assistant'
+            })
+          });
+          console.log('✅ Booking modification confirmation sent to conversation');
+        }
       } catch (error) {
         console.warn('Could not send booking confirmation to conversation:', error);
-        // Non-critical error, booking was still created
+        // Non-critical error, booking action was still completed
       }
     }
 
     // Return successful result
-    const message = body.functionResult.functionName === 'cancel_booking'
-      ? 'Booking cancelled successfully'
-      : 'Booking created successfully';
+    let message = 'Operation completed successfully';
+    if (body.functionResult.functionName === 'cancel_booking') {
+      message = 'Booking cancelled successfully';
+    } else if (body.functionResult.functionName === 'create_booking') {
+      message = 'Booking created successfully';
+    } else if (body.functionResult.functionName === 'modify_booking') {
+      message = 'Booking modified successfully';
+    }
 
     return NextResponse.json({
       success: true,

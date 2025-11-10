@@ -17,19 +17,25 @@ export async function sendPushNotificationForWebsiteMessage(
   userId?: string
 ): Promise<void> {
   try {
-    // Get customer info for notification display
+    // Get customer info and spam status for notification display
     let customerName = 'Website User';
     let customerEmail = '';
 
     try {
-      // Try to get user info from web_chat_sessions
+      // Try to get user info and spam status from web_chat_sessions
       const { data: sessionData } = await supabase
         .from('web_chat_sessions')
-        .select('display_name, email, user_id')
+        .select('display_name, email, user_id, is_spam')
         .eq('session_id', sessionId)
         .single();
 
       if (sessionData) {
+        // Check if conversation is marked as spam
+        if (sessionData.is_spam) {
+          console.log(`Skipping push notification for spam conversation: ${conversationId} (website)`);
+          return; // Exit early - don't send notifications for spam
+        }
+
         customerName = sessionData.display_name || 'Website User';
         customerEmail = sessionData.email || '';
 
