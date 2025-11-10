@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
 
     for (const batch of batches) {
       // Process batch members in parallel
-      const batchPromises = batch.map(async (member) => {
+      const batchPromises = batch.map(async (member: { line_user_id: string }) => {
         const result = await sendLineMessage(member.line_user_id, flexMessage);
 
         if (result.success) {
