@@ -167,39 +167,56 @@ export async function POST(request: NextRequest) {
       errors: [] as string[]
     };
 
-    for (const member of members) {
-      const result = await sendLineMessage(member.line_user_id, flexMessage);
+    // Process sends in batches of 10 for better performance
+    const BATCH_SIZE = 10;
+    const batches = [];
+    for (let i = 0; i < members.length; i += BATCH_SIZE) {
+      batches.push(members.slice(i, i + BATCH_SIZE));
+    }
 
-      if (result.success) {
-        results.sent++;
+    for (const batch of batches) {
+      // Process batch members in parallel
+      const batchPromises = batch.map(async (member) => {
+        const result = await sendLineMessage(member.line_user_id, flexMessage);
 
-        // Log successful send
-        await refacSupabaseAdmin
-          .from('line_broadcast_logs')
-          .insert({
-            campaign_id: campaign.id,
-            line_user_id: member.line_user_id,
-            status: 'sent',
-            sent_at: new Date().toISOString()
-          });
-      } else {
-        results.failed++;
-        results.errors.push(`${member.line_user_id}: ${result.error}`);
+        if (result.success) {
+          results.sent++;
 
-        // Log failed send
-        await refacSupabaseAdmin
-          .from('line_broadcast_logs')
-          .insert({
-            campaign_id: campaign.id,
-            line_user_id: member.line_user_id,
-            status: 'failed',
-            sent_at: new Date().toISOString(),
-            error_message: result.error
-          });
+          // Log successful send
+          await refacSupabaseAdmin
+            .from('line_broadcast_logs')
+            .insert({
+              campaign_id: campaign.id,
+              line_user_id: member.line_user_id,
+              status: 'sent',
+              sent_at: new Date().toISOString()
+            });
+        } else {
+          results.failed++;
+          results.errors.push(`${member.line_user_id}: ${result.error}`);
+
+          // Log failed send
+          await refacSupabaseAdmin
+            .from('line_broadcast_logs')
+            .insert({
+              campaign_id: campaign.id,
+              line_user_id: member.line_user_id,
+              status: 'failed',
+              sent_at: new Date().toISOString(),
+              error_message: result.error
+            });
+        }
+
+        return result;
+      });
+
+      // Wait for all sends in this batch to complete
+      await Promise.all(batchPromises);
+
+      // Small delay between batches to respect rate limits
+      if (batches.indexOf(batch) < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
-
-      // Add small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     // Update campaign status
