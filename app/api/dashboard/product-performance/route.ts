@@ -29,9 +29,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Start date and end date are required" }, { status: 400 });
     }
 
-    // Convert timestamps to DATE format
-    const startDate = new Date(startDateParam).toISOString().split('T')[0];
-    const endDate = new Date(endDateParam).toISOString().split('T')[0];
+    // Use dates directly - they're already in YYYY-MM-DD format from frontend
+    const startDate = startDateParam;
+    const endDate = endDateParam;
 
     // Extract actual category name from hierarchical format
     let actualCategory = category;

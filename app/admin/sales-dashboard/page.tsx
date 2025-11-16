@@ -50,6 +50,7 @@ import { useSalesDashboard } from '@/hooks/useSalesDashboard';
 // Import types
 import { DatePreset } from '@/types/sales-dashboard';
 import { formatDisplayDate, getDateRangeForPreset } from '@/lib/dashboard-utils';
+import { bangkokDateToApiFormat } from '@/lib/bangkok-timezone';
 
 // Import new reports components
 import WeeklyReportsTable from '@/components/sales-dashboard/WeeklyReportsTable';
@@ -438,8 +439,8 @@ export default function SalesDashboardPage() {
                   {/* Row 6: Flexible Analytics */}
                   <DashboardErrorBoundary>
                     <FlexibleChart
-                      startDate={dateRange.start.toISOString().split('T')[0]}
-                      endDate={dateRange.end.toISOString().split('T')[0]}
+                      startDate={bangkokDateToApiFormat(dateRange.start)}
+                      endDate={bangkokDateToApiFormat(dateRange.end)}
                       isLoading={isLoading}
                       title="Flexible Analytics"
                     />
@@ -486,8 +487,8 @@ export default function SalesDashboardPage() {
         ) : (
           // Product Performance Tab Content
           <ProductPerformanceTab dateRange={{
-            start: dateRange.start.toISOString().split('T')[0],
-            end: dateRange.end.toISOString().split('T')[0]
+            start: bangkokDateToApiFormat(dateRange.start),
+            end: bangkokDateToApiFormat(dateRange.end)
           }} />
         )}
       </DashboardErrorBoundary>
