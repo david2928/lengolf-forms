@@ -299,6 +299,15 @@ export const VoidPinModal: React.FC<VoidPinModalProps> = ({
           </Button>
         </div>
       </div>
+
+      <style jsx>{`
+        /* Ensure buttons are clickable on all devices including tablets */
+        button {
+          touch-action: manipulation !important;
+          -webkit-tap-highlight-color: transparent !important;
+          user-select: none !important;
+        }
+      `}</style>
     </div>
   );
 };

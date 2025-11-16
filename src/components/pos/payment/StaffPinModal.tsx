@@ -273,12 +273,20 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
       </div>
 
       <style jsx>{`
+        /* Ensure buttons are clickable on all devices including tablets */
+        button {
+          touch-action: manipulation !important;
+          -webkit-tap-highlight-color: transparent !important;
+          user-select: none !important;
+          cursor: pointer !important;
+        }
+
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
           10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
           20%, 40%, 60%, 80% { transform: translateX(10px); }
         }
-        
+
         .animate-shake {
           animation: shake 0.5s ease-in-out;
         }

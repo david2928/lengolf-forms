@@ -58,6 +58,14 @@ export function StaffLoginModal({ isOpen, onLogin, isLoading }: StaffLoginModalP
   return (
     <>
       <style jsx>{`
+        /* Ensure buttons are clickable on all devices including tablets */
+        button {
+          touch-action: manipulation !important;
+          -webkit-tap-highlight-color: transparent !important;
+          user-select: none !important;
+          cursor: pointer !important;
+        }
+
         @media (min-width: 686px) and (max-width: 991px) {
           .tablet-modal-container {
             max-width: 42rem !important;
