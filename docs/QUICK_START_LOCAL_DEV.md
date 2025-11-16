@@ -1,4 +1,4 @@
-# Quick Start: Local Development with Supabase Branch
+ # Quick Start: Local Development with Supabase Branch
 
 **TL;DR:** Test database changes locally before production using a persistent development branch.
 

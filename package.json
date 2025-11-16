@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -H 0.0.0.0",
+    "dev": "node -e \"try{require('fs').unlinkSync('.env.local')}catch(e){}\" && next dev -H 0.0.0.0",
+    "dev:local": "node scripts/dev-local.js",
     "dev:mobile": "node scripts/dev-mobile.js",
     "build": "next build",
     "build:production": "node scripts/production-build.js",
@@ -55,7 +56,13 @@
     "db:diff": "npx supabase db diff -f",
     "db:migration": "npx supabase migration new",
     "db:status": "npx supabase migration list",
-    "db:link": "npx supabase link --project-ref bisimqmtxjsptehhqpeg"
+    "db:link": "npx supabase link --project-ref bisimqmtxjsptehhqpeg",
+    "use:local": "cp .env.local.docker .env.local && echo ✅ Switched to LOCAL Docker Supabase",
+    "use:production": "cp .env.local.production .env.local && echo ✅ Switched to PRODUCTION Supabase (READ ONLY!)",
+    "supabase:start": "npx supabase start",
+    "supabase:stop": "npx supabase stop",
+    "supabase:status": "npx supabase status",
+    "supabase:reset": "npx supabase db reset"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.107",

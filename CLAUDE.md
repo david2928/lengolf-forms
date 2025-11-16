@@ -36,12 +36,17 @@ npm run dev
 
 ### Key Commands
 ```bash
-npm run dev          # Development server (accessible on all network interfaces)
+npm run dev          # Development server with PRODUCTION Supabase (default)
+npm run dev:local    # Development server with LOCAL Docker Supabase (for testing migrations)
 npm run dev:mobile   # Development server with mobile testing info and QR code
 npm run build        # Production build
 npm run lint         # ESLint
 npm run typecheck    # TypeScript validation
 ```
+
+**Environment Switching:**
+- `npm run dev` - Uses production Supabase (from `.env`)
+- `npm run dev:local` - Uses local Docker Supabase (copies `.env.local.docker` → `.env.local`)
 
 ## Architecture
 
