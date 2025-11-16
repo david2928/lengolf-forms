@@ -127,6 +127,9 @@ export interface Earning {
   hour_cnt: number;
   rate: string;
   coach_earnings: string;
+  gross_coach_earnings?: string;
+  discount_deduction?: string;
+  discount_note?: string;
 }
 
 export interface RateType {
@@ -142,9 +145,12 @@ export interface EarningsData {
   hasMore: boolean;
   summary: {
     total_revenue: number;
+    gross_revenue?: number;
+    total_discounts?: number;
+    net_revenue?: number;
     avg_per_lesson: number;
     total_lessons: number;
-    rate_type_breakdown: Record<string, { count: number; revenue: number }>;
+    rate_type_breakdown: Record<string, { count: number; revenue?: number; gross_revenue?: number; discounts?: number; net_revenue?: number }>;
   };
   available_rate_types: RateType[];
   period_info: {

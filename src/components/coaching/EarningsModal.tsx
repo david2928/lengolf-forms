@@ -36,14 +36,17 @@ export function EarningsModal({ isOpen, onClose, coachId }: EarningsModalProps) 
       return;
     }
 
-    // Prepare CSV data
-    const headers = ['Date', 'Customer Name', 'Rate Type', 'Hours', 'Earnings', 'Receipt Number'];
+    // Prepare CSV data with discount info
+    const headers = ['Date', 'Customer Name', 'Rate Type', 'Hours', 'Gross Earnings', 'Discount', 'Net Earnings', 'Discount Note', 'Receipt Number'];
     const csvData = filteredEarnings.map((earning: Earning) => [
       earning.date,
       earning.customer_name,
       earning.rate_type,
       earning.hour_cnt,
+      earning.gross_coach_earnings || earning.coach_earnings,
+      earning.discount_deduction || 0,
       earning.coach_earnings,
+      earning.discount_note || '',
       earning.receipt_number
     ]);
 
@@ -182,15 +185,21 @@ export function EarningsModal({ isOpen, onClose, coachId }: EarningsModalProps) 
             </div>
           ) : data ? (
             <div className="space-y-6">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-lg text-center">
-                  <div className="text-xl sm:text-2xl font-bold text-emerald-900">{formatCurrency(summary.total_revenue)}</div>
-                  <div className="text-xs sm:text-sm text-emerald-700">Total Revenue</div>
-                </div>
+              {/* Summary Cards with Discount Breakdown */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-center">
-                  <div className="text-xl sm:text-2xl font-bold text-blue-900">{formatCurrency(summary.avg_per_lesson)}</div>
-                  <div className="text-xs sm:text-sm text-blue-700">Avg per Lesson</div>
+                  <div className="text-xl sm:text-2xl font-bold text-blue-900">{formatCurrency(summary.gross_revenue || summary.total_revenue)}</div>
+                  <div className="text-xs sm:text-sm text-blue-700">Gross Revenue</div>
+                </div>
+                {summary.total_discounts && summary.total_discounts > 0 && (
+                  <div className="bg-red-50 border border-red-200 p-4 rounded-lg text-center">
+                    <div className="text-xl sm:text-2xl font-bold text-red-900">-{formatCurrency(summary.total_discounts || 0)}</div>
+                    <div className="text-xs sm:text-sm text-red-700">Discounts</div>
+                  </div>
+                )}
+                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-lg text-center">
+                  <div className="text-xl sm:text-2xl font-bold text-emerald-900">{formatCurrency(summary.net_revenue || summary.total_revenue)}</div>
+                  <div className="text-xs sm:text-sm text-emerald-700">Net Revenue</div>
                 </div>
                 <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg text-center">
                   <div className="text-xl sm:text-2xl font-bold text-purple-900">{summary.total_lessons}</div>
@@ -416,12 +425,37 @@ export function EarningsModal({ isOpen, onClose, coachId }: EarningsModalProps) 
                             </div>
                           </div>
 
-                          {/* Earnings Amount */}
-                          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center self-start sm:self-center">
-                            <div className="text-lg font-bold text-emerald-900">
-                              {formatCurrency(parseFloat(earning.coach_earnings))}
-                            </div>
-                            <div className="text-xs text-emerald-700">Coach Earnings</div>
+                          {/* Earnings Amount with Discount Breakdown */}
+                          <div className="self-start sm:self-center space-y-2">
+                            {earning.discount_deduction && parseFloat(earning.discount_deduction) > 0 ? (
+                              <>
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center">
+                                  <div className="text-sm font-semibold text-blue-900">
+                                    {formatCurrency(parseFloat(earning.gross_coach_earnings || earning.coach_earnings))}
+                                  </div>
+                                  <div className="text-xs text-blue-700">Gross</div>
+                                </div>
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-center">
+                                  <div className="text-sm font-semibold text-red-900">
+                                    -{formatCurrency(parseFloat(earning.discount_deduction))}
+                                  </div>
+                                  <div className="text-xs text-red-700">{earning.discount_note || 'Discount'}</div>
+                                </div>
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-center">
+                                  <div className="text-lg font-bold text-emerald-900">
+                                    {formatCurrency(parseFloat(earning.coach_earnings))}
+                                  </div>
+                                  <div className="text-xs text-emerald-700">Net Earnings</div>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
+                                <div className="text-lg font-bold text-emerald-900">
+                                  {formatCurrency(parseFloat(earning.coach_earnings))}
+                                </div>
+                                <div className="text-xs text-emerald-700">Coach Earnings</div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

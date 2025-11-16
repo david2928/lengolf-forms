@@ -162,7 +162,12 @@ export async function POST(request: NextRequest) {
       expiration_date,
       first_use_date,
       employee_name,
-      notes
+      notes,
+      purchase_price,
+      discount_percentage,
+      discount_amount,
+      applied_discount_id,
+      discount_note
     } = data;
 
     // Validate required fields
@@ -173,21 +178,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Prepare package data with optional discount fields
+    const packageData: any = {
+      customer_id,
+      customer_name,
+      package_type_id: parseInt(package_type_id),
+      purchase_date,
+      expiration_date,
+      first_use_date: first_use_date || null,
+      employee_name: employee_name || null,
+      last_modified_by: session.user.email,
+      modification_notes: 'Package created via admin interface'
+    };
+
+    // Add discount fields if provided
+    if (purchase_price !== undefined) packageData.purchase_price = purchase_price;
+    if (discount_percentage !== undefined) packageData.discount_percentage = discount_percentage;
+    if (discount_amount !== undefined) packageData.discount_amount = discount_amount;
+    if (applied_discount_id) packageData.applied_discount_id = applied_discount_id;
+    if (discount_note) packageData.discount_note = discount_note;
+
     // Insert package
     const { data: newPackage, error } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('packages')
-      .insert({
-        customer_id,
-        customer_name,
-        package_type_id: parseInt(package_type_id),
-        purchase_date,
-        expiration_date,
-        first_use_date: first_use_date || null,
-        employee_name: employee_name || null,
-        last_modified_by: session.user.email,
-        modification_notes: 'Package created via admin interface'
-      })
+      .insert(packageData)
       .select()
       .single();
 

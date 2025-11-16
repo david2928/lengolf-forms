@@ -13,13 +13,19 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { 
-      employee_name, 
-      customer_name, 
-      customer_id, 
-      package_type_id, 
-      purchase_date, 
-      first_use_date 
+    const {
+      employee_name,
+      customer_name,
+      customer_id,
+      package_type_id,
+      purchase_date,
+      first_use_date,
+      purchase_price,
+      discount_percentage,
+      discount_amount,
+      applied_discount_id,
+      discount_note,
+      transaction_id
     } = body;
 
     // Validate required fields - prioritize customer_id over customer_name
@@ -50,18 +56,28 @@ export async function POST(request: NextRequest) {
       finalCustomerName = customer.customer_name;
     }
 
+    // Prepare package data with optional discount fields
+    const packageData: any = {
+      employee_name,
+      customer_name: finalCustomerName,
+      customer_id: finalCustomerId,
+      package_type_id,
+      purchase_date,
+      first_use_date: first_use_date || null
+    };
+
+    // Add discount fields if provided
+    if (purchase_price !== undefined) packageData.purchase_price = purchase_price;
+    if (discount_percentage !== undefined) packageData.discount_percentage = discount_percentage;
+    if (discount_amount !== undefined) packageData.discount_amount = discount_amount;
+    if (applied_discount_id) packageData.applied_discount_id = applied_discount_id;
+    if (discount_note) packageData.discount_note = discount_note;
+
     // Insert package into database
     const { data, error } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('packages')
-      .insert([{
-        employee_name,
-        customer_name: finalCustomerName,
-        customer_id: finalCustomerId,
-        package_type_id,
-        purchase_date,
-        first_use_date: first_use_date || null
-      }])
+      .insert([packageData])
       .select();
 
     if (error) {

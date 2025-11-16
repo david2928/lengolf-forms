@@ -148,21 +148,25 @@ export async function GET(request: NextRequest) {
 
     const { count } = await countQuery;
 
-    // Calculate summary statistics
-    const totalRevenue = earnings?.reduce((sum, earning) => sum + parseFloat(earning.coach_earnings || '0'), 0) || 0;
+    // Calculate summary statistics with discount breakdown
+    const grossRevenue = earnings?.reduce((sum, earning) => sum + parseFloat(earning.gross_coach_earnings || '0'), 0) || 0;
+    const totalDiscounts = earnings?.reduce((sum, earning) => sum + parseFloat(earning.discount_deduction || '0'), 0) || 0;
+    const netRevenue = earnings?.reduce((sum, earning) => sum + parseFloat(earning.coach_earnings || '0'), 0) || 0;
     const totalLessons = earnings?.length || 0;
-    const avgPerLesson = totalLessons > 0 ? totalRevenue / totalLessons : 0;
-    
-    // Group by rate type for breakdown
+    const avgPerLesson = totalLessons > 0 ? netRevenue / totalLessons : 0;
+
+    // Group by rate type for breakdown (including discount info)
     const rateTypeBreakdown = earnings?.reduce((acc, earning) => {
       const rateType = earning.rate_type || 'Unknown';
       if (!acc[rateType]) {
-        acc[rateType] = { count: 0, revenue: 0 };
+        acc[rateType] = { count: 0, gross_revenue: 0, discounts: 0, net_revenue: 0 };
       }
       acc[rateType].count += 1;
-      acc[rateType].revenue += parseFloat(earning.coach_earnings || '0');
+      acc[rateType].gross_revenue += parseFloat(earning.gross_coach_earnings || '0');
+      acc[rateType].discounts += parseFloat(earning.discount_deduction || '0');
+      acc[rateType].net_revenue += parseFloat(earning.coach_earnings || '0');
       return acc;
-    }, {} as Record<string, { count: number; revenue: number }>) || {};
+    }, {} as Record<string, { count: number; gross_revenue: number; discounts: number; net_revenue: number }>) || {};
 
     // Get available rate types for filtering
     const { data: availableRateTypes } = await supabase
@@ -178,7 +182,10 @@ export async function GET(request: NextRequest) {
       offset,
       hasMore: (count || 0) > offset + limit,
       summary: {
-        total_revenue: totalRevenue,
+        gross_revenue: grossRevenue,
+        total_discounts: totalDiscounts,
+        net_revenue: netRevenue,
+        total_revenue: netRevenue, // Backward compatibility
         avg_per_lesson: avgPerLesson,
         total_lessons: totalLessons,
         rate_type_breakdown: rateTypeBreakdown
