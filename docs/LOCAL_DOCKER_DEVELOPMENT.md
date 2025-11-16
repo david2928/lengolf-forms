@@ -450,6 +450,31 @@ Before `npx supabase db push`:
 
 ---
 
+## Refreshing Local Data from Production
+
+Want to sync your local database with the latest production data?
+
+### One-Command Sync
+
+```bash
+npm run db:sync
+```
+
+This command automatically:
+1. ✅ Dumps production schema and data
+2. ✅ Resets local Docker database
+3. ✅ Loads production data into local
+4. ✅ Keeps your local environment up-to-date
+
+**When to use:**
+- Need latest production data for testing
+- Want realistic customer/booking data locally
+- After major production data changes
+
+**Note:** This overwrites your local database completely. Any local-only data will be lost.
+
+---
+
 ## Advantages of This Workflow
 
 ✅ **Free** - No cloud branch costs ($0)

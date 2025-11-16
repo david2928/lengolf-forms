@@ -224,6 +224,21 @@ npm run supabase:status
 npm run supabase:start
 ```
 
+### "I need fresh production data in local"
+
+```bash
+# One command to sync everything
+npm run db:sync
+```
+
+This automatically:
+- Dumps production schema & data
+- Resets local database
+- Loads production data
+- Ready to use!
+
+**Note:** This overwrites your local database completely.
+
 ### "I want to see which environment I'm using"
 
 Add this to your app (temporary debug):

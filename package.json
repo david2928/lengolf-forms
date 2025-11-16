@@ -57,6 +57,7 @@
     "db:migration": "npx supabase migration new",
     "db:status": "npx supabase migration list",
     "db:link": "npx supabase link --project-ref bisimqmtxjsptehhqpeg",
+    "db:sync": "node scripts/sync-local-from-production.js",
     "use:local": "cp .env.local.docker .env.local && echo ✅ Switched to LOCAL Docker Supabase",
     "use:production": "cp .env.local.production .env.local && echo ✅ Switched to PRODUCTION Supabase (READ ONLY!)",
     "supabase:start": "npx supabase start",
