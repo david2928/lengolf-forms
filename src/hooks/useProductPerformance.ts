@@ -47,6 +47,7 @@ interface UseProductPerformanceProps {
 }
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_VERSION = 'v2'; // Increment to invalidate all cached data
 const cache = new Map<string, CacheEntry>();
 
 export function useProductPerformance({
@@ -63,7 +64,7 @@ export function useProductPerformance({
 
   // Generate cache key
   const getCacheKey = useCallback(() => {
-    return `${dateRange.start}-${dateRange.end}-${category}-${search}-${sortBy}-${sortOrder}`;
+    return `${CACHE_VERSION}-${dateRange.start}-${dateRange.end}-${category}-${search}-${sortBy}-${sortOrder}`;
   }, [dateRange.start, dateRange.end, category, search, sortBy, sortOrder]);
 
   // Check if cache is valid
