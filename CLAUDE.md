@@ -172,12 +172,23 @@ const { data, error } = await supabase
 
 **Schema Migrations:**
 
-⚠️ **IMPORTANT:** Always use the Supabase branching workflow for schema changes. See [Supabase Branching Setup](docs/SUPABASE_BRANCHING_SETUP.md).
+⚠️ **IMPORTANT:** Always use the Supabase branching workflow for schema changes.
 
+**Recommended Workflow (Local Development with Dev Branch):**
+1. Create persistent `develop` branch in Supabase Dashboard
+2. Link locally to dev branch: `npx supabase link --project-ref <dev-branch-id>`
+3. Make schema changes and test locally against dev branch
+4. Generate migration: `npm run db:diff migration_name`
+5. Commit migration to git
+6. Open PR → Preview branch auto-created → Test → Merge → Production
+
+See complete guide: [Local Development Workflow](docs/SUPABASE_LOCAL_DEVELOPMENT_WORKFLOW.md)
+
+**Quick Workflow (Direct to PR):**
 ```bash
 # Create migration file
 export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
-npx supabase db diff -f migration_name
+npm run db:diff migration_name
 
 # Commit and push to GitHub
 git add supabase/migrations/
@@ -188,10 +199,12 @@ git push
 # Test on preview branch → Merge → Auto-deploys to production
 ```
 
+See setup guide: [Supabase Branching Setup](docs/SUPABASE_BRANCHING_SETUP.md)
+
 **Do NOT:**
 - ❌ Use MCP `apply_migration` for schema changes (only for emergency fixes)
 - ❌ Make schema changes directly in production Supabase Dashboard
-- ❌ Apply migrations without testing on preview branch
+- ❌ Apply migrations without testing on dev/preview branch
 
 ## Testing & Development
 
@@ -581,6 +594,7 @@ if (process.env.NODE_ENV === 'development') {
 - **⚡ Development Auth Bypass:** `/docs/technical/DEVELOPMENT_AUTHENTICATION.md`
 - **🔗 Integrations:** `/docs/integrations/LINE_MESSAGING_INTEGRATION.md`
 - **🌿 Supabase Branching & GitHub Integration:** `/docs/SUPABASE_BRANCHING_SETUP.md` - Database migration workflow
+- **💻 Local Development with Supabase Branches:** `/docs/SUPABASE_LOCAL_DEVELOPMENT_WORKFLOW.md` - Test locally with dev branch
 
 ### External Resources
 - **Supabase Dashboard:** [Project link]
