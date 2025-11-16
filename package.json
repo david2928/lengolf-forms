@@ -50,8 +50,12 @@
     "ai:label-samples": "tsx scripts/label-test-samples.ts",
     "ai:evaluate": "tsx scripts/evaluate-ai-suggestions.ts",
     "ai:test": "npm run ai:extract-samples && npm run ai:label-samples && npm run ai:evaluate",
-    "ai:evaluate-multi-turn": "tsx scripts/evaluate-multi-turn.ts"
-    ,"ai:judge": "tsx scripts/evaluate-llm-judge.ts"
+    "ai:evaluate-multi-turn": "tsx scripts/evaluate-multi-turn.ts",
+    "ai:judge": "tsx scripts/evaluate-llm-judge.ts",
+    "db:diff": "npx supabase db diff -f",
+    "db:migration": "npx supabase migration new",
+    "db:status": "npx supabase migration list",
+    "db:link": "npx supabase link --project-ref bisimqmtxjsptehhqpeg"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.107",
@@ -154,6 +158,7 @@
     "node-mocks-http": "^1.17.2",
     "postcss": "^8.4.33",
     "puppeteer": "^24.12.1",
+    "supabase": "^2.58.5",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.20.3",
     "typescript": "^5.3.3"

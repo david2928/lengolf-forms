@@ -157,6 +157,7 @@ export async function GET(request: NextRequest) {
 
 ### Database Operations
 
+**Querying Data:**
 ```typescript
 // Common patterns
 const { data, error } = await supabase
@@ -168,6 +169,29 @@ const { data, error } = await supabase
 const { data, error } = await supabase
   .rpc('function_name', { param: value });
 ```
+
+**Schema Migrations:**
+
+⚠️ **IMPORTANT:** Always use the Supabase branching workflow for schema changes. See [Supabase Branching Setup](docs/SUPABASE_BRANCHING_SETUP.md).
+
+```bash
+# Create migration file
+export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+npx supabase db diff -f migration_name
+
+# Commit and push to GitHub
+git add supabase/migrations/
+git commit -m "feat: Add migration description"
+git push
+
+# Open PR → Preview branch created automatically
+# Test on preview branch → Merge → Auto-deploys to production
+```
+
+**Do NOT:**
+- ❌ Use MCP `apply_migration` for schema changes (only for emergency fixes)
+- ❌ Make schema changes directly in production Supabase Dashboard
+- ❌ Apply migrations without testing on preview branch
 
 ## Testing & Development
 
@@ -518,10 +542,18 @@ if (process.env.NODE_ENV === 'development') {
 
 ## MCP Tools Available
 
-**Database:** `mcp__supabase__execute_sql`, `mcp__supabase__list_tables`
+**Database (Read-Only):** `mcp__supabase__execute_sql`, `mcp__supabase__list_tables`
 **Development:** `mcp__supabase__get_logs`, `mcp__supabase__generate_typescript_types`
 
-Use `apply_migration` for DDL, `execute_sql` for DML operations.
+**⚠️ Migration Policy:**
+- Use `execute_sql` for **querying data only** (SELECT statements)
+- Use `apply_migration` **only for emergency production fixes** (rare cases)
+- For **all planned schema changes**, use the Supabase branching workflow (see [Supabase Branching Setup](docs/SUPABASE_BRANCHING_SETUP.md))
+- This ensures all schema changes are:
+  - ✅ Tested on preview branches before production
+  - ✅ Tracked in version control (git)
+  - ✅ Reviewed through pull requests
+  - ✅ Automatically deployed on merge
 
 ## 📚 Documentation Resources
 
@@ -548,6 +580,7 @@ Use `apply_migration` for DDL, `execute_sql` for DML operations.
 - **🔐 Authentication:** `/docs/technical/AUTHENTICATION_SYSTEM.md`
 - **⚡ Development Auth Bypass:** `/docs/technical/DEVELOPMENT_AUTHENTICATION.md`
 - **🔗 Integrations:** `/docs/integrations/LINE_MESSAGING_INTEGRATION.md`
+- **🌿 Supabase Branching & GitHub Integration:** `/docs/SUPABASE_BRANCHING_SETUP.md` - Database migration workflow
 
 ### External Resources
 - **Supabase Dashboard:** [Project link]
