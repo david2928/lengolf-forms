@@ -1,12 +1,12 @@
--- Fix auto_create_packages_from_transaction to use correct transaction ID column
+-- Fix auto_create_packages_from_transaction to use correct transaction ID columns
 --
--- Problem: The function was querying WHERE t.transaction_id = p_transaction_id
--- but transaction_items and transaction_payments reference transactions.id (not transaction_id)
+-- Problems found:
+-- 1. Function queried WHERE t.transaction_id = p_transaction_id but should use t.id
+-- 2. source_transaction_id FK references transactions.transaction_id (not transactions.id)
+-- 3. Trigger passes transactions.id, but FK expects transactions.transaction_id
+-- 4. Staff table uses staff_name not full_name
 --
--- This caused the function to return "Transaction not found" even when payments existed
--- because it was looking for the wrong ID value.
---
--- Solution: Change the query to use transactions.id instead of transactions.transaction_id
+-- Solution: Query by t.id but store v_transaction.transaction_id for the FK
 
 CREATE OR REPLACE FUNCTION backoffice.auto_create_packages_from_transaction(p_transaction_id uuid)
 RETURNS TABLE(package_id uuid, product_name text, package_type_name text, created boolean, message text)
@@ -21,9 +21,9 @@ DECLARE
     v_existing_package UUID;
     v_new_package_id UUID;
     v_discount_pct NUMERIC;
+    v_discount_note TEXT;
 BEGIN
-    -- Get transaction details
-    -- FIXED: Use t.id instead of t.transaction_id
+    -- Get transaction details - Use t.id to look up (trigger passes transactions.id)
     SELECT t.*, t.transaction_date::date as trans_date
     INTO v_transaction
     FROM pos.transactions t
@@ -50,11 +50,11 @@ BEGIN
             p.name as product_name,
             c.id as customer_id,
             c.customer_name,
-            COALESCE(s.full_name, 'POS Staff') as employee_name
+            COALESCE(s.staff_name, 'POS Staff') as employee_name
         FROM pos.transaction_items ti
         JOIN products.products p ON ti.product_id = p.id
         LEFT JOIN customers c ON ti.customer_id = c.id
-        LEFT JOIN pos.staff s ON ti.staff_id = s.id
+        LEFT JOIN backoffice.staff s ON ti.staff_id = s.id
         WHERE ti.transaction_id = p_transaction_id
     LOOP
         -- Check if product maps to a package type
@@ -69,9 +69,10 @@ BEGIN
             WHERE id = v_mapping.package_type_id;
 
             -- Check if package already exists for this transaction + product
+            -- Use v_transaction.transaction_id for FK check
             SELECT id INTO v_existing_package
             FROM backoffice.packages
-            WHERE source_transaction_id = p_transaction_id
+            WHERE source_transaction_id = v_transaction.transaction_id
               AND package_type_id = v_mapping.package_type_id
             LIMIT 1;
 
@@ -92,8 +93,6 @@ BEGIN
                 END IF;
 
                 -- Get discount note from discount table if applicable
-                DECLARE
-                    v_discount_note TEXT;
                 BEGIN
                     SELECT title INTO v_discount_note
                     FROM pos.discounts
@@ -126,7 +125,7 @@ BEGIN
                     v_mapping.package_type_id,
                     v_transaction.trans_date,
                     v_item.employee_name,
-                    p_transaction_id,
+                    v_transaction.transaction_id,  -- FK references transactions.transaction_id
                     TRUE,
                     v_item.line_total_incl_vat + COALESCE(v_item.line_discount, 0),
                     COALESCE(v_item.line_discount, 0),
@@ -134,7 +133,7 @@ BEGIN
                     v_item.applied_discount_id,
                     v_discount_note,
                     'auto_package_creation',
-                    'Automatically created from POS transaction ' || p_transaction_id::TEXT
+                    'Automatically created from POS transaction ' || v_transaction.transaction_id::TEXT
                 )
                 RETURNING id INTO v_new_package_id;
 
@@ -157,4 +156,4 @@ COMMENT ON FUNCTION backoffice.auto_create_packages_from_transaction(uuid) IS
 'Automatically creates packages from a paid transaction based on product→package_type mappings.
 Returns details of packages created or skipped.
 NOTE: Does NOT set expiration_date - that is handled by tr_set_expiration_date trigger when package is first used.
-FIXED: Now correctly uses transactions.id instead of transactions.transaction_id for queries.';
+FIXED: Correctly uses transactions.id for lookup but transactions.transaction_id for FK storage.';
