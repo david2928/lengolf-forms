@@ -101,6 +101,32 @@ export async function POST(
       // Continue even if profile update fails - the main linking succeeded
     }
 
+    // ALSO upsert profiles table for Lucky Draw / booking app compatibility
+    // This ensures the customer is linked in both systems (line_users AND profiles)
+    // The profiles table is checked by lengolf-booking-new for Lucky Draw eligibility
+    // Using upsert: if profile exists (user logged in via LINE), update customer_id
+    //               if profile doesn't exist (user only chatted), create it
+    const { error: profilesLinkError } = await refacSupabaseAdmin
+      .from('profiles')
+      .upsert({
+        provider: 'line',
+        provider_id: lineUserId,
+        customer_id: customerId,
+        display_name: lineUser.display_name,
+        picture_url: lineUser.picture_url,
+        marketing_preference: false,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'provider_id',
+        ignoreDuplicates: false
+      });
+
+    if (profilesLinkError) {
+      console.error('Error upserting profiles table:', profilesLinkError);
+      // Continue even if profiles upsert fails - log for monitoring
+      // The main linking in line_users still succeeded
+    }
+
     return NextResponse.json({
       success: true,
       message: "LINE user successfully linked to customer",
