@@ -24,7 +24,8 @@ export function EnhancedEmployeeSelector({
     { value: 'Eak', label: 'Eak', gradient: 'from-purple-500 to-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' },
     { value: 'Dolly', label: 'Dolly', gradient: 'from-pink-500 to-pink-600', bgColor: 'bg-pink-50', borderColor: 'border-pink-200' },
     { value: 'Net', label: 'Net', gradient: 'from-blue-500 to-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
-    { value: 'May', label: 'May', gradient: 'from-green-500 to-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200' }
+    { value: 'May', label: 'May', gradient: 'from-green-500 to-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200' },
+    { value: 'Ashley', label: 'Ashley', gradient: 'from-amber-500 to-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' }
   ]
 
   const handleEmployeeSelect = (employeeValue: string) => {

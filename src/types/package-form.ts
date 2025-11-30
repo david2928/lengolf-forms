@@ -34,7 +34,7 @@ export interface PackageFormData {
   firstUseDate?: Date | null
 }
 
-export const EMPLOYEES = ['Dolly', 'May', 'Net', 'Winnie'] as const
+export const EMPLOYEES = ['Dolly', 'May', 'Net', 'Ashley'] as const
 export type Employee = typeof EMPLOYEES[number]
 
 export interface FormState {

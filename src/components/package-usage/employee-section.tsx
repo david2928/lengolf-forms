@@ -30,8 +30,8 @@ export function EmployeeSection({ value, onChange }: EmployeeSectionProps) {
           <Label htmlFor="net">Net</Label>
         </div>
         <div className="flex items-center space-x-2">
-          <RadioGroupItem value="Winnie" id="winnie" />
-          <Label htmlFor="winnie">Winnie</Label>
+          <RadioGroupItem value="Ashley" id="ashley" />
+          <Label htmlFor="ashley">Ashley</Label>
         </div>
       </RadioGroup>
     </div>

@@ -28,7 +28,7 @@ const STAFF_MEMBERS = [
   'Dolly',
   'Net',
   'May',
-  'Winnie',
+  'Ashley',
   'Other'
 ] as const;
 

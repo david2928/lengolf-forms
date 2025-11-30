@@ -24,7 +24,7 @@ export function EmployeeSelector({
     { value: 'Dolly', label: 'Dolly' },
     { value: 'Net', label: 'Net' },
     { value: 'May', label: 'May' },
-    { value: 'Winnie', label: 'Winnie' }
+    { value: 'Ashley', label: 'Ashley' }
   ]
 
   return (
