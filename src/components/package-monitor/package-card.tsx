@@ -15,17 +15,31 @@ interface PackageCardProps {
 
 export function PackageCard({ package: pkg, type }: PackageCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const isInactive = pkg.first_use_date === null;
+  const isInactive = !pkg.first_use_date;
   
   // Fix days remaining calculation - ensure we're comparing dates without time components
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const expirationDate = new Date(pkg.expiration_date);
+
+  // Validate expiration date before calculations
+  const hasValidExpirationDate = pkg.expiration_date && 
+                                 !isNaN(new Date(pkg.expiration_date).getTime());
+
+  const expirationDate = hasValidExpirationDate 
+    ? new Date(pkg.expiration_date) 
+    : new Date(0); // Use epoch as fallback
   expirationDate.setHours(0, 0, 0, 0);
-  const daysRemaining = differenceInDays(expirationDate, today);
-  const isExpiring = !isInactive && daysRemaining <= 7;
-  const isExpired = !isInactive && daysRemaining < 0;
-  const isUnlimited = pkg.package_type === 'Unlimited' || pkg.remaining_hours === 'Unlimited';
+
+  const daysRemaining = hasValidExpirationDate 
+    ? differenceInDays(expirationDate, today)
+    : -999999; // Large negative number for invalid dates
+
+  const isExpiring = !isInactive && hasValidExpirationDate && daysRemaining <= 7;
+  const isExpired = !isInactive && (!hasValidExpirationDate || daysRemaining < 0);
+  const isUnlimited = pkg.package_type === 'Unlimited' || 
+                     pkg.remaining_hours === 'Unlimited' || 
+                     pkg.package_type_name?.toLowerCase().includes('diamond') || 
+                     pkg.package_type_name?.toLowerCase().includes('early bird');
   
   // Check if all hours have been used by comparing used_hours with total hours (used + remaining)
   const remainingHoursNum = typeof pkg.remaining_hours === 'string' ? 
@@ -51,6 +65,7 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
   // Format the days remaining text - fix the calculation to match user expectations
   const formatDaysRemaining = () => {
     if (isInactive) return 'Not activated';
+    if (!hasValidExpirationDate) return 'Invalid date';
     if (daysRemaining < 0) return 'Expired';
     if (daysRemaining === 0) return 'Expires today';
     if (daysRemaining === 1) return 'Expires tomorrow';
@@ -128,9 +143,7 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
             <div>
               <div className="text-sm text-muted-foreground">First Used</div>
               <div>
-                {pkg.first_use_date ? formatDate(pkg.first_use_date) : 
-                 (!isUnlimited && remainingHoursNum && remainingHoursNum > 0) ? 
-                   `${remainingHoursNum.toFixed(1)} hours remaining` : 'Not used'}
+                {pkg.first_use_date ? formatDate(pkg.first_use_date) : 'Not used'}
               </div>
             </div>
             <div>
@@ -140,9 +153,9 @@ export function PackageCard({ package: pkg, type }: PackageCardProps) {
               <div>
                 {isInactive && pkg.purchase_date
                   ? formatDate(pkg.purchase_date)
-                  : pkg.expiration_date
+                  : hasValidExpirationDate
                   ? formatDate(pkg.expiration_date)
-                  : 'N/A'
+                  : 'No expiration date'
                 }
               </div>
             </div>

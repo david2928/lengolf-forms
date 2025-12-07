@@ -23,7 +23,7 @@ interface Package {
   uses_remaining?: number;
   used_hours?: number;
   original_uses?: number;
-  status: 'active' | 'expired' | 'unused' | 'fully_used' | 'unlimited';
+  status: 'active' | 'expired' | 'unused' | 'fully_used' | 'unlimited' | 'created';
 }
 
 interface Customer {
@@ -162,15 +162,31 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
       <div className="space-y-3">
         {filteredPackages.map((pkg) => {
           const isExpanded = expandedPackages.has(pkg.id);
-          const isInactive = pkg.status === 'unused';
+          // Check inactive status based on first_use_date being null/empty, similar to package-card logic
+          // treating 'unused' status as inactive as well for backward compatibility
+          const isInactive = !pkg.first_use_date || pkg.status === 'unused';
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-          const expirationDate = new Date(pkg.expiration_date);
+
+          // Validate expiration date
+          const hasValidExpirationDate = pkg.expiration_date && 
+                                       !isNaN(new Date(pkg.expiration_date).getTime());
+
+          const expirationDate = hasValidExpirationDate 
+            ? new Date(pkg.expiration_date) 
+            : new Date(0);
           expirationDate.setHours(0, 0, 0, 0);
-          const daysRemaining = differenceInDays(expirationDate, today);
-          const isExpired = pkg.status === 'expired';
+
+          const daysRemaining = hasValidExpirationDate
+            ? differenceInDays(expirationDate, today)
+            : -999999;
           
-          const isUnlimited = pkg.status === 'unlimited';
+          // Override isExpired calculation to handle invalid dates locally
+          const isExpired = pkg.status === 'expired' || (!isInactive && (!hasValidExpirationDate || daysRemaining < 0));
+          
+          const isUnlimited = pkg.status === 'unlimited' || 
+                             pkg.package_name?.toLowerCase().includes('diamond') || 
+                             pkg.package_name?.toLowerCase().includes('early bird');
           
           // Use the calculated values from API
           const remainingHoursNum = pkg.uses_remaining || 0;
@@ -182,6 +198,7 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                      // Format the days remaining text
            const formatDaysRemaining = () => {
              if (isInactive) return 'Not activated';
+             if (!hasValidExpirationDate) return 'Invalid date';
              if (daysRemaining < 0) return 'Expired';
              if (daysRemaining === 0) return 'Expires today';
              if (daysRemaining === 1) return 'Expires tomorrow';
@@ -216,8 +233,8 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {isInactive ? "Purchase date: " + (pkg.purchase_date ? formatDate(pkg.purchase_date) : 'N/A') :
-                     isExpired ? "Expired: " + formatDate(pkg.expiration_date) : 
-                     "Expires: " + formatDate(pkg.expiration_date)}
+                     isExpired ? "Expired: " + (hasValidExpirationDate ? formatDate(pkg.expiration_date) : 'No date') : 
+                     "Expires: " + (hasValidExpirationDate ? formatDate(pkg.expiration_date) : 'No date')}
                   </div>
                 </div>
                 <ChevronDown 
@@ -246,9 +263,7 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                     <div>
                       <div className="text-sm text-muted-foreground">First Used</div>
                       <div>
-                        {pkg.first_use_date ? formatDate(pkg.first_use_date) : 
-                         (!isUnlimited && remainingHoursNum && remainingHoursNum > 0) ? 
-                           `${remainingHoursNum.toFixed(1)} hours remaining` : 'Not used'}
+                        {pkg.first_use_date ? formatDate(pkg.first_use_date) : 'Not used'}
                       </div>
                     </div>
                     {/* Remove Hours Used and Remaining Hours for Unlimited packages */}
@@ -264,7 +279,7 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSe
                         </div>
                       </>
                     )}
-                    {!isExpired && (
+                    {!isExpired && hasValidExpirationDate && (
                       <div className="col-span-2">
                         <div className="text-sm text-muted-foreground">Days Remaining</div>
                         <div>{daysText}</div>
