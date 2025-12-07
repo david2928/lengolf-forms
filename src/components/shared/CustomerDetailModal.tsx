@@ -16,7 +16,8 @@ import {
   Receipt,
   BookOpen,
   Edit3,
-  AlertCircle
+  AlertCircle,
+  MessageCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +32,19 @@ import { useCustomerModal } from '@/contexts/CustomerModalContext';
 import { TransactionHistoryTable } from '@/components/pos/customer-management/TransactionHistoryTable';
 import { PackageHistoryTable } from '@/components/pos/customer-management/PackageHistoryTable';
 import { BookingHistoryTable } from '@/components/pos/customer-management/BookingHistoryTable';
+import { LineUserSearchSelect } from '@/components/admin/customers/line-user-search-select';
+
+interface CustomerProfile {
+  id: string;
+  email?: string;
+  display_name: string;
+  phone_number?: string;
+  provider: string;
+  provider_id: string;
+  picture_url?: string;
+  updated_at: string;
+  marketing_preference: boolean;
+}
 
 interface CustomerDetailData {
   customer: {
@@ -50,6 +64,7 @@ interface CustomerDetailData {
     created_at?: string;
     updated_at?: string;
     is_active: boolean;
+    customer_profiles?: CustomerProfile[];
   };
   packageSummary: {
     activePackages: number;
@@ -80,6 +95,11 @@ export const CustomerDetailModal: React.FC = () => {
   });
   const [saving, setSaving] = useState(false);
   const { isTablet, isMobile } = useResponsive();
+  const [lineProfile, setLineProfile] = useState<{
+    line_user_id: string;
+    display_name: string;
+    picture_url?: string;
+  } | null>(null);
 
   const handleEditStart = () => {
     if (customerDetail) {
@@ -197,6 +217,34 @@ export const CustomerDetailModal: React.FC = () => {
       day: 'numeric'
     });
   };
+
+  // Handle LINE user link success
+  const handleLineLink = useCallback(async () => {
+    // Refetch customer data to update LINE profile
+    await fetchCustomerDetail();
+  }, [fetchCustomerDetail]);
+
+  // Initialize LINE profile from customer data
+  useEffect(() => {
+    if (customerDetail?.customer?.customer_profiles) {
+      // Find LINE profile from profiles array
+      const lineProfileData = customerDetail.customer.customer_profiles.find(
+        (profile) => profile.provider === 'line'
+      );
+
+      if (lineProfileData) {
+        setLineProfile({
+          line_user_id: lineProfileData.provider_id,
+          display_name: lineProfileData.display_name,
+          picture_url: lineProfileData.picture_url
+        });
+      } else {
+        setLineProfile(null);
+      }
+    } else {
+      setLineProfile(null);
+    }
+  }, [customerDetail]);
 
   // Handle modal close
   const handleClose = () => {
@@ -476,6 +524,92 @@ export const CustomerDetailModal: React.FC = () => {
                         )
                       )}
                     </div>
+
+                    {/* LINE Profile Section */}
+                    {isEditing && (
+                      <div className="md:col-span-2">
+                        <label className={cn(
+                          "font-medium text-gray-500 block mb-2",
+                          isTablet ? "text-base" : "text-sm"
+                        )}>
+                          LINE Profile
+                        </label>
+                        {lineProfile ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="flex items-center gap-2">
+                                {lineProfile.picture_url ? (
+                                  <img
+                                    src={lineProfile.picture_url}
+                                    alt={lineProfile.display_name}
+                                    className="w-8 h-8 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                    <User className="w-5 h-5 text-gray-500" />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-medium">{lineProfile.display_name}</p>
+                                  <p className="text-xs text-gray-500 font-mono truncate max-w-[200px]">
+                                    {lineProfile.line_user_id}
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
+                                Linked
+                              </Badge>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setLineProfile(null)}
+                              className="w-full text-gray-600 hover:text-red-600 hover:bg-red-50"
+                            >
+                              Change LINE User
+                            </Button>
+                          </div>
+                        ) : (
+                          <LineUserSearchSelect
+                            customerId={state.customerId || ''}
+                            onLinkSuccess={handleLineLink}
+                            disabled={!state.customerId}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* LINE Profile Display - Non-Edit Mode */}
+                    {!isEditing && lineProfile && (
+                      <div className="md:col-span-2">
+                        <label className={cn(
+                          "font-medium text-gray-500",
+                          isTablet ? "text-base" : "text-sm"
+                        )}>LINE Profile</label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <MessageCircle className={cn(
+                            "text-green-600",
+                            isTablet ? "h-5 w-5" : "h-4 w-4"
+                          )} />
+                          {lineProfile.picture_url && (
+                            <img
+                              src={lineProfile.picture_url}
+                              alt={lineProfile.display_name}
+                              className="w-6 h-6 rounded-full object-cover"
+                            />
+                          )}
+                          <span className={cn(
+                            "font-medium",
+                            isTablet ? "text-base" : "text-sm"
+                          )}>
+                            {lineProfile.display_name}
+                          </span>
+                          <Badge variant="outline" className="ml-auto bg-green-50 text-green-700 border-green-300">
+                            Linked
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
 
                     {customerDetail.customer.date_of_birth && (
                       <div>
