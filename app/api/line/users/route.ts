@@ -11,6 +11,7 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase';
  *   - search: search term (optional, min 1 character)
  *   - limit: number of results (default: 10, max: 50)
  *   - includeLinked: include already linked users (default: false)
+ *   - recent: sort by created_at DESC for recent users (default: false)
  *
  * Returns:
  *   - lineUsers: array of LINE user objects (id, line_user_id, display_name, picture_url, customer_id)
@@ -27,11 +28,11 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
     const includeLinked = searchParams.get('includeLinked') === 'true';
+    const recent = searchParams.get('recent') === 'true';
 
     let query = refacSupabaseAdmin
       .from('line_users')
-      .select('id, line_user_id, display_name, picture_url, customer_id')
-      .order('display_name', { ascending: true })
+      .select('id, line_user_id, display_name, picture_url, customer_id, created_at')
       .limit(limit);
 
     // Filter out already linked users unless explicitly requested
@@ -42,6 +43,13 @@ export async function GET(request: NextRequest) {
     // Apply search filter if provided
     if (search && search.length >= 1) {
       query = query.or(`display_name.ilike.%${search}%,line_user_id.ilike.%${search}%`);
+    }
+
+    // Sort by recent (created_at DESC) or alphabetically (display_name ASC)
+    if (recent) {
+      query = query.order('created_at', { ascending: false });
+    } else {
+      query = query.order('display_name', { ascending: true });
     }
 
     const { data: lineUsers, error } = await query;

@@ -48,11 +48,35 @@ export function LineUserSearchSelect({
   const [linking, setLinking] = useState(false);
   const { toast } = useToast();
 
+  // Fetch recent LINE users on initial open
+  const fetchRecentLineUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        limit: '3',
+        includeLinked: 'false',
+        recent: 'true'
+      });
+
+      const response = await fetch(`/api/line/users?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setLineUsers(data.lineUsers || []);
+      }
+    } catch (error) {
+      console.error('Error fetching recent LINE users:', error);
+      setLineUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Debounced search function
   const searchLineUsers = useMemo(
     () => debounce(async (search: string) => {
       if (!search || search.length < 1) {
-        setLineUsers([]);
+        // When search is cleared, show recent users again
+        fetchRecentLineUsers();
         return;
       }
 
@@ -89,8 +113,15 @@ export function LineUserSearchSelect({
         setLoading(false);
       }
     }, 300),
-    [toast]
+    [toast, fetchRecentLineUsers]
   );
+
+  // Load recent users when dropdown opens
+  useEffect(() => {
+    if (open && searchTerm === '') {
+      fetchRecentLineUsers();
+    }
+  }, [open, fetchRecentLineUsers, searchTerm]);
 
   useEffect(() => {
     searchLineUsers(searchTerm);
@@ -161,23 +192,59 @@ export function LineUserSearchSelect({
             onValueChange={setSearchTerm}
           />
           <CommandList className="max-h-[300px] overflow-y-auto">
-            {loading && searchTerm.length >= 1 && (
+            {loading && (
               <CommandEmpty>
                 <div className="flex items-center justify-center py-4">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                 </div>
               </CommandEmpty>
             )}
-            {!loading && searchTerm.length >= 1 && lineUsers.length === 0 && (
+            {!loading && lineUsers.length === 0 && searchTerm.length >= 1 && (
               <CommandEmpty>No LINE users found.</CommandEmpty>
             )}
-            {searchTerm.length < 1 && (
-              <CommandEmpty>Type to search LINE users...</CommandEmpty>
+            {!loading && lineUsers.length === 0 && searchTerm.length < 1 && (
+              <CommandEmpty>No recent unlinked LINE users.</CommandEmpty>
+            )}
+
+            {/* Recent users (when search is empty) */}
+            {!loading && lineUsers.length > 0 && searchTerm.length < 1 && (
+              <CommandGroup heading="Recent LINE Users">
+                {lineUsers.map((lineUser) => (
+                  <CommandItem
+                    key={lineUser.id}
+                    value={lineUser.id}
+                    onSelect={() => handleSelect(lineUser)}
+                    className="flex items-center gap-3 py-3"
+                    disabled={linking}
+                  >
+                    {lineUser.picture_url ? (
+                      <img
+                        src={lineUser.picture_url}
+                        alt={lineUser.display_name}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                        <User className="h-6 w-6 text-gray-500" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{lineUser.display_name}</div>
+                      <div className="text-sm text-muted-foreground font-mono truncate">
+                        {lineUser.line_user_id}
+                      </div>
+                    </div>
+                    {linking && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
             )}
 
             {/* Search results */}
-            {searchTerm.length >= 1 && lineUsers.length > 0 && (
-              <CommandGroup heading="LINE Users">
+            {!loading && lineUsers.length > 0 && searchTerm.length >= 1 && (
+              <CommandGroup heading="Search Results">
                 {lineUsers.map((lineUser) => (
                   <CommandItem
                     key={lineUser.id}
