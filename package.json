@@ -118,7 +118,7 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.542.0",
     "luxon": "^3.4.4",
-    "next": "^15.5.3",
+    "next": "^15.5.7",
     "next-auth": "^4.24.7",
     "node-cache": "^5.1.2",
     "node-fetch": "^3.3.2",
