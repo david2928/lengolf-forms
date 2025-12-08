@@ -3,6 +3,7 @@
 // Extended to support unified multi-channel messaging (LINE + Website)
 
 import { useState, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { compressImage } from '@/lib/image-compression';
 import { refacSupabase } from '@/lib/refac-supabase';
 import type {
@@ -25,6 +26,10 @@ export const useChatOperations = (
   const [sendingMessage, setSendingMessage] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sendingProgress, setSendingProgress] = useState<{current: number, total: number} | null>(null);
+
+  // Get staff email from session for SLA tracking
+  const { data: session } = useSession();
+  const staffEmail = session?.user?.email || 'unknown@lengolf.local';
 
   // Send message function extracted from main component
   const sendMessage = useCallback(async (content: string, type: MessageType = 'text', replyToMessageId?: string) => {
@@ -57,7 +62,8 @@ export const useChatOperations = (
             session_id: selectedConversationObj.lineUserId || selectedConversationObj.channel_user_id, // Using lineUserId as session_id for compatibility
             message_text: content.trim(),
             sender_type: 'staff',
-            sender_name: 'Admin'
+            sender_name: session?.user?.name || 'Admin',
+            staff_email: staffEmail
           })
           .select()
           .single();
@@ -93,6 +99,7 @@ export const useChatOperations = (
             platformUserId: selectedConversationObj.lineUserId || selectedConversationObj.channel_user_id, // Using lineUserId as platform user ID for compatibility
             message: content.trim(),
             platform: selectedConversationObj.channelType || selectedConversationObj.channel_type, // facebook, instagram, or whatsapp
+            staffEmail: staffEmail,
             ...(replyToMessageId && { replyToMessageId }) // Add reply support for Meta platforms
           }),
         });
@@ -118,7 +125,8 @@ export const useChatOperations = (
           body: JSON.stringify({
             message: content.trim(),
             type: type,
-            senderName: 'Admin',
+            senderName: session?.user?.name || 'Admin',
+            staffEmail: staffEmail,
             ...(replyToMessageId && { repliedToMessageId: replyToMessageId })
           }),
         });
@@ -150,7 +158,7 @@ export const useChatOperations = (
     } finally {
       setSendingMessage(false);
     }
-  }, [conversationId, selectedConversationObj, onMessageSent]);
+  }, [conversationId, selectedConversationObj, onMessageSent, session?.user?.name, staffEmail]);
 
   // File upload function extracted from main component
   const handleFileUpload = useCallback(async (file: File) => {
@@ -179,7 +187,8 @@ export const useChatOperations = (
       const formData = new FormData();
       formData.append('file', processedFile);
       formData.append('type', file.type.startsWith('image/') ? 'image' : 'file');
-      formData.append('senderName', 'Admin');
+      formData.append('senderName', session?.user?.name || 'Admin');
+      formData.append('staffEmail', staffEmail);
 
       let response;
 
@@ -192,7 +201,8 @@ export const useChatOperations = (
         websiteFormData.append('file', processedFile);
         websiteFormData.append('conversationId', conversationId);
         websiteFormData.append('sessionId', selectedConversationObj.channel_user_id);
-        websiteFormData.append('senderName', 'Admin');
+        websiteFormData.append('senderName', session?.user?.name || 'Admin');
+        websiteFormData.append('staffEmail', staffEmail);
 
         response = await fetch('/api/conversations/website/upload', {
           method: 'POST',
@@ -250,7 +260,7 @@ export const useChatOperations = (
     } finally {
       setSendingMessage(false);
     }
-  }, [conversationId, selectedConversationObj, onMessageSent]);
+  }, [conversationId, selectedConversationObj, onMessageSent, session?.user?.name, staffEmail]);
 
   // Batch image sending function extracted from main component
   const sendBatchImages = useCallback(async (imageIds: string[]) => {
@@ -282,7 +292,8 @@ export const useChatOperations = (
             sessionId,
             messageType: 'image',
             curatedImageIds: imageIds,
-            senderName: 'Admin'
+            senderName: session?.user?.name || 'Admin',
+            staffEmail: staffEmail
           }),
         });
       } else if (selectedConversationObj?.channel_type === 'facebook' || selectedConversationObj?.channelType === 'facebook' ||
@@ -300,6 +311,7 @@ export const useChatOperations = (
             platform: selectedConversationObj.channelType || selectedConversationObj.channel_type,
             messageType: 'image',
             curatedImageIds: imageIds,
+            staffEmail: staffEmail,
             message: imageIds.length > 1 ? `Sent ${imageIds.length} images` : undefined // Optional caption for multiple images
           }),
         });
@@ -314,7 +326,8 @@ export const useChatOperations = (
           body: JSON.stringify({
             type: 'batch_images',
             curatedImageIds: imageIds,
-            senderName: 'Admin'
+            senderName: session?.user?.name || 'Admin',
+            staffEmail: staffEmail
           }),
         });
       }
@@ -368,7 +381,7 @@ export const useChatOperations = (
         setSendingMessage(false);
       }, 1000);
     }
-  }, [conversationId, selectedConversationObj, onMessageSent]);
+  }, [conversationId, selectedConversationObj, onMessageSent, session?.user?.name, staffEmail]);
 
   // Unified message sending that handles both LINE and website channels
   const sendUnifiedMessage = useCallback(async (
@@ -401,7 +414,8 @@ export const useChatOperations = (
           body: JSON.stringify({
             message: content.trim(),
             type: type,
-            senderName: 'Admin'
+            senderName: session?.user?.name || 'Admin',
+            staffEmail: staffEmail
           }),
         });
 
@@ -427,7 +441,8 @@ export const useChatOperations = (
             session_id: conversation.channel_user_id,
             message_text: content.trim(),
             sender_type: 'staff',
-            sender_name: 'Admin'
+            sender_name: session?.user?.name || 'Admin',
+            staff_email: staffEmail
           })
           .select()
           .single();
@@ -487,7 +502,7 @@ export const useChatOperations = (
     } finally {
       setSendingMessage(false);
     }
-  }, [onMessageSent]);
+  }, [onMessageSent, session?.user?.name, staffEmail]);
 
   return {
     sendMessage,

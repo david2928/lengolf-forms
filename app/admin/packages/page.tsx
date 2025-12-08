@@ -6,6 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Package, RefreshCw } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 // Hooks and Types
 import { useAdminPackages } from '@/hooks/use-admin-packages';
@@ -24,6 +33,8 @@ export default function AdminPackageManagementPage() {
   const [editingPackage, setEditingPackage] = useState<any>(undefined);
   const [transferPackage, setTransferPackage] = useState<any>(undefined);
   const [usagePackage, setUsagePackage] = useState<any>(undefined);
+  const [packageToDelete, setPackageToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Hooks
   const {
@@ -50,6 +61,39 @@ export default function AdminPackageManagementPage() {
 
   const handleManageUsage = (pkg: any) => {
     setUsagePackage(pkg);
+  };
+
+  const handlePackageDelete = (pkg: any) => {
+    setPackageToDelete(pkg);
+  };
+
+  const confirmDelete = async () => {
+    if (!packageToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/admin/packages/${packageToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete package');
+      }
+
+      toast.success('Package deleted successfully');
+      setPackageToDelete(null);
+      refreshPackages();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete package');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setPackageToDelete(null);
   };
 
   const handleRefresh = () => {
@@ -200,6 +244,7 @@ export default function AdminPackageManagementPage() {
               onPackageEdit={handleEditPackage}
               onPackageTransfer={handleTransferPackage}
               onUsageManage={handleManageUsage}
+              onPackageDelete={handlePackageDelete}
               isLoading={packagesLoading}
             />
           </div>
@@ -237,6 +282,38 @@ export default function AdminPackageManagementPage() {
           refreshPackages();
         }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!packageToDelete} onOpenChange={(open: boolean) => !open && cancelDelete()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Package?</DialogTitle>
+            <DialogDescription>
+              {packageToDelete && (
+                <>
+                  Are you sure you want to delete the package for <strong>{packageToDelete.customer_name}</strong>?
+                  <br /><br />
+                  <strong>Package:</strong> {packageToDelete.package_type_name}
+                  <br />
+                  <strong>Note:</strong> This action cannot be undone. If the package has usage records, deletion will be prevented.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelDelete} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Package'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

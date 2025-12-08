@@ -71,6 +71,7 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 
 ### Sales & Analytics
 - **[Sales Dashboard](./features/admin/analytics/SALES_DASHBOARD.md)** - KPIs, charts, and business analytics
+- **[Chat SLA Tracking System](./features/admin/analytics/CHAT_SLA_TRACKING_SYSTEM.md)** - Multi-channel chat response time monitoring and staff performance analytics with 10-minute SLA compliance
 - **[Lead Feedback System](./features/admin/analytics/LEAD_FEEDBACK_SYSTEM.md)** - Comprehensive lead processing and OB sales management with Customer Outreach integration
 - **[Google Ads Analytics](./features/admin/analytics/GOOGLE_ADS_ANALYTICS.md)** - Google Ads campaign tracking and ROI analysis
 - **[Referral Analytics System](./features/admin/analytics/REFERRAL_ANALYTICS_SYSTEM.md)** - Customer acquisition tracking and trend analysis

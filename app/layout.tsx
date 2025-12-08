@@ -10,6 +10,7 @@ import { ConditionalNav } from '@/components/conditional-nav'
 import { CustomerModalProvider } from '@/contexts/CustomerModalContext'
 import { CustomerDetailModal } from '@/components/shared/CustomerDetailModal'
 import { NotificationsClientProvider } from '@/components/providers/NotificationsClientProvider'
+import { QueryClientProvider } from '@/components/providers/QueryClientProvider'
 import { Analytics } from '@vercel/analytics/react'
 import type { Metadata, Viewport } from 'next'
 
@@ -46,17 +47,19 @@ export default async function RootLayout({
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body className={`${inter.className} h-full`}>
         <SessionProvider session={session}>
-          <NotificationsClientProvider>
-            <CustomerModalProvider>
-              <div className="min-h-screen bg-background flex flex-col">
-                <ConditionalNav />
-                <main className="flex-1">{children}</main>
-                <Toaster />
-                <SonnerToaster position="top-right" />
-              </div>
-              <CustomerDetailModal />
-            </CustomerModalProvider>
-          </NotificationsClientProvider>
+          <QueryClientProvider>
+            <NotificationsClientProvider>
+              <CustomerModalProvider>
+                <div className="min-h-screen bg-background flex flex-col">
+                  <ConditionalNav />
+                  <main className="flex-1">{children}</main>
+                  <Toaster />
+                  <SonnerToaster position="top-right" />
+                </div>
+                <CustomerDetailModal />
+              </CustomerModalProvider>
+            </NotificationsClientProvider>
+          </QueryClientProvider>
         </SessionProvider>
         <Analytics />
       </body>

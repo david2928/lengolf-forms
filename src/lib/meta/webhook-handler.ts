@@ -446,7 +446,8 @@ export async function storeMetaMessage(
   platform: 'facebook' | 'instagram' | 'whatsapp',
   webhookEventId?: string,
   attachments?: any[],
-  replyToMessageId?: string
+  replyToMessageId?: string,
+  staffEmail?: string | null
 ): Promise<string> {
   try {
 
@@ -532,6 +533,7 @@ export async function storeMetaMessage(
         message_type: messageType,
         sender_type: senderType,
         sender_name: senderName,
+        staff_email: staffEmail || null,
         image_url: imageUrl,
         file_url: fileUrl,
         file_name: fileName,

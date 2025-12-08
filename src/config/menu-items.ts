@@ -214,6 +214,12 @@ export const menuItems: MenuItem[] = [
     description: "Manage LINE customer conversations and communication"
   },
   {
+    icon: BarChart3,
+    title: "Chat SLA Dashboard",
+    path: '/admin/chat-sla',
+    description: "Monitor staff response times and SLA compliance across all channels"
+  },
+  {
     icon: FileText,
     title: "Message Templates",
     path: '/staff/line-templates',

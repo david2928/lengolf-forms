@@ -12,13 +12,14 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Edit, 
-  ArrowRightLeft, 
+import {
+  Edit,
+  ArrowRightLeft,
   Clock,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Trash2
 } from 'lucide-react';
 
 interface Package {
@@ -43,6 +44,7 @@ interface PackageListTableProps {
   onPackageEdit: (pkg: Package) => void;
   onPackageTransfer: (pkg: Package) => void;
   onUsageManage: (pkg: Package) => void;
+  onPackageDelete: (pkg: Package) => void;
   isLoading: boolean;
 }
 
@@ -80,6 +82,7 @@ export const PackageListTable: React.FC<PackageListTableProps> = ({
   onPackageEdit,
   onPackageTransfer,
   onUsageManage,
+  onPackageDelete,
   isLoading
 }) => {
   const [sortKey, setSortKey] = useState<SortKey>('customer_name');
@@ -320,6 +323,15 @@ export const PackageListTable: React.FC<PackageListTableProps> = ({
                       <Clock className="h-3 w-3" />
                     </Button>
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onPackageDelete(pkg)}
+                    className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    title="Delete package"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
               </TableCell>
             </TableRow>

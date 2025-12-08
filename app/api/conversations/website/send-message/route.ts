@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
       messageText,
       senderType = 'staff',
       senderName = 'Admin',
+      staffEmail = null,
       messageType = 'text',
       curatedImageIds // Support for curated images like Meta API
     } = await request.json();
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
         image_url: image.file_url,
         sender_type: senderType,
         sender_name: senderName,
+        staff_email: staffEmail || null,
         created_at: new Date().toISOString()
       }));
     } else {
@@ -78,6 +80,7 @@ export async function POST(request: NextRequest) {
         message_type: messageType,
         sender_type: senderType,
         sender_name: senderName,
+        staff_email: staffEmail || null,
         created_at: new Date().toISOString()
       }];
     }

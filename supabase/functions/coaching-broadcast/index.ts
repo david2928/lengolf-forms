@@ -6,12 +6,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+interface CoachDate {
+  date: string;
+  date_display: string;
+  slots: string[];
+}
+
 interface Coach {
-  name: string;
-  slots: Array<{
-    date: string;
-    time: string;
-  }>;
+  coach_id: string;
+  coach_name: string;
+  dates: CoachDate[];
 }
 
 /**
@@ -24,12 +28,25 @@ async function getCoachingAvailability(): Promise<Coach[] | null> {
     fourteenDaysLater.setDate(today.getDate() + 14);
 
     const baseUrl = Deno.env.get('NEXTAUTH_URL') || 'https://lengolf-forms.vercel.app';
+    const cronSecret = Deno.env.get('CRON_SECRET');
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add internal secret for authentication
+    if (cronSecret) {
+      headers['x-internal-secret'] = cronSecret;
+    }
+
     const response = await fetch(
-      `${baseUrl}/api/coaching-assist/slots?fromDate=${today.toISOString().split('T')[0]}&toDate=${fourteenDaysLater.toISOString().split('T')[0]}`
+      `${baseUrl}/api/coaching-assist/slots?fromDate=${today.toISOString().split('T')[0]}&toDate=${fourteenDaysLater.toISOString().split('T')[0]}`,
+      { headers }
     );
 
     if (!response.ok) {
-      console.error('Failed to fetch coaching slots:', response.status);
+      const errorText = await response.text();
+      console.error('Failed to fetch coaching slots:', response.status, errorText);
       return null;
     }
 
@@ -42,6 +59,199 @@ async function getCoachingAvailability(): Promise<Coach[] | null> {
 }
 
 /**
+ * Groups consecutive time slots into ranges
+ * Example: ["12:00", "13:00", "14:00", "16:00", "17:00"] → ["12.00–15.00", "16.00–18.00"]
+ */
+function groupConsecutiveSlots(timeSlots: string[]): string[] {
+  if (timeSlots.length === 0) return [];
+
+  // Sort slots and convert to numbers for easier comparison
+  const sortedSlots = timeSlots.map(time => {
+    const [hour] = time.split(':').map(Number);
+    return hour;
+  }).sort((a, b) => a - b);
+
+  const grouped: string[] = [];
+  let currentStart = sortedSlots[0];
+  let currentEnd = sortedSlots[0] + 1; // End time is start + 1 hour
+
+  for (let i = 1; i < sortedSlots.length; i++) {
+    const hour = sortedSlots[i];
+
+    // Check if current slot is consecutive (starts where previous ends)
+    if (hour === currentEnd) {
+      // Extend the current group
+      currentEnd = hour + 1;
+    } else {
+      // End current group and start new one
+      grouped.push(`${currentStart.toString().padStart(2, '0')}.00–${currentEnd.toString().padStart(2, '0')}.00`);
+      currentStart = hour;
+      currentEnd = hour + 1;
+    }
+  }
+
+  // Add the last group
+  grouped.push(`${currentStart.toString().padStart(2, '0')}.00–${currentEnd.toString().padStart(2, '0')}.00`);
+
+  return grouped;
+}
+
+/**
+ * Helper function to create a single coach card bubble for carousel
+ */
+function createCoachCard(coach: Coach, options: { campaignId: string; audienceId: string }): any {
+  if (!coach.dates || coach.dates.length === 0) return null;
+
+  // Coach-specific colors
+  const coachColors: Record<string, string> = {
+    'Ratchavin': '#7B68EE',
+    'Boss': '#FF6B6B',
+    'Min': '#4ECDC4',
+    'Noon': '#FF69B4'
+  };
+
+  const coachColor = coachColors[coach.coach_name] || '#17C964';
+
+  // Group dates by month
+  const monthGroups: { [month: string]: CoachDate[] } = {};
+  coach.dates.forEach((dateInfo) => {
+    const date = new Date(dateInfo.date);
+    const monthKey = date.toLocaleDateString('en-US', { month: 'long' });
+
+    if (!monthGroups[monthKey]) {
+      monthGroups[monthKey] = [];
+    }
+
+    monthGroups[monthKey].push(dateInfo);
+  });
+
+  // Build availability content by month
+  const availabilityContent: any[] = [];
+
+  Object.entries(monthGroups).forEach(([month, dates], monthIndex) => {
+    // Month header
+    if (monthIndex > 0) {
+      availabilityContent.push({
+        type: 'separator',
+        margin: 'md'
+      });
+    }
+
+    availabilityContent.push({
+      type: 'text',
+      text: month,
+      weight: 'bold',
+      size: 'sm',
+      color: '#666666',
+      margin: monthIndex === 0 ? 'md' : 'lg'
+    });
+
+    // Dates for this month
+    dates.forEach((dateInfo) => {
+      const groupedRanges = groupConsecutiveSlots(dateInfo.slots);
+      const timeSlotsText = groupedRanges.join(' / ');
+
+      const date = new Date(dateInfo.date);
+      const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+      const day = date.getDate();
+
+      availabilityContent.push({
+        type: 'text',
+        text: `• ${weekday} ${day}: ${timeSlotsText}`,
+        size: 'sm',
+        color: '#333333',
+        margin: 'sm',
+        wrap: true
+      });
+    });
+  });
+
+  return {
+    type: 'bubble',
+    hero: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [{
+        type: 'text',
+        text: `Pro ${coach.coach_name}`,
+        weight: 'bold',
+        size: 'xl',
+        color: '#FFFFFF'
+      }],
+      backgroundColor: coachColor,
+      paddingAll: '20px'
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'text',
+          text: 'Available Slots',
+          size: 'sm',
+          color: '#999999',
+          margin: 'none'
+        },
+        ...availabilityContent
+      ],
+      paddingAll: '16px'
+    }
+  };
+}
+
+/**
+ * Create an unsubscribe action card
+ */
+function createUnsubscribeCard(campaignId: string, audienceId: string): any {
+  return {
+    type: 'bubble',
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'text',
+          text: '⚙️',
+          size: 'xxl',
+          align: 'center',
+          margin: 'md'
+        },
+        {
+          type: 'text',
+          text: 'Manage Subscription',
+          weight: 'bold',
+          size: 'lg',
+          align: 'center',
+          margin: 'md'
+        },
+        {
+          type: 'text',
+          text: 'Not interested in coaching availability updates?',
+          size: 'sm',
+          color: '#666666',
+          align: 'center',
+          wrap: true,
+          margin: 'md'
+        },
+        {
+          type: 'button',
+          style: 'primary',
+          color: '#999999',
+          margin: 'lg',
+          action: {
+            type: 'postback',
+            label: 'Unsubscribe',
+            data: `action=opt_out&campaign_id=${campaignId}&audience_id=${audienceId}`,
+            displayText: 'Unsubscribe from coaching updates'
+          }
+        }
+      ],
+      paddingAll: '20px'
+    }
+  };
+}
+
+/**
  * Create LINE Flex Message for coaching availability
  */
 function createCoachingAvailabilityMessage(coaches: Coach[], options: {
@@ -49,79 +259,32 @@ function createCoachingAvailabilityMessage(coaches: Coach[], options: {
   campaignId: string;
   audienceId: string;
 }) {
-  const bubbles = coaches.map((coach) => ({
-    type: 'bubble',
-    size: 'kilo',
-    header: {
-      type: 'box',
-      layout: 'vertical',
-      contents: [
-        {
-          type: 'text',
-          text: coach.name,
-          weight: 'bold',
-          size: 'lg',
-          color: '#FFFFFF'
-        }
-      ],
-      backgroundColor: '#27AE60',
-      paddingAll: 'md'
-    },
-    body: {
-      type: 'box',
-      layout: 'vertical',
-      contents: coach.slots.slice(0, 5).map((slot) => ({
-        type: 'box',
-        layout: 'horizontal',
-        contents: [
-          {
-            type: 'text',
-            text: new Date(slot.date).toLocaleDateString('th-TH', {
-              month: 'short',
-              day: 'numeric'
-            }),
-            size: 'sm',
-            color: '#555555',
-            flex: 2
-          },
-          {
-            type: 'text',
-            text: slot.time,
-            size: 'sm',
-            color: '#111111',
-            flex: 3,
-            weight: 'bold'
-          }
-        ],
-        spacing: 'sm'
-      })),
-      paddingAll: 'md'
-    },
-    footer: options.includeUnsubscribe ? {
-      type: 'box',
-      layout: 'vertical',
-      contents: [
-        {
-          type: 'button',
-          action: {
-            type: 'uri',
-            label: 'ยกเลิกการรับข่าวสาร',
-            uri: `https://lengolf-forms.vercel.app/api/line/unsubscribe?campaignId=${options.campaignId}&audienceId=${options.audienceId}`
-          },
-          style: 'link',
-          height: 'sm'
-        }
-      ],
-      paddingAll: 'sm'
-    } : undefined
-  }));
+  // Create a card for each coach (sorted alphabetically)
+  const coachCards: any[] = [];
+
+  // Sort coaches alphabetically by coach name
+  const sortedCoaches = [...coaches].sort((a, b) =>
+    a.coach_name.localeCompare(b.coach_name)
+  );
+
+  sortedCoaches.forEach((coach) => {
+    const card = createCoachCard(coach, options);
+    if (card) {
+      coachCards.push(card);
+    }
+  });
+
+  // Add unsubscribe card if requested (for campaigns)
+  if (options.includeUnsubscribe) {
+    coachCards.push(createUnsubscribeCard(options.campaignId, options.audienceId));
+  }
 
   return {
     type: 'flex',
-    altText: 'ตารางคอร์สกอล์ฟที่ว่าง',
+    altText: 'Coaching Availability - Swipe to view all coaches',
     contents: {
       type: 'carousel',
-      contents: bubbles
+      contents: coachCards
     }
   };
 }
@@ -173,6 +336,15 @@ serve(async (req) => {
   }
 
   try {
+    // Parse URL for query parameters
+    const url = new URL(req.url);
+    const testUserId = url.searchParams.get('testUserId');
+    const isTestMode = !!testUserId;
+
+    if (isTestMode) {
+      console.log(`TEST MODE: Sending only to ${testUserId}`);
+    }
+
     // Create Supabase client with service role
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -187,28 +359,69 @@ serve(async (req) => {
 
     const today = new Date().toISOString().split('T')[0];
 
-    // DUPLICATE PREVENTION: Check if we already successfully sent today
-    const { data: existingCampaigns } = await supabaseClient
-      .from('line_broadcast_campaigns')
-      .select('id, status, name, created_at')
-      .gte('created_at', `${today}T00:00:00Z`)
-      .lt('created_at', `${today}T23:59:59Z`)
-      .eq('status', 'completed')
-      .order('created_at', { ascending: false });
+    // DUPLICATE PREVENTION: Check if we already successfully sent today (skip in test mode)
+    if (!isTestMode) {
+      const { data: existingCampaigns } = await supabaseClient
+        .from('line_broadcast_campaigns')
+        .select('id, status, name, created_at')
+        .gte('created_at', `${today}T00:00:00Z`)
+        .lt('created_at', `${today}T23:59:59Z`)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
 
-    if (existingCampaigns && existingCampaigns.length > 0) {
-      const completedCampaign = existingCampaigns[0];
-      console.log(`Duplicate prevented: Campaign ${completedCampaign.id} already completed today`);
+      if (existingCampaigns && existingCampaigns.length > 0) {
+        const completedCampaign = existingCampaigns[0];
+        console.log(`Duplicate prevented: Campaign ${completedCampaign.id} already completed today`);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Broadcast already sent today',
+            campaign_id: completedCampaign.id,
+            skipped: true
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // TEST MODE: Skip audience lookup and send directly to test user
+    if (isTestMode) {
+      // Fetch coaching availability
+      const coaches = await getCoachingAvailability();
+
+      if (!coaches || coaches.length === 0) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'No coaching availability found for the next 14 days'
+          }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Create flex message (no unsubscribe in test mode)
+      const flexMessage = createCoachingAvailabilityMessage(coaches, {
+        includeUnsubscribe: false,
+        campaignId: 'test',
+        audienceId: 'test'
+      });
+
+      // Send directly to test user
+      const result = await sendLineMessage(testUserId, flexMessage);
+
       return new Response(
         JSON.stringify({
-          success: true,
-          message: 'Broadcast already sent today',
-          campaign_id: completedCampaign.id,
-          skipped: true
+          success: result.success,
+          test_mode: true,
+          sent_to: testUserId,
+          coaches_count: coaches.length,
+          error: result.error
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // PRODUCTION MODE: Normal audience-based broadcast
 
     // Get the coaching audience
     const { data: audience, error: audienceError } = await supabaseClient

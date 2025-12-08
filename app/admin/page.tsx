@@ -2,9 +2,9 @@
 
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { 
-  TrendingUp, 
-  Archive, 
+import {
+  TrendingUp,
+  Archive,
   Calculator,
   FileText,
   Shield,
@@ -24,7 +24,8 @@ import {
   Cog,
   Camera,
   Package,
-  Phone
+  Phone,
+  MessageSquare
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -44,6 +45,12 @@ const salesAnalyticsItems = [
     title: "Sales Dashboard",
     description: "View revenue trends, KPIs, and business analytics",
     path: "/admin/sales-dashboard"
+  },
+  {
+    icon: MessageSquare,
+    title: "Chat SLA Dashboard",
+    description: "Monitor staff response times and SLA compliance across all channels",
+    path: "/admin/chat-sla"
   },
   {
     icon: FileText,

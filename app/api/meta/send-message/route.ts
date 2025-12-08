@@ -13,6 +13,7 @@ interface SendMetaMessageRequest {
   imageUrl?: string; // For image messages
   curatedImageIds?: string[]; // For sending multiple curated images
   replyToMessageId?: string; // For replies - platform message ID
+  staffEmail?: string | null; // For SLA tracking
 }
 
 /**
@@ -47,7 +48,8 @@ export async function POST(request: NextRequest) {
       templateName,
       imageUrl,
       curatedImageIds,
-      replyToMessageId
+      replyToMessageId,
+      staffEmail = null
     }: SendMetaMessageRequest = await request.json();
 
     // Validate input
@@ -407,7 +409,8 @@ export async function POST(request: NextRequest) {
           platform,
           `sent_${Date.now()}_${i}`,
           attachmentsForStorage,
-          i === 0 ? replyToMessageId : undefined // Only first message has reply
+          i === 0 ? replyToMessageId : undefined, // Only first message has reply
+          staffEmail || null // SLA tracking
         );
 
         databaseMessageIds.push(dbMsgId);

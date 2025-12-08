@@ -10,7 +10,7 @@ const supabase = createClient(
 /**
  * Handle batch image sending - send multiple curated images at once
  */
-async function handleBatchImages(conversationId: string, imageIds: string[], senderName: string) {
+async function handleBatchImages(conversationId: string, imageIds: string[], senderName: string, staffEmail?: string) {
   try {
     if (!imageIds || !Array.isArray(imageIds) || imageIds.length === 0) {
       return NextResponse.json({
@@ -90,6 +90,7 @@ async function handleBatchImages(conversationId: string, imageIds: string[], sen
       file_type: 'image/jpeg',
       sender_type: 'admin',
       sender_name: senderName,
+      staff_email: staffEmail || null,
       timestamp: Date.now(),
       is_read: true
     }));
@@ -180,6 +181,7 @@ export async function POST(
       const file = formData.get('file') as File;
       const messageType = formData.get('type') as string;
       const senderName = formData.get('senderName') as string || 'Admin';
+      const staffEmail = formData.get('staffEmail') as string || null;
       const curatedImageId = formData.get('curatedImageId') as string;
 
       console.log('API: FormData contents:', {
@@ -200,6 +202,7 @@ export async function POST(
       messageData = {
         type: messageType || (file ? 'image' : 'text'),
         senderName,
+        staffEmail,
         curatedImageId
       };
       uploadedFile = file;
@@ -212,6 +215,7 @@ export async function POST(
       message,
       type = 'text',
       senderName = 'Admin',
+      staffEmail = null,
       curatedImageId,
       curatedImageIds,
       repliedToMessageId
@@ -219,7 +223,7 @@ export async function POST(
 
     // Handle batch images separately
     if (type === 'batch_images') {
-      return await handleBatchImages(conversationId, curatedImageIds, senderName);
+      return await handleBatchImages(conversationId, curatedImageIds, senderName, staffEmail);
     }
 
     // Validate based on message type
@@ -452,6 +456,7 @@ export async function POST(
         file_type: fileType,
         sender_type: 'admin',
         sender_name: senderName,
+        staff_email: staffEmail || null,
         timestamp: Date.now(),
         is_read: true, // Admin messages are already "read" by admin
         quote_token: responseQuoteToken,
