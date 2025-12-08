@@ -112,24 +112,21 @@ export default function KPICards({ data, isLoading }: KPICardsProps) {
         </CardContent>
       </Card>
 
-      {/* Unanswered Messages */}
+      {/* Unanswered & Abandoned Messages */}
       <Card>
         <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-sm font-medium">Unanswered</CardTitle>
+          <CardTitle className="text-sm font-medium">Unanswered & Abandoned</CardTitle>
           <XCircle className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className={`text-2xl font-bold ${data.unanswered_count > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {data.unanswered_count}
+          <div className={`text-2xl font-bold ${(data.unanswered_count + data.abandoned_count) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {data.unanswered_count + data.abandoned_count}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            {totalAnswered > 0
-              ? `${((data.unanswered_count / (totalAnswered + data.unanswered_count)) * 100).toFixed(1)}% of total`
-              : '0% of total'
-            }
+            {data.unanswered_count} unanswered, {data.abandoned_count} abandoned
           </p>
           <p className="text-xs text-muted-foreground">
-            Still waiting for response
+            Abandoned: &gt;24hr response time
           </p>
         </CardContent>
       </Card>

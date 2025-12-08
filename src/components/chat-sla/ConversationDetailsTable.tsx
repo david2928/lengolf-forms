@@ -59,6 +59,8 @@ export default function ConversationDetailsTable({ dateRange }: ConversationDeta
         return <Badge className="bg-gray-500">Unanswered</Badge>;
       case 'outside_business_hours':
         return <Badge className="bg-blue-500">Outside Hours</Badge>;
+      case 'abandoned':
+        return <Badge className="bg-orange-500">Abandoned</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -121,6 +123,7 @@ export default function ConversationDetailsTable({ dateRange }: ConversationDeta
                 <SelectItem value="breached">Breached</SelectItem>
                 <SelectItem value="unanswered">Unanswered</SelectItem>
                 <SelectItem value="outside_business_hours">Outside Business Hours</SelectItem>
+                <SelectItem value="abandoned">Abandoned (&gt;24hr)</SelectItem>
               </SelectContent>
             </Select>
           </div>

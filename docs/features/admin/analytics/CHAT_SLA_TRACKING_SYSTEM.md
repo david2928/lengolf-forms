@@ -38,13 +38,21 @@ Staff response: 14:07:00
 - Do NOT count as SLA breaches (allows for natural conversation endings like "thanks", "ok")
 - Tracked separately for visibility
 
+**24-Hour Response Cutoff (Critical)**
+- Only responses within 24 hours are tracked for SLA
+- Messages with no response OR response after 24 hours = "Abandoned"
+- Abandoned conversations tracked separately as backlog metric
+- Prevents old conversations from skewing real-time SLA metrics
+- Example: Message from Oct 5 getting response on Dec 1 (57 days later) = Abandoned, not counted in SLA
+
 ### SLA Status Categories
 
 | Status | Description | Counted in SLA? |
 |--------|-------------|-----------------|
-| **Met** | Staff responded within 10 minutes | ✓ Yes |
-| **Breached** | Staff responded after 10 minutes | ✓ Yes |
-| **Unanswered** | No response given | ✗ No (tracked separately) |
+| **Met** | Staff responded within 10 minutes (and <24hrs) | ✓ Yes |
+| **Breached** | Staff responded 10min-24hrs after customer message | ✓ Yes |
+| **Unanswered** | No response given yet (<24hrs since message) | ✗ No (tracked separately) |
+| **Abandoned** | No response or response came >24hrs after message | ✗ No (tracked as backlog) |
 
 **SLA Compliance Formula:**
 ```
@@ -320,6 +328,19 @@ Result: SLA MET ✓ (5 minutes < 10 minutes)
 - Added LINE/channel user name fallback joins
 - Fixed outside hours SLA calculation to start from 10am
 - Updated conversation details function with proper joins
+
+### Migration 5: 24-Hour SLA Cutoff (`20251208100000_add_24hour_sla_cutoff.sql`)
+- Added 24-hour response cutoff logic to materialized view
+- Only responses within 24 hours count toward SLA metrics
+- Messages with no response or response after 24 hours = "abandoned" status
+- Prevents month-old conversations from skewing current SLA metrics
+- Example fix: Oct 5 message getting Dec 1 response (57 days) now marked as abandoned
+
+### Migration 6: Analytics for Abandoned (`20251208100001_update_analytics_for_abandoned.sql`)
+- Updated all 4 analytics functions to handle "abandoned" status
+- `get_chat_sla_overview()` now returns `abandoned_count` and `total_messages_tracked`
+- All functions exclude abandoned conversations from SLA calculations
+- Abandoned conversations tracked separately as backlog metric
 
 ## Technical Considerations
 

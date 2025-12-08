@@ -12,7 +12,9 @@ export interface ChatSLAOverview {
   sla_met_count: number;
   sla_breached_count: number;
   unanswered_count: number;
+  abandoned_count: number; // NEW: Conversations with >24hr response time
   business_hours_messages: number;
+  total_messages_tracked: number; // NEW: Total messages tracked (excludes abandoned)
   sla_compliance_rate: number; // Percentage (0-100)
 
   // Response time metrics (in seconds and minutes)
@@ -63,6 +65,7 @@ export interface DailySLATrend {
   sla_met: number;
   sla_breached: number;
   unanswered: number;
+  abandoned: number; // NEW: Conversations with >24hr response time
   sla_compliance_rate: number; // Percentage (0-100)
   avg_response_minutes: number;
   owner_forced_count: number; // Critical metric: owner had to respond after 10min
@@ -80,7 +83,7 @@ export interface ConversationSLADetail {
   responding_staff_email: string | null;
   responding_staff_name: string;
   response_time_minutes: number | null;
-  sla_status: 'met' | 'breached' | 'unanswered' | 'outside_business_hours';
+  sla_status: 'met' | 'breached' | 'unanswered' | 'outside_business_hours' | 'abandoned';
   response_category: 'staff_response' | 'owner_response' | 'owner_forced_after_10min' | 'historical_staff';
   is_owner_response: boolean;
   is_critical: boolean; // True if owner_forced_after_10min
@@ -121,7 +124,7 @@ export interface SLADailyTrendsParams {
 export interface SLAConversationDetailsParams {
   start_date: string; // YYYY-MM-DD format
   end_date: string;   // YYYY-MM-DD format
-  sla_status_filter?: 'met' | 'breached' | 'unanswered' | 'outside_business_hours' | null;
+  sla_status_filter?: 'met' | 'breached' | 'unanswered' | 'outside_business_hours' | 'abandoned' | null;
   channel_filter?: 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp' | 'meta' | null;
   limit?: number; // Default 100
 }
@@ -151,7 +154,8 @@ export const SLA_STATUS_COLORS = {
   met: 'green',
   breached: 'red',
   unanswered: 'gray',
-  outside_business_hours: 'blue'
+  outside_business_hours: 'blue',
+  abandoned: 'orange' // >24hr response time - not tracked in SLA
 } as const;
 
 /**
