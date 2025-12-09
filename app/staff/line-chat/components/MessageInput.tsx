@@ -407,7 +407,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 onFocus={handleTextareaFocus}
                 placeholder={isMobile ? "Type a message..." : "Type a message... (Shift + Enter for new line)"}
                 disabled={disabled}
-                className="w-full bg-transparent border-0 focus:border-0 focus:ring-0 focus:outline-none focus:shadow-none text-sm resize-none min-h-[20px] p-0 leading-5 overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+                className="w-full bg-transparent border-0 focus:border-0 focus:ring-0 focus:outline-none focus:shadow-none text-sm resize-none min-h-[20px] p-0 leading-5 overflow-y-auto focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
                 rows={1}
                 style={{
                   outline: 'none !important',
@@ -416,10 +416,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                   borderWidth: '0 !important',
                   borderStyle: 'none !important',
                   borderColor: 'transparent !important',
-                  height: '20px', // Start with single line height
+                  minHeight: '20px',
+                  maxHeight: '120px',
                   userSelect: 'text',
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
+                  scrollbarWidth: 'thin',
                   WebkitAppearance: 'none',
                   MozAppearance: 'none',
                   appearance: 'none'

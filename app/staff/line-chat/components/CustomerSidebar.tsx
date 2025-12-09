@@ -31,11 +31,15 @@ import {
   Globe,
   FileText,
   Save,
-  X
+  X,
+  Pencil,
+  XCircle
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import type { CustomerSidebarProps, Conversation, UnifiedConversation, ChannelType } from '../utils/chatTypes';
 import { formatBookingDate, calculateDaysUntilExpiry, isBookingUpcoming } from '../utils/formatters';
+import { EditBookingModal } from '@/components/manage-bookings/EditBookingModal';
+import { CancelBookingModal } from '@/components/manage-bookings/CancelBookingModal';
 
 // Platform logo badge component - ChatCone style with actual company logos
 const PlatformLogoBadge = ({ channelType }: { channelType: ChannelType }) => {
@@ -205,6 +209,11 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     displayName?: string;
   } | null>(null);
 
+  // Modal state management for Edit and Cancel
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+
   // Sync notes text with customer details
   useEffect(() => {
     if (customerDetails?.notes) {
@@ -258,6 +267,18 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
 
   const handleCancelSend = () => {
     setConfirmingSend(null);
+  };
+
+  // Handle Edit booking
+  const handleEdit = (booking: any) => {
+    setSelectedBooking(booking);
+    setShowEditModal(true);
+  };
+
+  // Handle Cancel booking
+  const handleCancelBooking = (booking: any) => {
+    setSelectedBooking(booking);
+    setShowCancelModal(true);
   };
 
   // Use the real conversation object passed from parent
@@ -590,34 +611,103 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                             </div>
                           </div>
 
-                          {/* Action button */}
+                          {/* Action buttons */}
                           <div className="px-3 pb-3">
-                            <Button
-                              size="sm"
-                              variant="default"
-                              className={`w-full h-9 font-medium transition-all duration-200
-                                bg-blue-600 hover:bg-blue-700 text-white
-                                md:bg-transparent md:text-blue-600 md:border-blue-600 md:hover:bg-blue-50
-                              `}
-                              onClick={() => setConfirmingSend({
-                                type: 'confirmation',
-                                id: booking.id,
-                                displayName: formatBookingDate(booking.date) + ' at ' + booking.start_time
-                              })}
-                              disabled={sendingConfirmation === booking.id}
-                            >
-                              {sendingConfirmation === booking.id ? (
-                                <>
-                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                                  Sending...
-                                </>
-                              ) : (
-                                <>
-                                  <Send className="h-4 w-4 mr-2" />
-                                  Send Confirmation
-                                </>
-                              )}
-                            </Button>
+                            {/* Desktop: Horizontal buttons */}
+                            <div className="hidden md:flex md:flex-row md:gap-2">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="flex-1 h-9 font-medium bg-blue-600 hover:bg-blue-700 text-white"
+                                onClick={() => setConfirmingSend({
+                                  type: 'confirmation',
+                                  id: booking.id,
+                                  displayName: formatBookingDate(booking.date) + ' at ' + booking.start_time
+                                })}
+                                disabled={sendingConfirmation === booking.id || booking.status === 'cancelled'}
+                              >
+                                {sendingConfirmation === booking.id ? (
+                                  <>
+                                    <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                    <span className="text-xs">Sending...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Send className="h-3.5 w-3.5 mr-1.5" />
+                                    <span className="text-xs">Send</span>
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-9 font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-300"
+                                onClick={() => handleEdit(booking)}
+                                disabled={booking.status === 'cancelled'}
+                              >
+                                <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                                <span className="text-xs">Edit</span>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-9 font-medium bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+                                onClick={() => handleCancelBooking(booking)}
+                                disabled={booking.status === 'cancelled'}
+                              >
+                                <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                                <span className="text-xs">Cancel</span>
+                              </Button>
+                            </div>
+
+                            {/* Mobile: Stacked buttons */}
+                            <div className="flex flex-col gap-2 md:hidden">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="w-full h-9 font-medium bg-blue-600 hover:bg-blue-700 text-white"
+                                onClick={() => setConfirmingSend({
+                                  type: 'confirmation',
+                                  id: booking.id,
+                                  displayName: formatBookingDate(booking.date) + ' at ' + booking.start_time
+                                })}
+                                disabled={sendingConfirmation === booking.id || booking.status === 'cancelled'}
+                              >
+                                {sendingConfirmation === booking.id ? (
+                                  <>
+                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                    Sending...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Send className="h-4 w-4 mr-2" />
+                                    Send Confirmation
+                                  </>
+                                )}
+                              </Button>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1 h-9 font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-300"
+                                  onClick={() => handleEdit(booking)}
+                                  disabled={booking.status === 'cancelled'}
+                                >
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1 h-9 font-medium bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+                                  onClick={() => handleCancelBooking(booking)}
+                                  disabled={booking.status === 'cancelled'}
+                                >
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1044,6 +1134,45 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Booking Management Modals */}
+      {selectedBooking && (
+        <>
+          <EditBookingModal
+            isOpen={showEditModal}
+            onClose={() => {
+              setShowEditModal(false);
+              setSelectedBooking(null);
+            }}
+            booking={selectedBooking}
+            onSuccess={(updatedBooking) => {
+              // Modal will close automatically
+              setShowEditModal(false);
+              setSelectedBooking(null);
+              // Force page reload to refresh booking data
+              // TODO: Replace with refetch function when available
+              window.location.reload();
+            }}
+          />
+
+          <CancelBookingModal
+            isOpen={showCancelModal}
+            onClose={() => {
+              setShowCancelModal(false);
+              setSelectedBooking(null);
+            }}
+            booking={selectedBooking}
+            onSuccess={(bookingId) => {
+              // Modal will close automatically
+              setShowCancelModal(false);
+              setSelectedBooking(null);
+              // Force page reload to refresh booking data
+              // TODO: Replace with refetch function when available
+              window.location.reload();
+            }}
+          />
+        </>
+      )}
     </div>
   );
 };
