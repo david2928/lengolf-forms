@@ -492,7 +492,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   };
 
   // Wrapper for sendMessage that includes reply logic and unified channel support
-  const handleSendMessage = async (content: string, type?: MessageType, replyToMessageId?: string) => {
+  const handleSendMessage = useCallback(async (content: string, type?: MessageType, replyToMessageId?: string) => {
     // Check if we're dealing with a unified conversation and use appropriate sending method
     if (isUnifiedConversation(selectedConversationObj) && chatOperations.sendUnifiedMessage) {
       // For unified conversations, we need to handle reply differently
@@ -507,7 +507,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     if (replyingToMessage) {
       setReplyingToMessage(null);
     }
-  };
+  }, [selectedConversationObj, chatOperations, replyingToMessage]);
+
+  // Memoized callback to clear prefill messages when user starts typing
+  const handleMessageChange = useCallback(() => {
+    setAIPrefillMessage(undefined);
+    setTemplatePrefillMessage(undefined);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- setState functions are stable
 
   // Handler for sending image only from AI suggestions
   const handleSendSuggestedImage = useCallback(async (imageId: string) => {
@@ -1115,10 +1121,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           onAIRetrigger={onAIRetrigger}
           aiSuggestionLoading={aiSuggestionLoading}
           prefillMessage={combinedPrefillMessage}
-          onMessageChange={() => {
-            setAIPrefillMessage(undefined);
-            setTemplatePrefillMessage(undefined);
-          }}
+          onMessageChange={handleMessageChange}
         />
       </div>
 
