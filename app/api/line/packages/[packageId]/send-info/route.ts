@@ -217,7 +217,7 @@ export async function POST(
     if (conversationId) {
       const messageText = `📦 Package Information: ${packageTypeName}`;
 
-      const { data: storedMessage, error: messageError } = await refacSupabaseAdmin
+      const { data: storedMessage, error: messageError} = await refacSupabaseAdmin
         .from('line_messages')
         .insert({
           conversation_id: conversationId,
@@ -226,6 +226,7 @@ export async function POST(
           message_text: messageText,
           sender_type: 'admin',
           sender_name: senderName,
+          staff_email: session.user.email,
           timestamp: Date.now(),
           is_read: true,
           raw_event: {
