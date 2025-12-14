@@ -203,7 +203,8 @@ graph TB
 
 ### 2. Real-Time Communication
 - Instant message delivery without page refresh
-- Read status tracking and typing indicators
+- Read status tracking
+- **Real-time typing indicators** showing which staff members are currently typing
 - Connection health monitoring
 - Automatic conversation sorting by most recent
 - Date separators for multi-day conversations
@@ -257,6 +258,7 @@ graph TB
 - `useRealtimeMessages` - Real-time message subscriptions
 - `useChatOperations` - Message sending and file uploads
 - `useCustomerData` - Customer details, bookings, packages, notes management
+- `useTypingIndicator` - Real-time typing presence with Supabase Presence API
 
 **📖 Implementation Details**: See [Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
 
@@ -371,6 +373,87 @@ Located in `src/lib/line/flex-templates.ts`:
 - **Complete Information**: Shows all coaches and all available dates (no truncation)
 
 **📖 API Details**: See [API Reference](./UNIFIED_CHAT_API_REFERENCE.md)
+
+---
+
+## ⌨️ Real-Time Typing Indicators
+
+### Overview
+The real-time typing indicators feature allows staff members to see when other staff are actively typing in the same conversation. This prevents message conflicts and improves coordination in multi-staff environments.
+
+### How It Works
+- **Staff-Only Visibility**: Only staff members can see who is typing (customers do not see staff typing indicators)
+- **Specific Names**: Shows actual staff names (e.g., "Ashley is typing...")
+- **Ephemeral State**: No database storage - uses Supabase Presence API for real-time state
+- **Auto-Timeout**: Typing indicator automatically clears after 3 seconds of inactivity
+- **Debounced Updates**: 500ms debounce prevents excessive network events
+
+### Display Behavior
+- **Single User**: "Ashley is typing..."
+- **Two Users**: "Ashley and David are typing..."
+- **Multiple Users**: "Ashley and 2 others are typing..."
+- **Visual Animation**: Animated bouncing dots next to the text
+
+### Technical Implementation
+
+#### Backend Components
+- **API Endpoint**: `GET /api/user/me`
+  - Fetches current user's email and display name from session
+  - Used to identify typing users in presence channel
+
+#### Frontend Components
+- **Hook**: `useTypingIndicator` (src/hooks/useTypingIndicator.ts)
+  - Creates presence channel per conversation: `typing:{conversationId}`
+  - Broadcasts typing state with `last_typed_at` timestamp
+  - Filters out self and stale entries (>4 seconds)
+  - Handles auto-reconnect on network issues and page visibility changes
+
+- **UI Component**: `TypingIndicator` (in ChatArea.tsx)
+  - Renders between message list and input area
+  - Shows animated dots and formatted text
+  - Conditionally displayed when `typingUsers.length > 0`
+
+- **Input Handler**: MessageInput component
+  - 500ms debounced typing broadcast on text change
+  - Prevents excessive presence updates
+  - Cleans up timeout on unmount
+
+#### Presence Channel Pattern
+```typescript
+// Channel name format
+const channelName = `typing:{conversationId}`;
+
+// Presence state structure
+{
+  email: 'staff@example.com',
+  displayName: 'Ashley',
+  typing: true,
+  last_typed_at: Date.now()
+}
+```
+
+### Edge Cases Handled
+1. **User leaves conversation**: Presence API auto-removes on channel unsubscribe
+2. **User closes tab**: WebSocket disconnect triggers auto-removal
+3. **Network disconnect**: Auto-reconnects with exponential backoff
+4. **User stops typing**: 3-second timeout clears state automatically
+5. **Stale data**: 4-second filter prevents showing outdated typing states
+6. **Page visibility**: Reconnects after 30 seconds of inactivity when page becomes visible
+
+### Performance Optimization
+- **500ms debounce**: 5 keystrokes = 1-2 events instead of 5 events
+- **Presence API efficiency**: More efficient than manual broadcast
+- **Conversation-scoped**: Only users in same conversation receive updates
+- **Minimal re-renders**: Only updates when typing users array changes
+
+### User Experience
+- **Seamless Integration**: Appears naturally above message input
+- **Subtle Design**: Gray text with animated dots
+- **Non-Intrusive**: Doesn't interrupt message composition
+- **Mobile Responsive**: Works on all device sizes
+- **Zero Configuration**: Enabled automatically for all staff
+
+**📖 Implementation Details**: See [Development Guide](./UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
 
 ---
 

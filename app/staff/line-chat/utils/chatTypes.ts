@@ -194,6 +194,13 @@ export interface PanelState {
   setRightPanelCollapsed: (collapsed: boolean) => void;
 }
 
+// Typing indicator types
+export interface TypingUser {
+  email: string;
+  displayName: string;
+  lastTypedAt: number;
+}
+
 // Component prop types
 export interface ConversationSidebarProps {
   selectedConversation: string | null;
@@ -241,6 +248,9 @@ export interface ChatAreaProps {
   onApproveSuggestion?: (suggestion: any) => void;
   aiPrefillMessage?: string; // Message to prefill in input (for edit)
   onAIPrefillMessageClear?: () => void; // Clear prefill message
+  // Typing indicators
+  typingUsers?: TypingUser[];
+  onUserTyping?: () => void;
 }
 
 export interface CustomerSidebarProps {
@@ -270,6 +280,8 @@ export interface MessageInputProps {
   onSendCoachingAvailability?: () => Promise<void>;
   sendingCoachingAvailability?: boolean;
   hasLinkedCustomer?: boolean;
+  // Typing indicators
+  onUserTyping?: () => void;
 }
 
 // ========== UNIFIED MULTI-CHANNEL TYPES ==========

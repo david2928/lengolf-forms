@@ -44,7 +44,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onMessageChange,
   onSendCoachingAvailability,
   sendingCoachingAvailability = false,
-  hasLinkedCustomer = false
+  hasLinkedCustomer = false,
+  onUserTyping
 }) => {
   // Generate draft key based on conversation ID
   const draftKey = selectedConversationObj?.id ? `chat-draft-${selectedConversationObj.id}` : null;
@@ -66,6 +67,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [sendingProgress, setSendingProgress] = useState<{current: number, total: number} | null>(null);
   const [staffName, setStaffName] = useState<string>('');
+
+  // Typing indicator debounce ref
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle conversation changes - save current draft and load new draft
   useEffect(() => {
@@ -146,6 +150,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     };
 
     fetchStaffName();
+  }, []);
+
+  // Cleanup typing indicator timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Handle sending message
@@ -243,6 +256,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     // Notify parent of message change
     if (onMessageChange) {
       onMessageChange(value);
+    }
+
+    // Broadcast typing indicator (debounced to 500ms)
+    if (onUserTyping) {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      typingTimeoutRef.current = setTimeout(() => {
+        onUserTyping();
+      }, 500);
     }
 
     // Auto-resize textarea

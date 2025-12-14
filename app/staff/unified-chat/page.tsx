@@ -22,6 +22,7 @@ import { useUnifiedChat } from '../line-chat/hooks/useUnifiedChat';
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
 import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 import { useAISuggestions } from '@/hooks/useAISuggestions';
+import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { AISuggestionCard, AISuggestion } from '@/components/ai/AISuggestionCard';
 
 export default function UnifiedChatPage() {
@@ -209,6 +210,30 @@ export default function UnifiedChatPage() {
   // Extract complex operations to custom hooks - major complexity reduction
   const chatOps = useChatOperations(selectedConversation, handleMessageSent, selectedConversationObj);
   const customerOps = useCustomerData(selectedConversation, selectedConversationObj);
+
+  // Typing indicator integration - fetch current user info
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
+  const [currentUserDisplayName, setCurrentUserDisplayName] = useState<string>('');
+
+  useEffect(() => {
+    fetch('/api/user/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setCurrentUserEmail(data.data.email || '');
+          setCurrentUserDisplayName(data.data.staffDisplayName || 'Staff');
+        }
+      })
+      .catch(error => console.error('Failed to fetch user info:', error));
+  }, []);
+
+  // Initialize typing indicator hook
+  const { typingUsers, broadcastTyping } = useTypingIndicator({
+    conversationId: selectedConversation,
+    userEmail: currentUserEmail,
+    userDisplayName: currentUserDisplayName,
+    enabled: true
+  });
 
   // Message state needs to be managed at this level for realtime to work
   const [messages, setMessages] = useState<any[]>([]);
@@ -510,6 +535,8 @@ export default function UnifiedChatPage() {
             onApproveSuggestion={aiSuggestions.approveSuggestion}
             aiPrefillMessage={aiPrefillMessage}
             onAIPrefillMessageClear={() => setAIPrefillMessage(undefined)}
+            typingUsers={typingUsers}
+            onUserTyping={broadcastTyping}
           />
         </div>
 

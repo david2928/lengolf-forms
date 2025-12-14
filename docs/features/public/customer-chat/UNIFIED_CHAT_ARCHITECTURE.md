@@ -31,6 +31,7 @@ app/staff/unified-chat/
 │   ├── useUnifiedChat.ts      # Main chat state management
 │   ├── useChatOperations.ts   # Message operations
 │   ├── useCustomerData.ts     # Customer data management
+│   ├── useTypingIndicator.ts  # Real-time typing presence
 │   └── usePanelState.ts       # UI state management
 └── utils/                     # Utilities and types
     ├── chatTypes.ts           # TypeScript type definitions
@@ -300,6 +301,51 @@ interface ChatOperations {
 - **Website Messages**: Text and file support with real-time delivery
 - **Unified Interface**: Same API regardless of target channel
 - **Error Handling**: Comprehensive error recovery and user feedback
+
+### 4. useTypingIndicator Hook
+
+#### Presence Management
+```typescript
+interface UseTypingIndicatorOptions {
+  conversationId: string | null;
+  userEmail: string;
+  userDisplayName: string;
+  enabled?: boolean;
+}
+
+interface UseTypingIndicatorReturn {
+  typingUsers: TypingUser[];
+  broadcastTyping: () => void;
+  connectionStatus: RealtimeConnectionStatus;
+  reconnect: () => void;
+  disconnect: () => void;
+}
+```
+
+#### Implementation Pattern
+- **Supabase Presence API**: Ephemeral real-time state management (no database storage)
+- **Conversation Channels**: Each conversation has its own presence channel `typing:{conversationId}`
+- **Auto-Cleanup**: Presence state auto-removes on disconnect or tab close
+- **Stale Filter**: Entries older than 4 seconds are filtered out
+- **Debounced Broadcasting**: 500ms debounce prevents excessive presence updates
+
+#### Features
+- **Staff-Only Visibility**: Typing indicators only shown to staff members
+- **Specific Names**: Shows actual staff display names (e.g., "Ashley is typing...")
+- **Auto-Timeout**: Clears typing state after 3 seconds of inactivity
+- **Reconnection Handling**: Auto-reconnects on network issues with exponential backoff
+- **Page Visibility**: Reconnects after 30 seconds when page becomes visible again
+- **Multi-User Display**: Smart formatting for single/multiple typing users
+
+#### Presence State Structure
+```typescript
+{
+  email: 'staff@example.com',
+  displayName: 'Ashley',
+  typing: true,
+  last_typed_at: Date.now()
+}
+```
 
 ## 💾 Database Design Patterns
 

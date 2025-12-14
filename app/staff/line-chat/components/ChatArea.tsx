@@ -41,9 +41,32 @@ import type {
   Message,
   MessageType,
   UnifiedConversation,
-  ChannelType
+  ChannelType,
+  TypingUser
 } from '../utils/chatTypes';
 import { formatMessageTime, isDifferentDay, formatDateSeparator } from '../utils/formatters';
+
+// Typing indicator component - shows who is currently typing
+const TypingIndicator = ({ users }: { users: TypingUser[] }) => {
+  if (!users || users.length === 0) return null;
+
+  const displayText = users.length === 1
+    ? `${users[0].displayName} is typing...`
+    : users.length === 2
+    ? `${users[0].displayName} and ${users[1].displayName} are typing...`
+    : `${users[0].displayName} and ${users.length - 1} others are typing...`;
+
+  return (
+    <div className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-500">
+      <div className="flex space-x-1">
+        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+      </div>
+      <span className="italic">{displayText}</span>
+    </div>
+  );
+};
 
 // Platform logo badge component - ChatCone style with actual company logos
 const PlatformLogoBadge = ({ channelType }: { channelType: ChannelType }) => {
@@ -225,7 +248,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onDeclineSuggestion,
   onApproveSuggestion,
   aiPrefillMessage: propAIPrefillMessage,
-  onAIPrefillMessageClear
+  onAIPrefillMessageClear,
+  typingUsers,
+  onUserTyping
 }) => {
   // Use messages from props if provided, otherwise use local state
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -1104,6 +1129,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
       {/* Message Input - Always at bottom */}
       <div className={`${isMobile ? 'fixed bottom-0 left-0 right-0 safe-area-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.1)]' : 'mt-auto'} bg-white border-t z-30 flex-shrink-0`}>
+        {/* Typing Indicator - Shows who is typing */}
+        {typingUsers && typingUsers.length > 0 && (
+          <TypingIndicator users={typingUsers} />
+        )}
+
         <MessageInput
           onSendMessage={handleSendMessage}
           replyingToMessage={replyingToMessage}
@@ -1122,6 +1152,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           aiSuggestionLoading={aiSuggestionLoading}
           prefillMessage={combinedPrefillMessage}
           onMessageChange={handleMessageChange}
+          onUserTyping={onUserTyping}
         />
       </div>
 
