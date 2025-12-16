@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       throw staffError;
     }
 
-    const formattedStaff = (staffList || []).map((staff) => ({
+    const formattedStaff = (staffList || []).map((staff: any) => ({
       email: staff.email,
       displayName: staff.display_name || staff.email,
       isAdmin: staff.is_admin,

@@ -40,11 +40,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch assignee display names for conversations that have assigned_to
-    const assignedEmails = [...new Set(
+    const assignedEmails = Array.from(new Set(
       (data || [])
-        .filter(conv => conv.assigned_to)
-        .map(conv => conv.assigned_to)
-    )];
+        .filter((conv: any) => conv.assigned_to)
+        .map((conv: any) => conv.assigned_to)
+    ));
 
     let assigneeMap: Record<string, string> = {};
     if (assignedEmails.length > 0) {
@@ -54,14 +54,14 @@ export async function GET(request: NextRequest) {
         .select('email, display_name')
         .in('email', assignedEmails);
 
-      assigneeMap = (assignees || []).reduce((acc, assignee) => {
+      assigneeMap = (assignees || []).reduce((acc: Record<string, string>, assignee: any) => {
         acc[assignee.email] = assignee.display_name || assignee.email;
         return acc;
       }, {} as Record<string, string>);
     }
 
     // Enrich conversations with assignee display names
-    const enrichedConversations = (data || []).map(conv => ({
+    const enrichedConversations = (data || []).map((conv: any) => ({
       ...conv,
       assigned_to_name: conv.assigned_to ? assigneeMap[conv.assigned_to] || conv.assigned_to : null
     }));

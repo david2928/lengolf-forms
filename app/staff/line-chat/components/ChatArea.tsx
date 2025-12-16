@@ -8,7 +8,15 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useConversationAssignment } from '../hooks/useConversationAssignment';
 import { enhanceMessageDisplay } from '@/lib/line/emoji-display-utils';
 import { StickerMessage } from '@/components/line/StickerMessage';
 import { ImageMessage } from '@/components/line/ImageMessage';
@@ -281,6 +289,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const combinedPrefillMessage = templatePrefillMessage || aiPrefillMessage;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Conversation assignment hook
+  const { staffList, assignConversation, loading: assignmentLoading } = useConversationAssignment();
 
   // Touch gesture state for swipe detection
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -588,6 +599,28 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     setContextMenuMessageElement(null);
   };
 
+  // Handle assignment change
+  const handleAssignmentChange = useCallback(async (assignToEmail: string) => {
+    if (!selectedConv) return;
+
+    try {
+      const channelType = isUnifiedConversation(selectedConv)
+        ? selectedConv.channel_type
+        : (selectedConv.channelType || 'line');
+
+      await assignConversation(
+        selectedConv.id,
+        channelType,
+        assignToEmail === 'unassigned' ? null : assignToEmail
+      );
+
+      // Trigger refresh to update the conversation list with new assignment
+      refreshData();
+    } catch (error) {
+      console.error('Failed to assign conversation:', error);
+    }
+  }, [selectedConv, assignConversation]);
+
   const refreshData = () => {
     // This would trigger refresh from parent
     if (selectedConversation) {
@@ -821,6 +854,32 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </p>
               );
             })()}
+          </div>
+
+          {/* Assignment Dropdown - Desktop Only */}
+          <div className="hidden md:flex items-center ml-auto mr-4">
+            <span className="text-xs text-white/70 mr-2">Assigned to:</span>
+            <Select
+              value={
+                isUnifiedConversation(selectedConv)
+                  ? (selectedConv.assigned_to || 'unassigned')
+                  : 'unassigned'
+              }
+              onValueChange={handleAssignmentChange}
+              disabled={assignmentLoading}
+            >
+              <SelectTrigger className="w-[140px] h-8 bg-white/10 border-white/20 text-white hover:bg-white/20 focus:ring-white/30">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {staffList.map(staff => (
+                  <SelectItem key={staff.email} value={staff.email}>
+                    {staff.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

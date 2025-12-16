@@ -88,7 +88,7 @@ export function useConversationAssignment() {
   const unassignConversation = useCallback(async (
     conversationId: string,
     channelType: ChannelType
-  ): Promise<null> => {
+  ): Promise<AssignedStaff | null> => {
     return assignConversation(conversationId, channelType, null);
   }, [assignConversation]);
 
