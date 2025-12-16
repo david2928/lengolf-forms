@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { refacSupabase } from '@/lib/refac-supabase';
+import { refacSupabase, refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,9 +39,36 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
+    // Fetch assignee display names for conversations that have assigned_to
+    const assignedEmails = [...new Set(
+      (data || [])
+        .filter(conv => conv.assigned_to)
+        .map(conv => conv.assigned_to)
+    )];
+
+    let assigneeMap: Record<string, string> = {};
+    if (assignedEmails.length > 0) {
+      const { data: assignees } = await refacSupabaseAdmin
+        .schema('backoffice')
+        .from('allowed_users')
+        .select('email, display_name')
+        .in('email', assignedEmails);
+
+      assigneeMap = (assignees || []).reduce((acc, assignee) => {
+        acc[assignee.email] = assignee.display_name || assignee.email;
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    // Enrich conversations with assignee display names
+    const enrichedConversations = (data || []).map(conv => ({
+      ...conv,
+      assigned_to_name: conv.assigned_to ? assigneeMap[conv.assigned_to] || conv.assigned_to : null
+    }));
+
     return NextResponse.json({
       success: true,
-      conversations: data || []
+      conversations: enrichedConversations
     });
 
   } catch (error) {

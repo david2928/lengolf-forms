@@ -18,6 +18,11 @@ export interface Customer {
   email?: string;
 }
 
+export interface AssignedStaff {
+  email: string;
+  displayName: string;
+}
+
 export interface Conversation {
   id: string;
   lineUserId: string;
@@ -38,6 +43,8 @@ export interface Conversation {
   // Spam marking features
   isSpam?: boolean;
   markedSpamAt?: string;
+  // Conversation assignment
+  assignedTo?: AssignedStaff | null;
 }
 
 export interface Message {
@@ -319,7 +326,8 @@ export interface UnifiedConversation {
   last_message_by: string;
   unread_count: number;
   is_active: boolean;
-  assigned_to?: string;
+  assigned_to?: string; // Staff email assigned to this conversation
+  assigned_to_name?: string; // Display name of assigned staff
   created_at: string;
   updated_at: string;
   channel_metadata: ChannelMetadata;
