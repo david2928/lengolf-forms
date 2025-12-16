@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DatePicker } from '@/components/ui/date-picker';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { SimpleCalendar } from '@/components/ui/simple-calendar';
 import type { CustomerFilters as CustomerFiltersType } from '@/hooks/useCustomerManagement';
-import { Search, X, Filter } from 'lucide-react';
+import { Search, X, Filter, Calendar as CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface CustomerFiltersProps {
   filters: CustomerFiltersType;
@@ -158,54 +160,110 @@ export function CustomerFilters({ filters, onFiltersChange, loading }: CustomerF
 
             {/* Registration Date From */}
             <div className="space-y-2">
-              <DatePicker
-                value={filters.registrationDateFrom ? new Date(filters.registrationDateFrom) : null}
-                onChange={(date) => 
-                  onFiltersChange({ 
-                    registrationDateFrom: date?.toISOString().split('T')[0] || undefined
-                  })
-                }
-                label="Registered From"
-              />
+              <Label className="text-sm font-medium text-gray-700">Registered From</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.registrationDateFrom ? format(new Date(filters.registrationDateFrom), 'PPP') : 'Select date...'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <SimpleCalendar
+                    mode="single"
+                    selected={filters.registrationDateFrom ? new Date(filters.registrationDateFrom) : undefined}
+                    onSelect={(date) =>
+                      onFiltersChange({
+                        registrationDateFrom: date?.toISOString().split('T')[0] || undefined
+                      })
+                    }
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Registration Date To */}
             <div className="space-y-2">
-              <DatePicker
-                value={filters.registrationDateTo ? new Date(filters.registrationDateTo) : null}
-                onChange={(date) => 
-                  onFiltersChange({ 
-                    registrationDateTo: date?.toISOString().split('T')[0] || undefined
-                  })
-                }
-                label="Registered To"
-              />
+              <Label className="text-sm font-medium text-gray-700">Registered To</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.registrationDateTo ? format(new Date(filters.registrationDateTo), 'PPP') : 'Select date...'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <SimpleCalendar
+                    mode="single"
+                    selected={filters.registrationDateTo ? new Date(filters.registrationDateTo) : undefined}
+                    onSelect={(date) =>
+                      onFiltersChange({
+                        registrationDateTo: date?.toISOString().split('T')[0] || undefined
+                      })
+                    }
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Last Visit From */}
             <div className="space-y-2">
-              <DatePicker
-                value={filters.lastVisitFrom ? new Date(filters.lastVisitFrom) : null}
-                onChange={(date) => 
-                  onFiltersChange({ 
-                    lastVisitFrom: date?.toISOString().split('T')[0] || undefined
-                  })
-                }
-                label="Last Visit From"
-              />
+              <Label className="text-sm font-medium text-gray-700">Last Visit From</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.lastVisitFrom ? format(new Date(filters.lastVisitFrom), 'PPP') : 'Select date...'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <SimpleCalendar
+                    mode="single"
+                    selected={filters.lastVisitFrom ? new Date(filters.lastVisitFrom) : undefined}
+                    onSelect={(date) =>
+                      onFiltersChange({
+                        lastVisitFrom: date?.toISOString().split('T')[0] || undefined
+                      })
+                    }
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Last Visit To */}
             <div className="space-y-2">
-              <DatePicker
-                value={filters.lastVisitTo ? new Date(filters.lastVisitTo) : null}
-                onChange={(date) => 
-                  onFiltersChange({ 
-                    lastVisitTo: date?.toISOString().split('T')[0] || undefined
-                  })
-                }
-                label="Last Visit To"
-              />
+              <Label className="text-sm font-medium text-gray-700">Last Visit To</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.lastVisitTo ? format(new Date(filters.lastVisitTo), 'PPP') : 'Select date...'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <SimpleCalendar
+                    mode="single"
+                    selected={filters.lastVisitTo ? new Date(filters.lastVisitTo) : undefined}
+                    onSelect={(date) =>
+                      onFiltersChange({
+                        lastVisitTo: date?.toISOString().split('T')[0] || undefined
+                      })
+                    }
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         )}

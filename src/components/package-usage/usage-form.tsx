@@ -6,14 +6,16 @@ import { EmployeeSection } from './employee-section'
 import { PackageSelector } from './package-selector'
 import { PackageInfoCard } from './package-info-card'
 import { HoursInput } from './hours-input'
-import { DatePicker } from '@/components/ui/date-picker'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { SimpleCalendar } from '@/components/ui/simple-calendar'
+import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import { FullscreenSignature } from './fullscreen-signature'
 import { AcknowledgmentDialog } from './acknowledgment-dialog'
 import { PackageUsageFormData, UsageFormState } from '@/types/package-usage'
 import { Package } from '@/hooks/usePackages'
 import { PackageBookingSelector } from './package-booking-selector'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Calendar as CalendarIcon } from 'lucide-react'
 import { format } from 'date-fns'
 
 export function UsageForm() {
@@ -271,12 +273,28 @@ export function UsageForm() {
             isDisabled={!formData.packageId || formState.isLoading}
           />
 
-          <DatePicker
-            value={formData.usedDate}
-            onChange={(date) => setFormData((prev) => ({ ...prev, usedDate: date }))}
-            label="Used Date"
-            disabled={formState.isLoading}
-          />
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-700">Used Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                  disabled={formState.isLoading}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formData.usedDate ? format(formData.usedDate, 'PPP') : 'Select date...'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <SimpleCalendar
+                  mode="single"
+                  selected={formData.usedDate || undefined}
+                  onSelect={(date) => setFormData((prev) => ({ ...prev, usedDate: date || null }))}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
 
           <Button 
             type="submit"

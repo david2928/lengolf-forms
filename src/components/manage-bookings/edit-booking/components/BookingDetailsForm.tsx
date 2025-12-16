@@ -7,9 +7,11 @@ import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DatePicker } from '@/components/ui/date-picker';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { SimpleCalendar } from '@/components/ui/simple-calendar';
 import { Button } from '@/components/ui/button';
 import { Calendar, Clock, MapPin, Users, RefreshCw } from 'lucide-react';
+import { format } from 'date-fns';
 import type { EditBookingFormData } from '../utils/types';
 import { BAY_OPTIONS } from '../utils/constants';
 import { AvailabilityIndicator } from '../shared/AvailabilityIndicator';
@@ -63,11 +65,24 @@ export function BookingDetailsForm({
             <Calendar className="h-4 w-4" />
             Date *
           </Label>
-          <DatePicker
-            value={formData.date || null}
-            onChange={(date: Date | null) => date && updateFormField('date', date)}
-            disabled={false}
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left font-normal"
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                {formData.date ? format(formData.date, 'PPP') : 'Select date...'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <SimpleCalendar
+                mode="single"
+                selected={formData.date || undefined}
+                onSelect={(date) => date && updateFormField('date', date)}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="space-y-2">

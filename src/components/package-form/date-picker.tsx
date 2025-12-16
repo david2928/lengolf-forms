@@ -1,7 +1,7 @@
 "use client"
 
 import { format } from 'date-fns'
-import { CalendarWrapper as Calendar } from '@/components/ui/calendar-wrapper'
+import { SimpleCalendar } from '@/components/ui/simple-calendar'
 import { Button } from '@/components/ui/button'
 import { Calendar as CalendarIcon } from 'lucide-react'
 import { Label } from '@/components/ui/label'
@@ -10,7 +10,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { DayPickerSingleProps } from 'react-day-picker'
 
 interface DatePickerProps {
   label: string;
@@ -23,7 +22,7 @@ export function DatePicker({
   selected,
   onSelect,
 }: DatePickerProps) {
-  const handleSelect: DayPickerSingleProps['onSelect'] = (date) => {
+  const handleSelect = (date: Date | undefined) => {
     onSelect(date ?? null);
     const event = new Event('keydown');
     (event as any).key = 'Escape';
@@ -46,16 +45,11 @@ export function DatePicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <div className="bg-white border border-gray-200 rounded-md p-3">
-            <Calendar
-              mode="single"
-              selected={selected || undefined}
-              onSelect={handleSelect}
-              initialFocus
-              required
-              className="bg-white rounded-md"
-            />
-          </div>
+          <SimpleCalendar
+            mode="single"
+            selected={selected || undefined}
+            onSelect={handleSelect}
+          />
         </PopoverContent>
       </Popover>
     </div>

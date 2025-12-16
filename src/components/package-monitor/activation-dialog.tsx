@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { DatePicker } from '@/components/ui/date-picker'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { SimpleCalendar } from '@/components/ui/simple-calendar'
+import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Calendar as CalendarIcon } from 'lucide-react'
 import { format } from 'date-fns'
 
 interface ActivationDialogProps {
@@ -101,14 +103,30 @@ export function ActivationDialog({
             <div className="font-medium">{packageData.employee_name}</div>
           </div>
 
-          <DatePicker
-            value={activationDate}
-            onChange={(date) => {
-              if (date) setActivationDate(date)
-            }}
-            label="Activation Date"
-            disabled={isLoading}
-          />
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-700">Activation Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                  disabled={isLoading}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {activationDate ? format(activationDate, 'PPP') : 'Select date...'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <SimpleCalendar
+                  mode="single"
+                  selected={activationDate}
+                  onSelect={(date) => {
+                    if (date) setActivationDate(date)
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
 
           <div className="flex gap-2 pt-4">
             <Button 

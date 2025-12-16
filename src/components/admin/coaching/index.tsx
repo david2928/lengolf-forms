@@ -22,10 +22,13 @@ export default function CoachingDashboard() {
     return goToCurrentWeek();
   });
   const [selectedStartDate, setSelectedStartDate] = useState<Date>(() => {
-    return goToCurrentWeek();
+    const date = goToCurrentWeek();
+    date.setHours(0, 0, 0, 0); // Reset to midnight for accurate date comparisons
+    return date;
   });
   const [selectedEndDate, setSelectedEndDate] = useState<Date>(() => {
     const startDate = goToCurrentWeek();
+    startDate.setHours(0, 0, 0, 0); // Reset to midnight
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + 21);
     return endDate;

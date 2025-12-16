@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { DatePicker } from '@/components/ui/date-picker';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { SimpleCalendar } from '@/components/ui/simple-calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { PenSquare, Phone, Mail, Users, Package, FileText, X } from "lucide-react";
+import { PenSquare, Phone, Mail, Users, Package, FileText, X, Calendar as CalendarIcon } from "lucide-react";
 import { Booking, CustomerInfo } from '@/types/booking';
 import { format, parseISO, isValid, parse, addMinutes, isWithinInterval, isEqual, startOfDay, endOfDay, subHours, isBefore } from 'date-fns';
 import { useToast } from "@/components/ui/use-toast";
@@ -887,7 +888,25 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right">Date</Label>
             <div className="col-span-3">
-              <DatePicker value={formData.date} onChange={handleDateChange} label="" disabled={!isMainInfoEditable} />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                    disabled={!isMainInfoEditable}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.date ? format(formData.date, 'PPP') : 'Select date...'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <SimpleCalendar
+                    mode="single"
+                    selected={formData.date}
+                    onSelect={(date) => handleDateChange(date || null)}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 

@@ -7,11 +7,12 @@ import useSWR from 'swr'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { format } from 'date-fns'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Calendar as CalendarIcon } from 'lucide-react'
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Customer, PackageType, PackageFormData, EMPLOYEES, FormState } from '@/types/package-form'
 import { CustomerSearch } from './customer-search'
-import { DatePicker } from '../ui/date-picker'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { SimpleCalendar } from '@/components/ui/simple-calendar'
 import { ConfirmationDialog } from './confirmation-dialog'
 import { PackageTypeSection } from './form-sections/package-type-section'
 
@@ -400,23 +401,37 @@ export default function PackageForm() {
         />
 
         <div className="space-y-2">
-          <DatePicker
-            value={formState.selectedDates.purchase}
-            onChange={(date) => {
-              console.log('Purchase date selected:', date)
-              setFormState(prev => ({
-                ...prev,
-                selectedDates: { ...prev.selectedDates, purchase: date }
-              }))
-              if (date) {
-                setValue('purchaseDate', date)
-                trigger('purchaseDate')
-              }
-              // Clear any existing date selection error
-              setFormState(prev => ({ ...prev, error: null }))
-            }}
-            label="Purchase Date"
-          />
+          <Label className="text-sm font-medium text-gray-700">Purchase Date</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left font-normal"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {formState.selectedDates.purchase ? format(formState.selectedDates.purchase, 'PPP') : 'Select date...'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <SimpleCalendar
+                mode="single"
+                selected={formState.selectedDates.purchase || undefined}
+                onSelect={(date) => {
+                  console.log('Purchase date selected:', date)
+                  setFormState(prev => ({
+                    ...prev,
+                    selectedDates: { ...prev.selectedDates, purchase: date || null }
+                  }))
+                  if (date) {
+                    setValue('purchaseDate', date)
+                    trigger('purchaseDate')
+                  }
+                  // Clear any existing date selection error
+                  setFormState(prev => ({ ...prev, error: null }))
+                }}
+              />
+            </PopoverContent>
+          </Popover>
           {errors.purchaseDate && (
             <p className="text-red-500 text-sm mt-1">{errors.purchaseDate.message}</p>
           )}
