@@ -89,11 +89,15 @@ export async function POST(
 
     if (booking.customer_id) {
       // Check if customer has a linked LINE user
+      // Use maybeSingle() to handle cases where customer has multiple LINE users
+      // Get the most recently created LINE user if multiple exist
       const { data: lineUser } = await refacSupabaseAdmin
         .from('line_users')
         .select('line_user_id')
         .eq('customer_id', booking.customer_id)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (lineUser) {
         lineUserId = lineUser.line_user_id;
@@ -103,7 +107,7 @@ export async function POST(
           .from('line_conversations')
           .select('id')
           .eq('line_user_id', lineUserId)
-          .single();
+          .maybeSingle();
 
         if (conversation) {
           conversationId = conversation.id;
