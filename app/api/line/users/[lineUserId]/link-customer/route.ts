@@ -109,6 +109,7 @@ export async function POST(
     const { error: profilesLinkError } = await refacSupabaseAdmin
       .from('profiles')
       .upsert({
+        id: crypto.randomUUID(), // Generate UUID for new profiles; ignored on update
         provider: 'line',
         provider_id: lineUserId,
         customer_id: customerId,
