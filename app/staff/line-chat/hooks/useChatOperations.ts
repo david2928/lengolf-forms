@@ -147,6 +147,30 @@ export const useChatOperations = (
         }
       }
 
+      // Auto-assign conversation to current staff if unassigned
+      if (selectedConversationObj && !selectedConversationObj.assigned_to && staffEmail && staffEmail !== 'unknown@lengolf.local') {
+        try {
+          const channelType = selectedConversationObj.channelType || selectedConversationObj.channel_type || 'line';
+
+          await fetch('/api/conversations/assign', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              conversationId: conversationId,
+              channelType: channelType,
+              assignToEmail: staffEmail
+            }),
+          });
+
+          console.log('Auto-assigned conversation to:', staffEmail);
+        } catch (assignError) {
+          // Don't fail the message send if auto-assignment fails
+          console.error('Auto-assignment failed:', assignError);
+        }
+      }
+
       // Scroll to bottom when user sends a message
       setTimeout(() => {
         scrollToBottom();
