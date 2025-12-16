@@ -719,6 +719,15 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                           Following
                         </Badge>
                       )}
+                      {/* Assignee badge */}
+                      {isUnifiedConversation(conversation) && conversation.assigned_to_name && (
+                        <div
+                          className="w-6 h-6 rounded-full bg-green-600 flex items-center justify-center text-xs font-medium text-white shrink-0"
+                          title={`Assigned to ${conversation.assigned_to_name}`}
+                        >
+                          {conversation.assigned_to_name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center space-x-2 flex-shrink-0">
                       {getUnreadCount(conversation) > 0 && (
