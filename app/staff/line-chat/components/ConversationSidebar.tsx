@@ -240,8 +240,8 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
   const [searchTerm, setSearchTerm] = useState('');
   const [isMobile, setIsMobile] = useState(false);
 
-  // Filter state - 'all' excludes spam, 'following' shows followed, 'spam' shows spam only
-  const [filter, setFilter] = useState<'all' | 'following' | 'spam'>('all');
+  // Filter state - 'all' excludes spam, 'following' shows followed, 'spam' shows spam only, 'assigned' shows assigned conversations
+  const [filter, setFilter] = useState<'all' | 'following' | 'spam' | 'assigned'>('all');
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState<string | null>(null);
@@ -499,6 +499,11 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
     } else if (filter === 'spam') {
       // 'Spam' shows only spam conversations
       return conv.isSpam;
+    } else if (filter === 'assigned') {
+      // 'Assigned' shows conversations with assigned_to set (not spam)
+      // Handle both Conversation (assignedTo) and UnifiedConversation (assigned_to)
+      const hasAssignment = 'assigned_to' in conv ? conv.assigned_to : conv.assignedTo;
+      return hasAssignment && !conv.isSpam;
     }
 
     return true;
@@ -617,6 +622,7 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                   {filter === 'all' && '≡ All'}
                   {filter === 'following' && '≡ Follow-up'}
                   {filter === 'spam' && '≡ Spam'}
+                  {filter === 'assigned' && '≡ Assigned'}
                 </span>
               </Button>
             </DropdownMenuTrigger>
@@ -632,6 +638,12 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                 className={`cursor-pointer ${filter === 'following' ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
               >
                 Follow-up
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setFilter('assigned')}
+                className={`cursor-pointer ${filter === 'assigned' ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
+              >
+                Assigned
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setFilter('spam')}

@@ -4,12 +4,13 @@
 // This ELIMINATES the mobile/desktop duplication by using responsive design
 // Handles customer information, bookings, packages in a single implementation
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { useConversationAssignment } from '../hooks/useConversationAssignment';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import {
   Users,
   Phone,
@@ -214,6 +217,13 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
 
+  // Conversation assignment hook
+  const { staffList, assignConversation, loading: assignmentLoading } = useConversationAssignment();
+
+  // Assignment dialog state
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<string>('unassigned');
+
   // Sync notes text with customer details
   useEffect(() => {
     if (customerDetails?.notes) {
@@ -283,6 +293,40 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
 
   // Use the real conversation object passed from parent
   const selectedConv = selectedConversationObj;
+
+  // Handle opening assignment dialog
+  const handleOpenAssignDialog = useCallback(() => {
+    if (!selectedConv) return;
+
+    // Set current assignment value
+    const currentAssignment = isUnifiedConversation(selectedConv)
+      ? (selectedConv.assigned_to || 'unassigned')
+      : 'unassigned';
+
+    setSelectedAssignment(currentAssignment);
+    setAssignDialogOpen(true);
+  }, [selectedConv]);
+
+  // Handle saving assignment
+  const handleSaveAssignment = useCallback(async () => {
+    if (!selectedConv) return;
+
+    try {
+      const channelType = isUnifiedConversation(selectedConv)
+        ? selectedConv.channel_type
+        : (selectedConv.channelType || 'line');
+
+      await assignConversation(
+        selectedConv.id,
+        channelType,
+        selectedAssignment === 'unassigned' ? null : selectedAssignment
+      );
+
+      setAssignDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to assign conversation:', error);
+    }
+  }, [selectedConv, selectedAssignment, assignConversation]);
 
   if (!selectedConv) {
     return (
@@ -394,6 +438,34 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                 </Button>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Assignment Section */}
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">Assign</label>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left"
+                onClick={handleOpenAssignDialog}
+                disabled={assignmentLoading}
+              >
+                {isUnifiedConversation(selectedConv) && selectedConv.assigned_to_name ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-6 h-6 rounded-full bg-green-600 flex items-center justify-center text-xs font-medium text-white">
+                      {selectedConv.assigned_to_name.charAt(0).toUpperCase()}
+                    </div>
+                    <span>{selectedConv.assigned_to_name}</span>
+                  </div>
+                ) : (
+                  <span className="text-gray-500">Unassigned</span>
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -1173,6 +1245,79 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
           />
         </>
       )}
+
+      {/* Assignment Dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign this chat</DialogTitle>
+            <DialogDescription>
+              Delegate chats so team members can filter their chats and respond more quickly.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium mb-3">Members ({staffList.length + 1})</h4>
+              <RadioGroup
+                value={selectedAssignment}
+                onValueChange={setSelectedAssignment}
+                className="space-y-2"
+              >
+                {/* Leave unassigned option */}
+                <div className="flex items-center space-x-3 p-2 rounded hover:bg-gray-50 cursor-pointer">
+                  <RadioGroupItem value="unassigned" id="unassigned" />
+                  <Label
+                    htmlFor="unassigned"
+                    className="flex items-center space-x-3 cursor-pointer flex-1"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <span className="text-sm font-medium">Leave unassigned</span>
+                  </Label>
+                </div>
+
+                {/* Staff members */}
+                {staffList.map(staff => (
+                  <div
+                    key={staff.email}
+                    className="flex items-center space-x-3 p-2 rounded hover:bg-gray-50 cursor-pointer"
+                  >
+                    <RadioGroupItem value={staff.email} id={staff.email} />
+                    <Label
+                      htmlFor={staff.email}
+                      className="flex items-center space-x-3 cursor-pointer flex-1"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-sm font-medium text-white">
+                        {staff.displayName.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium">{staff.displayName}</span>
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setAssignDialogOpen(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveAssignment}
+              disabled={assignmentLoading}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
