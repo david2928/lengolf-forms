@@ -26,12 +26,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Staff access required" }, { status: 403 });
     }
 
-    // Get all staff and admin users
+    // Get only allowed assignees (Ashley, Eak, David)
+    const allowedEmails = [
+      'vangoolashley39@gmail.com',    // Ashley
+      'akarat.loeksirinukul@gmail.com', // Eak
+      'dgeiermann@gmail.com'           // David (owner)
+    ];
+
     const { data: staffList, error: staffError } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('allowed_users')
       .select('email, display_name, is_admin, is_staff')
-      .or('is_admin.eq.true,is_staff.eq.true')
+      .in('email', allowedEmails)
       .order('display_name');
 
     if (staffError) {
