@@ -88,26 +88,49 @@ export async function POST(
     let conversationId: string | null = null;
 
     if (booking.customer_id) {
+      // First, check how many LINE users are linked to this customer
+      const { data: allLineUsers, error: countError } = await refacSupabaseAdmin
+        .from('line_users')
+        .select('line_user_id, display_name, created_at')
+        .eq('customer_id', booking.customer_id);
+
+      if (countError) {
+        console.error('Error checking LINE users:', countError);
+      } else if (allLineUsers && allLineUsers.length > 1) {
+        console.warn(`⚠️ Customer ${booking.customer_id} (${booking.name}) has ${allLineUsers.length} LINE users:`,
+          allLineUsers.map((u: { display_name: string; line_user_id: string }) => `${u.display_name} (${u.line_user_id})`).join(', '));
+        console.warn('Using most recent LINE user. Consider cleaning up duplicates.');
+      }
+
       // Check if customer has a linked LINE user
       // Use maybeSingle() to handle cases where customer has multiple LINE users
       // Get the most recently created LINE user if multiple exist
-      const { data: lineUser } = await refacSupabaseAdmin
+      const { data: lineUser, error: lineUserError } = await refacSupabaseAdmin
         .from('line_users')
-        .select('line_user_id')
+        .select('line_user_id, display_name')
         .eq('customer_id', booking.customer_id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
+      if (lineUserError) {
+        console.error(`Error fetching LINE user for customer ${booking.customer_id}:`, lineUserError);
+      }
+
       if (lineUser) {
         lineUserId = lineUser.line_user_id;
+        console.log(`✓ Found LINE user for ${booking.name}: ${lineUser.display_name} (${lineUserId})`);
 
         // Get or create conversation
-        const { data: conversation } = await refacSupabaseAdmin
+        const { data: conversation, error: conversationError } = await refacSupabaseAdmin
           .from('line_conversations')
           .select('id')
           .eq('line_user_id', lineUserId)
           .maybeSingle();
+
+        if (conversationError) {
+          console.error(`Error fetching conversation for LINE user ${lineUserId}:`, conversationError);
+        }
 
         if (conversation) {
           conversationId = conversation.id;
@@ -133,9 +156,21 @@ export async function POST(
     }
 
     if (!lineUserId) {
+      console.error(`❌ No LINE user found for booking ${bookingId}:`, {
+        customerId: booking.customer_id,
+        customerName: booking.name,
+        phoneNumber: booking.phone_number
+      });
+
       return NextResponse.json({
         error: "Customer does not have a linked LINE account",
-        suggestion: "Please link the customer's LINE account first"
+        suggestion: "Please link the customer's LINE account first using the LINE chat interface",
+        details: {
+          bookingId,
+          customerName: booking.name,
+          customerId: booking.customer_id,
+          phoneNumber: booking.phone_number
+        }
       }, { status: 400 });
     }
 

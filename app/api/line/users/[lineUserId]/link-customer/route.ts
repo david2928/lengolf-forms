@@ -58,11 +58,26 @@ export async function POST(
       .eq('line_user_id', lineUserId);
 
     if (linkError) {
-      console.error('Error linking LINE user to customer:', linkError);
+      console.error('❌ Error linking LINE user to customer:', {
+        error: linkError,
+        lineUserId,
+        customerId,
+        customerName: customer.customer_name,
+        errorCode: linkError.code,
+        errorMessage: linkError.message
+      });
       return NextResponse.json({
-        error: "Failed to link LINE user to customer"
+        error: "Failed to link LINE user to customer",
+        details: {
+          errorCode: linkError.code,
+          errorMessage: linkError.message,
+          lineUserId,
+          customerId
+        }
       }, { status: 500 });
     }
+
+    console.log(`✓ Linked LINE user to customer: ${lineUser.display_name} → ${customer.customer_name} (${customer.customer_code})`);
 
     // Update customer_profiles JSONB field
     const lineProfileData = {
@@ -97,8 +112,16 @@ export async function POST(
       .eq('id', customerId);
 
     if (profileError) {
-      console.error('Error updating customer profiles:', profileError);
+      console.error('⚠️ Error updating customer_profiles JSONB field:', {
+        error: profileError,
+        customerId,
+        customerName: customer.customer_name,
+        errorCode: profileError.code,
+        errorMessage: profileError.message
+      });
       // Continue even if profile update fails - the main linking succeeded
+    } else {
+      console.log(`✓ Updated customer_profiles JSONB for ${customer.customer_name}`);
     }
 
     // ALSO upsert profiles table for Lucky Draw / booking app compatibility
@@ -123,9 +146,20 @@ export async function POST(
       });
 
     if (profilesLinkError) {
-      console.error('Error upserting profiles table:', profilesLinkError);
+      console.error('❌ Error upserting profiles table:', {
+        error: profilesLinkError,
+        lineUserId,
+        customerId,
+        customerName: customer.customer_name,
+        displayName: lineUser.display_name,
+        errorCode: profilesLinkError.code,
+        errorMessage: profilesLinkError.message,
+        errorDetails: profilesLinkError.details
+      });
       // Continue even if profiles upsert fails - log for monitoring
       // The main linking in line_users still succeeded
+    } else {
+      console.log(`✓ Successfully linked profile: ${lineUser.display_name} → ${customer.customer_name}`);
     }
 
     return NextResponse.json({
