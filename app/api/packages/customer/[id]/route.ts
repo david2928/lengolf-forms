@@ -96,9 +96,19 @@ export async function GET(
 
       // Determine status using new business logic
       let status: 'created' | 'active' | 'expired' | 'fully_used' = 'active';
-      
+
       const isUnlimited = packageType?.type === 'Unlimited';
-      const isExpired = pkg.expiration_date && new Date(pkg.expiration_date) < new Date();
+
+      // Fix expiration check to use date-only comparison (no time component)
+      // This ensures packages are valid through the entire expiration day
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const expirationDate = pkg.expiration_date ? new Date(pkg.expiration_date) : null;
+      if (expirationDate) {
+        expirationDate.setHours(0, 0, 0, 0);
+      }
+      const isExpired = expirationDate && expirationDate < today;
+
       const isActivated = pkg.first_use_date !== null;
 
       // Apply consistent logic for all package types
