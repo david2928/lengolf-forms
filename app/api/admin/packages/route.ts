@@ -100,6 +100,42 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
+    // Calculate KPIs across ALL packages (not just current page)
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const todayStr = todayDate.toISOString().split('T')[0];
+    const weekFromNow = new Date(todayDate);
+    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    const weekFromNowStr = weekFromNow.toISOString().split('T')[0];
+
+    // Query for KPI counts (all packages, no pagination)
+    const { count: totalCount } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('packages')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: activeCount } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('packages')
+      .select('*', { count: 'exact', head: true })
+      .gte('expiration_date', todayStr);
+
+    const { count: expiringSoonCount } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('packages')
+      .select('*', { count: 'exact', head: true })
+      .gte('expiration_date', todayStr)
+      .lte('expiration_date', weekFromNowStr);
+
+    const { count: unlimitedCount } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('packages')
+      .select(`
+        *,
+        package_types:package_type_id (hours)
+      `, { count: 'exact', head: true })
+      .is('package_types.hours', null);
+
     // Calculate remaining hours for each package
     const packagesWithCalculations = packages.map((pkg: any) => {
       const totalUsedHours = pkg.package_usage.reduce((sum: number, usage: any) => 
@@ -128,6 +164,12 @@ export async function GET(request: NextRequest) {
         limit,
         total: count,
         totalPages: Math.ceil((count || 0) / limit)
+      },
+      kpis: {
+        total: totalCount || 0,
+        active: activeCount || 0,
+        expiringSoon: expiringSoonCount || 0,
+        unlimited: unlimitedCount || 0
       }
     });
 

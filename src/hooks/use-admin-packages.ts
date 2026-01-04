@@ -36,6 +36,13 @@ interface Pagination {
   totalPages: number;
 }
 
+interface KPIs {
+  total: number;
+  active: number;
+  expiringSoon: number;
+  unlimited: number;
+}
+
 const fetcher = async (url: string) => {
   const response = await fetch(url);
   if (!response.ok) {
@@ -66,6 +73,7 @@ export function useAdminPackages() {
 
   const packages: Package[] = data?.data || [];
   const pagination: Pagination | undefined = data?.pagination;
+  const kpis: KPIs | undefined = data?.kpis;
 
   const updateFilters = (newFilters: Partial<PackageFilters>) => {
     setFilters(prev => ({
@@ -82,6 +90,7 @@ export function useAdminPackages() {
   return {
     packages,
     pagination,
+    kpis,
     isLoading: !error && !data,
     error: error?.message,
     filters,

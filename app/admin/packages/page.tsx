@@ -43,6 +43,7 @@ export default function AdminPackageManagementPage() {
     error: packagesError,
     filters,
     pagination,
+    kpis,
     updateFilters,
     refreshPackages
   } = useAdminPackages();
@@ -166,7 +167,7 @@ export default function AdminPackageManagementPage() {
                   <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{pagination?.total || 0}</div>
+                  <div className="text-2xl font-bold">{kpis?.total || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     All packages in system
                   </p>
@@ -179,9 +180,7 @@ export default function AdminPackageManagementPage() {
                   <Badge className="h-4 w-4 rounded-full bg-green-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {packages.filter(p => new Date(p.expiration_date) >= new Date()).length}
-                  </div>
+                  <div className="text-2xl font-bold">{kpis?.active || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     Not yet expired
                   </p>
@@ -194,14 +193,7 @@ export default function AdminPackageManagementPage() {
                   <Badge className="h-4 w-4 rounded-full bg-yellow-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {packages.filter(p => {
-                      const expiry = new Date(p.expiration_date);
-                      const today = new Date();
-                      const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-                      return expiry >= today && expiry <= weekFromNow;
-                    }).length}
-                  </div>
+                  <div className="text-2xl font-bold">{kpis?.expiringSoon || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     Within 7 days
                   </p>
@@ -214,9 +206,7 @@ export default function AdminPackageManagementPage() {
                   <Badge className="h-4 w-4 rounded-full bg-blue-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {packages.filter(p => p.is_unlimited).length}
-                  </div>
+                  <div className="text-2xl font-bold">{kpis?.unlimited || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     No hour limits
                   </p>

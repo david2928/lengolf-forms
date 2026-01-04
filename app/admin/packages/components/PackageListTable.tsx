@@ -12,6 +12,13 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Edit,
   ArrowRightLeft,
@@ -19,7 +26,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Trash2
+  Trash2,
+  MoreVertical,
+  Package as PackageIcon
 } from 'lucide-react';
 
 interface Package {
@@ -87,6 +96,18 @@ export const PackageListTable: React.FC<PackageListTableProps> = ({
 }) => {
   const [sortKey, setSortKey] = useState<SortKey>('customer_name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if screen is mobile size
+  React.useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -124,12 +145,160 @@ export const PackageListTable: React.FC<PackageListTableProps> = ({
     if (sortKey !== columnKey) {
       return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
     }
-    return sortOrder === 'asc' 
+    return sortOrder === 'asc'
       ? <ArrowUp className="h-3 w-3 ml-1" />
       : <ArrowDown className="h-3 w-3 ml-1" />;
   };
 
+  // Mobile Card Component
+  const PackageCard = ({ pkg }: { pkg: Package }) => {
+    const expiry = pkg.expiration_date ? new Date(pkg.expiration_date) : null;
+    const daysToExpiry = expiry ? Math.ceil((expiry.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+    return (
+      <Card className="mb-4 hover:shadow-md transition-shadow duration-150">
+        <CardContent className="p-4">
+          <div className="flex justify-between items-start mb-3">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex-shrink-0">
+                  <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <span className="text-sm font-semibold text-blue-700">
+                      {pkg.customer_name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900 truncate">{pkg.customer_name}</h3>
+                  {pkg.last_modified_by && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Modified by {pkg.last_modified_by.split('@')[0]}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="outline" className="font-medium">
+                  {pkg.package_type_name}
+                </Badge>
+                {getStatusBadge(pkg)}
+              </div>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-gray-100">
+                  <MoreVertical className="h-4 w-4 text-gray-500" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => onPackageEdit(pkg)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Package
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onPackageTransfer(pkg)}>
+                  <ArrowRightLeft className="mr-2 h-4 w-4" />
+                  Transfer Package
+                </DropdownMenuItem>
+                {!pkg.is_unlimited && (
+                  <DropdownMenuItem onClick={() => onUsageManage(pkg)}>
+                    <Clock className="mr-2 h-4 w-4" />
+                    Manage Usage
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  onClick={() => onPackageDelete(pkg)}
+                  className="text-red-600 focus:text-red-700"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Package
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-gray-500 block mb-1">Hours</span>
+              {pkg.is_unlimited ? (
+                <span className="font-semibold text-blue-600">Unlimited</span>
+              ) : (
+                <div>
+                  <div className="font-semibold text-gray-900">
+                    {pkg.remaining_hours || 0}/{pkg.total_hours || 0}h
+                  </div>
+                  {pkg.total_hours && pkg.total_hours > 0 && (
+                    <div className="text-xs text-gray-500">
+                      {((pkg.remaining_hours || 0) / pkg.total_hours * 100).toFixed(0)}% left
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div>
+              <span className="text-gray-500 block mb-1">Expires</span>
+              {!pkg.first_use_date ? (
+                <div>
+                  <div className="font-medium text-gray-500">Not Set</div>
+                  <div className="text-xs text-gray-400">Awaiting activation</div>
+                </div>
+              ) : !pkg.expiration_date || !expiry ? (
+                <div className="font-medium text-gray-500">No Expiration</div>
+              ) : (
+                <div>
+                  <div className="font-semibold text-gray-900">
+                    {format(expiry, 'MMM dd, yyyy')}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {daysToExpiry !== null && daysToExpiry < 0
+                      ? `${Math.abs(daysToExpiry)}d ago`
+                      : daysToExpiry === 0
+                      ? 'Today'
+                      : daysToExpiry !== null
+                      ? `${daysToExpiry}d left`
+                      : ''
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   if (isLoading) {
+    if (isMobile) {
+      return (
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="mb-4">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
+                      <div className="h-3 bg-gray-200 rounded w-24 animate-pulse"></div>
+                    </div>
+                  </div>
+                  <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
+                </div>
+                <div className="flex gap-2 mb-3">
+                  <div className="h-6 bg-gray-200 rounded w-20 animate-pulse"></div>
+                  <div className="h-6 bg-gray-200 rounded w-16 animate-pulse"></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      );
+    }
+
     return (
       <div className="p-8">
         <div className="space-y-4">
@@ -150,11 +319,26 @@ export const PackageListTable: React.FC<PackageListTableProps> = ({
   if (packages.length === 0) {
     return (
       <div className="p-12 text-center">
-        <p className="text-muted-foreground">No packages found. Try adjusting your filters.</p>
+        <div className="flex flex-col items-center space-y-2">
+          <PackageIcon className="h-8 w-8 text-gray-400" />
+          <p className="text-muted-foreground">No packages found. Try adjusting your filters.</p>
+        </div>
       </div>
     );
   }
 
+  // Mobile Card View
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        {sortedPackages.map((pkg) => (
+          <PackageCard key={pkg.id} pkg={pkg} />
+        ))}
+      </div>
+    );
+  }
+
+  // Desktop Table View
   return (
     <Table>
       <TableHeader>

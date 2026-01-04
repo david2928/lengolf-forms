@@ -58,15 +58,15 @@ export const PackageFilters: React.FC<PackageFiltersProps> = ({
         )}
       </div>
 
-      {/* All filters in one row */}
-      <div className="flex flex-wrap gap-3">
+      {/* All filters - stack vertically on mobile, inline on desktop */}
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
         {/* Customer Name Search */}
-        <div className="flex-1 min-w-[200px] max-w-sm">
+        <div className="w-full sm:flex-1 sm:min-w-[200px] sm:max-w-sm">
           <Input
             id="customer-search"
             placeholder="Search by customer name..."
             value={filters.search || ''}
-            onChange={(e) => 
+            onChange={(e) =>
               onFiltersChange({ search: e.target.value || undefined })
             }
             className="h-9"
@@ -74,10 +74,10 @@ export const PackageFilters: React.FC<PackageFiltersProps> = ({
         </div>
 
         {/* Package Type Filter */}
-        <div className="w-[200px]">
+        <div className="w-full sm:w-[200px]">
           <Select
             value={filters.package_type_id || "all"}
-            onValueChange={(value) => 
+            onValueChange={(value) =>
               onFiltersChange({ package_type_id: value === "all" ? undefined : value })
             }
           >
@@ -96,10 +96,10 @@ export const PackageFilters: React.FC<PackageFiltersProps> = ({
         </div>
 
         {/* Status Filter */}
-        <div className="w-[180px]">
+        <div className="w-full sm:w-[180px]">
           <Select
             value={filters.status || "all"}
-            onValueChange={(value) => 
+            onValueChange={(value) =>
               onFiltersChange({ status: value === "all" ? undefined : value })
             }
           >
