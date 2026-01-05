@@ -14,7 +14,12 @@ const CALLBACK_URL = process.env.NEXTAUTH_URL
   ? `${process.env.NEXTAUTH_URL}/api/google-reviews/oauth/callback`
   : 'http://localhost:3000/api/google-reviews/oauth/callback';
 
-const GOOGLE_BUSINESS_SCOPE = 'https://www.googleapis.com/auth/business.manage';
+const GOOGLE_BUSINESS_SCOPES = [
+  'openid',
+  'email',
+  'profile',
+  'https://www.googleapis.com/auth/business.manage'
+];
 
 /**
  * Create OAuth2 client for Google Business Profile
@@ -35,7 +40,7 @@ export function getAuthorizationUrl(): string {
 
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
-    scope: GOOGLE_BUSINESS_SCOPE,
+    scope: GOOGLE_BUSINESS_SCOPES,
     prompt: 'consent', // Force consent to get refresh token
     login_hint: 'info@len.golf', // Suggest the correct account
   });
@@ -79,7 +84,7 @@ export async function exchangeCodeForTokens(code: string): Promise<{ success: bo
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         token_expires_at: expiresIn.toISOString(),
-        scope: tokens.scope || GOOGLE_BUSINESS_SCOPE,
+        scope: tokens.scope || GOOGLE_BUSINESS_SCOPES.join(' '),
         last_used_at: new Date().toISOString(),
       }, {
         onConflict: 'email',
