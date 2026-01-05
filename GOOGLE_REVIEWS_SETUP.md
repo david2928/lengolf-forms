@@ -59,13 +59,35 @@ This system allows you to sync Google Business Profile reviews to the LENGOLF ba
 
 ## 🚀 Setup Instructions (REQUIRED)
 
+### ⚠️ Step 0: Request Google My Business API Access (CRITICAL)
+
+**The Google My Business API requires formal approval from Google before use.**
+
+1. **Submit Access Request Form:**
+   - URL: https://support.google.com/business/contact/api_default
+   - Select: "Application for Basic API Access"
+   - Project Number: `1071951248692`
+   - Email: Use `info@len.golf` (must be Business Profile owner/manager)
+   - Use Case: "Internal backoffice system to manage and respond to Google reviews"
+
+2. **Wait for Approval:**
+   - Processing time: Up to 14 days
+   - You'll receive an email when approved
+   - Once approved, the `mybusiness.googleapis.com` API will be available to enable
+
+3. **After Approval:**
+   - Run: `gcloud services enable mybusiness.googleapis.com`
+   - Or enable via console at: https://console.developers.google.com/apis/api/mybusiness.googleapis.com/overview?project=1071951248692
+
+**Note:** The feature is fully built and ready. It will work immediately once API access is approved.
+
 ### Step 1: Enable Google APIs
 
 1. Go to [Google Cloud Console - API Library](https://console.cloud.google.com/apis/library?project=lengolf-forms)
 
 2. Search for and enable these APIs:
-   - ✅ **My Business Business Information API**
-   - ✅ **My Business Account Management API**
+   - ✅ **My Business Business Information API** (already enabled)
+   - ✅ **My Business Account Management API** (already enabled)
 
 3. **Check Quotas** (after enabling):
    - Go to: APIs & Services > My Business Business Information API > Quotas

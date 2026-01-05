@@ -43,9 +43,9 @@ export async function fetchAllReviews(
     let pageToken: string | undefined;
 
     do {
-      // Build API URL
+      // Build API URL - Using v4 API endpoint
       const url = new URL(
-        `https://mybusinessbusinessinformation.googleapis.com/v1/accounts/${ACCOUNT_ID}/locations/${LOCATION_ID}/reviews`
+        `https://mybusiness.googleapis.com/v4/accounts/${ACCOUNT_ID}/locations/${LOCATION_ID}/reviews`
       );
       url.searchParams.set('pageSize', '50');
       if (pageToken) {
@@ -53,6 +53,9 @@ export async function fetchAllReviews(
       }
 
       // Make direct REST API call
+      console.log('Fetching reviews from:', url.toString());
+      console.log('Using access token:', accessToken ? `${accessToken.substring(0, 20)}...` : 'missing');
+
       const response = await fetch(url.toString(), {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
