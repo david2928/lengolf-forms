@@ -47,7 +47,9 @@ export async function getDevSession(
             name: payload.name as string,
             picture: payload.picture as string || null
           },
-          expires: new Date((payload.exp as number) * 1000).toISOString()
+          expires: new Date((payload.exp as number) * 1000).toISOString(),
+          accessToken: payload.accessToken as string | undefined,
+          refreshToken: payload.refreshToken as string | undefined
         };
         
         return session;

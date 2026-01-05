@@ -50,7 +50,9 @@ export function createMockSession(): Session {
       isCoach: true,
       image: null
     },
-    expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+    expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+    accessToken: process.env.DEV_GOOGLE_ACCESS_TOKEN, // Optional: for testing Google API locally
+    refreshToken: undefined
   };
 }
 

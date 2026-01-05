@@ -13,6 +13,8 @@ declare module "next-auth" {
     }
     lastValidated?: string
     sessionType?: 'admin' | 'user'
+    accessToken?: string
+    refreshToken?: string
   }
 }
 
@@ -22,5 +24,8 @@ declare module "next-auth/jwt" {
     isAdmin?: boolean
     isCoach?: boolean
     isStaff?: boolean
+    accessToken?: string
+    refreshToken?: string
+    accessTokenExpires?: number
   }
 } 
