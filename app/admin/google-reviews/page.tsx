@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Star, MessageCircle } from 'lucide-react';
+import { RefreshCw, Star, MessageCircle, CheckCircle, XCircle, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,10 +13,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import type { GoogleReviewDB } from '@/types/google-reviews';
 
 type FilterType = 'all' | 'has_reply' | 'needs_reply';
+
+interface ConnectionStatus {
+  connected: boolean;
+  email: string | null;
+}
 
 export default function GoogleReviewsPage() {
   const [reviews, setReviews] = useState<GoogleReviewDB[]>([]);
@@ -24,6 +30,53 @@ export default function GoogleReviewsPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(true);
+
+  // Check connection status
+  const checkConnectionStatus = async () => {
+    setIsCheckingConnection(true);
+    try {
+      const response = await fetch('/api/google-reviews/oauth/status');
+      if (response.ok) {
+        const data = await response.json();
+        setConnectionStatus(data);
+      }
+    } catch (error) {
+      console.error('Error checking connection status:', error);
+    } finally {
+      setIsCheckingConnection(false);
+    }
+  };
+
+  // Handle connect Google Business account
+  const handleConnect = () => {
+    // Redirect to OAuth flow
+    window.location.href = '/api/google-reviews/oauth/connect';
+  };
+
+  // Handle disconnect
+  const handleDisconnect = async () => {
+    if (!confirm('Are you sure you want to disconnect your Google Business account?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/google-reviews/oauth/disconnect', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to disconnect');
+      }
+
+      toast.success('Google Business account disconnected');
+      setConnectionStatus({ connected: false, email: null });
+    } catch (error) {
+      console.error('Error disconnecting:', error);
+      toast.error('Failed to disconnect account');
+    }
+  };
 
   // Fetch reviews from API
   const fetchReviews = async (filterType: FilterType = 'all') => {
@@ -82,10 +135,27 @@ export default function GoogleReviewsPage() {
     }
   };
 
-  // Load reviews on mount
+  // Load connection status and reviews on mount
   useEffect(() => {
+    checkConnectionStatus();
     fetchReviews(filter);
   }, [filter]);
+
+  // Check for OAuth callback success/error
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'connected') {
+      toast.success('Google Business account connected successfully!');
+      checkConnectionStatus();
+      // Clean URL
+      window.history.replaceState({}, '', '/admin/google-reviews');
+    } else if (params.get('error')) {
+      const errorMsg = params.get('message') || 'Failed to connect account';
+      toast.error(errorMsg);
+      // Clean URL
+      window.history.replaceState({}, '', '/admin/google-reviews');
+    }
+  }, []);
 
   // Calculate stats
   const stats = {
@@ -148,11 +218,52 @@ export default function GoogleReviewsPage() {
             Manage and monitor Google Business Profile reviews
           </p>
         </div>
-        <Button onClick={handleSync} disabled={isSyncing}>
+        <Button onClick={handleSync} disabled={isSyncing || !connectionStatus?.connected}>
           <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
           {isSyncing ? 'Syncing...' : 'Sync Reviews'}
         </Button>
       </div>
+
+      {/* Connection Status */}
+      {!isCheckingConnection && (
+        <Alert className={connectionStatus?.connected ? 'border-green-500 bg-green-50' : 'border-orange-500 bg-orange-50'}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {connectionStatus?.connected ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-orange-600" />
+              )}
+              <div>
+                <AlertDescription className="text-sm font-medium">
+                  {connectionStatus?.connected ? (
+                    <>
+                      <span className="text-green-900">Connected to Google Business Profile</span>
+                      <span className="text-muted-foreground ml-2">({connectionStatus.email})</span>
+                    </>
+                  ) : (
+                    <span className="text-orange-900">
+                      Google Business account not connected. Please connect to sync reviews.
+                    </span>
+                  )}
+                </AlertDescription>
+              </div>
+            </div>
+            <div>
+              {connectionStatus?.connected ? (
+                <Button variant="outline" size="sm" onClick={handleDisconnect}>
+                  Disconnect
+                </Button>
+              ) : (
+                <Button onClick={handleConnect} className="gap-2">
+                  <LinkIcon className="h-4 w-4" />
+                  Connect Google Business
+                </Button>
+              )}
+            </div>
+          </div>
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

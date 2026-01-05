@@ -3,13 +3,14 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { isUserAdmin } from '@/lib/auth';
 import { syncReviewsToSupabase } from '@/lib/google-business-profile';
+import { getValidAccessToken } from '@/lib/google-business-oauth';
 
 /**
  * POST /api/google-reviews/sync
  *
  * Syncs Google Business Profile reviews to Supabase database
  * - Requires admin authentication
- * - Uses OAuth access token from user session
+ * - Uses stored OAuth tokens from database (info@len.golf account)
  * - Fetches all reviews from Google
  * - Upserts to backoffice.google_reviews table
  *
@@ -32,12 +33,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for access token
-    if (!session.accessToken) {
+    // Get access token from database (automatically refreshes if expired)
+    const accessToken = await getValidAccessToken();
+    if (!accessToken) {
       return NextResponse.json(
         {
           error:
-            'No Google access token found. Please sign out and sign in again to grant Business Profile API access.',
+            'Google Business account not connected. Please connect your Google Business account first.',
         },
         { status: 401 }
       );
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
     console.log(`Admin ${session.user.email} initiating Google reviews sync`);
 
     // Perform sync
-    const result = await syncReviewsToSupabase(session.accessToken);
+    const result = await syncReviewsToSupabase(accessToken);
 
     if (!result.success) {
       return NextResponse.json(

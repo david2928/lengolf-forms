@@ -10,7 +10,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: 'openid email profile https://www.googleapis.com/auth/business.manage',
+          scope: 'openid email profile',
           access_type: 'offline',
           prompt: 'consent',
         },
@@ -56,26 +56,15 @@ export const authOptions: NextAuthOptions = {
         token.isStaff = staffStatus;
       }
 
-      // Store Google OAuth tokens for API access (e.g., Business Profile API)
-      if (account) {
-        token.accessToken = account.access_token;
-        token.refreshToken = account.refresh_token;
-        token.accessTokenExpires = account.expires_at;
-      }
-
       return token;
     },
-    
+
     async session({ session, token }) {
       if (session.user) {
         session.user.isAdmin = token.isAdmin;
         session.user.isCoach = token.isCoach;
         session.user.isStaff = token.isStaff;
       }
-
-      // Include Google OAuth tokens in session for API calls
-      session.accessToken = token.accessToken as string | undefined;
-      session.refreshToken = token.refreshToken as string | undefined;
 
       return session;
     }
