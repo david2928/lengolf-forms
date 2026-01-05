@@ -33,36 +33,45 @@ function detectLanguage(comment: string | undefined): 'EN' | 'TH' | 'OTHER' {
 
 /**
  * Fetch all reviews from Google Business Profile API
- * Requires a valid OAuth access token from an authenticated user
+ * Uses REST API directly as googleapis library doesn't support reviews endpoint properly
  */
 export async function fetchAllReviews(
   accessToken: string
 ): Promise<GoogleReview[]> {
   try {
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({ access_token: accessToken });
-
-    const mybusinessbusinessinformation = google.mybusinessbusinessinformation({
-      version: 'v1',
-      auth: oauth2Client,
-    });
-
     const allReviews: GoogleReview[] = [];
     let pageToken: string | undefined;
 
     do {
-      // Type assertion needed - Google API types don't include reviews resource yet
-      const response = await (mybusinessbusinessinformation.accounts.locations as any).reviews.list({
-        parent: `accounts/${ACCOUNT_ID}/locations/${LOCATION_ID}`,
-        pageSize: 50,
-        pageToken,
-      });
-
-      if (response.data.reviews) {
-        allReviews.push(...(response.data.reviews as GoogleReview[]));
+      // Build API URL
+      const url = new URL(
+        `https://mybusinessbusinessinformation.googleapis.com/v1/accounts/${ACCOUNT_ID}/locations/${LOCATION_ID}/reviews`
+      );
+      url.searchParams.set('pageSize', '50');
+      if (pageToken) {
+        url.searchParams.set('pageToken', pageToken);
       }
 
-      pageToken = response.data.nextPageToken || undefined;
+      // Make direct REST API call
+      const response = await fetch(url.toString(), {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Google API error (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json() as GoogleReviewsResponse;
+
+      if (data.reviews) {
+        allReviews.push(...data.reviews);
+      }
+
+      pageToken = data.nextPageToken;
     } while (pageToken);
 
     console.log(`Fetched ${allReviews.length} reviews from Google Business Profile`);
