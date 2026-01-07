@@ -259,13 +259,13 @@ export function TrendAnalysis({ competitors }: TrendAnalysisProps) {
                         <Table>
                           <TableHeader>
                             <TableRow className="border-b bg-gray-50/50">
-                              <TableHead className="font-semibold text-gray-900 px-4 py-3 w-[20%]">Competitor</TableHead>
-                              <TableHead className="font-semibold text-gray-900 px-3 py-3 w-[15%] text-center">Latest</TableHead>
-                              <TableHead className="font-semibold text-gray-900 px-3 py-3 w-[13%] text-center">vs 7d</TableHead>
-                              <TableHead className="font-semibold text-gray-900 px-3 py-3 w-[13%] text-center">vs 14d</TableHead>
-                              <TableHead className="font-semibold text-gray-900 px-3 py-3 w-[13%] text-center">vs 21d</TableHead>
-                              <TableHead className="font-semibold text-gray-900 px-3 py-3 w-[13%] text-center">vs 28d</TableHead>
-                              <TableHead className="font-semibold text-gray-900 px-3 py-3 w-[13%] text-center">Last Updated</TableHead>
+                              <TableHead className="font-semibold text-gray-900 px-2 py-2 text-xs md:px-4 md:py-3 md:text-sm w-[35%] lg:w-[20%]">Competitor</TableHead>
+                              <TableHead className="font-semibold text-gray-900 px-1 py-2 text-xs md:px-3 md:py-3 md:text-sm w-[20%] lg:w-[15%] text-center">Latest</TableHead>
+                              <TableHead className="font-semibold text-gray-900 px-1 py-2 text-xs md:px-3 md:py-3 md:text-sm w-[22%] lg:w-[13%] text-center">vs 7d</TableHead>
+                              <TableHead className="font-semibold text-gray-900 px-3 py-3 w-[13%] text-center hidden lg:table-cell">vs 14d</TableHead>
+                              <TableHead className="font-semibold text-gray-900 px-3 py-3 w-[13%] text-center hidden lg:table-cell">vs 21d</TableHead>
+                              <TableHead className="font-semibold text-gray-900 px-1 py-2 text-xs md:px-3 md:py-3 md:text-sm w-[23%] lg:w-[13%] text-center">vs 28d</TableHead>
+                              <TableHead className="font-semibold text-gray-900 px-3 py-3 w-[13%] text-center hidden md:table-cell">Last Updated</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -289,9 +289,9 @@ export function TrendAnalysis({ competitors }: TrendAnalysisProps) {
 
                               return (
                                 <TableRow key={index} className="hover:bg-gray-50/50 transition-colors">
-                                  <TableCell className="px-4 py-3">
-                                    <div className="flex items-center gap-3">
-                                      <div className="flex-shrink-0">
+                                  <TableCell className="px-2 py-2 md:px-4 md:py-3">
+                                    <div className="flex items-center gap-1 md:gap-3">
+                                      <div className="flex-shrink-0 hidden md:block">
                                         <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
                                           <span className="text-sm font-semibold text-blue-700">
                                             {item.competitor_name.charAt(0).toUpperCase()}
@@ -299,36 +299,67 @@ export function TrendAnalysis({ competitors }: TrendAnalysisProps) {
                                         </div>
                                       </div>
                                       <div className="min-w-0 flex-1">
-                                        <p className="font-semibold text-gray-900 text-sm">{item.competitor_name}</p>
+                                        <p className="font-semibold text-gray-900 text-xs md:text-sm leading-tight">{item.competitor_name}</p>
                                       </div>
                                     </div>
                                   </TableCell>
-                                  
-                                  <TableCell className="px-3 py-3 text-center">
-                                    <div className="font-semibold text-gray-900 text-sm">
+
+                                  <TableCell className="px-1 py-2 md:px-3 md:py-3 text-center">
+                                    <div className="font-semibold text-gray-900 text-xs md:text-sm">
                                       {formatNumber(latestMetric.value)}
                                     </div>
                                   </TableCell>
 
-                                  {[
-                                    { changeData: change7d, extremes: extremes7d },
-                                    { changeData: change14d, extremes: extremes14d },
-                                    { changeData: change21d, extremes: extremes21d },
-                                    { changeData: change28d, extremes: extremes28d }
-                                  ].map(({ changeData, extremes }, changeIndex) => {
-                                    // Determine if this cell should be highlighted
+                                  {/* vs 7d */}
+                                  {(() => {
+                                    const extremes = extremes7d;
+                                    const changeData = change7d;
                                     const isHighest = extremes.highest === index;
                                     const isLowest = extremes.lowest === index;
-                                    const bgClass = isHighest 
-                                      ? 'bg-green-50 border-green-200' 
-                                      : isLowest 
-                                        ? 'bg-red-50 border-red-200' 
+                                    const bgClass = isHighest
+                                      ? 'bg-green-50 border-green-200'
+                                      : isLowest
+                                        ? 'bg-red-50 border-red-200'
                                         : '';
 
                                     return (
-                                      <TableCell 
-                                        key={changeIndex} 
-                                        className={`px-3 py-3 text-center ${bgClass} ${bgClass ? 'border' : ''}`}
+                                      <TableCell
+                                        className={`px-1 py-2 md:px-3 md:py-3 text-center ${bgClass} ${bgClass ? 'border' : ''}`}
+                                      >
+                                        {changeData ? (
+                                          <div className="space-y-0.5 md:space-y-1">
+                                            <div className="flex items-center justify-center gap-0.5 md:gap-1 text-gray-900">
+                                              <changeData.icon className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                                              <span className="font-semibold text-[10px] md:text-xs leading-tight">
+                                                {changeData.change > 0 ? '+' : ''}{Math.abs(changeData.change).toLocaleString()}
+                                              </span>
+                                            </div>
+                                            <div className="text-[10px] md:text-xs font-medium text-gray-700 leading-tight">
+                                              {changeData.percentageChange > 0 ? '+' : ''}{changeData.percentageChange.toFixed(1)}%
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground text-xs">--</span>
+                                        )}
+                                      </TableCell>
+                                    );
+                                  })()}
+
+                                  {/* vs 14d - Hidden on mobile */}
+                                  {(() => {
+                                    const extremes = extremes14d;
+                                    const changeData = change14d;
+                                    const isHighest = extremes.highest === index;
+                                    const isLowest = extremes.lowest === index;
+                                    const bgClass = isHighest
+                                      ? 'bg-green-50 border-green-200'
+                                      : isLowest
+                                        ? 'bg-red-50 border-red-200'
+                                        : '';
+
+                                    return (
+                                      <TableCell
+                                        className={`px-3 py-3 text-center hidden lg:table-cell ${bgClass} ${bgClass ? 'border' : ''}`}
                                       >
                                         {changeData ? (
                                           <div className="space-y-1">
@@ -347,9 +378,79 @@ export function TrendAnalysis({ competitors }: TrendAnalysisProps) {
                                         )}
                                       </TableCell>
                                     );
-                                  })}
+                                  })()}
 
-                                  <TableCell className="px-3 py-3 text-center">
+                                  {/* vs 21d - Hidden on mobile */}
+                                  {(() => {
+                                    const extremes = extremes21d;
+                                    const changeData = change21d;
+                                    const isHighest = extremes.highest === index;
+                                    const isLowest = extremes.lowest === index;
+                                    const bgClass = isHighest
+                                      ? 'bg-green-50 border-green-200'
+                                      : isLowest
+                                        ? 'bg-red-50 border-red-200'
+                                        : '';
+
+                                    return (
+                                      <TableCell
+                                        className={`px-3 py-3 text-center hidden lg:table-cell ${bgClass} ${bgClass ? 'border' : ''}`}
+                                      >
+                                        {changeData ? (
+                                          <div className="space-y-1">
+                                            <div className="flex items-center justify-center gap-1 text-gray-900">
+                                              <changeData.icon className="h-3 w-3" />
+                                              <span className="font-semibold text-xs">
+                                                {changeData.change > 0 ? '+' : ''}{Math.abs(changeData.change).toLocaleString()}
+                                              </span>
+                                            </div>
+                                            <div className="text-xs font-medium text-gray-700">
+                                              {changeData.percentageChange > 0 ? '+' : ''}{changeData.percentageChange.toFixed(1)}%
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground text-xs">--</span>
+                                        )}
+                                      </TableCell>
+                                    );
+                                  })()}
+
+                                  {/* vs 28d */}
+                                  {(() => {
+                                    const extremes = extremes28d;
+                                    const changeData = change28d;
+                                    const isHighest = extremes.highest === index;
+                                    const isLowest = extremes.lowest === index;
+                                    const bgClass = isHighest
+                                      ? 'bg-green-50 border-green-200'
+                                      : isLowest
+                                        ? 'bg-red-50 border-red-200'
+                                        : '';
+
+                                    return (
+                                      <TableCell
+                                        className={`px-1 py-2 md:px-3 md:py-3 text-center ${bgClass} ${bgClass ? 'border' : ''}`}
+                                      >
+                                        {changeData ? (
+                                          <div className="space-y-0.5 md:space-y-1">
+                                            <div className="flex items-center justify-center gap-0.5 md:gap-1 text-gray-900">
+                                              <changeData.icon className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                                              <span className="font-semibold text-[10px] md:text-xs leading-tight">
+                                                {changeData.change > 0 ? '+' : ''}{Math.abs(changeData.change).toLocaleString()}
+                                              </span>
+                                            </div>
+                                            <div className="text-[10px] md:text-xs font-medium text-gray-700 leading-tight">
+                                              {changeData.percentageChange > 0 ? '+' : ''}{changeData.percentageChange.toFixed(1)}%
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground text-xs">--</span>
+                                        )}
+                                      </TableCell>
+                                    );
+                                  })()}
+
+                                  <TableCell className="px-3 py-3 text-center hidden md:table-cell">
                                     <div className="text-xs text-muted-foreground">
                                       {formatDate(item.periods.latest?.recorded_at)}
                                     </div>

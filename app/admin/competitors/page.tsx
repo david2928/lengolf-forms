@@ -1,10 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Eye, Edit, Trash2, RotateCcw, AlertCircle, PencilLine, ExternalLink } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, RotateCcw, AlertCircle, PencilLine, ExternalLink, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { 
   Table, 
   TableBody, 
@@ -87,28 +93,28 @@ export default function CompetitorsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
+    <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Competitor Tracking</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Competitor Tracking</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Monitor competitor social media metrics and growth trends
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Button
             onClick={handleManualSync}
             disabled={isSyncing}
             variant="outline"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full sm:w-auto"
           >
             <RotateCcw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
             {isSyncing ? 'Syncing...' : 'Manual Sync'}
           </Button>
           <Button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Add Competitor
@@ -119,38 +125,38 @@ export default function CompetitorsPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Competitors</p>
-                <p className="text-2xl font-bold text-gray-900">{competitors.length}</p>
+                <p className="text-xl md:text-2xl font-bold text-gray-900">{competitors.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Platforms Tracked</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-xl md:text-2xl font-bold text-gray-900">
                   {new Set(competitors.flatMap(c => c.social_accounts?.map(a => a.platform) || [])).size}
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Followers</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-xl md:text-2xl font-bold text-gray-900">
                   {formatNumber(
-                    competitors.reduce((sum, c) => 
-                      sum + (c.latest_metrics?.reduce((metricSum, m) => 
+                    competitors.reduce((sum, c) =>
+                      sum + (c.latest_metrics?.reduce((metricSum, m) =>
                         metricSum + (m.followers_count || 0), 0) || 0), 0)
                   )}
                 </p>
@@ -158,14 +164,14 @@ export default function CompetitorsPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Last Sync</p>
                 <p className="text-sm text-gray-900">
-                  {competitors.some(c => c.social_accounts?.some(a => a.last_scraped_at)) 
+                  {competitors.some(c => c.social_accounts?.some(a => a.last_scraped_at))
                     ? 'Recently updated'
                     : 'Never synced'
                   }
@@ -202,34 +208,50 @@ export default function CompetitorsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-b bg-gray-50/50">
-                    <TableHead className="font-semibold text-gray-900 px-6 py-4 w-[35%]">Competitor</TableHead>
+                    <TableHead className="font-semibold text-gray-900 px-3 py-3 text-xs md:text-sm md:px-6 md:py-4 w-[50%] md:w-[35%]">Competitor</TableHead>
                     <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[20%] hidden md:table-cell">Location</TableHead>
-                    <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[25%]">Platforms</TableHead>
+                    <TableHead className="font-semibold text-gray-900 px-2 py-3 text-xs md:text-sm md:px-4 md:py-4 w-[35%] md:w-[25%] hidden sm:table-cell">Platforms</TableHead>
                     <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[15%] hidden lg:table-cell">Activity</TableHead>
-                    <TableHead className="font-semibold text-gray-900 px-4 py-4 w-[20%] text-right">Actions</TableHead>
+                    <TableHead className="font-semibold text-gray-900 px-2 py-3 text-xs md:text-sm md:px-4 md:py-4 w-[15%] md:w-[20%] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {competitors.map((competitor) => (
                     <TableRow key={competitor.id} className="hover:bg-gray-50/50 transition-colors">
-                      <TableCell className="px-6 py-4">
-                        <div className="flex items-center gap-4">
+                      <TableCell className="px-3 py-3 md:px-6 md:py-4">
+                        <div className="flex items-center gap-2 md:gap-4">
                           <div className="flex-shrink-0">
-                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <span className="text-sm font-semibold text-blue-700">
+                            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <span className="text-xs md:text-sm font-semibold text-blue-700">
                                 {competitor.name.charAt(0).toUpperCase()}
                               </span>
                             </div>
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-gray-900 text-base">{competitor.name}</p>
+                            <p className="font-semibold text-gray-900 text-sm md:text-base leading-tight">{competitor.name}</p>
                             <div className="mt-1">
-                              <p className="text-sm text-gray-500">{competitor.business_type}</p>
+                              <p className="text-xs md:text-sm text-gray-500">{competitor.business_type}</p>
                             </div>
-                            <div className="md:hidden mt-2">
-                              <div className="flex items-center gap-3">
+                            <div className="sm:hidden mt-2">
+                              <div className="flex flex-wrap gap-1">
+                                {competitor.social_accounts?.slice(0, 2).map((account) => (
+                                  <Badge
+                                    key={account.id}
+                                    variant="secondary"
+                                    className={`${getPlatformBadgeColor(account.platform as Platform)} text-xs px-1.5 py-0.5`}
+                                  >
+                                    {account.platform}
+                                  </Badge>
+                                ))}
+                                {(competitor.social_accounts?.length || 0) > 2 && (
+                                  <span className="text-xs text-gray-500">+{(competitor.social_accounts?.length || 0) - 2}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="md:hidden mt-1">
+                              <div className="flex items-center gap-2">
                                 {competitor.location && (
-                                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                  <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
                                     {competitor.location}
                                   </span>
                                 )}
@@ -248,17 +270,17 @@ export default function CompetitorsPage() {
                           <span className="text-sm text-gray-600">{competitor.location || 'Not specified'}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-4">
+                      <TableCell className="px-2 py-3 md:px-4 md:py-4 hidden sm:table-cell">
                         <div className="flex flex-wrap gap-1">
                           {competitor.social_accounts?.map((account) => (
                             <Badge
                               key={account.id}
                               variant="secondary"
-                              className={getPlatformBadgeColor(account.platform as Platform)}
+                              className={`${getPlatformBadgeColor(account.platform as Platform)} text-xs md:text-sm px-1.5 md:px-2 py-0.5`}
                             >
                               {account.platform}
                             </Badge>
-                          )) || <span className="text-gray-400 text-sm">No platforms</span>}
+                          )) || <span className="text-gray-400 text-xs md:text-sm">No platforms</span>}
                         </div>
                       </TableCell>
                       <TableCell className="px-4 py-4 hidden lg:table-cell">
@@ -282,36 +304,68 @@ export default function CompetitorsPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-4 text-right">
+                      <TableCell className="px-2 py-3 md:px-4 md:py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-3 hover:bg-gray-100 border-gray-200"
-                            onClick={() => setSelectedCompetitorId(competitor.id)}
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            View
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-3 hover:bg-green-50 text-green-600 border-green-200"
-                            onClick={() => setManualMetricsCompetitor(competitor)}
-                            title="Manually enter metrics"
-                          >
-                            <PencilLine className="h-3 w-3 mr-1" />
-                            Manual
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-3 hover:bg-blue-50 text-blue-600 border-blue-200"
-                            onClick={() => setEditingCompetitorId(competitor.id)}
-                          >
-                            <Edit className="h-3 w-3 mr-1" />
-                            Edit
-                          </Button>
+                          {/* Mobile: Dropdown Menu */}
+                          <div className="md:hidden">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setSelectedCompetitorId(competitor.id)}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  View Metrics
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setManualMetricsCompetitor(competitor)}>
+                                  <PencilLine className="mr-2 h-4 w-4" />
+                                  Manual Entry
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setEditingCompetitorId(competitor.id)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit Details
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+
+                          {/* Desktop: Full Buttons */}
+                          <div className="hidden md:flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-3 hover:bg-gray-100 border-gray-200"
+                              onClick={() => setSelectedCompetitorId(competitor.id)}
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              View
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-3 hover:bg-green-50 text-green-600 border-green-200"
+                              onClick={() => setManualMetricsCompetitor(competitor)}
+                              title="Manually enter metrics"
+                            >
+                              <PencilLine className="h-3 w-3 mr-1" />
+                              Manual
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-3 hover:bg-blue-50 text-blue-600 border-blue-200"
+                              onClick={() => setEditingCompetitorId(competitor.id)}
+                            >
+                              <Edit className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                          </div>
                         </div>
                       </TableCell>
                     </TableRow>
