@@ -967,6 +967,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 />
                 <span className="text-xs text-gray-400">
                   {formatMessageTime(message.createdAt)}
+                  {message.senderType === 'admin' && message.senderName && (
+                    <>
+                      <span className="mx-1">•</span>
+                      <span>Sent by {message.senderName}</span>
+                    </>
+                  )}
                 </span>
               </div>
             ) : /* Render stickers and images without background container */
@@ -1016,6 +1022,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </div>
                 <span className="text-xs text-gray-400">
                   {formatMessageTime(message.createdAt)}
+                  {message.senderType === 'admin' && message.senderName && (
+                    <>
+                      <span className="mx-1">•</span>
+                      <span>Sent by {message.senderName}</span>
+                    </>
+                  )}
                 </span>
               </div>
             ) : message.type === 'image' && (message.fileUrl || message.imageUrl) ? (
@@ -1037,7 +1049,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   {message.fileSize && (
                     <span>{/* formatFileSize would go here */}</span>
                   )}
-                  <span>{formatMessageTime(message.createdAt)}</span>
+                  <span>
+                    {formatMessageTime(message.createdAt)}
+                    {message.senderType === 'admin' && message.senderName && (
+                      <>
+                        <span className="mx-1">•</span>
+                        <span>Sent by {message.senderName}</span>
+                      </>
+                    )}
+                  </span>
                 </div>
               </div>
             ) : (
@@ -1088,6 +1108,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </div>
                 <span className="text-xs text-gray-400">
                   {formatMessageTime(message.createdAt)}
+                  {message.senderType === 'admin' && message.senderName && (
+                    <>
+                      <span className="mx-1">•</span>
+                      <span>Sent by {message.senderName}</span>
+                    </>
+                  )}
                 </span>
               </div>
             )}
