@@ -87,66 +87,38 @@ export async function GET(
       ? Math.max(...transactions.map((t: any) => new Date(t.date).getTime()))
       : null;
 
-    // Get package summary using the enhanced packages API
-    let packageSummary: { 
-      activePackages: number; 
-      totalPackages: number; 
-      lastPackagePurchase: number | null;
-      packageStatus?: {
-        created: number;
-        active: number;
-        expired: number;
-        depleted: number;
-        total: number;
-      };
-    } = { 
-      activePackages: 0, 
-      totalPackages: 0, 
-      lastPackagePurchase: null 
-    };
-    try {
-      // Make internal API call using the same server instance
-      const baseUrl = process.env.NODE_ENV === 'production'
-        ? `https://${request.headers.get('host')}`
-        : `http://${request.headers.get('host')}`;
-      const packagesResponse = await fetch(`${baseUrl}/api/packages/customer/${customerId}?include_expired=true&include_used=true`);
-      if (packagesResponse.ok) {
-        const packagesData = await packagesResponse.json();
-        packageSummary = {
-          activePackages: (packagesData.summary?.active || 0) + (packagesData.summary?.created || 0), // Keep backward compatibility
-          packageStatus: {
-            created: packagesData.summary?.created || 0,
-            active: packagesData.summary?.active || 0,
-            expired: packagesData.summary?.expired || 0,
-            depleted: packagesData.summary?.depleted || 0,
-            total: packagesData.summary?.total || 0
-          },
-          totalPackages: packagesData.summary?.total || 0,
-          lastPackagePurchase: packagesData.packages && packagesData.packages.length > 0
-            ? Math.max(...packagesData.packages.map((p: any) => new Date(p.purchase_date).getTime()))
-            : null
-        };
-      }
-    } catch (error) {
-      console.log('Could not fetch package summary, using fallback');
-      // Fallback to direct database query
-      const { data: dbPackages } = await refacSupabaseAdmin
-        .schema('backoffice')
-        .from('packages')
-        .select('id, purchase_date, expiration_date, first_use_date')
-        .eq('customer_id', customerId);
+    // Get package summary from customer_analytics view (already calculated)
+    const { data: analyticsData } = await refacSupabaseAdmin
+      .from('customer_analytics')
+      .select('active_packages, total_packages')
+      .eq('id', customerId)
+      .single();
 
-      const packages = dbPackages || [];
-      packageSummary = {
-        activePackages: packages.filter((p: any) => 
-          !p.expiration_date || new Date(p.expiration_date) > new Date()
-        ).length,
-        totalPackages: packages.length,
-        lastPackagePurchase: packages.length > 0
-          ? Math.max(...packages.map((p: any) => new Date(p.purchase_date).getTime()))
-          : null
-      };
-    }
+    const activePackagesCount = analyticsData?.active_packages || 0;
+    const totalPackagesCount = analyticsData?.total_packages || 0;
+
+    // Get last package purchase date
+    const { data: lastPackage } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('packages')
+      .select('purchase_date')
+      .eq('customer_id', customerId)
+      .order('purchase_date', { ascending: false })
+      .limit(1)
+      .single();
+
+    const packageSummary = {
+      activePackages: activePackagesCount,
+      totalPackages: totalPackagesCount,
+      lastPackagePurchase: lastPackage?.purchase_date || null,
+      packageStatus: {
+        created: 0,
+        active: activePackagesCount,
+        expired: 0,
+        depleted: 0,
+        total: totalPackagesCount
+      }
+    };
 
     // Get booking summary
     const { data: bookingSummary } = await refacSupabaseAdmin
