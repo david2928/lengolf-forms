@@ -25,7 +25,8 @@ import {
   Camera,
   Package,
   Phone,
-  MessageSquare
+  MessageSquare,
+  Star
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -81,6 +82,12 @@ const salesAnalyticsItems = [
     title: "Competitor Tracking",
     description: "Monitor competitor pricing and trends",
     path: "/admin/competitors"
+  },
+  {
+    icon: Star,
+    title: "Google Reviews",
+    description: "View and manage Google Business Profile reviews",
+    path: "/admin/google-reviews"
   }
 ];
 
