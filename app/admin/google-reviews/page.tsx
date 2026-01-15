@@ -89,7 +89,7 @@ export default function GoogleReviewsPage() {
   const fetchReviews = async (filterType: FilterType = 'all') => {
     setIsLoading(true);
     try {
-      let url = '/api/google-reviews?limit=100';
+      let url = '/api/google-reviews?limit=5000'; // High limit to show all reviews
 
       if (filterType === 'has_reply') {
         url += '&hasReply=true';
