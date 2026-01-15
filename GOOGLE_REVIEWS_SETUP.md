@@ -2,13 +2,25 @@
 
 ## 📋 Overview
 
-This system allows you to sync Google Business Profile reviews to the LENGOLF backoffice, view them in an admin dashboard, and (in Phase 2) generate AI-powered reply suggestions.
+This system allows you to sync Google Business Profile reviews to the LENGOLF backoffice, view them in an admin dashboard, and (in Phase 2) post replies back to Google.
 
-**Current Status:** Phase 1 Complete ✅
+**Current Status:** Phase 1 Complete ✅ | Phase 2 Not Started ⏳
+
+**What Works:**
+- ✅ Sync reviews from Google Business Profile
+- ✅ View reviews in admin dashboard with filters
+- ✅ See existing replies from Google
+- ✅ Responsive UI with mobile support
+- ✅ Language detection (EN/TH/OTHER)
+
+**What's Missing (Phase 2):**
+- ❌ Post new replies to Google
+- ❌ AI-powered reply suggestions
+- ❌ Reply approval workflow
 
 ---
 
-## 🏗️ Phase 1: Review Sync to Supabase (COMPLETED)
+## 🏗️ Phase 1: Review Sync & Display (COMPLETED)
 
 ### What Was Implemented
 
@@ -20,11 +32,21 @@ This system allows you to sync Google Business Profile reviews to the LENGOLF ba
   - Reply information (existing replies from Google)
   - Sync timestamps
 
-#### 2. OAuth Authentication
-- **File:** `src/lib/auth-config.ts` (modified)
-- **Scope Added:** `https://www.googleapis.com/auth/business.manage`
-- **Method:** Uses NextAuth with Google OAuth
-- **Access:** Stored in user session (access token & refresh token)
+**Second Migration:**
+- **File:** `supabase/migrations/20260105130000_create_google_business_oauth_table.sql`
+- **Table:** `backoffice.google_business_oauth`
+- **Purpose:** Store OAuth tokens separately from user authentication
+
+#### 2. OAuth Authentication (Separate from NextAuth)
+- **File:** `src/lib/google-business-oauth.ts` (NEW)
+- **Method:** Dedicated OAuth flow for Google Business Profile
+- **Account:** Uses `info@len.golf` (Business Profile manager)
+- **Scope:** `https://www.googleapis.com/auth/business.manage`
+- **Storage:** Tokens stored in `backoffice.google_business_oauth` table
+- **Features:**
+  - Automatic token refresh when expired
+  - Connection status check
+  - Connect/disconnect functionality
 
 #### 3. Google Business Profile Service
 - **File:** `src/lib/google-business-profile.ts`
@@ -34,16 +56,29 @@ This system allows you to sync Google Business Profile reviews to the LENGOLF ba
   - `getReviewsFromDB(filters)` - Query database
 
 #### 4. API Endpoints
+
+**OAuth Endpoints:**
+- **GET** `/api/google-reviews/oauth/connect` - Initiate OAuth flow
+- **GET** `/api/google-reviews/oauth/callback` - Handle OAuth callback
+- **GET** `/api/google-reviews/oauth/status` - Check connection status
+- **POST** `/api/google-reviews/oauth/disconnect` - Remove connection
+
+**Review Endpoints:**
 - **POST** `/api/google-reviews/sync` - Trigger sync from Google
 - **GET** `/api/google-reviews` - List reviews with filters
 
 #### 5. Admin UI
 - **Page:** `/admin/google-reviews`
 - **Features:**
+  - Connection status indicator (connected/disconnected)
+  - Connect/Disconnect Google Business account buttons
   - Stats dashboard (total, avg rating, replied, pending)
-  - Filter by reply status
-  - Sync button
-  - Reviews table with ratings, comments, language
+  - Filter by reply status (All, Has Reply, Needs Reply)
+  - Sync button to fetch latest reviews
+  - Responsive table (desktop) and card view (mobile)
+  - Clickable rows to view full review details
+  - Review detail modal with complete information
+  - Color-coded language badges and status indicators
 
 #### 6. TypeScript Types
 - **File:** `src/types/google-reviews.ts`
@@ -108,30 +143,44 @@ Option B - Manual (Supabase Dashboard):
 3. Copy contents of `supabase/migrations/20260105120000_create_google_reviews_table.sql`
 4. Execute the SQL
 
-### Step 3: Re-authenticate to Grant OAuth Scope
+### Step 3: Connect Google Business Account
 
-**CRITICAL STEP:**
-
-The new OAuth scope (`business.manage`) requires re-authentication:
-
-1. Sign out of the lengolf-forms backoffice
-2. Sign in again with your Google account
-3. You'll see a new permission request:
-   - ✅ "Manage your business information on Google"
-4. Click "Allow"
-
-This grants the access token needed to fetch reviews.
-
-### Step 4: Test the Feature
+**IMPORTANT:** This system uses a separate OAuth flow (not your regular login).
 
 1. Navigate to: **`/admin/google-reviews`**
 
-2. Click **"Sync Reviews"** button
+2. You'll see a connection status banner:
+   - If disconnected: Orange banner with "Connect Google Business" button
+   - If connected: Green banner showing connected email
+
+3. Click **"Connect Google Business"** button
+
+4. Sign in with `info@len.golf` (or the Google account that manages your Business Profile)
+
+5. Grant permissions:
+   - ✅ "Manage your business information on Google"
+   - Click "Allow"
+
+6. You'll be redirected back with a success message
+
+**Note:** This connection is stored separately and doesn't affect your admin login.
+
+### Step 4: Test the Feature
+
+1. After connecting, the **"Sync Reviews"** button will become active
+
+2. Click **"Sync Reviews"** to fetch from Google
 
 3. You should see:
-   - Reviews syncing from Google
+   - Loading indicator during sync
    - Success message: "Sync completed! X new, Y updated, Z total"
-   - Reviews appearing in the table
+   - Reviews appearing in the table/cards
+   - Stats updating automatically
+
+4. Try the features:
+   - Filter by reply status
+   - Click any review to see full details
+   - Test on mobile (card-based layout)
 
 ---
 
@@ -154,23 +203,33 @@ This grants the access token needed to fetch reviews.
 
 ## 🔍 Troubleshooting
 
-### Issue: "No Google access token found"
+### Issue: "Google Business account not connected"
 
-**Cause:** You haven't re-authenticated since adding the new scope
+**Cause:** No OAuth tokens stored in database
 
 **Solution:**
-1. Sign out completely
-2. Clear browser cache/cookies (optional but recommended)
-3. Sign in again and grant permissions
+1. Navigate to `/admin/google-reviews`
+2. Click "Connect Google Business" button
+3. Sign in with `info@len.golf` account
+4. Grant the required permissions
 
 ### Issue: "Failed to fetch reviews: 403 Forbidden"
 
-**Cause:** Service account or user doesn't have permission to access reviews
+**Cause:** API not enabled or account doesn't have permission
 
 **Solutions:**
-1. Verify APIs are enabled in Google Cloud Console
-2. Check that your Google account is a Manager/Owner of the LENGOLF Business Profile
-3. Confirm you granted the OAuth permission during sign-in
+1. Verify Google My Business API is enabled in Google Cloud Console
+2. Check that `info@len.golf` is a Manager/Owner of the LENGOLF Business Profile
+3. Confirm OAuth tokens are stored (check connection status)
+4. Try disconnecting and reconnecting
+
+### Issue: Sync button is disabled
+
+**Cause:** Google Business account not connected
+
+**Solution:**
+- Check connection status banner at top of page
+- Click "Connect Google Business" if showing as disconnected
 
 ### Issue: Quota is 0 after enabling API
 
@@ -195,66 +254,161 @@ This grants the access token needed to fetch reviews.
 
 ## 🛠️ Technical Architecture
 
-### Authentication Flow
+### Authentication Flow (Separate from User Login)
 ```
-User Signs In (OAuth)
+Admin clicks "Connect Google Business"
   ↓
-NextAuth stores access_token in session
+Redirect to Google OAuth consent screen
   ↓
-Admin clicks "Sync Reviews"
+User signs in with info@len.golf
   ↓
-API uses access_token to call Google Business Profile API
+Google returns authorization code
   ↓
-Reviews synced to backoffice.google_reviews table
+exchangeCodeForTokens() [src/lib/google-business-oauth.ts]
+  ↓
+Tokens stored in backoffice.google_business_oauth table
+  ↓
+Auto-refresh logic keeps tokens valid
 ```
 
-### Data Flow
+### Review Sync Flow
 ```
-Google Business Profile API
+Admin clicks "Sync Reviews"
   ↓
-fetchAllReviews() [src/lib/google-business-profile.ts]
+getValidAccessToken() [src/lib/google-business-oauth.ts]
+  - Fetches token from database
+  - Auto-refreshes if expired
   ↓
-syncReviewsToSupabase()
+fetchAllReviews(accessToken) [src/lib/google-business-profile.ts]
+  - Calls Google Business Profile API v4
+  - Paginated fetching (50 per page)
   ↓
-backoffice.google_reviews (Supabase)
+syncReviewsToSupabase(accessToken)
+  - Upserts reviews to backoffice.google_reviews
+  - Updates existing reviews if changed
   ↓
-GET /api/google-reviews
+Success response with counts (new, updated, total)
   ↓
-Admin UI displays reviews
+Admin UI refreshes and displays reviews
 ```
 
 ### OAuth Scopes Required
 - `openid` - User identification
 - `email` - User email
 - `profile` - User profile info
-- `https://www.googleapis.com/auth/business.manage` - **NEW** - Read/write business info
+- `https://www.googleapis.com/auth/business.manage` - Read/write business info
+
+### Key Design Decisions
+1. **Separate OAuth Flow:** Keeps business profile access independent from user authentication
+2. **Dedicated Account:** Uses `info@len.golf` to ensure consistent access
+3. **Token Storage:** Database storage enables server-side token refresh
+4. **Direct REST API:** Uses fetch() instead of googleapis library for better control
 
 ---
 
-## ⏳ Phase 2: AI Reply Generation & Posting (PENDING)
+## ⏳ Phase 2: Reply Posting (NOT STARTED)
 
-### Outstanding Features
+### Overview
 
-#### 1. Database Addition
+Phase 2 will allow admins to post replies to Google reviews directly from the backoffice. This can be done either:
+1. **Option A:** Manual replies only (simpler, faster to implement)
+2. **Option B:** AI-assisted replies with approval workflow (more complex, better UX)
+
+### Current Limitations
+
+**What's Already Available:**
+- ✅ OAuth tokens with `business.manage` scope (needed for posting)
+- ✅ View existing replies synced from Google
+- ✅ Identify which reviews need replies (orange "Pending" badge)
+
+**What's Missing:**
+- ❌ UI to compose/edit reply text
+- ❌ API endpoint to post reply to Google
+- ❌ Confirmation workflow before posting
+- ❌ Error handling for failed posts
+- ❌ (Optional) AI reply generation
+
+---
+
+## 🔧 Phase 2 Implementation Options
+
+### Option A: Manual Reply Posting (Recommended First Step)
+
+**Pros:**
+- Simpler implementation (2-3 hours)
+- No AI dependencies
+- Full control over reply content
+- Can be enhanced with AI later
+
+**What to Build:**
+
+#### 1. UI Components (No Database Changes Needed)
+- Add "Reply" button to review detail modal
+- Add textarea for composing reply
+- Add "Post Reply" confirmation dialog
+- Show posting status (loading, success, error)
+
+#### 2. API Endpoint
+**File:** `app/api/google-reviews/[id]/reply/route.ts` (NEW)
+
+```typescript
+POST /api/google-reviews/{review_id}/reply
+Body: { reply_text: string }
+
+Flow:
+1. Get review from database
+2. Get valid access token
+3. POST to Google Business Profile API:
+   PUT accounts/{account}/locations/{location}/reviews/{review}/reply
+4. Update local database with reply
+5. Return success/error
+```
+
+#### 3. Google API Integration
+**Add to:** `src/lib/google-business-profile.ts`
+
+```typescript
+export async function postReviewReply(
+  reviewName: string,
+  replyText: string,
+  accessToken: string
+): Promise<{ success: boolean; error?: string }> {
+  // POST to Google API
+  // Update database if successful
+}
+```
+
+---
+
+### Option B: AI-Assisted Reply Generation (Future Enhancement)
+
+**Additional Requirements:**
+- OpenAI API integration
+- Reply approval workflow
+- Database table to track suggestions
+- More complex UI
+
+**Database Addition:**
 **File:** `supabase/migrations/YYYYMMDD_google_review_replies.sql` (NOT YET CREATED)
 
 ```sql
 CREATE TABLE backoffice.google_review_replies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   review_id UUID REFERENCES backoffice.google_reviews(id),
-  suggested_reply TEXT NOT NULL,
-  approved_reply TEXT,
-  status TEXT DEFAULT 'pending',  -- pending, approved, posted, rejected
-  approved_by TEXT,  -- admin user email
-  approved_at TIMESTAMPTZ,
+  suggested_reply TEXT,  -- AI-generated suggestion
+  final_reply TEXT NOT NULL,  -- What was actually posted
+  status TEXT DEFAULT 'draft',  -- draft, posted, failed
+  posted_by TEXT,  -- admin user email
   posted_at TIMESTAMPTZ,
   post_error TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
-#### 2. AI Reply Generator
+#### 2. AI Reply Generation Service
 **File:** `src/lib/ai/google-review-reply-generator.ts` (NOT YET CREATED)
+
+**Purpose:** Generate contextual replies based on review content
 
 **Features:**
 - Use OpenAI API to generate replies
@@ -263,89 +417,108 @@ CREATE TABLE backoffice.google_review_replies (
   - Include reviewer's name
   - Golf emojis (⛳️ 🏌️)
   - Invitation to return
-  - Thai replies for Thai reviewers (with K' prefix)
+  - Thai replies for Thai reviewers (with คุณ prefix)
 
-**Example Prompts from Existing Replies:**
+**Example Patterns from Existing Replies:**
 - "Thanks for coming [Name]! Please come back again soon! ⛳️"
 - "Loved having you [Name]! Your long drive records will be tough to beat! ⛳️"
 - "Thank you คุณ [Name] - glad you had a great time! Please come back soon!"
 
-#### 3. Additional API Routes (NOT YET CREATED)
+#### 3. UI Enhancements for AI
+- "Generate AI Reply" button in review detail modal
+- Edit/approve workflow before posting
+- Show AI confidence score (optional)
+- Bulk generate for multiple reviews
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/google-reviews/[id]/suggest` | POST | Generate AI reply suggestion |
-| `/api/google-reviews/[id]/approve` | POST | Approve/edit reply (admin only) |
-| `/api/google-reviews/[id]/post` | POST | Post approved reply to Google |
-| `/api/google-reviews/bulk-suggest` | POST | Generate suggestions for all unreplied |
+#### 4. Additional API Routes for AI
+**File:** `app/api/google-reviews/[id]/suggest/route.ts` (NOT YET CREATED)
 
-#### 4. UI Components (NOT YET CREATED)
+```typescript
+POST /api/google-reviews/{review_id}/suggest
+Response: { suggested_reply: string }
 
-**Directory:** `app/admin/google-reviews/components/`
-
-Components needed:
-- `ReplyEditor.tsx` - Modal to view/edit AI suggestion
-- `ReviewCard.tsx` - Enhanced card with reply workflow
-- `BulkActions.tsx` - Generate all / Approve all buttons
-
-**Workflow:**
-1. User clicks "Generate Reply" on a review
-2. AI creates suggestion based on review content
-3. Admin reviews and can edit suggestion
-4. Admin clicks "Approve & Post"
-5. Reply posted to Google via API
-6. Status updated in database
-
-#### 5. Reply Posting Service (NOT YET CREATED)
-
-**Function:** `postReviewReply(reviewName, replyText, accessToken)`
-
-**Google API Endpoint:**
-```
-PUT accounts/{account}/locations/{location}/reviews/{review}/reply
-```
-
-**Request Body:**
-```json
-{
-  "comment": "Thanks for coming! Please visit again soon! ⛳️"
-}
+// Uses OpenAI to generate reply based on:
+// - Review rating
+// - Review comment
+// - Reviewer language (EN/TH)
+// - Reviewer name
 ```
 
 ---
 
 ## 📝 Phase 2 Implementation Checklist
 
-### Prerequisites
-- [ ] Phase 1 fully tested and working
-- [ ] OpenAI API key confirmed in `.env` (already exists: `OPENAI_API_KEY`)
-- [ ] Admin approval workflow requirements confirmed
+### Option A: Manual Reply Posting (2-3 hours)
 
-### Database
+#### Prerequisites
+- [x] Phase 1 fully tested and working
+- [x] OAuth tokens with business.manage scope available
+- [ ] Test posting on non-production reviews first
+
+#### Backend (1-2 hours)
+- [ ] Create `postReviewReply()` function in `src/lib/google-business-profile.ts`
+  - Fetch review details from database
+  - Get valid access token
+  - Call Google API to post reply
+  - Update local database with reply info
+- [ ] Create API route: `app/api/google-reviews/[id]/reply/route.ts`
+  - Admin authentication check
+  - Validate reply text (not empty, max length)
+  - Error handling for API failures
+  - Return success/error response
+
+#### Frontend (1 hour)
+- [ ] Update review detail modal in `app/admin/google-reviews/page.tsx`
+  - Add reply textarea (only for reviews without replies)
+  - Add "Post Reply" button
+  - Add loading state during posting
+  - Show success/error messages
+  - Add confirmation dialog before posting
+- [ ] Update modal to disable reply form after successful post
+- [ ] Refresh review data after posting
+
+#### Testing (30 minutes)
+- [ ] Test posting reply to a real review
+- [ ] Verify reply appears in Google Business Profile
+- [ ] Test error handling (network failures, invalid tokens)
+- [ ] Verify database updates correctly
+- [ ] Test with Thai characters
+
+---
+
+### Option B: AI-Assisted Replies (Additional 4-6 hours)
+
+#### Prerequisites (Option B Only)
+- [ ] Option A completed and tested
+- [x] OpenAI API key in `.env` (OPENAI_API_KEY already exists)
+- [ ] Define reply generation prompt and examples
+
+#### Database (Option B Only)
 - [ ] Create migration for `google_review_replies` table
-- [ ] Add indexes for status and review_id
+- [ ] Add indexes for review_id and status
 
-### Backend
-- [ ] Create AI reply generator service
-- [ ] Create API route: suggest reply
-- [ ] Create API route: approve reply
-- [ ] Create API route: post to Google
-- [ ] Add admin-only permission checks
-- [ ] Implement error handling for Google API failures
+#### Backend (Option B Only)
+- [ ] Create AI reply generator: `src/lib/ai/google-review-reply-generator.ts`
+  - OpenAI API integration
+  - Language detection (EN/TH)
+  - Style matching (emojis, tone, length)
+  - Name extraction from reviews
+- [ ] Create API route: `app/api/google-reviews/[id]/suggest/route.ts`
+- [ ] Add bulk suggestion endpoint (optional)
 
-### Frontend
-- [ ] Create ReplyEditor component with textarea for editing
-- [ ] Add "Generate Reply" button to review rows
-- [ ] Add approval workflow UI
-- [ ] Show reply posting status (pending/posted/error)
-- [ ] Add bulk actions toolbar
+#### Frontend (Option B Only)
+- [ ] Add "Generate AI Reply" button
+- [ ] Show AI suggestion with edit capability
+- [ ] Add regenerate option
+- [ ] Show loading state during generation
+- [ ] Add bulk actions toolbar (optional)
 
-### Testing
-- [ ] Test AI reply generation with different review types
-- [ ] Test approval workflow
-- [ ] Test posting replies to Google (use test reviews first!)
-- [ ] Test error handling (API failures, invalid tokens)
-- [ ] Test Thai language detection and reply generation
+#### Testing (Option B Only)
+- [ ] Test AI generation with 5-star reviews
+- [ ] Test AI generation with 3-star reviews
+- [ ] Test AI generation with negative reviews
+- [ ] Test Thai language reply generation
+- [ ] Verify reply style matches LENGOLF tone
 
 ---
 
@@ -372,11 +545,15 @@ PUT accounts/{account}/locations/{location}/reviews/{review}/reply
 
 | File | Purpose |
 |------|---------|
-| `src/lib/google-business-profile.ts` | Core Google API integration |
-| `src/lib/auth-config.ts` | OAuth configuration |
-| `app/api/google-reviews/sync/route.ts` | Sync endpoint |
-| `app/admin/google-reviews/page.tsx` | Admin UI |
-| `supabase/migrations/20260105120000_create_google_reviews_table.sql` | Database schema |
+| `src/lib/google-business-oauth.ts` | OAuth flow for Google Business Profile |
+| `src/lib/google-business-profile.ts` | Core Google API integration (fetch reviews, sync) |
+| `app/api/google-reviews/oauth/*` | OAuth endpoints (connect, callback, status, disconnect) |
+| `app/api/google-reviews/sync/route.ts` | Sync reviews endpoint |
+| `app/api/google-reviews/route.ts` | Get reviews endpoint |
+| `app/admin/google-reviews/page.tsx` | Admin UI (desktop table, mobile cards, detail modal) |
+| `supabase/migrations/20260105120000_create_google_reviews_table.sql` | Reviews table schema |
+| `supabase/migrations/20260105130000_create_google_business_oauth_table.sql` | OAuth tokens table schema |
+| `src/types/google-reviews.ts` | TypeScript type definitions |
 
 ### Common Tasks
 
@@ -386,27 +563,42 @@ PUT accounts/{account}/locations/{location}/reviews/{review}/reply
 3. Update `convertToDBFormat()` in `google-business-profile.ts`
 4. Update UI to display new fields
 
-**Change OAuth scopes:**
-1. Update `src/lib/auth-config.ts` authorization params
-2. Users must re-authenticate to grant new scope
+**Connect/disconnect Google Business account:**
+1. Navigate to `/admin/google-reviews`
+2. Click "Connect Google Business" or "Disconnect" button
+3. OAuth flow managed in `src/lib/google-business-oauth.ts`
 
 **Modify sync behavior:**
 - Edit `syncReviewsToSupabase()` in `src/lib/google-business-profile.ts`
+
+**Add reply posting (Phase 2):**
+1. Create `postReviewReply()` function in `src/lib/google-business-profile.ts`
+2. Create API route in `app/api/google-reviews/[id]/reply/route.ts`
+3. Update review detail modal to include reply form
 
 ---
 
 ## 📅 Timeline Estimate for Phase 2
 
-**Estimated Effort:** 1-2 days of development
+### Option A: Manual Reply Posting
+**Estimated Effort:** 2-3 hours
+
+**Breakdown:**
+- Backend (API + Google integration): 1-2 hours
+- Frontend (modal + form): 1 hour
+- Testing: 30 minutes
+
+### Option B: AI-Assisted Replies (Additional)
+**Estimated Effort:** 4-6 hours on top of Option A
 
 **Breakdown:**
 - Database migration: 30 minutes
 - AI reply generator: 2-3 hours (including prompt engineering)
-- API routes: 2-3 hours
-- UI components: 3-4 hours
-- Testing: 2-3 hours
+- Additional API routes: 1 hour
+- UI enhancements: 1-2 hours
+- Testing AI generation: 1 hour
 
-**Total:** 8-12 hours
+**Recommendation:** Start with Option A to get basic reply posting working, then add AI features if needed.
 
 ---
 
@@ -439,6 +631,9 @@ Before deploying to production:
 
 ---
 
-**Last Updated:** January 5, 2026
-**Version:** 1.0 (Phase 1 Complete)
-**Next Milestone:** Phase 2 - AI Reply Generation
+**Last Updated:** January 15, 2026
+**Version:** 1.0 (Phase 1 Complete - Review Sync & Display)
+**Current Status:** Phase 2 Not Started (Reply Posting Feature)
+**Next Milestone Options:**
+- **Option A:** Manual reply posting (2-3 hours)
+- **Option B:** AI-assisted reply generation (6-9 hours total)
