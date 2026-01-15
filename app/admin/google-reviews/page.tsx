@@ -31,7 +31,8 @@ interface ConnectionStatus {
 }
 
 export default function GoogleReviewsPage() {
-  const [reviews, setReviews] = useState<GoogleReviewDB[]>([]);
+  const [allReviews, setAllReviews] = useState<GoogleReviewDB[]>([]); // Complete dataset for stats
+  const [reviews, setReviews] = useState<GoogleReviewDB[]>([]); // Filtered reviews for display
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
@@ -89,13 +90,8 @@ export default function GoogleReviewsPage() {
   const fetchReviews = async (filterType: FilterType = 'all') => {
     setIsLoading(true);
     try {
-      let url = '/api/google-reviews?limit=5000'; // High limit to show all reviews
-
-      if (filterType === 'has_reply') {
-        url += '&hasReply=true';
-      } else if (filterType === 'needs_reply') {
-        url += '&hasReply=false';
-      }
+      // Always fetch ALL reviews for complete stats
+      const url = '/api/google-reviews?limit=5000';
 
       const response = await fetch(url);
 
@@ -104,7 +100,20 @@ export default function GoogleReviewsPage() {
       }
 
       const data = await response.json();
-      setReviews(data.reviews || []);
+      const allReviewsData = data.reviews || [];
+
+      // Store complete dataset for stats calculation
+      setAllReviews(allReviewsData);
+
+      // Apply filter for display
+      let filteredReviews = allReviewsData;
+      if (filterType === 'has_reply') {
+        filteredReviews = allReviewsData.filter((r: GoogleReviewDB) => r.has_reply);
+      } else if (filterType === 'needs_reply') {
+        filteredReviews = allReviewsData.filter((r: GoogleReviewDB) => !r.has_reply);
+      }
+
+      setReviews(filteredReviews);
     } catch (error) {
       console.error('Error fetching reviews:', error);
       toast.error('Failed to load reviews');
@@ -169,18 +178,18 @@ export default function GoogleReviewsPage() {
     }
   }, []);
 
-  // Calculate stats
+  // Calculate stats from ALL reviews (not filtered)
   const stats = {
-    total: reviews.length,
-    withReply: reviews.filter((r) => r.has_reply).length,
-    needsReply: reviews.filter((r) => !r.has_reply).length,
+    total: allReviews.length,
+    withReply: allReviews.filter((r) => r.has_reply).length,
+    needsReply: allReviews.filter((r) => !r.has_reply).length,
     avgRating:
-      reviews.length > 0
+      allReviews.length > 0
         ? (
-            reviews.reduce((sum, r) => {
+            allReviews.reduce((sum, r) => {
               const rating = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 }[r.star_rating];
               return sum + (rating || 0);
-            }, 0) / reviews.length
+            }, 0) / allReviews.length
           ).toFixed(1)
         : 'N/A',
   };
@@ -207,7 +216,7 @@ export default function GoogleReviewsPage() {
     });
   };
 
-  if (isLoading && reviews.length === 0) {
+  if (isLoading && allReviews.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center min-h-64">

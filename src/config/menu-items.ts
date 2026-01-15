@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -182,6 +182,12 @@ export const menuItems: MenuItem[] = [
     title: "Marketing Dashboard",
     path: '/admin/marketing-dashboard',
     description: "Unified Google + Meta Ads performance dashboard with KPIs and trends"
+  },
+  {
+    icon: Star,
+    title: "Google Reviews",
+    path: '/admin/google-reviews',
+    description: "View and manage Google Business Profile reviews"
   },
   {
     icon: DollarSign,
