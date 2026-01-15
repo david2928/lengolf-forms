@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target, Percent, MessageSquare, Headphones, ImageIcon } from 'lucide-react'
+import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target, Percent, MessageSquare, Headphones, ImageIcon, Star } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
 import { NotificationBell } from './notifications/NotificationBell'
 import {
@@ -362,7 +362,13 @@ export function Nav() {
                   Competitor Tracking
                 </Link>
               </DropdownMenuItem>
-              
+              <DropdownMenuItem asChild>
+                <Link href="/admin/google-reviews" className="flex items-center gap-2 w-full">
+                  <Star className="h-4 w-4" />
+                  Google Reviews
+                </Link>
+              </DropdownMenuItem>
+
               <DropdownMenuSeparator />
               
               {/* Customer Management */}
