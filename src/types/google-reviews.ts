@@ -40,6 +40,9 @@ export interface GoogleReviewDB {
   has_reply: boolean;
   reply_text: string | null;
   reply_updated_at: string | null;
+  // Audit fields for replies posted from our system
+  replied_by: string | null;        // First name of admin who posted
+  replied_at_local: string | null;  // When we posted (our timestamp)
   synced_at: string;
   created_at: string;
   updated_at: string;
@@ -60,4 +63,14 @@ export interface ListReviewsParams {
   offset?: number;
   orderBy?: 'created' | 'rating';
   orderDirection?: 'asc' | 'desc';
+}
+
+// Result type for posting replies
+export interface PostReplyResult {
+  success: boolean;
+  error?: string;
+  warning?: string;
+  replyText?: string;
+  repliedAt?: string;
+  repliedBy?: string;
 }

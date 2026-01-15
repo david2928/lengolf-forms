@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { RefreshCw, Star, MessageCircle, CheckCircle, XCircle, Link as LinkIcon, Eye } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { RefreshCw, Star, MessageCircle, CheckCircle, XCircle, Link as LinkIcon, Eye, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -19,9 +20,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import type { GoogleReviewDB } from '@/types/google-reviews';
+
+const MAX_REPLY_LENGTH = 4096;
+const MIN_REPLY_LENGTH = 10;
 
 type FilterType = 'all' | 'has_reply' | 'needs_reply';
 
@@ -40,6 +54,12 @@ export default function GoogleReviewsPage() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
   const [isCheckingConnection, setIsCheckingConnection] = useState(true);
   const [selectedReview, setSelectedReview] = useState<GoogleReviewDB | null>(null);
+
+  // Reply form state
+  const [replyText, setReplyText] = useState('');
+  const [isPostingReply, setIsPostingReply] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [postButtonDisabled, setPostButtonDisabled] = useState(false);
 
   // Check connection status
   const checkConnectionStatus = async () => {
@@ -154,6 +174,74 @@ export default function GoogleReviewsPage() {
       setIsSyncing(false);
     }
   };
+
+  // Handle posting a reply
+  const handlePostReply = async () => {
+    if (!selectedReview || !replyText.trim()) return;
+
+    setIsPostingReply(true);
+    setShowConfirmDialog(false);
+
+    try {
+      const response = await fetch(`/api/google-reviews/${selectedReview.id}/reply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reply_text: replyText.trim() }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to post reply');
+      }
+
+      // Show success message
+      toast.success('Reply posted successfully!');
+
+      if (result.warning) {
+        toast.warning(result.warning);
+      }
+
+      // Update the selected review locally to show the reply immediately
+      const updatedReview: GoogleReviewDB = {
+        ...selectedReview,
+        has_reply: true,
+        reply_text: result.reply_text,
+        replied_by: result.replied_by,
+        replied_at_local: result.replied_at,
+        reply_updated_at: result.replied_at,
+      };
+      setSelectedReview(updatedReview);
+
+      // Clear the reply form
+      setReplyText('');
+
+      // Refresh the reviews list
+      await fetchReviews(filter);
+
+      // 2-second debounce on the post button
+      setPostButtonDisabled(true);
+      setTimeout(() => setPostButtonDisabled(false), 2000);
+
+    } catch (error: any) {
+      console.error('Error posting reply:', error);
+      toast.error(error.message || 'Failed to post reply');
+    } finally {
+      setIsPostingReply(false);
+    }
+  };
+
+  // Reset reply form when modal closes or review changes
+  const handleCloseModal = useCallback(() => {
+    setSelectedReview(null);
+    setReplyText('');
+    setShowConfirmDialog(false);
+  }, []);
+
+  // Check if reply is valid
+  const isReplyValid = replyText.trim().length >= MIN_REPLY_LENGTH && replyText.length <= MAX_REPLY_LENGTH;
 
   // Load connection status and reviews on mount
   useEffect(() => {
@@ -520,7 +608,7 @@ export default function GoogleReviewsPage() {
       )}
 
       {/* Review Detail Modal */}
-      <Dialog open={!!selectedReview} onOpenChange={(open) => !open && setSelectedReview(null)}>
+      <Dialog open={!!selectedReview} onOpenChange={(open) => !open && handleCloseModal()}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="pr-8">Review Details</DialogTitle>
@@ -585,20 +673,80 @@ export default function GoogleReviewsPage() {
                 </div>
               </div>
 
-              {/* Reply (if exists) */}
-              {selectedReview.has_reply && selectedReview.reply_text && (
+              {/* Reply Section */}
+              {selectedReview.has_reply && selectedReview.reply_text ? (
+                /* Show existing reply */
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-2 block">
                     Your Reply
                   </label>
                   <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                     <p className="text-gray-800 whitespace-pre-wrap">{selectedReview.reply_text}</p>
-                    {selectedReview.reply_updated_at && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Replied on: {formatDate(selectedReview.reply_updated_at)}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 mt-3 pt-2 border-t border-green-200">
+                      {selectedReview.replied_by && (
+                        <span className="text-xs text-green-700">
+                          Posted by {selectedReview.replied_by}
+                        </span>
+                      )}
+                      {selectedReview.replied_at_local && (
+                        <span className="text-xs text-muted-foreground">
+                          on {formatDate(selectedReview.replied_at_local)}
+                        </span>
+                      )}
+                      {!selectedReview.replied_by && selectedReview.reply_updated_at && (
+                        <span className="text-xs text-muted-foreground">
+                          Replied on {formatDate(selectedReview.reply_updated_at)}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                </div>
+              ) : (
+                /* Show reply form */
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Write a Reply
+                    </label>
+                    <span className={`text-xs ${replyText.length > MAX_REPLY_LENGTH ? 'text-red-500' : 'text-muted-foreground'}`}>
+                      {replyText.length} / {MAX_REPLY_LENGTH}
+                    </span>
+                  </div>
+                  <Textarea
+                    placeholder="Write your reply here... (minimum 10 characters)"
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    className="min-h-[120px] resize-none"
+                    disabled={isPostingReply}
+                  />
+                  {replyText.length > 0 && replyText.trim().length < MIN_REPLY_LENGTH && (
+                    <p className="text-xs text-orange-500 mt-1">
+                      Reply must be at least {MIN_REPLY_LENGTH} characters ({MIN_REPLY_LENGTH - replyText.trim().length} more needed)
+                    </p>
+                  )}
+                  <div className="flex justify-end mt-3">
+                    <Button
+                      onClick={() => setShowConfirmDialog(true)}
+                      disabled={!isReplyValid || isPostingReply || postButtonDisabled || !connectionStatus?.connected}
+                    >
+                      {isPostingReply ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          Posting...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 h-4 w-4" />
+                          Post Reply
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {!connectionStatus?.connected && (
+                    <p className="text-xs text-orange-500 mt-2">
+                      Connect your Google Business account to post replies.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -633,6 +781,27 @@ export default function GoogleReviewsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Post Reply to Google?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This reply will be publicly visible on Google. Are you sure you want to post it?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4 p-3 bg-gray-50 rounded-lg border max-h-32 overflow-y-auto">
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{replyText}</p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePostReply}>
+              Post Reply
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

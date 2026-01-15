@@ -4,7 +4,7 @@
 
 This system allows you to sync Google Business Profile reviews to the LENGOLF backoffice, view them in an admin dashboard, and (in Phase 2) post replies back to Google.
 
-**Current Status:** Phase 1 Complete ✅ | Phase 2 Not Started ⏳
+**Current Status:** Phase 1 Complete ✅ | Phase 2 Complete ✅
 
 **What Works:**
 - ✅ Sync reviews from Google Business Profile
@@ -12,11 +12,15 @@ This system allows you to sync Google Business Profile reviews to the LENGOLF ba
 - ✅ See existing replies from Google
 - ✅ Responsive UI with mobile support
 - ✅ Language detection (EN/TH/OTHER)
+- ✅ Post new replies to Google (Phase 2)
+- ✅ Character counter and validation
+- ✅ Confirmation dialog before posting
+- ✅ Audit trail (who posted, when)
 
-**What's Missing (Phase 2):**
-- ❌ Post new replies to Google
+**Future Enhancements (Not Implemented):**
 - ❌ AI-powered reply suggestions
-- ❌ Reply approval workflow
+- ❌ Edit/delete posted replies
+- ❌ Bulk reply functionality
 
 ---
 
@@ -54,6 +58,8 @@ This system allows you to sync Google Business Profile reviews to the LENGOLF ba
   - `fetchAllReviews(accessToken)` - Fetch reviews from Google API
   - `syncReviewsToSupabase(accessToken)` - Sync to database
   - `getReviewsFromDB(filters)` - Query database
+  - `postReviewReply(reviewId, googleReviewName, replyText, accessToken, adminFirstName)` - Post reply to Google (Phase 2)
+  - `getReviewById(reviewId)` - Get single review by ID (Phase 2)
 
 #### 4. API Endpoints
 
@@ -66,6 +72,7 @@ This system allows you to sync Google Business Profile reviews to the LENGOLF ba
 **Review Endpoints:**
 - **POST** `/api/google-reviews/sync` - Trigger sync from Google
 - **GET** `/api/google-reviews` - List reviews with filters
+- **POST** `/api/google-reviews/[id]/reply` - Post reply to a review (Phase 2)
 
 #### 5. Admin UI
 - **Page:** `/admin/google-reviews`
@@ -79,6 +86,12 @@ This system allows you to sync Google Business Profile reviews to the LENGOLF ba
   - Clickable rows to view full review details
   - Review detail modal with complete information
   - Color-coded language badges and status indicators
+  - **Reply Form (Phase 2):**
+    - Textarea with character counter (X / 4096)
+    - Minimum 10 character validation
+    - "Post Reply" button with 2-second debounce
+    - Confirmation dialog before posting
+    - Shows "Posted by [Name] on [Date]" for replies
 
 #### 6. TypeScript Types
 - **File:** `src/types/google-reviews.ts`
@@ -306,77 +319,71 @@ Admin UI refreshes and displays reviews
 
 ---
 
-## ⏳ Phase 2: Reply Posting (NOT STARTED)
+## ✅ Phase 2: Reply Posting (COMPLETED)
 
 ### Overview
 
-Phase 2 will allow admins to post replies to Google reviews directly from the backoffice. This can be done either:
-1. **Option A:** Manual replies only (simpler, faster to implement)
-2. **Option B:** AI-assisted replies with approval workflow (more complex, better UX)
+Phase 2 allows admins to post replies to Google reviews directly from the backoffice.
 
-### Current Limitations
+**Implementation:** Option A - Manual Reply Posting
 
-**What's Already Available:**
-- ✅ OAuth tokens with `business.manage` scope (needed for posting)
-- ✅ View existing replies synced from Google
-- ✅ Identify which reviews need replies (orange "Pending" badge)
+### What Was Implemented
 
-**What's Missing:**
-- ❌ UI to compose/edit reply text
-- ❌ API endpoint to post reply to Google
-- ❌ Confirmation workflow before posting
-- ❌ Error handling for failed posts
-- ❌ (Optional) AI reply generation
-
----
-
-## 🔧 Phase 2 Implementation Options
-
-### Option A: Manual Reply Posting (Recommended First Step)
-
-**Pros:**
-- Simpler implementation (2-3 hours)
-- No AI dependencies
-- Full control over reply content
-- Can be enhanced with AI later
-
-**What to Build:**
-
-#### 1. UI Components (No Database Changes Needed)
-- Add "Reply" button to review detail modal
-- Add textarea for composing reply
-- Add "Post Reply" confirmation dialog
-- Show posting status (loading, success, error)
+#### 1. Database Migration
+- **File:** `supabase/migrations/20260115000000_add_google_reviews_reply_audit_columns.sql`
+- **Added columns to `backoffice.google_reviews`:**
+  - `replied_by` (TEXT) - First name of admin who posted the reply
+  - `replied_at_local` (TIMESTAMPTZ) - When we posted from our system
 
 #### 2. API Endpoint
-**File:** `app/api/google-reviews/[id]/reply/route.ts` (NEW)
+- **File:** `app/api/google-reviews/[id]/reply/route.ts`
+- **Method:** POST
+- **Body:** `{ reply_text: string }`
+- **Features:**
+  - Admin-only authentication
+  - Validates reply length (10-4096 characters)
+  - Prevents duplicate replies
+  - Posts to Google Business Profile API
+  - Updates local database with audit trail
 
-```typescript
-POST /api/google-reviews/{review_id}/reply
-Body: { reply_text: string }
+#### 3. Backend Service Functions
+- **File:** `src/lib/google-business-profile.ts`
+- **New functions:**
+  - `postReviewReply()` - Posts reply to Google, updates database
+  - `getReviewById()` - Fetches single review by ID
 
-Flow:
-1. Get review from database
-2. Get valid access token
-3. POST to Google Business Profile API:
-   PUT accounts/{account}/locations/{location}/reviews/{review}/reply
-4. Update local database with reply
-5. Return success/error
-```
+#### 4. UI Components
+- **File:** `app/admin/google-reviews/page.tsx`
+- **File:** `src/components/ui/alert-dialog.tsx` (NEW)
+- **Features:**
+  - Reply textarea with character counter (X / 4096)
+  - Minimum 10 character validation with helper text
+  - "Post Reply" button with 2-second debounce after posting
+  - Confirmation dialog showing preview before posting
+  - Loading state during posting
+  - Success/error toast messages
+  - Shows "Posted by [Name] on [Date]" for completed replies
 
-#### 3. Google API Integration
-**Add to:** `src/lib/google-business-profile.ts`
+#### 5. TypeScript Types
+- **File:** `src/types/google-reviews.ts`
+- **Added:**
+  - `replied_by` and `replied_at_local` to `GoogleReviewDB`
+  - `PostReplyResult` interface
 
-```typescript
-export async function postReviewReply(
-  reviewName: string,
-  replyText: string,
-  accessToken: string
-): Promise<{ success: boolean; error?: string }> {
-  // POST to Google API
-  // Update database if successful
-}
-```
+### How to Use
+
+1. Navigate to `/admin/google-reviews`
+2. Click on a review that needs a reply (orange "Pending" badge)
+3. In the modal, write your reply in the textarea (minimum 10 characters)
+4. Click "Post Reply"
+5. Confirm in the dialog
+6. Reply is posted to Google and saved locally with audit info
+
+### Validation Rules
+- **Minimum length:** 10 characters
+- **Maximum length:** 4096 characters
+- **Admin only:** Only Chris and David can post replies
+- **One reply per review:** Cannot post to reviews that already have replies
 
 ---
 
@@ -546,14 +553,17 @@ Response: { suggested_reply: string }
 | File | Purpose |
 |------|---------|
 | `src/lib/google-business-oauth.ts` | OAuth flow for Google Business Profile |
-| `src/lib/google-business-profile.ts` | Core Google API integration (fetch reviews, sync) |
+| `src/lib/google-business-profile.ts` | Core Google API integration (fetch reviews, sync, post replies) |
 | `app/api/google-reviews/oauth/*` | OAuth endpoints (connect, callback, status, disconnect) |
 | `app/api/google-reviews/sync/route.ts` | Sync reviews endpoint |
 | `app/api/google-reviews/route.ts` | Get reviews endpoint |
-| `app/admin/google-reviews/page.tsx` | Admin UI (desktop table, mobile cards, detail modal) |
+| `app/api/google-reviews/[id]/reply/route.ts` | Post reply endpoint (Phase 2) |
+| `app/admin/google-reviews/page.tsx` | Admin UI (desktop table, mobile cards, detail modal, reply form) |
 | `supabase/migrations/20260105120000_create_google_reviews_table.sql` | Reviews table schema |
 | `supabase/migrations/20260105130000_create_google_business_oauth_table.sql` | OAuth tokens table schema |
+| `supabase/migrations/20260115000000_add_google_reviews_reply_audit_columns.sql` | Reply audit columns (Phase 2) |
 | `src/types/google-reviews.ts` | TypeScript type definitions |
+| `src/components/ui/alert-dialog.tsx` | Confirmation dialog component (Phase 2) |
 
 ### Common Tasks
 
@@ -571,10 +581,11 @@ Response: { suggested_reply: string }
 **Modify sync behavior:**
 - Edit `syncReviewsToSupabase()` in `src/lib/google-business-profile.ts`
 
-**Add reply posting (Phase 2):**
-1. Create `postReviewReply()` function in `src/lib/google-business-profile.ts`
-2. Create API route in `app/api/google-reviews/[id]/reply/route.ts`
-3. Update review detail modal to include reply form
+**Post a reply to a review:**
+1. Navigate to `/admin/google-reviews`
+2. Click on a review with "Pending" status
+3. Write your reply (min 10 chars, max 4096)
+4. Click "Post Reply" and confirm
 
 ---
 
@@ -632,8 +643,9 @@ Before deploying to production:
 ---
 
 **Last Updated:** January 15, 2026
-**Version:** 1.0 (Phase 1 Complete - Review Sync & Display)
-**Current Status:** Phase 2 Not Started (Reply Posting Feature)
-**Next Milestone Options:**
-- **Option A:** Manual reply posting (2-3 hours)
-- **Option B:** AI-assisted reply generation (6-9 hours total)
+**Version:** 2.0 (Phase 1 & Phase 2 Complete)
+**Current Status:** Fully functional - Sync reviews and post replies
+**Future Enhancements:**
+- AI-assisted reply generation
+- Edit/delete posted replies
+- Bulk reply functionality
