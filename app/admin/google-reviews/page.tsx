@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Star, MessageCircle, CheckCircle, XCircle, Link as LinkIcon } from 'lucide-react';
+import { RefreshCw, Star, MessageCircle, CheckCircle, XCircle, Link as LinkIcon, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import type { GoogleReviewDB } from '@/types/google-reviews';
@@ -32,6 +38,7 @@ export default function GoogleReviewsPage() {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
   const [isCheckingConnection, setIsCheckingConnection] = useState(true);
+  const [selectedReview, setSelectedReview] = useState<GoogleReviewDB | null>(null);
 
   // Check connection status
   const checkConnectionStatus = async () => {
@@ -367,9 +374,20 @@ export default function GoogleReviewsPage() {
                       <TableCell className="font-medium">{review.reviewer_name}</TableCell>
                       <TableCell>{renderStars(review.star_rating)}</TableCell>
                       <TableCell className="max-w-md">
-                        <div className="line-clamp-2 text-sm text-gray-700">
-                          {review.comment || <span className="text-gray-400 italic">No comment</span>}
-                        </div>
+                        <button
+                          onClick={() => setSelectedReview(review)}
+                          className="text-left w-full hover:text-blue-600 transition-colors group"
+                        >
+                          <div className="line-clamp-2 text-sm text-gray-700 group-hover:text-blue-600">
+                            {review.comment || <span className="text-gray-400 italic">No comment</span>}
+                          </div>
+                          {review.comment && (
+                            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1 group-hover:text-blue-600">
+                              <Eye className="w-3 h-3" />
+                              <span>Click to view full review</span>
+                            </div>
+                          )}
+                        </button>
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -420,7 +438,11 @@ export default function GoogleReviewsPage() {
           </Card>
         ) : (
           reviews.map((review) => (
-            <Card key={review.id} className="border rounded-lg overflow-hidden">
+            <Card
+              key={review.id}
+              className="border rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setSelectedReview(review)}
+            >
               <CardContent className="p-4">
                 {/* Header with reviewer name and date */}
                 <div className="flex items-start justify-between mb-3">
@@ -455,6 +477,10 @@ export default function GoogleReviewsPage() {
                     <p className="text-sm text-gray-700 line-clamp-3">
                       {review.comment}
                     </p>
+                    <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
+                      <Eye className="w-3 h-3" />
+                      <span>Tap to view full review</span>
+                    </div>
                   </div>
                 )}
 
@@ -485,6 +511,121 @@ export default function GoogleReviewsPage() {
           Last synced: {formatDate(lastSync)} at {new Date(lastSync).toLocaleTimeString()}
         </p>
       )}
+
+      {/* Review Detail Modal */}
+      <Dialog open={!!selectedReview} onOpenChange={(open) => !open && setSelectedReview(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-4">
+              <span>Review Details</span>
+              {selectedReview && (
+                <Badge
+                  variant="outline"
+                  className={
+                    selectedReview.language === 'EN'
+                      ? 'border-blue-200 bg-blue-50 text-blue-700'
+                      : selectedReview.language === 'TH'
+                      ? 'border-purple-200 bg-purple-50 text-purple-700'
+                      : 'border-gray-200 bg-gray-50 text-gray-700'
+                  }
+                >
+                  {selectedReview.language}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedReview && (
+            <div className="space-y-6">
+              {/* Reviewer Info */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">{selectedReview.reviewer_name}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {formatDate(selectedReview.review_created_at)}
+                  </p>
+                </div>
+                {selectedReview.has_reply ? (
+                  <Badge className="bg-green-100 text-green-800 border-green-200">
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    Replied
+                  </Badge>
+                ) : (
+                  <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+                    <MessageCircle className="w-4 h-4 mr-1" />
+                    Needs Reply
+                  </Badge>
+                )}
+              </div>
+
+              {/* Rating */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Rating</label>
+                <div className="flex gap-1">
+                  {renderStars(selectedReview.star_rating)}
+                </div>
+              </div>
+
+              {/* Review Comment */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Review</label>
+                <div className="p-4 bg-gray-50 rounded-lg border">
+                  {selectedReview.comment ? (
+                    <p className="text-gray-800 whitespace-pre-wrap">{selectedReview.comment}</p>
+                  ) : (
+                    <p className="text-gray-400 italic">No comment provided</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Reply (if exists) */}
+              {selectedReview.has_reply && selectedReview.reply_text && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Your Reply
+                  </label>
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <p className="text-gray-800 whitespace-pre-wrap">{selectedReview.reply_text}</p>
+                    {selectedReview.reply_updated_at && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Replied on: {formatDate(selectedReview.reply_updated_at)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Metadata */}
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                <div>
+                  <label className="text-xs font-medium text-gray-500">Created</label>
+                  <p className="text-sm text-gray-700 mt-1">
+                    {new Date(selectedReview.review_created_at).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500">Last Updated</label>
+                  <p className="text-sm text-gray-700 mt-1">
+                    {new Date(selectedReview.review_updated_at).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500">Synced At</label>
+                  <p className="text-sm text-gray-700 mt-1">
+                    {new Date(selectedReview.synced_at).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500">Review ID</label>
+                  <p className="text-sm text-gray-700 mt-1 font-mono text-xs break-all">
+                    {selectedReview.google_review_name.split('/').pop()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
