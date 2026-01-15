@@ -353,12 +353,12 @@ export default function GoogleReviewsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50">
-                  <TableHead className="font-semibold">Reviewer</TableHead>
-                  <TableHead className="font-semibold">Rating</TableHead>
-                  <TableHead className="font-semibold">Comment</TableHead>
-                  <TableHead className="font-semibold">Language</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold">Date</TableHead>
+                  <TableHead className="font-semibold px-4">Reviewer</TableHead>
+                  <TableHead className="font-semibold px-4">Rating</TableHead>
+                  <TableHead className="font-semibold px-4">Comment</TableHead>
+                  <TableHead className="font-semibold px-4">Language</TableHead>
+                  <TableHead className="font-semibold px-4">Status</TableHead>
+                  <TableHead className="font-semibold px-4">Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -370,24 +370,24 @@ export default function GoogleReviewsPage() {
                   </TableRow>
                 ) : (
                   reviews.map((review) => (
-                    <TableRow key={review.id} className="hover:bg-gray-50">
-                      <TableCell className="font-medium">{review.reviewer_name}</TableCell>
-                      <TableCell className="pr-4">{renderStars(review.star_rating)}</TableCell>
-                      <TableCell className="max-w-md pl-4">
-                        <button
-                          onClick={() => setSelectedReview(review)}
-                          className="text-left w-full hover:text-blue-600 transition-colors group flex items-center gap-2"
-                          title="Click to view full review"
-                        >
-                          <div className="line-clamp-1 text-sm text-gray-700 group-hover:text-blue-600 flex-1">
+                    <TableRow
+                      key={review.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => setSelectedReview(review)}
+                    >
+                      <TableCell className="font-medium px-4">{review.reviewer_name}</TableCell>
+                      <TableCell className="px-4">{renderStars(review.star_rating)}</TableCell>
+                      <TableCell className="max-w-md px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="line-clamp-1 text-sm text-gray-700 flex-1">
                             {review.comment || <span className="text-gray-400 italic">No comment</span>}
                           </div>
                           {review.comment && (
-                            <Eye className="w-4 h-4 text-gray-400 group-hover:text-blue-600 flex-shrink-0" />
+                            <Eye className="w-4 h-4 text-gray-400 flex-shrink-0" />
                           )}
-                        </button>
+                        </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4">
                         <Badge
                           variant="outline"
                           className={
@@ -401,7 +401,7 @@ export default function GoogleReviewsPage() {
                           {review.language}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4">
                         {review.has_reply ? (
                           <Badge className="bg-green-100 text-green-800 border-green-200">
                             <CheckCircle className="w-3 h-3 mr-1" />
@@ -414,7 +414,7 @@ export default function GoogleReviewsPage() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-sm text-muted-foreground px-4">
                         {formatDate(review.review_created_at)}
                       </TableCell>
                     </TableRow>
@@ -514,9 +514,9 @@ export default function GoogleReviewsPage() {
       <Dialog open={!!selectedReview} onOpenChange={(open) => !open && setSelectedReview(null)}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between gap-4">
-              <span>Review Details</span>
-              {selectedReview && (
+            <DialogTitle className="pr-8">Review Details</DialogTitle>
+            {selectedReview && (
+              <div className="mt-2">
                 <Badge
                   variant="outline"
                   className={
@@ -529,8 +529,8 @@ export default function GoogleReviewsPage() {
                 >
                   {selectedReview.language}
                 </Badge>
-              )}
-            </DialogTitle>
+              </div>
+            )}
           </DialogHeader>
 
           {selectedReview && (
