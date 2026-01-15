@@ -372,20 +372,18 @@ export default function GoogleReviewsPage() {
                   reviews.map((review) => (
                     <TableRow key={review.id} className="hover:bg-gray-50">
                       <TableCell className="font-medium">{review.reviewer_name}</TableCell>
-                      <TableCell>{renderStars(review.star_rating)}</TableCell>
-                      <TableCell className="max-w-md">
+                      <TableCell className="pr-4">{renderStars(review.star_rating)}</TableCell>
+                      <TableCell className="max-w-md pl-4">
                         <button
                           onClick={() => setSelectedReview(review)}
-                          className="text-left w-full hover:text-blue-600 transition-colors group"
+                          className="text-left w-full hover:text-blue-600 transition-colors group flex items-center gap-2"
+                          title="Click to view full review"
                         >
-                          <div className="line-clamp-2 text-sm text-gray-700 group-hover:text-blue-600">
+                          <div className="line-clamp-1 text-sm text-gray-700 group-hover:text-blue-600 flex-1">
                             {review.comment || <span className="text-gray-400 italic">No comment</span>}
                           </div>
                           {review.comment && (
-                            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1 group-hover:text-blue-600">
-                              <Eye className="w-3 h-3" />
-                              <span>Click to view full review</span>
-                            </div>
+                            <Eye className="w-4 h-4 text-gray-400 group-hover:text-blue-600 flex-shrink-0" />
                           )}
                         </button>
                       </TableCell>
