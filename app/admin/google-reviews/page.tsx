@@ -120,13 +120,17 @@ export default function GoogleReviewsPage() {
       }
 
       const result = await response.json();
+
+      // Update last sync time
+      setLastSync(new Date().toISOString());
+
+      // Refresh reviews immediately
+      await fetchReviews(filter);
+
+      // Show success message after reviews are loaded
       toast.success(
         `Sync completed! ${result.new} new, ${result.updated} updated, ${result.synced} total`
       );
-      setLastSync(new Date().toISOString());
-
-      // Refresh reviews
-      await fetchReviews(filter);
     } catch (error: any) {
       console.error('Error syncing reviews:', error);
       toast.error(error.message || 'Failed to sync reviews');
@@ -139,6 +143,7 @@ export default function GoogleReviewsPage() {
   useEffect(() => {
     checkConnectionStatus();
     fetchReviews(filter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   // Check for OAuth callback success/error
@@ -334,55 +339,145 @@ export default function GoogleReviewsPage() {
         </Button>
       </div>
 
-      {/* Reviews Table */}
-      <Card>
+      {/* Reviews Table - Desktop */}
+      <Card className="hidden md:block">
         <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Reviewer</TableHead>
-                <TableHead>Rating</TableHead>
-                <TableHead>Comment</TableHead>
-                <TableHead>Language</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {reviews.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    No reviews found. Click &ldquo;Sync Reviews&rdquo; to fetch from Google.
-                  </TableCell>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="font-semibold">Reviewer</TableHead>
+                  <TableHead className="font-semibold">Rating</TableHead>
+                  <TableHead className="font-semibold">Comment</TableHead>
+                  <TableHead className="font-semibold">Language</TableHead>
+                  <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold">Date</TableHead>
                 </TableRow>
-              ) : (
-                reviews.map((review) => (
-                  <TableRow key={review.id}>
-                    <TableCell className="font-medium">{review.reviewer_name}</TableCell>
-                    <TableCell>{renderStars(review.star_rating)}</TableCell>
-                    <TableCell className="max-w-md">
-                      <div className="line-clamp-2 text-sm">{review.comment || 'No comment'}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{review.language}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {review.has_reply ? (
-                        <Badge className="bg-green-100 text-green-800">Replied</Badge>
-                      ) : (
-                        <Badge className="bg-orange-100 text-orange-800">Pending</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(review.review_created_at)}
+              </TableHeader>
+              <TableBody>
+                {reviews.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      No reviews found. Click &ldquo;Sync Reviews&rdquo; to fetch from Google.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  reviews.map((review) => (
+                    <TableRow key={review.id} className="hover:bg-gray-50">
+                      <TableCell className="font-medium">{review.reviewer_name}</TableCell>
+                      <TableCell>{renderStars(review.star_rating)}</TableCell>
+                      <TableCell className="max-w-md">
+                        <div className="line-clamp-2 text-sm text-gray-700">
+                          {review.comment || <span className="text-gray-400 italic">No comment</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={
+                            review.language === 'EN'
+                              ? 'border-blue-200 bg-blue-50 text-blue-700'
+                              : review.language === 'TH'
+                              ? 'border-purple-200 bg-purple-50 text-purple-700'
+                              : 'border-gray-200 bg-gray-50 text-gray-700'
+                          }
+                        >
+                          {review.language}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {review.has_reply ? (
+                          <Badge className="bg-green-100 text-green-800 border-green-200">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Replied
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+                            <MessageCircle className="w-3 h-3 mr-1" />
+                            Pending
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(review.review_created_at)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Reviews Cards - Mobile */}
+      <div className="md:hidden space-y-3">
+        {reviews.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              No reviews found. Click &ldquo;Sync Reviews&rdquo; to fetch from Google.
+            </CardContent>
+          </Card>
+        ) : (
+          reviews.map((review) => (
+            <Card key={review.id} className="border rounded-lg overflow-hidden">
+              <CardContent className="p-4">
+                {/* Header with reviewer name and date */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-base">{review.reviewer_name}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {formatDate(review.review_created_at)}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      review.language === 'EN'
+                        ? 'border-blue-200 bg-blue-50 text-blue-700'
+                        : review.language === 'TH'
+                        ? 'border-purple-200 bg-purple-50 text-purple-700'
+                        : 'border-gray-200 bg-gray-50 text-gray-700'
+                    }
+                  >
+                    {review.language}
+                  </Badge>
+                </div>
+
+                {/* Rating */}
+                <div className="mb-3">
+                  {renderStars(review.star_rating)}
+                </div>
+
+                {/* Comment */}
+                {review.comment && (
+                  <div className="mb-3 p-3 bg-gray-50 rounded-md">
+                    <p className="text-sm text-gray-700 line-clamp-3">
+                      {review.comment}
+                    </p>
+                  </div>
+                )}
+
+                {/* Status */}
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <span className="text-xs text-muted-foreground">Reply Status</span>
+                  {review.has_reply ? (
+                    <Badge className="bg-green-100 text-green-800 border-green-200">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Replied
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+                      <MessageCircle className="w-3 h-3 mr-1" />
+                      Pending
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
 
       {/* Last Sync Time */}
       {lastSync && (
