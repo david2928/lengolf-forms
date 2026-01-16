@@ -210,6 +210,7 @@ const SafeImage = ({ src, alt, width, height, className }: {
       height={height}
       className={className}
       onError={() => setImageError(true)}
+      unoptimized={true} // Skip optimization for external profile pictures (LINE, Facebook, Instagram)
     />
   );
 };

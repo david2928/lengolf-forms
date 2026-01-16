@@ -119,6 +119,7 @@ export function CachedImage({
         loading={loading}
         placeholder={placeholder}
         blurDataURL={blurDataURL}
+        unoptimized={true} // Skip optimization for external chat images (LINE CDN, already optimized)
         style={{
           opacity: isLoading ? 0 : 1,
           transition: 'opacity 0.3s ease-in-out'
