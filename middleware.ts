@@ -129,13 +129,14 @@ export default customMiddleware;
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
+     * Match all request paths except for:
      * - api (all API routes)
-     * - _next
-     * - public (static files)
-     * Note: auth pages are now included to allow dev bypass
+     * - _next (Next.js internals)
+     * - public (static files in public folder)
+     * - Static assets (favicon, robots, manifest files, images, etc.)
+     * This reduces edge requests by excluding static files from middleware
      */
-    "/((?!api|_next|public).*)",
+    "/((?!api|_next|public|favicon|robots.txt|site.webmanifest|apple-touch-icon|web-app-manifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|json)$).*)",
   ],
   // Explicitly use Node.js runtime for Supabase client compatibility
   runtime: 'nodejs',

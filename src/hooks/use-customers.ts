@@ -19,7 +19,7 @@ export function useCustomers() {
     '/api/customers',
     fetcher,
     {
-      refreshInterval: 30000, // Refresh every 30 seconds
+      refreshInterval: 60000, // Refresh every 60 seconds (reduced from 30s to optimize Edge requests)
       revalidateOnFocus: true, // Refresh when tab becomes active
       dedupingInterval: 5000, // Dedupe requests within 5 seconds
     }

@@ -17,7 +17,7 @@ export function useAdminInventoryOverview() {
     '/api/admin/inventory/overview',
     fetcher,
     {
-      refreshInterval: 30000, // Refresh every 30 seconds
+      refreshInterval: 60000, // Refresh every 60 seconds (reduced from 30s to optimize Edge requests)
       revalidateOnFocus: true,
       errorRetryCount: 3,
     }
