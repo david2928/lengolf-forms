@@ -26,6 +26,11 @@ interface CustomerLinkModalProps {
   onCustomerSelect: (customerId: string, customer: Customer) => void;
   loading?: boolean;
   lineUserName?: string;
+  prefillData?: {
+    fullName?: string;
+    primaryPhone?: string;
+    email?: string;
+  };
 }
 
 export function CustomerLinkModal({
@@ -33,7 +38,8 @@ export function CustomerLinkModal({
   onClose,
   onCustomerSelect,
   loading = false,
-  lineUserName
+  lineUserName,
+  prefillData
 }: CustomerLinkModalProps) {
   // Mode state
   const [mode, setMode] = useState<'search' | 'create'>('search');
@@ -176,13 +182,23 @@ export function CustomerLinkModal({
 
   // Pre-fill form when switching to create mode
   useEffect(() => {
-    if (mode === 'create' && lineUserName && !createForm.fullName) {
-      setCreateForm(prev => ({
-        ...prev,
-        fullName: lineUserName
-      }));
+    if (mode === 'create') {
+      // Priority: prefillData > lineUserName
+      const nameToUse = prefillData?.fullName || lineUserName || '';
+      const phoneToUse = prefillData?.primaryPhone || '';
+      const emailToUse = prefillData?.email || '';
+
+      // Only update if values changed (avoid infinite loops)
+      if (nameToUse !== createForm.fullName || phoneToUse !== createForm.primaryPhone || emailToUse !== createForm.email) {
+        setCreateForm(prev => ({
+          ...prev,
+          fullName: nameToUse,
+          primaryPhone: phoneToUse,
+          email: emailToUse
+        }));
+      }
     }
-  }, [mode, lineUserName, createForm.fullName]);
+  }, [mode, lineUserName, prefillData, createForm.fullName, createForm.primaryPhone, createForm.email]);
 
   // Validate create form
   const validateCreateForm = (): boolean => {

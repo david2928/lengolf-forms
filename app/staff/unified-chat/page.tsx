@@ -154,6 +154,7 @@ export default function UnifiedChatPage() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [selectedCustomerForLink, setSelectedCustomerForLink] = useState<any>(null);
   const [showCuratedImages, setShowCuratedImages] = useState(false);
+  const [linkModalPrefillData, setLinkModalPrefillData] = useState<{ fullName?: string; primaryPhone?: string; email?: string } | undefined>(undefined);
 
   // AI suggestions toggle - persisted in localStorage, default OFF for safety
   const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(() => {
@@ -446,6 +447,12 @@ export default function UnifiedChatPage() {
     setShowConfirmationModal(true);
   };
 
+  // Handler for opening link modal with extracted customer data
+  const handleShowLinkModalWithPrefill = useCallback((prefillData: { fullName?: string; primaryPhone?: string; email?: string }) => {
+    setLinkModalPrefillData(prefillData);
+    setShowLinkModal(true);
+  }, []);
+
   const handleEditCustomerLink = () => {
     setShowConfirmationModal(false);
     setSelectedCustomerForLink(null);
@@ -548,6 +555,8 @@ export default function UnifiedChatPage() {
               selectedConversationObj={selectedConversationObj}
               customerOperations={customerOps}
               onShowLinkModal={() => setShowLinkModal(true)}
+              messages={messages}
+              onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
             />
           </div>
         )}
@@ -575,6 +584,8 @@ export default function UnifiedChatPage() {
                 selectedConversationObj={selectedConversationObj}
                 customerOperations={customerOps}
                 onShowLinkModal={() => setShowLinkModal(true)}
+                messages={messages}
+                onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
               />
             </div>
           </div>
@@ -583,10 +594,14 @@ export default function UnifiedChatPage() {
         {/* Existing Modals - Keep as-is for now */}
         <CustomerLinkModal
           isOpen={showLinkModal}
-          onClose={() => setShowLinkModal(false)}
+          onClose={() => {
+            setShowLinkModal(false);
+            setLinkModalPrefillData(undefined); // Clear prefill data when modal closes
+          }}
           onCustomerSelect={handleCustomerSelection}
           loading={customerOps.linkingCustomer}
           lineUserName={""} // TODO: Get from selected conversation
+          prefillData={linkModalPrefillData}
         />
 
         <CustomerConfirmationModal

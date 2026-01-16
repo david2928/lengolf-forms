@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useConversationAssignment } from '../hooks/useConversationAssignment';
+import { useCustomerExtraction } from '@/hooks/use-customer-extraction';
+import { shouldShowExtraction, getConfidenceStatus } from '@/lib/ai/extraction-utils';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +38,8 @@ import {
   Save,
   X,
   Pencil,
-  XCircle
+  XCircle,
+  Sparkles
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import type { CustomerSidebarProps, Conversation, UnifiedConversation, ChannelType } from '../utils/chatTypes';
@@ -178,7 +181,9 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   selectedConversation,
   selectedConversationObj,
   customerOperations,
-  onShowLinkModal
+  onShowLinkModal,
+  messages,
+  onShowLinkModalWithPrefill
 }) => {
   const {
     customerDetails,
@@ -197,6 +202,17 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     updateCustomerNotes,
     updatingNotes
   } = customerOperations;
+
+  // Customer extraction hook
+  const {
+    extractedInfo,
+    isExtracting,
+    error: extractionError,
+    duplicates,
+    hasDuplicates,
+    extract,
+    clear: clearExtraction
+  } = useCustomerExtraction();
 
   // Local state for notes editing
   const [notesText, setNotesText] = useState('');
@@ -249,6 +265,43 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     setIsEditingNotes(false);
     setNotesModified(false);
   };
+
+  // Handle extraction
+  const handleExtractCustomerInfo = useCallback(async () => {
+    if (!messages || messages.length === 0) {
+      console.warn('No messages available for extraction');
+      return;
+    }
+
+    // Convert messages to the format expected by extraction service
+    const messagesToExtract = messages
+      .filter(msg => msg.text) // Only include messages with text
+      .map(msg => ({
+        content: msg.text || '',
+        senderType: msg.senderType as 'user' | 'staff' | 'admin' | 'assistant',
+        createdAt: msg.createdAt
+      }));
+
+    await extract(messagesToExtract);
+  }, [messages, extract]);
+
+  // Handle using extracted info to link customer
+  const handleUseExtractedInfo = useCallback(() => {
+    if (!extractedInfo) return;
+
+    const prefillData = {
+      fullName: extractedInfo.name || undefined,
+      primaryPhone: extractedInfo.phone || undefined,
+      email: extractedInfo.email || undefined
+    };
+
+    // Use the prefill callback if available, otherwise fall back to regular modal
+    if (onShowLinkModalWithPrefill) {
+      onShowLinkModalWithPrefill(prefillData);
+    } else if (onShowLinkModal) {
+      onShowLinkModal();
+    }
+  }, [extractedInfo, onShowLinkModalWithPrefill, onShowLinkModal]);
 
   // Handle cancel editing
   const handleCancelNotes = () => {
@@ -427,15 +480,146 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                 </Button>
               </div>
             ) : (
-              <div className="text-center py-4">
-                <p className="text-sm text-gray-500 mb-2">Not linked to customer</p>
+              <div className="py-4 space-y-3">
+                <p className="text-sm text-gray-500 text-center mb-2">Not linked to customer</p>
+
+                {/* Extraction Results */}
+                {extractedInfo && shouldShowExtraction(extractedInfo) && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center gap-1 text-xs text-blue-700 font-medium">
+                      <Sparkles className="h-3 w-3" />
+                      <span>Found in chat</span>
+                    </div>
+
+                    {extractedInfo.name && (
+                      <div className="flex items-start gap-2 text-sm">
+                        <Users className="h-4 w-4 text-gray-500 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 break-words">
+                            {extractedInfo.name}
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs mt-1 ${
+                              getConfidenceStatus(extractedInfo.confidence.name).color === 'green'
+                                ? 'bg-green-50 text-green-700 border-green-200'
+                                : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                            }`}
+                          >
+                            {getConfidenceStatus(extractedInfo.confidence.name).label}
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+
+                    {extractedInfo.phone && (
+                      <div className="flex items-start gap-2 text-sm">
+                        <Phone className="h-4 w-4 text-gray-500 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 break-words">
+                            {extractedInfo.phone}
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs mt-1 ${
+                              getConfidenceStatus(extractedInfo.confidence.phone).color === 'green'
+                                ? 'bg-green-50 text-green-700 border-green-200'
+                                : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                            }`}
+                          >
+                            {getConfidenceStatus(extractedInfo.confidence.phone).label}
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+
+                    {extractedInfo.email && (
+                      <div className="flex items-start gap-2 text-sm">
+                        <Mail className="h-4 w-4 text-gray-500 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 break-words">
+                            {extractedInfo.email}
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs mt-1 ${
+                              getConfidenceStatus(extractedInfo.confidence.email).color === 'green'
+                                ? 'bg-green-50 text-green-700 border-green-200'
+                                : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                            }`}
+                          >
+                            {getConfidenceStatus(extractedInfo.confidence.email).label}
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Duplicate warning */}
+                    {hasDuplicates && (
+                      <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800">
+                        ⚠️ Similar customer found in system
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={handleUseExtractedInfo}
+                        disabled={linkingCustomer}
+                      >
+                        Use & Link
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={clearExtraction}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Extraction error */}
+                {extractionError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-700">
+                    {extractionError}
+                  </div>
+                )}
+
+                {/* Extraction button */}
+                {messages && messages.length > 0 && !extractedInfo && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleExtractCustomerInfo}
+                    disabled={isExtracting || linkingCustomer}
+                  >
+                    {isExtracting ? (
+                      <>
+                        <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                        Extracting...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3 w-3 mr-2" />
+                        Extract Customer Info
+                      </>
+                    )}
+                  </Button>
+                )}
+
+                {/* Link manually button */}
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant={extractedInfo ? "outline" : "default"}
+                  className="w-full"
                   onClick={onShowLinkModal}
                   disabled={linkingCustomer}
                 >
-                  Link to Customer
+                  {extractedInfo ? 'Link Manually' : 'Link to Customer'}
                 </Button>
               </div>
             )}

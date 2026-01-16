@@ -265,6 +265,8 @@ export interface CustomerSidebarProps {
   selectedConversationObj?: Conversation | null;
   customerOperations: CustomerOperations;
   onShowLinkModal?: () => void;
+  messages?: Message[]; // Messages for extraction
+  onShowLinkModalWithPrefill?: (prefillData: { fullName?: string; primaryPhone?: string; email?: string }) => void;
 }
 
 export interface MessageInputProps {
