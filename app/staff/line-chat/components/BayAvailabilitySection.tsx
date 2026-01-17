@@ -136,7 +136,7 @@ export function BayAvailabilitySection({
         setLoadingAllBays(false);
       }
     }
-  }, [getBaysToFetch, dateStr, duration]);
+  }, [getBaysToFetch, dateStr, duration, selectedBay]);
 
   useEffect(() => {
     fetchAllBaysData();

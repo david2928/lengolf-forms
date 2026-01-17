@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { Search, MessageCircle, User, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -218,10 +219,13 @@ export function LineUserSearchSelect({
                     disabled={linking}
                   >
                     {lineUser.picture_url ? (
-                      <img
+                      <Image
                         src={lineUser.picture_url}
                         alt={lineUser.display_name}
+                        width={40}
+                        height={40}
                         className="h-10 w-10 rounded-full object-cover"
+                        unoptimized
                       />
                     ) : (
                       <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
@@ -254,10 +258,13 @@ export function LineUserSearchSelect({
                     disabled={linking}
                   >
                     {lineUser.picture_url ? (
-                      <img
+                      <Image
                         src={lineUser.picture_url}
                         alt={lineUser.display_name}
+                        width={40}
+                        height={40}
                         className="h-10 w-10 rounded-full object-cover"
+                        unoptimized
                       />
                     ) : (
                       <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">

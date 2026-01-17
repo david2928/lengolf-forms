@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import {
   X,
   ArrowLeft,
@@ -539,10 +540,13 @@ export const CustomerDetailModal: React.FC = () => {
                             <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
                               <div className="flex items-center gap-2">
                                 {lineProfile.picture_url ? (
-                                  <img
+                                  <Image
                                     src={lineProfile.picture_url}
                                     alt={lineProfile.display_name}
+                                    width={32}
+                                    height={32}
                                     className="w-8 h-8 rounded-full object-cover"
+                                    unoptimized
                                   />
                                 ) : (
                                   <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
@@ -592,10 +596,13 @@ export const CustomerDetailModal: React.FC = () => {
                             isTablet ? "h-5 w-5" : "h-4 w-4"
                           )} />
                           {lineProfile.picture_url && (
-                            <img
+                            <Image
                               src={lineProfile.picture_url}
                               alt={lineProfile.display_name}
+                              width={24}
+                              height={24}
                               className="w-6 h-6 rounded-full object-cover"
+                              unoptimized
                             />
                           )}
                           <span className={cn(

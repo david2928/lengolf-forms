@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import NextImage from 'next/image';
 import { X, Save, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -262,10 +263,13 @@ export function FAQFormModal({ isOpen, onClose, onSuccess, editingFaq }: FAQForm
                 <div className="mt-3 grid grid-cols-3 gap-3">
                   {selectedImages.map((image) => (
                     <div key={image.id} className="relative group">
-                      <img
+                      <NextImage
                         src={image.file_url}
                         alt={image.name}
+                        width={96}
+                        height={96}
                         className="w-full h-24 object-cover rounded border"
+                        unoptimized
                       />
                       <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center">
                         <Button

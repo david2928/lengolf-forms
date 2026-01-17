@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import NextImage from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -305,10 +306,13 @@ export default function FAQKnowledgePage() {
                       .sort((a, b) => a.display_order - b.display_order)
                       .map((assoc) => (
                         <div key={assoc.curated_image_id} className="relative group">
-                          <img
+                          <NextImage
                             src={assoc.line_curated_images.file_url}
                             alt={assoc.line_curated_images.name}
+                            width={64}
+                            height={64}
                             className="w-16 h-16 object-cover rounded border"
+                            unoptimized
                           />
                           <div className="absolute inset-0 bg-black bg-opacity-75 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center">
                             <span className="text-white text-xs text-center px-1">
