@@ -4,6 +4,7 @@ import type {
   GoogleReviewsResponse,
   GoogleReviewDB,
   SyncResult,
+  PostReplyResult,
 } from '@/types/google-reviews';
 import { refacSupabaseAdmin } from './refac-supabase';
 
@@ -102,6 +103,9 @@ function convertToDBFormat(review: GoogleReview): Omit<GoogleReviewDB, 'id' | 's
     has_reply: !!review.reviewReply,
     reply_text: review.reviewReply?.comment || null,
     reply_updated_at: review.reviewReply?.updateTime || null,
+    // Audit fields - only set when posting from our system
+    replied_by: null,
+    replied_at_local: null,
   };
 }
 
@@ -223,4 +227,142 @@ export async function getReviewsFromDB(filters?: {
   }
 
   return data as GoogleReviewDB[];
+}
+
+/**
+ * Post a reply to a Google review
+ * Uses the Google Business Profile API to post the reply, then updates our database
+ */
+export async function postReviewReply(
+  reviewId: string,           // Our database UUID
+  googleReviewName: string,   // Full Google resource path (accounts/X/locations/Y/reviews/Z)
+  replyText: string,
+  accessToken: string,
+  adminFirstName: string      // First name of admin posting the reply
+): Promise<PostReplyResult> {
+  try {
+    // Validate reply text
+    if (!replyText || replyText.trim().length < 10) {
+      return {
+        success: false,
+        error: 'Reply must be at least 10 characters long',
+      };
+    }
+
+    if (replyText.length > 4096) {
+      return {
+        success: false,
+        error: 'Reply cannot exceed 4096 characters',
+      };
+    }
+
+    // Build the API URL for posting reply
+    // Format: PUT https://mybusiness.googleapis.com/v4/{name}/reply
+    const url = `https://mybusiness.googleapis.com/v4/${googleReviewName}/reply`;
+
+    console.log('Posting reply to:', url);
+
+    // Make the API call to Google
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        comment: replyText.trim(),
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Google API error:', response.status, errorText);
+
+      // Parse common errors
+      if (response.status === 403) {
+        return {
+          success: false,
+          error: 'Permission denied. Please reconnect your Google Business account.',
+        };
+      }
+      if (response.status === 404) {
+        return {
+          success: false,
+          error: 'Review not found. It may have been deleted from Google.',
+        };
+      }
+      if (response.status === 429) {
+        return {
+          success: false,
+          error: 'Rate limit exceeded. Please wait a moment and try again.',
+        };
+      }
+
+      return {
+        success: false,
+        error: `Failed to post reply: ${errorText}`,
+      };
+    }
+
+    const replyData = await response.json();
+    const now = new Date().toISOString();
+
+    // Update our database with the reply info
+    const { error: updateError } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('google_reviews')
+      .update({
+        has_reply: true,
+        reply_text: replyText.trim(),
+        reply_updated_at: replyData.updateTime || now,
+        replied_by: adminFirstName,
+        replied_at_local: now,
+        updated_at: now,
+      })
+      .eq('id', reviewId);
+
+    if (updateError) {
+      console.error('Error updating database after posting reply:', updateError);
+      // Reply was posted to Google but DB update failed
+      // This is not ideal but the reply is live
+      return {
+        success: true,
+        warning: 'Reply posted to Google but failed to update local database. Please sync reviews.',
+      };
+    }
+
+    console.log('Reply posted successfully for review:', reviewId);
+
+    return {
+      success: true,
+      replyText: replyText.trim(),
+      repliedAt: now,
+      repliedBy: adminFirstName,
+    };
+  } catch (error) {
+    console.error('Error posting review reply:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+}
+
+/**
+ * Get a single review by ID from the database
+ */
+export async function getReviewById(reviewId: string): Promise<GoogleReviewDB | null> {
+  const { data, error } = await refacSupabaseAdmin
+    .schema('backoffice')
+    .from('google_reviews')
+    .select('*')
+    .eq('id', reviewId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching review by ID:', error);
+    return null;
+  }
+
+  return data as GoogleReviewDB;
 }
