@@ -119,6 +119,7 @@ const SafeImage = ({ src, alt, width, height, className }: {
       width={width}
       height={height}
       className={className}
+      unoptimized={true}
       onError={() => setImageError(true)}
     />
   );

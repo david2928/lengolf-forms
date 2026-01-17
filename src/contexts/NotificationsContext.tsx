@@ -90,7 +90,7 @@ export function NotificationsProvider({
   children,
   staffId,
   pageSize = 20,
-  refreshInterval = 30000, // 30 seconds
+  refreshInterval = 300000, // 5 minutes (fallback when realtime is down)
 }: NotificationsProviderProps) {
   // State
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -375,23 +375,38 @@ export function NotificationsProvider({
   }, []);
 
   /**
-   * Set up periodic unread count refresh
+   * Set up periodic unread count refresh (only when Realtime is disconnected)
+   *
+   * When Realtime is connected, we receive live updates for new notifications,
+   * so polling is unnecessary. Only poll as a fallback when connection is down.
    */
   useEffect(() => {
-    console.log('[NotificationsContext] Setting up unread count refresh interval:', refreshInterval);
+    // Only set up polling if Realtime is NOT connected
+    if (isConnected) {
+      console.log('[NotificationsContext] Realtime is connected, skipping polling setup');
+      // Clear any existing interval when Realtime connects
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Realtime is down, use polling as fallback
+    console.log('[NotificationsContext] Realtime is disconnected, setting up polling fallback:', refreshInterval);
 
     refreshIntervalRef.current = setInterval(() => {
       refreshUnreadCount();
     }, refreshInterval);
 
-    // Cleanup on unmount
+    // Cleanup on unmount or when dependencies change
     return () => {
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
         refreshIntervalRef.current = null;
       }
     };
-  }, [refreshInterval, refreshUnreadCount]);
+  }, [refreshInterval, refreshUnreadCount, isConnected]);
 
   const value: NotificationsContextValue = {
     notifications,

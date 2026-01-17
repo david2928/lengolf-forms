@@ -610,11 +610,12 @@ export function PhotoManagementDashboard() {
                                       </div>
                                     )}
                                     
-                                    <Image 
-                                      src={photo.photo_url} 
+                                    <Image
+                                      src={photo.photo_url}
                                       alt={`Time clock photo for ${photo.staff_name}`}
                                       width={400}
                                       height={400}
+                                      unoptimized={true}
                                       className={`max-w-full h-auto rounded-lg border shadow-sm transition-opacity duration-300 ${
                                         imageLoading ? 'opacity-0' : 'opacity-100'
                                       }`}
@@ -779,11 +780,12 @@ export function PhotoManagementDashboard() {
                                       </div>
                                     )}
                                     
-                                    <Image 
-                                      src={photo.photo_url} 
+                                    <Image
+                                      src={photo.photo_url}
                                       alt={`Time clock photo for ${photo.staff_name}`}
                                       width={400}
                                       height={400}
+                                      unoptimized={true}
                                       className={`max-w-full h-auto rounded-lg border shadow-sm transition-opacity duration-300 ${
                                         imageLoading ? 'opacity-0' : 'opacity-100'
                                       }`}

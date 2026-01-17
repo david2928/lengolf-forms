@@ -108,6 +108,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
             height={64}
             className="w-16 h-16 object-cover rounded-lg"
             loading="lazy"
+            unoptimized={true}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(product.name)}&size=80&background=f3f4f6&color=6b7280`;
