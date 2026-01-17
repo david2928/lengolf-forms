@@ -38,7 +38,6 @@ const BAY_OPTIONS = Object.keys(BAY_NAME_TO_API_BAY_NAME);
 
 // Define employees list (same as in booking form, with new additions)
 const EMPLOYEES_LIST = [
-  { value: 'Eak', label: 'Eak' },
   { value: 'Dolly', label: 'Dolly' },
   { value: 'Net', label: 'Net' },
   { value: 'May', label: 'May' },

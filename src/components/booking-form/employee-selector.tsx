@@ -20,7 +20,6 @@ export function EmployeeSelector({
   const [otherName, setOtherName] = useState('')
 
   const employees = [
-    { value: 'Eak', label: 'Eak' },
     { value: 'Dolly', label: 'Dolly' },
     { value: 'Net', label: 'Net' },
     { value: 'May', label: 'May' },

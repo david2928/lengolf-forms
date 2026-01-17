@@ -30,7 +30,7 @@ export function useTableManagement() {
     '/api/pos/tables',
     fetcher,
     {
-      refreshInterval: 5000, // Refresh every 5 seconds as fallback
+      refreshInterval: 5000, // Refresh every 5 seconds - critical POS system needs real-time updates
       revalidateOnFocus: true,
       dedupingInterval: 2000,
     }

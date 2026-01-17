@@ -26,10 +26,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Staff access required" }, { status: 403 });
     }
 
-    // Get only allowed assignees (Ashley, Eak, David)
+    // Get only allowed assignees (Ashley, David)
     const allowedEmails = [
       'vangoolashley39@gmail.com',    // Ashley
-      'akarat.loeksirinukul@gmail.com', // Eak
       'dgeiermann@gmail.com'           // David (owner)
     ];
 

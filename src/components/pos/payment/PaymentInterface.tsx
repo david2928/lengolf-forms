@@ -61,7 +61,7 @@ export const PaymentInterface: React.FC<PaymentInterfaceProps> = ({
     tableSessionId ? `/api/pos/table-sessions/${tableSessionId}/orders` : null,
     fetcher,
     {
-      refreshInterval: 2000, // Refresh every 2 seconds to catch discount changes
+      refreshInterval: 2000, // Refresh every 2 seconds - critical for catching discount changes in payment flow
       fallbackData: undefined, // Don't use any fallback data
       revalidateOnMount: true, // Always revalidate when component mounts
       dedupingInterval: 0 // Don't dedupe requests

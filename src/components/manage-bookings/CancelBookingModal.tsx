@@ -19,7 +19,6 @@ interface CancelBookingModalProps {
 
 // Define employees list (can be shared or imported if used in multiple places)
 const EMPLOYEES_LIST = [
-  { value: 'Eak', label: 'Eak' },
   { value: 'Dolly', label: 'Dolly' },
   { value: 'Net', label: 'Net' },
   { value: 'May', label: 'May' },

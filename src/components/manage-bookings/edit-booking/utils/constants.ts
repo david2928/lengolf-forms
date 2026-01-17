@@ -17,7 +17,6 @@ export const BAY_OPTIONS = Object.keys(BAY_NAME_TO_API_BAY_NAME);
 
 // Employees list
 export const EMPLOYEES_LIST: Employee[] = [
-  { value: 'Eak', label: 'Eak' },
   { value: 'Dolly', label: 'Dolly' },
   { value: 'Net', label: 'Net' },
   { value: 'May', label: 'May' },

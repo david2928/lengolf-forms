@@ -24,7 +24,6 @@ interface BayBlockingModalProps {
 
 // Available staff members for selection (same as in EnhancedEmployeeSelector)
 const STAFF_MEMBERS = [
-  'Eak',
   'Dolly',
   'Net',
   'May',
