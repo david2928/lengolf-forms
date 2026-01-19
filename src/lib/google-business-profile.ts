@@ -33,17 +33,24 @@ function detectLanguage(comment: string | undefined): 'EN' | 'TH' | 'OTHER' {
 }
 
 /**
- * Fetch all reviews from Google Business Profile API
+ * Fetch reviews from Google Business Profile API
  * Uses REST API directly as googleapis library doesn't support reviews endpoint properly
+ *
+ * @param accessToken - OAuth access token
+ * @param stopAfterDate - If provided, stops fetching when all reviews in a page are older than this date
+ *                        (optimization for delta sync - Google returns newest first)
  */
 export async function fetchAllReviews(
-  accessToken: string
+  accessToken: string,
+  stopAfterDate?: Date
 ): Promise<GoogleReview[]> {
   try {
     const allReviews: GoogleReview[] = [];
     let pageToken: string | undefined;
+    let pageCount = 0;
 
     do {
+      pageCount++;
       // Build API URL - Using v4 API endpoint
       const url = new URL(
         `https://mybusiness.googleapis.com/v4/accounts/${ACCOUNT_ID}/locations/${LOCATION_ID}/reviews`
@@ -54,8 +61,7 @@ export async function fetchAllReviews(
       }
 
       // Make direct REST API call
-      console.log('Fetching reviews from:', url.toString());
-      console.log('Using access token:', accessToken ? `${accessToken.substring(0, 20)}...` : 'missing');
+      console.log(`Fetching reviews page ${pageCount}...`);
 
       const response = await fetch(url.toString(), {
         headers: {
@@ -73,12 +79,25 @@ export async function fetchAllReviews(
 
       if (data.reviews) {
         allReviews.push(...data.reviews);
+
+        // Early exit optimization for delta sync
+        // Google returns reviews newest-first, so if the oldest review in this page
+        // is older than our cutoff, we've seen all the new ones
+        if (stopAfterDate && data.reviews.length > 0) {
+          const oldestInPage = data.reviews[data.reviews.length - 1];
+          const oldestUpdateTime = new Date(oldestInPage.updateTime);
+
+          if (oldestUpdateTime < stopAfterDate) {
+            console.log(`Early exit: reached reviews older than ${stopAfterDate.toISOString()}`);
+            break;
+          }
+        }
       }
 
       pageToken = data.nextPageToken;
     } while (pageToken);
 
-    console.log(`Fetched ${allReviews.length} reviews from Google Business Profile`);
+    console.log(`Fetched ${allReviews.length} reviews in ${pageCount} pages`);
     return allReviews;
   } catch (error) {
     console.error('Error fetching reviews from Google:', error);
@@ -111,70 +130,110 @@ function convertToDBFormat(review: GoogleReview): Omit<GoogleReviewDB, 'id' | 's
 
 /**
  * Sync reviews from Google to Supabase
- * - Inserts new reviews
- * - Updates existing reviews if they've changed
+ * - Uses batch upsert for performance (1 DB call instead of N*2)
+ * - Supports delta mode to only sync reviews updated since last sync
+ * - Uses early exit optimization to stop fetching when reaching old reviews
  */
 export async function syncReviewsToSupabase(
-  accessToken: string
+  accessToken: string,
+  deltaOnly: boolean = false
 ): Promise<SyncResult> {
   try {
-    // Fetch all reviews from Google
-    const googleReviews = await fetchAllReviews(accessToken);
+    const now = new Date().toISOString();
+    let lastSyncTime: Date | undefined;
 
-    let newCount = 0;
-    let updatedCount = 0;
-
-    // Process each review
-    for (const googleReview of googleReviews) {
-      const dbReview = convertToDBFormat(googleReview);
-
-      // Try to upsert the review
-      const { data: existing, error: fetchError } = await refacSupabaseAdmin
+    // Delta mode: get last sync time first for early exit optimization
+    if (deltaOnly) {
+      const { data: lastSync } = await refacSupabaseAdmin
         .schema('backoffice')
         .from('google_reviews')
-        .select('id, review_updated_at')
-        .eq('google_review_name', dbReview.google_review_name)
+        .select('synced_at')
+        .order('synced_at', { ascending: false })
+        .limit(1)
         .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        // Error other than "not found"
-        console.error('Error checking existing review:', fetchError);
-        continue;
-      }
-
-      if (existing) {
-        // Review exists - check if it needs updating
-        if (existing.review_updated_at !== dbReview.review_updated_at) {
-          const { error: updateError } = await refacSupabaseAdmin
-            .schema('backoffice')
-            .from('google_reviews')
-            .update({ ...dbReview, synced_at: new Date().toISOString() })
-            .eq('id', existing.id);
-
-          if (updateError) {
-            console.error('Error updating review:', updateError);
-          } else {
-            updatedCount++;
-          }
-        }
-      } else {
-        // New review - insert it
-        const { error: insertError } = await refacSupabaseAdmin
-          .schema('backoffice')
-          .from('google_reviews')
-          .insert(dbReview);
-
-        if (insertError) {
-          console.error('Error inserting review:', insertError);
-        } else {
-          newCount++;
-        }
+      if (lastSync?.synced_at) {
+        lastSyncTime = new Date(lastSync.synced_at);
+        console.log(`Delta mode: looking for reviews updated since ${lastSync.synced_at}`);
       }
     }
 
+    // Fetch reviews from Google (with early exit if delta mode)
+    const googleReviews = await fetchAllReviews(accessToken, lastSyncTime);
+
+    if (googleReviews.length === 0) {
+      return {
+        success: true,
+        synced: 0,
+        new: 0,
+        updated: 0,
+        message: 'No reviews found',
+      };
+    }
+
+    // Filter to only reviews updated since last sync
+    let reviewsToProcess = googleReviews;
+    if (lastSyncTime) {
+      reviewsToProcess = googleReviews.filter(review => {
+        const updateTime = new Date(review.updateTime);
+        return updateTime > lastSyncTime!;
+      });
+      console.log(`Delta mode: ${reviewsToProcess.length} reviews to sync`);
+    }
+
+    if (reviewsToProcess.length === 0) {
+      return {
+        success: true,
+        synced: 0,
+        new: 0,
+        updated: 0,
+        message: 'No new or updated reviews to sync',
+      };
+    }
+
+    // Get existing review names to count new vs updated
+    const reviewNames = reviewsToProcess.map(r => r.name);
+    const { data: existingReviews } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('google_reviews')
+      .select('google_review_name')
+      .in('google_review_name', reviewNames);
+
+    const existingNames = new Set(existingReviews?.map((r: { google_review_name: string }) => r.google_review_name) || []);
+
+    // Convert to DB format with synced_at timestamp
+    const dbReviews = reviewsToProcess.map(review => ({
+      ...convertToDBFormat(review),
+      synced_at: now,
+    }));
+
+    // Batch upsert - single DB call!
+    const { error: upsertError } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('google_reviews')
+      .upsert(dbReviews, {
+        onConflict: 'google_review_name',
+        ignoreDuplicates: false,
+      });
+
+    if (upsertError) {
+      console.error('Error upserting reviews:', upsertError);
+      return {
+        success: false,
+        synced: 0,
+        new: 0,
+        updated: 0,
+        error: upsertError.message,
+      };
+    }
+
+    // Count new vs updated
+    const newCount = dbReviews.filter(r => !existingNames.has(r.google_review_name)).length;
+    const updatedCount = dbReviews.length - newCount;
+
     const result: SyncResult = {
       success: true,
-      synced: googleReviews.length,
+      synced: dbReviews.length,
       new: newCount,
       updated: updatedCount,
     };

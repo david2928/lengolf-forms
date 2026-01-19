@@ -11,8 +11,11 @@ import { getValidAccessToken } from '@/lib/google-business-oauth';
  * Syncs Google Business Profile reviews to Supabase database
  * - Requires admin authentication
  * - Uses stored OAuth tokens from database (info@len.golf account)
- * - Fetches all reviews from Google
- * - Upserts to backoffice.google_reviews table
+ * - Fetches reviews from Google and batch upserts to database
+ * - Supports delta mode (?delta=true) to only sync recently updated reviews
+ *
+ * Query params:
+ * - delta: boolean - If true, only sync reviews updated since last sync
  *
  * Returns: { success: boolean, synced: number, new: number, updated: number }
  */
@@ -45,10 +48,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Admin ${session.user.email} initiating Google reviews sync`);
+    // Check for delta mode
+    const { searchParams } = new URL(request.url);
+    const deltaOnly = searchParams.get('delta') === 'true';
+
+    console.log(`Admin ${session.user.email} initiating Google reviews sync (delta: ${deltaOnly})`);
 
     // Perform sync
-    const result = await syncReviewsToSupabase(accessToken);
+    const result = await syncReviewsToSupabase(accessToken, deltaOnly);
 
     if (!result.success) {
       return NextResponse.json(

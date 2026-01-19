@@ -55,6 +55,7 @@ export interface SyncResult {
   new: number;
   updated: number;
   error?: string;
+  message?: string;
 }
 
 export interface ListReviewsParams {

@@ -146,7 +146,7 @@ export default function GoogleReviewsPage() {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const response = await fetch('/api/google-reviews/sync', {
+      const response = await fetch('/api/google-reviews/sync?delta=true', {
         method: 'POST',
       });
 
