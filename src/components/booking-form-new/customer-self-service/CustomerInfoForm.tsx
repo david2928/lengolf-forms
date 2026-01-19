@@ -3,6 +3,8 @@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { User, Phone, Mail, Loader2 } from 'lucide-react'
+import PhoneInput from 'react-phone-number-input'
+import 'react-phone-number-input/style.css'
 
 interface CustomerInfoFormProps {
   name: string
@@ -52,25 +54,23 @@ export function CustomerInfoForm({
         )}
       </div>
 
-      {/* Phone Field */}
+      {/* Phone Field with Country Code Selector */}
       <div className="space-y-1.5">
         <Label htmlFor="customer-phone" className="text-sm font-medium flex items-center gap-1.5">
           <Phone className="h-3.5 w-3.5 text-[#005a32]" />
           Phone Number <span className="text-red-500">*</span>
         </Label>
         <div className="relative">
-          <Input
-            id="customer-phone"
-            type="tel"
+          <PhoneInput
+            international
+            defaultCountry="TH"
             placeholder="Enter your phone number"
             value={phone}
-            onChange={(e) => onPhoneChange(e.target.value)}
-            className={`h-11 text-base px-3 ${phoneError ? 'border-red-500 focus-visible:ring-red-500' : 'focus-visible:ring-[#005a32]'}`}
-            autoComplete="tel"
-            inputMode="numeric"
+            onChange={(value) => onPhoneChange(value || '')}
+            className={`phone-input-custom h-11 text-base ${phoneError ? 'phone-input-error' : ''}`}
           />
           {isCheckingDuplicate && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
               <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
             </div>
           )}
@@ -100,6 +100,79 @@ export function CustomerInfoForm({
           <p className="text-xs text-red-500">{emailError}</p>
         )}
       </div>
+
+      {/* Custom styles for PhoneInput */}
+      <style jsx global>{`
+        .phone-input-custom {
+          display: flex;
+          align-items: center;
+          border: 1px solid hsl(var(--input));
+          border-radius: calc(var(--radius) - 2px);
+          background-color: transparent;
+          padding: 0 12px;
+        }
+
+        .phone-input-custom:focus-within {
+          outline: none;
+          ring: 2px;
+          ring-color: #005a32;
+          border-color: #005a32;
+          box-shadow: 0 0 0 2px rgba(0, 90, 50, 0.2);
+        }
+
+        .phone-input-error {
+          border-color: rgb(239 68 68) !important;
+        }
+
+        .phone-input-error:focus-within {
+          box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+        }
+
+        .phone-input-custom .PhoneInputCountry {
+          margin-right: 8px;
+        }
+
+        .phone-input-custom .PhoneInputCountrySelect {
+          padding: 4px;
+          border: none;
+          background: transparent;
+        }
+
+        .phone-input-custom .PhoneInputCountrySelect:focus {
+          outline: none;
+        }
+
+        .phone-input-custom .PhoneInputInput {
+          flex: 1;
+          border: none;
+          background: transparent;
+          font-size: 1rem;
+          line-height: 1.5;
+          padding: 0;
+          height: 100%;
+        }
+
+        .phone-input-custom .PhoneInputInput:focus {
+          outline: none;
+        }
+
+        .phone-input-custom .PhoneInputInput::placeholder {
+          color: hsl(var(--muted-foreground));
+          opacity: 0.7;
+        }
+
+        .phone-input-custom .PhoneInputCountryIcon {
+          width: 24px;
+          height: 18px;
+        }
+
+        .phone-input-custom .PhoneInputCountryIconImg {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 2px;
+        }
+      `}</style>
     </div>
   )
 }

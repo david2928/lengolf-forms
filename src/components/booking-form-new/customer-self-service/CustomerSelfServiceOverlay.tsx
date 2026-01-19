@@ -6,6 +6,7 @@ import { ArrowLeft, Check } from 'lucide-react'
 import { CustomerInfoForm } from './CustomerInfoForm'
 import { CustomerReferralSelector } from './CustomerReferralSelector'
 import { toast } from 'sonner'
+import { isValidPhoneNumber } from 'react-phone-number-input'
 
 export interface CustomerSelfServiceData {
   name: string
@@ -72,25 +73,14 @@ export function CustomerSelfServiceOverlay({
     return true
   }
 
-  // Normalize Thai phone number (strip +66 or 66 prefix)
-  const normalizeThaiPhone = (value: string): string => {
-    let digitsOnly = value.replace(/\D/g, '')
-    // Handle +66 or 66 prefix (Thai country code)
-    if (digitsOnly.startsWith('66') && digitsOnly.length > 10) {
-      digitsOnly = '0' + digitsOnly.substring(2)
-    }
-    return digitsOnly
-  }
-
-  // Validate phone
+  // Validate phone using library's international validation
   const validatePhone = (value: string): boolean => {
-    const normalized = normalizeThaiPhone(value)
-    if (!normalized) {
+    if (!value) {
       setPhoneError('Phone number is required')
       return false
     }
-    if (normalized.length < 9 || normalized.length > 10) {
-      setPhoneError('Phone number must be 9-10 digits')
+    if (!isValidPhoneNumber(value)) {
+      setPhoneError('Please enter a valid phone number')
       return false
     }
     setPhoneError('')
@@ -122,10 +112,15 @@ export function CustomerSelfServiceOverlay({
     return true
   }
 
+  // Extract digits from E.164 phone for duplicate check
+  const extractPhoneDigits = (value: string): string => {
+    return value.replace(/\D/g, '')
+  }
+
   // Check for duplicate phone number
   const checkPhoneDuplicate = async (phoneNumber: string): Promise<boolean> => {
-    const normalized = normalizeThaiPhone(phoneNumber)
-    if (normalized.length < 6) {
+    const digits = extractPhoneDigits(phoneNumber)
+    if (digits.length < 6) {
       setDuplicateError('')
       return true
     }
@@ -137,7 +132,7 @@ export function CustomerSelfServiceOverlay({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName: name || 'temp',
-          primaryPhone: normalized,
+          primaryPhone: phoneNumber, // Send E.164 format, API will normalize
           email: undefined
         })
       })
@@ -183,11 +178,10 @@ export function CustomerSelfServiceOverlay({
       return
     }
 
-    // All validations passed - use normalized phone
-    const normalizedPhone = normalizeThaiPhone(phone)
+    // All validations passed - send E.164 format phone, API will normalize
     const data: CustomerSelfServiceData = {
       name: name.trim(),
-      phone: normalizedPhone,
+      phone: phone, // E.164 format (e.g., +66812345678)
       email: email.trim(),
       referralSource: referralSource!
     }
@@ -197,10 +191,10 @@ export function CustomerSelfServiceOverlay({
 
   if (!isOpen) return null
 
-  const normalizedPhoneLength = normalizeThaiPhone(phone).length
+  // Form is valid when phone passes library validation
+  const isPhoneValidForButton = phone && isValidPhoneNumber(phone)
   const isFormValid = name.trim().length >= 2 &&
-                      normalizedPhoneLength >= 9 &&
-                      normalizedPhoneLength <= 10 &&
+                      isPhoneValidForButton &&
                       !phoneError &&
                       !duplicateError &&
                       (email === '' || !emailError) &&
