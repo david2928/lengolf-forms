@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { CustomerSearch } from '@/components/package-form/customer-search'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { UserPlus } from 'lucide-react'
+import { CustomerSelfServiceOverlay, type CustomerSelfServiceData } from './customer-self-service'
+import { toast } from 'sonner'
 // Customer type for the new customer management system
 interface NewCustomer {
   id: string;
@@ -41,9 +45,16 @@ interface CustomerDetailsProps {
   }
   // Callback for phone validation error
   onPhoneError?: (error: string) => void
+  // Customer self-service callbacks
+  customerEmail?: string
+  onCustomerEmailChange?: (value: string) => void
+  referralSource?: string | null
+  onReferralSourceChange?: (value: string | null) => void
+  // Callback when customer is created via self-service
+  onSelfServiceCustomerCreated?: (customer: NewCustomer, referralSource: string) => void
 }
 
-export function CustomerDetails({ 
+export function CustomerDetails({
   isNewCustomer,
   customers,
   selectedCustomerId,
@@ -56,10 +67,17 @@ export function CustomerDetails({
   onSearchQueryChange,
   selectedCustomerCache,
   error,
-  onPhoneError
+  onPhoneError,
+  customerEmail,
+  onCustomerEmailChange,
+  referralSource,
+  onReferralSourceChange,
+  onSelfServiceCustomerCreated
 }: CustomerDetailsProps) {
   const [showCustomerDialog, setShowCustomerDialog] = useState(false)
   const [phoneError, setPhoneError] = useState<string>('')
+  const [showSelfService, setShowSelfService] = useState(false)
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false)
 
   const getSelectedCustomerDisplay = () => {
     if (!selectedCustomerId) return 'Select customer'
@@ -148,10 +166,125 @@ export function CustomerDetails({
     }
   }
 
+  // Handle self-service completion - create customer and switch to existing customer view
+  const handleSelfServiceComplete = async (data: CustomerSelfServiceData) => {
+    setIsCreatingCustomer(true)
+
+    try {
+      // Create the customer via API
+      const response = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: data.name,
+          primaryPhone: data.phone,
+          email: data.email || undefined,
+          preferredContactMethod: 'Phone'
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create customer')
+      }
+
+      const result = await response.json()
+      const newCustomer: NewCustomer = {
+        id: result.customer.id,
+        customer_code: result.customer.customer_code,
+        customer_name: result.customer.customer_name,
+        contact_number: result.customer.contact_number,
+        email: result.customer.email,
+        preferred_contact_method: result.customer.preferred_contact_method,
+        customer_status: result.customer.customer_status || 'Active',
+        lifetime_spending: '0',
+        total_bookings: 0,
+        last_visit_date: undefined,
+        stable_hash_id: result.customer.stable_hash_id
+      }
+
+      // Close overlay and call the callback to switch mode and select customer
+      setShowSelfService(false)
+
+      // Show success toast
+      toast.success('Customer created successfully', {
+        description: `${newCustomer.customer_name} (${newCustomer.customer_code})`,
+        duration: 4000
+      })
+
+      // Set the referral source before switching
+      onReferralSourceChange?.(data.referralSource)
+
+      // If callback is provided, use it to handle the mode switch
+      if (onSelfServiceCustomerCreated) {
+        onSelfServiceCustomerCreated(newCustomer, data.referralSource)
+      } else {
+        // Fallback to just populating fields
+        onCustomerNameChange(data.name)
+        onPhoneNumberChange(data.phone)
+        onCustomerEmailChange?.(data.email)
+      }
+    } catch (err) {
+      console.error('Error creating customer:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create customer'
+
+      // Show error toast
+      toast.error('Could not create customer', {
+        description: errorMessage,
+        duration: 5000
+      })
+
+      // Fallback to just populating the manual fields
+      setShowSelfService(false)
+      onCustomerNameChange(data.name)
+      onPhoneNumberChange(data.phone)
+      onCustomerEmailChange?.(data.email)
+      onReferralSourceChange?.(data.referralSource)
+    } finally {
+      setIsCreatingCustomer(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {/* Customer Self-Service Overlay */}
+      <CustomerSelfServiceOverlay
+        isOpen={showSelfService}
+        onComplete={handleSelfServiceComplete}
+        onCancel={() => setShowSelfService(false)}
+      />
+
       {isNewCustomer ? (
         <>
+          {/* Self-Service Button - Prominent CTA for staff */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowSelfService(true)}
+            className="w-full h-auto py-3 px-4 border-2 border-dashed border-[#005a32]/40 bg-green-50 hover:bg-green-100 hover:border-[#005a32]/60 transition-all"
+          >
+            <div className="flex items-center gap-3 text-left w-full">
+              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[#005a32]/10 flex items-center justify-center">
+                <UserPlus className="h-5 w-5 text-[#005a32]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-[#005a32] text-sm">Let Customer Enter Their Info</div>
+                <div className="text-xs text-[#005a32]/70">Hand the device to your customer</div>
+              </div>
+            </div>
+          </Button>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-gray-500">or enter manually</span>
+            </div>
+          </div>
+
+          {/* Manual Entry Fields */}
           <div className="space-y-2">
             <Label htmlFor="customerName">Customer Name</Label>
             <Input

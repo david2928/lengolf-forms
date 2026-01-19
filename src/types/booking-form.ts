@@ -37,7 +37,8 @@ export interface BookingFormData {
   coach?: string | null; // Added coach field for coaching bookings
   promotion?: string | null; // Added promotion field for special offers
   // Phase 1 booking enhancement fields
-  referralSource?: ReferralSource | null;
+  referralSource?: ReferralSource | string | null; // Allow string for "Other" referral values
+  customerEmail?: string; // Customer email (optional, collected via self-service or manually)
   errors?: { [key: string]: string };
   isSubmitted?: boolean;
   submissionStatus?: {

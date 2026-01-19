@@ -127,14 +127,15 @@ function formatBookingData(formData: FormData): Booking {
   // 5. Assemble the Booking object for DB insertion
   const formattedDate = format(bookingDateObj, 'yyyy-MM-dd'); // Use bookingDateObj
 
-  const bookingForDb: Booking & { 
+  const bookingForDb: Booking & {
     isNewCustomer?: boolean;
     customer_id?: string;
   } = {
     id: bookingId,
     user_id: '059090f8-2d76-4f10-81de-5efe4d2d0fd8',
     name: formData.customerName || 'Unknown Customer',
-    email: 'info@len.golf',
+    // Use customer email if provided, otherwise fallback to default placeholder
+    email: formData.customerEmail && formData.customerEmail.trim() ? formData.customerEmail.trim() : 'info@len.golf',
     phone_number: formData.customerPhone || 'N/A',
     date: formattedDate,
     start_time: formattedStartTime,
@@ -147,6 +148,8 @@ function formatBookingData(formData: FormData): Booking {
     package_name: formData.packageName || null,
     stable_hash_id: formData.customerStableHashId || undefined,
     package_id: formData.packageId || null,
+    // Phase 1 booking enhancement: Include referral source if provided
+    referral_source: formData.referralSource || null,
     // New fields for customer management integration
     isNewCustomer: formData.isNewCustomer ?? false,
     customer_id: formData.customerId || undefined,

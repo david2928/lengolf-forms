@@ -424,7 +424,7 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
 
   const handleCustomerSelect = (customer: NewCustomer) => {
     setSelectedCustomerCache(customer);
-    
+
     setFormData(prev => ({
       ...prev,
       customerId: customer.id,
@@ -432,14 +432,43 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
       customerPhone: customer.contact_number || undefined,
       customerStableHashId: customer.stable_hash_id
     }));
-    
+
     // Fetch packages for existing customer
     fetchCustomerPackages(customer.id);
-    
+
     // Auto-scroll to next section after customer is selected
     setTimeout(() => {
       scrollToNextSection('[data-scroll-target="booking-type"]');
     }, 500); // Give time for packages to load
+  };
+
+  // Handle customer created via self-service - switch to existing customer mode
+  const handleSelfServiceCustomerCreated = (customer: NewCustomer, referralSource: string) => {
+    // Set the customer cache
+    setSelectedCustomerCache(customer);
+
+    // Update form data - switch to existing customer mode and set all fields
+    setFormData(prev => ({
+      ...prev,
+      isNewCustomer: false, // Switch to existing customer mode
+      customerId: customer.id,
+      customerName: customer.customer_name,
+      customerPhone: customer.contact_number || undefined,
+      customerEmail: customer.email || undefined,
+      customerStableHashId: customer.stable_hash_id,
+      referralSource: referralSource
+    }));
+
+    // No packages for newly created customer, but still call to show empty state
+    fetchCustomerPackages(customer.id);
+
+    // Refresh customer list to include the new customer
+    mutateCustomers();
+
+    // Auto-scroll to booking type section
+    setTimeout(() => {
+      scrollToNextSection('[data-scroll-target="booking-type"]');
+    }, 500);
   };
 
   const handlePackageSelection = (pkg: Package | null) => {
@@ -729,6 +758,11 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
                     phoneNumber: errors.customerPhone
                   }}
                   onPhoneError={setPhoneError}
+                  customerEmail={formData.customerEmail || ''}
+                  onCustomerEmailChange={(value) => setFormData(prev => ({ ...prev, customerEmail: value }))}
+                  referralSource={formData.referralSource}
+                  onReferralSourceChange={(value) => setFormData(prev => ({ ...prev, referralSource: value }))}
+                  onSelfServiceCustomerCreated={handleSelfServiceCustomerCreated}
                 />
               </div>
             )}
