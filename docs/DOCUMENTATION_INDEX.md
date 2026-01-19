@@ -116,6 +116,7 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 ### System Integration & Migration
 - **[Calendar Integration](./features/public/booking-scheduling/CALENDAR_INTEGRATION.md)** - Google Calendar API with multi-bay sync
 - **[LINE Messaging Integration](./integrations/LINE_MESSAGING_INTEGRATION.md)** - Complete LINE API integration
+- **[WhatsApp Business API Setup](./integrations/WHATSAPP_BUSINESS_API_SETUP.md)** - Complete WhatsApp Cloud API setup guide with Meta Business Manager migration
 - **[Coaching System Technical](./technical/COACHING_SYSTEM_TECHNICAL.md)** - Technical architecture and optimization
 - **[Next.js 15 Migration](./technical/NEXTJS_15_MIGRATION.md)** - Complete migration guide from Next.js 14 to 15, including breaking changes and 65 API route updates
 
@@ -178,7 +179,7 @@ The following documentation files contain overlapping content and should be cons
 - **👥 Business Users**: [Booking System](./features/BOOKING_SYSTEM.md) → [Package Management](./features/PACKAGE_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
 - **🏌️ Coaches**: [Coaching System](./features/COACHING_SYSTEM.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md)
 - **⚙️ Operations Managers**: [Staff Management System](./features/STAFF_MANAGEMENT_SYSTEM.md) → [Staff Scheduling System](./features/STAFF_SCHEDULING_SYSTEM.md) → [Time Clock System](./features/TIME_CLOCK_SYSTEM.md)
-- **🔗 Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [Calendar Integration](./features/CALENDAR_INTEGRATION.md)
+- **🔗 Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [WhatsApp Business API](./integrations/WHATSAPP_BUSINESS_API_SETUP.md) → [Calendar Integration](./features/CALENDAR_INTEGRATION.md)
 - **💬 Chat System Developers**: [Unified Chat System](./features/public/customer-chat/UNIFIED_CHAT_SYSTEM.md) → [Chat Architecture](./features/public/customer-chat/UNIFIED_CHAT_ARCHITECTURE.md) → [Chat Development Guide](./features/public/customer-chat/UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
 
 ### By Feature Category

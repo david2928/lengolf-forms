@@ -127,10 +127,38 @@ export async function POST(req: Request) {
       }
     }
 
-    // Update booking data with the customer_id
+    // Determine if this is a new customer booking
+    // A booking is marked as "new customer" if:
+    // 1. The form explicitly says it's a new customer (isNewCustomer === true), OR
+    // 2. The customer has no previous non-cancelled bookings
+    let isNewCustomerBooking = bookingDataForDb.isNewCustomer ?? false;
+
+    // If we have a customer_id and the form didn't explicitly mark as new customer,
+    // check if this is their first booking
+    if (finalCustomerId && !isNewCustomerBooking) {
+      try {
+        const { count, error: countError } = await refacSupabaseAdmin
+          .from('bookings')
+          .select('id', { count: 'exact', head: true })
+          .eq('customer_id', finalCustomerId)
+          .neq('status', 'cancelled');
+
+        if (!countError && count === 0) {
+          // This customer has no previous non-cancelled bookings
+          isNewCustomerBooking = true;
+          console.log(`Customer ${finalCustomerId} has no previous bookings - marking as new customer`);
+        }
+      } catch (checkError) {
+        console.warn('Error checking customer booking history:', checkError);
+        // Continue with the original isNewCustomer value
+      }
+    }
+
+    // Update booking data with the customer_id and is_new_customer flag
     const finalBookingData = {
       ...bookingDataForDb,
       customer_id: finalCustomerId,
+      is_new_customer: isNewCustomerBooking,
       // Remove temporary fields that don't exist in database
       isNewCustomer: undefined,
       bay_type: undefined // bay_type is for internal logic only, not a database column

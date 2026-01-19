@@ -3,9 +3,15 @@
 import React, { useState } from 'react';
 import { Phone, Clock, Users, MapPin, FileText, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Booking } from '@/types/booking';
-import { EMPLOYEES_LIST } from '@/components/manage-bookings/edit-booking/utils/constants';
+import { format } from 'date-fns';
+// Staff list for phone confirmations - alphabetical order, matching booking creation colors
+const CONFIRMATION_STAFF = [
+  { value: 'Ashley', label: 'Ashley', gradient: 'from-amber-500 to-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-300' },
+  { value: 'Dolly', label: 'Dolly', gradient: 'from-pink-500 to-pink-600', bgColor: 'bg-pink-50', borderColor: 'border-pink-300' },
+  { value: 'May', label: 'May', gradient: 'from-green-500 to-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-300' },
+  { value: 'Net', label: 'Net', gradient: 'from-blue-500 to-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-300' },
+];
 
 interface UnconfirmedBookingCardProps {
   booking: Booking;
@@ -64,7 +70,34 @@ export function UnconfirmedBookingCard({
 
     setIsSubmitting(true);
     try {
-      await onConfirm(booking.id, selectedEmployee);
+      const success = await onConfirm(booking.id, selectedEmployee);
+
+      // Send LINE notification on successful confirmation
+      if (success) {
+        try {
+          const bookingDate = format(new Date(booking.date), 'EEE, MMM dd');
+          const endTime = calculateEndTime(booking.start_time, booking.duration);
+          const newCustomerBadge = booking.is_new_customer ? ' ⭐ NEW' : '';
+
+          const lineMessage = `✅ BOOKING CONFIRMED (ID: ${booking.id})${newCustomerBadge}\n----------------------------------\n👤 Customer: ${booking.name}\n📞 Phone: ${booking.phone_number}\n🗓️ Date: ${bookingDate}\n⏰ Time: ${booking.start_time} - ${endTime} (${booking.duration}h)\n⛳ Bay: ${booking.bay || 'N/A'}\n🧑‍🤝‍🧑 Pax: ${booking.number_of_people}${booking.booking_type ? `\n📋 Type: ${booking.booking_type}` : ''}\n----------------------------------\n✅ Confirmed by: ${selectedEmployee}${booking.customer_notes ? `\n📝 Notes: ${booking.customer_notes}` : ''}`;
+
+          const notifyResponse = await fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: lineMessage,
+              bookingType: booking.booking_type,
+              customer_notes: booking.customer_notes
+            })
+          });
+
+          if (!notifyResponse.ok) {
+            console.error('Failed to send LINE notification for confirmation');
+          }
+        } catch (notifyError) {
+          console.error('Error sending LINE notification:', notifyError);
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -76,11 +109,12 @@ export function UnconfirmedBookingCard({
 
   return (
     <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-      {/* Header row - Time and Bay */}
+      {/* Header row - Date, Time and Bay */}
       <div className="bg-gray-50 px-4 py-3 flex justify-between items-center border-b">
         <div className="flex items-center gap-2 text-gray-700">
           <Clock className="h-4 w-4" />
           <span className="font-medium">
+            <span className="text-gray-500 mr-1">{format(new Date(booking.date), 'MMM dd')}</span>
             {booking.start_time} - {endTime}
           </span>
           <span className="text-gray-500">({booking.duration}h)</span>
@@ -97,14 +131,24 @@ export function UnconfirmedBookingCard({
         </div>
       </div>
 
-      {/* Booking type badge */}
-      {booking.booking_type && (
-        <div className="px-4 pt-3">
+      {/* Badges row - New Customer & Booking Type */}
+      <div className="px-4 pt-3 flex flex-wrap gap-2">
+        {booking.is_new_customer && (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-400 text-yellow-900 shadow-sm">
+            ⭐ NEW CUSTOMER
+          </span>
+        )}
+        {booking.booking_type?.toLowerCase().includes('coaching') && (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-purple-500 text-white shadow-sm">
+            🎯 COACHING
+          </span>
+        )}
+        {booking.booking_type && !booking.booking_type.toLowerCase().includes('coaching') && (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             {booking.booking_type}
           </span>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Customer info and call button */}
       <div className="px-4 py-3">
@@ -132,26 +176,31 @@ export function UnconfirmedBookingCard({
         </div>
       )}
 
-      {/* Employee selector and action buttons */}
+      {/* Staff selector and action buttons */}
       <div className="px-4 py-3 bg-gray-50 border-t space-y-3">
-        {/* Employee dropdown */}
-        <div className="w-full">
-          <Select
-            value={selectedEmployee}
-            onValueChange={setSelectedEmployee}
-            disabled={isSubmitting || isConfirming}
-          >
-            <SelectTrigger className="w-full bg-white">
-              <SelectValue placeholder="Select your name" />
-            </SelectTrigger>
-            <SelectContent>
-              {EMPLOYEES_LIST.map((employee) => (
-                <SelectItem key={employee.value} value={employee.value}>
-                  {employee.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Staff buttons - tap to select and confirm */}
+        <div className="grid grid-cols-4 gap-2">
+          {CONFIRMATION_STAFF.map((staff) => {
+            const isSelected = selectedEmployee === staff.value;
+            return (
+              <button
+                key={staff.value}
+                type="button"
+                onClick={() => setSelectedEmployee(staff.value)}
+                disabled={isSubmitting || isConfirming}
+                className={`
+                  py-3 px-2 rounded-lg font-medium text-sm transition-all duration-200 border-2
+                  ${isSelected
+                    ? `bg-gradient-to-br ${staff.gradient} text-white border-transparent shadow-md scale-105`
+                    : `${staff.bgColor} ${staff.borderColor} text-gray-700 hover:scale-102 hover:shadow-sm`
+                  }
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                `}
+              >
+                {staff.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Action buttons */}

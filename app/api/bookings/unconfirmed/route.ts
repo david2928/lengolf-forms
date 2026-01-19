@@ -8,7 +8,12 @@ import { DateTime } from 'luxon';
  * Returns bookings that need phone confirmation:
  * - status = 'confirmed'
  * - phone_confirmed = false (or null)
- * - start_time >= now + 15 minutes (in Asia/Bangkok timezone)
+ * - For today: start_time >= now + 15 minutes
+ * - For coaching: also includes next day's early bookings (before 14:00)
+ *
+ * Only includes:
+ * - New customers (is_new_customer = true)
+ * - Coaching bookings (booking_type contains 'coaching')
  *
  * Query params:
  * - date: YYYY-MM-DD (optional, defaults to today in Bangkok timezone)
@@ -32,15 +37,16 @@ export async function GET(request: NextRequest) {
     // Calculate cutoff time: now + 15 minutes (only for today's bookings)
     const isToday = targetDate === bangkokNow.toISODate();
     const cutoffTime = bangkokNow.plus({ minutes: 15 }).toFormat('HH:mm');
+    const nextDay = DateTime.fromISO(targetDate).plus({ days: 1 }).toISODate();
 
-    // Build query for unconfirmed bookings
+    // Build query for unconfirmed bookings for target date
     let query = refacSupabaseAdmin
       .from('bookings')
       .select(`
         id, name, email, phone_number, date, start_time, duration, bay, status,
         number_of_people, customer_notes, booking_type, package_name,
         phone_confirmed, phone_confirmed_at, phone_confirmed_by,
-        customer_id, customer_code,
+        customer_id, is_new_customer,
         customers(customer_code, customer_name)
       `)
       .eq('date', targetDate)
@@ -63,8 +69,43 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Also fetch next day's early coaching bookings (before 14:00)
+    const { data: nextDayData, error: nextDayError } = await refacSupabaseAdmin
+      .from('bookings')
+      .select(`
+        id, name, email, phone_number, date, start_time, duration, bay, status,
+        number_of_people, customer_notes, booking_type, package_name,
+        phone_confirmed, phone_confirmed_at, phone_confirmed_by,
+        customer_id, is_new_customer,
+        customers(customer_code, customer_name)
+      `)
+      .eq('date', nextDay)
+      .eq('status', 'confirmed')
+      .or('phone_confirmed.is.null,phone_confirmed.eq.false')
+      .lt('start_time', '14:00')
+      .order('start_time', { ascending: true });
+
+    if (nextDayError) {
+      console.error('Error fetching next day bookings:', nextDayError);
+      // Continue with today's data only
+    }
+
+    // Combine today's and next day's data
+    const allData = [...(data || []), ...(nextDayData || [])];
+
+    // Filter to only include new customers OR coaching bookings
+    const filteredData = allData.filter((b: any) => {
+      const isNewCustomer = b.is_new_customer === true;
+      const isCoaching = b.booking_type?.toLowerCase().includes('coaching') || false;
+      // For next day bookings, only include coaching
+      if (b.date === nextDay) {
+        return isCoaching;
+      }
+      return isNewCustomer || isCoaching;
+    });
+
     // Transform data to match Booking type
-    const bookings = (data || []).map((b: any) => ({
+    const bookings = filteredData.map((b: any) => ({
       id: b.id,
       name: b.name,
       user_id: '',
@@ -83,7 +124,7 @@ export async function GET(request: NextRequest) {
       phone_confirmed_at: b.phone_confirmed_at,
       phone_confirmed_by: b.phone_confirmed_by,
       customer_id: b.customer_id,
-      customer_code: b.customers?.customer_code || b.customer_code || null,
+      customer_code: b.customers?.customer_code || null,
       customer: b.customers ? {
         customer_code: b.customers.customer_code,
         customer_name: b.customers.customer_name,
