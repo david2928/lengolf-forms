@@ -45,10 +45,11 @@ export async function GET(request: NextRequest) {
     const { data, error } = await refacSupabaseAdmin
       .from('bookings')
       .select(`
-        id, name, email, phone_number, date, start_time, duration, bay, status, 
-        number_of_people, customer_notes, booking_type, package_name, 
+        id, name, email, phone_number, date, start_time, duration, bay, status,
+        number_of_people, customer_notes, booking_type, package_name,
         google_calendar_sync_status, package_id, referral_source, is_new_customer,
         customer_id,
+        phone_confirmed, phone_confirmed_at, phone_confirmed_by,
         customers(customer_code, customer_name)
       `)
       .eq('date', date)
@@ -81,6 +82,9 @@ export async function GET(request: NextRequest) {
       is_new_customer: b.is_new_customer,
       customer_id: b.customer_id,
       customer_code: b.customers?.customer_code || null,
+      phone_confirmed: b.phone_confirmed,
+      phone_confirmed_at: b.phone_confirmed_at,
+      phone_confirmed_by: b.phone_confirmed_by,
       customer: b.customers ? {
         customer_code: b.customers.customer_code,
         customer_name: b.customers.customer_name,

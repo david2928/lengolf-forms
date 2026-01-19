@@ -29,6 +29,10 @@ export interface Booking {
   customer_id?: string | null; // uuid, nullable, Foreign key to public.customers(id)
   customer_code?: string | null; // varchar, nullable, Customer reference code (CUS-001, CUS-002, etc.)
   customer?: CustomerInfo | null; // Customer information from customers table
+  // Phone confirmation tracking fields
+  phone_confirmed?: boolean; // Whether booking has been confirmed via phone call
+  phone_confirmed_at?: string; // Timestamp when phone confirmation was made
+  phone_confirmed_by?: string; // Name of staff who made the confirmation call
 }
 
 // Customer information interface for bookings

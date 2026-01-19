@@ -11,6 +11,9 @@ import { formatBookingsForCalendar, type CalendarEvent } from '@/lib/calendar-ut
 import type { Booking } from '@/types/booking';
 import { BigCalendarView } from '@/components/calendar/BigCalendarView';
 import { ViewBookingModal } from '@/components/calendar/ViewBookingModal';
+import { UnconfirmedBookingsCounter } from '@/components/calendar/UnconfirmedBookingsCounter';
+import { UnconfirmedBookingsModal } from '@/components/calendar/UnconfirmedBookingsModal';
+import { useUnconfirmedBookings } from '@/hooks/use-unconfirmed-bookings';
 import { useToast } from '@/components/ui/use-toast';
 import { DayPicker } from 'react-day-picker';
 import { format, parse, isValid, subHours, isBefore } from 'date-fns';
@@ -62,7 +65,20 @@ export default function BookingsCalendarPage() {
   // Modal state management
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedBookingForView, setSelectedBookingForView] = useState<Booking | null>(null);
+  const [isUnconfirmedModalOpen, setIsUnconfirmedModalOpen] = useState(false);
   const { toast } = useToast();
+
+  // Get current date string for unconfirmed bookings hook
+  const currentDateString = selectedDate.toISODate() || '';
+
+  // Unconfirmed bookings hook
+  const {
+    bookings: unconfirmedBookings,
+    count: unconfirmedCount,
+    isLoading: isUnconfirmedLoading,
+    refresh: refreshUnconfirmed,
+    confirmBooking
+  } = useUnconfirmedBookings(currentDateString);
   
   // Check for mobile on mount and window resize
   useEffect(() => {
@@ -345,6 +361,40 @@ export default function BookingsCalendarPage() {
     router.push('/create-booking');
   };
 
+  // Unconfirmed bookings modal handlers
+  const handleOpenUnconfirmedModal = () => {
+    setIsUnconfirmedModalOpen(true);
+  };
+
+  const handleCloseUnconfirmedModal = () => {
+    setIsUnconfirmedModalOpen(false);
+  };
+
+  const handleBookingConfirmed = async (bookingId: string, employeeName: string): Promise<boolean> => {
+    const success = await confirmBooking(bookingId, employeeName);
+    if (success) {
+      toast({
+        title: "Booking Confirmed",
+        description: "Phone confirmation recorded successfully."
+      });
+      // Refresh the main calendar to reflect the change
+      refreshBookingsData();
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to confirm booking. Please try again.",
+        variant: "destructive"
+      });
+    }
+    return success;
+  };
+
+  const handleUnconfirmedBookingCancelled = () => {
+    // Refresh both the unconfirmed bookings list and the calendar
+    refreshUnconfirmed();
+    refreshBookingsData();
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="flex-shrink-0 container mx-auto px-4 py-3">
@@ -354,7 +404,7 @@ export default function BookingsCalendarPage() {
           </h1>
           
           <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-4'}`}>
-            <Button 
+            <Button
               onClick={handleCreateNewBooking}
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
               size="sm"
@@ -362,7 +412,15 @@ export default function BookingsCalendarPage() {
               <Plus className="h-4 w-4 mr-1" />
               {isMobile ? 'New' : 'New Booking'}
             </Button>
-            
+
+            {/* Unconfirmed Bookings Counter */}
+            <UnconfirmedBookingsCounter
+              count={unconfirmedCount}
+              isLoading={isUnconfirmedLoading}
+              onClick={handleOpenUnconfirmedModal}
+              isMobile={isMobile}
+            />
+
             <Button 
               variant="outline" 
               size={isMobile ? "sm" : "default"} 
@@ -443,7 +501,17 @@ export default function BookingsCalendarPage() {
         onBookingUpdated={handleBookingUpdated}
       />
 
-
+      {/* Unconfirmed Bookings Modal */}
+      <UnconfirmedBookingsModal
+        isOpen={isUnconfirmedModalOpen}
+        onClose={handleCloseUnconfirmedModal}
+        bookings={unconfirmedBookings}
+        isLoading={isUnconfirmedLoading}
+        onRefresh={refreshUnconfirmed}
+        onConfirm={handleBookingConfirmed}
+        onBookingCancelled={handleUnconfirmedBookingCancelled}
+        date={currentDateString}
+      />
     </div>
   );
 } 
