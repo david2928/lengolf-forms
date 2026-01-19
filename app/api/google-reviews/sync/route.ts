@@ -2,20 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { isUserAdmin } from '@/lib/auth';
-import { syncReviewsToSupabase } from '@/lib/google-business-profile';
-import { getValidAccessToken } from '@/lib/google-business-oauth';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!;
+const SUPABASE_SERVICE_KEY = process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!;
 
 /**
  * POST /api/google-reviews/sync
  *
  * Syncs Google Business Profile reviews to Supabase database
  * - Requires admin authentication
- * - Uses stored OAuth tokens from database (info@len.golf account)
- * - Fetches reviews from Google and batch upserts to database
- * - Supports delta mode (?delta=true) to only sync recently updated reviews
- *
- * Query params:
- * - delta: boolean - If true, only sync reviews updated since last sync
+ * - Triggers Supabase Edge Function to do the actual work (avoids Vercel timeout)
  *
  * Returns: { success: boolean, synced: number, new: number, updated: number }
  */
@@ -36,31 +32,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get access token from database (automatically refreshes if expired)
-    const accessToken = await getValidAccessToken();
-    if (!accessToken) {
-      return NextResponse.json(
-        {
-          error:
-            'Google Business account not connected. Please connect your Google Business account first.',
-        },
-        { status: 401 }
-      );
-    }
+    console.log(`Admin ${session.user.email} triggering Google reviews sync via Edge Function`);
 
-    // Check for delta mode
-    const { searchParams } = new URL(request.url);
-    const deltaOnly = searchParams.get('delta') === 'true';
+    // Call Supabase Edge Function
+    const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/google-reviews-sync`;
 
-    console.log(`Admin ${session.user.email} initiating Google reviews sync (delta: ${deltaOnly})`);
+    const response = await fetch(edgeFunctionUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
-    // Perform sync
-    const result = await syncReviewsToSupabase(accessToken, deltaOnly);
+    const result = await response.json();
 
-    if (!result.success) {
+    if (!response.ok) {
+      console.error('Edge Function error:', result);
       return NextResponse.json(
         { error: result.error || 'Sync failed' },
-        { status: 500 }
+        { status: response.status }
       );
     }
 
