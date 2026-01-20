@@ -41,12 +41,8 @@ const EMPLOYEES_LIST = [
   { value: 'Dolly', label: 'Dolly' },
   { value: 'Net', label: 'Net' },
   { value: 'May', label: 'May' },
-  { value: 'Winnie', label: 'Winnie' },
-  { value: 'Bank', label: 'Bank' },
+  { value: 'Ashley', label: 'Ashley' },
   { value: 'David', label: 'David' },
-  { value: 'Mind', label: 'Mind' }
-  // Consider adding an "Other" option if free-text is still needed,
-  // which would then likely reveal a separate text input.
 ];
 
 interface EditBookingModalProps {

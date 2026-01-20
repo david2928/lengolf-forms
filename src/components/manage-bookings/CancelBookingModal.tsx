@@ -22,10 +22,8 @@ const EMPLOYEES_LIST = [
   { value: 'Dolly', label: 'Dolly' },
   { value: 'Net', label: 'Net' },
   { value: 'May', label: 'May' },
-  { value: 'Winnie', label: 'Winnie' },
-  { value: 'Bank', label: 'Bank' },
+  { value: 'Ashley', label: 'Ashley' },
   { value: 'David', label: 'David' },
-  { value: 'Mind', label: 'Mind' }
 ];
 
 export function CancelBookingModal({ isOpen, onClose, booking, onSuccess }: CancelBookingModalProps) {
