@@ -166,7 +166,7 @@ function getOrdinalSuffix(day: number): string {
   return "th";
 }
 
-function formatLineMessage(formData: FormData, bookingId?: string): string {
+function formatLineMessage(formData: FormData, bookingId?: string, isNewCustomerOverride?: boolean): string {
 
   // Check required fields first
   if (!formData.bookingDate || !formData.startTime || !formData.endTime || !formData.bayNumber || !formData.employeeName || !formData.customerName || !formData.customerPhone || !formData.numberOfPax) {
@@ -221,8 +221,10 @@ function formatLineMessage(formData: FormData, bookingId?: string): string {
 
   const bookingTypeDisplay = formData.packageName ? `${formData.bookingType} (${formData.packageName})` : formData.bookingType;
 
-  const customerNameDisplay = formData.isNewCustomer 
-    ? `${formData.customerName} (New Customer)` 
+  // Use isNewCustomerOverride if provided (from API response), otherwise fall back to formData
+  const isNewCustomer = isNewCustomerOverride !== undefined ? isNewCustomerOverride : formData.isNewCustomer;
+  const customerNameDisplay = isNewCustomer
+    ? `${formData.customerName} (New Customer)`
     : formData.customerName;
 
   // Use the original bay display name from the form
@@ -284,7 +286,9 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
     // Individual booking calendar events are no longer created during booking flow
 
     // --- Step 5: Format LINE Notification ---
-    const message = formatLineMessage(formData, bookingId);
+    // Use the is_new_customer value from the API response (determined server-side based on booking history)
+    const isNewCustomerFromApi = bookingResult.booking?.is_new_customer;
+    const message = formatLineMessage(formData, bookingId, isNewCustomerFromApi);
     
     // --- Step 6: Send LINE notification via API ---
     if (message.startsWith('Error:')) {
