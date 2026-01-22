@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
         id, name, email, phone_number, date, start_time, duration, bay, status,
         number_of_people, customer_notes, booking_type, package_name,
         phone_confirmed, phone_confirmed_at, phone_confirmed_by,
-        customer_id, is_new_customer,
+        customer_id, is_new_customer, created_at, customer_contacted_via,
         customers(customer_code, customer_name)
       `)
       .eq('date', targetDate)
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         id, name, email, phone_number, date, start_time, duration, bay, status,
         number_of_people, customer_notes, booking_type, package_name,
         phone_confirmed, phone_confirmed_at, phone_confirmed_by,
-        customer_id, is_new_customer,
+        customer_id, is_new_customer, created_at, customer_contacted_via,
         customers(customer_code, customer_name)
       `)
       .eq('date', nextDay)
@@ -93,15 +93,47 @@ export async function GET(request: NextRequest) {
     // Combine today's and next day's data
     const allData = [...(data || []), ...(nextDayData || [])];
 
-    // Filter to only include new customers OR coaching bookings
+    // Filter bookings based on rules:
+    // TODAY:
+    //   - ResOS bookings → always include
+    //   - New customer bookings → only if created before today
+    //   - Coaching bookings → only if after 14:00
+    // TOMORROW:
+    //   - Coaching bookings before 14:00 → include
     const filteredData = allData.filter((b: any) => {
       const isNewCustomer = b.is_new_customer === true;
       const isCoaching = b.booking_type?.toLowerCase().includes('coaching') || false;
-      // For next day bookings, only include coaching
+      const isResOS = b.customer_contacted_via === 'ResOS';
+      const bookingTime = b.start_time; // HH:mm format
+
+      // Check if booking was created on the same day as the booking date
+      const createdDate = b.created_at
+        ? DateTime.fromISO(b.created_at).setZone('Asia/Bangkok').toISODate()
+        : null;
+      const isCreatedSameDay = createdDate === b.date;
+
+      // Tomorrow's bookings: only coaching before 14:00
       if (b.date === nextDay) {
-        return isCoaching;
+        return isCoaching; // Already filtered to < 14:00 in query
       }
-      return isNewCustomer || isCoaching;
+
+      // Today's bookings:
+      // ResOS → always include
+      if (isResOS) {
+        return true;
+      }
+
+      // Coaching → only after 14:00
+      if (isCoaching) {
+        return bookingTime >= '14:00';
+      }
+
+      // New customer → only if NOT created same day
+      if (isNewCustomer) {
+        return !isCreatedSameDay;
+      }
+
+      return false;
     });
 
     // Transform data to match Booking type

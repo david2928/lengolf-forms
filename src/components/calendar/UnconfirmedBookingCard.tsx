@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Phone, Clock, Users, MapPin, FileText, X, Check } from 'lucide-react';
+import { Phone, Clock, Users, MapPin, FileText, X, Check, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Booking } from '@/types/booking';
 import { format } from 'date-fns';
@@ -38,31 +38,48 @@ export function UnconfirmedBookingCard({
     return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
   };
 
-  // Format phone number for Thai numbers (add +66 prefix)
-  const formatPhoneForCall = (phone: string): string => {
-    // Remove any non-digit characters
+  // Check if phone number is international (not Thai)
+  const isInternationalNumber = (phone: string): boolean => {
     const digits = phone.replace(/\D/g, '');
+    // Thai numbers: start with 0, or start with 66
+    const isThai = digits.startsWith('0') || digits.startsWith('66');
+    return !isThai && digits.length > 0;
+  };
 
-    // If starts with 0, replace with +66
-    if (digits.startsWith('0')) {
-      return `+66${digits.substring(1)}`;
+  // Format phone number for calling/WhatsApp (ensure proper format)
+  const formatPhoneForContact = (phone: string): string => {
+    // Remove any non-digit characters except +
+    let cleaned = phone.replace(/[^\d+]/g, '');
+
+    // If starts with 0, replace with +66 (Thai)
+    if (cleaned.startsWith('0')) {
+      return `+66${cleaned.substring(1)}`;
     }
-    // If starts with 66, add +
-    if (digits.startsWith('66')) {
-      return `+${digits}`;
+    // If starts with 66 without +, add +
+    if (cleaned.startsWith('66') && !cleaned.startsWith('+')) {
+      return `+${cleaned}`;
     }
-    // Otherwise, assume it needs +66 prefix
-    return `+66${digits}`;
+    // If doesn't start with +, add it
+    if (!cleaned.startsWith('+')) {
+      return `+${cleaned}`;
+    }
+    return cleaned;
   };
 
   // Format phone for display
   const formatPhoneForDisplay = (phone: string): string => {
     const digits = phone.replace(/\D/g, '');
     if (digits.length === 10 && digits.startsWith('0')) {
-      // Format as 0XX-XXX-XXXX
+      // Format as 0XX-XXX-XXXX (Thai)
       return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
     }
     return phone;
+  };
+
+  // Get WhatsApp URL
+  const getWhatsAppUrl = (phone: string): string => {
+    const formatted = formatPhoneForContact(phone).replace('+', '');
+    return `https://wa.me/${formatted}`;
   };
 
   const handleConfirmClick = async () => {
@@ -104,8 +121,10 @@ export function UnconfirmedBookingCard({
   };
 
   const endTime = calculateEndTime(booking.start_time, booking.duration);
-  const phoneForCall = formatPhoneForCall(booking.phone_number);
+  const isInternational = isInternationalNumber(booking.phone_number);
+  const phoneForContact = formatPhoneForContact(booking.phone_number);
   const phoneForDisplay = formatPhoneForDisplay(booking.phone_number);
+  const whatsAppUrl = getWhatsAppUrl(booking.phone_number);
 
   return (
     <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
@@ -156,14 +175,26 @@ export function UnconfirmedBookingCard({
           {booking.name}
         </h3>
 
-        {/* Large call button */}
-        <a
-          href={`tel:${phoneForCall}`}
-          className="flex items-center justify-center gap-3 w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-        >
-          <Phone className="h-5 w-5" />
-          <span className="text-lg font-medium">{phoneForDisplay}</span>
-        </a>
+        {/* Contact button - WhatsApp for international, Phone for Thai */}
+        {isInternational ? (
+          <a
+            href={whatsAppUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-3 w-full py-3 px-4 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+          >
+            <MessageCircle className="h-5 w-5" />
+            <span className="text-lg font-medium">WhatsApp {phoneForDisplay}</span>
+          </a>
+        ) : (
+          <a
+            href={`tel:${phoneForContact}`}
+            className="flex items-center justify-center gap-3 w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            <Phone className="h-5 w-5" />
+            <span className="text-lg font-medium">{phoneForDisplay}</span>
+          </a>
+        )}
       </div>
 
       {/* Notes section (if any) */}
