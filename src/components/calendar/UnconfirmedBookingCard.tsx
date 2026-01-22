@@ -150,11 +150,16 @@ export function UnconfirmedBookingCard({
         </div>
       </div>
 
-      {/* Badges row - New Customer & Booking Type */}
+      {/* Badges row - New Customer, Coaching, ResOS & Booking Type */}
       <div className="px-4 pt-3 flex flex-wrap gap-2">
         {booking.is_new_customer && (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-400 text-yellow-900 shadow-sm">
             ⭐ NEW CUSTOMER
+          </span>
+        )}
+        {(booking as any).customer_contacted_via === 'ResOS' && (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-500 text-white shadow-sm">
+            📱 ResOS
           </span>
         )}
         {booking.booking_type?.toLowerCase().includes('coaching') && (

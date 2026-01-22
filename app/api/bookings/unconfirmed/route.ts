@@ -156,6 +156,7 @@ export async function GET(request: NextRequest) {
       phone_confirmed_at: b.phone_confirmed_at,
       phone_confirmed_by: b.phone_confirmed_by,
       customer_id: b.customer_id,
+      customer_contacted_via: b.customer_contacted_via,
       customer_code: b.customers?.customer_code || null,
       customer: b.customers ? {
         customer_code: b.customers.customer_code,
