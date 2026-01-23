@@ -177,28 +177,36 @@ export function CustomerLinkModal({
     setCreateForm({ fullName: '', primaryPhone: '', email: '' });
     setCreateErrors({});
     setCreateSuccess(false);
+    setHasPreFilled(false);
     onClose();
   };
 
-  // Pre-fill form when switching to create mode
+  // Track if we've already pre-filled for the current modal session
+  const [hasPreFilled, setHasPreFilled] = useState(false);
+
+  // Pre-fill form when switching to create mode (only once per modal open)
   useEffect(() => {
-    if (mode === 'create') {
-      // Priority: prefillData > lineUserName
+    if (mode === 'create' && !hasPreFilled) {
+      // Priority: prefillData > lineUserName for name
       const nameToUse = prefillData?.fullName || lineUserName || '';
       const phoneToUse = prefillData?.primaryPhone || '';
       const emailToUse = prefillData?.email || '';
 
-      // Only update if values changed (avoid infinite loops)
-      if (nameToUse !== createForm.fullName || phoneToUse !== createForm.primaryPhone || emailToUse !== createForm.email) {
-        setCreateForm(prev => ({
-          ...prev,
-          fullName: nameToUse,
-          primaryPhone: phoneToUse,
-          email: emailToUse
-        }));
-      }
+      setCreateForm({
+        fullName: nameToUse,
+        primaryPhone: phoneToUse,
+        email: emailToUse
+      });
+      setHasPreFilled(true);
     }
-  }, [mode, lineUserName, prefillData, createForm.fullName, createForm.primaryPhone, createForm.email]);
+  }, [mode, lineUserName, prefillData, hasPreFilled]);
+
+  // Reset hasPreFilled when modal opens with new prefill data
+  useEffect(() => {
+    if (isOpen) {
+      setHasPreFilled(false);
+    }
+  }, [isOpen, prefillData]);
 
   // Validate create form
   const validateCreateForm = (): boolean => {

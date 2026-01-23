@@ -600,7 +600,7 @@ export default function UnifiedChatPage() {
           }}
           onCustomerSelect={handleCustomerSelection}
           loading={customerOps.linkingCustomer}
-          lineUserName={""} // TODO: Get from selected conversation
+          lineUserName={selectedConversationObj?.user?.displayName || ''}
           prefillData={linkModalPrefillData}
         />
 
@@ -613,7 +613,7 @@ export default function UnifiedChatPage() {
           onConfirm={linkCustomerToLineUser}
           onEdit={handleEditCustomerLink}
           customer={selectedCustomerForLink}
-          lineUserName={""} // TODO: Get from selected conversation
+          lineUserName={selectedConversationObj?.user?.displayName || ''}
           loading={customerOps.linkingCustomer}
         />
 

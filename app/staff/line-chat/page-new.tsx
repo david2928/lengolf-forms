@@ -203,7 +203,7 @@ export default function LineChatPage() {
         onClose={() => setShowLinkModal(false)}
         onCustomerSelect={handleCustomerSelection}
         loading={customerOps.linkingCustomer}
-        lineUserName={""} // TODO: Get from selected conversation
+        lineUserName={selectedConversation?.user?.displayName || ''}
       />
 
       <CustomerConfirmationModal
@@ -215,7 +215,7 @@ export default function LineChatPage() {
         onConfirm={linkCustomerToLineUser}
         onEdit={handleEditCustomerLink}
         customer={selectedCustomerForLink}
-        lineUserName={""} // TODO: Get from selected conversation
+        lineUserName={selectedConversation?.user?.displayName || ''}
         loading={customerOps.linkingCustomer}
       />
 
