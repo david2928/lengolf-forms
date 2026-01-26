@@ -16,6 +16,7 @@ interface OBSalesNote {
   response?: string;
   timeline?: string;
   follow_up_required: boolean;
+  follow_up_date?: string; // YYYY-MM-DD format
   booking_submitted: boolean;
   notes: string;
   call_date: string;
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
         response: body.response || null,
         timeline: body.timeline || null,
         follow_up_required: body.follow_up_required || false,
+        follow_up_date: body.follow_up_date || null,
         booking_submitted: body.booking_submitted || false,
         notes: body.notes.trim(),
         call_date: body.call_date || new Date().toISOString().split('T')[0],

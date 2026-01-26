@@ -1,215 +1,87 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { format } from 'date-fns';
-import { Search, Phone, CheckCircle, XCircle, AlertCircle, ChevronLeft, ChevronRight, Clock, Target, Users, Check, X, TrendingUp, TrendingDown, Minus, CalendarClock, CalendarOff, Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Phone, Check, X, TrendingUp, TrendingDown, Minus, CalendarClock, CalendarOff, Loader2, ArrowRight, ArrowLeft, CalendarPlus, Users, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Utility function to format currency
 const formatCurrency = (amount: number | null | undefined): string => {
   if (amount === null || amount === undefined) return '-';
-  return new Intl.NumberFormat('th-TH', { 
-    style: 'currency', 
-    currency: 'THB', 
-    maximumFractionDigits: 0 
+  return new Intl.NumberFormat('th-TH', {
+    style: 'currency',
+    currency: 'THB',
+    maximumFractionDigits: 0
   }).format(amount);
 };
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { KPIMetrics } from '@/components/KPIMetrics';
-
-interface Lead {
-  id: string;
-  full_name?: string;
-  phone_number?: string;
-  email?: string;
-  meta_submitted_at: string;
-  display_name?: string;
-  needs_followup?: boolean;
-  group_size?: string;
-  preferred_time?: string;
-  planned_visit?: string;
-  additional_inquiries?: string;
-  is_opened: boolean;
-  is_followup?: boolean;
-  source: string;
-  time_waiting_minutes: number;
-  speed_to_lead_formatted?: string;
-}
-
-interface FeedbackFormData {
-  was_reachable: boolean;
-  response_type?: 'very_interested' | 'interested_need_time' | 'not_interested' | 'no_clear_answer';
-  visit_timeline?: 'within_1_week' | 'within_month' | 'no_plan';
-  requires_followup: boolean;
-  booking_submitted: boolean;
-  comments: string;
-}
+import { QuickBookingModal } from '@/components/ob-sales/QuickBookingModal';
 
 interface OBNotesFormData {
   reachable: 'yes' | 'no' | '';
   response: 'positive' | 'neutral' | 'negative' | '';
   timeline: string;
   followUp: 'yes' | 'no' | '';
+  followUpDate: string; // YYYY-MM-DD format
+  followUpDateType: '1week' | '2weeks' | 'custom' | ''; // Preset selection
   notes: string;
 }
 
 export default function LeadFeedbackPage() {
-  const [activeTab, setActiveTab] = useState<'new-leads' | 'ob-sales'>('new-leads');
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [openingLead, setOpeningLead] = useState<string | null>(null);
-  
-  // OB Sales state  
-  const [obAudience, setObAudience] = useState<any[]>([]);
-  const [obAudienceInfo, setObAudienceInfo] = useState<any>(null);
-  const [currentCustomerIndex, setCurrentCustomerIndex] = useState(0);
-  const [obLoading, setObLoading] = useState(false);
-  
+
+  // OB Sales queue state
+  const [queueCount, setQueueCount] = useState(0);
+  const [followUpCount, setFollowUpCount] = useState(0);
+  const [queueLoading, setQueueLoading] = useState(false);
+
   // OB Sales view management
   type OBSalesView = 'dashboard' | 'calling' | 'followups';
   const [obView, setObView] = useState<OBSalesView>('dashboard');
   const [followUpCustomers, setFollowUpCustomers] = useState<any[]>([]);
   const [followUpLoading, setFollowUpLoading] = useState(false);
-  
-  // Dashboard stats state
+
+  // Dashboard stats state - new format for OB Sales
   const [dashboardStats, setDashboardStats] = useState({
-    speedToLead: '2.3h',
-    weekAverage: '4.1h',
-    monthAverage: '3.8h',
-    obCalls: 12,
-    obSales: 3,
-    leadSales: 0,
-    leadContacts: 0
-  });
-  
-  const [formData, setFormData] = useState<FeedbackFormData>({
-    was_reachable: true,
-    response_type: undefined,
-    visit_timeline: undefined,
-    requires_followup: false,
-    booking_submitted: false,
-    comments: ''
+    calls: { today: 0, weekAvg: 0 },
+    bookings: { today: 0, weekAvg: 0 },
+    sales: { today: 0, weekAvg: 0 },
   });
 
-  const fetchLeadsWithoutFeedback = async () => {
+  // Load queue metrics from new auto-generated queue
+  const loadQueueMetrics = async () => {
+    setQueueLoading(true);
     try {
-      const response = await fetch('/api/leads/unfeedback');
-      const data = await response.json();
-      
-      if (data.success) {
-        setLeads(data.data);
-        setFilteredLeads(data.data);
-      } else {
-        setErrorMessage('Failed to fetch leads');
-      }
-    } catch (error) {
-      console.error('Error fetching leads:', error);
-      setErrorMessage('Error loading leads');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedLead) {
-      setErrorMessage('Please select a lead');
-      return;
-    }
-
-    setSubmitting(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    try {
-      const response = await fetch('/api/leads/feedback', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          lead_id: selectedLead.id,
-          call_date: format(new Date(), 'yyyy-MM-dd'),
-          ...formData
-        }),
-      });
-
-      const data = await response.json();
-
+      const response = await fetch('/api/ob-sales/queue/metrics');
       if (response.ok) {
-        setSuccessMessage(`Feedback submitted for ${selectedLead.display_name}`);
-        
-        // Reset form
-        setSelectedLead(null);
-        setFormData({
-          was_reachable: true,
-          response_type: undefined,
-          visit_timeline: undefined,
-          requires_followup: false,
-          booking_submitted: false,
-          comments: ''
-        });
-        
-        // Refresh leads list
-        await fetchLeadsWithoutFeedback();
+        const data = await response.json();
+        setQueueCount(data.queueCount || 0);
+        setFollowUpCount(data.followUpCount || 0);
       } else {
-        setErrorMessage(data.error || 'Failed to submit feedback');
+        console.error('Failed to load queue metrics:', response.status);
+        setQueueCount(0);
+        setFollowUpCount(0);
       }
     } catch (error) {
-      console.error('Error submitting feedback:', error);
-      setErrorMessage('Error submitting feedback');
+      console.error('Error loading queue metrics:', error);
+      setQueueCount(0);
+      setFollowUpCount(0);
     } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const loadSelectedAudience = async () => {
-    setObLoading(true);
-    try {
-      // First load fast metrics for dashboard
-      const metricsResponse = await fetch('/api/customer-outreach/audience/metrics');
-      if (metricsResponse.ok) {
-        const metricsData = await metricsResponse.json();
-        setObAudienceInfo(metricsData);
-        
-        // For backward compatibility with existing UI, create a mock audience array
-        // The actual progressive loading happens in OBCallingInterface
-        const mockAudience = Array(metricsData.metrics?.uncalledCustomers || 0).fill({});
-        setObAudience(mockAudience);
-        setCurrentCustomerIndex(0);
-      } else {
-        console.error('Failed to load audience metrics:', metricsResponse.status);
-        setObAudience([]);
-        setObAudienceInfo(null);
-        setCurrentCustomerIndex(0);
-      }
-    } catch (error) {
-      console.error('Error loading audience:', error);
-      setObAudience([]);
-      setObAudienceInfo(null);
-      setCurrentCustomerIndex(0);
-    } finally {
-      setObLoading(false);
+      setQueueLoading(false);
     }
   };
 
   const loadDashboardStats = async () => {
     try {
-      const response = await fetch('/api/dashboard/stats');
+      const response = await fetch('/api/ob-sales/stats');
       if (response.ok) {
         const data = await response.json();
-        setDashboardStats(data.stats);
+        if (data.success) {
+          setDashboardStats(data.stats);
+        }
       } else {
         console.error('Failed to load dashboard stats:', response.status);
       }
@@ -218,15 +90,14 @@ export default function LeadFeedbackPage() {
     }
   };
 
+  // Load follow-up customers from new API
   const loadFollowUpCustomers = useCallback(async () => {
-    if (!obAudienceInfo?.audienceId) return;
-    
     setFollowUpLoading(true);
     try {
-      const response = await fetch(`/api/marketing/ob-sales-notes?follow_up_required=true&audience_id=${obAudienceInfo.audienceId}`);
+      const response = await fetch('/api/ob-sales/followups?offset=0&limit=50');
       if (response.ok) {
         const data = await response.json();
-        setFollowUpCustomers(data.data || []);
+        setFollowUpCustomers(data.customers || []);
       } else {
         console.error('Failed to load follow-up customers:', response.status);
         setFollowUpCustomers([]);
@@ -237,127 +108,29 @@ export default function LeadFeedbackPage() {
     } finally {
       setFollowUpLoading(false);
     }
-  }, [obAudienceInfo?.audienceId]);
-
-  const handleOpenLead = async (leadId: string) => {
-    setOpeningLead(leadId);
-    setErrorMessage('');
-    
-    try {
-      const response = await fetch('/api/leads/open', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ lead_id: leadId }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Refresh leads list to show the newly opened lead
-        await fetchLeadsWithoutFeedback();
-        // Refresh dashboard stats
-        await loadDashboardStats();
-        setSuccessMessage(`Lead opened! Response time: ${data.speed_to_lead_formatted}`);
-        
-        // Auto-select the opened lead for feedback using the returned lead details
-        const openedLeadData = {
-          ...data.lead_details,
-          is_opened: true,
-          is_followup: false,
-          needs_followup: false,
-          time_waiting_minutes: 0,
-          speed_to_lead_formatted: data.speed_to_lead_formatted,
-          source: data.lead_details.form_type || 'Unknown'
-        };
-        setSelectedLead(openedLeadData);
-      } else {
-        setErrorMessage(data.error || 'Failed to open lead');
-      }
-    } catch (error) {
-      console.error('Error opening lead:', error);
-      setErrorMessage('Error opening lead');
-    } finally {
-      setOpeningLead(null);
-    }
-  };
-
-  const getTimeBasedColor = (minutes: number): string => {
-    if (minutes <= 10) return "bg-green-50 border-green-200";
-    if (minutes <= 20) return "bg-yellow-50 border-yellow-200";
-    return "bg-red-50 border-red-200";
-  };
-
-  const getLeadClassName = (lead: Lead, selectedLead: Lead | null): string => {
-    const baseClass = "p-4 md:p-3 border-b border-gray-100 cursor-pointer transition-all duration-300";
-    const isSelected = selectedLead?.id === lead.id;
-    
-    if (isSelected) {
-      return cn(baseClass, 'bg-blue-100 border-l-4 border-l-blue-500 border-blue-300 shadow-lg scale-[1.02] ring-2 ring-blue-200');
-    }
-    
-    if (lead.is_followup) {
-      return cn(baseClass, 'bg-orange-50 border-orange-200 hover:bg-gray-50');
-    }
-    
-    if (lead.is_opened) {
-      return cn(baseClass, 'bg-blue-50 border-blue-200 hover:bg-gray-50');
-    }
-    
-    return cn(baseClass, 'hover:bg-gray-50');
-  };
-
-  const formatDistanceToNow = (date: Date): string => {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days}d`;
-    if (hours > 0) return `${hours}h`;
-    return `${minutes}m`;
-  };
-
-  // All useEffect hooks must come before any early returns
-  useEffect(() => {
-    fetchLeadsWithoutFeedback();
-    loadDashboardStats();
   }, []);
 
-  useEffect(() => {
-    const searchLower = searchTerm.toLowerCase();
-    const filtered = leads.filter(lead => {
-      if (!lead.is_opened && !lead.is_followup) {
-        return lead.source.toLowerCase().includes(searchLower);
-      }
-      
-      return [
-        lead.display_name,
-        lead.phone_number,
-        lead.email,
-        lead.full_name
-      ].some(field => field?.toLowerCase().includes(searchLower));
-    });
-    setFilteredLeads(filtered);
-  }, [searchTerm, leads]);
 
+  // Initialize page - load queue metrics and stats
   useEffect(() => {
-    if (activeTab === 'ob-sales') {
-      loadSelectedAudience();
+    loadQueueMetrics();
+    loadDashboardStats();
+    setLoading(false);
+  }, []);
+
+  // Load follow-ups when entering follow-ups view
+  useEffect(() => {
+    if (obView === 'followups') {
       loadFollowUpCustomers();
     }
-  }, [activeTab, obAudienceInfo?.audienceId, loadFollowUpCustomers]);
-
-  // Removed auto-reload functionality - users can manually refresh if needed
+  }, [obView, loadFollowUpCustomers]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading leads...</p>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
     );
@@ -366,382 +139,62 @@ export default function LeadFeedbackPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="p-4">
-        {/* KPI Metrics visible across both tabs */}
-        <KPIMetrics stats={dashboardStats} activeTab={activeTab} />
-        
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
-          {/* Only show tabs when in dashboard views */}
-          {(activeTab !== 'ob-sales' || obView === 'dashboard') && (
-            <TabsList className="grid w-full grid-cols-2 h-12">
-              <TabsTrigger value="new-leads" className="text-base font-medium">New Leads</TabsTrigger>
-              <TabsTrigger value="ob-sales" className="text-base font-medium">OB Sales</TabsTrigger>
-            </TabsList>
-          )}
-
-        <TabsContent value="new-leads" className="space-y-4">
-
-          {/* Success/Error Messages */}
-          {successMessage && (
-            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded mb-4 flex items-center">
-              <CheckCircle className="h-5 w-5 mr-2" />
-              {successMessage}
-            </div>
-          )}
-
-          {errorMessage && (
-            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded mb-4 flex items-center">
-              <XCircle className="h-5 w-5 mr-2" />
-              {errorMessage}
-            </div>
-          )}
-
-          {/* Lead Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Select Lead</CardTitle>
-            </CardHeader>
-            <CardContent>
-        
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name, phone, or email..."
-            className="w-full pl-10 pr-4 py-3 text-base md:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
-        {/* Leads List */}
-        <div className="max-h-80 md:max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
-          {filteredLeads.length === 0 ? (
-            <p className="text-center py-8 text-gray-500">No leads found</p>
-          ) : (
-            filteredLeads.map((lead) => {
-              // Concealed lead (not opened yet)
-              if (!lead.is_opened && !lead.is_followup) {
-                return (
-                  <div
-                    key={lead.id}
-                    className={cn(
-                      "p-4 md:p-3 border-b border-gray-100 transition-all duration-200",
-                      getTimeBasedColor(lead.time_waiting_minutes),
-                      "hover:shadow-sm"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-sm font-medium text-gray-900">
-                            New lead from {lead.source}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500">
-                          Submitted {formatDistanceToNow(new Date(lead.meta_submitted_at))} ago
-                        </p>
-                      </div>
-                      <Button 
-                        onClick={() => handleOpenLead(lead.id)}
-                        disabled={openingLead === lead.id}
-                        size="sm"
-                        className="shrink-0"
-                      >
-                        {openingLead === lead.id ? 'Opening...' : 'Open Lead'}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              }
-
-              // Revealed lead (opened or follow-up)
-              return (
-                <div
-                  key={lead.id}
-                  onClick={() => setSelectedLead(lead)}
-                  className={getLeadClassName(lead, selectedLead)}
-                >
-                  <div className="space-y-3">
-                    {/* Speed to Lead Metric or Follow-up Badge */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {lead.speed_to_lead_formatted && !lead.is_followup && (
-                          <span className="text-sm font-medium text-blue-700">
-                            Opened in {lead.speed_to_lead_formatted}
-                          </span>
-                        )}
-                        <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                          {lead.source}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {selectedLead?.id === lead.id && (
-                          <span className="bg-green-500 text-white text-xs px-3 py-1 rounded-full flex-shrink-0 font-medium animate-pulse">
-                            ✓ Working On
-                          </span>
-                        )}
-                        {lead.needs_followup && (
-                          <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full flex-shrink-0">
-                            Follow-up
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Lead Details */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-base md:text-sm truncate">{lead.display_name}</p>
-                        </div>
-                        <p className="text-sm md:text-xs text-gray-600 truncate">{lead.email || 'No email'}</p>
-                        <p className="text-xs text-gray-500">
-                          {format(new Date(lead.meta_submitted_at), 'MMM dd, yyyy')}
-                        </p>
-                      </div>
-                      <Phone className="h-5 w-5 text-gray-400 ml-3 flex-shrink-0" />
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Selected Lead Details */}
-        {selectedLead && selectedLead.is_opened && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-semibold mb-2 text-base md:text-sm">Lead Details</h3>
-            {selectedLead.speed_to_lead_formatted && !selectedLead.is_followup && (
-              <div className="mb-3 p-2 bg-blue-100 text-blue-800 rounded text-sm">
-                ⏱️ Response time: {selectedLead.speed_to_lead_formatted}
-              </div>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm md:text-xs">
-              <p><span className="font-medium">Name:</span> {selectedLead.full_name}</p>
-              <p><span className="font-medium">Phone:</span> {selectedLead.phone_number}</p>
-              <p><span className="font-medium">Source:</span> {selectedLead.source}</p>
-              {selectedLead.group_size && (
-                <p><span className="font-medium">Group Size:</span> {selectedLead.group_size}</p>
-              )}
-              {selectedLead.preferred_time && (
-                <p><span className="font-medium">Preferred Time:</span> {selectedLead.preferred_time}</p>
-              )}
-              {selectedLead.planned_visit && (
-                <p className="md:col-span-2"><span className="font-medium">Planned Visit:</span> {selectedLead.planned_visit}</p>
-              )}
-              {selectedLead.additional_inquiries && (
-                <p className="md:col-span-2"><span className="font-medium">Inquiries:</span> {selectedLead.additional_inquiries}</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Message for concealed leads */}
-        {selectedLead && !selectedLead.is_opened && !selectedLead.is_followup && (
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              🔒 Lead details are concealed. Click Open Lead to reveal information and start the feedback process.
+        {/* KPI Metrics with Queue Count */}
+        <div className="relative">
+          <KPIMetrics stats={dashboardStats} />
+          {/* Queue count - subtle gray text with info tooltip */}
+          <div className="flex items-center justify-center gap-1.5 -mt-2 mb-4">
+            <p className="text-sm text-gray-400">
+              {queueCount.toLocaleString()} customers in queue
             </p>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="inline-flex items-center justify-center h-4 w-4 rounded-full border border-gray-300 text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors">
+                    <Info className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs p-3">
+                  <p className="font-medium text-sm mb-2">How is this list generated?</p>
+                  <ul className="text-xs space-y-1 text-muted-foreground">
+                    <li>&bull; Thai phone number required</li>
+                    <li>&bull; No future confirmed bookings</li>
+                    <li>&bull; No visits in last 90 days</li>
+                    <li>&bull; No call attempts in the last 30 days</li>
+                    <li>&bull; No negative interactions in the last 180 days</li>
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-        )}
-            </CardContent>
-          </Card>
+        </div>
 
-          {/* Feedback Form */}
-          {selectedLead && selectedLead.is_opened && (
-            <Card className="border-blue-200 bg-blue-50">
-              <CardHeader className="bg-blue-100">
-                <CardTitle className="text-lg text-blue-900">📞 Call Outcome - Complete the feedback form below</CardTitle>
-                <p className="text-sm text-blue-700 mt-1">Record the result of your call with {selectedLead.full_name}</p>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
-
-                  {/* Was Reachable */}
-                  <div>
-                    <Label className="text-sm font-medium mb-3 block">
-                      Was the customer reachable? <span className="text-red-500">*</span>
-                    </Label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center cursor-pointer">
-                        <input
-                          type="radio"
-                          name="reachable"
-                          checked={formData.was_reachable === true}
-                          onChange={() => setFormData({ ...formData, was_reachable: true })}
-                          className="mr-2 w-4 h-4"
-                        />
-                        <span className="text-sm">Yes</span>
-                      </label>
-                      <label className="flex items-center cursor-pointer">
-                        <input
-                          type="radio"
-                          name="reachable"
-                          checked={formData.was_reachable === false}
-                          onChange={() => setFormData({ ...formData, was_reachable: false })}
-                          className="mr-2 w-4 h-4"
-                        />
-                        <span className="text-sm">No</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Response Type - Only show if reachable */}
-                  {formData.was_reachable && (
-                    <>
-                      <div>
-                        <Label className="text-sm font-medium mb-3 block">
-                          How did the customer respond to the call? <span className="text-red-500">*</span>
-                        </Label>
-                        <Select 
-                          value={formData.response_type || ''} 
-                          onValueChange={(value) => setFormData({ ...formData, response_type: value as FeedbackFormData['response_type'] })}
-                          required={formData.was_reachable}
-                        >
-                          <SelectTrigger className="w-full h-10">
-                            <SelectValue placeholder="Select response..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="very_interested">Very interested</SelectItem>
-                            <SelectItem value="interested_need_time">Interested but need more time</SelectItem>
-                            <SelectItem value="not_interested">Not interested</SelectItem>
-                            <SelectItem value="no_clear_answer">No clear answer</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label className="text-sm font-medium mb-3 block">
-                          When is the customer planning to visit LENGOLF?
-                        </Label>
-                        <Select 
-                          value={formData.visit_timeline || ''} 
-                          onValueChange={(value) => setFormData({ ...formData, visit_timeline: value as FeedbackFormData['visit_timeline'] })}
-                        >
-                          <SelectTrigger className="w-full h-10">
-                            <SelectValue placeholder="Select timeline..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="within_1_week">Within 1 week</SelectItem>
-                            <SelectItem value="within_month">Within this month</SelectItem>
-                            <SelectItem value="no_plan">No plan yet</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Follow-up Required */}
-                  <div>
-                    <Label className="text-sm font-medium mb-3 block">
-                      Does this lead require a follow-up? <span className="text-red-500">*</span>
-                    </Label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center cursor-pointer">
-                        <input
-                          type="radio"
-                          name="followup"
-                          checked={formData.requires_followup === true}
-                          onChange={() => setFormData({ ...formData, requires_followup: true })}
-                          className="mr-2 w-4 h-4"
-                        />
-                        <span className="text-sm">Yes</span>
-                      </label>
-                      <label className="flex items-center cursor-pointer">
-                        <input
-                          type="radio"
-                          name="followup"
-                          checked={formData.requires_followup === false}
-                          onChange={() => setFormData({ ...formData, requires_followup: false })}
-                          className="mr-2 w-4 h-4"
-                        />
-                        <span className="text-sm">No</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Booking Submitted - Only show if reachable */}
-                  {formData.was_reachable && (
-                    <div>
-                      <Label className="text-sm font-medium mb-3 block">
-                        Was the lead successfully closed and booking submitted? <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="flex gap-4">
-                        <label className="flex items-center cursor-pointer">
-                          <input
-                            type="radio"
-                            name="booking"
-                            checked={formData.booking_submitted === true}
-                            onChange={() => setFormData({ ...formData, booking_submitted: true })}
-                            className="mr-2 w-4 h-4"
-                          />
-                          <span className="text-sm">Yes</span>
-                        </label>
-                        <label className="flex items-center cursor-pointer">
-                          <input
-                            type="radio"
-                            name="booking"
-                            checked={formData.booking_submitted === false}
-                            onChange={() => setFormData({ ...formData, booking_submitted: false })}
-                            className="mr-2 w-4 h-4"
-                          />
-                          <span className="text-sm">No</span>
-                        </label>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Comments */}
-                  <div>
-                    <Label className="text-sm font-medium mb-3 block">
-                      Additional Comments (optional):
-                    </Label>
-                    <textarea
-                      value={formData.comments}
-                      onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
-                      rows={4}
-                      className="w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                      placeholder="Enter any additional notes about the call..."
-                    />
-                  </div>
-
-                  {/* Submit Button */}
-                  <Button
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full h-12 text-sm font-medium"
-                  >
-                    {submitting ? 'Submitting...' : 'Submit Feedback'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* OB Sales Tab */}
-        <TabsContent value="ob-sales" className="space-y-4">
+        {/* OB Sales Content */}
+        <div className="space-y-4">
           {obView === 'dashboard' && (
             <OBDashboard
-              audienceCount={obAudience.length}
-              followUpCount={followUpCustomers.length}
+              queueCount={queueCount}
+              followUpCount={followUpCount}
               onStartCalling={() => setObView('calling')}
               onViewFollowUps={() => setObView('followups')}
-              onRefresh={loadSelectedAudience}
-              loading={obLoading}
+              onRefresh={() => {
+                loadQueueMetrics();
+                loadDashboardStats();
+              }}
+              loading={queueLoading}
             />
           )}
-          
+
           {obView === 'calling' && (
             <OBCallingInterface
-              audienceInfo={obAudienceInfo}
-              onBackToDashboard={() => setObView('dashboard')}
+              onBackToDashboard={() => {
+                setObView('dashboard');
+                loadQueueMetrics(); // Refresh counts after calling session
+              }}
               onStatsUpdate={loadDashboardStats}
             />
           )}
-          
+
           {obView === 'followups' && (
             <OBFollowUps
               customers={followUpCustomers}
@@ -750,16 +203,15 @@ export default function LeadFeedbackPage() {
               onRefresh={loadFollowUpCustomers}
             />
           )}
-        </TabsContent>
-        </Tabs>
+        </div>
       </div>
     </div>
   );
 }
 
-// OB Sales Dashboard Component  
+// OB Sales Dashboard Component
 interface OBDashboardProps {
-  audienceCount: number;
+  queueCount: number;
   followUpCount: number;
   onStartCalling: () => void;
   onViewFollowUps: () => void;
@@ -767,24 +219,24 @@ interface OBDashboardProps {
   loading: boolean;
 }
 
-function OBDashboard({ audienceCount, followUpCount, onStartCalling, onViewFollowUps, onRefresh, loading }: OBDashboardProps) {
+function OBDashboard({ queueCount, followUpCount, onStartCalling, onViewFollowUps, onRefresh, loading }: OBDashboardProps) {
   return (
     <div className="space-y-4">
-      <Card>        
+      <Card>
         {/* Mobile-optimized buttons */}
         <CardContent className="space-y-3 p-4">
-          <Button 
-            variant="default" 
-            size="lg" 
+          <Button
+            variant="default"
+            size="lg"
             className="w-full h-14 text-base"
             onClick={onStartCalling}
-            disabled={audienceCount === 0 || loading}
+            disabled={queueCount === 0 || loading}
           >
             <Phone className="h-5 w-5 mr-3" />
-            Start Calling ({audienceCount})
+            Start Calling ({queueCount})
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="lg"
             className="w-full h-14 text-base"
             onClick={onViewFollowUps}
@@ -800,16 +252,16 @@ function OBDashboard({ audienceCount, followUpCount, onStartCalling, onViewFollo
           </Button>
         </CardContent>
       </Card>
-      
-      {audienceCount === 0 && (
+
+      {queueCount === 0 && !loading && (
         <Card>
           <CardContent className="p-6 text-center">
-            <p className="text-muted-foreground mb-4">No audience selected</p>
+            <p className="text-muted-foreground mb-4">No customers in calling queue</p>
             <p className="text-sm text-muted-foreground mb-4">
-              Go to Customer Outreach and select an audience to display here.
+              Customers are automatically added to the queue based on their visit history and call records.
             </p>
             <Button onClick={onRefresh} variant="outline" className="w-full h-12">
-              {loading ? 'Checking...' : 'Check for Selected Audience'}
+              {loading ? 'Checking...' : 'Refresh Queue'}
             </Button>
           </CardContent>
         </Card>
@@ -820,78 +272,80 @@ function OBDashboard({ audienceCount, followUpCount, onStartCalling, onViewFollo
 
 // OB Sales Calling Interface Component
 interface OBCallingInterfaceProps {
-  audienceInfo: any;
   onBackToDashboard: () => void;
   onStatsUpdate: () => void;
 }
 
-function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: OBCallingInterfaceProps) {
+function OBCallingInterface({ onBackToDashboard, onStatsUpdate }: OBCallingInterfaceProps) {
   // Progressive loading state
   const [customerQueue, setCustomerQueue] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [totalIndex, setTotalIndex] = useState(0); // Global position in full audience
+  const [totalIndex, setTotalIndex] = useState(0); // Global position in full queue
+  const [totalCustomers, setTotalCustomers] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true); // Track first load
   const [hasMoreCustomers, setHasMoreCustomers] = useState(true);
-  
+
   const [notesData, setNotesData] = useState<OBNotesFormData>({
     reachable: '',
     response: '',
     timeline: '',
     followUp: '',
+    followUpDate: '',
+    followUpDateType: '',
     notes: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   const currentCustomer = customerQueue[currentIndex];
-  const totalCustomers = audienceInfo?.metrics?.uncalledCustomers || 0;
   const progress = totalCustomers > 0 ? ((totalIndex + 1) / totalCustomers) * 100 : 0;
 
-  // Load customers from API
-  const loadCustomers = useCallback(async (offset: number, limit: number = 10): Promise<{ customers: any[], hasMore: boolean }> => {
-    if (!audienceInfo?.audienceId) {
-      return { customers: [], hasMore: false };
-    }
-
+  // Load customers from new queue API
+  const loadCustomers = useCallback(async (offset: number, limit: number = 10): Promise<{ customers: any[], hasMore: boolean, total: number }> => {
     try {
       setLoading(true);
       const response = await fetch(
-        `/api/customer-outreach/audience/customers?offset=${offset}&limit=${limit}&excludeCalled=true`
+        `/api/ob-sales/queue?offset=${offset}&limit=${limit}`
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         return {
           customers: data.customers || [],
-          hasMore: data.pagination?.hasMore || false
+          hasMore: data.pagination?.hasMore || false,
+          total: data.pagination?.total || 0
         };
       } else {
         console.error('Failed to load customers:', response.status);
-        return { customers: [], hasMore: false };
+        return { customers: [], hasMore: false, total: 0 };
       }
     } catch (error) {
       console.error('Error loading customers:', error);
-      return { customers: [], hasMore: false };
+      return { customers: [], hasMore: false, total: 0 };
     } finally {
       setLoading(false);
     }
-  }, [audienceInfo?.audienceId]);
+  }, []);
 
   // Initialize with first batch of customers
   useEffect(() => {
-    if (audienceInfo?.audienceId && customerQueue.length === 0) {
-      loadCustomers(0, 10).then(({ customers, hasMore }) => {
+    if (customerQueue.length === 0 && initialLoading) {
+      loadCustomers(0, 10).then(({ customers, hasMore, total }) => {
         setCustomerQueue(customers);
         setHasMoreCustomers(hasMore);
+        setTotalCustomers(total);
         setCurrentIndex(0);
         setTotalIndex(0);
+        setInitialLoading(false); // Mark initial load complete
       });
     }
-  }, [audienceInfo?.audienceId, customerQueue.length, loadCustomers]);
+  }, [customerQueue.length, loadCustomers, initialLoading]);
 
   // Pre-fetch next customers when getting close to end of queue
   useEffect(() => {
     const shouldPreFetch = currentIndex >= customerQueue.length - 3 && hasMoreCustomers && !loading;
-    
+
     if (shouldPreFetch) {
       const nextOffset = totalIndex - currentIndex + customerQueue.length;
       loadCustomers(nextOffset, 10).then(({ customers, hasMore }) => {
@@ -904,15 +358,16 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
       });
     }
   }, [currentIndex, customerQueue.length, hasMoreCustomers, loading, totalIndex, loadCustomers]);
-  
+
   // Validation states
   const isReachableSet = notesData.reachable !== '';
   const isFollowUpSet = notesData.followUp !== '';
-  const hasNotes = notesData.notes.trim().length > 0;
   // Response is only required if reachable is 'yes'
   const isResponseValid = notesData.reachable === 'no' || (notesData.reachable === 'yes' && notesData.response !== '');
+  // Follow-up date is required when follow-up is 'yes'
+  const isFollowUpDateValid = notesData.followUp === 'no' || (notesData.followUp === 'yes' && notesData.followUpDate !== '');
   // Call notes are optional - not required for form validation
-  const isFormValid = isReachableSet && isFollowUpSet && isResponseValid;
+  const isFormValid = isReachableSet && isFollowUpSet && isResponseValid && isFollowUpDateValid;
 
   const resetForm = () => {
     setNotesData({
@@ -920,8 +375,30 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
       response: '',
       timeline: '',
       followUp: '',
+      followUpDate: '',
+      followUpDateType: '',
       notes: ''
     });
+  };
+
+  // Helper function to calculate follow-up date
+  const getFollowUpDate = (type: '1week' | '2weeks'): string => {
+    const date = new Date();
+    if (type === '1week') {
+      date.setDate(date.getDate() + 7);
+    } else if (type === '2weeks') {
+      date.setDate(date.getDate() + 14);
+    }
+    return date.toISOString().split('T')[0];
+  };
+
+  // Handle follow-up date type selection
+  const handleFollowUpDateType = (type: '1week' | '2weeks' | 'custom') => {
+    if (type === 'custom') {
+      setNotesData({ ...notesData, followUpDateType: 'custom', followUpDate: '' });
+    } else {
+      setNotesData({ ...notesData, followUpDateType: type, followUpDate: getFollowUpDate(type) });
+    }
   };
 
   const advanceToNext = () => {
@@ -940,15 +417,15 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
       }, 1500);
       return;
     }
-    
+
     resetForm();
   };
 
   const handleSave = async () => {
     if (!isFormValid || !currentCustomer) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const response = await fetch('/api/marketing/ob-sales-notes', {
         method: 'POST',
@@ -961,6 +438,7 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
           response: notesData.response || null,
           timeline: notesData.timeline || null,
           follow_up_required: notesData.followUp === 'yes',
+          follow_up_date: notesData.followUp === 'yes' ? notesData.followUpDate : null,
           notes: notesData.notes.trim() || 'No additional notes',
           call_date: new Date().toISOString().split('T')[0]
         })
@@ -968,7 +446,7 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
 
       if (response.ok) {
         onStatsUpdate();
-        
+
         // Auto-advance to next customer
         setTimeout(() => {
           advanceToNext();
@@ -984,11 +462,23 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
     }
   };
 
+  // Show loading spinner during initial load
+  if (initialLoading || (loading && customerQueue.length === 0)) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading customers...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!currentCustomer) {
     return (
       <Card>
         <CardContent className="p-8 text-center">
-          <p className="text-muted-foreground mb-4">No customers in audience</p>
+          <p className="text-muted-foreground mb-4">No customers in queue</p>
           <Button onClick={onBackToDashboard} variant="outline">
             Back to Dashboard
           </Button>
@@ -1010,11 +500,11 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
               Back
             </Button>
           </div>
-          
+
           {/* Phone */}
           <div>
             {currentCustomer.contact_number ? (
-              <a 
+              <a
                 href={`tel:${currentCustomer.contact_number}`}
                 className="block w-full"
               >
@@ -1029,7 +519,7 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
               </div>
             )}
           </div>
-            
+
           {/* Package Status */}
           {currentCustomer.last_package_name && (
             <div className="flex items-center justify-between p-4 bg-white rounded-lg border-l-4 border-purple-500 shadow-sm">
@@ -1054,7 +544,7 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
               </div>
             </div>
           )}
-          
+
           {/* Metrics Row */}
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center p-4 bg-emerald-50 rounded-lg border border-emerald-200">
@@ -1068,10 +558,10 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
             <div className="text-center p-4 bg-slate-50 rounded-lg border border-slate-200">
               <div className="text-xs text-slate-600 font-medium mb-1">Last Visit</div>
               <div className="text-sm font-bold text-slate-800">
-                {currentCustomer.last_visit_date ? 
+                {currentCustomer.last_visit_date ?
                   new Date(currentCustomer.last_visit_date).toLocaleDateString('en-GB', {
                     day: '2-digit',
-                    month: '2-digit', 
+                    month: '2-digit',
                     year: 'numeric'
                   }).replace(/\//g, '/') : 'Never'}
               </div>
@@ -1116,7 +606,8 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
 
         {/* Response - Only show if reachable */}
         {notesData.reachable === 'yes' && (
-          <div className="p-4 bg-white">
+          <>
+            <div className="p-4 bg-white">
               <Label className="text-base font-semibold mb-4 block text-gray-800">
                 How did they respond?
               </Label>
@@ -1159,6 +650,20 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
                 </Button>
               </div>
             </div>
+
+            {/* Make Booking Button - Shows when reachable */}
+            <div className="p-4 bg-white">
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full h-14 border-2 border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400"
+                onClick={() => setShowBookingModal(true)}
+              >
+                <CalendarPlus className="h-5 w-5 mr-2" />
+                Make Booking
+              </Button>
+            </div>
+          </>
         )}
 
         {/* Follow-up Required */}
@@ -1174,7 +679,7 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
                   "h-14 transition-all",
                   notesData.followUp === 'yes' ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600" : "hover:bg-amber-50 hover:border-amber-300"
                 )}
-                onClick={() => setNotesData({ ...notesData, followUp: 'yes' })}
+                onClick={() => setNotesData({ ...notesData, followUp: 'yes', followUpDate: '', followUpDateType: '' })}
               >
                 <CalendarClock className="h-5 w-5 mr-2" />
                 Yes
@@ -1186,13 +691,77 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
                   "h-14 transition-all",
                   notesData.followUp === 'no' ? "bg-gray-600 hover:bg-gray-700 text-white border-gray-600" : "hover:bg-gray-50 hover:border-gray-300"
                 )}
-                onClick={() => setNotesData({ ...notesData, followUp: 'no' })}
+                onClick={() => setNotesData({ ...notesData, followUp: 'no', followUpDate: '', followUpDateType: '' })}
               >
                 <CalendarOff className="h-5 w-5 mr-2" />
                 No
               </Button>
             </div>
           </div>
+
+        {/* Follow-up Date Selection - Only show if follow-up is 'yes' */}
+        {notesData.followUp === 'yes' && (
+          <div className="p-4 bg-white">
+            <Label className="text-base font-semibold mb-4 block text-gray-800">
+              When should we follow up?
+            </Label>
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <Button
+                variant={notesData.followUpDateType === '1week' ? 'default' : 'outline'}
+                size="default"
+                className={cn(
+                  "h-12 transition-all",
+                  notesData.followUpDateType === '1week' ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600" : "hover:bg-amber-50 hover:border-amber-300"
+                )}
+                onClick={() => handleFollowUpDateType('1week')}
+              >
+                1 Week
+              </Button>
+              <Button
+                variant={notesData.followUpDateType === '2weeks' ? 'default' : 'outline'}
+                size="default"
+                className={cn(
+                  "h-12 transition-all",
+                  notesData.followUpDateType === '2weeks' ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600" : "hover:bg-amber-50 hover:border-amber-300"
+                )}
+                onClick={() => handleFollowUpDateType('2weeks')}
+              >
+                2 Weeks
+              </Button>
+              <Button
+                variant={notesData.followUpDateType === 'custom' ? 'default' : 'outline'}
+                size="default"
+                className={cn(
+                  "h-12 transition-all",
+                  notesData.followUpDateType === 'custom' ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600" : "hover:bg-amber-50 hover:border-amber-300"
+                )}
+                onClick={() => handleFollowUpDateType('custom')}
+              >
+                <CalendarPlus className="h-4 w-4 mr-1" />
+                Custom
+              </Button>
+            </div>
+
+            {/* Custom date picker */}
+            {notesData.followUpDateType === 'custom' && (
+              <input
+                type="date"
+                className="w-full p-4 text-base border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-gray-50"
+                value={notesData.followUpDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setNotesData({ ...notesData, followUpDate: e.target.value })}
+                style={{ fontSize: '16px' }}
+              />
+            )}
+
+            {/* Show selected date */}
+            {notesData.followUpDate && notesData.followUpDateType !== 'custom' && (
+              <div className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                Follow-up scheduled for: <span className="font-semibold">{new Date(notesData.followUpDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Notes */}
         <div className="p-4 bg-white">
@@ -1240,12 +809,12 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
             <div className="flex items-center gap-1">
               <div className={cn(
                 "h-2 w-2 rounded-full",
-                isFollowUpSet ? "bg-green-500" : "bg-gray-300"
+                isFollowUpSet && isFollowUpDateValid ? "bg-green-500" : "bg-gray-300"
               )} />
               <span className="text-xs text-muted-foreground">Follow-up</span>
             </div>
           </div>
-          
+
           {/* Save Button */}
           <Button
             variant={isFormValid ? "default" : "secondary"}
@@ -1268,6 +837,26 @@ function OBCallingInterface({ audienceInfo, onBackToDashboard, onStatsUpdate }: 
           </Button>
         </div>
       </div>
+
+      {/* Quick Booking Modal */}
+      {currentCustomer && (
+        <QuickBookingModal
+          isOpen={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
+          customer={{
+            id: currentCustomer.id,
+            name: currentCustomer.customer_name,
+            phone: currentCustomer.contact_number || '',
+          }}
+          onSuccess={(bookingId) => {
+            // Update notes to mention booking was made
+            setNotesData(prev => ({
+              ...prev,
+              notes: prev.notes ? `${prev.notes}\nBooking created: ${bookingId}` : `Booking created: ${bookingId}`
+            }));
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1310,7 +899,7 @@ function OBFollowUps({ customers, loading, onBackToDashboard, onRefresh }: OBFol
             </CardTitle>
           </div>
         </CardHeader>
-        
+
         {customers.length === 0 ? (
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground mb-4">No follow-ups scheduled</p>
@@ -1321,20 +910,34 @@ function OBFollowUps({ customers, loading, onBackToDashboard, onRefresh }: OBFol
         ) : (
           <CardContent className="p-0">
             <div className="divide-y">
-              {customers.map((item, index) => (
-                <div key={index} className="p-4 hover:bg-accent transition-colors">
+              {customers.map((customer, index) => (
+                <div key={customer.id || index} className="p-4 hover:bg-accent transition-colors">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <p className="font-medium">{item.customer_name || 'Unknown Customer'}</p>
+                      <p className="font-medium">{customer.customer_name || 'Unknown Customer'}</p>
                       <p className="text-sm text-muted-foreground">
-                        Last call: {new Date(item.created_at).toLocaleDateString()} • {item.response || 'No response recorded'}
+                        {customer.follow_up_date ? (
+                          <>Follow-up: {new Date(customer.follow_up_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                        ) : customer.last_call_date ? (
+                          <>Last call: {new Date(customer.last_call_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                        ) : (
+                          'No date'
+                        )}
+                        {customer.last_call_response && ` • ${customer.last_call_response}`}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        &ldquo;{item.notes}&rdquo;
-                      </p>
+                      {customer.last_call_notes && (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                          &ldquo;{customer.last_call_notes}&rdquo;
+                        </p>
+                      )}
+                      {/* Customer value info */}
+                      <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                        <span>Value: {formatCurrency(customer.lifetime_spending)}</span>
+                        <span>Visits: {customer.total_bookings || 0}</span>
+                      </div>
                     </div>
-                    {item.customer_phone && (
-                      <a href={`tel:${item.customer_phone}`}>
+                    {customer.contact_number && (
+                      <a href={`tel:${customer.contact_number}`}>
                         <Button variant="outline" size="sm">
                           <Phone className="h-4 w-4" />
                         </Button>

@@ -255,6 +255,16 @@ export default function CustomerOutreachPage() {
         <div />
       </ActionBar>
 
+      {/* Disabled Banner - OB calling queue is now auto-generated */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <p className="text-amber-800 font-medium">
+          This page is currently not in use. The OB calling queue is now auto-generated based on customer visit history and call records.
+        </p>
+        <p className="text-amber-700 text-sm mt-1">
+          Customers are automatically added to the queue if they have a Thai phone number, no future booking, no visit in 90 days, and meet call history criteria.
+        </p>
+      </div>
+
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'builder' | 'line')} className="space-y-6">
         <TabsList>
           <TabsTrigger value="builder">Audience Builder</TabsTrigger>
