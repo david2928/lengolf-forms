@@ -36,7 +36,8 @@ npm run dev
 
 ### Key Commands
 ```bash
-npm run dev          # Development server with PRODUCTION Supabase (default)
+npm run dev          # Development server + logs to dev.log (Claude CLI can read)
+npm run dev:nolog    # Development server without log file
 npm run dev:local    # Development server with LOCAL Docker Supabase (for testing migrations)
 npm run dev:mobile   # Development server with mobile testing info and QR code
 npm run build        # Production build
@@ -458,6 +459,15 @@ SCRAPER_API_KEY=your_api_key
 ### Development Workflow
 - `npm run dev` is usually running and skip auth is already set to true when local
 - Scraper service runs separately on port 8080 for local testing
+
+### Dev Server Logs (Claude Code CLI Access)
+- **Log File**: `dev.log` in project root - auto-generated when running `npm run dev`
+- **How it works**: `npm run dev` pipes all server output to both console AND `dev.log`
+- **Claude CLI can read logs**: Use `cat dev.log` or ask to "check the logs" / "read dev.log"
+- **Use cases**: Debug runtime errors, check API responses, monitor compilation
+- **Script**: `scripts/dev-with-logs.js` handles the dual output
+- **Note**: `dev.log` is in `.gitignore` - not committed to repo
+- **Alternative**: `npm run dev:nolog` runs without logging to file
 
 
 ### Custom Product Feature (Added Jan 2025)

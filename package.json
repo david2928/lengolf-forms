@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node -e \"try{require('fs').unlinkSync('.env.local')}catch(e){}\" && next dev -H 0.0.0.0",
+    "dev": "node scripts/dev-with-logs.js",
+    "dev:nolog": "node -e \"try{require('fs').unlinkSync('.env.local')}catch(e){}\" && next dev -H 0.0.0.0",
     "dev:local": "node scripts/dev-local.js",
     "dev:mobile": "node scripts/dev-mobile.js",
     "build": "next build",
