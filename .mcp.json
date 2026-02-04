@@ -1,0 +1,46 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "node",
+      "args": [
+        "node_modules/@supabase/mcp-server-supabase/dist/transports/stdio.js",
+        "--project-ref",
+        "bisimqmtxjsptehhqpeg"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "sbp_9c7c95fac35989bfc693dd7793a06c01aac32c6d"
+      }
+    },
+    "playwright": {
+      "command": "node",
+      "args": ["node_modules/@playwright/mcp/cli.js", "--headless"],
+      "env": {
+        "PLAYWRIGHT_BROWSERS_PATH": "0"
+      }
+    },
+    "bigquery": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@ergut/mcp-bigquery-server",
+        "--project-id",
+        "lengolf-booking-system-436804",
+        "--location",
+        "asia-southeast1"
+      ],
+      "env": {
+        "BIGQUERY_PROJECT": "lengolf-booking-system-436804"
+      }
+    },
+    "google-analytics": {
+      "command": "python",
+      "args": ["-m", "ga4_mcp"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "C:\\Users\\Chris\\.claude\\lengolf-forms-068030e39310.json",
+        "GA4_PROPERTY_ID": "455853230"
+      }
+    }
+  }
+}
