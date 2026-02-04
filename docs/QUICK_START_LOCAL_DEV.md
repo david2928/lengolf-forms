@@ -48,7 +48,7 @@ cp .env.local.develop .env.local
 ### 4. Link Supabase CLI to Dev Branch
 
 ```bash
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase link --project-ref <dev-branch-project-id>
 ```
 
@@ -68,7 +68,7 @@ npm run dev
 #    ALTER TABLE backoffice.customers ADD COLUMN tags TEXT[];
 
 # 4. Generate migration file
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npm run db:diff add_customer_tags
 
 # 5. Test locally (your app is already connected to dev branch)
@@ -160,7 +160,7 @@ npm run dev  # Restart dev server
 **"Migration failed on dev branch"**
 ```bash
 # Check what went wrong
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase migration list
 
 # Fix the SQL, then push again
@@ -170,7 +170,7 @@ npx supabase db push
 **"Want to start fresh on dev branch"**
 ```bash
 # Delete and recreate (copies latest production schema)
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase branches delete develop
 npx supabase --experimental branches create --persistent develop
 ```

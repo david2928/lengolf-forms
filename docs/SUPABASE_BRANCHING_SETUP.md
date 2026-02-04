@@ -169,7 +169,7 @@ git push
 
 3. **Generate migration file:**
    ```bash
-   export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+   export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
    npx supabase db diff -f add_customer_tags
    ```
 
@@ -199,7 +199,7 @@ git push
 The Supabase access token is already configured in `.mcp.json`. For CLI usage, you can export it:
 
 ```bash
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 ```
 
 Or add it to your shell profile for persistence.

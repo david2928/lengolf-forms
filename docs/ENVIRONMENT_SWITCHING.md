@@ -173,7 +173,7 @@ git commit -m "feat: Add tags to staff table"
 git push
 
 # Apply to production
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npm run db:link  # Link to production
 npx supabase db push  # Push migrations to production
 ```

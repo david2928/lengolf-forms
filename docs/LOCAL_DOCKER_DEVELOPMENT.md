@@ -237,7 +237,7 @@ git push
 **Now push to production:**
 
 ```bash
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 
 # Link to production (if not already linked)
 npx supabase link --project-ref bisimqmtxjsptehhqpeg
@@ -337,7 +337,7 @@ npm run dev
 ### Apply Migrations to Production:
 
 ```bash
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase link --project-ref bisimqmtxjsptehhqpeg
 npx supabase db push
 ```
@@ -363,7 +363,7 @@ If you want realistic production data locally:
 
 ```bash
 # 1. Dump production data
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase db dump \
   --linked \
   --data-only \

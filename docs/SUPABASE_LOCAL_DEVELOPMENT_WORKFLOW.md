@@ -66,7 +66,7 @@ The branch will:
 ### Option B: Via CLI (Alternative)
 
 ```bash
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase --experimental branches create --persistent develop
 ```
 
@@ -81,7 +81,7 @@ npx supabase --experimental branches create --persistent develop
 
 ### Via CLI:
 ```bash
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase branches list
 ```
 
@@ -118,7 +118,7 @@ SKIP_AUTH=true
 ### Link Supabase CLI to Development Branch
 
 ```bash
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 
 # Unlink from production first
 npx supabase unlink
@@ -162,7 +162,7 @@ CREATE INDEX idx_customers_tags ON backoffice.customers USING GIN(tags);
 
 Apply to dev branch:
 ```bash
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase db push
 ```
 
@@ -171,7 +171,7 @@ npx supabase db push
 If you made changes via the Dashboard, generate a migration file:
 
 ```bash
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 
 # Generate migration from schema diff
 npm run db:diff add_customer_tags
@@ -210,7 +210,7 @@ VALUES
 
 Apply seed data to develop branch:
 ```bash
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 
 # Note: Seeding persistent branches requires enabling in config.toml
 # For now, run the SQL manually in SQL Editor
@@ -265,7 +265,7 @@ Your `develop` branch can stay active for future work. It costs ~$0.32/day.
 
 If you want to save costs:
 ```bash
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase branches delete develop
 ```
 
@@ -275,7 +275,7 @@ npx supabase branches delete develop
 
 ```bash
 # Link to dev branch
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase link --project-ref <dev-branch-project-id>
 
 # Update .env.local to dev branch credentials
@@ -287,7 +287,7 @@ npm run dev
 
 ```bash
 # Link back to production
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase link --project-ref bisimqmtxjsptehhqpeg
 
 # Update .env.local to production credentials
@@ -372,7 +372,7 @@ npx supabase link --project-ref <dev-branch-project-id>
 npx supabase migration list
 
 # View migration history
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase db remote commit
 ```
 
@@ -380,7 +380,7 @@ npx supabase db remote commit
 
 ```bash
 # Pull latest schema from dev branch
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase db pull
 ```
 
@@ -389,7 +389,7 @@ npx supabase db pull
 Delete and recreate the dev branch:
 ```bash
 # Delete
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+export SUPABASE_ACCESS_TOKEN="your_supabase_personal_access_token"
 npx supabase branches delete develop
 
 # Recreate (copies current production schema)
