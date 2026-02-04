@@ -192,8 +192,8 @@ See complete guide: [Local Development Workflow](docs/SUPABASE_LOCAL_DEVELOPMENT
 
 **Quick Workflow (Direct to PR):**
 ```bash
-# Create migration file
-export SUPABASE_ACCESS_TOKEN="sbp_4a7b3363ee6de35786a1fff556286c59c47396e9"
+# Create migration file (use your personal access token from Supabase Dashboard)
+export SUPABASE_ACCESS_TOKEN="$SUPABASE_ACCESS_TOKEN"  # Set in your shell profile or .env.local
 npm run db:diff migration_name
 
 # Commit and push to GitHub
