@@ -83,34 +83,51 @@ The framework provides a roadmap for scalable administrative functionality while
 ## Tech Stack
 
 ### Frontend Technologies
-- **Framework**: Next.js 14.2.20 (App Router)
+- **Framework**: Next.js 15.5.7 (App Router)
+- **React**: React 19.1.1
 - **Language**: TypeScript 5.3.3
 - **Styling**: Tailwind CSS 3.4.1
-- **UI Components**: Radix UI, Shadcn/UI
-- **Forms**: React Hook Form 7.50.0
-- **State Management**: SWR 2.2.5, React Context
-- **Date Handling**: date-fns 3.6.0, date-fns-tz 3.2.0
+- **UI Components**: Radix UI, Shadcn/UI, Lucide React
+- **Forms**: React Hook Form 7.60.0 with Yup validation
+- **State Management**: SWR 2.2.5, TanStack React Query 5.90.12, React Context
+- **Date Handling**: date-fns 3.6.0, date-fns-tz 3.2.0, Luxon 3.4.4
+- **Charts & Visualization**: Recharts 2.15.4
+- **Animations**: Framer Motion 12.23.6
+- **Calendar Components**: React Big Calendar 1.19.2, React Day Picker 9.9.0
+- **Data Tables**: TanStack React Table 8.21.3
+- **Drag & Drop**: DND Kit (core, sortable, utilities)
+- **File Upload**: React Dropzone 14.3.8
+- **Phone Input**: React Phone Number Input 3.4.14
+- **Signature Capture**: React Signature Canvas
 
 ### Backend Technologies
 - **Runtime**: Node.js (Serverless Functions)
 - **API Framework**: Next.js API Routes
-- **Database**: PostgreSQL (via Supabase 2.47.6)
+- **Database**: PostgreSQL (via Supabase 2.57.4)
 - **Authentication**: NextAuth.js 4.24.7
 - **Caching**: NodeCache 5.1.2
-- **File Processing**: CSV Parser 3.2.0
+- **File Processing**: CSV Parser 3.2.0, ExcelJS 4.4.0
+- **Image Processing**: Sharp 0.34.3
+- **AI Integration**: OpenAI 5.22.1 (GPT-4o-mini, embeddings)
+- **Push Notifications**: Web Push 3.6.7
+- **QR Code Generation**: QRCode 1.5.4, PromptPay QR 0.5.0
+- **Thermal Printing**: Node Thermal Printer 4.5.0
 
 ### External Integrations
 - **Calendar**: Google Calendar API (googleapis 144.0.0)
-- **Messaging**: LINE Messaging API
+- **Messaging**: LINE Messaging API, WhatsApp Business API (Meta)
 - **Authentication Provider**: Google OAuth 2.0
-- **Cloud Services**: Google Cloud Run
-- **CRM Integration**: Custom Cloud Run service
+- **Cloud Services**: Google Cloud Run, Supabase Edge Functions
+- **AI Services**: OpenAI GPT-4o-mini for chat suggestions
+- **Business APIs**: Google Business Profile (Reviews), Meta Ads
+- **POS Integration**: Qashier POS system
 
 ### Infrastructure & Deployment
 - **Hosting**: Vercel (Serverless)
 - **Database Hosting**: Supabase (Managed PostgreSQL)
 - **CDN**: Vercel Edge Network
-- **Environment**: Production, Staging environments
+- **Testing**: Playwright 1.54.1, Jest 30.1.2
+- **Environment**: Production, Preview (PR branches), Development
 
 ## Project Structure
 
@@ -141,10 +158,10 @@ The documentation covers all aspects of the system, from high-level architecture
 - **[docs/technical/DATABASE_SCHEMA.md](docs/technical/DATABASE_SCHEMA.md)** - Complete database structure and relationships
 
 **Feature Documentation:**
-- **[docs/features/BOOKING_SYSTEM.md](docs/features/BOOKING_SYSTEM.md)** - Complete booking management workflow with multi-step creation, calendar integration, and audit trails
-- **[docs/features/PACKAGE_MANAGEMENT.md](docs/features/PACKAGE_MANAGEMENT.md)** - Customer packages, usage tracking, expiration monitoring, and unlimited package support
-- **[docs/features/ADMIN_PANEL.md](docs/features/ADMIN_PANEL.md)** - Administrative interface with role-based access and business intelligence tools
-- **[docs/features/SALES_DASHBOARD.md](docs/features/SALES_DASHBOARD.md)** - Comprehensive analytics with KPIs, charts, and flexible date filtering
+- **[docs/features/public/booking-scheduling/BOOKING_SYSTEM.md](docs/features/public/booking-scheduling/BOOKING_SYSTEM.md)** - Complete booking management workflow with multi-step creation, calendar integration, and audit trails
+- **[docs/features/public/customer-packages/PACKAGE_MANAGEMENT.md](docs/features/public/customer-packages/PACKAGE_MANAGEMENT.md)** - Customer packages, usage tracking, expiration monitoring, and unlimited package support
+- **[docs/features/admin/system-management/ADMIN_PANEL.md](docs/features/admin/system-management/ADMIN_PANEL.md)** - Administrative interface with role-based access and business intelligence tools
+- **[docs/features/admin/analytics/SALES_DASHBOARD.md](docs/features/admin/analytics/SALES_DASHBOARD.md)** - Comprehensive analytics with KPIs, charts, and flexible date filtering
 
 ### 🎯 Documentation Highlights
 
@@ -170,13 +187,63 @@ The documentation covers all aspects of the system, from high-level architecture
 ### 📖 Quick Navigation
 
 - **For Developers**: Start with [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md) → [Frontend Overview](docs/frontend/FRONTEND_OVERVIEW.md) → [Backend Documentation](docs/BACKEND_DOCUMENTATION.md)
-- **For System Administrators**: [Admin Panel](docs/features/ADMIN_PANEL.md) → [Sales Dashboard](docs/features/SALES_DASHBOARD.md) → [Database Schema](docs/technical/DATABASE_SCHEMA.md)
-- **For Feature Understanding**: [Booking System](docs/features/BOOKING_SYSTEM.md) → [Package Management](docs/features/PACKAGE_MANAGEMENT.md)
+- **For System Administrators**: [Admin Panel](docs/features/admin/system-management/ADMIN_PANEL.md) → [Sales Dashboard](docs/features/admin/analytics/SALES_DASHBOARD.md) → [Database Schema](docs/technical/DATABASE_SCHEMA.md)
+- **For Feature Understanding**: [Booking System](docs/features/public/booking-scheduling/BOOKING_SYSTEM.md) → [Package Management](docs/features/public/customer-packages/PACKAGE_MANAGEMENT.md)
 - **For Integration Work**: [Backend Documentation](docs/BACKEND_DOCUMENTATION.md) → [Database Schema](docs/technical/DATABASE_SCHEMA.md)
 
 The documentation is maintained alongside the codebase and updated with each major feature release to ensure accuracy and completeness.
 
 ## Recent Changes
+
+### Google Reviews Integration (February 2025)
+
+A comprehensive Google Reviews management system has been implemented:
+
+**Phase 1 - Reviews Dashboard:**
+- **Reviews Dashboard**: View and analyze all Google reviews in one place
+- **KPI Tracking**: Monitor review ratings, response rates, and trends
+- **Filtering**: Filter by rating, date range, and response status
+- **Sync via Edge Function**: Automated sync using Supabase Edge Functions for reliability
+
+**Phase 2 - Manual Reply Posting:**
+- **Reply Composition**: Write and post replies directly from the dashboard
+- **Google Business API Integration**: Direct posting to Google Business Profile
+- **Reply History**: Track all posted replies with timestamps
+
+### AI-Powered Chat System (January 2025)
+
+Enhanced chat capabilities with AI-powered features:
+
+**Features:**
+- **AI Chat Suggestions**: GPT-4o-mini powered response suggestions
+- **Customer Info Extraction**: Automatic extraction of customer details from chat messages
+- **Multi-Platform Support**: LINE, WhatsApp, and web chat integration
+- **SLA Tracking**: Monitor response times and chat performance
+
+### OB Calling Queue System (January 2025)
+
+Automated outbound calling queue generation:
+
+**Features:**
+- **Eligibility Rules**: Auto-generate queue based on customer eligibility criteria
+- **KPI Metrics**: Track calling performance and conversion rates
+- **Staff Assignment**: Assign calls to specific staff members
+- **Follow-up Tracking**: Monitor call outcomes and schedule follow-ups
+
+### Booking System Enhancements (January 2025)
+
+Multiple improvements to the booking workflow:
+
+**New Features:**
+- **Phone Confirmation Tracking**: Track and manage booking confirmations via phone
+- **International Phone Support**: Country code selector for international customers
+- **Customer Self-Service Step**: New step in booking flow for customer data entry
+- **WhatsApp Support**: Send booking confirmations via WhatsApp
+- **ResOS Badge**: Visual indicator for unconfirmed booking cards
+
+**Technical Improvements:**
+- **Excel Date Handling**: Support for merged cells and JS Date formats in reconciliation
+- **Dash-Delimited Dates**: Additional date format parsing support
 
 ### Customer Management System Implementation (January 2025)
 
@@ -335,37 +402,72 @@ A new package monitoring feature has been added allowing staff to:
 
 ### Admin Section Implementation
 
-A dedicated admin section has been implemented to provide enhanced management capabilities:
+A comprehensive admin section with 26+ management modules:
 
-- **Admin Dashboard**: Central hub for administrative tools and system overview
-- **Sales Dashboard**: Comprehensive analytics and reporting suite
-- **Role-Based Access**: Binary admin role system with middleware protection
-- **Enhanced Navigation**: Conditional admin menu items for privileged users
-- **Future Expansion**: Framework for advanced admin features (inventory, analytics, user management)
-- **Secure Authentication**: Admin role detection integrated with existing Google OAuth flow
+**Analytics & Reporting:**
+- **Sales Dashboard**: Real-time sales analytics with KPIs, charts, and trends
+- **Finance Dashboard**: Financial overview and reporting
+- **Marketing Dashboard**: Google Ads and Meta Ads performance tracking
+- **Meta Ads Dashboard**: Detailed Meta advertising analytics
+- **Referral Analytics**: Track referral sources and conversion rates
+- **Performance Dashboard**: Staff and system performance metrics
 
-**Current Features**: Admin dashboard with sales analytics, system management tools
-**Planned Features**: Advanced analytics, inventory management, staff management, system settings
+**Customer & Operations:**
+- **Customer Management**: Complete customer database with search and filtering
+- **Customer Outreach**: OB calling queue and follow-up management
+- **Chat SLA Tracking**: Monitor chat response times and SLA compliance
+- **Google Reviews**: Review management and reply posting
+- **LINE Messages**: View and manage LINE message history
+
+**Inventory & Products:**
+- **Inventory Dashboard**: Track stock levels and inventory movements
+- **Product Management**: Manage POS product catalog
+- **Discounts Management**: Create and manage discount codes
+
+**Financial Operations:**
+- **Transactions**: View and manage all transactions
+- **Invoices**: Invoice generation and management
+- **Reconciliation**: POS data reconciliation tools
+- **Sales Reports**: Detailed sales reporting
+
+**Staff Management:**
+- **Staff Management**: Employee records and access control
+- **Staff Scheduling**: Shift scheduling and management
+- **Time Clock**: Employee time tracking
+- **Payroll Calculations**: Automated payroll processing
+
+**Additional Features:**
+- **Package Management**: Admin view of customer packages
+- **Competitors**: Competitor tracking and analysis
+- **Photo Management**: Customer and facility photo management
+- **Meta Leads**: Facebook/Instagram lead management
+
+**Technical Implementation:**
+- Role-based access with middleware protection
+- Conditional navigation for admin users
+- Secure authentication via Google OAuth
 
 ## Environment Setup
 
-The application requires several environment variables to be set up properly:
+The application requires several environment variables to be set up properly. See `.env` for a complete template.
 
 ### Database Configuration
 ```bash
-# Primary Supabase Instance (Legacy)
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-
-# Refactored Supabase Instance (Current)
+# Refactored Supabase Instance (Primary - Current)
 NEXT_PUBLIC_REFAC_SUPABASE_URL=your-refac-supabase-url
 NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY=your-refac-supabase-anon-key
 REFAC_SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# Admin System Database Tables (backoffice schema):
-# - allowed_users: User whitelist with is_admin flag
-# - customers: Customer management
-# - package_types: Package definitions
+# Legacy Supabase Instance (Deprecated)
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+
+# Database Schemas:
+# - public: Core booking tables
+# - backoffice: Customer, package, admin tables
+# - pos: POS transaction data
+# - marketing: Marketing analytics data
+# - auth: Supabase authentication (managed)
 ```
 
 ### Google Services Configuration
@@ -377,13 +479,22 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_PROJECT_ID=your-google-project-id
 
-# Google Calendar IDs
+# Google Calendar IDs (Bay Bookings)
 BAY_1_CALENDAR_ID=your-bay1-calendar-id
 BAY_2_CALENDAR_ID=your-bay2-calendar-id
 BAY_3_CALENDAR_ID=your-bay3-calendar-id
+
+# Google Calendar IDs (Coaching)
 COACHING_BOSS_CALENDAR_ID=your-coaching-calendar-id
 COACHING_RATCHAVIN_CALENDAR_ID=your-ratchavin-coaching-calendar-id
 COACHING_NOON_CALENDAR_ID=your-noon-coaching-calendar-id
+
+# Google Business Profile (Reviews)
+GOOGLE_BUSINESS_ACCOUNT_ID=your-business-account-id
+GOOGLE_BUSINESS_LOCATION_ID=your-business-location-id
+
+# Google Sheets (Data Export)
+GOOGLE_SHEET_ID=your-sheet-id
 ```
 
 ### Messaging & Notifications
@@ -395,6 +506,38 @@ LINE_GROUP_ID=default-group-id
 LINE_GROUP_RATCHAVIN_ID=ratchavin-group-id
 LINE_GROUP_COACHING_ID=coaching-group-id
 LINE_GROUP_NOON_ID=noon-group-id
+LINE_GROUP_MIN_ID=min-group-id
+LINE_GROUP_SEXY_PIZZA_ID=partner-group-id
+LINE_GROUP_SMITH_CO_ID=partner-group-id
+
+# LINE Notify Tokens (Legacy)
+LINE_TOKEN_DEFAULT=default-notify-token
+LINE_TOKEN_RATCHAVIN=ratchavin-notify-token
+LINE_TOKEN_COACHING=coaching-notify-token
+
+# Meta/WhatsApp Integration
+META_APP_SECRET=your-meta-app-secret
+META_PAGE_ACCESS_TOKEN=your-page-access-token
+META_WEBHOOK_VERIFY_TOKEN=your-webhook-verify-token
+META_WA_PHONE_NUMBER_ID=your-whatsapp-phone-id
+
+# Push Notifications (VAPID)
+VAPID_PRIVATE_KEY=your-vapid-private-key
+VAPID_SUBJECT=mailto:admin@yourdomain.com
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=your-vapid-public-key
+```
+
+### AI & Machine Learning
+```bash
+# OpenAI Configuration
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+
+# AI Feature Flags
+AI_SUGGESTION_ENABLED=true
+AI_CONFIDENCE_THRESHOLD=0.6
+AI_EMBEDDING_SECRET=your-embedding-secret
 ```
 
 ### Authentication
@@ -402,11 +545,30 @@ LINE_GROUP_NOON_ID=noon-group-id
 # NextAuth Configuration
 NEXTAUTH_URL=your-app-url
 NEXTAUTH_SECRET=your-nextauth-secret
+
+# Vercel OIDC (Auto-populated on Vercel)
+VERCEL_OIDC_TOKEN=auto-populated
+```
+
+### External Integrations
+```bash
+# Qashier POS Integration
+QASHIER_LOGIN=base64-encoded-login
+QASHIER_PASSWORD=base64-encoded-password
+
+# Webhook Security
+CRON_SECRET=your-cron-secret
+WEBSITE_WEBHOOK_SECRET=your-webhook-secret
 ```
 
 ### Development Environment
 ```bash
-# Optional: Development-specific variables
+# Development Authentication Bypass
+SKIP_AUTH=true
+NEXT_SKIP_AUTH=true
+NEXT_PUBLIC_SKIP_AUTH=true
+
+# Environment Indicator
 NODE_ENV=development
 NEXT_PUBLIC_APP_ENV=development
 ```

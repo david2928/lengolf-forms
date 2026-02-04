@@ -42,6 +42,8 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 ### Customer Communication
 - **[Unified Chat System](./features/public/customer-chat/UNIFIED_CHAT_SYSTEM.md)** - Multi-channel messaging platform (LINE + Website chat) with real-time updates
 - **[Unified Chat Architecture](./features/public/customer-chat/UNIFIED_CHAT_ARCHITECTURE.md)** - Technical architecture, components, and state management patterns
+- **[AI Chat Suggestions](./features/public/customer-chat/AI_CHAT_SUGGESTIONS.md)** - GPT-4o-mini powered response suggestions with confidence scoring
+- **[AI Function Calling](./features/public/customer-chat/AI_FUNCTION_CALLING_IMPLEMENTATION.md)** - AI-powered customer info extraction from chat messages
 - **[Unified Chat API Reference](./features/public/customer-chat/UNIFIED_CHAT_API_REFERENCE.md)** - Complete API documentation for all chat endpoints
 - **[Unified Chat Database](./features/public/customer-chat/UNIFIED_CHAT_DATABASE.md)** - Database schema, views, and relationship documentation
 - **[Unified Chat Development Guide](./features/public/customer-chat/UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)** - Developer implementation guide with testing strategies
@@ -71,6 +73,9 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 
 ### Sales & Analytics
 - **[Sales Dashboard](./features/admin/analytics/SALES_DASHBOARD.md)** - KPIs, charts, and business analytics
+- **[Finance Dashboard](./features/admin/analytics/FINANCE_DASHBOARD.md)** - Financial overview and revenue tracking
+- **[Marketing Dashboard](./features/admin/analytics/MARKETING_DASHBOARD.md)** - Google Ads and Meta Ads unified marketing analytics
+- **[Meta Ads Dashboard](./features/admin/analytics/META_ADS_DASHBOARD.md)** - Facebook/Instagram advertising analytics
 - **[Chat SLA Tracking System](./features/admin/analytics/CHAT_SLA_TRACKING_SYSTEM.md)** - Multi-channel chat response time monitoring and staff performance analytics with 10-minute SLA compliance
 - **[Lead Feedback System](./features/admin/analytics/LEAD_FEEDBACK_SYSTEM.md)** - Comprehensive lead processing and OB sales management with Customer Outreach integration
 - **[Google Ads Analytics](./features/admin/analytics/GOOGLE_ADS_ANALYTICS.md)** - Google Ads campaign tracking and ROI analysis
@@ -175,11 +180,11 @@ The following documentation files contain overlapping content and should be cons
 
 ### By Role
 - **🆕 New Developers**: [Project Structure](./PROJECT_STRUCTURE.md) → [Development Authentication](./technical/DEVELOPMENT_AUTHENTICATION.md) → [API Reference](./api/API_REFERENCE.md)
-- **🔧 System Administrators**: [Admin Panel](./features/ADMIN_PANEL.md) → [Database Schema](./database/DATABASE_DOCUMENTATION_INDEX.md) → [Customer Management System](./features/CUSTOMER_MANAGEMENT_SYSTEM.md)
-- **👥 Business Users**: [Booking System](./features/BOOKING_SYSTEM.md) → [Package Management](./features/PACKAGE_MANAGEMENT.md) → [Sales Dashboard](./features/SALES_DASHBOARD.md)
-- **🏌️ Coaches**: [Coaching System](./features/COACHING_SYSTEM.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md)
-- **⚙️ Operations Managers**: [Staff Management System](./features/STAFF_MANAGEMENT_SYSTEM.md) → [Staff Scheduling System](./features/STAFF_SCHEDULING_SYSTEM.md) → [Time Clock System](./features/TIME_CLOCK_SYSTEM.md)
-- **🔗 Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [WhatsApp Business API](./integrations/WHATSAPP_BUSINESS_API_SETUP.md) → [Calendar Integration](./features/CALENDAR_INTEGRATION.md)
+- **🔧 System Administrators**: [Admin Panel](./features/admin/system-management/ADMIN_PANEL.md) → [Database Schema](./database/DATABASE_DOCUMENTATION_INDEX.md) → [Customer Management System](./features/public/customer-packages/CUSTOMER_MANAGEMENT_SYSTEM.md)
+- **👥 Business Users**: [Booking System](./features/public/booking-scheduling/BOOKING_SYSTEM.md) → [Package Management](./features/public/customer-packages/PACKAGE_MANAGEMENT.md) → [Sales Dashboard](./features/admin/analytics/SALES_DASHBOARD.md)
+- **🏌️ Coaches**: [Coaching System](./features/public/coaching/COACHING_SYSTEM.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md)
+- **⚙️ Operations Managers**: [Staff Management System](./features/admin/system-management/STAFF_MANAGEMENT_SYSTEM.md) → [Staff Scheduling System](./features/public/staff-operations/STAFF_SCHEDULING_SYSTEM.md) → [Time Clock System](./features/public/staff-operations/TIME_CLOCK_SYSTEM.md)
+- **🔗 Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [WhatsApp Business API](./integrations/WHATSAPP_BUSINESS_API_SETUP.md) → [Calendar Integration](./features/public/booking-scheduling/CALENDAR_INTEGRATION.md)
 - **💬 Chat System Developers**: [Unified Chat System](./features/public/customer-chat/UNIFIED_CHAT_SYSTEM.md) → [Chat Architecture](./features/public/customer-chat/UNIFIED_CHAT_ARCHITECTURE.md) → [Chat Development Guide](./features/public/customer-chat/UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
 
 ### By Feature Category
@@ -205,17 +210,20 @@ The following documentation files contain overlapping content and should be cons
 
 ## 📊 Current Documentation Status
 
-**Last Updated**: January 2025  
-**Version**: 3.0 - Reorganized Structure  
-**Focus**: User-centric organization matching application structure  
+**Last Updated**: February 2025
+**Version**: 3.1 - Tech Stack Updates (Next.js 15.5, React 19.1)
+**Focus**: User-centric organization matching application structure
 
 ### ✅ Fully Documented Features (95%+ Complete)
-- **Booking & Scheduling**: Complete workflow from creation to management
-- **Customer Management**: Unified system with stable IDs and analytics  
+- **Booking & Scheduling**: Complete workflow from creation to management with phone confirmation tracking
+- **Customer Management**: Unified system with stable IDs and analytics
 - **POS System**: Full point-of-sale documentation with mobile optimization
 - **Staff Management**: Time tracking, scheduling, and payroll systems
 - **Admin Analytics**: Sales dashboards, Google Ads analytics, referral tracking, and business intelligence
 - **Technical Systems**: APIs, authentication, database, and integrations
+- **AI Chat System**: GPT-4o-mini powered suggestions and customer extraction
+- **Google Reviews**: Reviews dashboard with manual reply posting capability
+- **OB Calling Queue**: Auto-generated customer outreach lists
 
 ### 🔄 Consolidation Needed
 1. **Customer Management Files**: Merge `CUSTOMER_MANAGEMENT.md` into `CUSTOMER_MANAGEMENT_SYSTEM.md`

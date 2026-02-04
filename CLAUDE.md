@@ -51,7 +51,7 @@ npm run typecheck    # TypeScript validation
 
 ## Architecture
 
-**Tech Stack:** Next.js 14, TypeScript, Tailwind CSS, Supabase, NextAuth.js
+**Tech Stack:** Next.js 15.5, React 19.1, TypeScript, Tailwind CSS, Supabase 2.57, NextAuth.js
 
 **Directory Structure:**
 ```
@@ -523,15 +523,33 @@ SCRAPER_API_KEY=your_api_key
 
 ## Environment Variables
 
-Required (see `.env.example`):
-```
+Required (see `.env` for complete list with 55+ variables):
+```bash
+# Database (Primary)
 NEXT_PUBLIC_REFAC_SUPABASE_URL=
+NEXT_PUBLIC_REFAC_SUPABASE_ANON_KEY=
 REFAC_SUPABASE_SERVICE_ROLE_KEY=
+
+# Authentication
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 NEXTAUTH_SECRET=
+NEXTAUTH_URL=
+
+# Messaging
 LINE_CHANNEL_ACCESS_TOKEN=
+LINE_CHANNEL_SECRET=
+LINE_GROUP_ID=
+
+# AI Features
+OPENAI_API_KEY=
+AI_SUGGESTION_ENABLED=true
+
+# Development Bypass
+SKIP_AUTH=true  # Set in .env.local for local dev
 ```
+
+See `README.md` for complete environment variable documentation including Google Calendar IDs, Meta/WhatsApp integration, push notifications (VAPID), and more.
 
 ## Deployment
 
