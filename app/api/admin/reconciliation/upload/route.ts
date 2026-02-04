@@ -324,10 +324,31 @@ async function parseExcelFile(file: File, config: any, reconciliationType: strin
     const records: any[][] = [];
     worksheet.eachRow((row, rowNumber) => {
       const rowData: any[] = [];
-      row.eachCell((cell, colNumber) => {
-        // Get the displayed value (formatted text) rather than raw value
-        rowData[colNumber - 1] = cell.text || cell.value || '';
-      });
+      // Use column count to ensure we capture all cells including empty ones
+      const colCount = worksheet.columnCount || 20;
+      for (let colNumber = 1; colNumber <= colCount; colNumber++) {
+        const cell = row.getCell(colNumber);
+        let cellValue = '';
+        try {
+          // Try to get the text value first (handles formatting)
+          // cell.text can throw on merged cells, so wrap in try-catch
+          cellValue = cell.text || '';
+        } catch {
+          // Fallback to raw value if text fails (e.g., merged cells)
+          const rawValue = cell.value;
+          if (rawValue === null || rawValue === undefined) {
+            cellValue = '';
+          } else if (rawValue instanceof Date) {
+            cellValue = rawValue.toISOString();
+          } else if (typeof rawValue === 'object') {
+            // Handle rich text or other object types
+            cellValue = rawValue.toString?.() || '';
+          } else {
+            cellValue = String(rawValue);
+          }
+        }
+        rowData[colNumber - 1] = cellValue;
+      }
       records.push(rowData);
     });
 
@@ -343,27 +364,27 @@ async function parseExcelFile(file: File, config: any, reconciliationType: strin
     for (let i = 0; i < records.length; i++) {
       const row = records[i] as string[];
       if (row && row.length > 0) {
-        const nonEmptyValues = row.filter(cell => cell && cell.toString().trim() !== '');
+        const nonEmptyValues = row.filter(cell => cell != null && String(cell).trim() !== '');
         if (nonEmptyValues.length >= 3) {
           let matchCount = 0;
           for (const cell of row) {
-            if (cell && allExpectedHeaders.includes(cell.toString().toLowerCase())) {
+            if (cell != null && allExpectedHeaders.includes(String(cell).toLowerCase())) {
               matchCount++;
             }
           }
-          
+
           if (matchCount >= 3) {
             headerRowIndex = i;
-            headers = row.map(h => h.toString());
+            headers = row.map(h => h != null ? String(h) : '');
             break;
           }
         }
       }
     }
-    
+
     if (headerRowIndex === -1) {
       headerRowIndex = 0;
-      headers = (records[0] as any[]).map(h => h.toString());
+      headers = (records[0] as any[]).map(h => h != null ? String(h) : '');
     }
     
     const dataRows = records.slice(headerRowIndex + 1);
@@ -502,7 +523,32 @@ function parseDate(dateStr: string, formats: string[], reconciliationType?: stri
   const str = dateStr.toString().trim();
   
   console.log(`🔍 Parsing date: "${str}"`);
-  
+
+  // Handle JavaScript Date.toString() format: "Fri Jan 30 2026 07:00:00 GMT+0700 (Indochina Time)"
+  const jsDateMatch = str.match(/^[A-Za-z]{3}\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
+  if (jsDateMatch) {
+    const [, monthStr, day, year] = jsDateMatch;
+    const monthMap: Record<string, number> = {
+      'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+      'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+    };
+    const month = monthMap[monthStr];
+    if (month) {
+      const result = { year: parseInt(year), month, day: parseInt(day) };
+      console.log(`📅 Parsed JS Date format: ${result.year}-${result.month}-${result.day}`);
+      return result;
+    }
+  }
+
+  // Handle ISO format with time: "2026-01-30T00:00:00.000Z" or similar
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    const result = { year: parseInt(year), month: parseInt(month), day: parseInt(day) };
+    console.log(`📅 Parsed ISO format: ${result.year}-${result.month}-${result.day}`);
+    return result;
+  }
+
   // Check for Excel serial number first (common issue)
   const serialMatch = str.match(/^\d{4,6}$/);
   if (serialMatch) {
