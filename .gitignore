@@ -51,3 +51,6 @@ next-env.d.ts
 
 # claude code configuration (ignore only personal settings, keep project configs)
 .claude/settings*.json
+
+# audit files (sensitive financial/tax documents)
+/audit/

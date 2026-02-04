@@ -570,7 +570,43 @@ function parseDate(dateStr: string, formats: string[], reconciliationType?: stri
     console.log(`📅 Parsed as YYYY-MM-DD: ${result.year}-${result.month}-${result.day}`);
     return result;
   }
-  
+
+  // MM-DD-YYYY or DD-MM-YYYY format (with dash delimiter)
+  const dashDateMatch = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dashDateMatch) {
+    const [, first, second, year] = dashDateMatch;
+    const firstInt = parseInt(first);
+    const secondInt = parseInt(second);
+
+    console.log(`📅 Dash date parts: ${firstInt}-${secondInt}-${year}`);
+
+    // If first number > 12, it must be day (DD-MM-YYYY)
+    if (firstInt > 12) {
+      const result = { year: parseInt(year), month: secondInt, day: firstInt };
+      console.log(`📅 Parsed as DD-MM-YYYY: ${result.year}-${result.month}-${result.day}`);
+      return result;
+    }
+    // If second number > 12, it must be day (MM-DD-YYYY)
+    if (secondInt > 12) {
+      const result = { year: parseInt(year), month: firstInt, day: secondInt };
+      console.log(`📅 Parsed as MM-DD-YYYY: ${result.year}-${result.month}-${result.day}`);
+      return result;
+    }
+
+    // Ambiguous case - check reconciliation type for format preference
+    if (reconciliationType === 'smith_and_co_restaurant' || reconciliationType === 'restaurant') {
+      // Thai data uses DD-MM-YYYY format
+      const result = { year: parseInt(year), month: secondInt, day: firstInt };
+      console.log(`📅 Parsed as DD-MM-YYYY (Thai format for ${reconciliationType}): ${result.year}-${result.month}-${result.day}`);
+      return result;
+    } else {
+      // Default to MM-DD-YYYY for other types (US format)
+      const result = { year: parseInt(year), month: firstInt, day: secondInt };
+      console.log(`📅 Parsed as MM-DD-YYYY (default for ${reconciliationType}): ${result.year}-${result.month}-${result.day}`);
+      return result;
+    }
+  }
+
   // Single MM/DD/YYYY match (redundant but kept for clarity)
   const mmddyyyyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (mmddyyyyMatch) {

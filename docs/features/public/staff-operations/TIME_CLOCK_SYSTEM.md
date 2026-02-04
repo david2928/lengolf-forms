@@ -382,6 +382,109 @@ NEXTAUTH_SECRET=your_nextauth_secret
 - Photo URLs generated with signed access for security
 - Comprehensive error handling and response codes
 
-**Last Updated**: July 2025  
-**System Status**: Production Ready  
+---
+
+## Common Database Queries
+
+### Get Staff Hours for a Month
+
+```sql
+-- Calculate hours worked per day for a specific staff member
+WITH clock_pairs AS (
+  SELECT
+    te.timestamp::date AS work_date,
+    te.timestamp AS clock_in_time,
+    (
+      SELECT MIN(te2.timestamp)
+      FROM backoffice.time_entries te2
+      WHERE te2.staff_id = te.staff_id
+        AND te2.action = 'clock_out'
+        AND te2.timestamp > te.timestamp
+        AND te2.timestamp < te.timestamp + INTERVAL '24 hours'
+    ) AS clock_out_time
+  FROM backoffice.time_entries te
+  WHERE te.action = 'clock_in'
+    AND te.staff_id = :staff_id           -- Replace with staff ID from backoffice.staff
+    AND te.timestamp >= '2026-01-01'      -- Start of month
+    AND te.timestamp < '2026-02-01'       -- Start of next month
+),
+daily_hours AS (
+  SELECT
+    work_date,
+    SUM(EXTRACT(EPOCH FROM (clock_out_time - clock_in_time)) / 3600) AS hours_worked
+  FROM clock_pairs
+  WHERE clock_out_time IS NOT NULL
+  GROUP BY work_date
+)
+SELECT
+  work_date,
+  ROUND(hours_worked::numeric, 2) AS hours_worked
+FROM daily_hours
+ORDER BY work_date;
+```
+
+### Get Monthly Summary for All Staff
+
+```sql
+WITH clock_pairs AS (
+  SELECT
+    te.staff_id,
+    s.staff_name,
+    te.timestamp::date AS work_date,
+    te.timestamp AS clock_in_time,
+    (
+      SELECT MIN(te2.timestamp)
+      FROM backoffice.time_entries te2
+      WHERE te2.staff_id = te.staff_id
+        AND te2.action = 'clock_out'
+        AND te2.timestamp > te.timestamp
+        AND te2.timestamp < te.timestamp + INTERVAL '24 hours'
+    ) AS clock_out_time
+  FROM backoffice.time_entries te
+  JOIN backoffice.staff s ON te.staff_id = s.id
+  WHERE te.action = 'clock_in'
+    AND te.timestamp >= '2026-01-01'
+    AND te.timestamp < '2026-02-01'
+)
+SELECT
+  staff_name,
+  COUNT(DISTINCT work_date) AS days_worked,
+  ROUND(SUM(EXTRACT(EPOCH FROM (clock_out_time - clock_in_time)) / 3600)::numeric, 2) AS total_hours
+FROM clock_pairs
+WHERE clock_out_time IS NOT NULL
+GROUP BY staff_id, staff_name
+ORDER BY staff_name;
+```
+
+### Find Missing Clock-Outs
+
+```sql
+-- Find clock_in entries without matching clock_out (data issues)
+SELECT
+  s.staff_name,
+  te.timestamp AS clock_in_time,
+  te.id AS entry_id
+FROM backoffice.time_entries te
+JOIN backoffice.staff s ON te.staff_id = s.id
+WHERE te.action = 'clock_in'
+  AND NOT EXISTS (
+    SELECT 1 FROM backoffice.time_entries te2
+    WHERE te2.staff_id = te.staff_id
+      AND te2.action = 'clock_out'
+      AND te2.timestamp > te.timestamp
+      AND te2.timestamp < te.timestamp + INTERVAL '24 hours'
+  )
+ORDER BY te.timestamp DESC;
+```
+
+### Key Tables Reference
+
+| Table | Schema | Purpose |
+|-------|--------|---------|
+| `backoffice.staff` | Staff records | Staff ID, name, PIN hash, active status |
+| `backoffice.time_entries` | Time records | Clock in/out actions with timestamps |
+| `backoffice.staff_compensation` | Pay rates | Salary, hourly rates, effective dates |
+
+**Last Updated**: February 2026
+**System Status**: Production Ready
 **Performance**: Optimized for sub-second response times
