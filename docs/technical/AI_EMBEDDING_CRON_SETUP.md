@@ -34,7 +34,7 @@ git push origin main
 
 In Vercel dashboard, add:
 ```
-AI_EMBEDDING_SECRET=d4394ae4b093724886759686ae1a738fefc986f5e9228eb554d0f3d7eacc40bd
+AI_EMBEDDING_SECRET=your_cron_api_secret_here
 ```
 
 **Important:** Redeploy after adding the environment variable.
@@ -52,7 +52,7 @@ SELECT cron.schedule(
     SELECT net.http_get(
         url := 'https://lengolf-forms.vercel.app/api/ai/generate-embeddings',
         headers := jsonb_build_object(
-            'Authorization', 'Bearer d4394ae4b093724886759686ae1a738fefc986f5e9228eb554d0f3d7eacc40bd'
+            'Authorization', 'Bearer your_cron_api_secret_here'
         )
     ) AS request_id;
     $$
@@ -86,7 +86,7 @@ Before waiting for the cron job, test manually:
 
 ```bash
 curl -X GET https://lengolf-forms.vercel.app/api/ai/generate-embeddings \
-  -H "Authorization: Bearer d4394ae4b093724886759686ae1a738fefc986f5e9228eb554d0f3d7eacc40bd"
+  -H "Authorization: Bearer your_cron_api_secret_here"
 ```
 
 Expected response:
