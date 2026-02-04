@@ -12,6 +12,26 @@ const path = require('path');
 // Log file path (in project root)
 const logFile = path.join(__dirname, '..', 'dev.log');
 
+// Strip ANSI escape codes for clean log file output
+const stripAnsi = (str) => str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+
+// Get timestamp for log entries
+const getTimestamp = () => {
+  const now = new Date();
+  return now.toISOString().replace('T', ' ').substring(0, 19);
+};
+
+// Add timestamp to each line (skip empty lines and lines that are just whitespace)
+const addTimestamps = (text) => {
+  return text.split('\n').map((line, idx, arr) => {
+    // Don't add timestamp to last empty line from split
+    if (idx === arr.length - 1 && line === '') return '';
+    // Don't add timestamp to empty/whitespace-only lines
+    if (line.trim() === '') return line;
+    return `[${getTimestamp()}] ${line}`;
+  }).join('\n');
+};
+
 // Clear previous log file
 fs.writeFileSync(logFile, `=== Dev server started at ${new Date().toISOString()} ===\n\n`);
 
@@ -35,18 +55,20 @@ const nextDev = spawn('npx', ['next', 'dev', '-H', '0.0.0.0'], {
   env: { ...process.env, FORCE_COLOR: '1' }
 });
 
-// Pipe stdout to both console and file
+// Pipe stdout to both console (with colors) and file (clean, with timestamps)
 nextDev.stdout.on('data', (data) => {
   const text = data.toString();
   process.stdout.write(text);
-  logStream.write(text);
+  const cleanText = addTimestamps(stripAnsi(text));
+  if (cleanText) logStream.write(cleanText + '\n');
 });
 
-// Pipe stderr to both console and file
+// Pipe stderr to both console (with colors) and file (clean, with timestamps)
 nextDev.stderr.on('data', (data) => {
   const text = data.toString();
   process.stderr.write(text);
-  logStream.write(text);
+  const cleanText = addTimestamps(stripAnsi(text));
+  if (cleanText) logStream.write(cleanText + '\n');
 });
 
 // Handle process exit
