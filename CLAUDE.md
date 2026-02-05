@@ -2,6 +2,51 @@
 
 Essential instructions for working with the Lengolf Forms codebase.
 
+## 🏢 Business Context (CRITICAL - Read First)
+
+**Lengolf is a golf simulator/bay rental business in Bangkok, Thailand.**
+
+### Revenue Model - IMPORTANT
+- **Primary Revenue**: Bay bookings (hourly rental of golf simulator bays)
+- **Secondary Revenue**: Coaching sessions (paid instruction with golf pros)
+- **Other Revenue**: POS transactions (food, drinks, accessories), packages
+- **⚠️ Club Rentals are FREE** - Golf club rentals are complimentary with bay bookings, NOT a separate revenue line item
+
+### Before Analyzing Pricing or Revenue Data
+1. **ASK clarifying questions** about the business model rather than making assumptions
+2. Club rentals = FREE with bay bookings (do not analyze as revenue)
+3. Bay bookings = PRIMARY revenue source
+4. Coaching = SEPARATE revenue stream (not included in bay booking price)
+5. Packages = Pre-paid bundles of bay hours or coaching sessions
+
+### Key Business Rules
+- Operating hours: Typically 10:00 AM - 10:00 PM (varies by day)
+- Bay types: Standard bays, VIP bays (premium pricing)
+- Customer types: Walk-in, members, package holders
+- Booking durations: 1 hour minimum, typically 1-3 hours
+
+## 📊 Data Analysis Guidelines
+
+### Before Starting Any Analysis
+1. **Verify assumptions** - Query the schema first to understand table relationships
+2. **Ask clarifying questions** - If pricing model or business rules are unclear
+3. **Use TodoWrite** - Break complex analyses into tracked steps for resumability
+4. **Cross-validate results** - Check findings against at least 2 data points before presenting
+
+### Common Analysis Pitfalls to Avoid
+- ❌ Assuming club rentals generate revenue (they are FREE)
+- ❌ Conflating bay booking revenue with coaching revenue
+- ❌ Making pricing recommendations without understanding bundling
+- ❌ Analyzing partial data without noting limitations
+
+### Multi-Step Analysis Pattern
+For complex business analyses, always:
+1. Create a TodoWrite checklist of steps
+2. Query and document relevant table schemas first
+3. Validate assumptions with test queries
+4. Present findings with confidence levels
+5. Flag anomalies for human review rather than making assumptions
+
 ## 📖 Documentation-First Development
 
 **IMPORTANT:** This project has comprehensive, organized documentation. Always check the documentation before implementing features or making changes.
@@ -588,8 +633,19 @@ if (process.env.NODE_ENV === 'development') {
 
 ## MCP Tools Available
 
-**Database (Read-Only):** `mcp__supabase__execute_sql`, `mcp__supabase__list_tables`
-**Development:** `mcp__supabase__get_logs`, `mcp__supabase__generate_typescript_types`
+### Database Access
+**Primary Lengolf Database:** Use `mcp__supabase__execute_sql` for all Lengolf business data
+- Schemas: `public`, `backoffice`, `pos`, `marketing`
+- Bay bookings, customers, packages, coaching, POS transactions
+
+**Wedding Database (if available):** Use `mcp__supabase_wedding__execute_sql` for wedding-related queries
+- Separate Supabase instance for wedding planning/guest management
+
+**Tool Reference:**
+- `mcp__supabase__execute_sql` - Query Lengolf production data (READ-ONLY)
+- `mcp__supabase__list_tables` - List tables in Lengolf database
+- `mcp__supabase__get_logs` - Debug Supabase logs
+- `mcp__supabase__generate_typescript_types` - Generate TypeScript types
 
 **⚠️ Migration Policy:**
 - Use `execute_sql` for **querying data only** (SELECT statements)

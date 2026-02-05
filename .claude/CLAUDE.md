@@ -117,6 +117,14 @@ Use auto-accept mode only after verification
 Use claude -p for headless operations
 Use /terminal-setup to optimize terminal configuration
 
+Session Management
+
+IMPORTANT: After creating a plan or starting a significant task, ALWAYS suggest renaming the session:
+1. Generate a concise, descriptive session name based on the task (e.g., "fix-booking-validation", "add-pos-reports", "refactor-auth-flow")
+2. Ask the user: "Would you like me to rename this session? Suggested name: `[name]`. Run `/rename [name]` to apply."
+3. Keep session names: lowercase, hyphenated, max 30 chars, descriptive of the main goal
+4. This helps restore sessions easily with `claude --resume [name]`
+
 File and Project Management
 
 Always work from project root directory

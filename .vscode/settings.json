@@ -1,3 +1,21 @@
 {
-    "typescript.autoClosingTags": false
+    "typescript.autoClosingTags": false,
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "terminal.integrated.profiles.windows": {
+        "PowerShell": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell"
+        },
+        "Command Prompt": {
+            "path": "C:\\Windows\\System32\\cmd.exe",
+            "icon": "terminal-cmd"
+        },
+        "Git Bash": {
+            "source": "Git Bash"
+        }
+    },
+    "terminal.integrated.tabs.title": "${sequence}",
+    "terminal.integrated.tabs.description": "${cwdFolder}",
+    "terminal.integrated.tabs.enableAnimation": true,
+    "terminal.integrated.tabs.location": "right"
 }
