@@ -208,6 +208,9 @@ export interface TypingUser {
   lastTypedAt: number;
 }
 
+// Filter types for conversation sidebar
+export type ConversationFilter = 'all' | 'following' | 'spam' | 'assigned' | 'opportunities';
+
 // Component prop types
 export interface ConversationSidebarProps {
   selectedConversation: string | null;
@@ -224,6 +227,11 @@ export interface ConversationSidebarProps {
   toggleSpam?: (conversationId: string, channelType: string, currentSpamStatus: boolean) => Promise<void>;
   // Refresh function
   onRefresh?: () => void;
+  // Opportunities
+  onOpenOpportunities?: () => void;
+  opportunityConversationIds?: string[];
+  activeFilter?: ConversationFilter;
+  onFilterChange?: (filter: ConversationFilter) => void;
 }
 
 // Ref interface for ConversationSidebar
@@ -260,6 +268,17 @@ export interface ChatAreaProps {
   onUserTyping?: () => void;
 }
 
+// Opportunity data for sidebar display
+export interface ConversationOpportunity {
+  id: string;
+  opportunity_type: string;
+  priority: string;
+  status: string;
+  analysis_summary?: string;
+  suggested_action?: string;
+  created_at: string;
+}
+
 export interface CustomerSidebarProps {
   selectedConversation: string | null;
   selectedConversationObj?: Conversation | null;
@@ -267,6 +286,9 @@ export interface CustomerSidebarProps {
   onShowLinkModal?: () => void;
   messages?: Message[]; // Messages for extraction
   onShowLinkModalWithPrefill?: (prefillData: { fullName?: string; primaryPhone?: string; email?: string }) => void;
+  // Opportunity data
+  opportunity?: ConversationOpportunity | null;
+  onOpenOpportunity?: (opportunityId: string) => void;
 }
 
 export interface MessageInputProps {

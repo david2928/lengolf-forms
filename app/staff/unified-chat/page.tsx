@@ -9,7 +9,7 @@ import { CustomerLinkModal } from '@/components/admin/line-chat/CustomerLinkModa
 import { CustomerConfirmationModal } from '@/components/admin/line-chat/CustomerConfirmationModal';
 import { CuratedImageModal } from '@/components/line/CuratedImageModal';
 import { TemplateSelector } from '@/components/line/TemplateSelector';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, X } from 'lucide-react';
 
 // Import our new components and hooks
 import { ConversationSidebar, ConversationSidebarRef } from '../line-chat/components/ConversationSidebar';
@@ -24,6 +24,7 @@ import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 import { useAISuggestions } from '@/hooks/useAISuggestions';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { AISuggestionCard, AISuggestion } from '@/components/ai/AISuggestionCard';
+import { OpportunitiesTab } from '@/components/chat-opportunities';
 
 export default function UnifiedChatPage() {
   // Core state - using unified chat system
@@ -32,6 +33,78 @@ export default function UnifiedChatPage() {
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [showMobileCustomer, setShowMobileCustomer] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Opportunities modal state
+  const [showOpportunities, setShowOpportunities] = useState(false);
+  const [opportunityConversationIds, setOpportunityConversationIds] = useState<string[]>([]);
+  const [conversationFilter, setConversationFilter] = useState<'all' | 'following' | 'spam' | 'assigned' | 'opportunities'>('all');
+  const [currentOpportunity, setCurrentOpportunity] = useState<{
+    id: string;
+    opportunity_type: string;
+    priority: string;
+    status: string;
+    analysis_summary?: string;
+    suggested_action?: string;
+    created_at: string;
+  } | null>(null);
+
+  // Fetch opportunity conversation IDs
+  const fetchOpportunityIds = useCallback(async () => {
+    try {
+      const response = await fetch('/api/chat-opportunities');
+      const data = await response.json();
+      if (data.success && data.opportunities) {
+        const ids = data.opportunities.map((opp: any) => opp.conversation_id);
+        setOpportunityConversationIds(ids);
+      }
+    } catch (error) {
+      console.error('Failed to fetch opportunity IDs:', error);
+    }
+  }, []);
+
+  // Fetch opportunity for current conversation
+  const fetchCurrentOpportunity = useCallback(async (conversationId: string) => {
+    try {
+      const response = await fetch(`/api/chat-opportunities?conversationId=${conversationId}`);
+      const data = await response.json();
+      if (data.success && data.opportunities && data.opportunities.length > 0) {
+        const opp = data.opportunities[0];
+        setCurrentOpportunity({
+          id: opp.id,
+          opportunity_type: opp.opportunity_type,
+          priority: opp.priority,
+          status: opp.status,
+          analysis_summary: opp.analysis_summary,
+          suggested_action: opp.suggested_action,
+          created_at: opp.created_at,
+        });
+      } else {
+        setCurrentOpportunity(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch opportunity for conversation:', error);
+      setCurrentOpportunity(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOpportunityIds();
+  }, [fetchOpportunityIds]);
+
+  // Fetch opportunity when selected conversation changes
+  useEffect(() => {
+    if (selectedConversation) {
+      fetchCurrentOpportunity(selectedConversation);
+    } else {
+      setCurrentOpportunity(null);
+    }
+  }, [selectedConversation, fetchCurrentOpportunity]);
+
+  // Handle closing the opportunities modal - refresh IDs in case scan was run
+  const handleCloseOpportunities = useCallback(() => {
+    setShowOpportunities(false);
+    fetchOpportunityIds(); // Refresh in case new opportunities were created
+  }, [fetchOpportunityIds]);
 
   // Ref for ConversationSidebar to control scrolling
   const conversationSidebarRef = useRef<ConversationSidebarRef>(null);
@@ -486,6 +559,18 @@ export default function UnifiedChatPage() {
     }
   };
 
+  // Handle opening chat from opportunities - must be defined before early return
+  const handleOpenChatFromOpportunity = useCallback((conversationId: string, channelType: string) => {
+    setShowOpportunities(false);
+    setConversationFilter('opportunities'); // Filter to show only opportunity conversations
+    setSelectedConversation(conversationId);
+    selectedConversationRef.current = conversationId;
+    if (isMobile) {
+      setShowMobileChat(true);
+      window.history.pushState({ inChat: true }, '', window.location.href);
+    }
+  }, [isMobile]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -500,7 +585,7 @@ export default function UnifiedChatPage() {
       <div className="h-full flex flex-col md:flex-row">
         {/* Left Sidebar - Conversations */}
         {!leftPanelCollapsed && (
-          <div className={`transition-all duration-300 ease-in-out ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
+          <div className={`transition-all duration-300 ease-in-out ${showMobileChat ? 'hidden md:flex' : 'flex'} flex-col`}>
             <ConversationSidebar
               ref={conversationSidebarRef}
               selectedConversation={selectedConversation}
@@ -513,6 +598,10 @@ export default function UnifiedChatPage() {
               toggleFollowUp={toggleFollowUp}
               toggleSpam={toggleSpam}
               onRefresh={refreshConversations}
+              onOpenOpportunities={() => setShowOpportunities(true)}
+              opportunityConversationIds={opportunityConversationIds}
+              activeFilter={conversationFilter}
+              onFilterChange={setConversationFilter}
             />
           </div>
         )}
@@ -557,6 +646,8 @@ export default function UnifiedChatPage() {
               onShowLinkModal={() => setShowLinkModal(true)}
               messages={messages}
               onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
+              opportunity={currentOpportunity}
+              onOpenOpportunity={() => setShowOpportunities(true)}
             />
           </div>
         )}
@@ -586,6 +677,11 @@ export default function UnifiedChatPage() {
                 onShowLinkModal={() => setShowLinkModal(true)}
                 messages={messages}
                 onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
+                opportunity={currentOpportunity}
+                onOpenOpportunity={() => {
+                  setShowMobileCustomer(false);
+                  setShowOpportunities(true);
+                }}
               />
             </div>
           </div>
@@ -635,6 +731,30 @@ export default function UnifiedChatPage() {
           }}
           customerName={""} // TODO: Get from selected conversation
         />
+
+        {/* Opportunities Full-Screen Modal */}
+        {showOpportunities && (
+          <div className="fixed inset-0 bg-white z-50 flex flex-col overflow-y-scroll">
+            {/* Modal Header */}
+            <div className="bg-[#1a4d2e] border-b p-4 flex items-center justify-between flex-shrink-0">
+              <h3 className="font-semibold text-lg text-white">Sales Opportunities</h3>
+              <button
+                onClick={handleCloseOpportunities}
+                className="h-8 w-8 p-0 flex items-center justify-center text-white hover:bg-white/10 rounded"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Opportunities Content */}
+            <div className="flex-1 overflow-hidden">
+              <OpportunitiesTab
+                onOpenChat={handleOpenChatFromOpportunity}
+                userEmail={currentUserEmail}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

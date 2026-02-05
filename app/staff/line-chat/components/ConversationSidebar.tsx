@@ -36,7 +36,8 @@ import {
   MoreHorizontal,
   RefreshCw,
   AlertOctagon,
-  ShieldCheck
+  ShieldCheck,
+  TrendingUp
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import Image from 'next/image';
@@ -45,7 +46,8 @@ import type {
   ConversationSidebarProps,
   Conversation,
   UnifiedConversation,
-  ChannelType
+  ChannelType,
+  ConversationFilter
 } from '../utils/chatTypes';
 import { formatTime } from '../utils/formatters';
 
@@ -232,7 +234,11 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
   markAsUnread,
   toggleFollowUp,
   toggleSpam,
-  onRefresh
+  onRefresh,
+  onOpenOpportunities,
+  opportunityConversationIds,
+  activeFilter: externalFilter,
+  onFilterChange
 }, ref) => {
   // Use conversations from props if provided, otherwise use local state
   const [localConversations, setLocalConversations] = useState<Conversation[]>([]);
@@ -241,8 +247,16 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
   const [searchTerm, setSearchTerm] = useState('');
   const [isMobile, setIsMobile] = useState(false);
 
-  // Filter state - 'all' excludes spam, 'following' shows followed, 'spam' shows spam only, 'assigned' shows assigned conversations
-  const [filter, setFilter] = useState<'all' | 'following' | 'spam' | 'assigned'>('all');
+  // Filter state - controlled externally or internally
+  const [internalFilter, setInternalFilter] = useState<ConversationFilter>('all');
+  const filter = externalFilter ?? internalFilter;
+  const setFilter = (newFilter: ConversationFilter) => {
+    if (onFilterChange) {
+      onFilterChange(newFilter);
+    } else {
+      setInternalFilter(newFilter);
+    }
+  };
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState<string | null>(null);
@@ -505,6 +519,9 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
       // Handle both Conversation (assignedTo) and UnifiedConversation (assigned_to)
       const hasAssignment = 'assigned_to' in conv ? conv.assigned_to : conv.assignedTo;
       return hasAssignment && !conv.isSpam;
+    } else if (filter === 'opportunities') {
+      // 'Opportunities' shows only conversations that have opportunities
+      return opportunityConversationIds?.includes(conv.id) && !conv.isSpam;
     }
 
     return true;
@@ -543,20 +560,16 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
               </Button>
             </Link>
 
-            {/* AI Suggestions Toggle */}
-            {onToggleAI && (
+            {/* Sales Opportunities Button */}
+            {onOpenOpportunities && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onToggleAI?.(!enableAISuggestions)}
-                className={`transition-all duration-200 ${
-                  enableAISuggestions
-                    ? 'text-white hover:bg-[#2a6d4e]'
-                    : 'text-white/50 hover:text-white hover:bg-[#2a6d4e]'
-                }`}
-                title={enableAISuggestions ? "Disable AI suggestions" : "Enable AI suggestions"}
+                onClick={onOpenOpportunities}
+                className="text-white hover:bg-[#2a6d4e]"
+                title="View Sales Opportunities"
               >
-                <Sparkles className="h-4 w-4" />
+                <TrendingUp className="h-4 w-4" />
               </Button>
             )}
 
@@ -624,6 +637,7 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
                   {filter === 'following' && '≡ Follow-up'}
                   {filter === 'spam' && '≡ Spam'}
                   {filter === 'assigned' && '≡ Assigned'}
+                  {filter === 'opportunities' && '≡ Opportunities'}
                 </span>
               </Button>
             </DropdownMenuTrigger>
@@ -646,6 +660,14 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
               >
                 Assigned
               </DropdownMenuItem>
+              {opportunityConversationIds && opportunityConversationIds.length > 0 && (
+                <DropdownMenuItem
+                  onClick={() => setFilter('opportunities')}
+                  className={`cursor-pointer ${filter === 'opportunities' ? 'bg-green-50 text-green-600 font-medium' : ''}`}
+                >
+                  Opportunities ({opportunityConversationIds.length})
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => setFilter('spam')}
                 className={`cursor-pointer ${filter === 'spam' ? 'bg-red-50 text-red-600 font-medium' : ''}`}

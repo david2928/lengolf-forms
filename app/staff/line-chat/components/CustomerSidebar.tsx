@@ -39,10 +39,12 @@ import {
   X,
   Pencil,
   XCircle,
-  Sparkles
+  Sparkles,
+  TrendingUp,
+  ExternalLink,
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
-import type { CustomerSidebarProps, Conversation, UnifiedConversation, ChannelType } from '../utils/chatTypes';
+import type { CustomerSidebarProps, Conversation, UnifiedConversation, ChannelType, ConversationOpportunity } from '../utils/chatTypes';
 import { formatBookingDate, calculateDaysUntilExpiry, isBookingUpcoming } from '../utils/formatters';
 import { EditBookingModal } from '@/components/manage-bookings/EditBookingModal';
 import { CancelBookingModal } from '@/components/manage-bookings/CancelBookingModal';
@@ -183,7 +185,9 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   customerOperations,
   onShowLinkModal,
   messages,
-  onShowLinkModalWithPrefill
+  onShowLinkModalWithPrefill,
+  opportunity,
+  onOpenOpportunity,
 }) => {
   const {
     customerDetails,
@@ -653,6 +657,47 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
             </div>
           </CardContent>
         </Card>
+
+        {/* Sales Opportunity Card */}
+        {opportunity && (
+          <Card className="mb-4 border-amber-200 bg-amber-50">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-800">Sales Opportunity</span>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`text-xs ${
+                    opportunity.priority === 'high' ? 'bg-red-100 text-red-700 border-red-200' :
+                    opportunity.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
+                    'bg-gray-100 text-gray-600 border-gray-200'
+                  }`}
+                >
+                  {opportunity.priority}
+                </Badge>
+              </div>
+              <p className="text-xs text-amber-700 mb-2 capitalize">
+                {opportunity.opportunity_type.replace(/_/g, ' ')}
+              </p>
+              {opportunity.analysis_summary && (
+                <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                  {opportunity.analysis_summary}
+                </p>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-7 text-xs bg-white hover:bg-amber-100 border-amber-300 text-amber-700"
+                onClick={() => onOpenOpportunity?.(opportunity.id)}
+              >
+                <ExternalLink className="h-3 w-3 mr-1.5" />
+                View Opportunity
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Customer Details (if linked) */}
         {customerDetails && (
