@@ -2,27 +2,26 @@
 
 // OpportunitiesTab component - Main view for the chat opportunities feature
 // Displays list of opportunities with filtering and detail view
+// Note: Scanning is now automated via daily batch processing (pg_cron)
 
-import React, { useState, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   RefreshCw,
-  Scan,
   TrendingUp,
   AlertCircle,
   Loader2,
-  ChevronDown,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu';
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useChatOpportunities } from '@/hooks/useChatOpportunities';
 import { OpportunityCard } from './OpportunityCard';
 import { OpportunityDetail } from './OpportunityDetail';
@@ -32,9 +31,48 @@ import type {
   OpportunityStatus,
 } from '@/types/chat-opportunities';
 
+interface BatchRunStatus {
+  id: string;
+  started_at: string;
+  completed_at: string | null;
+  status: 'running' | 'completed' | 'failed';
+  trigger_type: 'cron' | 'manual';
+  scanned: number;
+  analyzed: number;
+  created: number;
+  skipped: number;
+  errors: number;
+  processing_time_ms: number | null;
+  error_message: string | null;
+}
+
+interface BatchStatusResponse {
+  success: boolean;
+  lastRun: BatchRunStatus | null;
+  summary: {
+    last7DaysCreated: number;
+    last7DaysRuns: number;
+  };
+}
+
 interface OpportunitiesTabProps {
   onOpenChat: (conversationId: string, channelType: string) => void;
   userEmail?: string;
+}
+
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'yesterday';
+  return `${diffDays}d ago`;
 }
 
 export function OpportunitiesTab({
@@ -46,21 +84,39 @@ export function OpportunitiesTab({
     stats,
     loading,
     statsLoading,
-    scanLoading,
     actionLoading,
     error,
     filters,
     setFilters,
     resetFilters,
-    fetchOpportunities,
-    fetchStats,
-    scanForOpportunities,
     updateOpportunity,
     refreshAll,
   } = useChatOpportunities();
 
   const [selectedOpportunity, setSelectedOpportunity] = useState<ChatOpportunityWithConversation | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
+  const [batchStatus, setBatchStatus] = useState<BatchStatusResponse | null>(null);
+  const [batchStatusLoading, setBatchStatusLoading] = useState(false);
+
+  // Fetch batch processing status
+  const fetchBatchStatus = useCallback(async () => {
+    setBatchStatusLoading(true);
+    try {
+      const response = await fetch('/api/chat-opportunities/batch-process/status');
+      const data = await response.json();
+      if (data.success) {
+        setBatchStatus(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch batch status:', err);
+    } finally {
+      setBatchStatusLoading(false);
+    }
+  }, []);
+
+  // Fetch batch status on mount
+  useEffect(() => {
+    fetchBatchStatus();
+  }, [fetchBatchStatus]);
 
   // Handle selecting an opportunity
   const handleSelectOpportunity = useCallback((opportunity: ChatOpportunityWithConversation) => {
@@ -109,117 +165,6 @@ export function OpportunitiesTab({
     }
   }, [updateOpportunity, userEmail]);
 
-  // Handle scan for new opportunities with configurable period
-  // Uses LLM to classify each potential opportunity
-  // Only LINE conversations for now
-  const handleScan = useCallback(async (daysThreshold: number = 3, maxAgeDays: number = 30) => {
-    setIsScanning(true);
-    console.log(`[Scan] Starting scan: daysThreshold=${daysThreshold}, maxAgeDays=${maxAgeDays}`);
-
-    try {
-      const potentials = await scanForOpportunities(daysThreshold, maxAgeDays);
-      console.log(`[Scan] Found ${potentials.length} potential conversations`);
-
-      // Filter to LINE only and exclude those who already became customers
-      const lineOnly = potentials.filter(p => p.channel_type === 'line' && !p.customer_id);
-      console.log(`[Scan] Filtered to ${lineOnly.length} LINE conversations (excluding existing customers)`);
-
-      let created = 0;
-      let skipped = 0;
-      let errors = 0;
-
-      for (let i = 0; i < lineOnly.length; i++) {
-        const potential = lineOnly[i];
-        console.log(`[Scan] Processing ${i + 1}/${lineOnly.length}: ${potential.customer_name || 'Unknown'} (${potential.conversation_id})`);
-
-        try {
-          // Fetch conversation messages for LLM analysis
-          console.log(`[Scan]   Fetching messages...`);
-          const messagesRes = await fetch(`/api/conversations/unified/${potential.conversation_id}/messages`);
-          const messagesData = await messagesRes.json();
-
-          if (!messagesData.success) {
-            console.log(`[Scan]   Failed to fetch messages: ${messagesData.error}`);
-            errors++;
-            continue;
-          }
-
-          if (!messagesData.messages?.length) {
-            console.log(`[Scan]   No messages found, skipping`);
-            skipped++;
-            continue;
-          }
-
-          console.log(`[Scan]   Found ${messagesData.messages.length} messages, analyzing with LLM...`);
-
-          // Use LLM to analyze the conversation
-          const analyzeRes = await fetch('/api/chat-opportunities/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              conversationId: potential.conversation_id,
-              messages: messagesData.messages.slice(-20), // Last 20 messages
-            }),
-          });
-
-          const analysis = await analyzeRes.json();
-
-          if (!analysis.success) {
-            console.log(`[Scan]   LLM analysis failed: ${analysis.error}`);
-            errors++;
-            continue;
-          }
-
-          console.log(`[Scan]   LLM result: ${analysis.analysis?.opportunityType} (confidence: ${analysis.analysis?.confidenceScore})`);
-
-          // Skip if LLM says it's not an opportunity
-          if (analysis.analysis?.opportunityType === 'not_an_opportunity') {
-            console.log(`[Scan]   Not an opportunity, skipping`);
-            skipped++;
-            continue;
-          }
-
-          // Create opportunity with LLM analysis
-          console.log(`[Scan]   Creating opportunity: ${analysis.analysis.opportunityType}`);
-          const createRes = await fetch('/api/chat-opportunities', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              conversation_id: potential.conversation_id,
-              channel_type: potential.channel_type,
-              opportunity_type: analysis.analysis.opportunityType,
-              priority: analysis.analysis.priority,
-              confidence_score: analysis.analysis.confidenceScore,
-              customer_name: potential.customer_name || analysis.analysis.extractedContactInfo?.name,
-              customer_phone: potential.customer_phone || analysis.analysis.extractedContactInfo?.phone,
-              customer_email: potential.customer_email || analysis.analysis.extractedContactInfo?.email,
-              analysis_summary: analysis.analysis.analysisSummary,
-              suggested_action: analysis.analysis.suggestedAction,
-              suggested_message: analysis.analysis.suggestedMessage,
-            }),
-          });
-
-          if (createRes.ok) {
-            console.log(`[Scan]   Created successfully`);
-            created++;
-          } else {
-            const createError = await createRes.json();
-            console.log(`[Scan]   Failed to create: ${createError.error}`);
-            errors++;
-          }
-        } catch (err) {
-          console.error(`[Scan]   Error:`, err);
-          errors++;
-        }
-      }
-
-      console.log(`[Scan] Complete: ${lineOnly.length} analyzed, ${created} created, ${skipped} skipped, ${errors} errors`);
-      await refreshAll();
-    } finally {
-      setIsScanning(false);
-    }
-  }, [scanForOpportunities, refreshAll]);
-
   // Close detail view
   const handleCloseDetail = useCallback(() => {
     setSelectedOpportunity(null);
@@ -233,6 +178,94 @@ export function OpportunitiesTab({
     lost: stats.total_lost,
     dismissed: stats.total_dismissed,
   } : undefined;
+
+  // Batch status indicator
+  const renderBatchStatus = () => {
+    if (batchStatusLoading) {
+      return (
+        <div className="flex items-center gap-1 text-xs text-gray-400">
+          <Loader2 className="w-3 h-3 animate-spin" />
+        </div>
+      );
+    }
+
+    if (!batchStatus?.lastRun) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1 text-xs text-gray-400">
+                <Clock className="w-3 h-3" />
+                <span className="hidden sm:inline">No scans yet</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Automated scanning runs daily at 9 AM</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    const lastRun = batchStatus.lastRun;
+    const isRecent = lastRun.completed_at &&
+      (Date.now() - new Date(lastRun.completed_at).getTime()) < 24 * 60 * 60 * 1000;
+
+    const statusIcon = lastRun.status === 'completed' ? (
+      <CheckCircle2 className="w-3 h-3 text-green-500" />
+    ) : lastRun.status === 'failed' ? (
+      <XCircle className="w-3 h-3 text-red-500" />
+    ) : (
+      <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
+    );
+
+    const tooltipContent = (
+      <div className="text-xs space-y-1">
+        <p className="font-medium">
+          Last scan: {lastRun.completed_at ? formatRelativeTime(lastRun.completed_at) : 'In progress'}
+        </p>
+        {lastRun.status === 'completed' && (
+          <>
+            <p>Scanned: {lastRun.scanned} conversations</p>
+            <p>Created: {lastRun.created} opportunities</p>
+            {lastRun.skipped > 0 && <p>Skipped: {lastRun.skipped}</p>}
+            {lastRun.errors > 0 && <p className="text-red-400">Errors: {lastRun.errors}</p>}
+          </>
+        )}
+        {lastRun.status === 'failed' && lastRun.error_message && (
+          <p className="text-red-400">{lastRun.error_message}</p>
+        )}
+        <p className="text-gray-400 mt-1">
+          Last 7 days: {batchStatus.summary.last7DaysCreated} opportunities from {batchStatus.summary.last7DaysRuns} scans
+        </p>
+      </div>
+    );
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={`flex items-center gap-1 text-xs ${
+              isRecent ? 'text-gray-600' : 'text-gray-400'
+            }`}>
+              {statusIcon}
+              <span className="hidden sm:inline">
+                {lastRun.status === 'running' ? 'Scanning...' : formatRelativeTime(lastRun.completed_at || lastRun.started_at)}
+              </span>
+              {lastRun.status === 'completed' && lastRun.created > 0 && (
+                <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                  +{lastRun.created}
+                </Badge>
+              )}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent align="end" className="max-w-xs">
+            {tooltipContent}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
@@ -250,7 +283,7 @@ export function OpportunitiesTab({
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* Stats badges - hidden on mobile */}
             {stats && !statsLoading && (
               <div className="hidden lg:flex items-center gap-2 text-xs">
@@ -260,46 +293,17 @@ export function OpportunitiesTab({
               </div>
             )}
 
-            {/* Scan button with dropdown for period */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isScanning || scanLoading}
-                  className="h-7 px-2"
-                >
-                  {isScanning || scanLoading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Scan className="w-3.5 h-3.5" />
-                  )}
-                  <ChevronDown className="w-3 h-3 ml-0.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel className="text-xs text-gray-500">Scan Period</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleScan(2, 7)}>
-                  Last 7 days
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleScan(3, 30)}>
-                  Last 30 days
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleScan(3, 60)}>
-                  Last 60 days
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleScan(3, 90)}>
-                  Last 90 days
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Batch status indicator */}
+            {renderBatchStatus()}
 
             {/* Refresh button */}
             <Button
               variant="outline"
               size="sm"
-              onClick={refreshAll}
+              onClick={() => {
+                refreshAll();
+                fetchBatchStatus();
+              }}
               disabled={loading}
               className="h-7 w-7 p-0"
             >
@@ -337,7 +341,7 @@ export function OpportunitiesTab({
               <TrendingUp className="w-8 h-8 mx-auto mb-2 text-gray-300" />
               <p className="text-gray-500 text-sm">No opportunities found</p>
               <p className="text-xs text-gray-400 mt-1">
-                Tap Scan to find leads
+                New leads are discovered daily at 9 AM
               </p>
             </div>
           ) : (
