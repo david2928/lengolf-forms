@@ -96,6 +96,16 @@ export function OpportunityFilters({
                 {stats.pending}
               </span>
             )}
+            {status === 'contacted' && stats?.contacted !== undefined && stats.contacted > 0 && (
+              <span className="ml-1 text-xs opacity-80">
+                {stats.contacted}
+              </span>
+            )}
+            {status === 'converted' && stats?.converted !== undefined && stats.converted > 0 && (
+              <span className="ml-1 text-xs opacity-80">
+                {stats.converted}
+              </span>
+            )}
             {status === 'dismissed' && stats?.dismissed !== undefined && stats.dismissed > 0 && (
               <span className="ml-1 text-xs opacity-80">
                 {stats.dismissed}
