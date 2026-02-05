@@ -28,6 +28,7 @@ import {
   X,
   ArrowLeft,
   Send,
+  RotateCcw,
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import { Globe } from 'lucide-react';
@@ -406,12 +407,25 @@ export function OpportunityDetail({
                 </div>
               )}
               {opportunity.contacted_by && (
-                <div>
+                <div className="mb-3">
                   <Label className="text-xs text-gray-500">Handled By</Label>
                   <p className="mt-1 text-sm text-gray-700">
                     {opportunity.contacted_by}
                   </p>
                 </div>
+              )}
+              {/* Restore button for dismissed opportunities */}
+              {opportunity.status === 'dismissed' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => handleStatusUpdate('pending')}
+                  disabled={isSubmitting || loading}
+                >
+                  <RotateCcw className="w-4 h-4 mr-1.5" />
+                  Restore to Pending
+                </Button>
               )}
             </CardContent>
           </Card>

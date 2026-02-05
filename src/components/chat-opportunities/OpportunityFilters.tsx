@@ -78,7 +78,7 @@ export function OpportunityFilters({
     <div className="flex items-center gap-2">
       {/* Status tabs - horizontal scroll on mobile */}
       <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-        {['all', 'pending', 'contacted', 'converted'].map((status) => (
+        {['all', 'pending', 'contacted', 'converted', 'dismissed'].map((status) => (
           <Button
             key={status}
             variant={filters.status === status ? 'default' : 'ghost'}
@@ -94,6 +94,11 @@ export function OpportunityFilters({
             {status === 'pending' && stats?.pending !== undefined && stats.pending > 0 && (
               <span className="ml-1 text-xs opacity-80">
                 {stats.pending}
+              </span>
+            )}
+            {status === 'dismissed' && stats?.dismissed !== undefined && stats.dismissed > 0 && (
+              <span className="ml-1 text-xs opacity-80">
+                {stats.dismissed}
               </span>
             )}
           </Button>
