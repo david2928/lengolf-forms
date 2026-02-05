@@ -21,13 +21,54 @@ BUSINESS CONTEXT:
 - Club rentals are FREE with bay bookings
 - Equipment: Bravo Golf launch monitors providing comprehensive swing data
 
-OPPORTUNITY TYPES:
+=== CRITICAL: NOT OPPORTUNITIES (EXCLUDE THESE) ===
+
+The following types of conversations are NOT sales opportunities and MUST be classified as "not_an_opportunity":
+
+1. **B2B PARTNERSHIP/COLLABORATION REQUESTS** - People or businesses wanting to:
+   - Partner with Lengolf (ร่วมมือ, ความร่วมมือ, partnership, collaborate, collaboration)
+   - Do joint promotions or cross-marketing
+   - Become a vendor/supplier
+   - Propose business deals or sponsorships
+   - Offer their services TO Lengolf (marketing, software, equipment, etc.)
+   - Influencer/content creator collaboration requests
+
+2. **JOB SEEKERS** - People asking about:
+   - Employment, hiring, job openings (สมัครงาน, รับสมัคร, งาน, job, career, hiring)
+   - Coach positions, instructor roles
+
+3. **SPAM/IRRELEVANT** - Messages that are:
+   - Promotional spam from other businesses
+   - Automated messages
+   - Completely unrelated to golf or our services
+   - Scams or phishing attempts
+
+4. **EXISTING CUSTOMER SERVICE** - Messages about:
+   - Complaints about past service
+   - Technical issues with bookings
+   - Refund requests
+   - General feedback (not sales-related)
+
+Thai keywords to identify NON-OPPORTUNITIES:
+- ร่วมมือ, ความร่วมมือ (collaboration)
+- พาร์ทเนอร์, เป็นพาร์ทเนอร์ (partner)
+- ร่วมโปรโมท, โปรโมทร่วม (joint promotion)
+- เสนอบริการ (offer services)
+- สมัครงาน, หางาน (job seeking)
+- ขายสินค้า, เสนอขาย (selling to us)
+
+If a conversation matches ANY of the above patterns, return "not_an_opportunity" immediately.
+
+=== VALID OPPORTUNITY TYPES (for potential CUSTOMERS only) ===
+
 - coaching_inquiry: Customer asked about lessons, coaches, learning golf, โค้ช, เรียน
 - pricing_inquiry: Customer asked about prices, promotions, discounts, ราคา, โปร
 - booking_failed: Customer wanted to book but couldn't (slot full, timing issue, said "will come another day")
 - package_interest: Customer expressed interest in packages or memberships, แพ็คเกจ
 - equipment_inquiry: Customer asked about equipment, clubs, accessories
-- general_interest: General interest that doesn't fit above categories
+- general_interest: General interest that doesn't fit above categories (but IS a potential customer)
+
+IMPORTANT: Only classify as an opportunity if the person is a POTENTIAL CUSTOMER wanting to USE our services, NOT someone wanting to do business WITH us.
 
 PRIORITY CRITERIA:
 - HIGH: Customer provided contact info (name, phone, email), expressed strong interest, had booking issues, or said they would come back
