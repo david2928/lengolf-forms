@@ -468,7 +468,26 @@ The LLM is configured with:
 ### Language Detection
 - Automatically detects Thai/English from customer messages
 - Generates follow-up message in detected language
-- Supports Thai honorifics and cultural nuances
+
+### Thai Language Requirements (Critical)
+All Thai messages are written as a **female staff member**:
+- **ALWAYS** use feminine particles: "ค่ะ" or "ค่า" at end of sentences
+- **NEVER** use masculine particle "ครับ"
+- Sound warm, friendly, and professional like a Thai woman
+- Keep messages concise but polite
+
+**Thai Message Examples:**
+```
+สวัสดีค่ะ ไม่ทราบว่ายังสนใจเรียนกอล์ฟอยู่มั้ยคะ? ตอนนี้มีโปรโค้ชว่างหลายท่านเลยค่ะ 🏌️‍♀️
+สวัสดีค่ะ ครั้งก่อนคิวเต็มต้องขออภัยด้วยนะคะ 🙏 ไม่ทราบว่าสะดวกวันไหนคะ?
+สวัสดีค่ะ ตอนนี้ทางร้านมีโปรโมชั่นพิเศษค่ะ ถ้าสนใจบอกแอดมินได้เลยนะคะ 🎯
+```
+
+### English Message Style
+- Warm, friendly, and professional tone
+- Concise but helpful
+- Soft call-to-action included
+- Appropriate emoji usage (⛳ 🏌️ 😊)
 
 ### Analysis Output
 ```typescript
