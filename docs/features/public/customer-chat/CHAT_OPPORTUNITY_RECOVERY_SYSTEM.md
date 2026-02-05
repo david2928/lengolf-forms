@@ -240,8 +240,10 @@ type OpportunityType =
 ```
 pending → contacted → converted
                    ↘ lost
-pending → dismissed
+pending → dismissed → pending (restore)
 ```
+
+**Restore Functionality**: Dismissed opportunities can be restored to "Pending" status from the detail view using the "Restore to Pending" button. This is useful when an opportunity was incorrectly dismissed.
 
 ## API Endpoints
 
@@ -421,6 +423,7 @@ Full detail view with:
 - Suggested follow-up message (copyable)
 - Last message preview
 - Outcome tracking form
+- **Restore button** for dismissed opportunities (returns to Pending status)
 
 ```typescript
 interface OpportunityDetailProps {
@@ -440,9 +443,10 @@ interface OpportunityDetailProps {
 
 ### OpportunityFilters
 Filter controls with:
-- Status tabs (Pending, Contacted, Converted, Lost, All)
+- Status tabs (All, Pending, Contacted, Converted, Dismissed)
 - Combined dropdown for Priority, Type, Channel filters
 - Mobile-optimized horizontal scrolling
+- Dismissed tab shows count badge for easy visibility
 
 ### CustomerSidebar Integration
 Sales Opportunity card shown when viewing a chat with an associated opportunity:
@@ -488,6 +492,37 @@ All Thai messages are written as a **female staff member**:
 - Concise but helpful
 - Soft call-to-action included
 - Appropriate emoji usage (⛳ 🏌️ 😊)
+
+### Excluded Conversation Types (Not Opportunities)
+The following types are automatically classified as `not_an_opportunity` by the LLM:
+
+1. **B2B Partnership/Collaboration Requests**
+   - Business partnership inquiries (ร่วมมือ, partnership, collaboration)
+   - Joint promotion proposals
+   - Vendor/supplier inquiries
+   - Influencer/content creator collaboration requests
+   - Businesses offering services TO Lengolf
+
+2. **Job Seekers**
+   - Employment inquiries (สมัครงาน, hiring, job)
+   - Coach position applicants
+
+3. **Spam/Irrelevant**
+   - Promotional spam from other businesses
+   - Automated messages
+   - Scams or phishing attempts
+
+4. **Customer Service Issues**
+   - Complaints about past service
+   - Refund requests
+   - Technical issues (not sales-related)
+
+**Thai Keywords for Exclusion:**
+- ร่วมมือ, ความร่วมมือ (collaboration)
+- พาร์ทเนอร์ (partner)
+- ร่วมโปรโมท (joint promotion)
+- สมัครงาน, หางาน (job seeking)
+- ขายสินค้า, เสนอขาย (selling to us)
 
 ### Analysis Output
 ```typescript
@@ -679,6 +714,10 @@ Key metrics tracked:
 ---
 
 **Last Updated**: February 2025
-**Version**: 1.0
+**Version**: 1.1
 **Maintainer**: Lengolf Development Team
 **Related Systems**: Unified Chat, OB Sales (Lead Feedback), Customer Management
+
+### Changelog
+- **v1.1** (Feb 2025): Added B2B/collaboration exclusion filters, Dismissed tab, Restore functionality
+- **v1.0** (Feb 2025): Initial release
