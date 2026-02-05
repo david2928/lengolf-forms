@@ -42,6 +42,7 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 ### Customer Communication
 - **[Unified Chat System](./features/public/customer-chat/UNIFIED_CHAT_SYSTEM.md)** - Multi-channel messaging platform (LINE + Website chat) with real-time updates
 - **[Unified Chat Architecture](./features/public/customer-chat/UNIFIED_CHAT_ARCHITECTURE.md)** - Technical architecture, components, and state management patterns
+- **[Chat Opportunity Recovery System](./features/public/customer-chat/CHAT_OPPORTUNITY_RECOVERY_SYSTEM.md)** - AI-powered sales opportunity detection and management for cold chat leads
 - **[AI Chat Suggestions](./features/public/customer-chat/AI_CHAT_SUGGESTIONS.md)** - GPT-4o-mini powered response suggestions with confidence scoring
 - **[AI Function Calling](./features/public/customer-chat/AI_FUNCTION_CALLING_IMPLEMENTATION.md)** - AI-powered customer info extraction from chat messages
 - **[Unified Chat API Reference](./features/public/customer-chat/UNIFIED_CHAT_API_REFERENCE.md)** - Complete API documentation for all chat endpoints
@@ -185,7 +186,7 @@ The following documentation files contain overlapping content and should be cons
 - **🏌️ Coaches**: [Coaching System](./features/public/coaching/COACHING_SYSTEM.md) → [Coaching API Reference](./api/COACHING_API_REFERENCE.md)
 - **⚙️ Operations Managers**: [Staff Management System](./features/admin/system-management/STAFF_MANAGEMENT_SYSTEM.md) → [Staff Scheduling System](./features/public/staff-operations/STAFF_SCHEDULING_SYSTEM.md) → [Time Clock System](./features/public/staff-operations/TIME_CLOCK_SYSTEM.md)
 - **🔗 Integration Developers**: [API Reference](./api/API_REFERENCE.md) → [LINE Messaging](./integrations/LINE_MESSAGING_INTEGRATION.md) → [WhatsApp Business API](./integrations/WHATSAPP_BUSINESS_API_SETUP.md) → [Calendar Integration](./features/public/booking-scheduling/CALENDAR_INTEGRATION.md)
-- **💬 Chat System Developers**: [Unified Chat System](./features/public/customer-chat/UNIFIED_CHAT_SYSTEM.md) → [Chat Architecture](./features/public/customer-chat/UNIFIED_CHAT_ARCHITECTURE.md) → [Chat Development Guide](./features/public/customer-chat/UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
+- **💬 Chat System Developers**: [Unified Chat System](./features/public/customer-chat/UNIFIED_CHAT_SYSTEM.md) → [Chat Architecture](./features/public/customer-chat/UNIFIED_CHAT_ARCHITECTURE.md) → [Chat Opportunity Recovery](./features/public/customer-chat/CHAT_OPPORTUNITY_RECOVERY_SYSTEM.md) → [Chat Development Guide](./features/public/customer-chat/UNIFIED_CHAT_DEVELOPMENT_GUIDE.md)
 
 ### By Feature Category
 - **📅 Booking & Scheduling**: All booking-related documentation under Public Features > Booking & Scheduling
@@ -222,6 +223,7 @@ The following documentation files contain overlapping content and should be cons
 - **Admin Analytics**: Sales dashboards, Google Ads analytics, referral tracking, and business intelligence
 - **Technical Systems**: APIs, authentication, database, and integrations
 - **AI Chat System**: GPT-4o-mini powered suggestions and customer extraction
+- **Chat Opportunity Recovery**: AI-powered cold lead detection and sales recovery
 - **Google Reviews**: Reviews dashboard with manual reply posting capability
 - **OB Calling Queue**: Auto-generated customer outreach lists
 
