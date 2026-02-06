@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Phone, Check, X, TrendingUp, TrendingDown, Minus, CalendarClock, CalendarOff, Loader2, ArrowRight, ArrowLeft, CalendarPlus, Users, Info } from 'lucide-react';
+import { Phone, Check, X, TrendingUp, TrendingDown, Minus, CalendarClock, CalendarOff, Loader2, ArrowRight, ArrowLeft, CalendarPlus, Users, Info, ExternalLink, SkipForward } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Utility function to format currency
@@ -18,7 +18,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { KPIMetrics } from '@/components/KPIMetrics';
-import { QuickBookingModal } from '@/components/ob-sales/QuickBookingModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import Link from 'next/link';
 
 interface OBNotesFormData {
   reachable: 'yes' | 'no' | '';
@@ -296,7 +306,7 @@ function OBCallingInterface({ onBackToDashboard, onStatsUpdate }: OBCallingInter
     notes: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
 
   const currentCustomer = customerQueue[currentIndex];
   const progress = totalCustomers > 0 ? ((totalIndex + 1) / totalCustomers) * 100 : 0;
@@ -462,6 +472,44 @@ function OBCallingInterface({ onBackToDashboard, onStatsUpdate }: OBCallingInter
     }
   };
 
+  // Handle skip - saves a note with response='skipped' and advances to next customer
+  const handleSkip = async () => {
+    if (!currentCustomer || isSubmitting) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/marketing/ob-sales-notes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customer_id: currentCustomer.id,
+          reachable: false,
+          response: 'skipped',
+          timeline: null,
+          follow_up_required: false,
+          follow_up_date: null,
+          notes: 'Customer skipped - will be excluded from queue for 90 days',
+          call_date: new Date().toISOString().split('T')[0]
+        })
+      });
+
+      if (response.ok) {
+        // Auto-advance to next customer
+        advanceToNext();
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to skip customer:', errorData);
+      }
+    } catch (error) {
+      console.error('Error skipping customer:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Show loading spinner during initial load
   if (initialLoading || (loading && customerQueue.length === 0)) {
     return (
@@ -492,13 +540,25 @@ function OBCallingInterface({ onBackToDashboard, onStatsUpdate }: OBCallingInter
       <div className="space-y-3">
         {/* Customer Section */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 space-y-3">
-          {/* Name & Back Button */}
+          {/* Name & Back/Skip Buttons */}
           <div className="flex items-center justify-between">
             <h3 className="text-2xl font-bold text-gray-800 flex-1">{currentCustomer.customer_name}</h3>
-            <Button variant="ghost" size="sm" onClick={onBackToDashboard} className="h-8 px-2 text-sm flex-shrink-0">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Back
-            </Button>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowSkipConfirm(true)}
+                disabled={isSubmitting}
+                className="h-8 px-2 text-sm bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 hover:border-orange-300"
+              >
+                <SkipForward className="h-4 w-4 mr-1" />
+                Skip
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onBackToDashboard} className="h-8 px-2 text-sm">
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Back
+              </Button>
+            </div>
           </div>
 
           {/* Phone */}
@@ -559,11 +619,11 @@ function OBCallingInterface({ onBackToDashboard, onStatsUpdate }: OBCallingInter
               <div className="text-xs text-slate-600 font-medium mb-1">Last Visit</div>
               <div className="text-sm font-bold text-slate-800">
                 {currentCustomer.last_visit_date ?
-                  new Date(currentCustomer.last_visit_date).toLocaleDateString('en-GB', {
-                    day: '2-digit',
+                  new Date(currentCustomer.last_visit_date).toLocaleDateString('en-US', {
                     month: '2-digit',
-                    year: 'numeric'
-                  }).replace(/\//g, '/') : 'Never'}
+                    day: '2-digit',
+                    year: '2-digit'
+                  }) : 'Never'}
               </div>
             </div>
           </div>
@@ -613,11 +673,13 @@ function OBCallingInterface({ onBackToDashboard, onStatsUpdate }: OBCallingInter
               </Label>
               <div className="grid grid-cols-3 gap-3">
                 <Button
-                  variant={notesData.response === 'positive' ? 'default' : 'outline'}
+                  variant="outline"
                   size="default"
                   className={cn(
                     "h-14 transition-all",
-                    notesData.response === 'positive' ? "bg-green-600 hover:bg-green-700 text-white border-green-600" : "hover:bg-green-50 hover:border-green-300"
+                    notesData.response === 'positive'
+                      ? "bg-green-100 hover:bg-green-200 text-green-700 border-green-300 border-2"
+                      : "bg-green-50 hover:bg-green-100 text-green-600 border-green-200"
                   )}
                   onClick={() => setNotesData({ ...notesData, response: 'positive' })}
                 >
@@ -625,11 +687,13 @@ function OBCallingInterface({ onBackToDashboard, onStatsUpdate }: OBCallingInter
                   Positive
                 </Button>
                 <Button
-                  variant={notesData.response === 'neutral' ? 'default' : 'outline'}
+                  variant="outline"
                   size="default"
                   className={cn(
                     "h-14 transition-all",
-                    notesData.response === 'neutral' ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600" : "hover:bg-blue-50 hover:border-blue-300"
+                    notesData.response === 'neutral'
+                      ? "bg-blue-100 hover:bg-blue-200 text-blue-700 border-blue-300 border-2"
+                      : "bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200"
                   )}
                   onClick={() => setNotesData({ ...notesData, response: 'neutral' })}
                 >
@@ -637,11 +701,13 @@ function OBCallingInterface({ onBackToDashboard, onStatsUpdate }: OBCallingInter
                   Neutral
                 </Button>
                 <Button
-                  variant={notesData.response === 'negative' ? 'default' : 'outline'}
+                  variant="outline"
                   size="default"
                   className={cn(
                     "h-14 transition-all",
-                    notesData.response === 'negative' ? "bg-orange-600 hover:bg-orange-700 text-white border-orange-600" : "hover:bg-orange-50 hover:border-orange-300"
+                    notesData.response === 'negative'
+                      ? "bg-red-100 hover:bg-red-200 text-red-700 border-red-300 border-2"
+                      : "bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
                   )}
                   onClick={() => setNotesData({ ...notesData, response: 'negative' })}
                 >
@@ -653,15 +719,21 @@ function OBCallingInterface({ onBackToDashboard, onStatsUpdate }: OBCallingInter
 
             {/* Make Booking Button - Shows when reachable */}
             <div className="p-4 bg-white">
-              <Button
-                variant="outline"
-                size="lg"
-                className="w-full h-14 border-2 border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400"
-                onClick={() => setShowBookingModal(true)}
+              <Link
+                href={`/create-booking?from=obsales&customer=${currentCustomer.id}&staff=Dolly`}
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                <CalendarPlus className="h-5 w-5 mr-2" />
-                Make Booking
-              </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full h-14 border-2 border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400"
+                >
+                  <CalendarPlus className="h-5 w-5 mr-2" />
+                  Make Booking
+                  <ExternalLink className="h-4 w-4 ml-2 opacity-60" />
+                </Button>
+              </Link>
             </div>
           </>
         )}
@@ -838,25 +910,30 @@ function OBCallingInterface({ onBackToDashboard, onStatsUpdate }: OBCallingInter
         </div>
       </div>
 
-      {/* Quick Booking Modal */}
-      {currentCustomer && (
-        <QuickBookingModal
-          isOpen={showBookingModal}
-          onClose={() => setShowBookingModal(false)}
-          customer={{
-            id: currentCustomer.id,
-            name: currentCustomer.customer_name,
-            phone: currentCustomer.contact_number || '',
-          }}
-          onSuccess={(bookingId) => {
-            // Update notes to mention booking was made
-            setNotesData(prev => ({
-              ...prev,
-              notes: prev.notes ? `${prev.notes}\nBooking created: ${bookingId}` : `Booking created: ${bookingId}`
-            }));
-          }}
-        />
-      )}
+      {/* Skip Confirmation Dialog */}
+      <AlertDialog open={showSkipConfirm} onOpenChange={setShowSkipConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Skip this customer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to skip {currentCustomer?.customer_name}? They will re-enter the queue in 90 days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowSkipConfirm(false);
+                handleSkip();
+              }}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              Yes, skip
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
