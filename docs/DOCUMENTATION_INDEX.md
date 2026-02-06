@@ -104,6 +104,7 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 - **[Invoice Management](./features/admin/system-management/INVOICE_MANAGEMENT.md)** - Supplier invoice generation and management
 - **[Transaction Management](./features/admin/system-management/TRANSACTION_MANAGEMENT.md)** - POS transaction management
 - **[Reconciliation System](./features/admin/data-management/RECONCILIATION_SYSTEM.md)** - Transaction and payment reconciliation
+- **[Bank Reconciliation System](./features/admin/data-management/BANK_RECONCILIATION_SYSTEM.md)** - KBank statement reconciliation against POS, merchant settlements, and daily closings
 - **[Admin Panel](./features/admin/system-management/ADMIN_PANEL.md)** - Central administrative interface
 
 ### Data Management

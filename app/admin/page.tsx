@@ -26,7 +26,8 @@ import {
   Package,
   Phone,
   MessageSquare,
-  Star
+  Star,
+  Landmark
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -196,6 +197,12 @@ const financialOperationsItems = [
     title: "Reconciliation",
     description: "Reconcile transactions and payments",
     path: "/admin/reconciliation"
+  },
+  {
+    icon: Landmark,
+    title: "Bank Reconciliation",
+    description: "Reconcile KBank statements against POS and merchant data",
+    path: "/admin/bank-reconciliation"
   }
 ];
 
