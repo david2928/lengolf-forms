@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star, Landmark } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -194,6 +194,12 @@ export const menuItems: MenuItem[] = [
     title: "Finance Dashboard",
     path: '/admin/finance-dashboard',
     description: "Monthly P&L statements with actual vs run-rate projections"
+  },
+  {
+    icon: Landmark,
+    title: "Bank Reconciliation",
+    path: '/admin/bank-reconciliation',
+    description: "Reconcile KBank statements against POS, merchant settlements, and daily closings"
   },
   {
     icon: Settings,

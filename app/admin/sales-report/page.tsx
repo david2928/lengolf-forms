@@ -44,9 +44,9 @@ interface SalesSummary {
   totalAmountVoided: number;
   uniqueCustomers: number;
   cashPayments: number;
-  creditCardPayments: number;
-  bankTransferPayments: number;
-  otherPayments: number;
+  qrPayments: number;
+  edcPayments: number;
+  ewalletPayments: number;
 }
 
 interface DailySales {
@@ -67,11 +67,19 @@ interface DailySales {
   totalAmountVoided: number;
   numberOfPax: number;
   cashPayment: number;
-  creditCardPayment: number;
-  bankTransferPayment: number;
-  otherPayment: number;
+  qrPayment: number;
+  edcPayment: number;
+  ewalletPayment: number;
 }
 
+interface PaymentMethodBreakdown {
+  date: string;
+  payment_method: string;
+  total_amount: number;
+  transaction_count: number;
+}
+
+type ViewMode = 'summary' | 'daily' | 'payment';
 type DatePreset = 'today' | 'yesterday' | 'last7days' | 'last30days' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'custom';
 
 // Date utility functions
@@ -152,8 +160,9 @@ export default function SalesReportPage() {
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
   const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
   const [dailySales, setDailySales] = useState<DailySales[]>([]);
+  const [paymentBreakdown, setPaymentBreakdown] = useState<PaymentMethodBreakdown[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [showDailyView, setShowDailyView] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('summary');
 
   // Calculate date range
   const dateRange = useMemo(() => {
@@ -202,16 +211,37 @@ export default function SalesReportPage() {
     return response.json();
   };
 
+  const fetchPaymentBreakdown = async (startDate: Date, endDate: Date): Promise<PaymentMethodBreakdown[]> => {
+    const response = await fetch('/api/admin/sales-report/payment-breakdown', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        startDate: format(startDate, 'yyyy-MM-dd'),
+        endDate: format(endDate, 'yyyy-MM-dd'),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch payment method breakdown');
+    }
+
+    return response.json();
+  };
+
   // Load data
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [summary, daily] = await Promise.all([
+      const [summary, daily, breakdown] = await Promise.all([
         fetchSalesSummary(dateRange.start, dateRange.end),
-        fetchDailySales(dateRange.start, dateRange.end)
+        fetchDailySales(dateRange.start, dateRange.end),
+        fetchPaymentBreakdown(dateRange.start, dateRange.end)
       ]);
       setSalesSummary(summary);
       setDailySales(daily);
+      setPaymentBreakdown(breakdown);
     } catch (error) {
       console.error('Failed to load sales data:', error);
     } finally {
@@ -226,43 +256,62 @@ export default function SalesReportPage() {
 
   // Export functions
   const exportCSV = () => {
-    if (!salesSummary || !dailySales.length) return;
+    let csvContent: string;
+    let filename: string;
 
-    const headers = [
-      'Date', 'Total Sales', 'Gross Sales', 'Net Sales', 'VAT', 'Cost', 'Gross Profit',
-      'Total Discount Given', 'Discounted Items',
-      'Sales Transactions', 'Average Sales/Transaction', 'Voided Transactions',
-      'Total Amount Voided', 'Number of Pax', 'Cash Payment', 'Credit Card Payment',
-      'Bank Transfer Payment', 'Other Payment'
-    ];
+    if (viewMode === 'payment') {
+      if (!paymentBreakdown.length) return;
 
-    const rows = dailySales.map(day => [
-      day.date,
-      day.totalSales.toFixed(2),
-      day.grossSales.toFixed(2),
-      day.netSales.toFixed(2),
-      day.vat.toFixed(2),
-      day.cost.toFixed(2),
-      day.grossProfit.toFixed(2),
-      day.totalSalesDiscount.toFixed(2),
-      day.discountedItems,
-      day.salesTransactions,
-      day.averageSalesPerTransaction.toFixed(2),
-      day.voidedTransactions,
-      day.totalAmountVoided.toFixed(2),
-      day.numberOfPax,
-      day.cashPayment.toFixed(2),
-      day.creditCardPayment.toFixed(2),
-      day.bankTransferPayment.toFixed(2),
-      day.otherPayment.toFixed(2),
-    ]);
+      const headers = ['Date', 'Payment Method', 'Amount', 'Transactions'];
+      const rows = paymentBreakdown.map(row => [
+        row.date,
+        row.payment_method,
+        Number(row.total_amount).toFixed(2),
+        row.transaction_count,
+      ]);
 
-    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+      csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+      filename = `payment-breakdown-${format(dateRange.start, 'yyyy-MM-dd')}-to-${format(dateRange.end, 'yyyy-MM-dd')}.csv`;
+    } else {
+      if (!dailySales.length) return;
+
+      const headers = [
+        'Date', 'Total Sales', 'Gross Sales', 'Net Sales', 'VAT', 'Cost', 'Gross Profit',
+        'Total Discount Given', 'Discounted Items',
+        'Sales Transactions', 'Average Sales/Transaction', 'Voided Transactions',
+        'Total Amount Voided', 'Number of Pax', 'Cash', 'QR Payment', 'EDC Machine', 'eWallet'
+      ];
+
+      const rows = dailySales.map(day => [
+        day.date,
+        day.totalSales.toFixed(2),
+        day.grossSales.toFixed(2),
+        day.netSales.toFixed(2),
+        day.vat.toFixed(2),
+        day.cost.toFixed(2),
+        day.grossProfit.toFixed(2),
+        day.totalSalesDiscount.toFixed(2),
+        day.discountedItems,
+        day.salesTransactions,
+        day.averageSalesPerTransaction.toFixed(2),
+        day.voidedTransactions,
+        day.totalAmountVoided.toFixed(2),
+        day.numberOfPax,
+        day.cashPayment.toFixed(2),
+        day.qrPayment.toFixed(2),
+        day.edcPayment.toFixed(2),
+        day.ewalletPayment.toFixed(2),
+      ]);
+
+      csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+      filename = `sales-report-${format(dateRange.start, 'yyyy-MM-dd')}-to-${format(dateRange.end, 'yyyy-MM-dd')}.csv`;
+    }
+
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `sales-report-${format(dateRange.start, 'yyyy-MM-dd')}-to-${format(dateRange.end, 'yyyy-MM-dd')}.csv`;
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -285,20 +334,26 @@ export default function SalesReportPage() {
             <RefreshCwIcon className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowDailyView(!showDailyView)}
+          <Select
+            value={viewMode}
+            onValueChange={(value: string) => setViewMode(value as ViewMode)}
           >
-            <FilterIcon className="h-4 w-4" />
-            {showDailyView ? 'Summary' : 'Daily View'}
-          </Button>
-          {showDailyView && (
+            <SelectTrigger className="w-[180px] h-9">
+              <FilterIcon className="h-4 w-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="summary">Summary</SelectItem>
+              <SelectItem value="daily">Daily View</SelectItem>
+              <SelectItem value="payment">Payment Methods</SelectItem>
+            </SelectContent>
+          </Select>
+          {viewMode !== 'summary' && (
             <Button
               variant="outline"
               size="sm"
               onClick={exportCSV}
-              disabled={!dailySales.length}
+              disabled={viewMode === 'daily' ? !dailySales.length : !paymentBreakdown.length}
             >
               <DownloadIcon className="h-4 w-4" />
               Export CSV
@@ -384,7 +439,7 @@ export default function SalesReportPage() {
       </Card>
 
       {/* Content */}
-      {!showDailyView ? (
+      {viewMode === 'summary' ? (
         /* Summary View */
         <div className="space-y-6">
           {/* Key Metrics Grid */}
@@ -591,27 +646,27 @@ export default function SalesReportPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Cash Payment:</span>
+                    <span className="text-gray-600">Cash:</span>
                     <span className="font-semibold">{formatCurrency(salesSummary.cashPayments)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Credit Card Payment:</span>
-                    <span className="font-semibold">{formatCurrency(salesSummary.creditCardPayments)}</span>
+                    <span className="text-gray-600">QR Payment:</span>
+                    <span className="font-semibold">{formatCurrency(salesSummary.qrPayments)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Bank Transfer Payment:</span>
-                    <span className="font-semibold">{formatCurrency(salesSummary.bankTransferPayments)}</span>
+                    <span className="text-gray-600">EDC Machine:</span>
+                    <span className="font-semibold">{formatCurrency(salesSummary.edcPayments)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Other Payment:</span>
-                    <span className="font-semibold">{formatCurrency(salesSummary.otherPayments)}</span>
+                    <span className="text-gray-600">eWallet (Alipay/WeChat):</span>
+                    <span className="font-semibold">{formatCurrency(salesSummary.ewalletPayments)}</span>
                   </div>
                 </CardContent>
               </Card>
             </div>
           )}
         </div>
-      ) : (
+      ) : viewMode === 'daily' ? (
         /* Daily View Table */
         <Card>
           <CardHeader>
@@ -646,10 +701,10 @@ export default function SalesReportPage() {
                       <th className="text-right p-2 font-medium">Voided Transactions</th>
                       <th className="text-right p-2 font-medium">Amount Voided</th>
                       <th className="text-right p-2 font-medium">Number of Pax</th>
-                      <th className="text-right p-2 font-medium">Cash Payment</th>
-                      <th className="text-right p-2 font-medium">Credit Card</th>
-                      <th className="text-right p-2 font-medium">Bank Transfer</th>
-                      <th className="text-right p-2 font-medium">Other Payment</th>
+                      <th className="text-right p-2 font-medium">Cash</th>
+                      <th className="text-right p-2 font-medium">QR Payment</th>
+                      <th className="text-right p-2 font-medium">EDC Machine</th>
+                      <th className="text-right p-2 font-medium">eWallet</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -670,9 +725,9 @@ export default function SalesReportPage() {
                         <td className="p-2 text-right text-red-600">{formatCurrency(day.totalAmountVoided)}</td>
                         <td className="p-2 text-right">{formatNumber(day.numberOfPax)}</td>
                         <td className="p-2 text-right">{formatCurrency(day.cashPayment)}</td>
-                        <td className="p-2 text-right">{formatCurrency(day.creditCardPayment)}</td>
-                        <td className="p-2 text-right">{formatCurrency(day.bankTransferPayment)}</td>
-                        <td className="p-2 text-right">{formatCurrency(day.otherPayment)}</td>
+                        <td className="p-2 text-right">{formatCurrency(day.qrPayment)}</td>
+                        <td className="p-2 text-right">{formatCurrency(day.edcPayment)}</td>
+                        <td className="p-2 text-right">{formatCurrency(day.ewalletPayment)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -693,9 +748,79 @@ export default function SalesReportPage() {
                       <td className="p-2 text-right text-red-600">{formatCurrency(dailySales.reduce((sum, day) => sum + day.totalAmountVoided, 0))}</td>
                       <td className="p-2 text-right">{formatNumber(dailySales.reduce((sum, day) => sum + day.numberOfPax, 0))}</td>
                       <td className="p-2 text-right">{formatCurrency(dailySales.reduce((sum, day) => sum + day.cashPayment, 0))}</td>
-                      <td className="p-2 text-right">{formatCurrency(dailySales.reduce((sum, day) => sum + day.creditCardPayment, 0))}</td>
-                      <td className="p-2 text-right">{formatCurrency(dailySales.reduce((sum, day) => sum + day.bankTransferPayment, 0))}</td>
-                      <td className="p-2 text-right">{formatCurrency(dailySales.reduce((sum, day) => sum + day.otherPayment, 0))}</td>
+                      <td className="p-2 text-right">{formatCurrency(dailySales.reduce((sum, day) => sum + day.qrPayment, 0))}</td>
+                      <td className="p-2 text-right">{formatCurrency(dailySales.reduce((sum, day) => sum + day.edcPayment, 0))}</td>
+                      <td className="p-2 text-right">{formatCurrency(dailySales.reduce((sum, day) => sum + day.ewalletPayment, 0))}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        /* Payment Methods Breakdown View */
+        <Card>
+          <CardHeader>
+            <CardTitle>Payment Methods Breakdown</CardTitle>
+            <CardDescription>
+              Daily breakdown by payment method for the selected period ({paymentBreakdown.length} rows)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="animate-pulse h-12 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2 font-medium">Date</th>
+                      <th className="text-left p-2 font-medium">Payment Method</th>
+                      <th className="text-right p-2 font-medium">Amount</th>
+                      <th className="text-right p-2 font-medium">Transactions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentBreakdown.map((row, index) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="p-2">{format(new Date(row.date), 'MMM dd, yyyy')}</td>
+                        <td className="p-2">
+                          <Badge variant="outline" className={
+                            row.payment_method === 'Cash' ? 'border-green-300 text-green-700' :
+                            row.payment_method === 'QR Payment' ? 'border-blue-300 text-blue-700' :
+                            'border-purple-300 text-purple-700'
+                          }>
+                            {row.payment_method}
+                          </Badge>
+                        </td>
+                        <td className="p-2 text-right font-medium">{formatCurrency(Number(row.total_amount))}</td>
+                        <td className="p-2 text-right">{formatNumber(row.transaction_count)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    {['Cash', 'QR Payment', 'EDC Machine'].map(method => {
+                      const methodRows = paymentBreakdown.filter(r => r.payment_method === method);
+                      if (methodRows.length === 0) return null;
+                      return (
+                        <tr key={method} className="border-t font-semibold bg-gray-50">
+                          <td className="p-2">{method} Total</td>
+                          <td className="p-2"></td>
+                          <td className="p-2 text-right">{formatCurrency(methodRows.reduce((sum, r) => sum + Number(r.total_amount), 0))}</td>
+                          <td className="p-2 text-right">{formatNumber(methodRows.reduce((sum, r) => sum + r.transaction_count, 0))}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr className="border-t-2 font-bold bg-gray-100">
+                      <td className="p-2">GRAND TOTAL</td>
+                      <td className="p-2"></td>
+                      <td className="p-2 text-right">{formatCurrency(paymentBreakdown.reduce((sum, r) => sum + Number(r.total_amount), 0))}</td>
+                      <td className="p-2 text-right">{formatNumber(paymentBreakdown.reduce((sum, r) => sum + r.transaction_count, 0))}</td>
                     </tr>
                   </tfoot>
                 </table>
