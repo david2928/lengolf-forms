@@ -236,7 +236,9 @@ interface DailyReconciliation {
   cardFlow: {
     posCard: number;                    // POS card sales (group_code=CREDIT_CARD)
     merchantGross: number;              // K-Merchant total_amount
-    merchantFees: number;               // fee + VAT
+    merchantFees: number;               // commission + VAT
+    merchantCommission: number;         // total_fee_commission_amount
+    merchantVat: number;                // vat_on_fee_amount
     merchantNet: number;                // net_credit_amount
     bankCardDeposit: number;            // bank "Payment Received" deposit
     posVsMerchantGross: ComparisonResult;
@@ -248,7 +250,9 @@ interface DailyReconciliation {
     posEwallet: number;                 // POS eWallet sales
     merchantGross: number;              // K-Merchant gross (may be from T+1)
     merchantNet: number;                // net_credit_amount
-    merchantFees: number;               // fee + VAT
+    merchantFees: number;               // commission + VAT
+    merchantCommission: number;         // total_fee_commission_amount
+    merchantVat: number;                // vat_on_fee_amount
     bankEwalletDeposit: number;         // bank deposit (may be from T+1)
     posVsMerchantGross: ComparisonResult;
     merchantNetVsBank: ComparisonResult;
@@ -428,9 +432,38 @@ After parsing, the system displays:
    - **Daily Overview**: Main reconciliation table with expandable detail rows
    - **Bank Transactions**: Raw parsed bank transactions with filtering
 
-### Summary Stats Bar
+### EDC Settlement Summary
 
-Four KPI cards at the top of the daily overview:
+A horizontal summary bar displayed above the KPI cards, showing the complete electronic payment settlement picture:
+
+| Field | Description | Comparison |
+|---|---|---|
+| Card Net | Total card merchant net credit | - |
+| eWallet Net | Total eWallet merchant net credit | - |
+| Total Net | Card Net + eWallet Net | Should match total bank card + eWallet deposits |
+| Commission | Total merchant fee commission (card + eWallet) | - |
+| VAT | Total VAT on merchant fees (card + eWallet) | - |
+| Total Fees | Commission + VAT | - |
+| Total Gross | Total Net + Total Fees | Should match POS card + eWallet sales |
+
+This provides a quick sanity check: Total Net should reconcile with bank statement deposits, and Total Gross should reconcile with POS electronic payment totals.
+
+### KPI Summary Cards
+
+Six KPI cards below the EDC summary:
+
+| Card | Value | Sub-text | Color |
+|---|---|---|---|
+| Days Matched | Matched / Total days | Variance count if > 0 | Green (all matched) / Yellow |
+| Card Settlement | Total bank card deposits | Fees amount | Blue |
+| eWallet Settlement | Total bank eWallet deposits | Fees amount | Purple |
+| Cash Accuracy | Accurate days / Total days | POS cash total | Green |
+| QR / Transfers | Total bank transfers | POS QR total | Indigo |
+| Unreconciled Records | Count of unreconciled txns | Status text | Green (0) / Red (>0) |
+
+### Summary Stats Bar (Daily Overview)
+
+Four KPI cards at the top of the daily overview tab:
 
 | Card | Description | Color |
 |---|---|---|
@@ -447,11 +480,11 @@ Red-highlighted panel listing:
 
 ### Daily Reconciliation Table
 
-13-column table organized into three column groups:
+14-column table organized into three column groups:
 
 | Group | Columns | Color |
 |---|---|---|
-| POS | Cash, Card, QR | Blue |
+| POS | Cash, Card, eWallet, QR | Blue |
 | K-Merchant | Gross, Net, Fees | Purple |
 | Bank Statement | Card, eWallet, Transfers | Green |
 | (ungrouped) | Gap, Status | - |
@@ -482,7 +515,7 @@ Separate view showing all parsed bank transactions:
 ### CSV Export
 
 Exports the reconciliation table with columns:
-Date, POS Cash, POS Card, POS QR, Merchant Gross, Merchant Net, Merchant Fees, Bank Card Deposit, Bank eWallet Deposit, Bank Transfers, POS Total, Accounted Total, Gap, Cash Variance, Overall Status, Unreconciled Count
+Date, POS Cash, POS Card, POS eWallet, POS QR, Merchant Gross, Merchant Net, Merchant Commission, Merchant VAT, Merchant Fees, Bank Card Deposit, Bank eWallet Deposit, Bank Transfers, POS Total, Accounted Total, Gap, Cash Variance, Overall Status, Unreconciled Count
 
 ## Technical Details
 

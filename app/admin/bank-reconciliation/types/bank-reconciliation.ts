@@ -131,6 +131,8 @@ export interface DailyReconciliation {
     posCard: number;                  // POS edcPayment (card-only via group_code=CREDIT_CARD)
     merchantGross: number;            // sum(total_amount)
     merchantFees: number;             // sum(fee + vat)
+    merchantCommission: number;       // sum(total_fee_commission_amount)
+    merchantVat: number;              // sum(vat_on_fee_amount)
     merchantNet: number;              // sum(net_credit_amount)
     bankCardDeposit: number;          // bank card_settlement deposits
     posVsMerchantGross: ComparisonResult;
@@ -142,6 +144,8 @@ export interface DailyReconciliation {
     merchantGross: number;
     merchantNet: number;
     merchantFees: number;
+    merchantCommission: number;
+    merchantVat: number;
     bankEwalletDeposit: number;
     posVsMerchantGross: ComparisonResult;
     merchantNetVsBank: ComparisonResult;
@@ -179,6 +183,7 @@ export interface ReconciliationSummary {
   varianceDays: number;
   missingDays: number;
 
+  totalPosCard: number;
   totalCardMerchantGross: number;
   totalCardMerchantNet: number;
   totalCardBankDeposit: number;
@@ -188,6 +193,9 @@ export interface ReconciliationSummary {
   totalEwalletMerchantNet: number;
   totalEwalletFees: number;
   totalEwalletBankDeposit: number;
+
+  totalCommission: number;       // combined card + ewallet commission
+  totalVat: number;              // combined card + ewallet VAT on fees
 
   totalPosCash: number;
   totalClosingCash: number;

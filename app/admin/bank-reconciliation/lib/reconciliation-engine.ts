@@ -97,7 +97,9 @@ export function runReconciliation(
     // Card flow - use POS edcPayment (card-only via group_code=CREDIT_CARD)
     const posCard = dailySales?.edcPayment ?? 0;
     const merchantGross = sumField(merchantCard, 'total_amount');
-    const merchantFees = sumField(merchantCard, 'total_fee_commission_amount') + sumField(merchantCard, 'vat_on_fee_amount');
+    const cardCommission = sumField(merchantCard, 'total_fee_commission_amount');
+    const cardVat = sumField(merchantCard, 'vat_on_fee_amount');
+    const merchantFees = r2(cardCommission + cardVat);
     const merchantNet = sumField(merchantCard, 'net_credit_amount');
     const bankCardDeposit = bankDay?.cardSettlements ?? 0;
 
@@ -133,7 +135,9 @@ export function runReconciliation(
     }
 
     const ewalletGross = sumField(effectiveMerchantEwallet, 'total_amount');
-    const ewalletFees = sumField(effectiveMerchantEwallet, 'total_fee_commission_amount') + sumField(effectiveMerchantEwallet, 'vat_on_fee_amount');
+    const ewalletCommission = sumField(effectiveMerchantEwallet, 'total_fee_commission_amount');
+    const ewalletVat = sumField(effectiveMerchantEwallet, 'vat_on_fee_amount');
+    const ewalletFees = r2(ewalletCommission + ewalletVat);
     const ewalletNet = sumField(effectiveMerchantEwallet, 'net_credit_amount');
 
     const hasEwalletData = effectiveMerchantEwallet.length > 0 || effectiveBankEwalletDeposit > 0 || posEwallet > 0;
@@ -289,6 +293,8 @@ export function runReconciliation(
         posCard,
         merchantGross,
         merchantFees,
+        merchantCommission: cardCommission,
+        merchantVat: cardVat,
         merchantNet,
         bankCardDeposit,
         posVsMerchantGross,
@@ -299,6 +305,8 @@ export function runReconciliation(
         merchantGross: ewalletGross,
         merchantNet: ewalletNet,
         merchantFees: ewalletFees,
+        merchantCommission: ewalletCommission,
+        merchantVat: ewalletVat,
         bankEwalletDeposit: effectiveBankEwalletDeposit,
         posVsMerchantGross: posVsMerchantEwallet,
         merchantNetVsBank: merchantVsBank,
@@ -337,6 +345,7 @@ function buildSummary(days: DailyReconciliation[]): ReconciliationSummary {
   let matchedDays = 0;
   let varianceDays = 0;
   let missingDays = 0;
+  let totalPosCard = 0;
   let totalCardMerchantGross = 0;
   let totalCardMerchantNet = 0;
   let totalCardBankDeposit = 0;
@@ -345,6 +354,8 @@ function buildSummary(days: DailyReconciliation[]): ReconciliationSummary {
   let totalEwalletMerchantNet = 0;
   let totalEwalletFees = 0;
   let totalEwalletBankDeposit = 0;
+  let totalCommission = 0;
+  let totalVat = 0;
   let totalPosCash = 0;
   let totalClosingCash = 0;
   let cashAccurateDays = 0;
@@ -360,6 +371,7 @@ function buildSummary(days: DailyReconciliation[]): ReconciliationSummary {
     else if (day.overallStatus === 'variance') varianceDays++;
     else if (day.overallStatus === 'missing') missingDays++;
 
+    totalPosCard = r2(totalPosCard + day.cardFlow.posCard);
     totalCardMerchantGross = r2(totalCardMerchantGross + day.cardFlow.merchantGross);
     totalCardMerchantNet = r2(totalCardMerchantNet + day.cardFlow.merchantNet);
     totalCardBankDeposit = r2(totalCardBankDeposit + day.cardFlow.bankCardDeposit);
@@ -369,6 +381,9 @@ function buildSummary(days: DailyReconciliation[]): ReconciliationSummary {
     totalEwalletMerchantNet = r2(totalEwalletMerchantNet + day.ewalletFlow.merchantNet);
     totalEwalletFees = r2(totalEwalletFees + day.ewalletFlow.merchantFees);
     totalEwalletBankDeposit = r2(totalEwalletBankDeposit + day.ewalletFlow.bankEwalletDeposit);
+
+    totalCommission = r2(totalCommission + day.cardFlow.merchantCommission + day.ewalletFlow.merchantCommission);
+    totalVat = r2(totalVat + day.cardFlow.merchantVat + day.ewalletFlow.merchantVat);
 
     totalPosCash = r2(totalPosCash + day.cashFlow.posCash);
     totalClosingCash = r2(totalClosingCash + day.cashFlow.closingExpected);
@@ -389,6 +404,7 @@ function buildSummary(days: DailyReconciliation[]): ReconciliationSummary {
     matchedDays,
     varianceDays,
     missingDays,
+    totalPosCard,
     totalCardMerchantGross,
     totalCardMerchantNet,
     totalCardBankDeposit,
@@ -397,6 +413,8 @@ function buildSummary(days: DailyReconciliation[]): ReconciliationSummary {
     totalEwalletMerchantNet,
     totalEwalletFees,
     totalEwalletBankDeposit,
+    totalCommission,
+    totalVat,
     totalPosCash,
     totalClosingCash,
     cashAccurateDays,

@@ -17,7 +17,7 @@ interface DailyReconciliationTableProps {
   days: DailyReconciliation[];
 }
 
-const COLS = 13; // total columns including Gap
+const COLS = 14; // total columns including Gap
 
 const fmt = (amount: number) => {
   if (amount === 0) return '-';
@@ -173,6 +173,7 @@ export default function DailyReconciliationTable({ days }: DailyReconciliationTa
     (acc, day) => {
       acc.posCash += day.cashFlow.posCash;
       acc.posCard += day.cardFlow.posCard;
+      acc.posEwallet += day.ewalletFlow.posEwallet;
       acc.posQr += day.qrFlow.posQr;
       acc.merchantGross += day.cardFlow.merchantGross;
       acc.merchantNet += day.cardFlow.merchantNet;
@@ -183,7 +184,7 @@ export default function DailyReconciliationTable({ days }: DailyReconciliationTa
       acc.gap += day.totalGap;
       return acc;
     },
-    { posCash: 0, posCard: 0, posQr: 0, merchantGross: 0, merchantNet: 0, merchantFees: 0, bankCard: 0, bankEwallet: 0, bankTransfers: 0, gap: 0 }
+    { posCash: 0, posCard: 0, posEwallet: 0, posQr: 0, merchantGross: 0, merchantNet: 0, merchantFees: 0, bankCard: 0, bankEwallet: 0, bankTransfers: 0, gap: 0 }
   );
 
   const hasSuspicious = stats.suspiciousBankTxns.length > 0 || stats.gapDays.length > 0;
@@ -268,7 +269,7 @@ export default function DailyReconciliationTable({ days }: DailyReconciliationTa
               {/* Column group headers */}
               <TableRow className="border-b border-gray-100 bg-gray-50/80">
                 <TableHead colSpan={2} className="py-1.5 px-4 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-r border-gray-200"></TableHead>
-                <TableHead colSpan={3} className="py-1.5 text-center text-[10px] font-semibold text-blue-500 uppercase tracking-wider border-r border-gray-200">POS</TableHead>
+                <TableHead colSpan={4} className="py-1.5 text-center text-[10px] font-semibold text-blue-500 uppercase tracking-wider border-r border-gray-200">POS</TableHead>
                 <TableHead colSpan={3} className="py-1.5 text-center text-[10px] font-semibold text-purple-500 uppercase tracking-wider border-r border-gray-200">K-Merchant</TableHead>
                 <TableHead colSpan={3} className="py-1.5 text-center text-[10px] font-semibold text-emerald-500 uppercase tracking-wider border-r border-gray-200">Bank Statement</TableHead>
                 <TableHead className="py-1.5"></TableHead>
@@ -286,6 +287,10 @@ export default function DailyReconciliationTable({ days }: DailyReconciliationTa
                 </TableHead>
                 <TableHead className="py-2 px-3 text-right">
                   <div className="text-xs font-semibold text-gray-600">Card</div>
+                  <div className="text-[9px] text-blue-400 font-normal">vs Gross</div>
+                </TableHead>
+                <TableHead className="py-2 px-3 text-right">
+                  <div className="text-xs font-semibold text-gray-600">eWallet</div>
                   <div className="text-[9px] text-blue-400 font-normal">vs Gross</div>
                 </TableHead>
                 <TableHead className="py-2 px-3 text-right border-r border-gray-200">
@@ -355,6 +360,7 @@ export default function DailyReconciliationTable({ days }: DailyReconciliationTa
                       </TableCell>
                       <NumCell value={day.cashFlow.posCash} highlight={cashMismatch} />
                       <NumCell value={day.cardFlow.posCard} highlight={cardMismatch} />
+                      <NumCell value={day.ewalletFlow.posEwallet} highlight={ewalletMismatch} />
                       <NumCell value={day.qrFlow.posQr} highlight={qrMismatch} borderRight />
                       <NumCell value={day.cardFlow.merchantGross} highlight={cardMismatch} />
                       <NumCell value={day.cardFlow.merchantNet} highlight={netMismatch} />
@@ -512,6 +518,7 @@ export default function DailyReconciliationTable({ days }: DailyReconciliationTa
                 <TableCell className="py-3 px-4 text-sm text-gray-700 border-r border-gray-200">Total</TableCell>
                 <NumCell value={totals.posCash} bold />
                 <NumCell value={totals.posCard} bold />
+                <NumCell value={totals.posEwallet} bold />
                 <NumCell value={totals.posQr} bold borderRight />
                 <NumCell value={totals.merchantGross} bold />
                 <NumCell value={totals.merchantNet} bold />
