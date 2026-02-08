@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -122,101 +121,96 @@ export function VendorReceiptForm({ onSubmitted }: VendorReceiptFormProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Upload Vendor Receipt</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Staff Name *</Label>
-            <Select value={staffName} onValueChange={setStaffName}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select your name" />
-              </SelectTrigger>
-              <SelectContent>
-                {STAFF_OPTIONS.map((name) => (
-                  <SelectItem key={name} value={name}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+    <div className="space-y-4">
+      <h1 className="text-xl font-semibold tracking-tight">Upload Vendor Receipt</h1>
 
-          <div className="space-y-2">
-            <Label>Vendor *</Label>
-            <VendorCombobox value={vendorId} onChange={handleVendorChange} />
-          </div>
+      <div className="space-y-2">
+        <Label>Staff Name *</Label>
+        <Select value={staffName} onValueChange={setStaffName}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select your name" />
+          </SelectTrigger>
+          <SelectContent>
+            {STAFF_OPTIONS.map((name) => (
+              <SelectItem key={name} value={name}>
+                {name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="receipt-date">Receipt Date</Label>
-            <Input
-              id="receipt-date"
-              type="date"
-              value={receiptDate}
-              onChange={(e) => setReceiptDate(e.target.value)}
-            />
-          </div>
+      <div className="space-y-2">
+        <Label>Vendor *</Label>
+        <VendorCombobox value={vendorId} onChange={handleVendorChange} />
+      </div>
 
-          <div className="space-y-2">
-            <Label>Receipt File *</Label>
-            <ReceiptFileUpload
-              file={file}
-              onFileChange={setFile}
-              error={fileError}
-              onError={setFileError}
-            />
-          </div>
+      <div className="space-y-2">
+        <Label htmlFor="receipt-date">Receipt Date</Label>
+        <Input
+          id="receipt-date"
+          type="date"
+          value={receiptDate}
+          onChange={(e) => setReceiptDate(e.target.value)}
+        />
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes (optional)</Label>
-            <Input
-              id="notes"
-              placeholder="e.g. Monthly grocery supply"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
+      <div className="space-y-2">
+        <Label>Receipt File *</Label>
+        <ReceiptFileUpload
+          file={file}
+          onFileChange={setFile}
+          error={fileError}
+          onError={setFileError}
+        />
+      </div>
 
-          {submitStatus === 'success' && (
-            <Alert className="bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                Receipt uploaded successfully!
-              </AlertDescription>
-            </Alert>
-          )}
+      <div className="space-y-2">
+        <Label htmlFor="notes">Notes (optional)</Label>
+        <Input
+          id="notes"
+          placeholder="e.g. Monthly grocery supply"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </div>
 
-          {submitStatus === 'error' && (
-            <Alert className="bg-red-50 border-red-200">
-              <AlertCircle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">
-                {errorMessage}
-              </AlertDescription>
-            </Alert>
-          )}
+      {submitStatus === 'success' && (
+        <Alert className="bg-green-50 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            Receipt uploaded successfully!
+          </AlertDescription>
+        </Alert>
+      )}
 
-          <Button
-            type="button"
-            className="w-full"
-            disabled={isSubmitting || !staffName || !vendorId || !file}
-            onClick={handleSubmit}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Receipt
-              </>
-            )}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      {submitStatus === 'error' && (
+        <Alert className="bg-red-50 border-red-200">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            {errorMessage}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Button
+        type="button"
+        className="w-full"
+        disabled={isSubmitting || !staffName || !vendorId || !file}
+        onClick={handleSubmit}
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Uploading...
+          </>
+        ) : (
+          <>
+            <Upload className="mr-2 h-4 w-4" />
+            Upload Receipt
+          </>
+        )}
+      </Button>
+    </div>
   )
 }
