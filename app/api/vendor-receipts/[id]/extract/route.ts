@@ -6,6 +6,8 @@ import { extractInvoiceData, resolveModel } from '@/lib/invoice-extraction-servi
 import { downloadFileFromDrive } from '@/lib/google-drive-service';
 import { computeVendorUpdates } from '@/lib/smart-vendor-upsert';
 
+export const maxDuration = 30; // Drive download + LLM vision extraction
+
 /**
  * Background extraction endpoint.
  * Called fire-and-forget after a fast upload completes.
