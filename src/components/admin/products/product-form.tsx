@@ -238,31 +238,32 @@ export function ProductForm({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCancel}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 sm:p-6 gap-0 sm:gap-4 rounded-none sm:rounded-lg">
+        <DialogHeader className="px-4 pt-4 pb-2 sm:px-0 sm:pt-0 sm:pb-0 shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Package className="h-4 w-4 sm:h-5 sm:w-5" />
             {isEditMode ? 'Edit Product' : 'Create New Product'}
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            {isEditMode 
+            {isEditMode
               ? 'Make changes to the product information below.'
               : 'Fill in the product details to create a new product.'
             }
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Basic Information */}
-            <div className="lg:col-span-2 space-y-6">
+        <form onSubmit={handleSubmit(onFormSubmit)} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-0 pb-4 space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              {/* Left Column - Basic Information */}
+              <div className="lg:col-span-2 space-y-4 sm:space-y-6">
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Product Information</CardTitle>
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="text-base sm:text-lg">Product Information</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
+                <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
                       <Label htmlFor="name">Product Name *</Label>
                       <Input
                         id="name"
@@ -348,7 +349,7 @@ export function ProductForm({
                       <p className="text-xs text-gray-500 mt-1">Vendor for LINE order notifications</p>
                     </div>
 
-                    <div className="md:col-span-2">
+                    <div className="sm:col-span-2">
                       <Label htmlFor="description">Description</Label>
                       <Textarea
                         id="description"
@@ -362,14 +363,14 @@ export function ProductForm({
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 sm:h-5 sm:w-5" />
                     Pricing & Cost
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="price">Price (THB) *</Label>
                       <Input
@@ -458,10 +459,10 @@ export function ProductForm({
             {/* Right Column - Settings & Preview */}
             <div className="space-y-6">
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Settings</CardTitle>
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="text-base sm:text-lg">Settings</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
                   <div className="flex items-center justify-between">
                     <div>
                       <Label htmlFor="is_active">Active Status</Label>
@@ -513,10 +514,10 @@ export function ProductForm({
 
               {isEditMode && product && (
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Product Info</CardTitle>
+                  <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="text-base sm:text-lg">Product Info</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
+                  <CardContent className="space-y-2 text-sm p-4 pt-0 sm:p-6 sm:pt-0">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Created:</span>
                       <span>{new Date(product.created_at).toLocaleDateString()}</span>
@@ -540,14 +541,14 @@ export function ProductForm({
                 </Card>
               )}
             </div>
+            </div>
           </div>
-
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t bg-background px-4 py-3 sm:px-0 sm:py-0 sm:border-0">
             <Button type="button" variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={!isValid || isLoading}
               className="min-w-[100px]"
             >

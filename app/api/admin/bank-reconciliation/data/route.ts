@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: ReconciliationDataRequest = await request.json();
-    const { startDate, endDate } = body;
+    const { startDate, endDate, accountNumber } = body;
 
     if (!startDate || !endDate) {
       return NextResponse.json(
@@ -37,8 +37,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Run all 4 queries in parallel
-    const [merchantResult, closingResult, salesResult, cashResult] = await Promise.all([
+    const bankAccountNumber = accountNumber || '170-3-26995-4';
+
+    // Run all 5 queries in parallel
+    const [merchantResult, closingResult, salesResult, cashResult, bankResult] = await Promise.all([
       // 1. Merchant transaction summaries (card + ewallet settlements)
       refacSupabaseAdmin
         .schema('finance')
@@ -70,6 +72,17 @@ export async function POST(request: NextRequest) {
         .gte('timestamp', `${startDate}T00:00:00`)
         .lte('timestamp', `${endDate}T23:59:59`)
         .order('timestamp', { ascending: true }),
+
+      // 5. Bank statement transactions
+      refacSupabaseAdmin
+        .schema('finance')
+        .from('bank_statement_transactions')
+        .select('*')
+        .eq('account_number', bankAccountNumber)
+        .gte('transaction_date', startDate)
+        .lte('transaction_date', endDate)
+        .order('transaction_date', { ascending: true })
+        .order('transaction_time', { ascending: true }),
     ]);
 
     // Check for errors
@@ -89,12 +102,17 @@ export async function POST(request: NextRequest) {
       console.error('Cash check query error:', cashResult.error);
       return NextResponse.json({ error: "Failed to fetch cash checks" }, { status: 500 });
     }
+    if (bankResult.error) {
+      console.error('Bank transactions query error:', bankResult.error);
+      return NextResponse.json({ error: "Failed to fetch bank transactions" }, { status: 500 });
+    }
 
     const response: ReconciliationDataResponse = {
       merchantSettlements: merchantResult.data || [],
       dailyClosings: closingResult.data || [],
       dailySales: salesResult.data || [],
       cashChecks: cashResult.data || [],
+      bankTransactions: bankResult.data || [],
     };
 
     return NextResponse.json(response);

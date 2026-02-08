@@ -54,7 +54,7 @@ export default function Home() {
   
   // Filter operations items based on admin status
   const operationsItems = appMenuItems.filter(item => {
-    if (item.title === "Inventory Management" || item.title === "Staff Time Clock" || item.title === "Staff Schedule" || item.title === "Lead Feedback" || item.title === "Cash Check") {
+    if (item.title === "Inventory Management" || item.title === "Staff Time Clock" || item.title === "Staff Schedule" || item.title === "Lead Feedback" || item.title === "Cash Check" || item.title === "Vendor Receipts") {
       return true; // Available to all users
     }
     if (item.title === "POS System") {

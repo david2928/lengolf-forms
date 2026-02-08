@@ -501,6 +501,12 @@ SCRAPER_API_KEY=your_api_key
 
 ## Memories & Notes
 
+### Development Environment
+- **Terminal**: PowerShell with Claude Code CLI aliases (`cc`, `cr`, `crs`, `cn`, `cns`, `ctr`)
+- **Profile location**: `C:\Users\os\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1`
+- **Terminal tab auto-rename**: Aliases auto-set tab title to `Claude: <session>` on start/resume
+- **This is terminal-based Claude Code (CLI)**, NOT the VS Code extension — answer accordingly
+
 ### Development Workflow
 - `npm run dev` is usually running and skip auth is already set to true when local
 - Scraper service runs separately on port 8080 for local testing

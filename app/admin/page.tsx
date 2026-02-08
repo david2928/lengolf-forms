@@ -27,7 +27,8 @@ import {
   Phone,
   MessageSquare,
   Star,
-  Landmark
+  Landmark,
+  Banknote
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -203,6 +204,18 @@ const financialOperationsItems = [
     title: "Bank Reconciliation",
     description: "Reconcile KBank statements against POS and merchant data",
     path: "/admin/bank-reconciliation"
+  },
+  {
+    icon: Banknote,
+    title: "Transaction Tracker",
+    description: "Annotate bank transactions with vendor, VAT, and WHT details",
+    path: "/admin/expense-tracker"
+  },
+  {
+    icon: Receipt,
+    title: "Vendor Management",
+    description: "Manage vendors and view uploaded receipts",
+    path: "/admin/vendor-receipts"
   }
 ];
 

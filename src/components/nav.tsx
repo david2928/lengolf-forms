@@ -484,6 +484,12 @@ export function Nav() {
                   Bank Reconciliation
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/vendor-receipts" className="flex items-center gap-2 w-full">
+                  <Receipt className="h-4 w-4" />
+                  Vendor Management
+                </Link>
+              </DropdownMenuItem>
 
               <DropdownMenuSeparator />
               

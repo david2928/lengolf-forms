@@ -214,12 +214,32 @@ export interface ReconciliationSummary {
 }
 
 // ============================================================
+// Bank statement DB row (from finance.bank_statement_transactions)
+// ============================================================
+
+export interface BankStatementDbRow {
+  id: number;
+  transaction_date: string;
+  transaction_time: string | null;
+  description: string;
+  withdrawal: number | null;
+  deposit: number | null;
+  balance: number | null;
+  channel: string | null;
+  details: string | null;
+  category: BankTransactionCategory;
+  account_number: string;
+  account_name: string | null;
+}
+
+// ============================================================
 // API types
 // ============================================================
 
 export interface ReconciliationDataRequest {
   startDate: string;
   endDate: string;
+  accountNumber?: string;
 }
 
 export interface ReconciliationDataResponse {
@@ -227,4 +247,5 @@ export interface ReconciliationDataResponse {
   dailyClosings: DailyClosing[];
   dailySales: DailySalesData[];
   cashChecks: CashCheck[];
+  bankTransactions: BankStatementDbRow[];
 }

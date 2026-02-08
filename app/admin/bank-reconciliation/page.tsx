@@ -4,27 +4,35 @@ import React, { useState, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Landmark, AlertCircle } from 'lucide-react';
-import BankStatementUpload from './components/BankStatementUpload';
+import PeriodSelector from './components/PeriodSelector';
 import ReconciliationSummaryCards from './components/ReconciliationSummaryCards';
 import DailyReconciliationTable from './components/DailyReconciliationTable';
 import BankTransactionsTable from './components/BankTransactionsTable';
 import ExportButton from './components/ExportButton';
 import { runReconciliation } from './lib/reconciliation-engine';
+import { transformBankTransactions } from './lib/transform-bank-data';
 import type {
   BankStatementParsed,
+  BankTransaction,
   ReconciliationDataResponse,
   DailyReconciliation,
   ReconciliationSummary,
 } from './types/bank-reconciliation';
 
+function formatDateLabel(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 export default function BankReconciliationPage() {
-  const [bankData, setBankData] = useState<BankStatementParsed | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reconciliationDays, setReconciliationDays] = useState<DailyReconciliation[]>([]);
   const [summary, setSummary] = useState<ReconciliationSummary | null>(null);
+  const [allTransactions, setAllTransactions] = useState<BankTransaction[]>([]);
+  const [activeInfo, setActiveInfo] = useState<string>('');
 
-  const fetchDbDataAndReconcile = useCallback(async (parsed: BankStatementParsed) => {
+  const handleRun = useCallback(async (selection: { startDate: string; endDate: string; accountNumber: string }) => {
     setLoading(true);
     setError(null);
 
@@ -33,8 +41,9 @@ export default function BankReconciliationPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          startDate: parsed.startDate,
-          endDate: parsed.endDate,
+          startDate: selection.startDate,
+          endDate: selection.endDate,
+          accountNumber: selection.accountNumber,
         }),
       });
 
@@ -45,27 +54,35 @@ export default function BankReconciliationPage() {
 
       const data: ReconciliationDataResponse = await response.json();
 
+      // Transform DB bank rows into BankStatementParsed
+      const bankData: BankStatementParsed = transformBankTransactions(
+        data.bankTransactions,
+        selection.accountNumber,
+        selection.startDate,
+        selection.endDate
+      );
+
       // Run reconciliation
-      const result = runReconciliation(parsed, data);
+      const result = runReconciliation(bankData, data);
       setReconciliationDays(result.days);
       setSummary(result.summary);
+      setAllTransactions(bankData.allTransactions);
+
+      // Build active info string
+      const startLabel = formatDateLabel(selection.startDate);
+      const endLabel = formatDateLabel(selection.endDate);
+      setActiveInfo(
+        `${startLabel} - ${endLabel} | ${selection.accountNumber} | ${bankData.allTransactions.length} bank transactions`
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      setReconciliationDays([]);
+      setSummary(null);
+      setAllTransactions([]);
+      setActiveInfo('');
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const handleParsed = useCallback((parsed: BankStatementParsed) => {
-    setBankData(parsed);
-    fetchDbDataAndReconcile(parsed);
-  }, [fetchDbDataAndReconcile]);
-
-  const handleClear = useCallback(() => {
-    setBankData(null);
-    setReconciliationDays([]);
-    setSummary(null);
-    setError(null);
   }, []);
 
   const hasResults = reconciliationDays.length > 0 && summary !== null;
@@ -86,11 +103,11 @@ export default function BankReconciliationPage() {
         {hasResults && <ExportButton days={reconciliationDays} />}
       </div>
 
-      {/* Upload */}
-      <BankStatementUpload
-        onParsed={handleParsed}
-        currentData={bankData}
-        onClear={handleClear}
+      {/* Period Selector */}
+      <PeriodSelector
+        onRun={handleRun}
+        loading={loading}
+        activeInfo={activeInfo}
       />
 
       {/* Loading */}
@@ -132,19 +149,19 @@ export default function BankReconciliationPage() {
             </TabsContent>
 
             <TabsContent value="transactions">
-              <BankTransactionsTable transactions={bankData?.allTransactions ?? []} />
+              <BankTransactionsTable transactions={allTransactions} />
             </TabsContent>
           </Tabs>
         </>
       )}
 
-      {/* Empty state */}
-      {!bankData && !loading && (
+      {/* Empty state - only show when not loading and no results */}
+      {!hasResults && !loading && !error && (
         <div className="text-center py-12 text-gray-400">
           <Landmark className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p className="text-lg font-medium">Upload a KBank statement to begin</p>
+          <p className="text-lg font-medium">Loading bank reconciliation data...</p>
           <p className="text-sm mt-1">
-            Supports KBank CSV deposit statements with card/eWallet settlements
+            Data will auto-load for the current month
           </p>
         </div>
       )}

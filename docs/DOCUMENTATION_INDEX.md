@@ -63,6 +63,7 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 - **[Time Clock System](./features/public/staff-operations/TIME_CLOCK_SYSTEM.md)** - PIN authentication, camera verification, and time tracking
 - **[Staff Scheduling System](./features/public/staff-operations/STAFF_SCHEDULING_SYSTEM.md)** - Staff schedules with conflict detection
 - **[Cash Check System](./features/public/staff-operations/CASH_CHECK_SYSTEM.md)** - Daily cash recording with historical tracking
+- **[Vendor Receipts](./features/public/VENDOR_RECEIPTS.md)** - Upload vendor invoices/receipts to Google Drive with admin vendor management
 
 ### Inventory & Events
 - **[Inventory Management](./features/public/staff-operations/INVENTORY_MANAGEMENT.md)** - Daily submissions, reporting, and LINE integration
@@ -105,6 +106,8 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 - **[Transaction Management](./features/admin/system-management/TRANSACTION_MANAGEMENT.md)** - POS transaction management
 - **[Reconciliation System](./features/admin/data-management/RECONCILIATION_SYSTEM.md)** - Transaction and payment reconciliation
 - **[Bank Reconciliation System](./features/admin/data-management/BANK_RECONCILIATION_SYSTEM.md)** - KBank statement reconciliation against POS, merchant settlements, and daily closings
+- **[Transaction Tracker](./features/admin/data-management/EXPENSE_TRACKER_SYSTEM.md)** - Bank transaction annotation with vendor, VAT (PP30/PP36), WHT (PND3/PND53), and AI invoice extraction
+- **[Vendor Receipts (Admin)](./features/public/VENDOR_RECEIPTS.md#admin-user-interface)** - Vendor directory management and receipt review
 - **[Admin Panel](./features/admin/system-management/ADMIN_PANEL.md)** - Central administrative interface
 
 ### Data Management

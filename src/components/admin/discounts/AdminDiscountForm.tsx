@@ -139,7 +139,7 @@ export function AdminDiscountForm({ discountId }: AdminDiscountFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl mx-auto bg-white rounded-lg shadow p-6 overflow-x-hidden">
+    <form onSubmit={handleSubmit} className="max-w-2xl mx-auto bg-white rounded-lg shadow p-4 sm:p-6 overflow-x-hidden">
       <div className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="title">Title *</Label>
@@ -164,7 +164,7 @@ export function AdminDiscountForm({ discountId }: AdminDiscountFormProps) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="discount-type">Discount Type *</Label>
             <Select value={formData.discount_type} onValueChange={(value) => setFormData({ ...formData, discount_type: value as any })}>
@@ -180,7 +180,7 @@ export function AdminDiscountForm({ discountId }: AdminDiscountFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="discount-value">
-              Discount Value * {formData.discount_type === 'percentage' ? '(%)' : '($)'}
+              Discount Value * {formData.discount_type === 'percentage' ? '(%)' : '(฿)'}
             </Label>
             <Input
               id="discount-value"
@@ -233,7 +233,7 @@ export function AdminDiscountForm({ discountId }: AdminDiscountFormProps) {
         </div>
 
         {formData.availability_type === 'date_range' && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="valid-from">Start Date *</Label>
               <Input
@@ -264,20 +264,21 @@ export function AdminDiscountForm({ discountId }: AdminDiscountFormProps) {
           </div>
         )}
 
-        <div className="flex space-x-4">
-          <Button
-            type="submit"
-            disabled={loading}
-          >
-            {loading ? 'Saving...' : discountId ? 'Update Discount' : 'Create Discount'}
-          </Button>
-          
+        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
           <Button
             type="button"
             variant="outline"
             onClick={() => window.location.href = '/admin/discounts'}
+            className="w-full sm:w-auto"
           >
             Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full sm:w-auto"
+          >
+            {loading ? 'Saving...' : discountId ? 'Update Discount' : 'Create Discount'}
           </Button>
         </div>
       </div>
