@@ -142,6 +142,12 @@ export const menuItems: MenuItem[] = [
     description: "Record opening and closing cash amounts"
   },
   {
+    icon: Banknote,
+    title: "Cash Transactions",
+    path: '/cash-transactions',
+    description: "Record petty cash spending with receipts"
+  },
+  {
     icon: Receipt,
     title: "Vendor Receipts",
     path: '/vendor-receipts',
@@ -224,6 +230,12 @@ export const menuItems: MenuItem[] = [
     title: "Vendor Management",
     path: '/admin/vendor-receipts',
     description: "Manage vendors and view uploaded receipts"
+  },
+  {
+    icon: Banknote,
+    title: "Cash Transactions Admin",
+    path: '/admin/cash-transactions',
+    description: "View all petty cash spending records and receipts"
   },
   {
     icon: Share2,

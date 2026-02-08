@@ -229,6 +229,64 @@ export async function downloadFileFromDrive(fileId: string): Promise<{ buffer: B
 /**
  * Delete a file from Google Drive by its file ID.
  */
+/**
+ * Upload a cash transaction receipt to Google Drive.
+ * Flat folder structure. Naming: YYYYMMDD_spending_type_xxxx.ext
+ */
+export async function uploadCashTransactionReceipt(
+  buffer: Buffer,
+  mimeType: string,
+  options: {
+    transactionDate: string // YYYY-MM-DD
+    spendingType: string
+    originalFileName?: string
+  }
+): Promise<UploadResult> {
+  const folderId = process.env.GOOGLE_DRIVE_CASH_TRANSACTIONS_FOLDER_ID
+  if (!folderId) {
+    throw new Error('GOOGLE_DRIVE_CASH_TRANSACTIONS_FOLDER_ID environment variable is not set')
+  }
+
+  const drive = getDriveService()
+
+  // Build filename: YYYYMMDD_spending_type_xxxx.ext
+  const dateStr = options.transactionDate.replace(/-/g, '')
+  const cleanType = options.spendingType
+    .toLowerCase()
+    .replace(/[^a-z0-9\s_-]/g, '')
+    .replace(/\s+/g, '_')
+  const suffix = Math.random().toString(36).substring(2, 6)
+  const ext = options.originalFileName?.match(/\.([a-zA-Z0-9]+)$/)?.[1] || (mimeType === 'application/pdf' ? 'pdf' : 'jpg')
+  const fileName = `${dateStr}_${cleanType}_${suffix}.${ext}`
+
+  const stream = new Readable()
+  stream.push(buffer)
+  stream.push(null)
+
+  const file = await drive.files.create({
+    requestBody: {
+      name: fileName,
+      parents: [folderId],
+    },
+    media: {
+      mimeType,
+      body: stream,
+    },
+    fields: 'id, name',
+    supportsAllDrives: true,
+  })
+
+  if (!file.data.id) {
+    throw new Error('Upload succeeded but no file ID returned')
+  }
+
+  return {
+    fileId: file.data.id,
+    fileUrl: getViewableLink(file.data.id),
+    fileName: file.data.name || fileName,
+  }
+}
+
 export async function deleteFileFromDrive(fileId: string): Promise<boolean> {
   try {
     const drive = getDriveService()
