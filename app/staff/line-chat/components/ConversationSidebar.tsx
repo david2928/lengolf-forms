@@ -528,7 +528,7 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
   });
 
   return (
-    <div className="w-full md:w-96 bg-white border-r flex flex-col transition-all duration-300 ease-in-out">
+    <div className="w-full md:w-96 bg-white border-r flex flex-col transition-all duration-300 ease-in-out h-full min-h-0">
       <div className="p-4 border-b bg-[#1a4d2e]">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-semibold text-white">Conversations</h1>
@@ -692,7 +692,7 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
 
       <div
         ref={conversationsContainerRef}
-        className="overflow-y-auto flex-1 conversations-container"
+        className="overflow-y-auto flex-1 min-h-0 conversations-container"
         data-conversations-list
       >
         {filteredConversations.length === 0 ? (

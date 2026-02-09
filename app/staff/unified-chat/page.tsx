@@ -581,11 +581,11 @@ export default function UnifiedChatPage() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 relative" style={{ height: '100dvh' }}>
-      <div className="h-full flex flex-col md:flex-row">
+    <div className="h-screen bg-gray-50 relative overflow-hidden" style={{ height: '100dvh' }}>
+      <div className="h-full flex flex-col md:flex-row overflow-hidden">
         {/* Left Sidebar - Conversations */}
         {!leftPanelCollapsed && (
-          <div className={`transition-all duration-300 ease-in-out ${showMobileChat ? 'hidden md:flex' : 'flex'} flex-col`}>
+          <div className={`transition-all duration-300 ease-in-out ${showMobileChat ? 'hidden md:flex' : 'flex'} flex-col h-full min-h-0`}>
             <ConversationSidebar
               ref={conversationSidebarRef}
               selectedConversation={selectedConversation}
@@ -607,7 +607,7 @@ export default function UnifiedChatPage() {
         )}
 
         {/* Center - Chat Area */}
-        <div className={`flex-1 transition-all duration-300 ease-in-out h-full ${!showMobileChat && selectedConversation ? 'hidden md:flex' : ''} ${!selectedConversation ? 'hidden md:flex' : ''}`}>
+        <div className={`flex-1 transition-all duration-300 ease-in-out h-full min-h-0 ${!showMobileChat && selectedConversation ? 'hidden md:flex' : ''} ${!selectedConversation ? 'hidden md:flex' : ''}`}>
           <ChatArea
             selectedConversation={selectedConversation}
             selectedConversationObj={selectedConversationObj}
@@ -638,7 +638,7 @@ export default function UnifiedChatPage() {
 
         {/* Right Sidebar - Customer Info */}
         {!rightPanelCollapsed && (
-          <div className={`transition-all duration-300 ease-in-out ${!showMobileCustomer ? 'hidden md:flex' : 'hidden md:flex'}`}>
+          <div className={`transition-all duration-300 ease-in-out ${!showMobileCustomer ? 'hidden md:flex' : 'hidden md:flex'} h-full min-h-0`}>
             <CustomerSidebar
               selectedConversation={selectedConversation}
               selectedConversationObj={selectedConversationObj}
