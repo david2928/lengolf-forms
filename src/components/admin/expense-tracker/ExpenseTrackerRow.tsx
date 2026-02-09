@@ -514,7 +514,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
           <InvoiceUploadButton
             onExtracted={handleInvoiceExtracted}
             paymentDate={tx.transaction_date}
-            vendorName={vendor?.name || vendorNameOverride || undefined}
+            vendorName={vendor?.company_name || vendor?.name || vendorNameOverride || undefined}
           />
           {receiptMatches && receiptMatches.length > 0 && onReceiptLinked && (
             <ReceiptMatchPopover

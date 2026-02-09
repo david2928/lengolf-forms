@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     // Upload to Google Drive if we have enough context
     let document_url: string | null = null;
-    const resolvedVendor = extraction.vendor_company_name_en || extraction.vendor_name || vendorNameHint;
+    const resolvedVendor = vendorNameHint || extraction.vendor_company_name_en || extraction.vendor_name;
     const resolvedDate = paymentDate || extraction.invoice_date;
 
     if (resolvedVendor && resolvedDate) {
