@@ -103,15 +103,16 @@ export async function POST(
 
     // Fallback: If no LINE user ID provided, try to find by customer_id
     if (!lineUserId && booking.customer_id) {
-      // Check if customer has a linked LINE user
-      const { data: lineUser } = await refacSupabaseAdmin
+      // Use limit(1) instead of single() to handle customers with multiple linked LINE accounts
+      const { data: lineUsers } = await refacSupabaseAdmin
         .from('line_users')
         .select('line_user_id')
         .eq('customer_id', booking.customer_id)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      if (lineUser) {
-        lineUserId = lineUser.line_user_id;
+      if (lineUsers && lineUsers.length > 0) {
+        lineUserId = lineUsers[0].line_user_id;
 
         // Get or create conversation
         const { data: conversation } = await refacSupabaseAdmin
