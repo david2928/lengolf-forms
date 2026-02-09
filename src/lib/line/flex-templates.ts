@@ -204,7 +204,7 @@ export function createBookingConfirmationMessage(booking: BookingDetails) {
             action: {
               type: 'uri',
               label: 'View Booking',
-              uri: LIFF_MEMBERSHIP_URL
+              uri: `${LIFF_MEMBERSHIP_URL}/booking/${booking.bookingId}`
             }
           },
           {
@@ -213,7 +213,7 @@ export function createBookingConfirmationMessage(booking: BookingDetails) {
             action: {
               type: 'uri',
               label: 'Cancel Booking',
-              uri: LIFF_MEMBERSHIP_URL
+              uri: `${LIFF_MEMBERSHIP_URL}/booking/${booking.bookingId}`
             }
           }
         ],
@@ -317,7 +317,7 @@ export function createBookingReminderMessage(booking: BookingDetails & { hoursUn
             action: {
               type: 'uri',
               label: 'View Booking',
-              uri: LIFF_MEMBERSHIP_URL
+              uri: `${LIFF_MEMBERSHIP_URL}/booking/${booking.bookingId}`
             }
           },
           {
@@ -326,7 +326,7 @@ export function createBookingReminderMessage(booking: BookingDetails & { hoursUn
             action: {
               type: 'uri',
               label: 'Cancel Booking',
-              uri: LIFF_MEMBERSHIP_URL
+              uri: `${LIFF_MEMBERSHIP_URL}/booking/${booking.bookingId}`
             }
           }
         ],
