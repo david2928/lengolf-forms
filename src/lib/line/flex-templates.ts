@@ -2,6 +2,10 @@
  * LINE Flex Message templates for rich interactive messages
  */
 
+// LIFF URLs for customer self-service
+const LIFF_MEMBERSHIP_URL = 'https://liff.line.me/2007027277-MmFezHiv';
+const LIFF_BOOKING_URL = 'https://liff.line.me/2007027277-ShDmuSHO';
+
 interface BookingDetails {
   bookingId: string;
   customerName: string;
@@ -198,40 +202,19 @@ export function createBookingConfirmationMessage(booking: BookingDetails) {
             style: 'primary',
             color: '#06C755',
             action: {
-              type: 'postback',
-              label: 'Confirm',
-              data: `action=confirm_booking&booking_id=${booking.bookingId}`,
-              displayText: `✅ Confirmed - ${booking.date} ${booking.time} (${booking.bookingId})`
+              type: 'uri',
+              label: 'View Booking',
+              uri: LIFF_MEMBERSHIP_URL
             }
           },
           {
-            type: 'box',
-            layout: 'horizontal',
-            spacing: 'xs',
-            contents: [
-              {
-                type: 'button',
-                style: 'secondary',
-                flex: 1,
-                action: {
-                  type: 'postback',
-                  label: 'Changes',
-                  data: `action=request_changes&booking_id=${booking.bookingId}`,
-                  displayText: 'Request changes'
-                }
-              },
-              {
-                type: 'button',
-                style: 'secondary',
-                flex: 1,
-                action: {
-                  type: 'postback',
-                  label: 'Cancel',
-                  data: `action=cancel_booking&booking_id=${booking.bookingId}`,
-                  displayText: 'Cancel booking'
-                }
-              }
-            ]
+            type: 'button',
+            style: 'secondary',
+            action: {
+              type: 'uri',
+              label: 'Cancel Booking',
+              uri: LIFF_MEMBERSHIP_URL
+            }
           }
         ],
         paddingAll: '16px'
@@ -332,40 +315,19 @@ export function createBookingReminderMessage(booking: BookingDetails & { hoursUn
             style: 'primary',
             color: '#06C755',
             action: {
-              type: 'postback',
-              label: 'I\'ll be there',
-              data: `action=confirm_attendance&booking_id=${booking.bookingId}`,
-              displayText: 'Confirmed attendance'
+              type: 'uri',
+              label: 'View Booking',
+              uri: LIFF_MEMBERSHIP_URL
             }
           },
           {
-            type: 'box',
-            layout: 'horizontal',
-            spacing: 'xs',
-            contents: [
-              {
-                type: 'button',
-                style: 'secondary',
-                flex: 1,
-                action: {
-                  type: 'postback',
-                  label: 'Reschedule',
-                  data: `action=reschedule&booking_id=${booking.bookingId}`,
-                  displayText: 'Need to reschedule'
-                }
-              },
-              {
-                type: 'button',
-                style: 'secondary',
-                flex: 1,
-                action: {
-                  type: 'postback',
-                  label: 'Cancel',
-                  data: `action=cancel_booking&booking_id=${booking.bookingId}`,
-                  displayText: 'Cancel booking'
-                }
-              }
-            ]
+            type: 'button',
+            style: 'secondary',
+            action: {
+              type: 'uri',
+              label: 'Cancel Booking',
+              uri: LIFF_MEMBERSHIP_URL
+            }
           }
         ],
         paddingAll: '16px'
@@ -534,12 +496,23 @@ export function createBookingCancellationMessage(booking: BookingDetails) {
         spacing: 'xs',
         contents: [
           {
+            type: 'button',
+            style: 'primary',
+            color: '#06C755',
+            action: {
+              type: 'uri',
+              label: 'Book Again',
+              uri: LIFF_BOOKING_URL
+            }
+          },
+          {
             type: 'text',
             text: 'If you have any questions, please contact us.',
             size: 'xs',
             color: '#999999',
             align: 'center',
-            wrap: true
+            wrap: true,
+            margin: 'md'
           }
         ],
         paddingAll: '16px'
