@@ -291,7 +291,7 @@ function buildConfirmationFlex(details: {
             action: {
               type: 'uri',
               label: 'View Booking',
-              uri: LIFF_MEMBERSHIP_URL,
+              uri: `${LIFF_MEMBERSHIP_URL}/booking/${details.bookingId}`,
             },
           },
           {
@@ -300,7 +300,7 @@ function buildConfirmationFlex(details: {
             action: {
               type: 'uri',
               label: 'Cancel Booking',
-              uri: LIFF_MEMBERSHIP_URL,
+              uri: `${LIFF_MEMBERSHIP_URL}/booking/${details.bookingId}`,
             },
           },
         ],
