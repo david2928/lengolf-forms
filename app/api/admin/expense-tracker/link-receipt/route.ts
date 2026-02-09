@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
     };
 
     if (apply_extraction) {
-      // Get vendor name for Drive upload
-      let vendorName = receipt.extracted_vendor_name || 'Unknown';
+      // Get vendor name for Drive upload filename (prefer English names)
+      let vendorName = receipt.extracted_company_name_en || receipt.extracted_vendor_name || 'Unknown';
       if (receipt.vendor_id) {
         const { data: vendor } = await refacSupabaseAdmin
           .schema('backoffice')
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (vendor) {
-          vendorName = vendor.name;
+          vendorName = vendor.company_name || vendor.name;
 
           // Smart vendor upsert from extraction data
           if (receipt.extracted_vendor_name || receipt.extracted_address || receipt.extracted_tax_id) {
