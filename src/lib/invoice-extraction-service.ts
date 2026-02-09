@@ -13,9 +13,20 @@ Rules:
 - For vat_type: use "pp30" if Thai domestic VAT 7% is shown (most common), "pp36" only for foreign/reverse-charge services, "none" if no VAT
 - wht_applicable: true if this looks like a service that typically has withholding tax (services, consulting, rent, professional fees, etc.)
 - confidence: "high" if document is clear and all key fields are readable, "medium" if some fields are uncertain, "low" if document is poor quality or heavily obscured
-- confidence_explanation: Brief explanation of why you chose that confidence level (e.g. "Clear printed invoice with all fields visible", "Handwritten receipt, some amounts hard to read", "Blurry photo, vendor name uncertain")`;
+- confidence_explanation: Brief explanation of why you chose that confidence level (e.g. "Clear printed invoice with all fields visible", "Handwritten receipt, some amounts hard to read", "Blurry photo, vendor name uncertain")
 
-const USER_PROMPT = `Extract all invoice/receipt data from this document.`;
+MULTI-PAGE / MULTI-INVOICE DOCUMENTS:
+- **Read ALL pages** of the document, not just the first page.
+- If the document contains multiple invoices from the same vendor, **SUM the amounts** across all invoices:
+  - total_amount = sum of all invoice totals
+  - tax_base = sum of all tax bases
+  - vat_amount = sum of all VAT amounts
+- Concatenate invoice numbers with ", " (e.g. "INV-001, INV-002")
+- Use the earliest invoice_date among the invoices
+- If invoices have different vat_type values, prefer "pp30" over "none" (partial VAT is still VAT)
+- Mention the number of invoices found in confidence_explanation (e.g. "2 invoices found, amounts summed")`;
+
+const USER_PROMPT = `Extract all invoice/receipt data from this document. If there are multiple pages or multiple invoices, read ALL pages and SUM the amounts (total_amount, tax_base, vat_amount) across all invoices. Concatenate invoice numbers with ", ".`;
 
 // Allowed models for extraction (whitelist for safety)
 const ALLOWED_MODELS = ['gpt-4o', 'gpt-4o-mini', 'gpt-5.2', 'gpt-5-mini'] as const;

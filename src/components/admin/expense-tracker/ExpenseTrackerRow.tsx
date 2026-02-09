@@ -7,7 +7,7 @@ import { VendorCombobox } from './VendorCombobox';
 import { VendorDetailPopover } from './VendorDetailPopover';
 import { InvoiceUploadButton } from './InvoiceUploadButton';
 import { ReceiptMatchPopover } from './ReceiptMatchPopover';
-import { recalcAll } from './TaxCalculator';
+import { recalcAll, calcVat, calcWht } from './TaxCalculator';
 import {
   Popover,
   PopoverContent,
@@ -406,6 +406,23 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
     [tx.id, tx.transaction_date, amount, vendor, vatType, whtType, whtRate, whtAmount, whtOverride, reportingMonth, invoiceRef, documentUrl, notes, doSave, onVendorUpdated]
   );
 
+  // Mismatch detection: compare stored override values against formula-calculated values
+  const vatMismatch = useMemo(() => {
+    if (vatType === 'none' || vatAmount == null) return null;
+    const expected = calcVat(amount, vatType);
+    const diff = Math.round((vatAmount - expected) * 100) / 100;
+    if (Math.abs(diff) <= 0.01) return null;
+    return { expected, diff };
+  }, [vatType, vatAmount, amount]);
+
+  const whtMismatch = useMemo(() => {
+    if (whtType === 'none' || whtAmount == null) return null;
+    const expected = calcWht(amount, whtType, whtRate);
+    const diff = Math.round((whtAmount - expected) * 100) / 100;
+    if (Math.abs(diff) <= 0.01) return null;
+    return { expected, diff };
+  }, [whtType, whtAmount, whtRate, amount]);
+
   const cellBase = 'px-2 py-1.5 text-xs whitespace-nowrap';
   const inputBase = 'h-6 text-xs px-1.5 border-0 bg-transparent hover:bg-muted/50 focus:bg-white focus:ring-1 focus:ring-ring rounded w-full';
 
@@ -435,6 +452,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
     if (transactionType === 'credit_card') badges.push(<span key="cc" className="px-1 py-px rounded bg-indigo-100 text-indigo-700 text-[10px] font-medium leading-none">CARD</span>);
     if (transactionType === 'ewallet') badges.push(<span key="ew" className="px-1 py-px rounded bg-pink-100 text-pink-700 text-[10px] font-medium leading-none">eWAL</span>);
     if (transactionType === 'qr_payment') badges.push(<span key="qr" className="px-1 py-px rounded bg-lime-100 text-lime-700 text-[10px] font-medium leading-none">QR</span>);
+    if (transactionType === 'platform_settlement') badges.push(<span key="ps" className="px-1 py-px rounded bg-purple-100 text-purple-700 text-[10px] font-medium leading-none">PLAT</span>);
     return badges;
   };
 
@@ -579,6 +597,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
                   {badgeBtn(transactionType === 'ewallet', 'pink', 'eWallet', () => toggleTransactionType('ewallet'))}
                   {badgeBtn(transactionType === 'qr_payment', 'lime', 'QR', () => toggleTransactionType('qr_payment'))}
                   {badgeBtn(transactionType === 'sale', 'cyan', 'Sale', () => toggleTransactionType('sale'))}
+                  {badgeBtn(transactionType === 'platform_settlement', 'purple', 'Platform', () => toggleTransactionType('platform_settlement'))}
                   {badgeBtn(transactionType === 'cash_deposit', 'emerald', 'Cash', () => toggleTransactionType('cash_deposit'))}
                 </div>
               </div>
@@ -641,7 +660,8 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
             value={formatNum(whtAmount)}
             onChange={(e) => setWhtAmount(parseNum(e.target.value))}
             onBlur={(e) => handleFieldBlur('whtAmount', e.target.value)}
-            className={cn(inputBase, 'text-right')}
+            className={cn(inputBase, 'text-right', whtMismatch && 'ring-1 ring-amber-400 bg-amber-50')}
+            title={whtMismatch ? `Expected: ${formatNum(whtMismatch.expected)} (${whtMismatch.diff > 0 ? '+' : ''}${formatNum(whtMismatch.diff)})` : undefined}
           />
         ) : (
           <span className="text-muted-foreground">-</span>
@@ -656,7 +676,8 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
             value={formatNum(vatAmount)}
             onChange={(e) => setVatAmount(parseNum(e.target.value))}
             onBlur={(e) => handleFieldBlur('vatAmount', e.target.value)}
-            className={cn(inputBase, 'text-right')}
+            className={cn(inputBase, 'text-right', vatMismatch && 'ring-1 ring-amber-400 bg-amber-50')}
+            title={vatMismatch ? `Expected: ${formatNum(vatMismatch.expected)} (${vatMismatch.diff > 0 ? '+' : ''}${formatNum(vatMismatch.diff)})` : undefined}
           />
         ) : (
           <span className="text-muted-foreground">-</span>

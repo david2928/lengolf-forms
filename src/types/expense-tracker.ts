@@ -11,6 +11,9 @@ export interface Vendor {
   tax_id: string | null;
   is_company: boolean;
   is_domestic: boolean;
+  tax_first_name: string | null;
+  tax_last_name: string | null;
+  prefix: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -39,7 +42,7 @@ export interface BankTransaction {
 
 export type VatType = 'none' | 'pp30' | 'pp36';
 export type WhtType = 'none' | 'pnd3' | 'pnd53';
-export type TransactionType = 'salary' | 'sso' | 'internal_transfer' | 'tax_payment' | 'cash_deposit' | 'sale' | 'credit_card' | 'ewallet' | 'qr_payment';
+export type TransactionType = 'salary' | 'sso' | 'internal_transfer' | 'tax_payment' | 'cash_deposit' | 'sale' | 'credit_card' | 'ewallet' | 'qr_payment' | 'platform_settlement';
 
 export interface TransactionAnnotation {
   id: number;
@@ -62,6 +65,8 @@ export interface TransactionAnnotation {
   vendor_receipt_id: string | null;
   transaction_type: TransactionType | null;
   notes: string | null;
+  flow_completed: boolean;
+  flow_completed_at: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;

@@ -100,6 +100,7 @@ export function ExpenseTrackerFilters({ filters, onChange, accounts }: ExpenseTr
           <SelectItem value="tax_payment">Tax Payment</SelectItem>
           <SelectItem value="internal_transfer">Internal Transfer</SelectItem>
           <SelectItem value="sale">Sale</SelectItem>
+          <SelectItem value="platform_settlement">Platform Settlement</SelectItem>
         </SelectContent>
       </Select>
 

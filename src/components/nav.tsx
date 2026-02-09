@@ -490,6 +490,18 @@ export function Nav() {
                   Vendor Management
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/expense-tracker" className="flex items-center gap-2 w-full">
+                  <Receipt className="h-4 w-4" />
+                  Transaction Tracker
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/monthly-closing" className="flex items-center gap-2 w-full">
+                  <FileText className="h-4 w-4" />
+                  Monthly Closing
+                </Link>
+              </DropdownMenuItem>
 
               <DropdownMenuSeparator />
               

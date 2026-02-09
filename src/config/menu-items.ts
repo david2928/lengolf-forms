@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star, Landmark, Receipt } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star, Landmark, Receipt, CalendarCheck } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -218,6 +218,12 @@ export const menuItems: MenuItem[] = [
     title: "Transaction Tracker",
     path: '/admin/expense-tracker',
     description: "Annotate bank transactions with vendor, VAT, and WHT details"
+  },
+  {
+    icon: CalendarCheck,
+    title: "Sales/Expense Checklist",
+    path: '/admin/monthly-closing',
+    description: "Monthly sales overview, expense checklist, and tax filing tools"
   },
   {
     icon: Settings,

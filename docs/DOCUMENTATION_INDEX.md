@@ -107,6 +107,7 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 - **[Reconciliation System](./features/admin/data-management/RECONCILIATION_SYSTEM.md)** - Transaction and payment reconciliation
 - **[Bank Reconciliation System](./features/admin/data-management/BANK_RECONCILIATION_SYSTEM.md)** - KBank statement reconciliation against POS, merchant settlements, and daily closings
 - **[Transaction Tracker](./features/admin/data-management/EXPENSE_TRACKER_SYSTEM.md)** - Bank transaction annotation with vendor, VAT (PP30/PP36), WHT (PND3/PND53), and AI invoice extraction
+- **[Monthly Closing](./features/admin/data-management/MONTHLY_CLOSING_SYSTEM.md)** - Monthly tax filing tools: WHT filing (PND3/PND53) with guided data review and RDPrep-ready file generation
 - **[Vendor Receipts (Admin)](./features/public/VENDOR_RECEIPTS.md#admin-user-interface)** - Vendor directory management and receipt review
 - **[Admin Panel](./features/admin/system-management/ADMIN_PANEL.md)** - Central administrative interface
 
