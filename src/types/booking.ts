@@ -33,6 +33,8 @@ export interface Booking {
   phone_confirmed?: boolean; // Whether booking has been confirmed via phone call
   phone_confirmed_at?: string; // Timestamp when phone confirmation was made
   phone_confirmed_by?: string; // Name of staff who made the confirmation call
+  // Google Ads offline conversion tracking
+  gclid?: string | null; // Google Click ID from ad click
 }
 
 // Customer information interface for bookings

@@ -88,6 +88,7 @@ interface BookingPreFill {
   date?: string | null
   time?: string | null
   duration?: number
+  gclid?: string | null
 }
 
 interface BookingFormNewProps {
@@ -193,9 +194,9 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
     }
   }, [chatContext])
 
-  // Pre-fill booking date, time, and duration from URL parameters
+  // Pre-fill booking date, time, duration, and GCLID from URL parameters
   useEffect(() => {
-    if (bookingPreFill && (bookingPreFill.date || bookingPreFill.time || bookingPreFill.duration)) {
+    if (bookingPreFill && (bookingPreFill.date || bookingPreFill.time || bookingPreFill.duration || bookingPreFill.gclid)) {
       setFormData(prev => {
         const updates: Partial<FormData> = {};
 
@@ -229,6 +230,11 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
           const endTimeDate = new Date(startTimeDate);
           endTimeDate.setMinutes(endTimeDate.getMinutes() + (bookingPreFill.duration * 60));
           updates.endTime = endTimeDate;
+        }
+
+        // Capture Google Click ID for offline conversion tracking
+        if (bookingPreFill.gclid) {
+          updates.gclid = bookingPreFill.gclid;
         }
 
         return { ...prev, ...updates };
