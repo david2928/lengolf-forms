@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
-import { refacSupabaseAdmin } from '@/lib/refac-supabase';
-import type { ReconciliationDataRequest, ReconciliationDataResponse } from '../../../../admin/bank-reconciliation/types/bank-reconciliation';
+import { fetchReconciliationData } from '../../../../admin/bank-reconciliation/lib/fetch-reconciliation-data';
+import type { ReconciliationDataRequest } from '../../../../admin/bank-reconciliation/types/bank-reconciliation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,89 +37,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const bankAccountNumber = accountNumber || '170-3-26995-4';
-
-    // Run all 5 queries in parallel
-    const [merchantResult, closingResult, salesResult, cashResult, bankResult] = await Promise.all([
-      // 1. Merchant transaction summaries (card + ewallet settlements)
-      refacSupabaseAdmin
-        .schema('finance')
-        .from('merchant_transaction_summaries')
-        .select('*')
-        .gte('report_date', startDate)
-        .lte('report_date', endDate)
-        .order('report_date', { ascending: true }),
-
-      // 2. POS daily closings
-      refacSupabaseAdmin
-        .schema('pos')
-        .from('daily_reconciliations')
-        .select('*')
-        .gte('closing_date', startDate)
-        .lte('closing_date', endDate)
-        .order('closing_date', { ascending: true }),
-
-      // 3. POS daily sales via RPC
-      refacSupabaseAdmin.rpc('get_daily_sales_report', {
-        p_start_date: startDate,
-        p_end_date: endDate,
-      }),
-
-      // 4. Cash checks
-      refacSupabaseAdmin
-        .from('cash_checks')
-        .select('*')
-        .gte('timestamp', `${startDate}T00:00:00`)
-        .lte('timestamp', `${endDate}T23:59:59`)
-        .order('timestamp', { ascending: true }),
-
-      // 5. Bank statement transactions
-      refacSupabaseAdmin
-        .schema('finance')
-        .from('bank_statement_transactions')
-        .select('*')
-        .eq('account_number', bankAccountNumber)
-        .gte('transaction_date', startDate)
-        .lte('transaction_date', endDate)
-        .order('transaction_date', { ascending: true })
-        .order('transaction_time', { ascending: true }),
-    ]);
-
-    // Check for errors
-    if (merchantResult.error) {
-      console.error('Merchant query error:', merchantResult.error);
-      return NextResponse.json({ error: "Failed to fetch merchant settlements" }, { status: 500 });
-    }
-    if (closingResult.error) {
-      console.error('Closing query error:', closingResult.error);
-      return NextResponse.json({ error: "Failed to fetch daily closings" }, { status: 500 });
-    }
-    if (salesResult.error) {
-      console.error('Sales query error:', salesResult.error);
-      return NextResponse.json({ error: "Failed to fetch daily sales" }, { status: 500 });
-    }
-    if (cashResult.error) {
-      console.error('Cash check query error:', cashResult.error);
-      return NextResponse.json({ error: "Failed to fetch cash checks" }, { status: 500 });
-    }
-    if (bankResult.error) {
-      console.error('Bank transactions query error:', bankResult.error);
-      return NextResponse.json({ error: "Failed to fetch bank transactions" }, { status: 500 });
-    }
-
-    const response: ReconciliationDataResponse = {
-      merchantSettlements: merchantResult.data || [],
-      dailyClosings: closingResult.data || [],
-      dailySales: salesResult.data || [],
-      cashChecks: cashResult.data || [],
-      bankTransactions: bankResult.data || [],
-    };
-
+    const response = await fetchReconciliationData(startDate, endDate, accountNumber);
     return NextResponse.json(response);
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
     console.error('Bank reconciliation data error:', error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: message },
       { status: 500 }
     );
   }
