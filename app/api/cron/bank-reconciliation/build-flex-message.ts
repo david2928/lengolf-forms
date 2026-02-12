@@ -39,6 +39,12 @@ interface FlowRow {
   label: string;
   status: ComparisonStatus;
   variance: number;
+  /** Override display text (e.g. "Pending" instead of "Missing Data") */
+  displayLabel?: string;
+  displayColor?: string;
+  displayEmoji?: string;
+  /** True if this row should be excluded from effective overall status */
+  isPending?: boolean;
 }
 
 function buildFlowRows(day: DailyReconciliation): FlowRow[] {
@@ -65,7 +71,24 @@ function buildFlowRows(day: DailyReconciliation): FlowRow[] {
     );
     const ewStatus: ComparisonStatus = ewStatuses.includes('variance') ? 'variance'
       : ewStatuses.includes('missing') ? 'missing' : 'matched';
-    rows.push({ label: 'eWallet', status: ewStatus, variance: ewVariance });
+
+    // eWallet merchant files arrive inconsistently (often days later).
+    // When POS has eWallet sales but no merchant file yet, show "Pending" instead of "Missing Data".
+    const ewalletFilePending = ewStatus === 'missing'
+      && day.merchantEwallet.length === 0
+      && day.ewalletFlow.posEwallet > 0;
+
+    rows.push({
+      label: 'eWallet',
+      status: ewStatus,
+      variance: ewVariance,
+      ...(ewalletFilePending ? {
+        displayLabel: 'Pending',
+        displayColor: '#3498DB',    // blue
+        displayEmoji: '\u23F3',     // hourglass
+        isPending: true,
+      } : {}),
+    });
   }
 
   // Cash flow
@@ -90,10 +113,28 @@ function buildFlowRows(day: DailyReconciliation): FlowRow[] {
 }
 
 /**
+ * Compute the effective overall status for the notification badge,
+ * excluding flows marked as "pending" (e.g. eWallet file not yet uploaded).
+ */
+function getEffectiveOverallStatus(day: DailyReconciliation, flowRows: FlowRow[]): ComparisonStatus {
+  const nonPendingRows = flowRows.filter(r => !r.isPending);
+  const statuses = nonPendingRows.map(r => r.status).filter(s => s !== 'not_applicable');
+
+  if (statuses.length === 0) return day.overallStatus;
+  if (statuses.some(s => s === 'missing')) return 'missing';
+  if (statuses.some(s => s === 'variance')) return 'variance';
+  // Also check gap and unreconciled
+  if (day.unreconciledCount > 0) return 'variance';
+  if (Math.abs(day.totalGap) > 0.01) return 'variance';
+  return 'matched';
+}
+
+/**
  * Build a Flex Message bubble for a discrepancy / variance notification.
  */
 export function buildDiscrepancyFlexMessage(day: DailyReconciliation): Record<string, unknown> {
   const flowRows = buildFlowRows(day);
+  const effectiveStatus = getEffectiveOverallStatus(day, flowRows);
 
   const flowContents = flowRows.map(row => ({
     type: 'box',
@@ -101,24 +142,24 @@ export function buildDiscrepancyFlexMessage(day: DailyReconciliation): Record<st
     contents: [
       {
         type: 'text',
-        text: `${statusEmoji(row.status)} ${row.label}`,
+        text: `${row.displayEmoji || statusEmoji(row.status)} ${row.label}`,
         size: 'sm',
         color: '#555555',
         flex: 3,
       },
       {
         type: 'text',
-        text: statusLabel(row.status),
+        text: row.displayLabel || statusLabel(row.status),
         size: 'sm',
-        color: statusColor(row.status),
+        color: row.displayColor || statusColor(row.status),
         flex: 2,
         align: 'center',
       },
       {
         type: 'text',
-        text: row.variance !== 0 ? `${row.variance > 0 ? '+' : ''}${formatThb(row.variance)}` : '-',
+        text: row.isPending ? '-' : (row.variance !== 0 ? `${row.variance > 0 ? '+' : ''}${formatThb(row.variance)}` : '-'),
         size: 'sm',
-        color: row.variance !== 0 ? '#E74C3C' : '#999999',
+        color: (!row.isPending && row.variance !== 0) ? '#E74C3C' : '#999999',
         flex: 3,
         align: 'end',
       },
@@ -150,13 +191,13 @@ export function buildDiscrepancyFlexMessage(day: DailyReconciliation): Record<st
               layout: 'vertical',
               contents: [{
                 type: 'text',
-                text: statusLabel(day.overallStatus),
+                text: statusLabel(effectiveStatus),
                 size: 'xs',
                 color: '#FFFFFF',
                 align: 'center',
                 weight: 'bold',
               }],
-              backgroundColor: day.overallStatus === 'variance' ? '#C0392B' : '#E67E22',
+              backgroundColor: effectiveStatus === 'variance' ? '#C0392B' : effectiveStatus === 'matched' ? '#27AE60' : '#E67E22',
               cornerRadius: 'md',
               paddingAll: 'xs',
               flex: 2,
@@ -173,7 +214,7 @@ export function buildDiscrepancyFlexMessage(day: DailyReconciliation): Record<st
           margin: 'sm',
         },
       ],
-      backgroundColor: day.overallStatus === 'variance' ? '#E74C3C' : '#F39C12',
+      backgroundColor: effectiveStatus === 'matched' ? '#27AE60' : effectiveStatus === 'variance' ? '#E74C3C' : '#F39C12',
       paddingAll: 'lg',
     },
     body: {

@@ -34,7 +34,7 @@ function getNextDate(dateStr: string): string {
 async function sendLineError(message: string): Promise<void> {
   try {
     const token = LINE_MESSAGING.channelAccessToken;
-    const groupId = LINE_MESSAGING.groups.default;
+    const groupId = LINE_MESSAGING.groups.general;
     if (!token || !groupId) return;
     const client = createLineClient(token);
     await client.pushTextMessage(groupId, message);
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     const allEmpty = !hasBankStatement && !hasMerchantData && !hasDailyClosing && !hasDailySales;
 
     const token = LINE_MESSAGING.channelAccessToken;
-    const groupId = LINE_MESSAGING.groups.default;
+    const groupId = LINE_MESSAGING.groups.general;
 
     if (!token || !groupId) {
       console.error('[bank-recon-cron] LINE credentials not configured');
