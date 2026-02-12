@@ -169,8 +169,28 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Case 4: Variance or missing - send discrepancy notification
-    console.log(`[bank-recon-cron] ${yesterday} status=${yesterdayResult.overallStatus} - sending discrepancy alert`);
+    // Case 4: Variance or missing - check if gap is significant enough to notify
+    // When eWallet merchant file is pending, exclude its POS amount from gap
+    const ewalletPending = yesterdayResult.merchantEwallet.length === 0
+      && yesterdayResult.ewalletFlow.posEwallet > 0;
+    const adjustedGap = ewalletPending
+      ? Math.round((yesterdayResult.totalGap - yesterdayResult.ewalletFlow.posEwallet) * 100) / 100
+      : yesterdayResult.totalGap;
+
+    const GAP_THRESHOLD = 10; // THB - only notify if adjusted gap exceeds this
+    if (Math.abs(adjustedGap) <= GAP_THRESHOLD) {
+      console.log(`[bank-recon-cron] ${yesterday} adjustedGap=${adjustedGap} within ${GAP_THRESHOLD} THB threshold - no notification`);
+      return NextResponse.json({
+        status: 'ok',
+        reason: 'within_threshold',
+        date: yesterday,
+        totalGap: yesterdayResult.totalGap,
+        adjustedGap,
+        overallStatus: yesterdayResult.overallStatus,
+      });
+    }
+
+    console.log(`[bank-recon-cron] ${yesterday} status=${yesterdayResult.overallStatus} adjustedGap=${adjustedGap} - sending discrepancy alert`);
     const flexContent = buildDiscrepancyFlexMessage(yesterdayResult);
     await client.pushFlexMessage(
       groupId,
@@ -183,6 +203,7 @@ export async function GET(request: NextRequest) {
       reason: yesterdayResult.overallStatus,
       date: yesterday,
       totalGap: yesterdayResult.totalGap,
+      adjustedGap,
       unreconciledCount: yesterdayResult.unreconciledCount,
     });
 
