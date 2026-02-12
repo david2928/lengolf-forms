@@ -119,13 +119,19 @@ function buildFlowRows(day: DailyReconciliation): FlowRow[] {
 function getEffectiveOverallStatus(day: DailyReconciliation, flowRows: FlowRow[]): ComparisonStatus {
   const nonPendingRows = flowRows.filter(r => !r.isPending);
   const statuses = nonPendingRows.map(r => r.status).filter(s => s !== 'not_applicable');
+  const hasEwalletPending = flowRows.some(r => r.label === 'eWallet' && r.isPending);
+
+  // Adjust gap to exclude pending eWallet POS amount
+  const adjustedGap = hasEwalletPending
+    ? r2(day.totalGap - day.ewalletFlow.posEwallet)
+    : day.totalGap;
 
   if (statuses.length === 0) return day.overallStatus;
   if (statuses.some(s => s === 'missing')) return 'missing';
   if (statuses.some(s => s === 'variance')) return 'variance';
   // Also check gap and unreconciled
   if (day.unreconciledCount > 0) return 'variance';
-  if (Math.abs(day.totalGap) > 0.01) return 'variance';
+  if (Math.abs(adjustedGap) > 0.01) return 'variance';
   return 'matched';
 }
 
@@ -135,6 +141,13 @@ function getEffectiveOverallStatus(day: DailyReconciliation, flowRows: FlowRow[]
 export function buildDiscrepancyFlexMessage(day: DailyReconciliation): Record<string, unknown> {
   const flowRows = buildFlowRows(day);
   const effectiveStatus = getEffectiveOverallStatus(day, flowRows);
+  const hasEwalletPending = flowRows.some(r => r.label === 'eWallet' && r.isPending);
+
+  // When eWallet is pending, exclude its POS amount from gap to avoid misleading totals.
+  // The raw gap includes eWallet POS sales but has no matching settlement to offset it.
+  const adjustedGap = hasEwalletPending
+    ? r2(day.totalGap - day.ewalletFlow.posEwallet)
+    : day.totalGap;
 
   const flowContents = flowRows.map(row => ({
     type: 'box',
@@ -236,14 +249,14 @@ export function buildDiscrepancyFlexMessage(day: DailyReconciliation): Record<st
         // Flow rows
         ...flowContents,
         { type: 'separator', margin: 'lg' },
-        // Total gap
+        // Total gap (adjusted when eWallet is pending)
         {
           type: 'box',
           layout: 'horizontal',
           contents: [
             {
               type: 'text',
-              text: 'Total Gap',
+              text: hasEwalletPending ? 'Gap (excl. eWallet)' : 'Total Gap',
               size: 'sm',
               color: '#333333',
               weight: 'bold',
@@ -251,9 +264,9 @@ export function buildDiscrepancyFlexMessage(day: DailyReconciliation): Record<st
             },
             {
               type: 'text',
-              text: `${formatThb(day.totalGap)} THB`,
+              text: `${formatThb(adjustedGap)} THB`,
               size: 'sm',
-              color: Math.abs(day.totalGap) > 0.01 ? '#E74C3C' : '#27AE60',
+              color: Math.abs(adjustedGap) > 0.01 ? '#E74C3C' : '#27AE60',
               weight: 'bold',
               flex: 3,
               align: 'end',
