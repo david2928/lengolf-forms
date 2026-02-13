@@ -214,6 +214,7 @@ const SafeImage = ({ src, alt, width, height, className }: {
       width={width}
       height={height}
       className={className}
+      loading="lazy"
       onError={() => setImageError(true)}
     />
   );

@@ -516,6 +516,21 @@ export default function UnifiedChatPage() {
       // Push a history state so browser back returns to conversation list
       window.history.pushState({ inChat: true }, '', window.location.href);
     }
+
+    // Fire-and-forget: refresh stale LINE profile images (>7 days old)
+    const conv = getConversationById(conversationId);
+    if (conv?.channelType === 'line') {
+      const metadata = (conv as any).channelMetadata || (conv as any).channel_metadata;
+      const cachedAt = metadata?.picture_cached_at;
+      const lineUserId = metadata?.line_user_id || (conv as any).lineUserId;
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      const isStale = !cachedAt || (Date.now() - new Date(cachedAt).getTime() > SEVEN_DAYS_MS);
+
+      if (isStale && lineUserId) {
+        fetch(`/api/line/users/${lineUserId}/refresh-profile`, { method: 'POST' })
+          .catch(() => { /* best-effort, ignore errors */ });
+      }
+    }
   };
 
   // Handle going back from mobile chat to conversation list

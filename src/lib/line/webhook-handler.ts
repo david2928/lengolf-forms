@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { processLineMessage, logEmojiProcessing } from './emoji-processor';
-import { downloadLineImageToStorage } from './storage-handler';
+import { downloadLineImageToStorage, cacheLineProfileImage } from './storage-handler';
 import { captureGroupMessage } from './group-debug-handler';
 
 // Initialize Supabase client
@@ -160,7 +160,8 @@ export async function fetchLineUserProfile(userId: string): Promise<LineUserProf
 }
 
 /**
- * Store or update LINE user profile in database
+ * Store or update LINE user profile in database.
+ * Also fires off a non-blocking image cache to Supabase Storage to avoid LINE CDN expiry 404s.
  */
 export async function storeLineUserProfile(profile: LineUserProfile): Promise<void> {
   try {
@@ -181,6 +182,26 @@ export async function storeLineUserProfile(profile: LineUserProfile): Promise<vo
     if (error) {
       console.error('Error storing LINE user profile:', error);
       throw error;
+    }
+
+    // Fire-and-forget: cache profile image to Supabase Storage.
+    // Done asynchronously so it doesn't block webhook processing.
+    if (profile.pictureUrl) {
+      cacheLineProfileImage(profile.userId, profile.pictureUrl)
+        .then((cachedUrl) => {
+          if (cachedUrl) {
+            supabase.from('line_users')
+              .update({
+                cached_picture_url: cachedUrl,
+                picture_cached_at: new Date().toISOString()
+              })
+              .eq('line_user_id', profile.userId)
+              .then(({ error: updateErr }) => {
+                if (updateErr) console.error('Failed to update cached profile URL:', updateErr);
+              });
+          }
+        })
+        .catch((err) => console.error('Failed to cache profile image:', err));
     }
 
   } catch (err) {
