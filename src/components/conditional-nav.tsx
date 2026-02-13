@@ -17,7 +17,8 @@ export function ConditionalNav() {
   const isCoachingRoute = isClient && pathname.startsWith('/coaching') && !pathname.startsWith('/coaching-assist')
   const isPOSRoute = isClient && pathname.startsWith('/pos')
   const isStaffChatRoute = isClient && (pathname === '/staff/line-chat' || pathname === '/staff/line-chat-new' || pathname === '/staff/unified-chat')
-  const isCreateBookingFromChat = isClient && pathname === '/create-booking' && searchParams.get('from') === 'chat'
+  const fromParam = searchParams.get('from')
+  const isCreateBookingFromChat = isClient && pathname === '/create-booking' && (fromParam === 'chat' || fromParam === 'obsales')
 
   if (isCoachingRoute || isPOSRoute || isStaffChatRoute || isCreateBookingFromChat) {
     return null
