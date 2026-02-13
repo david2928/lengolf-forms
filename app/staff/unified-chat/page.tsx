@@ -135,22 +135,45 @@ export default function UnifiedChatPage() {
 
   // Stable callback for conversation updates - wrapped in useCallback to prevent recreation
   const handleConversationUpdate = useCallback((conversationUpdate: any) => {
-    // Update existing conversation in the list and re-sort by lastMessageAt
     setConversationsRef.current(prev => {
-      const updated = prev.map(conv =>
-        conv.id === conversationUpdate.id
-          ? { ...conv, ...conversationUpdate }
-          : conv
-      );
+      const exists = prev.some(conv => conv.id === conversationUpdate.id);
 
-      // Re-sort conversations by lastMessageAt (most recent first)
-      const sorted = updated.sort((a, b) => {
-        const aTime = new Date(a.lastMessageAt || 0).getTime();
-        const bTime = new Date(b.lastMessageAt || 0).getTime();
-        return bTime - aTime; // Descending order (newest first)
-      });
+      if (exists) {
+        // Update existing conversation and re-sort
+        const updated = prev.map(conv =>
+          conv.id === conversationUpdate.id
+            ? { ...conv, ...conversationUpdate }
+            : conv
+        );
+        return updated.sort((a, b) => {
+          const aTime = new Date(a.lastMessageAt || 0).getTime();
+          const bTime = new Date(b.lastMessageAt || 0).getTime();
+          return bTime - aTime;
+        });
+      }
 
-      return sorted;
+      // Conversation not in local state (e.g. INSERT arrived before first message).
+      // If the update has a last_message_text, fetch full data from API and add it.
+      if (conversationUpdate.lastMessageText) {
+        fetch(`/api/conversations/unified/${conversationUpdate.id}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.conversation) {
+              setConversationsRef.current(p => {
+                if (p.some(c => c.id === data.conversation.id)) return p;
+                const newList = [data.conversation, ...p];
+                return newList.sort((a, b) => {
+                  const aTime = new Date(a.lastMessageAt || 0).getTime();
+                  const bTime = new Date(b.lastMessageAt || 0).getTime();
+                  return bTime - aTime;
+                });
+              });
+            }
+          })
+          .catch(() => { /* Fallback: next visibility refresh will pick it up */ });
+      }
+
+      return prev; // Return unchanged for now; async fetch above will update later
     });
   }, []); // Empty deps - using ref to access setter
 
@@ -160,52 +183,37 @@ export default function UnifiedChatPage() {
   // Stable callback for new conversations - wrapped in useCallback to prevent recreation
   const handleNewConversation = useCallback(async (newConv: any) => {
     // Fetch full conversation data with proper formatting from API
-    // Add retry logic to handle race conditions with unified_conversations view
-    const maxRetries = 3;
-    const retryDelay = 500; // 500ms delay between retries
+    try {
+      const response = await fetch(`/api/conversations/unified/${newConv.id}`);
 
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        // Add delay before retry attempts (but not on first attempt)
-        if (attempt > 0) {
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
-        }
-
-        const response = await fetch(`/api/conversations/unified/${newConv.id}`);
-        const data = await response.json();
-
-        if (data.success && data.conversation) {
-          setConversationsRef.current(prev => {
-            // Check if conversation already exists
-            const exists = prev.some(conv => conv.id === data.conversation.id);
-            if (exists) {
-              return prev; // Already exists, will be updated via handleConversationUpdate
-            }
-
-            // Add directly with proper formatting - no refresh needed
-            const newList = [data.conversation, ...prev];
-
-            // Sort by last message time
-            return newList.sort((a, b) => {
-              const aTime = new Date(a.lastMessageAt || 0).getTime();
-              const bTime = new Date(b.lastMessageAt || 0).getTime();
-              return bTime - aTime;
-            });
-          });
-          return; // Success - exit the retry loop
-        }
-
-        // If we get here, API returned success: false
-        // Continue to next retry or fall through to refresh
-      } catch (error) {
-        console.error(`Attempt ${attempt + 1}/${maxRetries} failed to fetch new conversation:`, error);
-        // Continue to next retry attempt
+      // 404 is expected for new conversations without messages yet
+      // (unified_conversations view filters out null last_message_text).
+      // The conversation will appear via handleConversationUpdate when the first message arrives.
+      if (response.status === 404) {
+        return;
       }
-    }
 
-    // All retries failed - fallback to full refresh
-    console.log('All retry attempts exhausted, falling back to full refresh');
-    refreshConversationsRef.current();
+      const data = await response.json();
+
+      if (data.success && data.conversation) {
+        setConversationsRef.current(prev => {
+          const exists = prev.some(conv => conv.id === data.conversation.id);
+          if (exists) {
+            return prev; // Already exists, will be updated via handleConversationUpdate
+          }
+
+          const newList = [data.conversation, ...prev];
+          return newList.sort((a, b) => {
+            const aTime = new Date(a.lastMessageAt || 0).getTime();
+            const bTime = new Date(b.lastMessageAt || 0).getTime();
+            return bTime - aTime;
+          });
+        });
+      }
+    } catch (error) {
+      // Network error - conversation will appear on next refresh or via update handler
+      console.error('Failed to fetch new conversation:', error);
+    }
   }, []); // Empty deps - using ref to access refresh function
 
   // Set up realtime conversation updates with stable callbacks
