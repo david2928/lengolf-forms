@@ -7,6 +7,8 @@ import { uploadReceiptToDrive } from '@/lib/google-drive-service';
 import { computeVendorUpdates } from '@/lib/smart-vendor-upsert';
 import { ALLOWED_RECEIPT_TYPES, MAX_RECEIPT_FILE_SIZE } from '@/types/vendor-receipts';
 
+export const maxDuration = 60; // LLM extraction + Google Drive upload + DB insert
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getDevSession(authOptions, request);

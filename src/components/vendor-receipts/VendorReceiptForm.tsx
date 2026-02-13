@@ -111,8 +111,11 @@ export function VendorReceiptForm({ onSubmitted }: VendorReceiptFormProps) {
       }, 8000)
     } catch (error) {
       console.error('Upload error:', error)
+      const msg = error instanceof Error ? error.message : 'Failed to upload receipt'
       setErrorMessage(
-        error instanceof Error ? error.message : 'Failed to upload receipt'
+        msg === 'Failed to fetch'
+          ? 'Upload timed out. Please try again or use a smaller file.'
+          : msg
       )
       setSubmitStatus('error')
     } finally {

@@ -5,6 +5,8 @@ import { authOptions } from '@/lib/auth-config'
 import { uploadReceiptToDrive } from '@/lib/google-drive-service'
 import { ALLOWED_RECEIPT_TYPES, MAX_RECEIPT_FILE_SIZE } from '@/types/vendor-receipts'
 
+export const maxDuration = 30; // Google Drive upload + DB insert
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getDevSession(authOptions, request)
