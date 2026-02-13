@@ -43,11 +43,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload to Google Drive
+    const t0 = Date.now()
     const buffer = Buffer.from(await file.arrayBuffer())
     const parsedDate = receiptDate ? new Date(receiptDate) : new Date()
     const uploadResult = await uploadReceiptToDrive(buffer, file.name, file.type, parsedDate)
+    console.log(`[vendor-receipts] Drive upload took ${Date.now() - t0}ms`)
 
     // Insert into database
+    const t1 = Date.now()
     const { data: receipt, error } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('vendor_receipts')
@@ -62,6 +65,8 @@ export async function POST(request: NextRequest) {
       }])
       .select()
       .single()
+
+    console.log(`[vendor-receipts] DB insert took ${Date.now() - t1}ms (total: ${Date.now() - t0}ms)`)
 
     if (error) {
       console.error('Error creating vendor receipt:', error)
