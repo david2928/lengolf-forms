@@ -45,6 +45,34 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
+      {process.env.NODE_ENV === 'development' && (
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: `
+            (function() {
+              var reloading = false;
+              function handleStaleChunk() {
+                if (reloading) return;
+                reloading = true;
+                console.warn('[Dev] Stale webpack chunks detected, reloading...');
+                if ('caches' in window) {
+                  caches.keys().then(function(names) {
+                    return Promise.all(names.map(function(n) { return caches.delete(n); }));
+                  }).then(function() { window.location.reload(); });
+                } else {
+                  window.location.reload();
+                }
+              }
+              window.addEventListener('error', function(e) {
+                if (e.message && e.message.indexOf("reading 'call'") !== -1) handleStaleChunk();
+              });
+              window.addEventListener('unhandledrejection', function(e) {
+                var msg = e.reason && (e.reason.message || String(e.reason));
+                if (msg && msg.indexOf("reading 'call'") !== -1) handleStaleChunk();
+              });
+            })();
+          `}} />
+        </head>
+      )}
       <body className={`${inter.className} h-full`}>
         <SessionProvider session={session}>
           <QueryClientProvider>

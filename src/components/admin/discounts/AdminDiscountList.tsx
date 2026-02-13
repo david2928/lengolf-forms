@@ -139,11 +139,72 @@ export function AdminDiscountList() {
     return <div className="text-center py-4">Loading discounts...</div>;
   }
 
+  const formatDiscountValue = (discount: Discount) => {
+    return discount.discount_type === 'percentage'
+      ? `${discount.discount_value}%`
+      : `฿${discount.discount_value}`;
+  };
+
+  const getStatusBadge = (discount: Discount) => {
+    const expired = isExpired(discount);
+    const className = `inline-flex px-2 py-1 text-xs rounded-full ${
+      discount.is_active && !expired
+        ? 'bg-green-100 text-green-800'
+        : expired
+        ? 'bg-red-100 text-red-800'
+        : 'bg-gray-100 text-gray-800'
+    }`;
+    const label = expired ? 'Expired' : discount.is_active ? 'Active' : 'Inactive';
+    return <span className={className}>{label}</span>;
+  };
+
+  const renderActions = (discount: Discount) => (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => window.location.href = `/admin/discounts/${discount.id}/edit`}
+        className="text-blue-600 hover:text-blue-800"
+      >
+        Edit
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-gray-600 hover:text-gray-800"
+        onClick={() => showConfirmDialog(
+          `${discount.is_active ? 'Deactivate' : 'Activate'} Discount`,
+          `Are you sure you want to ${discount.is_active ? 'deactivate' : 'activate'} the discount "${discount.title}"?${discount.is_active ? ' This will prevent it from being applied to new orders.' : ''}`,
+          () => toggleDiscountStatus(discount.id, discount.is_active),
+          discount.is_active ? 'Deactivate' : 'Activate'
+        )}
+      >
+        {discount.is_active ? 'Deactivate' : 'Activate'}
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-red-600 hover:text-red-800"
+        onClick={() => showConfirmDialog(
+          'Delete Discount',
+          `Are you sure you want to permanently delete the discount "${discount.title}"? This action cannot be undone.${discount.is_active ? '\n\n⚠️ Warning: This discount is currently active and may be in use.' : ''}`,
+          () => deleteDiscount(discount.id),
+          'Delete Permanently',
+          'destructive'
+        )}
+      >
+        Delete
+      </Button>
+    </>
+  );
+
   return (
     <div>
       <div className="mb-4">
         <Select value={filter} onValueChange={(value) => setFilter(value as any)}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Filter discounts" />
           </SelectTrigger>
           <SelectContent>
@@ -154,7 +215,76 @@ export function AdminDiscountList() {
         </Select>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Mobile Card Layout */}
+      <div className="md:hidden space-y-3">
+        {filteredDiscounts.map((discount) => {
+          const inactive = !discount.is_active || isExpired(discount);
+          return (
+            <div
+              key={discount.id}
+              className={`bg-white rounded-lg shadow p-4 ${inactive ? 'opacity-60' : ''}`}
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0 flex-1">
+                  <div className={`font-medium truncate ${inactive ? 'text-gray-400' : ''}`}>
+                    {discount.title}
+                  </div>
+                  {discount.description && (
+                    <div className={`text-sm truncate ${inactive ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {discount.description}
+                    </div>
+                  )}
+                </div>
+                {getStatusBadge(discount)}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-sm mb-3">
+                <div>
+                  <div className="text-gray-400 text-xs">Type</div>
+                  <div className={inactive ? 'text-gray-400' : ''}>
+                    {discount.discount_type === 'percentage' ? 'Percent' : 'Fixed'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-gray-400 text-xs">Value</div>
+                  <div className={`font-medium ${inactive ? 'text-gray-400' : ''}`}>
+                    {formatDiscountValue(discount)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-gray-400 text-xs">Scope</div>
+                  <div className={inactive ? 'text-gray-400' : ''}>
+                    <span className="capitalize">{discount.application_scope}</span>
+                    {discount.application_scope === 'item' && discount.discount_product_eligibility && (
+                      <span className="text-xs text-gray-400 ml-1">
+                        ({discount.discount_product_eligibility.length})
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {discount.availability_type !== 'always' && (
+                <div className="text-xs text-gray-500 mb-3">
+                  {new Date(discount.valid_from!).toLocaleDateString()} - {new Date(discount.valid_until!).toLocaleDateString()}
+                </div>
+              )}
+
+              <div className="flex border-t pt-2 -mx-1">
+                {renderActions(discount)}
+              </div>
+            </div>
+          );
+        })}
+        {filteredDiscounts.length === 0 && (
+          <div className="text-center py-8 text-gray-500 bg-white rounded-lg shadow">
+            No discounts found
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Table Layout */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
@@ -169,44 +299,36 @@ export function AdminDiscountList() {
           </thead>
           <tbody>
             {filteredDiscounts.map((discount) => {
-              const isInactive = !discount.is_active || isExpired(discount);
+              const inactive = !discount.is_active || isExpired(discount);
               return (
-              <tr key={discount.id} className={`border-t ${isInactive ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'}`}>
+              <tr key={discount.id} className={`border-t ${inactive ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'}`}>
                 <td className="px-4 py-3">
                   <div>
-                    <div className={`font-medium ${isInactive ? 'text-gray-400' : ''}`}>
+                    <div className={`font-medium ${inactive ? 'text-gray-400' : ''}`}>
                       {discount.title}
-                      {isInactive && <span className="ml-2 text-xs text-gray-400">(Inactive)</span>}
+                      {inactive && <span className="ml-2 text-xs text-gray-400">(Inactive)</span>}
                     </div>
                     {discount.description && (
-                      <div className={`text-sm ${isInactive ? 'text-gray-400' : 'text-gray-500'}`}>{discount.description}</div>
+                      <div className={`text-sm ${inactive ? 'text-gray-400' : 'text-gray-500'}`}>{discount.description}</div>
                     )}
                   </div>
                 </td>
-                <td className={`px-4 py-3 ${isInactive ? 'text-gray-400' : ''}`}>
+                <td className={`px-4 py-3 ${inactive ? 'text-gray-400' : ''}`}>
                   <span className="capitalize">{discount.discount_type.replace('_', ' ')}</span>
                 </td>
-                <td className={`px-4 py-3 ${isInactive ? 'text-gray-400' : ''}`}>
-                  {discount.discount_type === 'percentage' ? `${discount.discount_value}%` : `$${discount.discount_value}`}
+                <td className={`px-4 py-3 ${inactive ? 'text-gray-400' : ''}`}>
+                  {formatDiscountValue(discount)}
                 </td>
-                <td className={`px-4 py-3 ${isInactive ? 'text-gray-400' : ''}`}>
+                <td className={`px-4 py-3 ${inactive ? 'text-gray-400' : ''}`}>
                   <span className="capitalize">{discount.application_scope}</span>
                   {discount.application_scope === 'item' && discount.discount_product_eligibility && (
-                    <div className={`text-xs ${isInactive ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <div className={`text-xs ${inactive ? 'text-gray-400' : 'text-gray-500'}`}>
                       {discount.discount_product_eligibility.length} products
                     </div>
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                    discount.is_active && !isExpired(discount)
-                      ? 'bg-green-100 text-green-800' 
-                      : isExpired(discount)
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {isExpired(discount) ? 'Expired' : discount.is_active ? 'Active' : 'Inactive'}
-                  </span>
+                  {getStatusBadge(discount)}
                 </td>
                 <td className="px-4 py-3">
                   {discount.availability_type === 'always' ? (
@@ -220,43 +342,7 @@ export function AdminDiscountList() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.location.href = `/admin/discounts/${discount.id}/edit`}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      Edit
-                    </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-600 hover:text-gray-800"
-                      onClick={() => showConfirmDialog(
-                        `${discount.is_active ? 'Deactivate' : 'Activate'} Discount`,
-                        `Are you sure you want to ${discount.is_active ? 'deactivate' : 'activate'} the discount "${discount.title}"?${discount.is_active ? ' This will prevent it from being applied to new orders.' : ''}`,
-                        () => toggleDiscountStatus(discount.id, discount.is_active),
-                        discount.is_active ? 'Deactivate' : 'Activate'
-                      )}
-                    >
-                      {discount.is_active ? 'Deactivate' : 'Activate'}
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600 hover:text-red-800"
-                      onClick={() => showConfirmDialog(
-                        'Delete Discount',
-                        `Are you sure you want to permanently delete the discount "${discount.title}"? This action cannot be undone.${discount.is_active ? '\n\n⚠️ Warning: This discount is currently active and may be in use.' : ''}`,
-                        () => deleteDiscount(discount.id),
-                        'Delete Permanently',
-                        'destructive'
-                      )}
-                    >
-                      Delete
-                    </Button>
+                    {renderActions(discount)}
                   </div>
                 </td>
               </tr>
@@ -264,7 +350,7 @@ export function AdminDiscountList() {
             })}
           </tbody>
         </table>
-        
+
         {filteredDiscounts.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             No discounts found

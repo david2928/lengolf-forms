@@ -54,7 +54,7 @@ export default function Home() {
   
   // Filter operations items based on admin status
   const operationsItems = appMenuItems.filter(item => {
-    if (item.title === "Inventory Management" || item.title === "Staff Time Clock" || item.title === "Staff Schedule" || item.title === "Lead Feedback" || item.title === "Cash Check") {
+    if (item.title === "Inventory Management" || item.title === "Staff Time Clock" || item.title === "Staff Schedule" || item.title === "Lead Feedback" || item.title === "Cash Check" || item.title === "Cash Transactions" || item.title === "Vendor Receipts") {
       return true; // Available to all users
     }
     if (item.title === "POS System") {
@@ -62,6 +62,11 @@ export default function Home() {
     }
     return false;
   });
+
+  // Admin-only finance items
+  const financeItems = appMenuItems.filter(item =>
+    item.title === "Monthly Closing" || item.title === "Transaction Tracker" || item.title === "Bank Reconciliation" || item.title === "Finance Dashboard"
+  );
 
 
   // Calculate separate counts for diamond and early bird packages
@@ -229,6 +234,21 @@ export default function Home() {
             ))}
           </div>
         </div>
+        {isAdmin && financeItems.length > 0 && (
+          <div>
+            <h2 className="text-lg font-semibold mb-3">Finance & Closing</h2>
+            <div className="space-y-3">
+              {financeItems.map((item: AppMenuItemType) => (
+                <MobileMenuItem
+                  key={item.title}
+                  icon={item.icon}
+                  title={item.title}
+                  onClick={() => router.push(item.path)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="hidden md:block space-y-8">
@@ -285,6 +305,21 @@ export default function Home() {
             ))}
           </div>
         </div>
+        {isAdmin && financeItems.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Finance & Closing</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
+              {financeItems.map((item: AppMenuItemType) => (
+                <DesktopMenuItem
+                  key={item.title}
+                  icon={item.icon}
+                  title={item.title}
+                  onClick={() => router.push(item.path)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
         {/* Screen Size Indicator - Only show in development */}

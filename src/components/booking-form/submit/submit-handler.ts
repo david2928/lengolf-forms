@@ -153,6 +153,8 @@ function formatBookingData(formData: FormData): Booking {
     // New fields for customer management integration
     isNewCustomer: formData.isNewCustomer ?? false,
     customer_id: formData.customerId || undefined,
+    // Google Ads offline conversion tracking
+    gclid: formData.gclid || null,
   };
 
   return bookingForDb;

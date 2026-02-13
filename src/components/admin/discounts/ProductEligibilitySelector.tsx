@@ -60,6 +60,10 @@ export function ProductEligibilitySelector({ selectedProductIds, onChange }: Pro
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesSearch;
+  }).sort((a, b) => {
+    const aSelected = selectedProductIds.includes(a.id) ? 0 : 1;
+    const bSelected = selectedProductIds.includes(b.id) ? 0 : 1;
+    return aSelected - bSelected;
   });
 
   // Group categories by parent for hierarchy display
@@ -71,6 +75,15 @@ export function ProductEligibilitySelector({ selectedProductIds, onChange }: Pro
     acc[parentName].push(category);
     return acc;
   }, {} as Record<string, Category[]>);
+
+  const getCategorySelectionState = (category: Category) => {
+    const categoryProductIds = category.products.map(p => p.id);
+    const selectedCount = categoryProductIds.filter(id => selectedProductIds.includes(id)).length;
+
+    if (selectedCount === 0) return 'none';
+    if (selectedCount === categoryProductIds.length) return 'all';
+    return 'partial';
+  };
 
   // Filter hierarchy based on search
   const filteredHierarchy = Object.entries(categoryHierarchy).filter(([parentName, childCategories]) => {
@@ -84,9 +97,20 @@ export function ProductEligibilitySelector({ selectedProductIds, onChange }: Pro
       const parentMatches = parentName.toLowerCase().includes(searchTerm.toLowerCase());
       const childMatches = cat.name.toLowerCase().includes(searchTerm.toLowerCase());
       return parentMatches || childMatches;
+    }).sort((a, b) => {
+      const aState = getCategorySelectionState(a) === 'none' ? 1 : 0;
+      const bState = getCategorySelectionState(b) === 'none' ? 1 : 0;
+      return aState - bState;
     });
     return acc;
   }, {} as Record<string, Category[]>);
+
+  // Sort parent groups so those with selected categories come first
+  const sortedHierarchyEntries = Object.entries(filteredHierarchy).sort(([, catsA], [, catsB]) => {
+    const aHasSelected = catsA.some(cat => getCategorySelectionState(cat) !== 'none') ? 0 : 1;
+    const bHasSelected = catsB.some(cat => getCategorySelectionState(cat) !== 'none') ? 0 : 1;
+    return aHasSelected - bHasSelected;
+  });
 
   const toggleProduct = (productId: string) => {
     const newSelection = selectedProductIds.includes(productId)
@@ -148,15 +172,6 @@ export function ProductEligibilitySelector({ selectedProductIds, onChange }: Pro
       );
       onChange(Array.from(new Set(allProductIds)));
     }
-  };
-
-  const getCategorySelectionState = (category: Category) => {
-    const categoryProductIds = category.products.map(p => p.id);
-    const selectedCount = categoryProductIds.filter(id => selectedProductIds.includes(id)).length;
-    
-    if (selectedCount === 0) return 'none';
-    if (selectedCount === categoryProductIds.length) return 'all';
-    return 'partial';
   };
 
   const clearAll = () => {
@@ -229,27 +244,40 @@ export function ProductEligibilitySelector({ selectedProductIds, onChange }: Pro
 
       <div className="max-h-80 md:max-h-96 overflow-y-auto border rounded relative">
         {selectedTab === 'products' ? (
-          // Individual Products View - Browse and select specific products
-          // Individual Products View
+          // Individual Products View - selected products appear first
           <>
-            {filteredProducts.map(product => (
-              <label key={product.id} className="flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b">
-                <input
-                  type="checkbox"
-                  checked={selectedProductIds.includes(product.id)}
-                  onChange={() => toggleProduct(product.id)}
-                  className="mr-3"
-                />
-                <div className="flex-1">
-                  <div className="font-medium">{product.name}</div>
-                  <div className="text-sm text-gray-500">
-                    {product.sku && `${product.sku} • `}
-                    {product.parent_category_name && `${product.parent_category_name} → `}
-                    {product.category_name}
-                  </div>
-                </div>
-              </label>
-            ))}
+            {filteredProducts.map((product, index) => {
+              const isSelected = selectedProductIds.includes(product.id);
+              const prevProduct = index > 0 ? filteredProducts[index - 1] : null;
+              const prevSelected = prevProduct ? selectedProductIds.includes(prevProduct.id) : false;
+              const showDivider = !isSelected && prevSelected;
+
+              return (
+                <React.Fragment key={product.id}>
+                  {showDivider && (
+                    <div className="bg-gray-100 px-3 py-1.5 text-xs text-gray-500 font-medium border-b sticky top-0">
+                      Other Products
+                    </div>
+                  )}
+                  <label className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b ${isSelected ? 'bg-blue-50/50' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleProduct(product.id)}
+                      className="mr-3"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium">{product.name}</div>
+                      <div className="text-sm text-gray-500">
+                        {product.sku && `${product.sku} • `}
+                        {product.parent_category_name && `${product.parent_category_name} → `}
+                        {product.category_name}
+                      </div>
+                    </div>
+                  </label>
+                </React.Fragment>
+              );
+            })}
             
             {filteredProducts.length === 0 && (
               <div className="text-center py-8 text-gray-500">
@@ -263,7 +291,7 @@ export function ProductEligibilitySelector({ selectedProductIds, onChange }: Pro
             <div className="bg-blue-50 border-b p-3 text-sm text-blue-700">
               <strong>Category Selection:</strong> Select categories to apply discount to ALL products within those categories.
             </div>
-            {Object.entries(filteredHierarchy).map(([parentName, childCategories]) => {
+            {sortedHierarchyEntries.map(([parentName, childCategories]) => {
               const isParentExpanded = expandedParents.has(parentName);
               
               return (
@@ -320,7 +348,7 @@ export function ProductEligibilitySelector({ selectedProductIds, onChange }: Pro
               );
             })}
             
-            {Object.keys(filteredHierarchy).length === 0 && (
+            {sortedHierarchyEntries.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 No categories found
               </div>

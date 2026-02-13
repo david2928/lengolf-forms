@@ -7,6 +7,7 @@ import { createPackageInfoMessage } from '@/lib/line/flex-templates';
 interface PackageInfoRequest {
   messageFormat?: 'text' | 'flex' | 'both';
   senderName?: string;
+  conversationId?: string; // Pass from chat context to resolve correct LINE user
 }
 
 /**
@@ -36,7 +37,7 @@ export async function POST(
     }
 
     const { packageId } = await params;
-    const { messageFormat = 'flex', senderName = 'Admin' }: PackageInfoRequest = await request.json();
+    const { messageFormat = 'flex', senderName = 'Admin', conversationId: requestConversationId }: PackageInfoRequest = await request.json();
 
     // Fetch package details from backoffice.packages
     const { data: pkg, error: packageError } = await refacSupabaseAdmin
@@ -112,18 +113,35 @@ export async function POST(
     let lineUserId: string | null = null;
     let conversationId: string | null = null;
 
-    if (pkg.customer_id) {
-      // Check if customer has a linked LINE user
-      const { data: lineUser } = await refacSupabaseAdmin
+    // If a conversationId was passed from the chat context, use it to resolve the LINE user directly
+    // This avoids issues when a customer has multiple linked LINE accounts
+    if (requestConversationId) {
+      const { data: conversation } = await refacSupabaseAdmin
+        .from('line_conversations')
+        .select('id, line_user_id')
+        .eq('id', requestConversationId)
+        .single();
+
+      if (conversation) {
+        conversationId = conversation.id;
+        lineUserId = conversation.line_user_id;
+      }
+    }
+
+    // Fall back to customer_id lookup if no conversation context provided
+    if (!lineUserId && pkg.customer_id) {
+      // Use limit(1) instead of single() to handle customers with multiple linked LINE accounts
+      const { data: lineUsers } = await refacSupabaseAdmin
         .from('line_users')
         .select('line_user_id')
         .eq('customer_id', pkg.customer_id)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      if (lineUser) {
-        lineUserId = lineUser.line_user_id;
+      if (lineUsers && lineUsers.length > 0) {
+        lineUserId = lineUsers[0].line_user_id;
 
-        // Get or create conversation
+        // Get conversation for this LINE user
         const { data: conversation } = await refacSupabaseAdmin
           .from('line_conversations')
           .select('id')

@@ -22,7 +22,8 @@ export function CreateBookingClient() {
   const bookingPreFill = {
     date: searchParams.get('date'),
     time: searchParams.get('time'),
-    duration: searchParams.get('duration') ? parseFloat(searchParams.get('duration')!) : undefined
+    duration: searchParams.get('duration') ? parseFloat(searchParams.get('duration')!) : undefined,
+    gclid: searchParams.get('gclid')
   }
 
   const isFromChat = chatContext.from === 'chat'

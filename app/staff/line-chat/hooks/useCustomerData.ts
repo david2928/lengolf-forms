@@ -640,7 +640,8 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
           },
           body: JSON.stringify({
             messageFormat: 'flex',
-            senderName: 'Admin'
+            senderName: 'Admin',
+            conversationId: conversationId
           }),
         });
 

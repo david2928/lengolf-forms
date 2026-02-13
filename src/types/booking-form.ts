@@ -39,6 +39,8 @@ export interface BookingFormData {
   // Phase 1 booking enhancement fields
   referralSource?: ReferralSource | string | null; // Allow string for "Other" referral values
   customerEmail?: string; // Customer email (optional, collected via self-service or manually)
+  // Google Ads offline conversion tracking
+  gclid?: string | null; // Google Click ID captured from URL params
   errors?: { [key: string]: string };
   isSubmitted?: boolean;
   submissionStatus?: {

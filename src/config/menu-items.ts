@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star, Landmark, Receipt, CalendarCheck } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -142,6 +142,18 @@ export const menuItems: MenuItem[] = [
     description: "Record opening and closing cash amounts"
   },
   {
+    icon: Banknote,
+    title: "Cash Transactions",
+    path: '/cash-transactions',
+    description: "Record petty cash spending with receipts"
+  },
+  {
+    icon: Receipt,
+    title: "Vendor Receipts",
+    path: '/vendor-receipts',
+    description: "Upload vendor invoices and receipts"
+  },
+  {
     icon: Search,
     title: "Google Ads Analytics",
     path: '/admin/google-ads',
@@ -196,10 +208,40 @@ export const menuItems: MenuItem[] = [
     description: "Monthly P&L statements with actual vs run-rate projections"
   },
   {
+    icon: Landmark,
+    title: "Bank Reconciliation",
+    path: '/admin/bank-reconciliation',
+    description: "Reconcile KBank statements against POS, merchant settlements, and daily closings"
+  },
+  {
+    icon: Receipt,
+    title: "Transaction Tracker",
+    path: '/admin/expense-tracker',
+    description: "Annotate bank transactions with vendor, VAT, and WHT details"
+  },
+  {
+    icon: CalendarCheck,
+    title: "Sales/Expense Checklist",
+    path: '/admin/monthly-closing',
+    description: "Monthly sales overview, expense checklist, and tax filing tools"
+  },
+  {
     icon: Settings,
     title: "Operating Expenses",
     path: '/admin/finance-dashboard/operating-expenses',
     description: "Manage recurring expenses like rent, utilities, and staff costs"
+  },
+  {
+    icon: Receipt,
+    title: "Vendor Management",
+    path: '/admin/vendor-receipts',
+    description: "Manage vendors and view uploaded receipts"
+  },
+  {
+    icon: Banknote,
+    title: "Cash Transactions Admin",
+    path: '/admin/cash-transactions',
+    description: "View all petty cash spending records and receipts"
   },
   {
     icon: Share2,

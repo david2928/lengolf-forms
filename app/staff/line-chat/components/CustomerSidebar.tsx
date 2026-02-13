@@ -388,7 +388,7 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
 
   if (!selectedConv) {
     return (
-      <div className="w-full md:w-96 bg-white border-l transition-all duration-300 ease-in-out flex flex-col">
+      <div className="w-full md:w-96 bg-white border-l transition-all duration-300 ease-in-out flex flex-col h-full min-h-0">
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="text-center text-gray-500">
             <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -400,8 +400,8 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   }
 
   return (
-    <div className="w-full md:w-96 bg-white border-l transition-all duration-300 ease-in-out flex flex-col">
-      <div className="p-4 flex-1 overflow-y-auto">
+    <div className="w-full md:w-96 bg-white border-l transition-all duration-300 ease-in-out flex flex-col h-full min-h-0">
+      <div className="p-4 flex-1 overflow-y-auto min-h-0">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Customer Information</h3>
         </div>

@@ -81,7 +81,7 @@ export interface SubmissionsApiResponse {
 }
 
 // Staff options (matching current Google Form)
-export const STAFF_OPTIONS = ['Net', 'Dolly', 'May'] as const;
+export const STAFF_OPTIONS = ['Net', 'Dolly', 'May', 'David'] as const;
 export type StaffName = typeof STAFF_OPTIONS[number];
 
 // Form state management (following package-form pattern)

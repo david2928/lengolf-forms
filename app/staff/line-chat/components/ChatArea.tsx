@@ -707,7 +707,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <div
       className="flex-1 flex flex-col h-full min-h-0"
-      style={{ height: isMobile ? '100dvh' : 'auto' }}
+      style={{ height: isMobile ? '100dvh' : undefined }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
