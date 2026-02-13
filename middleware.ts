@@ -79,7 +79,8 @@ async function customMiddleware(request: NextRequest, event: NextFetchEvent) {
           }
         } catch (error) {
           console.error('Error checking staff status:', error);
-          return NextResponse.redirect(new URL('/', req.url));
+          // Fail open - staff layout will catch unauthorized users
+          return response;
         }
         return response;
       } else if (req.nextUrl.pathname.startsWith('/pos') || req.nextUrl.pathname === '/pos') {

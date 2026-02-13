@@ -289,6 +289,8 @@ export interface CustomerSidebarProps {
   // Opportunity data
   opportunity?: ConversationOpportunity | null;
   onOpenOpportunity?: (opportunityId: string) => void;
+  // Callback to refresh customer data without full page reload
+  onRefreshCustomer?: () => void;
 }
 
 export interface MessageInputProps {

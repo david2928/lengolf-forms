@@ -427,6 +427,38 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConversation]);
 
+  // Refetch messages when tab returns from background (realtime may have missed events)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let lastHiddenAt = 0;
+    const STALE_THRESHOLD_MS = 30_000;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        lastHiddenAt = Date.now();
+      } else if (document.visibilityState === 'visible' && lastHiddenAt > 0) {
+        if (Date.now() - lastHiddenAt > STALE_THRESHOLD_MS && selectedConversation) {
+          fetchMessages(selectedConversation);
+        }
+      }
+    };
+
+    const handleOnline = () => {
+      if (selectedConversation) {
+        fetchMessages(selectedConversation);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [selectedConversation, fetchMessages]);
+
   // Handle template selection
   const handleTemplateSelect = useCallback(async (template: any) => {
     if (!selectedConversation || !selectedConversationObj) return;

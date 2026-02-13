@@ -343,6 +343,13 @@ export default function UnifiedChatPage() {
     }
   });
 
+  // Refresh customer data in-place (used by CustomerSidebar after booking edit/cancel)
+  const handleRefreshCustomer = useCallback(() => {
+    if (customerOps && selectedConversationObj?.customer?.id) {
+      customerOps.fetchCustomerDetails(selectedConversationObj.customer.id);
+    }
+  }, [customerOps, selectedConversationObj?.customer?.id]);
+
   // Manual AI retrigger function - gets last customer message and generates suggestion
   const handleAIRetrigger = useCallback(() => {
     if (!aiSuggestionsEnabled || !messages.length) return;
@@ -445,6 +452,42 @@ export default function UnifiedChatPage() {
     channelType: 'all' // Subscribe to both LINE and website messages
   });
 
+  // ── Visibility & network recovery: refetch missed data on tab return ──
+  // The realtime hooks reconnect the subscription channel on tab focus,
+  // but messages that arrived while disconnected are NOT replayed.
+  // This effect refetches conversation list (and current messages via ChatArea)
+  // so the UI is up-to-date when the user comes back.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let lastHiddenAt = 0;
+    const STALE_THRESHOLD_MS = 30_000; // 30 seconds
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        lastHiddenAt = Date.now();
+      } else if (document.visibilityState === 'visible' && lastHiddenAt > 0) {
+        const elapsed = Date.now() - lastHiddenAt;
+        if (elapsed > STALE_THRESHOLD_MS) {
+          // Tab was hidden long enough that we may have missed realtime events
+          refreshConversationsRef.current();
+        }
+      }
+    };
+
+    // Network recovery: browser went offline then came back
+    const handleOnline = () => {
+      refreshConversationsRef.current();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []); // Stable - uses refs for refresh functions
 
   // Update ref whenever selectedConversation changes
   useEffect(() => {
@@ -648,6 +691,7 @@ export default function UnifiedChatPage() {
               onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
               opportunity={currentOpportunity}
               onOpenOpportunity={() => setShowOpportunities(true)}
+              onRefreshCustomer={handleRefreshCustomer}
             />
           </div>
         )}
@@ -682,6 +726,7 @@ export default function UnifiedChatPage() {
                   setShowMobileCustomer(false);
                   setShowOpportunities(true);
                 }}
+                onRefreshCustomer={handleRefreshCustomer}
               />
             </div>
           </div>

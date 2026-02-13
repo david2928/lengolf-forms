@@ -188,6 +188,7 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   onShowLinkModalWithPrefill,
   opportunity,
   onOpenOpportunity,
+  onRefreshCustomer,
 }) => {
   const {
     customerDetails,
@@ -1448,12 +1449,12 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
             }}
             booking={selectedBooking}
             onSuccess={(updatedBooking) => {
-              // Modal will close automatically
               setShowEditModal(false);
               setSelectedBooking(null);
-              // Force page reload to refresh booking data
-              // TODO: Replace with refetch function when available
-              window.location.reload();
+              // Refresh customer data in-place instead of full page reload
+              if (onRefreshCustomer) {
+                onRefreshCustomer();
+              }
             }}
           />
 
@@ -1465,12 +1466,12 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
             }}
             booking={selectedBooking}
             onSuccess={(bookingId) => {
-              // Modal will close automatically
               setShowCancelModal(false);
               setSelectedBooking(null);
-              // Force page reload to refresh booking data
-              // TODO: Replace with refetch function when available
-              window.location.reload();
+              // Refresh customer data in-place instead of full page reload
+              if (onRefreshCustomer) {
+                onRefreshCustomer();
+              }
             }}
           />
         </>
