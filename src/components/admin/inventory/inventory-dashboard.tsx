@@ -443,15 +443,41 @@ export function InventoryDashboard() {
               ))}
             </div>
           ) : filteredData?.products?.needs_reorder && filteredData.products.needs_reorder.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredData.products.needs_reorder.map((product: any) => (
-                <ProductCard 
-                  key={product.id} 
-                  product={product} 
-                  onUpdate={handleRefresh}
-                />
-              ))}
-            </div>
+            (() => {
+              // Group by vendor/supplier
+              const byVendor = filteredData.products.needs_reorder.reduce((acc: Record<string, any[]>, product: any) => {
+                const vendor = product.supplier || 'Unknown Vendor'
+                if (!acc[vendor]) acc[vendor] = []
+                acc[vendor].push(product)
+                return acc
+              }, {} as Record<string, any[]>)
+              const vendorNames = Object.keys(byVendor).sort()
+
+              return (
+                <div className="space-y-4">
+                  {vendorNames.map((vendor: string) => (
+                    <div key={vendor} className="border border-red-200 rounded-lg bg-red-50/20">
+                      <div className="flex items-center gap-2 p-3 border-b border-red-200/50">
+                        <Package className="h-4 w-4 text-red-600" />
+                        <h3 className="font-medium text-red-800">{vendor}</h3>
+                        <Badge variant="outline" className="text-red-700 border-red-300">
+                          {byVendor[vendor].length} {byVendor[vendor].length === 1 ? 'item' : 'items'}
+                        </Badge>
+                      </div>
+                      <div className="p-3 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                        {byVendor[vendor].map((product: any) => (
+                          <ProductCard
+                            key={product.id}
+                            product={product}
+                            onUpdate={handleRefresh}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()
           ) : (
             <Card>
               <CardContent className="flex items-center justify-center py-8">

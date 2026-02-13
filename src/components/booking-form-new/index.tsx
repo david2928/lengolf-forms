@@ -139,28 +139,45 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
     mutateCustomers();
   }, [mutateCustomers]);
 
-  // Check if this is from chat context
-  const isFromChat = chatContext && chatContext.from === 'chat'
+  // Track if component has mounted (for hydration-safe rendering)
+  // Start as false on both server and client to ensure matching initial render
+  const [hasMounted, setHasMounted] = useState(false)
+
+  // Calculate isFromExternalSource based on props
+  // This is safe because we only use it AFTER hasMounted is true
+  const isFromExternalSource = chatContext?.from === 'chat' || chatContext?.from === 'obsales'
+
+  // Set mounted state after hydration is complete
+  // This ensures server and client render the same loading state initially
+  useEffect(() => {
+    console.log('[BookingFormNew] Mounting - External source detection:', {
+      from: chatContext?.from,
+      isFromExternalSource,
+      staffName: chatContext?.staffName
+    })
+    setHasMounted(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Empty deps - only run once on mount, after hydration
 
   // Progressive section display logic
-  const showCustomerInfo = !isFromChat && formData.employeeName; // Hide for chat since pre-filled
-  const showCustomerDetails = !isFromChat && showCustomerInfo && formData.isNewCustomer !== null;
-  const showPackageSelection = (isFromChat ? selectedCustomerCache && availablePackages.length > 0 :
+  const showCustomerInfo = !isFromExternalSource && formData.employeeName; // Hide for chat/OB Sales since pre-filled
+  const showCustomerDetails = !isFromExternalSource && showCustomerInfo && formData.isNewCustomer !== null;
+  const showPackageSelection = (isFromExternalSource ? selectedCustomerCache && availablePackages.length > 0 :
     showCustomerDetails && !formData.isNewCustomer && selectedCustomerCache && availablePackages.length > 0);
-  const showBookingType = isFromChat ? (formData.employeeName && formData.customerId) :
+  const showBookingType = isFromExternalSource ? (formData.employeeName && formData.customerId) :
     (showCustomerDetails && (
       (formData.isNewCustomer && formData.customerName && formData.customerPhone && !errors.customerPhone) ||
       (!formData.isNewCustomer && formData.customerId)
     )); // Show booking type after customer details are complete and no validation errors
-  const showContactMethod = !isFromChat && showBookingType && formData.bookingType; // Hide for chat since pre-filled
+  const showContactMethod = !isFromExternalSource && showBookingType && formData.bookingType; // Hide for chat/OB Sales since pre-filled
   const showCoachSelection = showBookingType && (formData.bookingType === 'Coaching' || formData.bookingType?.startsWith('Coaching (') || autoSelectedBookingType === 'Coaching');
-  const showTimeSlot = isFromChat ? (showBookingType && formData.bookingType) :
+  const showTimeSlot = isFromExternalSource ? (showBookingType && formData.bookingType) :
     (showContactMethod && formData.customerContactedVia && formData.bookingType);
   const showBookingDetails = showTimeSlot && formData.bookingDate && formData.startTime;
 
-  // Pre-populate form from chat context
+  // Pre-populate form from chat context or OB Sales
   useEffect(() => {
-    if (chatContext && chatContext.from === 'chat') {
+    if (chatContext && (chatContext.from === 'chat' || chatContext.from === 'obsales')) {
       const getContactMethod = (channel: string | null) => {
         switch (channel) {
           case 'line': return 'LINE'
@@ -168,7 +185,7 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
           case 'facebook': return 'Facebook'
           case 'instagram': return 'Instagram'
           case 'whatsapp': return 'WhatsApp'
-          default: return 'LINE'
+          default: return 'Phone' // Default to Phone for OB Sales
         }
       }
 
@@ -177,7 +194,7 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
         employeeName: chatContext.staffName || 'David',
         isNewCustomer: false, // Since we have a customer ID, it's an existing customer
         customerId: chatContext.customerId || undefined,
-        customerContactedVia: getContactMethod(chatContext.channelType || null)
+        customerContactedVia: chatContext.from === 'obsales' ? 'Phone' : getContactMethod(chatContext.channelType || null)
       }))
 
       // If we have a customer ID, fetch the customer details and packages
@@ -256,8 +273,8 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
   useEffect(() => {
     let allErrors: FormErrors = {};
 
-    // Only validate employee selection if not from chat
-    if (!isFromChat && !formData.employeeName) {
+    // Only validate employee selection if not from external source
+    if (!isFromExternalSource && !formData.employeeName) {
       allErrors.employeeName = 'Please select who is creating this booking';
     }
 
@@ -311,7 +328,7 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
     }
 
     setErrors(allErrors);
-  }, [formData, phoneError, showContactMethod, showCustomerInfo, showCustomerDetails, showBookingType, showCoachSelection, showTimeSlot, isFromChat]);
+  }, [formData, phoneError, showContactMethod, showCustomerInfo, showCustomerDetails, showBookingType, showCoachSelection, showTimeSlot, isFromExternalSource]);
 
   // Smart package analysis for auto-detection
   const analyzePackageForAutoDetection = (pkg: Package): {bookingType: string, coach: string | null} => {
@@ -414,8 +431,8 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
   };
 
   const handleSuccessAction = () => {
-    if (isFromChat) {
-      // Close the tab to return to chat
+    if (isFromExternalSource) {
+      // Close the tab to return to chat/OB Sales
       window.close();
     } else {
       // Regular reset for normal booking flow
@@ -570,9 +587,9 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
   const isFormComplete = Boolean(
     Object.keys(errors).length === 0 &&
     formData.employeeName &&
-    (isFromChat || formData.isNewCustomer !== null) &&
-    (isFromChat || (formData.isNewCustomer ? (formData.customerName && formData.customerPhone) : formData.customerId)) &&
-    (isFromChat || formData.customerContactedVia) &&
+    (isFromExternalSource || formData.isNewCustomer !== null) &&
+    (isFromExternalSource || (formData.isNewCustomer ? (formData.customerName && formData.customerPhone) : formData.customerId)) &&
+    (isFromExternalSource || formData.customerContactedVia) &&
     formData.bookingType &&
     formData.bookingDate &&
     formData.startTime &&
@@ -592,7 +609,7 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
           onSuccess={handleSuccessAction}
           onReset={handleReset}
           onNavigateToStep={() => {}}
-          isFromChat={isFromChat}
+          isFromChat={isFromExternalSource}
         />
       </div>
     );
@@ -637,8 +654,19 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
     onPhoneError: setPhoneError
   };
 
+  // Show loading state until mounted to prevent hydration mismatch
+  if (!hasMounted) {
+    return (
+      <div className="w-full max-w-4xl mx-auto p-3 sm:p-6">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <StepProvider 
+    <StepProvider
       currentStep={1} // Single page form, always step 1
       setCurrentStep={() => {}} // Not used in single page
       canProgress={isFormComplete}
@@ -648,8 +676,8 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
       <FormProvider value={contextValue}>
         <div className="w-full max-w-4xl mx-auto p-3 sm:p-6 space-y-6 sm:space-y-8">
 
-          {/* Chat Context Customer Summary - Show at top as pre-selected */}
-          {isFromChat && selectedCustomerCache && (
+          {/* External Source Customer Summary - Show at top as pre-selected */}
+          {isFromExternalSource && selectedCustomerCache && (
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -667,8 +695,8 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
             </div>
           )}
 
-          {/* Action buttons at top - Hide for chat context */}
-          {!isFromChat && (
+          {/* Action buttons at top - Hide for external source */}
+          {!isFromExternalSource && (
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center space-y-2 sm:space-y-0">
               <Button
                 variant="ghost"
@@ -691,8 +719,8 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
             </div>
           )}
 
-      {/* Section 1: Employee Selection - Hidden for chat context */}
-      {!isFromChat && (
+      {/* Section 1: Employee Selection - Hidden for external source */}
+      {!isFromExternalSource && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">

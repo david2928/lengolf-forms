@@ -19,7 +19,8 @@ import {
   DollarSign,
   Link,
   Clock,
-  ChevronUp
+  ChevronUp,
+  StickyNote
 } from 'lucide-react'
 import { AdminInventoryProductWithStatus } from '@/types/inventory'
 import { EditProductModal } from './edit-product-modal'
@@ -42,14 +43,14 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
     switch (product.reorder_status) {
       case 'REORDER_NEEDED':
         if (isCashProduct) {
-          // For cash, "REORDER_NEEDED" means cash is BELOW threshold (needs more cash, not collection)
+          // For cash, "REORDER_NEEDED" means cash is BELOW threshold - this is fine, no action needed
           return {
-            icon: Package,
-            color: '#6B7280',
-            bgColor: 'bg-gray-50',
-            borderColor: 'border-gray-200',
+            icon: CheckCircle,
+            color: '#16a34a',
+            bgColor: 'bg-green-50',
+            borderColor: 'border-green-200',
             badgeVariant: 'secondary' as const,
-            label: 'Below Collection Threshold'
+            label: 'Cash Level OK'
           }
         }
         return {
@@ -62,13 +63,14 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
         }
       case 'LOW_STOCK':
         if (isCashProduct) {
+          // Cash approaching collection threshold
           return {
-            icon: Package,
-            color: '#6B7280',
-            bgColor: 'bg-gray-50',
-            borderColor: 'border-gray-200',
+            icon: DollarSign,
+            color: '#C77700',
+            bgColor: 'bg-amber-50',
+            borderColor: 'border-amber-200',
             badgeVariant: 'secondary' as const,
-            label: 'Cash Level OK'
+            label: 'Approaching Threshold'
           }
         }
         return {
@@ -81,13 +83,14 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
         }
       case 'ADEQUATE':
         if (isCashProduct) {
+          // Cash is ABOVE threshold - needs collection
           return {
-            icon: DollarSign,
-            color: '#2563EB',
-            bgColor: 'bg-blue-50',
-            borderColor: 'border-blue-200',
-            badgeVariant: 'secondary' as const,
-            label: 'Collection Available'
+            icon: AlertTriangle,
+            color: '#B00020',
+            bgColor: 'bg-red-50',
+            borderColor: 'border-red-200',
+            badgeVariant: 'destructive' as const,
+            label: 'Cash Over Threshold'
           }
         }
         return {
@@ -247,6 +250,16 @@ export function ProductCard({ product, onUpdate, showCollapseButton, onCollapse 
                 <span>Supplier</span>
               </div>
               <p className="font-medium text-sm">{product.supplier}</p>
+            </div>
+          )}
+
+          {/* Notes */}
+          {product.notes && (
+            <div className="text-xs">
+              <div className="flex items-start gap-1 text-muted-foreground">
+                <StickyNote className="h-2.5 w-2.5 mt-0.5 shrink-0" />
+                <span className="italic">{product.notes}</span>
+              </div>
             </div>
           )}
 

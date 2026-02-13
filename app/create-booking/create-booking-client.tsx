@@ -27,6 +27,7 @@ export function CreateBookingClient() {
   }
 
   const isFromChat = chatContext.from === 'chat'
+  const isFromOBSales = chatContext.from === 'obsales'
 
   const getChannelDisplayName = (channel: string | null) => {
     switch (channel) {
@@ -39,8 +40,8 @@ export function CreateBookingClient() {
     }
   }
 
-  const handleBackToChat = () => {
-    // Close the current tab to return to chat
+  const handleBackToSource = () => {
+    // Close the current tab to return to the source page
     window.close()
   }
 
@@ -51,11 +52,23 @@ export function CreateBookingClient() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleBackToChat}
+            onClick={handleBackToSource}
             className="text-gray-600 hover:text-gray-800"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Chat
+          </Button>
+        </div>
+      ) : isFromOBSales ? (
+        <div className="px-3 sm:px-4 py-3 border-b bg-white">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleBackToSource}
+            className="text-gray-600 hover:text-gray-800"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to OB Sales
           </Button>
         </div>
       ) : (
