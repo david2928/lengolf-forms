@@ -40,7 +40,6 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
-import Image from 'next/image';
 import Link from 'next/link';
 import type {
   ConversationSidebarProps,
@@ -187,6 +186,9 @@ const getLastMessageBy = (conversation: Conversation | UnifiedConversation): str
 };
 
 // Safe Image component with error handling
+// Uses plain <img> for external profile pictures to avoid Next.js Image error
+// propagation through the React tree (massive console noise on 404s).
+// unoptimized={true} was already set, so there's no optimization benefit from next/image.
 const SafeImage = ({ src, alt, width, height, className }: {
   src: string;
   alt: string;
@@ -205,14 +207,14 @@ const SafeImage = ({ src, alt, width, height, className }: {
   }
 
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={src}
       alt={alt}
       width={width}
       height={height}
       className={className}
       onError={() => setImageError(true)}
-      unoptimized={true} // Skip optimization for external profile pictures (LINE, Facebook, Instagram)
     />
   );
 };

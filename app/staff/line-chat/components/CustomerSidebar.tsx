@@ -5,7 +5,6 @@
 // Handles customer information, bookings, packages in a single implementation
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -149,6 +148,8 @@ const isUnifiedConversation = (conversation: any): conversation is UnifiedConver
 };
 
 // Safe Image component with error handling
+// Uses plain <img> for external profile pictures to avoid Next.js Image error
+// propagation through the React tree on 404s.
 const SafeImage = ({ src, alt, width, height, className }: {
   src: string;
   alt: string;
@@ -167,14 +168,14 @@ const SafeImage = ({ src, alt, width, height, className }: {
   }
 
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={src}
       alt={alt}
       width={width}
       height={height}
       className={className}
       onError={() => setImageError(true)}
-      unoptimized={true} // Skip optimization for external profile pictures (LINE, Facebook, Instagram)
     />
   );
 };

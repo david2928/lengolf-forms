@@ -6,7 +6,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { enhanceMessageDisplay } from '@/lib/line/emoji-display-utils';
@@ -197,6 +196,8 @@ const getConversationPictureUrl = (conversation: any): string => {
 };
 
 // Safe Image component with error handling
+// Uses plain <img> for external profile pictures to avoid Next.js Image error
+// propagation through the React tree on 404s.
 const SafeImage = ({ src, alt, width, height, className }: {
   src: string;
   alt: string;
@@ -215,14 +216,14 @@ const SafeImage = ({ src, alt, width, height, className }: {
   }
 
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={src}
       alt={alt}
       width={width}
       height={height}
       className={className}
       onError={() => setImageError(true)}
-      unoptimized={true} // Skip optimization for external profile pictures (LINE, Facebook, Instagram)
     />
   );
 };
