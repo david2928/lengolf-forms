@@ -26,6 +26,7 @@ import { BayBlockingModal } from './bay-blocking-modal';
 import { FormProvider, validateStep1, validateStep2, validateStep3 } from '../booking-form/context/form-provider';
 import { StepProvider } from '../booking-form/navigation/step-context';
 import { handleFormSubmit } from '../booking-form/submit/submit-handler';
+import { pushDataLayerEvent } from '@/lib/gtm';
 import type { FormData, FormErrors } from '../booking-form/types';
 // Customer type for the new customer management system
 interface NewCustomer {
@@ -558,9 +559,25 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
 
     setIsSubmitting(true);
     setSubmissionError(''); // Clear any previous errors
+
+    // GTM: begin_checkout when user initiates booking submission
+    pushDataLayerEvent('begin_checkout', {
+      booking_type: formData.bookingType,
+      is_new_customer: formData.isNewCustomer,
+    });
+
     try {
       const result = await handleFormSubmit(formData);
       if (result.success) {
+        // GTM: booking_confirmed on successful creation
+        pushDataLayerEvent('booking_confirmed', {
+          booking_id: result.bookingId,
+          booking_type: formData.bookingType,
+          duration: formData.duration,
+          is_new_customer: formData.isNewCustomer,
+          referral_source: formData.referralSource || undefined,
+        });
+
         setFormData(prev => ({
           ...prev,
           isSubmitted: true,
