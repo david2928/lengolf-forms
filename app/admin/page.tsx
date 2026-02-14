@@ -28,7 +28,8 @@ import {
   MessageSquare,
   Star,
   Landmark,
-  Banknote
+  Banknote,
+  Coins
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -216,6 +217,12 @@ const financialOperationsItems = [
     title: "Vendor Management",
     description: "Manage vendors and view uploaded receipts",
     path: "/admin/vendor-receipts"
+  },
+  {
+    icon: Coins,
+    title: "Cash Transactions",
+    description: "View all petty cash spending records and receipts",
+    path: "/admin/cash-transactions"
   }
 ];
 
