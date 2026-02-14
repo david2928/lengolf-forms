@@ -560,12 +560,6 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
     setIsSubmitting(true);
     setSubmissionError(''); // Clear any previous errors
 
-    // GTM: begin_checkout when user initiates booking submission
-    pushDataLayerEvent('begin_checkout', {
-      booking_type: formData.bookingType,
-      is_new_customer: formData.isNewCustomer,
-    });
-
     try {
       const result = await handleFormSubmit(formData);
       if (result.success) {
@@ -576,6 +570,8 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
           duration: formData.duration,
           is_new_customer: formData.isNewCustomer,
           referral_source: formData.referralSource || undefined,
+          profileId: formData.customerId || undefined,
+          stableHashId: formData.customerStableHashId || undefined,
         });
 
         setFormData(prev => ({
