@@ -110,7 +110,11 @@ export async function fetchAllReviews(
 /**
  * Convert Google Review to database format
  */
-function convertToDBFormat(review: GoogleReview): Omit<GoogleReviewDB, 'id' | 'synced_at' | 'created_at' | 'updated_at'> {
+/**
+ * Convert Google Review to database format for sync.
+ * Excludes draft and audit fields so they are not overwritten during sync.
+ */
+function convertToDBFormat(review: GoogleReview) {
   return {
     google_review_name: review.name,
     reviewer_name: review.reviewer.displayName || 'Anonymous',
@@ -122,9 +126,6 @@ function convertToDBFormat(review: GoogleReview): Omit<GoogleReviewDB, 'id' | 's
     has_reply: !!review.reviewReply,
     reply_text: review.reviewReply?.comment || null,
     reply_updated_at: review.reviewReply?.updateTime || null,
-    // Audit fields - only set when posting from our system
-    replied_by: null,
-    replied_at_local: null,
   };
 }
 
