@@ -6,7 +6,7 @@ import { openai } from '@/lib/ai/openai-client';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import type { GoogleReviewDB } from '@/types/google-reviews';
 
-export const maxDuration = 300; // 5 min for processing many reviews
+export const maxDuration = 60; // Vercel hobby plan limit
 
 const BATCH_SIZE = 5; // Reviews per OpenAI call
 const DELAY_BETWEEN_BATCHES_MS = 1000;
