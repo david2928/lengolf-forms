@@ -3,6 +3,8 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { isUserAdmin } from '@/lib/auth';
 
+export const maxDuration = 60; // Edge Function fetches all reviews from Google API + upserts to DB
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_REFAC_SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.REFAC_SUPABASE_SERVICE_ROLE_KEY!;
 

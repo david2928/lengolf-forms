@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Star, MessageCircle, CheckCircle, XCircle, Link as LinkIcon, Eye, Send } from 'lucide-react';
+import { RefreshCw, Star, MessageCircle, CheckCircle, XCircle, Link as LinkIcon, Eye, Send, Sparkles, Pencil, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +37,7 @@ import type { GoogleReviewDB } from '@/types/google-reviews';
 const MAX_REPLY_LENGTH = 4096;
 const MIN_REPLY_LENGTH = 10;
 
-type FilterType = 'all' | 'has_reply' | 'needs_reply';
+type FilterType = 'all' | 'has_reply' | 'needs_reply' | 'has_draft';
 
 interface ConnectionStatus {
   connected: boolean;
@@ -60,6 +60,13 @@ export default function GoogleReviewsPage() {
   const [isPostingReply, setIsPostingReply] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [postButtonDisabled, setPostButtonDisabled] = useState(false);
+
+  // Draft state
+  const [isGeneratingDrafts, setIsGeneratingDrafts] = useState(false);
+  const [isEditingDraft, setIsEditingDraft] = useState(false);
+  const [editedDraftText, setEditedDraftText] = useState('');
+  const [isApprovingDraft, setIsApprovingDraft] = useState(false);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
 
   // Check connection status
   const checkConnectionStatus = async () => {
@@ -131,6 +138,8 @@ export default function GoogleReviewsPage() {
         filteredReviews = allReviewsData.filter((r: GoogleReviewDB) => r.has_reply);
       } else if (filterType === 'needs_reply') {
         filteredReviews = allReviewsData.filter((r: GoogleReviewDB) => !r.has_reply);
+      } else if (filterType === 'has_draft') {
+        filteredReviews = allReviewsData.filter((r: GoogleReviewDB) => r.draft_status === 'pending' && r.draft_reply);
       }
 
       setReviews(filteredReviews);
@@ -233,12 +242,161 @@ export default function GoogleReviewsPage() {
     }
   };
 
+  // Generate AI draft replies
+  const handleGenerateDrafts = async () => {
+    setIsGeneratingDrafts(true);
+    try {
+      const response = await fetch('/api/google-reviews/generate-drafts', {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to generate drafts');
+      }
+
+      toast.success(
+        `Generated ${result.generated} draft replies${result.failed > 0 ? ` (${result.failed} failed)` : ''}`
+      );
+
+      await fetchReviews(filter);
+    } catch (error: unknown) {
+      console.error('Error generating drafts:', error);
+      const message = error instanceof Error ? error.message : 'Failed to generate drafts';
+      toast.error(message);
+    } finally {
+      setIsGeneratingDrafts(false);
+    }
+  };
+
+  // Approve a draft reply (posts to Google)
+  const handleApproveDraft = async () => {
+    if (!selectedReview) return;
+
+    setIsApprovingDraft(true);
+    setShowApproveDialog(false);
+
+    try {
+      // If draft was edited, save the edit first
+      if (isEditingDraft && editedDraftText.trim() !== selectedReview.draft_reply) {
+        const editResponse = await fetch(`/api/google-reviews/${selectedReview.id}/draft`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ draft_reply: editedDraftText.trim() }),
+        });
+        if (!editResponse.ok) {
+          const editResult = await editResponse.json();
+          throw new Error(editResult.error || 'Failed to save draft edit');
+        }
+      }
+
+      const response = await fetch(`/api/google-reviews/${selectedReview.id}/draft/approve`, {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to approve draft');
+      }
+
+      toast.success('Draft approved and reply posted to Google!');
+
+      if (result.warning) {
+        toast.warning(result.warning);
+      }
+
+      setIsEditingDraft(false);
+
+      // Find the next review before refreshing the list
+      const currentIdx = reviews.findIndex(r => r.id === selectedReview.id);
+      const nextReview = currentIdx >= 0 && currentIdx < reviews.length - 1
+        ? reviews[currentIdx + 1]
+        : null;
+
+      await fetchReviews(filter);
+
+      // Auto-navigate to next review, or close if none left
+      if (nextReview) {
+        setSelectedReview(nextReview);
+        setReplyText('');
+        setEditedDraftText('');
+      } else {
+        setSelectedReview(null);
+      }
+    } catch (error: unknown) {
+      console.error('Error approving draft:', error);
+      const message = error instanceof Error ? error.message : 'Failed to approve draft';
+      toast.error(message);
+    } finally {
+      setIsApprovingDraft(false);
+    }
+  };
+
+  // Reject a draft reply
+  const handleRejectDraft = async () => {
+    if (!selectedReview) return;
+
+    try {
+      const response = await fetch(`/api/google-reviews/${selectedReview.id}/draft/reject`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Failed to reject draft');
+      }
+
+      toast.success('Draft rejected');
+
+      const updatedReview: GoogleReviewDB = {
+        ...selectedReview,
+        draft_reply: null,
+        draft_reply_en_translation: null,
+        draft_status: 'rejected',
+      };
+      setSelectedReview(updatedReview);
+      setIsEditingDraft(false);
+
+      await fetchReviews(filter);
+    } catch (error: unknown) {
+      console.error('Error rejecting draft:', error);
+      const message = error instanceof Error ? error.message : 'Failed to reject draft';
+      toast.error(message);
+    }
+  };
+
   // Reset reply form when modal closes or review changes
   const handleCloseModal = useCallback(() => {
     setSelectedReview(null);
     setReplyText('');
     setShowConfirmDialog(false);
+    setShowApproveDialog(false);
+    setIsEditingDraft(false);
+    setEditedDraftText('');
   }, []);
+
+  // Navigate to next/previous review in filtered list
+  const navigateReview = useCallback((direction: 'next' | 'prev') => {
+    if (!selectedReview) return;
+    const currentIndex = reviews.findIndex(r => r.id === selectedReview.id);
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+    if (newIndex >= 0 && newIndex < reviews.length) {
+      setSelectedReview(reviews[newIndex]);
+      setReplyText('');
+      setIsEditingDraft(false);
+      setEditedDraftText('');
+      setShowConfirmDialog(false);
+      setShowApproveDialog(false);
+    }
+  }, [selectedReview, reviews]);
+
+  const currentReviewIndex = selectedReview ? reviews.findIndex(r => r.id === selectedReview.id) : -1;
+  const hasNextReview = currentReviewIndex >= 0 && currentReviewIndex < reviews.length - 1;
+  const hasPrevReview = currentReviewIndex > 0;
 
   // Check if reply is valid
   const isReplyValid = replyText.trim().length >= MIN_REPLY_LENGTH && replyText.length <= MAX_REPLY_LENGTH;
@@ -271,6 +429,7 @@ export default function GoogleReviewsPage() {
     total: allReviews.length,
     withReply: allReviews.filter((r) => r.has_reply).length,
     needsReply: allReviews.filter((r) => !r.has_reply).length,
+    hasDraft: allReviews.filter((r) => r.draft_status === 'pending' && r.draft_reply).length,
     avgRating:
       allReviews.length > 0
         ? (
@@ -327,10 +486,20 @@ export default function GoogleReviewsPage() {
             Manage and monitor Google Business Profile reviews
           </p>
         </div>
-        <Button onClick={handleSync} disabled={isSyncing || !connectionStatus?.connected}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-          {isSyncing ? 'Syncing...' : 'Sync Reviews'}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleGenerateDrafts}
+            disabled={isGeneratingDrafts || stats.needsReply === 0}
+          >
+            <Sparkles className={`mr-2 h-4 w-4 ${isGeneratingDrafts ? 'animate-pulse' : ''}`} />
+            {isGeneratingDrafts ? 'Generating...' : 'Generate Drafts'}
+          </Button>
+          <Button onClick={handleSync} disabled={isSyncing || !connectionStatus?.connected}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Syncing...' : 'Sync Reviews'}
+          </Button>
+        </div>
       </div>
 
       {/* Connection Status */}
@@ -441,6 +610,15 @@ export default function GoogleReviewsPage() {
         >
           Needs Reply ({stats.needsReply})
         </Button>
+        {stats.hasDraft > 0 && (
+          <Button
+            variant={filter === 'has_draft' ? 'default' : 'outline'}
+            onClick={() => setFilter('has_draft')}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Draft Ready ({stats.hasDraft})
+          </Button>
+        )}
       </div>
 
       {/* Reviews Table - Desktop */}
@@ -503,6 +681,11 @@ export default function GoogleReviewsPage() {
                           <Badge className="bg-green-100 text-green-800 border-green-200">
                             <CheckCircle className="w-3 h-3 mr-1" />
                             Replied
+                          </Badge>
+                        ) : review.draft_status === 'pending' && review.draft_reply ? (
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                            <Sparkles className="w-3 h-3 mr-1" />
+                            Draft Ready
                           </Badge>
                         ) : (
                           <Badge className="bg-orange-100 text-orange-800 border-orange-200">
@@ -587,6 +770,11 @@ export default function GoogleReviewsPage() {
                       <CheckCircle className="w-3 h-3 mr-1" />
                       Replied
                     </Badge>
+                  ) : review.draft_status === 'pending' && review.draft_reply ? (
+                    <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      Draft Ready
+                    </Badge>
                   ) : (
                     <Badge className="bg-orange-100 text-orange-800 border-orange-200">
                       <MessageCircle className="w-3 h-3 mr-1" />
@@ -631,7 +819,7 @@ export default function GoogleReviewsPage() {
           </DialogHeader>
 
           {selectedReview && (
-            <div className="space-y-6">
+            <div key={selectedReview.id} className="space-y-6">
               {/* Reviewer Info */}
               <div className="flex items-start justify-between">
                 <div>
@@ -644,6 +832,11 @@ export default function GoogleReviewsPage() {
                   <Badge className="bg-green-100 text-green-800 border-green-200">
                     <CheckCircle className="w-4 h-4 mr-1" />
                     Replied
+                  </Badge>
+                ) : selectedReview.draft_status === 'pending' && selectedReview.draft_reply ? (
+                  <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                    <Sparkles className="w-4 h-4 mr-1" />
+                    Draft Ready
                   </Badge>
                 ) : (
                   <Badge className="bg-orange-100 text-orange-800 border-orange-200">
@@ -700,9 +893,134 @@ export default function GoogleReviewsPage() {
                       )}
                     </div>
                   </div>
+                  {/* English translation for replied non-EN/TH reviews */}
+                  {selectedReview.draft_reply_en_translation && (
+                    <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <label className="text-xs font-medium text-gray-500 mb-1 block">
+                        English Translation
+                      </label>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                        {selectedReview.draft_reply_en_translation}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : selectedReview.draft_status === 'pending' && selectedReview.draft_reply ? (
+                /* Show draft review UI */
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-blue-600" />
+                      AI Draft Reply
+                    </label>
+                    {!isEditingDraft && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsEditingDraft(true);
+                          setEditedDraftText(selectedReview.draft_reply || '');
+                        }}
+                      >
+                        <Pencil className="w-3 h-3 mr-1" />
+                        Edit
+                      </Button>
+                    )}
+                  </div>
+
+                  {isEditingDraft ? (
+                    <div>
+                      <div className="flex items-center justify-end mb-1">
+                        <span className={`text-xs ${editedDraftText.length > MAX_REPLY_LENGTH ? 'text-red-500' : 'text-muted-foreground'}`}>
+                          {editedDraftText.length} / {MAX_REPLY_LENGTH}
+                        </span>
+                      </div>
+                      <Textarea
+                        value={editedDraftText}
+                        onChange={(e) => setEditedDraftText(e.target.value)}
+                        className="min-h-[120px] resize-none border-amber-300 bg-amber-50"
+                      />
+                      <div className="flex justify-end gap-2 mt-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setIsEditingDraft(false);
+                            setEditedDraftText('');
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                      <p className="text-gray-800 whitespace-pre-wrap">{selectedReview.draft_reply}</p>
+                      {selectedReview.draft_generated_at && (
+                        <p className="text-xs text-amber-600 mt-2 pt-2 border-t border-amber-200">
+                          Generated {formatDate(selectedReview.draft_generated_at)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* English translation for non-EN/TH reviews */}
+                  {selectedReview.draft_reply_en_translation && (
+                    <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <label className="text-xs font-medium text-gray-500 mb-1 block">
+                        English Translation
+                      </label>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                        {selectedReview.draft_reply_en_translation}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Skip / Approve / Reject buttons */}
+                  <div className="flex justify-end gap-2 mt-4">
+                    <Button
+                      variant="outline"
+                      onClick={handleRejectDraft}
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      <ThumbsDown className="mr-2 h-4 w-4" />
+                      Reject
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => navigateReview('next')}
+                      disabled={!hasNextReview}
+                      className={!hasNextReview ? 'hidden' : ''}
+                    >
+                      <SkipForward className="mr-2 h-4 w-4" />
+                      Skip
+                    </Button>
+                    <Button
+                      onClick={() => setShowApproveDialog(true)}
+                      disabled={isApprovingDraft || !connectionStatus?.connected}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      {isApprovingDraft ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          Posting...
+                        </>
+                      ) : (
+                        <>
+                          <ThumbsUp className="mr-2 h-4 w-4" />
+                          Approve &amp; Post
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {!connectionStatus?.connected && (
+                    <p className="text-xs text-orange-500 mt-2">
+                      Connect your Google Business account to post replies.
+                    </p>
+                  )}
                 </div>
               ) : (
-                /* Show reply form */
+                /* Show manual reply form */
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-medium text-gray-700">
@@ -777,12 +1095,37 @@ export default function GoogleReviewsPage() {
                   </p>
                 </div>
               </div>
+
+              {/* Navigation */}
+              <div className="flex items-center justify-between pt-4 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateReview('prev')}
+                  disabled={!hasPrevReview}
+                >
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  Previous
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentReviewIndex + 1} of {reviews.length}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateReview('next')}
+                  disabled={!hasNextReview}
+                >
+                  Next
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Dialog */}
+      {/* Manual Reply Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -798,6 +1141,29 @@ export default function GoogleReviewsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handlePostReply}>
               Post Reply
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Draft Approval Confirmation Dialog */}
+      <AlertDialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve &amp; Post Draft to Google?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This AI-generated reply will be publicly posted on Google. Review it carefully before approving.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4 p-3 bg-amber-50 rounded-lg border border-amber-200 max-h-48 overflow-y-auto">
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+              {isEditingDraft ? editedDraftText : selectedReview?.draft_reply}
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleApproveDraft} className="bg-green-600 hover:bg-green-700">
+              Approve &amp; Post
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
