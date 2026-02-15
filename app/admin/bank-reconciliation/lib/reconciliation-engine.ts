@@ -168,10 +168,12 @@ export function runReconciliation(
 
     // QR flow
     // closingQr (qr_payments_total) includes PromptPay + Alipay/WeChat, so compare against posQr + posEwallet
+    // GoWabi payouts are excluded from bankTransfers — they're marketplace payouts, not POS QR payments
     const posQr = dailySales?.qrPayment ?? 0;
     const posQrPlusEwallet = r2(posQr + posEwallet);
     const closingQr = dailyClosing?.qr_payments_total ?? 0;
     const bankTransfers = bankDay?.transferDeposits ?? 0;
+    const gowabiPayouts = bankDay?.gowabiPayouts ?? 0;
 
     const hasQrData = posQr > 0 || posEwallet > 0 || closingQr > 0 || bankTransfers > 0;
     const posVsClosingQr = hasQrData
@@ -225,6 +227,11 @@ export function runReconciliation(
             }
             break;
           }
+          case 'gowabi_payout': {
+            txn.reconciliationStatus = 'reconciled';
+            txn.reconciliationNote = 'GoWabi marketplace payout';
+            break;
+          }
           case 'transfer_deposit': {
             if (posQr > 0 || closingQr > 0) {
               txn.reconciliationStatus = 'partial';
@@ -252,6 +259,7 @@ export function runReconciliation(
     }
 
     // POS Total gap (include both card and eWallet merchant fees, use T+1 eWallet data)
+    // GoWabi payouts are excluded — they're marketplace revenue, not POS sales
     const posTotal = dailySales?.totalSales ?? dailyClosing?.total_sales ?? 0;
     const bankDeposits = r2(bankCardDeposit + effectiveBankEwalletDeposit + bankTransfers);
     const cashForAccounting = closingActual ?? posCash;

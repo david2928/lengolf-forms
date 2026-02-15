@@ -36,6 +36,7 @@ const categoryBadge = (category: BankTransaction['category']) => {
     card_settlement: { bg: 'bg-blue-50 text-blue-700 border-blue-200', label: 'Card' },
     ewallet_settlement: { bg: 'bg-purple-50 text-purple-700 border-purple-200', label: 'eWallet' },
     transfer_deposit: { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Transfer' },
+    gowabi_payout: { bg: 'bg-orange-50 text-orange-700 border-orange-200', label: 'GoWabi' },
     withdrawal: { bg: 'bg-red-50 text-red-700 border-red-200', label: 'Withdrawal' },
     other: { bg: 'bg-gray-50 text-gray-600 border-gray-200', label: 'Other' },
   };
@@ -147,7 +148,7 @@ export default function BankTransactionsTable({ transactions }: BankTransactions
                         <span className="text-sm text-gray-800 truncate block max-w-[280px]" title={txn.description}>
                           {txn.description}
                         </span>
-                        {txn.details && txn.category === 'transfer_deposit' && (
+                        {txn.details && (txn.category === 'transfer_deposit' || txn.category === 'gowabi_payout') && (
                           <span className="text-[10px] text-gray-400 truncate block max-w-[280px]" title={txn.details}>
                             {txn.details}
                           </span>

@@ -83,7 +83,11 @@ export function parseBankCSV(csvText: string): BankStatementParsed {
     // Skip the beginning balance row
     if (description === 'Beginning Balance') continue;
 
-    const category = categorizeTransaction(description);
+    const rawCategory = categorizeTransaction(description);
+    // Auto-detect GoWabi payouts from transfer_deposit category
+    const category = rawCategory === 'transfer_deposit' && isGowabiPayout(details)
+      ? 'gowabi_payout' as const
+      : rawCategory;
 
     const txn: BankTransaction = {
       date,
@@ -110,6 +114,7 @@ export function parseBankCSV(csvText: string): BankStatementParsed {
         cardSettlements: 0,
         ewalletSettlements: 0,
         transferDeposits: 0,
+        gowabiPayouts: 0,
         withdrawals: 0,
         totalDeposits: 0,
         totalWithdrawals: 0,
@@ -130,6 +135,9 @@ export function parseBankCSV(csvText: string): BankStatementParsed {
         break;
       case 'transfer_deposit':
         day.transferDeposits = r2(day.transferDeposits + deposit);
+        break;
+      case 'gowabi_payout':
+        day.gowabiPayouts = r2(day.gowabiPayouts + deposit);
         break;
       case 'withdrawal':
         day.withdrawals = r2(day.withdrawals + withdrawal);
@@ -155,6 +163,12 @@ export function parseBankCSV(csvText: string): BankStatementParsed {
 
 /** Round to 2 decimal places to avoid floating-point accumulation errors */
 const r2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Detect GoWabi marketplace payout from bank transaction details */
+function isGowabiPayout(details: string): boolean {
+  const lower = details.toLowerCase();
+  return lower.includes('gowabi') || details.includes('โกวาบิ');
+}
 
 /** Parse DD-MM-YY to YYYY-MM-DD */
 function parseKBankDate(raw: string): string | null {
@@ -200,6 +214,7 @@ export function getParseStats(parsed: BankStatementParsed) {
   let cardSettlementCount = 0;
   let ewalletCount = 0;
   let transferCount = 0;
+  let gowabiCount = 0;
   let withdrawalCount = 0;
 
   for (const txn of parsed.allTransactions) {
@@ -207,6 +222,7 @@ export function getParseStats(parsed: BankStatementParsed) {
       case 'card_settlement': cardSettlementCount++; break;
       case 'ewallet_settlement': ewalletCount++; break;
       case 'transfer_deposit': transferCount++; break;
+      case 'gowabi_payout': gowabiCount++; break;
       case 'withdrawal': withdrawalCount++; break;
     }
   }
@@ -217,6 +233,7 @@ export function getParseStats(parsed: BankStatementParsed) {
     cardSettlementCount,
     ewalletCount,
     transferCount,
+    gowabiCount,
     withdrawalCount,
     dateRange: `${parsed.startDate} to ${parsed.endDate}`,
   };

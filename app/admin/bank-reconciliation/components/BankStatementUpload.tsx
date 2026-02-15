@@ -137,6 +137,12 @@ export default function BankStatementUpload({ onParsed, currentData, onClear }: 
                   <div className="text-green-600 text-xs">Transfers</div>
                   <div className="font-medium">{stats.transferCount}</div>
                 </div>
+                {stats.gowabiCount > 0 && (
+                  <div className="bg-orange-50 rounded p-2">
+                    <div className="text-orange-600 text-xs">GoWabi</div>
+                    <div className="font-medium">{stats.gowabiCount}</div>
+                  </div>
+                )}
               </div>
             )}
 
