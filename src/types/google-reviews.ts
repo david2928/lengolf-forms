@@ -43,6 +43,13 @@ export interface GoogleReviewDB {
   // Audit fields for replies posted from our system
   replied_by: string | null;        // First name of admin who posted
   replied_at_local: string | null;  // When we posted (our timestamp)
+  // Draft reply fields
+  draft_reply: string | null;
+  draft_reply_en_translation: string | null; // English translation for non-EN/TH drafts
+  draft_status: 'pending' | 'approved' | 'rejected' | null;
+  draft_generated_at: string | null;
+  draft_reviewed_at: string | null;
+  draft_reviewed_by: string | null;
   synced_at: string;
   created_at: string;
   updated_at: string;
