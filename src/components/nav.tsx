@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target, Percent, MessageSquare, Headphones, ImageIcon, Star, Landmark } from 'lucide-react'
+import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target, Percent, MessageSquare, Headphones, ImageIcon, Star, Landmark, Banknote, Phone } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
 import { NotificationBell } from './notifications/NotificationBell'
 import {
@@ -327,6 +327,12 @@ export function Nav() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
+                <Link href="/admin/chat-sla" className="flex items-center gap-2 w-full">
+                  <BarChart3 className="h-4 w-4" />
+                  Chat SLA Dashboard
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link href="/admin/marketing-dashboard" className="flex items-center gap-2 w-full">
                   <Target className="h-4 w-4" />
                   Marketing Dashboard
@@ -397,9 +403,15 @@ export function Nav() {
                   Meta Leads
                 </Link>
               </DropdownMenuItem>
-              
+              <DropdownMenuItem asChild>
+                <Link href="/admin/customer-outreach" className="flex items-center gap-2 w-full">
+                  <Phone className="h-4 w-4" />
+                  Customer Outreach
+                </Link>
+              </DropdownMenuItem>
+
               <DropdownMenuSeparator />
-              
+
               {/* Product & Inventory */}
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Product & Inventory</div>
               <DropdownMenuItem asChild>
@@ -488,6 +500,12 @@ export function Nav() {
                 <Link href="/admin/vendor-receipts" className="flex items-center gap-2 w-full">
                   <Receipt className="h-4 w-4" />
                   Vendor Management
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/cash-transactions" className="flex items-center gap-2 w-full">
+                  <Banknote className="h-4 w-4" />
+                  Cash Transactions
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

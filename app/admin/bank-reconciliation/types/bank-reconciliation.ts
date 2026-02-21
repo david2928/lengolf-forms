@@ -6,6 +6,7 @@ export type BankTransactionCategory =
   | 'card_settlement'    // "Payment Received: FullPay/Install/Redemp"
   | 'ewallet_settlement' // "Payment Received: Alipay/WeChat"
   | 'transfer_deposit'   // "Transfer Deposit"
+  | 'gowabi_payout'      // GoWabi marketplace payout (auto-detected from transfer_deposit)
   | 'withdrawal'         // "Transfer Withdrawal"
   | 'other';
 
@@ -30,7 +31,8 @@ export interface BankDayData {
   transactions: BankTransaction[];
   cardSettlements: number;      // sum of card_settlement deposits
   ewalletSettlements: number;   // sum of ewallet_settlement deposits
-  transferDeposits: number;     // sum of transfer_deposit deposits
+  transferDeposits: number;     // sum of transfer_deposit deposits (excludes GoWabi)
+  gowabiPayouts: number;        // sum of gowabi_payout deposits
   withdrawals: number;          // sum of withdrawal amounts
   totalDeposits: number;
   totalWithdrawals: number;

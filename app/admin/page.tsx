@@ -28,7 +28,8 @@ import {
   MessageSquare,
   Star,
   Landmark,
-  Banknote
+  Banknote,
+  Coins
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -72,6 +73,12 @@ const salesAnalyticsItems = [
     title: "Performance Analytics",
     description: "Monitor real-time availability system performance",
     path: "/admin/performance"
+  },
+  {
+    icon: Activity,
+    title: "Marketing Dashboard",
+    description: "Unified Google + Meta Ads performance dashboard with KPIs and trends",
+    path: "/admin/marketing-dashboard"
   },
   {
     icon: BarChart3,
@@ -216,6 +223,18 @@ const financialOperationsItems = [
     title: "Vendor Management",
     description: "Manage vendors and view uploaded receipts",
     path: "/admin/vendor-receipts"
+  },
+  {
+    icon: Coins,
+    title: "Cash Transactions",
+    description: "View all petty cash spending records and receipts",
+    path: "/admin/cash-transactions"
+  },
+  {
+    icon: FileText,
+    title: "Monthly Closing",
+    description: "Monthly sales overview, expense checklist, and tax filing tools",
+    path: "/admin/monthly-closing"
   }
 ];
 
@@ -231,6 +250,12 @@ const otherItems = [
     title: "Coaching Management",
     description: "Manage coaching schedules and availability",
     path: "/coaching"
+  },
+  {
+    icon: MessageSquare,
+    title: "LINE Testing",
+    description: "Debug and test LINE messaging functionality",
+    path: "/admin/line-messages"
   }
 ];
 

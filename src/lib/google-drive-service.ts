@@ -1,9 +1,17 @@
-import { google } from 'googleapis'
+import { google, type drive_v3 } from 'googleapis'
 import { Readable } from 'stream'
 
 const SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
+// Cache Drive service across warm invocations to reuse auth tokens
+let cachedDriveService: drive_v3.Drive | null = null
+
+// Cache folder IDs to avoid repeated lookups (key: "parentId/folderName")
+const folderIdCache = new Map<string, string>()
+
 function getDriveService() {
+  if (cachedDriveService) return cachedDriveService
+
   // Use dedicated Drive service account (lengolf-operations) which has storage quota
   // Falls back to default service account if Drive-specific vars aren't set
   const clientEmail = process.env.GOOGLE_DRIVE_CLIENT_EMAIL || process.env.GOOGLE_CLIENT_EMAIL
@@ -17,17 +25,22 @@ function getDriveService() {
     scopes: SCOPES,
   })
 
-  return google.drive({ version: 'v3', auth })
+  cachedDriveService = google.drive({ version: 'v3', auth })
+  return cachedDriveService
 }
 
 /**
  * Find a subfolder by name within a parent, or create it if it doesn't exist.
  */
 async function findOrCreateFolder(
-  drive: ReturnType<typeof getDriveService>,
+  drive: drive_v3.Drive,
   parentId: string,
   folderName: string
 ): Promise<string> {
+  const cacheKey = `${parentId}/${folderName}`
+  const cached = folderIdCache.get(cacheKey)
+  if (cached) return cached
+
   const query = `name='${folderName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
   const response = await drive.files.list({
     q: query,
@@ -39,6 +52,7 @@ async function findOrCreateFolder(
 
   const folders = response.data.files || []
   if (folders.length > 0 && folders[0].id) {
+    folderIdCache.set(cacheKey, folders[0].id)
     return folders[0].id
   }
 
@@ -56,6 +70,7 @@ async function findOrCreateFolder(
     throw new Error(`Failed to create folder '${folderName}'`)
   }
 
+  folderIdCache.set(cacheKey, folder.data.id)
   return folder.data.id
 }
 

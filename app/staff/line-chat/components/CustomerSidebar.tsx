@@ -5,7 +5,6 @@
 // Handles customer information, bookings, packages in a single implementation
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -149,6 +148,8 @@ const isUnifiedConversation = (conversation: any): conversation is UnifiedConver
 };
 
 // Safe Image component with error handling
+// Uses plain <img> for external profile pictures to avoid Next.js Image error
+// propagation through the React tree on 404s.
 const SafeImage = ({ src, alt, width, height, className }: {
   src: string;
   alt: string;
@@ -167,14 +168,14 @@ const SafeImage = ({ src, alt, width, height, className }: {
   }
 
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={src}
       alt={alt}
       width={width}
       height={height}
       className={className}
       onError={() => setImageError(true)}
-      unoptimized={true} // Skip optimization for external profile pictures (LINE, Facebook, Instagram)
     />
   );
 };
@@ -188,6 +189,7 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   onShowLinkModalWithPrefill,
   opportunity,
   onOpenOpportunity,
+  onRefreshCustomer,
 }) => {
   const {
     customerDetails,
@@ -1448,12 +1450,12 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
             }}
             booking={selectedBooking}
             onSuccess={(updatedBooking) => {
-              // Modal will close automatically
               setShowEditModal(false);
               setSelectedBooking(null);
-              // Force page reload to refresh booking data
-              // TODO: Replace with refetch function when available
-              window.location.reload();
+              // Refresh customer data in-place instead of full page reload
+              if (onRefreshCustomer) {
+                onRefreshCustomer();
+              }
             }}
           />
 
@@ -1465,12 +1467,12 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
             }}
             booking={selectedBooking}
             onSuccess={(bookingId) => {
-              // Modal will close automatically
               setShowCancelModal(false);
               setSelectedBooking(null);
-              // Force page reload to refresh booking data
-              // TODO: Replace with refetch function when available
-              window.location.reload();
+              // Refresh customer data in-place instead of full page reload
+              if (onRefreshCustomer) {
+                onRefreshCustomer();
+              }
             }}
           />
         </>

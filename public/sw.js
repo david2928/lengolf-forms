@@ -1,9 +1,10 @@
 // Service Worker - Push notifications only
 // No caching strategies - let the browser and Next.js handle caching natively
 
-// Install event - activate immediately
+// Install event - let the new SW activate naturally on next navigation
+// Avoid skipWaiting() to prevent destabilizing active pages mid-session
 self.addEventListener('install', (event) => {
-  self.skipWaiting()
+  // No-op: activation deferred to next page load
 })
 
 // Activate event - clean up any old caches from previous SW versions, then claim clients
@@ -130,7 +131,6 @@ self.addEventListener('notificationclick', (event) => {
 
 // Message handler for communication with main thread
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+  // SKIP_WAITING removed to prevent mid-session activation
+  // New service workers will activate on next navigation
 });

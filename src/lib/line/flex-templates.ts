@@ -684,6 +684,24 @@ export function createPackageInfoMessage(pkg: PackageDetails) {
           }
         ],
         paddingAll: '16px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'xs',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: headerColor,
+            action: {
+              type: 'uri',
+              label: 'View Package',
+              uri: LIFF_MEMBERSHIP_URL
+            }
+          }
+        ],
+        paddingAll: '16px'
       }
     }
   };

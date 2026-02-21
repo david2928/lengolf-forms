@@ -481,23 +481,38 @@ export default function GoogleReviewsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Google Reviews</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Google Reviews</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage and monitor Google Business Profile reviews
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             onClick={handleGenerateDrafts}
             disabled={isGeneratingDrafts || stats.needsReply === 0}
+            className="w-full sm:w-auto min-h-[44px] touch-manipulation"
           >
             <Sparkles className={`mr-2 h-4 w-4 ${isGeneratingDrafts ? 'animate-pulse' : ''}`} />
-            {isGeneratingDrafts ? 'Generating...' : 'Generate Drafts'}
+            <span className="hidden sm:inline">
+              {isGeneratingDrafts ? 'Generating...' : 'Generate Drafts'}
+            </span>
+            <span className="sm:hidden">
+              {isGeneratingDrafts ? 'Generating...' : 'Drafts'}
+            </span>
           </Button>
-          <Button onClick={handleSync} disabled={isSyncing || !connectionStatus?.connected}>
+          <Button
+            onClick={handleSync}
+            disabled={isSyncing || !connectionStatus?.connected}
+            className="w-full sm:w-auto min-h-[44px] touch-manipulation"
+          >
             <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Syncing...' : 'Sync Reviews'}
+            <span className="hidden sm:inline">
+              {isSyncing ? 'Syncing...' : 'Sync Reviews'}
+            </span>
+            <span className="sm:hidden">
+              {isSyncing ? 'Syncing...' : 'Sync'}
+            </span>
           </Button>
         </div>
       </div>
@@ -505,7 +520,7 @@ export default function GoogleReviewsPage() {
       {/* Connection Status */}
       {!isCheckingConnection && (
         <Alert className={connectionStatus?.connected ? 'border-green-500 bg-green-50' : 'border-orange-500 bg-orange-50'}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
             <div className="flex items-center gap-3">
               {connectionStatus?.connected ? (
                 <CheckCircle className="h-5 w-5 text-green-600" />
@@ -527,13 +542,13 @@ export default function GoogleReviewsPage() {
                 </AlertDescription>
               </div>
             </div>
-            <div>
+            <div className="w-full sm:w-auto">
               {connectionStatus?.connected ? (
-                <Button variant="outline" size="sm" onClick={handleDisconnect}>
+                <Button variant="outline" size="sm" onClick={handleDisconnect} className="w-full sm:w-auto min-h-[40px]">
                   Disconnect
                 </Button>
               ) : (
-                <Button onClick={handleConnect} className="gap-2">
+                <Button onClick={handleConnect} className="gap-2 w-full sm:w-auto min-h-[40px]">
                   <LinkIcon className="h-4 w-4" />
                   Connect Google Business
                 </Button>
@@ -590,16 +605,18 @@ export default function GoogleReviewsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-2">
+      <div className="grid grid-cols-2 sm:flex gap-2">
         <Button
           variant={filter === 'all' ? 'default' : 'outline'}
           onClick={() => setFilter('all')}
+          className="whitespace-nowrap min-h-[44px] touch-manipulation"
         >
           All ({stats.total})
         </Button>
         <Button
           variant={filter === 'has_reply' ? 'default' : 'outline'}
           onClick={() => setFilter('has_reply')}
+          className="whitespace-nowrap min-h-[44px] touch-manipulation"
         >
           <MessageCircle className="mr-2 h-4 w-4" />
           Has Reply ({stats.withReply})
@@ -607,6 +624,7 @@ export default function GoogleReviewsPage() {
         <Button
           variant={filter === 'needs_reply' ? 'default' : 'outline'}
           onClick={() => setFilter('needs_reply')}
+          className="whitespace-nowrap min-h-[44px] touch-manipulation"
         >
           Needs Reply ({stats.needsReply})
         </Button>
@@ -614,6 +632,7 @@ export default function GoogleReviewsPage() {
           <Button
             variant={filter === 'has_draft' ? 'default' : 'outline'}
             onClick={() => setFilter('has_draft')}
+            className="whitespace-nowrap min-h-[44px] touch-manipulation"
           >
             <Sparkles className="mr-2 h-4 w-4" />
             Draft Ready ({stats.hasDraft})
@@ -797,7 +816,7 @@ export default function GoogleReviewsPage() {
 
       {/* Review Detail Modal */}
       <Dialog open={!!selectedReview} onOpenChange={(open) => !open && handleCloseModal()}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-full h-full max-h-screen sm:max-w-3xl sm:max-h-[85vh] sm:rounded-lg overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="pr-8">Review Details</DialogTitle>
             {selectedReview && (
@@ -938,7 +957,7 @@ export default function GoogleReviewsPage() {
                       <Textarea
                         value={editedDraftText}
                         onChange={(e) => setEditedDraftText(e.target.value)}
-                        className="min-h-[120px] resize-none border-amber-300 bg-amber-50"
+                        className="min-h-[150px] sm:min-h-[120px] resize-none border-amber-300 bg-amber-50 text-base"
                       />
                       <div className="flex justify-end gap-2 mt-2">
                         <Button
@@ -977,11 +996,11 @@ export default function GoogleReviewsPage() {
                   )}
 
                   {/* Skip / Approve / Reject buttons */}
-                  <div className="flex justify-end gap-2 mt-4">
+                  <div className="flex flex-col sm:flex-row sm:justify-end gap-2 mt-4">
                     <Button
                       variant="outline"
                       onClick={handleRejectDraft}
-                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      className="text-red-600 border-red-200 hover:bg-red-50 min-h-[44px] w-full sm:w-auto touch-manipulation order-3 sm:order-1"
                     >
                       <ThumbsDown className="mr-2 h-4 w-4" />
                       Reject
@@ -990,7 +1009,7 @@ export default function GoogleReviewsPage() {
                       variant="ghost"
                       onClick={() => navigateReview('next')}
                       disabled={!hasNextReview}
-                      className={!hasNextReview ? 'hidden' : ''}
+                      className={`min-h-[44px] w-full sm:w-auto touch-manipulation order-2 ${!hasNextReview ? 'hidden' : ''}`}
                     >
                       <SkipForward className="mr-2 h-4 w-4" />
                       Skip
@@ -998,7 +1017,7 @@ export default function GoogleReviewsPage() {
                     <Button
                       onClick={() => setShowApproveDialog(true)}
                       disabled={isApprovingDraft || !connectionStatus?.connected}
-                      className="bg-green-600 hover:bg-green-700"
+                      className="bg-green-600 hover:bg-green-700 min-h-[44px] w-full sm:w-auto touch-manipulation order-1 sm:order-3"
                     >
                       {isApprovingDraft ? (
                         <>
@@ -1034,7 +1053,7 @@ export default function GoogleReviewsPage() {
                     placeholder="Write your reply here... (minimum 10 characters)"
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
-                    className="min-h-[120px] resize-none"
+                    className="min-h-[150px] sm:min-h-[120px] resize-none text-base"
                     disabled={isPostingReply}
                   />
                   {replyText.length > 0 && replyText.trim().length < MIN_REPLY_LENGTH && (
@@ -1069,45 +1088,64 @@ export default function GoogleReviewsPage() {
               )}
 
               {/* Metadata */}
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-4 border-t">
                 <div>
-                  <label className="text-xs font-medium text-gray-500">Created</label>
-                  <p className="text-sm text-gray-700 mt-1">
-                    {new Date(selectedReview.review_created_at).toLocaleString()}
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Created</label>
+                  <p className="text-sm text-gray-700 break-words">
+                    {new Date(selectedReview.review_created_at).toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
                   </p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500">Last Updated</label>
-                  <p className="text-sm text-gray-700 mt-1">
-                    {new Date(selectedReview.review_updated_at).toLocaleString()}
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Last Updated</label>
+                  <p className="text-sm text-gray-700 break-words">
+                    {new Date(selectedReview.review_updated_at).toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
                   </p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500">Synced At</label>
-                  <p className="text-sm text-gray-700 mt-1">
-                    {new Date(selectedReview.synced_at).toLocaleString()}
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Synced At</label>
+                  <p className="text-sm text-gray-700 break-words">
+                    {new Date(selectedReview.synced_at).toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
                   </p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500">Review ID</label>
-                  <p className="text-sm text-gray-700 mt-1 font-mono text-xs break-all">
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Review ID</label>
+                  <p className="text-xs sm:text-sm text-gray-700 font-mono break-all leading-relaxed">
                     {selectedReview.google_review_name.split('/').pop()}
                   </p>
                 </div>
               </div>
 
               {/* Navigation */}
-              <div className="flex items-center justify-between pt-4 border-t">
+              <div className="flex items-center justify-between gap-2 pt-4 border-t">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigateReview('prev')}
                   disabled={!hasPrevReview}
+                  className="min-h-[44px] min-w-[44px] sm:min-w-0 px-3 sm:px-4 touch-manipulation"
                 >
-                  <ChevronLeft className="mr-1 h-4 w-4" />
-                  Previous
+                  <ChevronLeft className="mr-0 sm:mr-1 h-5 w-5 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Previous</span>
                 </Button>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs sm:text-sm text-muted-foreground text-center px-2">
                   {currentReviewIndex + 1} of {reviews.length}
                 </span>
                 <Button
@@ -1115,9 +1153,10 @@ export default function GoogleReviewsPage() {
                   size="sm"
                   onClick={() => navigateReview('next')}
                   disabled={!hasNextReview}
+                  className="min-h-[44px] min-w-[44px] sm:min-w-0 px-3 sm:px-4 touch-manipulation"
                 >
-                  Next
-                  <ChevronRight className="ml-1 h-4 w-4" />
+                  <span className="hidden sm:inline">Next</span>
+                  <ChevronRight className="ml-0 sm:ml-1 h-5 w-5 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </div>

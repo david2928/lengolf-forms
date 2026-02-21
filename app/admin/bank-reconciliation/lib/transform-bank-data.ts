@@ -8,6 +8,12 @@ import type {
 /** Round to 2 decimal places to avoid floating-point accumulation errors */
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
+/** Detect GoWabi marketplace payout from bank transaction details */
+function isGowabiPayout(details: string): boolean {
+  const lower = details.toLowerCase();
+  return lower.includes('gowabi') || details.includes('โกวาบิ');
+}
+
 /**
  * Transform DB rows from finance.bank_statement_transactions
  * into the same BankStatementParsed format the reconciliation engine expects.
@@ -25,6 +31,12 @@ export function transformBankTransactions(
     const deposit = row.deposit || 0;
     const withdrawal = row.withdrawal || 0;
 
+    // Auto-detect GoWabi payouts from transfer_deposit category
+    const effectiveCategory =
+      row.category === 'transfer_deposit' && isGowabiPayout(row.details || '')
+        ? 'gowabi_payout' as const
+        : row.category;
+
     const txn: BankTransaction = {
       date: row.transaction_date,
       time: row.transaction_time || '',
@@ -34,7 +46,7 @@ export function transformBankTransactions(
       balance: row.balance || 0,
       channel: row.channel || '',
       details: row.details || '',
-      category: row.category,
+      category: effectiveCategory,
       reconciliationStatus: 'pending',
       reconciliationNote: '',
       matchedSource: null,
@@ -51,6 +63,7 @@ export function transformBankTransactions(
         cardSettlements: 0,
         ewalletSettlements: 0,
         transferDeposits: 0,
+        gowabiPayouts: 0,
         withdrawals: 0,
         totalDeposits: 0,
         totalWithdrawals: 0,
@@ -62,7 +75,7 @@ export function transformBankTransactions(
     day.totalDeposits = r2(day.totalDeposits + deposit);
     day.totalWithdrawals = r2(day.totalWithdrawals + withdrawal);
 
-    switch (row.category) {
+    switch (effectiveCategory) {
       case 'card_settlement':
         day.cardSettlements = r2(day.cardSettlements + deposit);
         break;
@@ -71,6 +84,9 @@ export function transformBankTransactions(
         break;
       case 'transfer_deposit':
         day.transferDeposits = r2(day.transferDeposits + deposit);
+        break;
+      case 'gowabi_payout':
+        day.gowabiPayouts = r2(day.gowabiPayouts + deposit);
         break;
       case 'withdrawal':
         day.withdrawals = r2(day.withdrawals + withdrawal);

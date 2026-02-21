@@ -76,11 +76,30 @@ export function VendorReceiptForm({ onSubmitted }: VendorReceiptFormProps) {
       if (receiptDate) formData.append('receipt_date', receiptDate)
       if (notes.trim()) formData.append('notes', notes.trim())
 
-      const response = await fetch('/api/vendor-receipts', {
-        method: 'POST',
-        body: formData,
-      })
+      // Upload with timeout and auto-retry
+      const uploadWithTimeout = async (attempt: number): Promise<Response> => {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 25000) // 25s timeout
+        try {
+          const resp = await fetch('/api/vendor-receipts', {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal,
+          })
+          return resp
+        } catch (err) {
+          // Auto-retry once on network failure
+          if (attempt === 0 && (err instanceof TypeError || (err instanceof DOMException && err.name === 'AbortError'))) {
+            console.warn('[VendorReceiptForm] Upload attempt 1 failed, retrying...')
+            return uploadWithTimeout(1)
+          }
+          throw err
+        } finally {
+          clearTimeout(timeoutId)
+        }
+      }
 
+      const response = await uploadWithTimeout(0)
       const data = await response.json()
 
       if (!response.ok) {
@@ -111,11 +130,15 @@ export function VendorReceiptForm({ onSubmitted }: VendorReceiptFormProps) {
       }, 8000)
     } catch (error) {
       console.error('Upload error:', error)
+      const isAbort = error instanceof DOMException && error.name === 'AbortError'
+      const isNetwork = error instanceof TypeError && (error.message === 'Failed to fetch' || error.message === 'Load failed')
       const msg = error instanceof Error ? error.message : 'Failed to upload receipt'
       setErrorMessage(
-        msg === 'Failed to fetch'
-          ? 'Upload timed out. Please try again or use a smaller file.'
-          : msg
+        isAbort
+          ? 'Upload timed out. Please try again.'
+          : isNetwork
+            ? 'Network error. Please check your connection and try again.'
+            : msg
       )
       setSubmitStatus('error')
     } finally {

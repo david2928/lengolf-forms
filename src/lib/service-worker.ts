@@ -11,18 +11,8 @@ export function registerServiceWorker() {
 
         console.log('Service Worker registered successfully:', registration.scope)
 
-        // Handle updates - activate new SW immediately
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New SW available, tell it to activate immediately
-                newWorker.postMessage({ type: 'SKIP_WAITING' })
-              }
-            })
-          }
-        })
+        // New service workers will activate on next navigation
+        // No immediate skipWaiting to avoid destabilizing active pages
 
       } catch (error) {
         console.log('Service Worker registration failed:', error)

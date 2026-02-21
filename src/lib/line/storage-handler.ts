@@ -95,6 +95,74 @@ async function compressImage(
 }
 
 /**
+ * Cache a LINE user's profile image to Supabase Storage.
+ * LINE CDN URLs (sprofile.line-scdn.net) expire over time, causing 404s.
+ * This downloads the image and stores it permanently in our bucket.
+ *
+ * @returns The public Supabase Storage URL, or null on failure
+ */
+export async function cacheLineProfileImage(
+  lineUserId: string,
+  pictureUrl: string
+): Promise<string | null> {
+  if (!pictureUrl) return null;
+
+  // Validate LINE user ID format to prevent path traversal
+  if (!/^U[a-f0-9]{32}$/i.test(lineUserId)) {
+    console.error(`Invalid LINE user ID format: ${lineUserId}`);
+    return null;
+  }
+
+  // Validate URL is from LINE CDN to prevent SSRF
+  try {
+    const url = new URL(pictureUrl);
+    const allowedHosts = ['profile.line-scdn.net', 'sprofile.line-scdn.net', 'obs.line-scdn.net'];
+    if (!allowedHosts.includes(url.hostname)) {
+      console.error(`Unexpected profile image host for ${lineUserId}: ${url.hostname}`);
+      return null;
+    }
+  } catch {
+    console.error(`Invalid profile image URL for ${lineUserId}: ${pictureUrl}`);
+    return null;
+  }
+
+  try {
+    const response = await fetch(pictureUrl);
+
+    if (!response.ok) {
+      console.error(`Failed to download LINE profile image for ${lineUserId}: ${response.status}`);
+      return null;
+    }
+
+    const imageBuffer = await response.arrayBuffer();
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const extension = getExtensionFromContentType(contentType);
+    const filePath = `profiles/${lineUserId}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from('line-messages')
+      .upload(filePath, imageBuffer, {
+        contentType,
+        upsert: true
+      });
+
+    if (error) {
+      console.error(`Failed to upload cached profile image for ${lineUserId}:`, error);
+      return null;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('line-messages')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  } catch (error) {
+    console.error(`Error caching profile image for ${lineUserId}:`, error);
+    return null;
+  }
+}
+
+/**
  * Download an image from LINE servers and store it in Supabase Storage
  */
 export async function downloadLineImageToStorage(

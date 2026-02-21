@@ -6,7 +6,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { enhanceMessageDisplay } from '@/lib/line/emoji-display-utils';
@@ -197,6 +196,8 @@ const getConversationPictureUrl = (conversation: any): string => {
 };
 
 // Safe Image component with error handling
+// Uses plain <img> for external profile pictures to avoid Next.js Image error
+// propagation through the React tree on 404s.
 const SafeImage = ({ src, alt, width, height, className }: {
   src: string;
   alt: string;
@@ -215,14 +216,15 @@ const SafeImage = ({ src, alt, width, height, className }: {
   }
 
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={src}
       alt={alt}
       width={width}
       height={height}
       className={className}
+      loading="lazy"
       onError={() => setImageError(true)}
-      unoptimized={true} // Skip optimization for external profile pictures (LINE, Facebook, Instagram)
     />
   );
 };
@@ -426,6 +428,38 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConversation]);
+
+  // Refetch messages when tab returns from background (realtime may have missed events)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let lastHiddenAt = 0;
+    const STALE_THRESHOLD_MS = 30_000;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        lastHiddenAt = Date.now();
+      } else if (document.visibilityState === 'visible' && lastHiddenAt > 0) {
+        if (Date.now() - lastHiddenAt > STALE_THRESHOLD_MS && selectedConversation) {
+          fetchMessages(selectedConversation);
+        }
+      }
+    };
+
+    const handleOnline = () => {
+      if (selectedConversation) {
+        fetchMessages(selectedConversation);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [selectedConversation, fetchMessages]);
 
   // Handle template selection
   const handleTemplateSelect = useCallback(async (template: any) => {

@@ -135,22 +135,45 @@ export default function UnifiedChatPage() {
 
   // Stable callback for conversation updates - wrapped in useCallback to prevent recreation
   const handleConversationUpdate = useCallback((conversationUpdate: any) => {
-    // Update existing conversation in the list and re-sort by lastMessageAt
     setConversationsRef.current(prev => {
-      const updated = prev.map(conv =>
-        conv.id === conversationUpdate.id
-          ? { ...conv, ...conversationUpdate }
-          : conv
-      );
+      const exists = prev.some(conv => conv.id === conversationUpdate.id);
 
-      // Re-sort conversations by lastMessageAt (most recent first)
-      const sorted = updated.sort((a, b) => {
-        const aTime = new Date(a.lastMessageAt || 0).getTime();
-        const bTime = new Date(b.lastMessageAt || 0).getTime();
-        return bTime - aTime; // Descending order (newest first)
-      });
+      if (exists) {
+        // Update existing conversation and re-sort
+        const updated = prev.map(conv =>
+          conv.id === conversationUpdate.id
+            ? { ...conv, ...conversationUpdate }
+            : conv
+        );
+        return updated.sort((a, b) => {
+          const aTime = new Date(a.lastMessageAt || 0).getTime();
+          const bTime = new Date(b.lastMessageAt || 0).getTime();
+          return bTime - aTime;
+        });
+      }
 
-      return sorted;
+      // Conversation not in local state (e.g. INSERT arrived before first message).
+      // If the update has a last_message_text, fetch full data from API and add it.
+      if (conversationUpdate.lastMessageText) {
+        fetch(`/api/conversations/unified/${conversationUpdate.id}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.conversation) {
+              setConversationsRef.current(p => {
+                if (p.some(c => c.id === data.conversation.id)) return p;
+                const newList = [data.conversation, ...p];
+                return newList.sort((a, b) => {
+                  const aTime = new Date(a.lastMessageAt || 0).getTime();
+                  const bTime = new Date(b.lastMessageAt || 0).getTime();
+                  return bTime - aTime;
+                });
+              });
+            }
+          })
+          .catch(() => { /* Fallback: next visibility refresh will pick it up */ });
+      }
+
+      return prev; // Return unchanged for now; async fetch above will update later
     });
   }, []); // Empty deps - using ref to access setter
 
@@ -160,52 +183,37 @@ export default function UnifiedChatPage() {
   // Stable callback for new conversations - wrapped in useCallback to prevent recreation
   const handleNewConversation = useCallback(async (newConv: any) => {
     // Fetch full conversation data with proper formatting from API
-    // Add retry logic to handle race conditions with unified_conversations view
-    const maxRetries = 3;
-    const retryDelay = 500; // 500ms delay between retries
+    try {
+      const response = await fetch(`/api/conversations/unified/${newConv.id}`);
 
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        // Add delay before retry attempts (but not on first attempt)
-        if (attempt > 0) {
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
-        }
-
-        const response = await fetch(`/api/conversations/unified/${newConv.id}`);
-        const data = await response.json();
-
-        if (data.success && data.conversation) {
-          setConversationsRef.current(prev => {
-            // Check if conversation already exists
-            const exists = prev.some(conv => conv.id === data.conversation.id);
-            if (exists) {
-              return prev; // Already exists, will be updated via handleConversationUpdate
-            }
-
-            // Add directly with proper formatting - no refresh needed
-            const newList = [data.conversation, ...prev];
-
-            // Sort by last message time
-            return newList.sort((a, b) => {
-              const aTime = new Date(a.lastMessageAt || 0).getTime();
-              const bTime = new Date(b.lastMessageAt || 0).getTime();
-              return bTime - aTime;
-            });
-          });
-          return; // Success - exit the retry loop
-        }
-
-        // If we get here, API returned success: false
-        // Continue to next retry or fall through to refresh
-      } catch (error) {
-        console.error(`Attempt ${attempt + 1}/${maxRetries} failed to fetch new conversation:`, error);
-        // Continue to next retry attempt
+      // 404 is expected for new conversations without messages yet
+      // (unified_conversations view filters out null last_message_text).
+      // The conversation will appear via handleConversationUpdate when the first message arrives.
+      if (response.status === 404) {
+        return;
       }
-    }
 
-    // All retries failed - fallback to full refresh
-    console.log('All retry attempts exhausted, falling back to full refresh');
-    refreshConversationsRef.current();
+      const data = await response.json();
+
+      if (data.success && data.conversation) {
+        setConversationsRef.current(prev => {
+          const exists = prev.some(conv => conv.id === data.conversation.id);
+          if (exists) {
+            return prev; // Already exists, will be updated via handleConversationUpdate
+          }
+
+          const newList = [data.conversation, ...prev];
+          return newList.sort((a, b) => {
+            const aTime = new Date(a.lastMessageAt || 0).getTime();
+            const bTime = new Date(b.lastMessageAt || 0).getTime();
+            return bTime - aTime;
+          });
+        });
+      }
+    } catch (error) {
+      // Network error - conversation will appear on next refresh or via update handler
+      console.error('Failed to fetch new conversation:', error);
+    }
   }, []); // Empty deps - using ref to access refresh function
 
   // Set up realtime conversation updates with stable callbacks
@@ -343,6 +351,13 @@ export default function UnifiedChatPage() {
     }
   });
 
+  // Refresh customer data in-place (used by CustomerSidebar after booking edit/cancel)
+  const handleRefreshCustomer = useCallback(() => {
+    if (customerOps && selectedConversationObj?.customer?.id) {
+      customerOps.fetchCustomerDetails(selectedConversationObj.customer.id);
+    }
+  }, [customerOps, selectedConversationObj?.customer?.id]);
+
   // Manual AI retrigger function - gets last customer message and generates suggestion
   const handleAIRetrigger = useCallback(() => {
     if (!aiSuggestionsEnabled || !messages.length) return;
@@ -445,6 +460,42 @@ export default function UnifiedChatPage() {
     channelType: 'all' // Subscribe to both LINE and website messages
   });
 
+  // ── Visibility & network recovery: refetch missed data on tab return ──
+  // The realtime hooks reconnect the subscription channel on tab focus,
+  // but messages that arrived while disconnected are NOT replayed.
+  // This effect refetches conversation list (and current messages via ChatArea)
+  // so the UI is up-to-date when the user comes back.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let lastHiddenAt = 0;
+    const STALE_THRESHOLD_MS = 30_000; // 30 seconds
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        lastHiddenAt = Date.now();
+      } else if (document.visibilityState === 'visible' && lastHiddenAt > 0) {
+        const elapsed = Date.now() - lastHiddenAt;
+        if (elapsed > STALE_THRESHOLD_MS) {
+          // Tab was hidden long enough that we may have missed realtime events
+          refreshConversationsRef.current();
+        }
+      }
+    };
+
+    // Network recovery: browser went offline then came back
+    const handleOnline = () => {
+      refreshConversationsRef.current();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []); // Stable - uses refs for refresh functions
 
   // Update ref whenever selectedConversation changes
   useEffect(() => {
@@ -464,6 +515,21 @@ export default function UnifiedChatPage() {
       setShowMobileChat(true);
       // Push a history state so browser back returns to conversation list
       window.history.pushState({ inChat: true }, '', window.location.href);
+    }
+
+    // Fire-and-forget: refresh stale LINE profile images (>7 days old)
+    const conv = getConversationById(conversationId);
+    if (conv?.channelType === 'line') {
+      const metadata = (conv as any).channelMetadata || (conv as any).channel_metadata;
+      const cachedAt = metadata?.picture_cached_at;
+      const lineUserId = metadata?.line_user_id || (conv as any).lineUserId;
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      const isStale = !cachedAt || (Date.now() - new Date(cachedAt).getTime() > SEVEN_DAYS_MS);
+
+      if (isStale && lineUserId) {
+        fetch(`/api/line/users/${lineUserId}/refresh-profile`, { method: 'POST' })
+          .catch(() => { /* best-effort, ignore errors */ });
+      }
     }
   };
 
@@ -648,6 +714,7 @@ export default function UnifiedChatPage() {
               onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
               opportunity={currentOpportunity}
               onOpenOpportunity={() => setShowOpportunities(true)}
+              onRefreshCustomer={handleRefreshCustomer}
             />
           </div>
         )}
@@ -682,6 +749,7 @@ export default function UnifiedChatPage() {
                   setShowMobileCustomer(false);
                   setShowOpportunities(true);
                 }}
+                onRefreshCustomer={handleRefreshCustomer}
               />
             </div>
           </div>
