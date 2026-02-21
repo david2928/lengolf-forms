@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       brand, model, club_type, specification, shaft, gender, condition, price, cost,
-      description, image_url, available_for_sale, available_for_rental, set_id,
+      description, image_url, image_urls, available_for_sale, available_for_rental, set_id, purchased_at,
     } = body
 
     if (!brand || !club_type || !condition || price == null) {
@@ -69,9 +69,11 @@ export async function POST(request: NextRequest) {
         price: numPrice,
         cost: numCost,
         description: description || null,
-        image_url: image_url || null,
-        available_for_sale: available_for_sale ?? true,
+        image_url: image_url || (Array.isArray(image_urls) && image_urls.length > 0 ? image_urls[0] : null),
+        image_urls: Array.isArray(image_urls) ? image_urls : (image_url ? [image_url] : []),
+        available_for_sale: available_for_sale ?? false,
         available_for_rental: available_for_rental ?? false,
+        purchased_at: purchased_at || null,
         set_id: set_id || null,
       }])
       .select()

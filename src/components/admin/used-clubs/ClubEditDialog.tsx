@@ -30,9 +30,9 @@ import {
   type ClubSet,
 } from '@/hooks/use-used-clubs'
 
-const BRANDS = ['Callaway', 'TaylorMade', 'Titleist', 'Ping', 'Mizuno', 'Cobra', 'Srixon', 'Other']
+const BRANDS = ['Callaway', 'TaylorMade', 'Titleist', 'Ping', 'Mizuno', 'Cobra', 'Srixon', 'Cleveland', 'Wilson', 'Bridgestone', 'Dunlop', 'Majesty', 'Kasco', 'MacGregor', 'Odyssey', 'XXIO', 'Honma', 'Other']
 const CLUB_TYPES = ['Driver', 'Iron Set', 'Iron', 'Wedge', 'Putter', 'Hybrid', 'Fairway Wood', 'Full Set', 'Partial Set']
-const GENDERS = ["Men's", "Women's", 'Unisex']
+const GENDERS = ['Men', 'Women']
 const CONDITIONS = ['Excellent', 'Good', 'Fair']
 
 const SPEC_HINTS: Record<string, string> = {
@@ -62,6 +62,7 @@ interface FormState {
   condition: string
   price: string
   cost: string
+  purchased_at: string
   set_id: string
   description: string
   available_for_sale: boolean
@@ -74,10 +75,11 @@ const toForm = (club?: UsedClub | null): FormState => ({
   club_type: club?.club_type ?? '',
   specification: club?.specification ?? '',
   shaft: club?.shaft ?? '',
-  gender: club?.gender ?? 'Unisex',
+  gender: club?.gender ?? 'Men',
   condition: club?.condition ?? '',
   price: club?.price != null ? String(club.price) : '',
   cost: club?.cost != null ? String(club.cost) : '',
+  purchased_at: club?.purchased_at ?? '',
   set_id: club?.set_id ?? '',
   description: club?.description ?? '',
   available_for_sale: club?.available_for_sale ?? true,
@@ -145,6 +147,8 @@ export function ClubEditDialog({ open, onOpenChange, onSuccess, club, sets }: Pr
         image_url = await uploadClubImage(imageFile)
       }
 
+      const image_urls = image_url ? [image_url] : (club?.image_urls || [])
+
       const payload = {
         brand: form.brand,
         model: form.model || null,
@@ -156,7 +160,9 @@ export function ClubEditDialog({ open, onOpenChange, onSuccess, club, sets }: Pr
         price: Number(form.price),
         cost: form.cost ? Number(form.cost) : null,
         description: form.description || null,
+        purchased_at: form.purchased_at || null,
         image_url,
+        image_urls,
         available_for_sale: form.available_for_sale,
         available_for_rental: form.available_for_rental,
         set_id: form.set_id || null,
@@ -238,8 +244,8 @@ export function ClubEditDialog({ open, onOpenChange, onSuccess, club, sets }: Pr
             </div>
           </div>
 
-          {/* Condition / Price / Cost */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Condition / Price / Cost / Purchase Date */}
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Condition <span className="text-red-500">*</span></Label>
               <Select value={form.condition} onValueChange={v => set('condition', v)} disabled={submitting}>
@@ -259,6 +265,10 @@ export function ClubEditDialog({ open, onOpenChange, onSuccess, club, sets }: Pr
                 <span className="text-xs font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded">internal</span>
               </Label>
               <Input type="number" min={0} value={form.cost} onChange={e => set('cost', e.target.value)} placeholder="1200" disabled={submitting} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Purchase Date</Label>
+              <Input type="date" value={form.purchased_at} onChange={e => set('purchased_at', e.target.value)} disabled={submitting} />
             </div>
           </div>
 

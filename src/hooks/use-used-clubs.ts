@@ -33,8 +33,10 @@ export interface UsedClub {
   cost: number | null
   description: string | null
   image_url: string | null
+  image_urls: string[]
   available_for_sale: boolean
   available_for_rental: boolean
+  purchased_at: string | null
   set_id: string | null
   created_at: string
   updated_at: string
@@ -59,6 +61,15 @@ export function useClubSets() {
     { refreshInterval: 0 }
   )
   return { sets: data || [], isLoading, error, mutate }
+}
+
+export function useStaffClubList() {
+  const { data, error, isLoading, mutate } = useSWR<UsedClub[]>(
+    '/api/used-clubs/list',
+    fetcher,
+    { refreshInterval: 0 }
+  )
+  return { clubs: data || [], isLoading, error, mutate }
 }
 
 // ── Admin hooks ────────────────────────────────────────────────────────────
@@ -95,7 +106,18 @@ export async function uploadClubImage(file: File): Promise<string> {
   return url as string
 }
 
-export async function createClub(data: Omit<UsedClub, 'id' | 'cost' | 'created_at' | 'updated_at' | 'club_sets'>) {
+export async function uploadClubImages(files: File[]): Promise<string[]> {
+  // Dynamically import compression to avoid SSR issues
+  const { compressImage } = await import('@/lib/image-compression')
+  const urls: string[] = []
+  for (const file of files) {
+    const compressed = await compressImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.85, maxSizeBytes: 1.5 * 1024 * 1024 })
+    urls.push(await uploadClubImage(compressed))
+  }
+  return urls
+}
+
+export async function createClub(data: Omit<UsedClub, 'id' | 'cost' | 'created_at' | 'updated_at' | 'club_sets'> & { image_urls?: string[] }) {
   const res = await fetch('/api/used-clubs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -104,6 +126,19 @@ export async function createClub(data: Omit<UsedClub, 'id' | 'cost' | 'created_a
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error(err.error || 'Failed to create club')
+  }
+  return res.json()
+}
+
+export async function staffUpdateClub(id: string, data: Partial<UsedClub> & { image_urls?: string[] }) {
+  const res = await fetch(`/api/used-clubs/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || 'Failed to update club')
   }
   return res.json()
 }

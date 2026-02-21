@@ -3,6 +3,7 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 import { getDevSession } from '@/lib/dev-session'
 import { authOptions } from '@/lib/auth-config'
 
+// Staff-accessible: list all clubs (no cost exposed)
 export async function GET(request: NextRequest) {
   try {
     const session = await getDevSession(authOptions, request)
@@ -15,18 +16,17 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await refacSupabaseAdmin
       .from('used_clubs_inventory')
-      .select('id, brand, model, club_type, specification, shaft, gender, condition, price, image_url, image_urls, available_for_sale, available_for_rental, set_id, created_at, club_sets(name)')
+      .select('id, brand, model, club_type, specification, shaft, gender, condition, price, image_url, image_urls, available_for_sale, available_for_rental, purchased_at, set_id, created_at, updated_at, club_sets(id, name, brand)')
       .order('created_at', { ascending: false })
-      .limit(10)
 
     if (error) {
-      console.error('Error fetching recent clubs:', error)
-      return NextResponse.json({ error: 'Failed to fetch recent clubs' }, { status: 500 })
+      console.error('Error fetching clubs list:', error)
+      return NextResponse.json({ error: 'Failed to fetch clubs' }, { status: 500 })
     }
 
     return NextResponse.json(data || [])
   } catch (error) {
-    console.error('Error in GET /api/used-clubs/recent:', error)
+    console.error('Error in GET /api/used-clubs/list:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

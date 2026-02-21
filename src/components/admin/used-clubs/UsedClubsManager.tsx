@@ -157,6 +157,7 @@ export function UsedClubsManager() {
                     <TableHead>Condition</TableHead>
                     <TableHead className="text-right">Price</TableHead>
                     <TableHead className="text-right">Cost</TableHead>
+                    <TableHead>Purchased</TableHead>
                     <TableHead>Set</TableHead>
                     <TableHead className="text-center">For Sale</TableHead>
                     <TableHead className="text-center">For Rental</TableHead>
@@ -178,7 +179,7 @@ export function UsedClubsManager() {
                       </TableCell>
                       <TableCell>
                         <p className="font-medium text-sm">
-                          {club.brand}{club.model ? ` ${club.model}` : ''}
+                          {club.brand === 'Other' ? (club.model || 'Other') : `${club.brand}${club.model ? ` ${club.model}` : ''}`}
                         </p>
                         <p className="text-xs text-muted-foreground">{club.gender}</p>
                       </TableCell>
@@ -196,6 +197,9 @@ export function UsedClubsManager() {
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">
                         {club.cost != null ? `฿${club.cost.toLocaleString()}` : <span className="italic opacity-40">—</span>}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {club.purchased_at ? new Date(club.purchased_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : <span className="italic opacity-40">—</span>}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {club.club_sets?.name ?? <span className="italic opacity-40">—</span>}

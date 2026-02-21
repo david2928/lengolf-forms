@@ -26,22 +26,27 @@ export async function POST(request: NextRequest) {
       price,
       description,
       image_url,
+      image_urls,
       available_for_sale,
       available_for_rental,
       set_id,
     } = body
 
-    if (!brand || !club_type || !condition || price == null) {
+    if (!brand || !club_type || !condition) {
       return NextResponse.json(
-        { error: 'brand, club_type, condition, and price are required' },
+        { error: 'brand, club_type, and condition are required' },
         { status: 400 }
       )
     }
 
-    const numPrice = Number(price)
+    const numPrice = price != null ? Number(price) : 0
     if (isNaN(numPrice) || numPrice < 0) {
       return NextResponse.json({ error: 'price must be a non-negative number' }, { status: 400 })
     }
+
+    // Use first image_url from array if image_url not explicitly provided
+    const resolvedImageUrl = image_url || (Array.isArray(image_urls) && image_urls.length > 0 ? image_urls[0] : null)
+    const resolvedImageUrls = Array.isArray(image_urls) ? image_urls : (image_url ? [image_url] : [])
 
     const { data, error } = await refacSupabaseAdmin
       .from('used_clubs_inventory')
@@ -51,12 +56,13 @@ export async function POST(request: NextRequest) {
         club_type,
         specification: specification || null,
         shaft: shaft || null,
-        gender: gender || 'Unisex',
+        gender: gender || 'Men',
         condition,
         price: numPrice,
         description: description || null,
-        image_url: image_url || null,
-        available_for_sale: available_for_sale ?? true,
+        image_url: resolvedImageUrl,
+        image_urls: resolvedImageUrls,
+        available_for_sale: available_for_sale ?? false,
         available_for_rental: available_for_rental ?? false,
         set_id: set_id || null,
       }])
