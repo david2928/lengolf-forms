@@ -103,6 +103,7 @@ export interface ProductInputProps {
   value: string | number | GloveSizeData | undefined;
   onChange: (productId: string, value: string | number) => void;
   error?: string;
+  previousValue?: number;
 }
 
 // Category section props
@@ -116,6 +117,7 @@ export interface CategorySectionProps {
   formData: Record<string, string | number | GloveSizeData>;
   onChange: (productId: string, value: string | number) => void;
   errors?: Record<string, string>;
+  previousValues?: Record<string, number>;
 }
 
 // API request/response types for redesigned submissions

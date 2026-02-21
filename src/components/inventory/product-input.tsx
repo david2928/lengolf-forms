@@ -9,10 +9,25 @@ import { AlertTriangle } from 'lucide-react'
 import { ProductInputProps } from '@/types/inventory'
 import { getDisplayValue, shouldShowReorderAlert, getProductFieldId } from './utils/form-helpers'
 
-export function ProductInput({ product, value, onChange, error }: ProductInputProps) {
+export function ProductInput({ product, value, onChange, error, previousValue }: ProductInputProps) {
   const fieldId = getProductFieldId(product)
   const displayValue = getDisplayValue(product, value)
   const showReorderAlert = shouldShowReorderAlert(product, value)
+
+  // Check for >20% spike compared to previous day's value
+  const spikeWarning = (() => {
+    if (previousValue === undefined || previousValue === null || product.input_type !== 'number') {
+      return null
+    }
+    const currentNum = typeof value === 'number' ? value : (typeof value === 'string' && value !== '' ? parseFloat(value) : null)
+    if (currentNum === null || isNaN(currentNum)) return null
+    // Only warn if previous value was > 0 (avoid division by zero) and current is significantly higher
+    if (previousValue > 0 && currentNum > previousValue * 1.2) {
+      const pctIncrease = Math.round(((currentNum - previousValue) / previousValue) * 100)
+      return { pctIncrease, previousValue }
+    }
+    return null
+  })()
 
   // Check if this is the cash field (Change #4)
   const isCashField = product.name.toLowerCase().includes('cash')
@@ -209,6 +224,20 @@ export function ProductInput({ product, value, onChange, error }: ProductInputPr
       )}
 
       {renderInput()}
+
+      {spikeWarning && (
+        <div className="flex items-start gap-2 rounded-md border border-orange-300 bg-orange-50 p-3 text-orange-800">
+          <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5 text-orange-600" />
+          <div className="text-sm">
+            <p className="font-semibold">Unusual increase detected</p>
+            <p>
+              This is <span className="font-bold">{spikeWarning.pctIncrease}% higher</span> than
+              yesterday&apos;s count of <span className="font-bold">{spikeWarning.previousValue}</span>.
+              Please double-check this value.
+            </p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <p className="text-sm text-red-500">{error}</p>
