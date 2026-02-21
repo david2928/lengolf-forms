@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         available_for_rental: available_for_rental ?? false,
         set_id: set_id || null,
       }])
-      .select()
+      .select('id, brand, model, club_type, specification, shaft, gender, condition, price, description, image_url, image_urls, available_for_sale, available_for_rental, purchased_at, set_id, created_at, updated_at')
       .single()
 
     if (error) {

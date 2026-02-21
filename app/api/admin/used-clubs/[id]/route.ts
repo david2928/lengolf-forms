@@ -20,6 +20,15 @@ export async function PUT(
       description, image_url, image_urls, available_for_sale, available_for_rental, set_id, purchased_at,
     } = body
 
+    const numPrice = price != null ? Number(price) : undefined
+    if (numPrice !== undefined && (isNaN(numPrice) || numPrice < 0)) {
+      return NextResponse.json({ error: 'price must be a non-negative number' }, { status: 400 })
+    }
+    const numCost = cost != null ? Number(cost) : null
+    if (numCost !== null && (isNaN(numCost) || numCost < 0)) {
+      return NextResponse.json({ error: 'cost must be a non-negative number' }, { status: 400 })
+    }
+
     const { data, error } = await refacSupabaseAdmin
       .from('used_clubs_inventory')
       .update({
@@ -30,8 +39,8 @@ export async function PUT(
         shaft: shaft || null,
         gender,
         condition,
-        price: price != null ? Number(price) : undefined,
-        cost: cost != null ? Number(cost) : null,
+        price: numPrice,
+        cost: numCost,
         description: description || null,
         image_url: image_url || (Array.isArray(image_urls) && image_urls.length > 0 ? image_urls[0] : null),
         image_urls: Array.isArray(image_urls) ? image_urls : undefined,

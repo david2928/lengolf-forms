@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await refacSupabaseAdmin
       .from('used_clubs_inventory')
-      .select('id, brand, model, club_type, specification, shaft, gender, condition, price, image_url, image_urls, available_for_sale, available_for_rental, purchased_at, set_id, created_at, updated_at, club_sets(id, name, brand)')
+      .select('id, brand, model, club_type, specification, shaft, gender, condition, price, description, image_url, image_urls, available_for_sale, available_for_rental, purchased_at, set_id, created_at, updated_at, club_sets(id, name, brand)')
       .order('created_at', { ascending: false })
 
     if (error) {

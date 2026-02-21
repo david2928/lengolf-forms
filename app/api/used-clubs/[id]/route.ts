@@ -41,7 +41,7 @@ export async function PUT(
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select()
+      .select('id, brand, model, club_type, specification, shaft, gender, condition, price, description, image_url, image_urls, available_for_sale, available_for_rental, purchased_at, set_id, created_at, updated_at')
       .single()
 
     if (error) {
