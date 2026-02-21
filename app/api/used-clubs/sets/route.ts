@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!((session.user as { isStaff?: boolean }).isStaff) && !session.user.isAdmin) {
+    if (!session.user.isStaff && !session.user.isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

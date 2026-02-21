@@ -9,13 +9,13 @@ export async function GET(request: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!((session.user as { isStaff?: boolean }).isStaff) && !session.user.isAdmin) {
+    if (!session.user.isStaff && !session.user.isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const { data, error } = await refacSupabaseAdmin
       .from('used_clubs_inventory')
-      .select('id, brand, model, club_type, gender, condition, price, image_url, available_for_sale, available_for_rental, set_id, created_at, club_sets(name)')
+      .select('id, brand, model, club_type, specification, shaft, gender, condition, price, image_url, available_for_sale, available_for_rental, set_id, created_at, club_sets(name)')
       .order('created_at', { ascending: false })
       .limit(10)
 

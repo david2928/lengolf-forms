@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!((session.user as { isStaff?: boolean }).isStaff) && !session.user.isAdmin) {
+    if (!session.user.isStaff && !session.user.isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
       brand,
       model,
       club_type,
+      specification,
+      shaft,
       gender,
       condition,
       price,
@@ -36,15 +38,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const numPrice = Number(price)
+    if (isNaN(numPrice) || numPrice < 0) {
+      return NextResponse.json({ error: 'price must be a non-negative number' }, { status: 400 })
+    }
+
     const { data, error } = await refacSupabaseAdmin
       .from('used_clubs_inventory')
       .insert([{
         brand,
         model: model || null,
         club_type,
+        specification: specification || null,
+        shaft: shaft || null,
         gender: gender || 'Unisex',
         condition,
-        price: Number(price),
+        price: numPrice,
         description: description || null,
         image_url: image_url || null,
         available_for_sale: available_for_sale ?? true,

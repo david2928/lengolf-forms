@@ -25,6 +25,8 @@ export interface UsedClub {
   brand: string
   model: string | null
   club_type: string
+  specification: string | null
+  shaft: string | null
   gender: string
   condition: string
   price: number
@@ -95,6 +97,19 @@ export async function uploadClubImage(file: File): Promise<string> {
 
 export async function createClub(data: Omit<UsedClub, 'id' | 'cost' | 'created_at' | 'updated_at' | 'club_sets'>) {
   const res = await fetch('/api/used-clubs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || 'Failed to create club')
+  }
+  return res.json()
+}
+
+export async function adminCreateClub(data: Omit<UsedClub, 'id' | 'created_at' | 'updated_at' | 'club_sets'>) {
+  const res = await fetch('/api/admin/used-clubs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),

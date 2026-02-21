@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const {
-      brand, model, club_type, gender, condition, price, cost,
+      brand, model, club_type, specification, shaft, gender, condition, price, cost,
       description, image_url, available_for_sale, available_for_rental, set_id,
     } = body
 
@@ -47,16 +47,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const numPrice = Number(price)
+    if (isNaN(numPrice) || numPrice < 0) {
+      return NextResponse.json({ error: 'price must be a non-negative number' }, { status: 400 })
+    }
+    const numCost = cost != null ? Number(cost) : null
+    if (numCost !== null && (isNaN(numCost) || numCost < 0)) {
+      return NextResponse.json({ error: 'cost must be a non-negative number' }, { status: 400 })
+    }
+
     const { data, error } = await refacSupabaseAdmin
       .from('used_clubs_inventory')
       .insert([{
         brand,
         model: model || null,
         club_type,
+        specification: specification || null,
+        shaft: shaft || null,
         gender: gender || 'Unisex',
         condition,
-        price: Number(price),
-        cost: cost != null ? Number(cost) : null,
+        price: numPrice,
+        cost: numCost,
         description: description || null,
         image_url: image_url || null,
         available_for_sale: available_for_sale ?? true,

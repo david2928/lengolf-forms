@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  createClub as adminCreateClub,
+  adminCreateClub,
   updateClub,
   uploadClubImage,
   type UsedClub,
@@ -31,9 +31,18 @@ import {
 } from '@/hooks/use-used-clubs'
 
 const BRANDS = ['Callaway', 'TaylorMade', 'Titleist', 'Ping', 'Mizuno', 'Cobra', 'Srixon', 'Other']
-const CLUB_TYPES = ['Driver', 'Irons (3-PW)', 'Wedge', 'Putter', 'Hybrid', 'Fairway Wood', 'Full Set', 'Partial Set']
+const CLUB_TYPES = ['Driver', 'Iron Set', 'Iron', 'Wedge', 'Putter', 'Hybrid', 'Fairway Wood', 'Full Set', 'Partial Set']
 const GENDERS = ["Men's", "Women's", 'Unisex']
 const CONDITIONS = ['Excellent', 'Good', 'Fair']
+
+const SPEC_HINTS: Record<string, string> = {
+  'Iron Set': 'e.g. 5-PW, 3-PW',
+  'Iron': 'e.g. 7 Iron, 4 Iron',
+  'Wedge': 'e.g. 56°, 52° Gap Wedge',
+  'Driver': 'e.g. 10.5°, Regular flex',
+  'Hybrid': 'e.g. 3H 19°',
+  'Fairway Wood': 'e.g. 3 Wood 15°',
+}
 
 interface Props {
   open: boolean
@@ -47,6 +56,8 @@ interface FormState {
   brand: string
   model: string
   club_type: string
+  specification: string
+  shaft: string
   gender: string
   condition: string
   price: string
@@ -61,6 +72,8 @@ const toForm = (club?: UsedClub | null): FormState => ({
   brand: club?.brand ?? '',
   model: club?.model ?? '',
   club_type: club?.club_type ?? '',
+  specification: club?.specification ?? '',
+  shaft: club?.shaft ?? '',
   gender: club?.gender ?? 'Unisex',
   condition: club?.condition ?? '',
   price: club?.price != null ? String(club.price) : '',
@@ -92,7 +105,10 @@ export function ClubEditDialog({ open, onOpenChange, onSuccess, club, sets }: Pr
     const file = accepted[0]
     if (!file) return
     setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+    setImagePreview(prev => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev)
+      return URL.createObjectURL(file)
+    })
   }, [])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -109,7 +125,10 @@ export function ClubEditDialog({ open, onOpenChange, onSuccess, club, sets }: Pr
 
   const removeImage = () => {
     setImageFile(null)
-    setImagePreview(null)
+    setImagePreview(prev => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev)
+      return null
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -130,6 +149,8 @@ export function ClubEditDialog({ open, onOpenChange, onSuccess, club, sets }: Pr
         brand: form.brand,
         model: form.model || null,
         club_type: form.club_type,
+        specification: form.specification || null,
+        shaft: form.shaft || null,
         gender: form.gender,
         condition: form.condition,
         price: Number(form.price),
@@ -145,16 +166,7 @@ export function ClubEditDialog({ open, onOpenChange, onSuccess, club, sets }: Pr
         await updateClub(club.id, payload)
         toast.success('Club updated')
       } else {
-        // Admin creates via admin route (includes cost)
-        const res = await fetch('/api/admin/used-clubs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}))
-          throw new Error(err.error || 'Failed to create club')
-        }
+        await adminCreateClub(payload)
         toast.success('Club added')
       }
 
@@ -211,6 +223,18 @@ export function ClubEditDialog({ open, onOpenChange, onSuccess, club, sets }: Pr
                   {GENDERS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          {/* Specification / Shaft */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Specification</Label>
+              <Input value={form.specification} onChange={e => set('specification', e.target.value)} placeholder={SPEC_HINTS[form.club_type] || 'e.g. 10.5°, 3-PW'} disabled={submitting} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Shaft</Label>
+              <Input value={form.shaft} onChange={e => set('shaft', e.target.value)} placeholder="e.g. Graphite Regular" disabled={submitting} />
             </div>
           </div>
 

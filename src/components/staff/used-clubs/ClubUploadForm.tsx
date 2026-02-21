@@ -26,9 +26,18 @@ import {
 } from '@/hooks/use-used-clubs'
 
 const BRANDS = ['Callaway', 'TaylorMade', 'Titleist', 'Ping', 'Mizuno', 'Cobra', 'Srixon', 'Other']
-const CLUB_TYPES = ['Driver', 'Irons (3-PW)', 'Wedge', 'Putter', 'Hybrid', 'Fairway Wood', 'Full Set', 'Partial Set']
+const CLUB_TYPES = ['Driver', 'Iron Set', 'Iron', 'Wedge', 'Putter', 'Hybrid', 'Fairway Wood', 'Full Set', 'Partial Set']
 const GENDERS = ['Men\'s', 'Women\'s', 'Unisex']
 const CONDITIONS = ['Excellent', 'Good', 'Fair']
+
+const SPEC_HINTS: Record<string, string> = {
+  'Iron Set': 'e.g. 5-PW, 3-PW',
+  'Iron': 'e.g. 7 Iron, 4 Iron',
+  'Wedge': 'e.g. 56°, 52° Gap Wedge',
+  'Driver': 'e.g. 10.5°, Regular flex',
+  'Hybrid': 'e.g. 3H 19°',
+  'Fairway Wood': 'e.g. 3 Wood 15°',
+}
 
 const CONDITION_COLORS: Record<string, string> = {
   Excellent: 'bg-green-100 text-green-700',
@@ -40,6 +49,8 @@ interface FormState {
   brand: string
   model: string
   club_type: string
+  specification: string
+  shaft: string
   gender: string
   condition: string
   price: string
@@ -53,6 +64,8 @@ const EMPTY_FORM: FormState = {
   brand: '',
   model: '',
   club_type: '',
+  specification: '',
+  shaft: '',
   gender: 'Unisex',
   condition: '',
   price: '',
@@ -75,7 +88,10 @@ export function ClubUploadForm() {
     const file = accepted[0]
     if (!file) return
     setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+    setImagePreview(prev => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev)
+      return URL.createObjectURL(file)
+    })
   }, [])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -92,7 +108,10 @@ export function ClubUploadForm() {
 
   const removeImage = () => {
     setImageFile(null)
-    setImagePreview(null)
+    setImagePreview(prev => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev)
+      return null
+    })
   }
 
   const set = (field: keyof FormState, value: string | boolean) =>
@@ -116,6 +135,8 @@ export function ClubUploadForm() {
         brand: form.brand,
         model: form.model || null,
         club_type: form.club_type,
+        specification: form.specification || null,
+        shaft: form.shaft || null,
         gender: form.gender,
         condition: form.condition,
         price: Number(form.price),
@@ -183,6 +204,28 @@ export function ClubUploadForm() {
                 {GENDERS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+        </div>
+
+        {/* Specification + Shaft */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label>Specification <span className="text-muted-foreground text-xs">(optional)</span></Label>
+            <Input
+              value={form.specification}
+              onChange={e => set('specification', e.target.value)}
+              placeholder={SPEC_HINTS[form.club_type] || 'e.g. 10.5°, 3-PW'}
+              disabled={submitting}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Shaft <span className="text-muted-foreground text-xs">(optional)</span></Label>
+            <Input
+              value={form.shaft}
+              onChange={e => set('shaft', e.target.value)}
+              placeholder="e.g. Graphite Regular"
+              disabled={submitting}
+            />
           </div>
         </div>
 
@@ -326,7 +369,7 @@ export function ClubUploadForm() {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">
-                      {club.brand}{club.model ? ` ${club.model}` : ''} — {club.club_type}
+                      {club.brand}{club.model ? ` ${club.model}` : ''} — {club.club_type}{club.specification ? ` (${club.specification})` : ''}
                     </p>
                     <p className="text-xs text-muted-foreground">{club.gender} · {club.price.toLocaleString()} THB</p>
                   </div>

@@ -43,9 +43,11 @@ export async function getDevSession(
         const session = {
           user: {
             email: payload.email as string,
-            isAdmin: payload.isAdmin as boolean,
             name: payload.name as string,
-            picture: payload.picture as string || null
+            image: (payload.picture as string) || null,
+            isAdmin: (payload.isAdmin as boolean) || false,
+            isCoach: (payload.isCoach as boolean) || false,
+            isStaff: (payload.isStaff as boolean) || false,
           },
           expires: new Date((payload.exp as number) * 1000).toISOString(),
           accessToken: payload.accessToken as string | undefined,

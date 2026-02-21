@@ -182,7 +182,10 @@ export function UsedClubsManager() {
                         </p>
                         <p className="text-xs text-muted-foreground">{club.gender}</p>
                       </TableCell>
-                      <TableCell className="text-sm">{club.club_type}</TableCell>
+                      <TableCell>
+                        <p className="text-sm">{club.club_type}{club.specification ? ` (${club.specification})` : ''}</p>
+                        {club.shaft && <p className="text-xs text-muted-foreground">{club.shaft}</p>}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`text-xs ${CONDITION_BADGE[club.condition] || ''}`}>
                           {club.condition}

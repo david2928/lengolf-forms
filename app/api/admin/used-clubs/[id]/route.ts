@@ -16,7 +16,7 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
     const {
-      brand, model, club_type, gender, condition, price, cost,
+      brand, model, club_type, specification, shaft, gender, condition, price, cost,
       description, image_url, available_for_sale, available_for_rental, set_id,
     } = body
 
@@ -26,6 +26,8 @@ export async function PUT(
         brand,
         model: model || null,
         club_type,
+        specification: specification || null,
+        shaft: shaft || null,
         gender,
         condition,
         price: price != null ? Number(price) : undefined,
