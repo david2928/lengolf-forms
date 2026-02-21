@@ -14,9 +14,17 @@ export function ProductInput({ product, value, onChange, error, previousValue }:
   const displayValue = getDisplayValue(product, value)
   const showReorderAlert = shouldShowReorderAlert(product, value)
 
+  // Check if this is the cash field (Change #4)
+  const isCashField = product.name.toLowerCase().includes('cash')
+
   // Check for >20% spike compared to previous day's value
   const spikeWarning = (() => {
-    if (previousValue === undefined || previousValue === null || product.input_type !== 'number') {
+    if (
+      previousValue === undefined ||
+      previousValue === null ||
+      product.input_type !== 'number' ||
+      isCashField // Don't warn on cash field - spikes are normal on busy days
+    ) {
       return null
     }
     const currentNum = typeof value === 'number' ? value : (typeof value === 'string' && value !== '' ? parseFloat(value) : null)
@@ -28,9 +36,6 @@ export function ProductInput({ product, value, onChange, error, previousValue }:
     }
     return null
   })()
-
-  // Check if this is the cash field (Change #4)
-  const isCashField = product.name.toLowerCase().includes('cash')
 
   const handleChange = (newValue: string | number) => {
     onChange(product.id, newValue)
