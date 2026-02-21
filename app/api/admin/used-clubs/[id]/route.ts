@@ -15,41 +15,47 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const {
-      brand, model, club_type, specification, shaft, gender, condition, price, cost,
-      description, image_url, image_urls, available_for_sale, available_for_rental, set_id, purchased_at,
-    } = body
 
-    const numPrice = price != null ? Number(price) : undefined
-    if (numPrice !== undefined && (isNaN(numPrice) || numPrice < 0)) {
-      return NextResponse.json({ error: 'price must be a non-negative number' }, { status: 400 })
+    // Validate price/cost if provided
+    if ('price' in body && body.price != null) {
+      const numPrice = Number(body.price)
+      if (isNaN(numPrice) || numPrice < 0) {
+        return NextResponse.json({ error: 'price must be a non-negative number' }, { status: 400 })
+      }
     }
-    const numCost = cost != null ? Number(cost) : null
-    if (numCost !== null && (isNaN(numCost) || numCost < 0)) {
-      return NextResponse.json({ error: 'cost must be a non-negative number' }, { status: 400 })
+    if ('cost' in body && body.cost != null) {
+      const numCost = Number(body.cost)
+      if (isNaN(numCost) || numCost < 0) {
+        return NextResponse.json({ error: 'cost must be a non-negative number' }, { status: 400 })
+      }
     }
+
+    // Build update payload from only provided fields to avoid clobbering on partial updates
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    }
+    if ('brand' in body) updateData.brand = body.brand
+    if ('model' in body) updateData.model = body.model || null
+    if ('club_type' in body) updateData.club_type = body.club_type
+    if ('specification' in body) updateData.specification = body.specification || null
+    if ('shaft' in body) updateData.shaft = body.shaft || null
+    if ('gender' in body) updateData.gender = body.gender
+    if ('condition' in body) updateData.condition = body.condition
+    if ('price' in body) updateData.price = body.price != null ? Number(body.price) : undefined
+    if ('cost' in body) updateData.cost = body.cost != null ? Number(body.cost) : null
+    if ('description' in body) updateData.description = body.description || null
+    if ('image_url' in body || 'image_urls' in body) {
+      updateData.image_url = body.image_url || (Array.isArray(body.image_urls) && body.image_urls.length > 0 ? body.image_urls[0] : null)
+    }
+    if ('image_urls' in body) updateData.image_urls = Array.isArray(body.image_urls) ? body.image_urls : undefined
+    if ('available_for_sale' in body) updateData.available_for_sale = body.available_for_sale
+    if ('available_for_rental' in body) updateData.available_for_rental = body.available_for_rental
+    if ('purchased_at' in body) updateData.purchased_at = body.purchased_at || null
+    if ('set_id' in body) updateData.set_id = body.set_id || null
 
     const { data, error } = await refacSupabaseAdmin
       .from('used_clubs_inventory')
-      .update({
-        brand,
-        model: model || null,
-        club_type,
-        specification: specification || null,
-        shaft: shaft || null,
-        gender,
-        condition,
-        price: numPrice,
-        cost: numCost,
-        description: description || null,
-        image_url: image_url || (Array.isArray(image_urls) && image_urls.length > 0 ? image_urls[0] : null),
-        image_urls: Array.isArray(image_urls) ? image_urls : undefined,
-        available_for_sale,
-        available_for_rental,
-        purchased_at: purchased_at || null,
-        set_id: set_id || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()
