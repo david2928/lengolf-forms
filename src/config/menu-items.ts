@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star, Landmark, Receipt, CalendarCheck } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star, Landmark, Receipt, CalendarCheck, Tag } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -152,6 +152,18 @@ export const menuItems: MenuItem[] = [
     title: "Vendor Receipts",
     path: '/vendor-receipts',
     description: "Upload vendor invoices and receipts"
+  },
+  {
+    icon: Tag,
+    title: "Add Used Club",
+    path: '/staff/used-clubs',
+    description: "Log second-hand clubs to the inventory"
+  },
+  {
+    icon: Tag,
+    title: "Used Clubs Admin",
+    path: '/admin/used-clubs',
+    description: "Manage used club listings, costs, and sets"
   },
   {
     icon: Search,

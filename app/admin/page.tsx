@@ -29,7 +29,8 @@ import {
   Star,
   Landmark,
   Banknote,
-  Coins
+  Coins,
+  Tag
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -157,6 +158,12 @@ const productInventoryItems = [
     title: "Discount Management",
     description: "Create and manage discounts for POS system",
     path: "/admin/discounts"
+  },
+  {
+    icon: Tag,
+    title: "Used Clubs",
+    description: "Manage second-hand club listings, costs, and sets",
+    path: "/admin/used-clubs"
   }
 ];
 
