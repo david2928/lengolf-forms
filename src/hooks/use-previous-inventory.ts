@@ -4,7 +4,13 @@ interface PreviousInventoryResponse {
   previousValues: Record<string, number>
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+const fetcher = async (url: string) => {
+  const res = await fetch(url)
+  if (!res.ok) {
+    throw new Error('Failed to fetch previous inventory values')
+  }
+  return res.json()
+}
 
 export const usePreviousInventory = () => {
   const today = new Date().toISOString().split('T')[0]

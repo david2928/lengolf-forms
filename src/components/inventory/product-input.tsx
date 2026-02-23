@@ -17,7 +17,10 @@ export function ProductInput({ product, value, onChange, error, previousValue }:
   // Check if this is the cash field (Change #4)
   const isCashField = product.name.toLowerCase().includes('cash')
 
-  // Check for >20% spike compared to previous day's value
+  // Check for significant change (>20% increase or >20% decrease) compared to previous submission
+  const SPIKE_WARNING_THRESHOLD = 1.2
+  const DROP_WARNING_THRESHOLD = 0.8
+
   const spikeWarning = (() => {
     if (
       previousValue === undefined ||
@@ -29,11 +32,22 @@ export function ProductInput({ product, value, onChange, error, previousValue }:
     }
     const currentNum = typeof value === 'number' ? value : (typeof value === 'string' && value !== '' ? parseFloat(value) : null)
     if (currentNum === null || isNaN(currentNum)) return null
-    // Only warn if previous value was > 0 (avoid division by zero) and current is significantly higher
-    if (previousValue > 0 && currentNum > previousValue * 1.2) {
-      const pctIncrease = Math.round(((currentNum - previousValue) / previousValue) * 100)
-      return { pctIncrease, previousValue }
+
+    // Only warn if previous value was > 0 (avoid division by zero)
+    if (previousValue <= 0) return null
+
+    // Check for significant increase
+    if (currentNum > previousValue * SPIKE_WARNING_THRESHOLD) {
+      const pctChange = Math.round(((currentNum - previousValue) / previousValue) * 100)
+      return { type: 'increase' as const, pctChange, previousValue }
     }
+
+    // Check for significant decrease
+    if (currentNum < previousValue * DROP_WARNING_THRESHOLD) {
+      const pctChange = Math.round(((previousValue - currentNum) / previousValue) * 100)
+      return { type: 'decrease' as const, pctChange, previousValue }
+    }
+
     return null
   })()
 
@@ -234,10 +248,12 @@ export function ProductInput({ product, value, onChange, error, previousValue }:
         <div className="flex items-start gap-2 rounded-md border border-orange-300 bg-orange-50 p-3 text-orange-800">
           <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5 text-orange-600" />
           <div className="text-sm">
-            <p className="font-semibold">Unusual increase detected</p>
+            <p className="font-semibold">
+              {spikeWarning.type === 'increase' ? 'Unusual increase detected' : 'Unusual decrease detected'}
+            </p>
             <p>
-              This is <span className="font-bold">{spikeWarning.pctIncrease}% higher</span> than
-              yesterday&apos;s count of <span className="font-bold">{spikeWarning.previousValue}</span>.
+              This is <span className="font-bold">{spikeWarning.pctChange}% {spikeWarning.type === 'increase' ? 'higher' : 'lower'}</span> than
+              the previous count of <span className="font-bold">{spikeWarning.previousValue}</span>.
               Please double-check this value.
             </p>
           </div>

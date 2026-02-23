@@ -21,18 +21,22 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date') // YYYY-MM-DD, defaults to today
 
+    // Validate date format if provided
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return NextResponse.json(
+        { error: 'Invalid date format. Expected YYYY-MM-DD.' },
+        { status: 400 }
+      )
+    }
+
     const referenceDate = date || new Date().toISOString().split('T')[0]
 
-    // Direct query: Get the most recent submission for each product before the reference date
-    // Using DISTINCT ON for efficient deduplication at the DB level
+    // Use RPC with DISTINCT ON for efficient deduplication at the DB level
+    // This ensures we get the most recent submission for each product
     const { data, error } = await refacSupabaseAdmin
-      .from('inventory_submission')
-      .select('product_id, value_numeric, date')
-      .lt('date', referenceDate)
-      .not('value_numeric', 'is', null)
-      .order('product_id', { ascending: true })
-      .order('date', { ascending: false })
-      .limit(500) // Safeguard against unbounded result sets
+      .rpc('get_previous_inventory_values', {
+        p_reference_date: referenceDate,
+      })
 
     if (error) {
       console.error('Previous submissions fetch error:', error)
@@ -42,11 +46,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Deduplicate: keep only the most recent entry per product
+    // Transform RPC result to a simple map
     const previousValues: Record<string, number> = {}
     if (data) {
-      for (const row of data) {
-        if (!(row.product_id in previousValues) && row.value_numeric !== null) {
+      for (const row of data as Array<{ product_id: string; value_numeric: number }>) {
+        if (row.value_numeric !== null) {
           previousValues[row.product_id] = Number(row.value_numeric)
         }
       }
