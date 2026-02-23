@@ -295,10 +295,18 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
 
     // Food category - default to Appetizers
     if (categoryNameLower.includes('food')) {
-      const appetizers = category.children.find((child: any) => 
+      const appetizers = category.children.find((child: any) =>
         child.name.toLowerCase().includes('appetizer')
       );
       return appetizers?.id || null;
+    }
+
+    // Clubs category - default to Indoor Rental
+    if (categoryNameLower.includes('club')) {
+      const indoorRental = category.children.find((child: any) =>
+        child.name.toLowerCase().includes('indoor')
+      );
+      return indoorRental?.id || null;
     }
 
     return null;
