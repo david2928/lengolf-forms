@@ -47,8 +47,8 @@ Do NOT use when:
         },
         duration: {
           type: 'number',
-          description: 'Booking duration in hours. Must be 0.5, 1, 1.5, 2, 2.5, or 3. Default: 1. ONLY use duration=2 if customer explicitly says "2 hours" or "2hr". For "2-4pm available?", use duration=1 (they want to see available slots in that time range, not book 2 hours).',
-          enum: [0.5, 1, 1.5, 2, 2.5, 3]
+          description: 'Booking duration in hours. Must be 1, 1.5, 2, 2.5, or 3. Default: 1. Minimum booking is 1 hour. ONLY use duration=2 if customer explicitly says "2 hours" or "2hr". For "2-4pm available?", use duration=1 (they want to see available slots in that time range, not book 2 hours).',
+          enum: [1, 1.5, 2, 2.5, 3]
         },
         bay_type: {
           type: 'string',
@@ -154,8 +154,8 @@ Defaults if not specified: 1 hour duration, 1 player, social bay`,
         },
         duration: {
           type: 'number',
-          description: 'Duration in hours. Must be 0.5, 1, 1.5, 2, 2.5, or 3. Default: 1',
-          enum: [0.5, 1, 1.5, 2, 2.5, 3]
+          description: 'Duration in hours. Must be 1, 1.5, 2, 2.5, or 3. Default: 1. Minimum booking is 1 hour.',
+          enum: [1, 1.5, 2, 2.5, 3]
         },
         number_of_people: {
           type: 'number',
@@ -369,8 +369,8 @@ Required information:
         },
         duration: {
           type: 'number',
-          description: 'New duration in hours. Must be 0.5, 1, 1.5, 2, 2.5, or 3. Use 0 if not changing duration.',
-          enum: [0, 0.5, 1, 1.5, 2, 2.5, 3]
+          description: 'New duration in hours. Must be 1, 1.5, 2, 2.5, or 3. Minimum booking is 1 hour. Use 0 if not changing duration.',
+          enum: [0, 1, 1.5, 2, 2.5, 3]
         },
         bay_type: {
           type: 'string',
@@ -403,6 +403,28 @@ export function getOpenAITools() {
   }));
 }
 
+// Map of intent → which tools are relevant
+// Intents not listed here get NO tools (pure text response)
+const INTENT_TOOLS: Record<string, string[]> = {
+  availability_check: ['check_bay_availability'],
+  booking_request: ['check_bay_availability', 'create_booking'],
+  cancellation: ['cancel_booking', 'lookup_booking'],
+  modification_request: ['modify_booking', 'lookup_booking'],
+  coaching_inquiry: ['get_coaching_availability'],
+};
+
+/**
+ * Get only the tools relevant to the detected intent.
+ * Reduces token waste by not sending 7 tool schemas for a simple pricing question.
+ */
+export function getToolsForIntent(intent: string) {
+  const relevantNames = INTENT_TOOLS[intent];
+  if (!relevantNames) return []; // No tools for this intent
+
+  const allTools = getOpenAITools();
+  return allTools.filter(tool => relevantNames.includes(tool.function.name));
+}
+
 /**
  * Validate function call parameters
  */
@@ -426,9 +448,9 @@ export function validateFunctionCall(name: string, parameters: Record<string, an
   // Validate specific rules
   if (name === 'check_bay_availability' || name === 'create_booking') {
     // Validate duration
-    const validDurations = [0.5, 1, 1.5, 2, 2.5, 3];
+    const validDurations = [1, 1.5, 2, 2.5, 3];
     if (parameters.duration && !validDurations.includes(parameters.duration)) {
-      return { valid: false, error: `Invalid duration: ${parameters.duration}. Must be one of: ${validDurations.join(', ')}` };
+      return { valid: false, error: `Invalid duration: ${parameters.duration}. Must be one of: ${validDurations.join(', ')}. Minimum booking is 1 hour.` };
     }
   }
 
@@ -476,9 +498,9 @@ export function validateFunctionCall(name: string, parameters: Record<string, an
 
     // Validate duration if provided
     if (hasDurationChange) {
-      const validDurations = [0.5, 1, 1.5, 2, 2.5, 3];
+      const validDurations = [1, 1.5, 2, 2.5, 3];
       if (!validDurations.includes(parameters.duration)) {
-        return { valid: false, error: `Invalid duration: ${parameters.duration}. Must be one of: ${validDurations.join(', ')}` };
+        return { valid: false, error: `Invalid duration: ${parameters.duration}. Must be one of: ${validDurations.join(', ')}. Minimum booking is 1 hour.` };
       }
     }
   }

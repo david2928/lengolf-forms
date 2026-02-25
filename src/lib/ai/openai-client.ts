@@ -1,5 +1,5 @@
 // OpenAI client configuration for AI chat suggestions
-// Uses GPT-4o-mini for cost-effective response generation
+// Uses GPT-5-mini for reasoning + cost-effective generation
 
 import OpenAI from 'openai';
 
@@ -13,7 +13,7 @@ export const openai = new OpenAI({
 
 // Configuration constants
 export const AI_CONFIG = {
-  model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+  model: process.env.OPENAI_MODEL || 'gpt-5-mini',
   embeddingModel: process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small',
   enabled: process.env.AI_SUGGESTION_ENABLED === 'true',
   confidenceThreshold: parseFloat(process.env.AI_CONFIDENCE_THRESHOLD || '0.6'),
@@ -44,11 +44,15 @@ export async function testOpenAIConnection(): Promise<{ success: boolean; error?
     }
 
     // Test with a simple completion
+    // Reasoning models (gpt-5-*, o1-*, o3-*) require max_completion_tokens and no temperature
+    const isReasoningModel = /^(gpt-5|o1|o3)/i.test(AI_CONFIG.model);
     const response = await openai.chat.completions.create({
       model: AI_CONFIG.model,
       messages: [{ role: 'user', content: 'Hello' }],
-      max_tokens: 5,
-    });
+      ...(isReasoningModel
+        ? { max_completion_tokens: 100, reasoning_effort: 'low' as const }
+        : { max_tokens: 5 }),
+    } as any);
 
     if (response.choices[0]?.message?.content) {
       return { success: true };

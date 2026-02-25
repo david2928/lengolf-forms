@@ -19,6 +19,27 @@ export interface FunctionResult {
 }
 
 /**
+ * Format an ISO date (YYYY-MM-DD) into a natural language string.
+ * e.g. "2026-02-26" → "tomorrow (Thursday)" or "Thursday, February 26"
+ */
+function formatDateNatural(isoDate: string): string {
+  const thailandNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+  const today = thailandNow.toISOString().split('T')[0];
+
+  const tomorrow = new Date(thailandNow);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  const dateObj = new Date(isoDate + 'T12:00:00');
+  const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+  const monthDay = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+
+  if (isoDate === today) return 'today';
+  if (isoDate === tomorrowStr) return `tomorrow (${dayName})`;
+  return `${dayName}, ${monthDay}`;
+}
+
+/**
  * Executes AI function calls by calling existing APIs
  */
 export class AIFunctionExecutor {
@@ -88,11 +109,12 @@ export class AIFunctionExecutor {
       const currentMinute = thailandTime.getMinutes();
 
       // Determine start hour for availability check
-      // If checking today, start from current hour (or next hour if past 30 mins)
+      // If checking today, start from NEXT available 30-min slot (never show past times)
       // If checking future date, start from 10 AM
       const today = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"})).toISOString().split('T')[0];
       const isToday = date === today;
-      const startHour = isToday ? (currentMinute >= 30 ? currentHour + 1 : currentHour) : 10;
+      // Always round up to next hour to avoid showing slots that have already started
+      const startHour = isToday ? currentHour + 1 : 10;
 
       // Determine which bays to check based on type
       const bays =
@@ -157,7 +179,7 @@ export class AIFunctionExecutor {
           success: true,
           functionName: 'check_bay_availability',
           data: {
-            date,
+            date: formatDateNatural(date),
             requested_time: start_time,
             duration,
             bay_type,
@@ -204,7 +226,7 @@ export class AIFunctionExecutor {
             if (rangeStart === lastTime) {
               ranges.push(rangeStart);
             } else {
-              ranges.push(`${rangeStart}-${lastTime}`);
+              ranges.push(`${rangeStart} to ${lastTime}`);
             }
             rangeStart = currentTime;
           }
@@ -215,7 +237,7 @@ export class AIFunctionExecutor {
         if (rangeStart === lastTime) {
           ranges.push(rangeStart);
         } else {
-          ranges.push(`${rangeStart}-${lastTime}`);
+          ranges.push(`${rangeStart} to ${lastTime}`);
         }
 
         return ranges;
@@ -253,7 +275,7 @@ export class AIFunctionExecutor {
         success: true,
         functionName: 'check_bay_availability',
         data: {
-          date,
+          date: formatDateNatural(date),
           duration,
           bay_type,
           social_bays_available: socialBaysAvailable.length > 0,

@@ -24,7 +24,6 @@ import {
   Search,
   Bell,
   BellOff,
-  Zap,
   Monitor,
   Smartphone,
   Sparkles,
@@ -453,7 +452,6 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
     error: notificationError,
     subscribe: subscribeToNotifications,
     unsubscribe: unsubscribeFromNotifications,
-    sendTestNotification
   } = usePushNotifications();
 
   // Stabilize the conversation update callback
@@ -534,87 +532,81 @@ export const ConversationSidebar = forwardRef<ConversationSidebarRef, Conversati
     <div className="w-full md:w-96 bg-white border-r flex flex-col transition-all duration-300 ease-in-out h-full min-h-0">
       <div className="p-4 border-b bg-[#1a4d2e]">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-semibold text-white">Conversations</h1>
+          {/* Left: Home + Title */}
+          <div className="flex items-center space-x-1.5">
+            <Link href="/">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 hover:bg-[#2a6d4e] text-white/70"
+                title="Go to Home"
+              >
+                <Home className="h-3 w-3" />
+              </Button>
+            </Link>
+            <h1 className="text-xl font-semibold text-white">Conversations</h1>
+          </div>
 
-          {/* Controls */}
-          <div className="flex items-center space-x-2">
-            {/* Refresh Button - Available on both mobile and desktop */}
+          {/* Right: Controls — compact icons */}
+          <div className="flex items-center space-x-0.5">
+            {/* AI Toggle */}
+            {onToggleAI && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onToggleAI(!enableAISuggestions)}
+                className={`h-6 w-6 p-0 ${enableAISuggestions ? 'bg-purple-600 text-white hover:bg-purple-700' : 'text-white/50 hover:bg-[#2a6d4e]'}`}
+                title={`${enableAISuggestions ? 'Disable' : 'Enable'} AI suggestions`}
+              >
+                <Sparkles className="h-3 w-3" />
+              </Button>
+            )}
             {onRefresh && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onRefresh}
-                className="h-8 w-8 p-0 hover:bg-[#2a6d4e] text-white"
+                className="h-6 w-6 p-0 hover:bg-[#2a6d4e] text-white/70"
                 title="Refresh conversations"
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="h-3 w-3" />
               </Button>
             )}
-
-            {/* Home Button - Available on both mobile and desktop */}
-            <Link href="/">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-[#2a6d4e] text-white"
-                title="Go to Home"
-              >
-                <Home className="h-4 w-4" />
-              </Button>
-            </Link>
-
-            {/* Sales Opportunities Button */}
             {onOpenOpportunities && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onOpenOpportunities}
-                className="text-white hover:bg-[#2a6d4e]"
+                className="h-6 w-6 p-0 hover:bg-[#2a6d4e] text-white/70"
                 title="View Sales Opportunities"
               >
-                <TrendingUp className="h-4 w-4" />
+                <TrendingUp className="h-3 w-3" />
               </Button>
             )}
-
-            {/* Push Notification Controls */}
             {isSupported && (
-              <>
-                {isSubscribed ? (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={unsubscribeFromNotifications}
-                      disabled={notificationLoading}
-                      className="text-white hover:bg-[#2a6d4e]"
-                      title="Notifications enabled - Click to disable"
-                    >
-                      <Bell className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={sendTestNotification}
-                      disabled={notificationLoading}
-                      className="text-white hover:bg-[#2a6d4e]"
-                      title="Send test notification"
-                    >
-                      <Zap className="h-3 w-3" />
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={subscribeToNotifications}
-                    disabled={notificationLoading}
-                    className="text-white/70 hover:text-white hover:bg-[#2a6d4e]"
-                    title="Enable notifications for new messages"
-                  >
-                    <BellOff className="h-4 w-4" />
-                  </Button>
-                )}
-              </>
+              isSubscribed ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={unsubscribeFromNotifications}
+                  disabled={notificationLoading}
+                  className="h-6 w-6 p-0 hover:bg-[#2a6d4e] text-white/70"
+                  title="Notifications enabled - Click to disable"
+                >
+                  <Bell className="h-3 w-3" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={subscribeToNotifications}
+                  disabled={notificationLoading}
+                  className="h-6 w-6 p-0 hover:bg-[#2a6d4e] text-white/40"
+                  title="Enable notifications"
+                >
+                  <BellOff className="h-3 w-3" />
+                </Button>
+              )
             )}
           </div>
         </div>

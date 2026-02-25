@@ -39,7 +39,8 @@ export interface SimilarMessage {
 }
 
 // Intent detection patterns based on analysis of existing messages
-const INTENT_PATTERNS = {
+// Expanded with high-volume unmatched topics from production data
+const INTENT_PATTERNS: Record<string, RegExp[]> = {
   booking_request: [
     /จอง|book|reservation|reserve/i,
     /ต้องการจอง|want to book|would like to book/i,
@@ -49,9 +50,10 @@ const INTENT_PATTERNS = {
     /available|ว่าง|มี.*ว่าง/i,
     /any.*bay.*available/i,
     /เบย์.*ว่าง|ว่าง.*เบย์/i,
+    /slot|free\?|open\?/i,
   ],
   cancellation: [
-    /cancel|ยกเลิก/i,
+    /cancel|ยกเลิก|ขอยกเลิก/i,
     /cancel.*booking|ยกเลิก.*จอง/i,
   ],
   modification_request: [
@@ -59,8 +61,26 @@ const INTENT_PATTERNS = {
     /move.*booking|เลื่อน.*จอง/i,
   ],
   arrival_notification: [
-    /arrived|ถึงแล้ว|มาถึง/i,
+    /arrived|ถึงแล้ว|มาถึง|ไปถึง/i,
     /here|อยู่แล้ว/i,
+  ],
+  pricing_inquiry: [
+    /ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า/i,
+  ],
+  promotion_inquiry: [
+    /โปรโม|promotion|discount|ส่วนลด|deal|special/i,
+  ],
+  equipment_inquiry: [
+    /อุปกรณ์|equipment|club|ไม้กอล์ฟ|rental|ยืม|glove|ถุงมือ/i,
+  ],
+  payment_inquiry: [
+    /จ่าย|pay|payment|โอน|transfer|QR|บัตร|card/i,
+  ],
+  location_inquiry: [
+    /ที่ไหน|where|location|แผนที่|map|parking|จอดรถ/i,
+  ],
+  coaching_inquiry: [
+    /coach|โค้ช|เรียน|lesson|สอน|คลาส|class/i,
   ],
   bay_inquiry: [
     /bay|เบย์/i,
@@ -105,6 +125,12 @@ function getMessageCategory(intent: string): string {
     cancellation: 'cancellation',
     modification_request: 'booking',
     arrival_notification: 'arrival',
+    pricing_inquiry: 'pricing',
+    promotion_inquiry: 'pricing',
+    equipment_inquiry: 'facility',
+    payment_inquiry: 'pricing',
+    location_inquiry: 'facility',
+    coaching_inquiry: 'coaching',
     bay_inquiry: 'inquiry',
     general_inquiry: 'general',
   };
@@ -271,6 +297,179 @@ export async function findSimilarMessages(
   } catch (error) {
     console.error('Error finding similar messages:', error);
     return [];
+  }
+}
+
+// ─── FAQ Knowledge Base Integration ──────────────────────────────────────────
+
+export interface FAQMatch {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+  similarityScore?: number;
+  matchType: 'vector' | 'keyword';
+}
+
+// Map intents to FAQ categories for filtering
+const INTENT_TO_FAQ_CATEGORY: Record<string, string[]> = {
+  pricing_inquiry: ['pricing', 'packages', 'general'],
+  promotion_inquiry: ['pricing', 'promotions', 'packages'],
+  equipment_inquiry: ['facility', 'equipment', 'general'],
+  facility_inquiry: ['facility', 'hours', 'general'],
+  location_inquiry: ['facility', 'location', 'general'],
+  coaching_inquiry: ['coaching', 'pricing', 'general'],
+  booking_request: ['booking', 'general'],
+  availability_check: ['booking', 'hours', 'general'],
+  payment_inquiry: ['pricing', 'payment', 'general'],
+  bay_inquiry: ['facility', 'booking', 'general'],
+};
+
+/**
+ * Find relevant FAQ entries using hybrid search (vector + keyword).
+ * Intent-aware: prioritizes FAQ entries matching the detected intent category.
+ */
+export async function findRelevantFAQs(
+  queryEmbedding: number[],
+  customerMessage: string,
+  intent: string,
+  maxResults: number = 3,
+  vectorThreshold: number = 0.5 // Lower threshold for FAQ (well-written entries)
+): Promise<FAQMatch[]> {
+  if (!refacSupabaseAdmin) return [];
+
+  const results: FAQMatch[] = [];
+  const seenIds = new Set<string>();
+
+  try {
+    // 1. Vector search skipped — no find_similar_faq RPC exists in database.
+    // FAQ entries don't have embeddings, so we rely entirely on keyword search.
+    // TODO: Create find_similar_faq RPC and FAQ embeddings for vector search support.
+
+    // 2. Keyword search (primary method since no vector search for FAQ)
+    {
+      const keywordMatches = await searchFAQByKeyword(customerMessage, intent);
+      for (const match of keywordMatches) {
+        if (!seenIds.has(match.id)) {
+          seenIds.add(match.id);
+          results.push(match);
+        }
+      }
+    }
+
+    // 3. Sort: intent-matching category entries first, then by similarity score
+    const faqCategories = INTENT_TO_FAQ_CATEGORY[intent] || ['general'];
+    results.sort((a, b) => {
+      const aMatchesIntent = faqCategories.includes(a.category) ? 1 : 0;
+      const bMatchesIntent = faqCategories.includes(b.category) ? 1 : 0;
+      if (aMatchesIntent !== bMatchesIntent) return bMatchesIntent - aMatchesIntent;
+      return (b.similarityScore || 0) - (a.similarityScore || 0);
+    });
+
+    return results.slice(0, maxResults);
+  } catch (error) {
+    console.error('Error finding relevant FAQs:', error);
+    return [];
+  }
+}
+
+/**
+ * Keyword-based FAQ search: matches against question and answer text.
+ */
+async function searchFAQByKeyword(
+  customerMessage: string,
+  intent: string
+): Promise<FAQMatch[]> {
+  if (!refacSupabaseAdmin) return [];
+
+  try {
+    // Extract significant keywords (skip very short words)
+    const words = customerMessage
+      .toLowerCase()
+      .replace(/[^\w\sก-๙]/g, '')
+      .split(/\s+/)
+      .filter(w => w.length > 2);
+
+    if (words.length === 0) return [];
+
+    // Build OR query for keyword matching
+    const searchTerms = words.slice(0, 5).join(' | '); // Limit to 5 keywords
+
+    // Text search using ilike for each word (simpler, works without full-text search setup)
+    const faqCategories = INTENT_TO_FAQ_CATEGORY[intent] || [];
+    // FAQ table has question_en + question_th columns, not a single 'question' column
+    let query = refacSupabaseAdmin
+      .from('faq_knowledge_base')
+      .select('id, question_en, question_th, answer, category')
+      .eq('is_active', true);
+
+    // Filter by intent-matching categories if available
+    if (faqCategories.length > 0) {
+      query = query.in('category', faqCategories);
+    }
+
+    const { data: faqs } = await query.limit(200); // FAQ tables are typically small
+
+    if (!faqs || faqs.length === 0) return [];
+
+    // Score each FAQ by keyword overlap (search both English and Thai questions + answer)
+    const scored = faqs.map((faq: any) => {
+      const faqText = `${faq.question_en || ''} ${faq.question_th || ''} ${faq.answer}`.toLowerCase();
+      const matchCount = words.filter(w => faqText.includes(w)).length;
+      return {
+        ...faq,
+        question: faq.question_en || faq.question_th || '',
+        score: matchCount / words.length
+      };
+    }).filter((faq: any) => faq.score > 0.3); // At least 30% keyword overlap
+
+    scored.sort((a: any, b: any) => b.score - a.score);
+
+    return scored.slice(0, 3).map((faq: any) => ({
+      id: faq.id,
+      question: faq.question,
+      answer: faq.answer,
+      category: faq.category || 'general',
+      similarityScore: faq.score,
+      matchType: 'keyword' as const
+    }));
+  } catch (error) {
+    console.error('Error in keyword FAQ search:', error);
+    return [];
+  }
+}
+
+/**
+ * Increment usage_count for FAQ entries that were included in an AI prompt.
+ * Fire-and-forget — non-critical.
+ */
+export async function trackFAQUsage(faqIds: string[]): Promise<void> {
+  if (!refacSupabaseAdmin || faqIds.length === 0) return;
+
+  try {
+    // Batch fetch current counts, then update in parallel.
+    // Note: This is a read-then-write pattern — not fully atomic. Acceptable here
+    // because FAQ usage tracking is non-critical analytics (fire-and-forget) and
+    // concurrent increments for the same FAQ ID are rare in practice.
+    // TODO: Create a DB function for atomic increment if usage tracking becomes critical.
+    const { data: currentCounts } = await refacSupabaseAdmin
+      .from('faq_knowledge_base')
+      .select('id, usage_count')
+      .in('id', faqIds);
+
+    if (!currentCounts || currentCounts.length === 0) return;
+
+    await Promise.all(
+      currentCounts.map(async (row: { id: string; usage_count: number | null }) => {
+        await refacSupabaseAdmin!
+          .from('faq_knowledge_base')
+          .update({ usage_count: (row.usage_count || 0) + 1 })
+          .eq('id', row.id);
+      })
+    );
+  } catch (error) {
+    // Non-critical, log and continue
+    console.warn('Failed to track FAQ usage:', error);
   }
 }
 

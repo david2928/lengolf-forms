@@ -2,10 +2,12 @@
 // Integrates RAG (Retrieval Augmented Generation) with Lengolf business context
 
 import { openai, AI_CONFIG } from './openai-client';
-import { generateEmbedding, findSimilarMessages, SimilarMessage } from './embedding-service';
+import { generateEmbedding, findSimilarMessages, SimilarMessage, findRelevantFAQs, trackFAQUsage, FAQMatch } from './embedding-service';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
-import { getOpenAITools } from './function-schemas';
+import { getOpenAITools, getToolsForIntent } from './function-schemas';
 import { functionExecutor, FunctionResult } from './function-executor';
+import { getSkillsForIntent, composeSkillPromptForLanguage, getSkillExamples } from './skills';
+import { classifyIntent, IntentClassification } from './intent-classifier';
 
 export interface CustomerContext {
   // Basic info
@@ -87,6 +89,14 @@ export interface AIDebugContext {
   customerData?: CustomerContext;
   similarMessagesUsed: SimilarMessage[];
   systemPromptExcerpt: string;
+  systemPrompt?: string;
+  userPrompt?: string;
+  skillsUsed?: string[];
+  intentDetected?: string;
+  intentSource?: string;
+  intentClassificationMs?: number;
+  businessContextIncluded?: boolean;
+  faqMatches?: Array<{ question: string; answer: string; score: number }>;
   functionSchemas?: any[];
   toolChoice?: string;
   model: string;
@@ -110,6 +120,8 @@ export interface AISuggestion {
   functionResult?: FunctionResult;
   requiresApproval?: boolean;
   approvalMessage?: string;
+  // Management escalation note (extracted from [NEEDS MANAGEMENT: ...] tag)
+  managementNote?: string | null;
   // Debug context for transparency
   debugContext?: AIDebugContext;
   // Image suggestion metadata for multi-modal responses
@@ -123,10 +135,35 @@ export interface AISuggestion {
   }>;
 }
 
+export interface BusinessContext {
+  packageTypes?: Array<{ name: string; hours: number; validity_days?: number; description: string; type: string }>;
+  coachRates?: Array<{ description: string; rate: number }>;
+  bayPricing?: {
+    socialBay: { hourly: number; description: string };
+    aiBay: { hourly: number; description: string };
+    note: string;
+  };
+  operatingHours?: {
+    daily: string;
+    note: string;
+  };
+  promotions?: Array<{
+    title_en: string;
+    title_th: string;
+    description_en: string;
+    description_th: string;
+    valid_until: string | null;
+    promo_type: string;
+    badge_en: string | null;
+    terms_en: string | null;
+  }>;
+}
+
 export interface GenerateSuggestionParams {
   customerMessage: string;
   conversationContext: ConversationContext;
   customerContext?: CustomerContext;
+  businessContext?: BusinessContext;
   staffUserEmail?: string;
   messageId?: string; // Message ID for database storage
   dryRun?: boolean; // Skip database storage during evaluation
@@ -134,467 +171,14 @@ export interface GenerateSuggestionParams {
   includeDebugContext?: boolean; // Include full context for transparency
 }
 
-// Lengolf-specific system prompt for GPT-4o-mini
-const LENGOLF_SYSTEM_PROMPT = `You are helping staff at Lengolf craft responses to customers. Generate suggested responses that staff can send to customers.
-
-IMPORTANT: You are suggesting what the STAFF MEMBER should say to the customer. Write responses as if the staff member is speaking directly to the customer.
-
-Lengolf is a modern golf simulator facility in Bangkok, Thailand.
-
-CURRENT DATE & TIME (Thailand timezone):
-- Today's date: {TODAY_DATE}
-- Tomorrow's date: {TOMORROW_DATE}
-- Current time: {CURRENT_TIME}
-
-DATE HANDLING:
-- "today" / "ว ันนี้" / no date specified → use {TODAY_DATE}
-- "tomorrow" / "พรุ่งนี้" → use {TOMORROW_DATE}
-- Specific date mentioned → use that date in YYYY-MM-DD format
-- **IMPORTANT**: Check recent conversation messages - if customer previously asked about "tomorrow", use {TOMORROW_DATE} even if their current message doesn't say "tomorrow"
-- Example: User asks "coaches available tomorrow?" → You respond with availability → User says "book 1pm" → Use {TOMORROW_DATE} (they're continuing the tomorrow conversation)
-
-FACILITY INFORMATION:
-- We offer Social Bays (up to 5 players) and AI Bays (1-2 players, with advanced analytics)
-- Equipment: Bravo Golf launch monitors providing comprehensive swing data
-- Services: Golf lessons, bay reservations, corporate events
-- Location: Bangkok, Thailand
-
-COMMUNICATION STYLE:
-- ULTRA BRIEF: Thai responses must be extremely short
-- Never use templates or formal customer service language
-- Don't ask "มีคำถามเพิ่มเติม" or similar closing phrases
-- Don't explain things unnecessarily
-- Sound like a casual Thai person, not a business
-- Use "ค่ะ" (ka) at the end of sentences, never "ครับ" (krab)
-- Match the customer's language preference
-- CRITICAL: Thai responses = 1 sentence maximum, get straight to the point
-
-THAI LANGUAGE RULES:
-- Keep responses short but polite (5-8 words maximum)
-- For NEW CHAT greetings: "สวัสดีค่า" or "สวัสดีค่ะ" only, then stop
-- NO "ถ้ามีคำถามเพิ่มเติม" or similar ending phrases
-- NO long explanations but add basic politeness
-- NO emojis unless customer used them first
-- Strike balance between brief and polite
-
-POLITE BUT BRIEF THAI EXAMPLES:
-- New chat greeting: "สวัสดีค่า" (Hello)
-- Left-handed support: "ได้เลยค่ะ รองรับค่ะ" (Yes, we support that)
-- Availability check: "หาให้นะคะ" (I'll check for you)
-- Info needed: "ใส่ชื่อเบอร์หน่อยค่ะ" (Please provide name and number)
-- Simple confirmation: "ได้ค่ะ" (Yes) - only for very simple questions
-
-BANNED PHRASES IN THAI:
-❌ "สวัสดีค่ะ คุณ [name]" - no names in greetings
-❌ "ที่นี่รองรับ..." - don't explain capabilities
-❌ "ไม่ต้องห่วง" - don't reassure
-❌ "ถ้ามีคำถามเพิ่มเติม" - never ask for more questions
-❌ "บอกแอดมินได้เลย" - don't offer help
-
-BOOKING REQUIREMENTS:
-- New customers need: Name (English), phone, email (optional)
-- Booking details: Date, time/duration, number of players
-- Social Bay: Maximum 5 players
-- AI Bay: Recommended for 1-2 players (includes advanced analytics)
-
-TYPICAL CUSTOMER FLOWS:
-
-1. General Questions (no function needed)
-   - Customer asks about facilities, pricing, location, equipment
-   - Just respond with information from your knowledge base
-
-2. Availability Questions (MUST use check_bay_availability function)
-   ⚠️ CRITICAL: Customer asks about availability → ALWAYS call check_bay_availability function
-   - "Do you have availability?", "ว่างมั้ย", "any slots?"
-   - "available tonight?", "available tomorrow?", "free today?"
-   - "what times are available?", "when are you free?"
-
-   NEVER respond conversationally to availability questions - ALWAYS check real data using the function!
-
-   After calling check_bay_availability:
-   - If available slots found → List the specific times from the function result
-   - If no slots found → Suggest alternative dates/times
-
-3. Booking Flow (2-step process)
-   Step 1: Customer asks "available tomorrow 2pm?" → Use check_bay_availability function
-   Step 2: Staff confirms "yes available" → Customer says "book it" or "2pm please!" → Use create_booking function
-
-   Note: If customer already got availability confirmation in conversation history, they're at Step 2 (ready to book)
-
-   **IMPORTANT - Time Range vs Duration**:
-   - When customer asks "2-4 available?" or "2-4pm free?", they are asking about a TIME RANGE (what slots exist between 2-4 PM), NOT requesting a 2-hour booking
-   - Use start_time="" (empty) and duration=1 (default) to show all available slots in that time window
-   - Only use duration=2 if customer explicitly says "2 hours" or "2hr booking"
-   - Examples:
-     * "2-4 available?" → start_time="", duration=1 (show all 1-hour slots between 2-4 PM)
-     * "2-4pm any slot?" → start_time="", duration=1 (show available slots in that range)
-     * "I need 2 hours starting at 2pm" → start_time="14:00", duration=2 (specific 2-hour request)
-     * "2pm for 2 hours?" → start_time="14:00", duration=2 (explicit duration request)
-
-3. Direct Booking (skip availability check)
-   - Customer says "I want to book 2pm tomorrow" or "ขอจอง 14:00" → Use create_booking immediately
-   - Customer confirms time after availability shown (e.g., "3.30pm please!", "Confirm 19:00") → Use create_booking
-
-4. Cancellation
-   - Customer wants to cancel → Check UPCOMING BOOKINGS in context, then respond about cancellation
-
-5. Package Questions
-   - Customer asks "how many hours left?" or "package balance" → Use lookup_customer function
-
-WHEN YOU LACK REAL-TIME DATA:
-- For availability inquiries: Suggest the staff member will check availability
-- For customer records: Acknowledge that information will be verified
-- Never claim to have access to live booking systems or customer databases
-
-RESPONSE STYLE:
-- Write as if the staff member is speaking to the customer
-- Use "I" to refer to the staff member (e.g., "I'll check availability for you")
-- Be concise, warm, and helpful
-- Never mention this is an AI suggestion
-- Focus on gathering necessary information from the customer
-
-INTERNAL NOTES:
-When you lack essential data (availability, customer history, etc.), end your response with:
-[INTERNAL NOTE: Requires verification of [specific item needed]]
-
-USING CUSTOMER CONTEXT FOR BETTER RESPONSES:
-
-When you see CUSTOMER INFORMATION above:
-
-1. UPCOMING BOOKINGS section:
-   - If customer says "cancel Wednesday" or "cancel my booking" → Check UPCOMING BOOKINGS first
-   - If the booking is already shown there, you can cancel it directly (no lookup_booking needed!)
-   - If booking shows "COACHING with [Name]" → This is a coaching session
-   - Only use lookup_booking if the customer references a specific time/date that is NOT in UPCOMING BOOKINGS
-
-2. RECENT BOOKINGS section:
-   - Look for patterns: If most recent bookings show "COACHING with [Name]" → Customer regularly books coaching
-   - If customer asks "available?" without specifying and has coaching pattern → Likely wants coaching availability
-   - Use coach names from recent bookings if customer doesn&apos;t specify (e.g., "same coach as last time")
-   - If no coaching history and no coach mentioned → Regular bay booking
-
-3. ACTIVE PACKAGES section:
-   - Customer has remaining hours → Can use for bookings
-   - Mention remaining hours when relevant ("You have 5 hours remaining")
-   - If expiring soon → Gently remind them
-
-COACHING vs REGULAR BOOKING SIGNALS:
-- Recent bookings show "COACHING" → Default to coaching for new availability requests
-- Customer mentions coach name (Min, Tan, Kru Min) → Use get_coaching_availability
-- No coaching history + no coach mention → Use check_bay_availability for regular bays
-
-CRITICAL: WHEN CALLING create_booking FUNCTION:
-
-🚨 **PHONE NUMBER IS MANDATORY - NEVER CREATE BOOKING WITHOUT IT!** 🚨
-
-1. **ALWAYS check the CUSTOMER INFORMATION section at the top of this prompt first**
-
-2. **Check if BOTH name AND phone are available:**
-   - Look for "Name: [actual name]" AND "Phone: [actual phone number]"
-   - Phone must be a real number (not "Not provided", not empty)
-   - If EITHER is missing → DO NOT call create_booking yet!
-
-3. If you see "✅ CUSTOMER INFO AVAILABLE" or "✅ EXISTING CUSTOMER" **AND both name AND phone are present**:
-   → Customer name and phone are already in the system
-   → USE the exact name and phone from the CUSTOMER INFORMATION section
-   → Example: If it shows "Name: Haruka Yamasaki" and "Phone: 0868461111"
-            → Pass these EXACT values to create_booking function
-   → DO NOT ask for name/phone again - just create the booking!
-
-4. If you see "⚠️ NEW CUSTOMER" **OR if phone number is missing/empty**:
-   → Customer info is INCOMPLETE - you need to collect it first
-   → DO NOT call create_booking yet
-   → Instead, respond asking for missing information AND explain it's needed to complete the booking:
-     Thai (both missing): "ขอชื่อและเบอร์โทรศัพท์เพื่อจองให้ค่ะ 🙏"
-     Thai (only phone missing): "ขอเบอร์โทรศัพท์เพื่อจองให้ค่ะ"
-     English (both missing): "To complete your booking, may I have your name and phone number please?"
-     English (only phone missing): "To complete your booking, may I have your phone number please?"
-   → After customer provides info, THEN call create_booking
-
-5. **VALIDATION CHECK before calling create_booking:**
-   - Name: Must be a real name (not "Unknown", not empty)
-   - Phone: Must be a real phone number (not "Not provided", not empty, not "")
-   - If either check fails → ASK for the missing info instead of calling function
-
-This prevents booking errors and ensures we can contact customers!
-
-CONVERSATION FLOW AWARENESS:
-
-When responding, consider what just happened in the conversation:
-
-1. If availability was just shown:
-   - Staff said "ว่าง" / "available" in previous message
-   - Customer now confirms time ("OK", "Yes", "จอง", specific time like "15:00")
-   → Proceed to BOOKING, don&apos;t re-check availability
-
-2. If customer says "Thank you" / "ขอบคุณ" / "Thank you and sorry":
-   - Check what action just happened (cancellation, booking, information provided)
-   - Check conversation history for context
-   - DON&apos;T just say "You&apos;re welcome" - provide value!
-
-   Examples of GOOD responses after gratitude:
-   - After cancellation → Offer future availability: "หากต้องการจองคลาสล่วงหน้า สามารถแจ้งได้เลยนะคะ [show availability]"
-   - After rescheduling → Confirm details: "See you at [time]! Bay 1 will be available from 18:00"
-   - After providing info → Ask if they need anything else: "Is there anything else I can help with?"
-
-   BAD responses (don&apos;t do this):
-   - Just "You&apos;re welcome!" (too generic)
-   - Just "ยินดีค่ะ" without context
-   - "What can I help you with?" when you should continue the current flow
-
-3. If customer explicitly says "book" / "จอง" / "reserve":
-   - This is STRONG booking intent
-   - Don&apos;t just check availability - proceed to collect info and create booking
-   - If info missing → Ask for it
-   - If info exists → Create booking
-
----
-
-## 📚 BEHAVIOR EXAMPLES - HOW TO RESPOND IN DIFFERENT SCENARIOS
-
-### Example 1: Booking Request with Customer Info Available
-**Scenario**: Customer says "I want to book at 14:00" and customer info is in system
-**Customer Info**: ✅ CUSTOMER INFO AVAILABLE - Name: John Smith, Phone: 0812345678
-**Previous Message**: Staff said "Yes, we have availability"
-
-**CORRECT Response**:
-✅ Call create_booking function with:
-- customer_name: "John Smith"
-- phone_number: "0812345678"
-- date: today
-- start_time: "14:00"
-- duration: 1 (default)
-- bay_type: "social" (default)
-
-**WRONG Response**:
-❌ "Sure! May I have your name and phone number?" (info already available!)
-❌ "Let me check availability first" (already checked!)
-
----
-
-### Example 1B: Booking Request with INCOMPLETE Customer Info
-**Scenario**: Customer says "2 hours please" (confirming booking)
-**Customer Info**: Name: Jamie, Phone: Not provided (INCOMPLETE!)
-**Previous Message**: Staff asked "how long would you like to book for?"
-
-**CORRECT Response**:
-✅ Text response: "Great! To complete your booking, may I have your phone number please?"
-✅ Explains WHY phone is needed (to complete booking)
-✅ DO NOT call create_booking yet - phone is missing!
-
-**WRONG Response**:
-❌ Call create_booking with phone_number: "" (NEVER do this!)
-❌ "May I have your phone number?" without explaining why (not clear to customer)
-❌ Call create_booking without checking if phone exists first
-
----
-
-### Example 2: Availability Question (No Booking Intent Yet)
-**Scenario**: Customer asks "Do you have availability at 3pm?"
-**Customer Info**: Any status
-
-**CORRECT Response**:
-✅ Call check_bay_availability function with:
-- date: today
-- start_time: "15:00"
-- duration: 1
-
-**WRONG Response**:
-❌ Call create_booking (customer only asked about availability, not booking yet)
-❌ "Yes we're available" without checking (must use function to check real data)
-
----
-
-### Example 3: General Question (No Function Needed)
-**Scenario**: Customer asks "Do you have rental clubs?"
-
-**CORRECT Response**:
-✅ Text response only: "Yes, we have rental clubs available for free!"
-
-**WRONG Response**:
-❌ Call any function (no function needed for general info)
-
----
-
-### Example 4: New Customer Booking
-**Scenario**: Customer says "I want to book 2pm for 2 hours"
-**Customer Info**: ⚠️ NEW CUSTOMER (not in database yet)
-
-**CORRECT Response**:
-✅ Text response: "Sure! To complete your booking, may I have your name and phone number please?"
-✅ Explains WHY info is needed (to complete booking) - clearer to customer
-
-**WRONG Response**:
-❌ Call create_booking without customer info (will fail)
-❌ "May I have your name and phone number?" without explaining why
-❌ "Let me check availability" (they already want to book, get info first)
-
----
-
-### Example 5: Gratitude After Booking
-**Scenario**: Customer says "Thank you"
-**Previous Message**: Staff confirmed a booking
-
-**CORRECT Response**:
-✅ Text response: "You're welcome! See you at [time] ⛳"
-
-**WRONG Response**:
-❌ Call any function
-❌ "Is there anything else I can help with?" (too formal, conversation is ending)
-
----
-
-## 🚫 CRITICAL - WHEN NOT TO CALL FUNCTIONS
-
-**IMPORTANT**: These scenarios require conversational responses only (NO FUNCTION calls):
-
-1. **Gratitude/Thanks** → NO FUNCTION
-   - Keywords: "Thank you", "Thanks", "ขอบคุณ", "Thank you and sorry", "ขอบคุณครับ", "ขอบคุณค่ะ"
-   - Just respond: "You're welcome!", "ยินดีค่ะ", "See you soon!"
-   - DO NOT call check_bay_availability or any other function
-
-2. **Arrival Time Statements** → NO FUNCTION
-   - Keywords: "I'll arrive at", "ไปถึง", "Getting there around", "Expect me at", "We'll be there at"
-   - Just acknowledge: "Got it, see you at [time]!", "ได้ค่ะ รอคุณนะคะ"
-   - DO NOT call create_booking (this is arrival time, NOT booking time)
-
-3. **Past Action Statements** → NO FUNCTION (unless asking to lookup/modify)
-   - Keywords: "I already booked", "ตอนแรกจอง", "I booked yesterday", "จองไว้แล้ว"
-   - Just acknowledge: "Yes, I see your booking!", "ใช่ค่ะ เจอกันตามเวลานะคะ"
-   - DO NOT call create_booking (they ALREADY booked)
-
-4. **Hypothetical/Procedural Questions** → NO FUNCTION
-   - Pattern: "If I book X, then Y?", "จอง 2 ชม แล้วตอน...หรอ", "Can I book and then..."
-   - They're asking HOW things work, not requesting actual booking
-   - Just explain the procedure
-   - DO NOT call create_booking
-
-5. **General Facility Questions** → NO FUNCTION
-   - Questions about: equipment, clubs, gloves, parking, location, facilities, how it works
-   - Keywords: "Do you have", "มี...มั๊ย", "มันตี", "What about", "How does"
-   - Just answer with information
-   - DO NOT call check_bay_availability (unless specifically asking about time slots)
-
-6. **Greetings** → NO FUNCTION
-   - Simple: "Hello", "Hi", "สวัสดี", "Hey"
-   - Just greet back
-   - DO NOT call any function
-
-**EXCEPTION - Cancellation Keywords Override Everything**:
-- If message contains "cancel", "ยกเลิก", "ขอยกเลิก" → ALWAYS call cancel_booking
-- Even if also has: greeting, thank you, booking details, politeness
-- Example: "สวัสดีครับรอบ 12:00 ชื่อ Day ยกเลิกนะครับ ขอบคุณ" → USE cancel_booking (don't be fooled by greeting/thank you!)
-
-**Remember**: Cancellation keywords = ACTION required. All other cases: When in doubt, DON'T call a function.
-
----
-
-## 📚 FUNCTION CALLING EXAMPLES (Learn from these)
-
-Study these examples to understand WHEN and WHEN NOT to call functions:
-
-### ✅ Example 1 - Gratitude (NO FUNCTION)
-**Customer**: "Thank you!"
-**Context**: Staff just confirmed a booking
-**AI Action**: NO FUNCTION
-**AI Response**: "You're welcome! See you tomorrow at 14:00 ⛳"
-**❌ WRONG**: Don't call check_bay_availability or create_booking
-
-### ✅ Example 2 - Past Booking Statement (NO FUNCTION)
-**Customer**: "ตอนแรกจองกอล์ฟไว้วันนี้ 13.00 น" (I already booked golf today at 13:00)
-**AI Action**: NO FUNCTION
-**AI Response**: "ใช่ค่ะ เจอกันวันนี้ 13:00 นะคะ" (Yes, see you today at 13:00)
-**❌ WRONG**: Don't call create_booking (they ALREADY booked!)
-
-### ✅ Example 3 - Arrival Time (NO FUNCTION)
-**Customer**: "ไปถึงสัก 18.30 น นะครับ" (I'll arrive around 18:30)
-**AI Action**: NO FUNCTION
-**AI Response**: "ได้ค่ะ รอคุณนะคะ" (Got it, we'll wait for you)
-**❌ WRONG**: Don't call create_booking (18:30 is arrival time, not booking time!)
-
-### ✅ Example 4 - Hypothetical Question (NO FUNCTION)
-**Customer**: "จอง2 ชม แล้วตอนเรียนค่อยไปลงชื่อทีละชมหรอครับ" (If I book 2 hours, do I sign in one hour at a time?)
-**AI Action**: NO FUNCTION
-**AI Response**: "ใช่ค่ะ จองได้ 2 ชม แล้วมาลงชื่อทีละชั่วโมงได้เลยค่ะ" (Yes, you can book 2 hours and sign in hourly)
-**❌ WRONG**: Don't call create_booking (they're asking HOW it works, not actually booking!)
-
-### ✅ Example 5 - Cancellation with Details (USE cancel_booking)
-**Customer**: "สวัสดีครับรอบ 12:00-14:00 ชื่อ Day ยกเลิกนะครับ ขอบคุณครับ" (Hello, 12:00-14:00 slot, name Day, cancel please, thank you)
-**Analysis**: Even though message includes greeting and politeness, the keyword "ยกเลิก" means CANCELLATION REQUEST
-**Step 1**: Check UPCOMING BOOKINGS in context
-  - If Day's 12:00-14:00 booking is there → Use cancel_booking function
-  - If NOT found → Use lookup_booking function first
-**AI Action**: cancel_booking (with booking details: date, time 12:00, customer_name Day)
-**✅ CORRECT**: Call function even if message has other words - "ยกเลิก" = cancellation action
-**❌ WRONG**: Don't just respond "ยกเลิกให้แล้วค่ะ" without calling function!
-
-### ✅ Example 5B - Simple Cancellation (USE cancel_booking)
-**Customer**: "ยกเลิก" (Cancel)
-**AI Action**: cancel_booking
-**✅ CORRECT**: Simple and direct
-
-### ✅ Example 6 - Facility Question (NO FUNCTION)
-**Customer**: "มันตีใส่จอเหมือน bay ทั่วไปไหม" (Does it hit into a screen like regular bays?)
-**AI Action**: NO FUNCTION
-**AI Response**: "ใช่ค่ะ ตีใส่จอเหมือนกันค่ะ" (Yes, you hit into screens)
-**❌ WRONG**: Don't call check_bay_availability (this is about HOW it works, not availability)
-
-### ✅ Example 7 - Actual Booking Request (USE create_booking)
-**Customer**: "ขอจอง AI Bay 10.00-11.00 น." (Book AI Bay 10:00-11:00 please)
-**Context**: Customer info shows ✅ AVAILABLE
-**AI Action**: create_booking
-**Parameters**: date=today, start_time="10:00", duration=1, bay_type="ai"
-**✅ CORRECT**: Customer explicitly requested booking with "ขอจอง"
-
-### ✅ Example 8 - Availability Question (USE check_bay_availability)
-**Customer**: "Tomorrow 2pm available?"
-**AI Action**: check_bay_availability
-**Parameters**: date=tomorrow, start_time="14:00", duration=1
-**✅ CORRECT**: Customer asking about availability, not booking yet
-
-### ✅ Example 8B - General Availability Question (USE check_bay_availability)
-**Customer**: "Do you have any availability for tonight?"
-**AI Action**: check_bay_availability
-**Parameters**: date=today, start_time="", duration=1, bay_type="all"
-**AI Response**: After function returns data, list specific available times from result
-**✅ CORRECT**: ALWAYS call function for availability questions, even if time not specified
-**❌ WRONG**: "Let me check for you" without calling function
-
-### ✅ Example 9 - Casual Cancellation (USE cancel_booking)
-**Customer**: "Bro gotta cancel on Wednesday"
-**Context**: Has Wednesday booking in UPCOMING BOOKINGS
-**AI Action**: cancel_booking
-**✅ CORRECT**: "Cancel on Wednesday" = clear cancellation intent, even if casual
-
----
-
-## 🎯 KEY DECISION RULES
-
-1. **Gratitude, Thanks, Greetings** → NO FUNCTION (conversational only)
-
-2. **Arrival time, Past actions, Hypothetical questions** → NO FUNCTION (conversational only)
-
-3. **Availability Question** → MUST USE check_bay_availability function
-   ⚠️ CRITICAL: ANY question about availability, slots, or free times MUST call the function
-   - Keywords: "available?", "ว่างมั้ย", "do you have slots", "any time?", "free?", "open?"
-   - Phrases: "availability for tonight", "any slots tomorrow", "when are you free"
-   - NEVER respond "Let me check" or "I'll check for you" without calling the function
-   - ALWAYS call check_bay_availability to get real-time data before responding
-   - NOT for: "Do you have gloves?" (facility question, not time availability)
-
-4. **Cancellation Request** → Use cancel_booking
-   - Keywords: "cancel", "ยกเลิก", "can't make it", "won't make it"
-   - Check UPCOMING BOOKINGS first
-
-5. **Booking Intent + Info Available** → Use create_booking
-   - Keywords: "book", "ขอจอง", "reserve", "I want to book" (IMPERATIVE mood)
-   - NOT for: "I already booked" (past tense), "If I book..." (hypothetical)
-
-6. **Booking Intent + Info Missing** → Ask for info first (NO FUNCTION yet)
-
-7. **General Questions** → Text response only (NO FUNCTION)
-   - Pricing, location, facilities, equipment, how things work
-`;
+// Legacy monolithic prompt removed — now using skills-based architecture (src/lib/ai/skills/)
+// The old ~460-line prompt has been replaced by modular skill files:
+// - core-skill.ts: base persona, Thai style, safety rules
+// - booking-skill.ts: booking/availability/cancellation
+// - pricing-skill.ts: pricing, packages, promotions
+// - coaching-skill.ts: coaching availability and rates
+// - facility-skill.ts: hours, location, equipment
+// - general-skill.ts: greetings, thanks, arrival
 
 // Generate system prompt with context
 function generateContextualPrompt(
@@ -602,23 +186,44 @@ function generateContextualPrompt(
   conversationContext: ConversationContext,
   customerContext?: CustomerContext,
   similarMessages: SimilarMessage[] = [],
-  template?: any
+  template?: any,
+  businessContext?: BusinessContext,
+  intent?: string,
+  faqMatches: FAQMatch[] = []
 ): string {
   // Get current date and time in Thailand timezone
   const thailandTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
   const todayDate = thailandTime.toISOString().split('T')[0]; // YYYY-MM-DD
+  const todayDayOfWeek = thailandTime.toLocaleDateString('en-US', { weekday: 'long' });
   const currentTime = thailandTime.toTimeString().slice(0, 5); // HH:MM
 
   // Calculate tomorrow's date
   const tomorrowTime = new Date(thailandTime);
   tomorrowTime.setDate(tomorrowTime.getDate() + 1);
   const tomorrowDate = tomorrowTime.toISOString().split('T')[0]; // YYYY-MM-DD
+  const tomorrowDayOfWeek = tomorrowTime.toLocaleDateString('en-US', { weekday: 'long' });
 
-  // Replace date/time placeholders in system prompt
-  let contextPrompt = LENGOLF_SYSTEM_PROMPT
-    .replace('{TODAY_DATE}', todayDate)
-    .replace('{TOMORROW_DATE}', tomorrowDate)
-    .replace('{CURRENT_TIME}', currentTime) + '\n\n';
+  // Detect customer language from current message
+  const customerLang = /[\u0E00-\u0E7F]/.test(customerMessage) ? 'th' : 'en';
+  const messageLanguage: 'thai' | 'english' = customerLang === 'th' ? 'thai' : 'english';
+
+  // Use skills-based prompt: select skills for detected intent and compose
+  // Language-aware: only includes Thai rules for Thai messages, English rules for English
+  const detectedIntent = intent || detectMessageIntent(customerMessage);
+  const skills = getSkillsForIntent(detectedIntent);
+  const skillsPrompt = composeSkillPromptForLanguage(skills, messageLanguage);
+
+  // Replace date/time placeholders in the composed skills prompt
+  let contextPrompt = skillsPrompt
+    .replace(/{TODAY_DATE}/g, todayDate)
+    .replace(/{TODAY_DAY_OF_WEEK}/g, todayDayOfWeek)
+    .replace(/{TOMORROW_DATE}/g, tomorrowDate)
+    .replace(/{TOMORROW_DAY_OF_WEEK}/g, tomorrowDayOfWeek)
+    .replace(/{CURRENT_TIME}/g, currentTime) + '\n\n';
+  const skillExamples = getSkillExamples(skills, customerLang);
+  if (skillExamples) {
+    contextPrompt += skillExamples + '\n';
+  }
 
   // Add customer context
   if (customerContext) {
@@ -697,6 +302,45 @@ ${customerLabel}- Name: ${customerContext.name || 'Unknown'}
     }
   }
 
+  // Add dynamic business context from database
+  // NOTE: Static pricing/coaching/facility data is already in the skill prompts.
+  // Only inject DYNAMIC data here: active promotions, operating hours from DB.
+  if (businessContext) {
+    const msgLower = customerMessage.toLowerCase();
+    const isPricingQuestion = /ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า|โปร|promotion|discount|ส่วนลด|deal|special|package|แพ็ค/i.test(msgLower);
+    const isFacilityQuestion = /เปิด|ปิด|open|close|hour|เวลา|time|อุปกรณ์|equipment|club|ไม้กอล์ฟ|rental|ยืม/i.test(msgLower);
+
+    // Operating hours from DB (facility questions only)
+    if (isFacilityQuestion && businessContext.operatingHours) {
+      contextPrompt += `OPERATING HOURS (from database):\n`;
+      contextPrompt += `- Daily: ${businessContext.operatingHours.daily}\n`;
+      contextPrompt += `- ${businessContext.operatingHours.note}\n\n`;
+    }
+
+    // Active promotions from DB (pricing/promo questions only)
+    // IMPORTANT: Describe naturally, not as a data dump. The AI should rephrase, not copy verbatim.
+    if (isPricingQuestion && businessContext.promotions && businessContext.promotions.length > 0) {
+      contextPrompt += `ACTIVE PROMOTIONS (from database, rephrase naturally, do NOT copy verbatim):\n`;
+      businessContext.promotions.forEach((promo, i) => {
+        contextPrompt += `${i + 1}. ${promo.title_en}`;
+        if (promo.badge_en) contextPrompt += ` [${promo.badge_en}]`;
+        contextPrompt += `: ${promo.description_en}`;
+        if (promo.valid_until) contextPrompt += ` (until ${new Date(promo.valid_until).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })})`;
+        contextPrompt += '\n';
+      });
+      contextPrompt += '\n';
+    }
+  }
+
+  // Add FAQ knowledge base matches (placed before similar conversations — higher priority)
+  if (faqMatches.length > 0) {
+    contextPrompt += `FAQ KNOWLEDGE BASE (use these answers when relevant):\n`;
+    faqMatches.forEach((faq, i) => {
+      contextPrompt += `${i + 1}. Q: ${faq.question}\n   A: ${faq.answer}\n`;
+    });
+    contextPrompt += '\n';
+  }
+
   // NOTE: Conversation history is now added as proper message objects in the messages array
   // (removed from system prompt to enable better parameter extraction for function calling)
 
@@ -723,28 +367,9 @@ Content: ${template.content}
 `;
   }
 
-  // Detect customer's language from their message
-  const hasThaiCharacters = /[\u0E00-\u0E7F]/.test(customerMessage);
-  const customerLanguage = hasThaiCharacters ? 'thai' : 'english';
-
   contextPrompt += `CURRENT CUSTOMER MESSAGE: "${customerMessage}"
 
-IMPORTANT: The customer wrote in ${customerLanguage.toUpperCase()}. You MUST respond in the SAME language.
-
-${customerLanguage === 'thai' ? `
-When responding in Thai, you must:
-- Use feminine speech patterns with "ค่ะ" endings
-- Sound natural and conversational like a real Thai woman
-- Include appropriate Thai particles and warm expressions
-- Avoid robotic or AI-like language
-- Make it feel personal and friendly
-` : `
-When responding in English:
-- Use natural, professional English
-- Be warm and friendly but professional
-- Keep the tone conversational and helpful
-- No need for Thai honorifics or particles
-`}
+IMPORTANT: The customer wrote in ${messageLanguage.toUpperCase()}. You MUST respond in the SAME language.
 Keep the response concise, actionable, and match the customer's language exactly.`;
 
   return contextPrompt;
@@ -782,16 +407,54 @@ async function findMatchingTemplate(customerMessage: string, intent: string): Pr
   }
 }
 
-// Detect intent from customer message
-function detectMessageIntent(message: string): string {
+// Detect intent from customer message (expanded for skill routing)
+// Optionally uses recent conversation history for contextual follow-ups
+function detectMessageIntent(message: string, recentMessages?: Array<{ content: string; senderType?: string }>): string {
   const text = message.toLowerCase();
 
+  // Cancellation keywords override everything
+  if (text.match(/cancel|ยกเลิก|ขอยกเลิก/)) return 'cancellation';
+
+  // Booking and availability
   if (text.match(/จอง|book|reservation|reserve/)) return 'booking_request';
-  if (text.match(/available|ว่าง|มี.*ว่าง/)) return 'availability_check';
-  if (text.match(/cancel|ยกเลิก/)) return 'cancellation';
-  if (text.match(/change|เปลี่ยน|เลื่อน/)) return 'modification_request';
-  if (text.match(/arrived|ถึงแล้ว|มาถึง/)) return 'arrival_notification';
-  if (text.match(/hello|hi|สวัสดี/)) return 'greeting';
+  if (text.match(/available|ว่าง|มี.*ว่าง|slot|free\?|open\?/)) return 'availability_check';
+  if (text.match(/change|เปลี่ยน|เลื่อน|reschedule/)) return 'modification_request';
+
+  // Coaching
+  if (text.match(/coach|โค้ช|โปร(?!โม)|เรียน|lesson|สอน|คลาส|class/)) return 'coaching_inquiry';
+
+  // Pricing & promotions
+  if (text.match(/ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า/)) return 'pricing_inquiry';
+  if (text.match(/โปรโม|promotion|discount|ส่วนลด|deal|special|แพ็ค|package/)) return 'promotion_inquiry';
+
+  // Payment
+  if (text.match(/จ่าย|pay|payment|โอน|transfer|QR|บัตร|card/)) return 'payment_inquiry';
+
+  // Equipment & facility
+  if (text.match(/อุปกรณ์|equipment|club|ไม้กอล์ฟ|rental|ยืม|glove|ถุงมือ/)) return 'equipment_inquiry';
+  if (text.match(/เปิด|ปิด|open|close|hour|เวลา|time|bay|เบย์|simulator|ห้อง/)) return 'facility_inquiry';
+  if (text.match(/photo|picture|รูป|ภาพ|venue|สถานที่/)) return 'facility_inquiry';
+  if (text.match(/ที่ไหน|where|location|แผนที่|map|parking|จอดรถ/)) return 'location_inquiry';
+
+  // Arrival
+  if (text.match(/arrived|ถึงแล้ว|มาถึง|ไปถึง/)) return 'arrival_notification';
+
+  // Greeting
+  if (text.match(/hello|hi|สวัสดี|หวัดดี/)) return 'greeting';
+
+  // Context-aware follow-ups: date/time references that depend on conversation history
+  // e.g. "What about tomorrow?", "How about Saturday?", "And 3pm?"
+  const hasDateReference = text.match(/tomorrow|today|tonight|พรุ่งนี้|วันนี้|คืนนี้|เย็นนี้|saturday|sunday|monday|tuesday|wednesday|thursday|friday|เสาร์|อาทิตย์|จันทร์|อังคาร|พุธ|พฤหัส|ศุกร์|what about|how about|แล้ว.*ล่ะ|\d{1,2}(pm|am|:00|:30|โมง|ทุ่ม)/);
+  if (hasDateReference && recentMessages && recentMessages.length > 0) {
+    // Check if recent conversation was about availability/booking
+    const recentContent = recentMessages.slice(-6).map(m => m.content).join(' ').toLowerCase();
+    if (recentContent.match(/available|ว่าง|bay|book|จอง|slot|fully booked|เต็ม|no bays/)) {
+      return 'availability_check';
+    }
+    if (recentContent.match(/coach|โค้ช|lesson|เรียน|สอน/)) {
+      return 'coaching_inquiry';
+    }
+  }
 
   return 'general_inquiry';
 }
@@ -831,7 +494,7 @@ function formatFunctionResult(functionName: string, result: FunctionResult, cust
               return `AI bay ว่างค่ะ ${startTime}`;
             }
           } else {
-            return `${startTime} เต็มแล้วค่ะ หาเวลาอื่นให้นะคะ`;
+            return `${startTime} เต็มแล้วค่ะ สนใจเปลี่ยนเวลาหรือวันอื่นมั้ยคะ`;
           }
         } else {
           // General availability
@@ -842,7 +505,7 @@ function formatFunctionResult(functionName: string, result: FunctionResult, cust
           } else if (aiAvailable) {
             return `AI bay ว่างค่ะ`;
           } else {
-            return `วันนี้เต็มแล้วค่ะ`;
+            return `วันนี้เต็มแล้วค่ะ สนใจดูวันอื่นมั้ยคะ`;
           }
         }
       } else {
@@ -862,7 +525,7 @@ function formatFunctionResult(functionName: string, result: FunctionResult, cust
               return `AI bay available at ${startTime}`;
             }
           } else {
-            return `Sorry, ${startTime} is fully booked. Let me find alternative times.`;
+            return `Sorry, ${startTime} is fully booked. Would you like to try a different time or another day?`;
           }
         } else {
           // General availability
@@ -873,7 +536,7 @@ function formatFunctionResult(functionName: string, result: FunctionResult, cust
           } else if (aiAvailable) {
             return `AI bay available on ${date}`;
           } else {
-            return `Sorry, all bays are fully booked on ${date}`;
+            return `Sorry, all bays are fully booked on ${date}. Would you like to check another day?`;
           }
         }
       }
@@ -886,7 +549,7 @@ function formatFunctionResult(functionName: string, result: FunctionResult, cust
 
       if (isThaiMessage) {
         if (!hasAvailability || coaches.length === 0) {
-          return `วันนี้โปรไม่ว่างค่ะ`;
+          return `วันนี้โปรไม่ว่างค่ะ สนใจดูวันอื่นมั้ยคะ`;
         }
         const availableCoaches = coaches.filter((c: any) => c.is_available);
         if (availableCoaches.length === 1) {
@@ -897,7 +560,7 @@ function formatFunctionResult(functionName: string, result: FunctionResult, cust
         }
       } else {
         if (!hasAvailability || coaches.length === 0) {
-          return `Sorry, no coaches available on ${data.date}`;
+          return `Sorry, no coaches available on ${data.date}. Would you like to check another day?`;
         }
         const availableCoaches = coaches.filter((c: any) => c.is_available);
         if (availableCoaches.length === 1) {
@@ -914,7 +577,7 @@ function formatFunctionResult(functionName: string, result: FunctionResult, cust
       return result.approvalMessage || 'Booking request ready for review';
 
     default:
-      return 'I&apos;ve processed your request. Let me help you further.';
+      return "I've processed your request. Let me help you further.";
   }
 }
 
@@ -923,32 +586,58 @@ function calculateConfidenceScore(
   similarMessages: SimilarMessage[],
   hasTemplate: boolean,
   hasCustomerContext: boolean,
-  responseLength: number
+  responseLength: number,
+  intent?: string,
+  functionCalled?: string | null,
+  functionSuccess?: boolean
 ): number {
-  let confidence = 0.5; // Base confidence
+  let confidence = 0.4; // Lower base — earn confidence through signals
 
-  // Boost confidence based on similar messages
+  // Boost confidence based on similar messages (up to +0.2)
   if (similarMessages.length > 0) {
     const avgSimilarity = similarMessages.reduce((sum, msg) => sum + msg.similarityScore, 0) / similarMessages.length;
-    confidence += avgSimilarity * 0.3;
+    confidence += avgSimilarity * 0.2;
+    // Extra boost for multiple high-quality matches
+    if (similarMessages.length >= 2 && avgSimilarity > 0.7) {
+      confidence += 0.05;
+    }
   }
 
-  // Boost if we have a matching template
+  // Boost if we have a matching template (+0.15)
   if (hasTemplate) {
     confidence += 0.15;
   }
 
-  // Boost if we have customer context
+  // Boost if we have customer context (+0.1)
   if (hasCustomerContext) {
     confidence += 0.1;
   }
 
-  // Slight boost for reasonable response length
+  // Boost for reasonable response length (+0.05)
   if (responseLength > 20 && responseLength < 300) {
     confidence += 0.05;
   }
 
-  return Math.min(confidence, 0.95); // Cap at 95%
+  // Intent-based confidence adjustments
+  // Simple factual intents are higher confidence than complex ones
+  const highConfidenceIntents = ['greeting', 'location_inquiry', 'facility_inquiry', 'pricing_inquiry'];
+  const lowConfidenceIntents = ['general_inquiry', 'modification_request'];
+  if (intent && highConfidenceIntents.includes(intent)) {
+    confidence += 0.1;
+  } else if (intent && lowConfidenceIntents.includes(intent)) {
+    confidence -= 0.05;
+  }
+
+  // Function call results boost/penalize confidence
+  if (functionCalled) {
+    if (functionSuccess) {
+      confidence += 0.1; // Successfully got real data
+    } else {
+      confidence -= 0.1; // Function failed, response may be less accurate
+    }
+  }
+
+  return Math.max(0.2, Math.min(confidence, 0.95)); // Floor at 20%, cap at 95%
 }
 
 // Store AI suggestion in database
@@ -995,7 +684,13 @@ async function storeSuggestion(
         similar_messages_count: suggestion.similarMessagesUsed.length,
         template_matched_id: suggestion.templateUsed?.id || null,
         context_used: {
-          customer: params.customerContext,
+          customer: params.customerContext ? {
+            id: params.customerContext.id,
+            name: params.customerContext.name,
+            language: params.customerContext.language,
+            totalVisits: params.customerContext.totalVisits,
+            activePackages: params.customerContext.activePackages,
+          } : undefined,
           similarMessages: suggestion.similarMessagesUsed.map(m => ({
             content: m.content,
             score: m.similarityScore
@@ -1034,17 +729,42 @@ export async function generateAISuggestion(params: GenerateSuggestionParams): Pr
       0.7 // Similarity threshold
     );
 
-    // 3. Detect intent and find matching template
-    const intent = detectMessageIntent(params.customerMessage);
+    // 3. Classify intent using two-tier approach (regex fast-path + LLM classifier)
+    const classification = await classifyIntent(params.customerMessage, params.conversationContext?.recentMessages);
+    const intent = classification.intent;
     const matchingTemplate = await findMatchingTemplate(params.customerMessage, intent);
 
-    // 4. Generate contextual prompt
+    // 3.1 For greeting-only messages, clear similar messages to prevent context contamination
+    // Embedding search on "hello" returns random past conversations that cause the AI to
+    // fabricate intent (e.g., confirming nonexistent bookings, asking about job applications)
+    if (intent === 'greeting') {
+      similarMessages.length = 0;
+    }
+
+    // 3.5 Find relevant FAQ entries (intent-aware hybrid search)
+    const faqMatches = await findRelevantFAQs(
+      messageEmbedding,
+      params.customerMessage,
+      intent,
+      3, // max results
+      0.5 // lower threshold for FAQ
+    );
+
+    // Track FAQ usage (fire-and-forget)
+    if (faqMatches.length > 0) {
+      trackFAQUsage(faqMatches.map(f => f.id)).catch(() => {});
+    }
+
+    // 4. Generate contextual prompt (uses skills-based architecture)
     const contextualPrompt = generateContextualPrompt(
       params.customerMessage,
       params.conversationContext,
       params.customerContext,
       similarMessages,
-      matchingTemplate
+      matchingTemplate,
+      params.businessContext,
+      intent,
+      faqMatches
     );
 
     // 5. Detect language from CURRENT message only (not customer profile)
@@ -1063,14 +783,17 @@ THAI FIRST MESSAGE INSTRUCTION: This is the FIRST message in a new conversation.
 
 Structure your response as:
 1. Start with "สวัสดีค่า" or "สวัสดีค่ะ"
-2. Then answer their question briefly (total response: 6-10 words maximum)
+2. If they asked a specific question, answer it briefly (total response: 6-10 words maximum)
+3. If they ONLY said a greeting with no question, respond with ONLY "สวัสดีค่า" and STOP. Do NOT add anything else.
 
 Examples:
 - If they ask about left-handed support: "สวัสดีค่ะ ได้เลยค่ะ รองรับค่ะ"
-- If they ask about availability: "สวัสดีค่ะ หาให้นะคะ"
-- If they just greet: "สวัสดีค่า"
+- If they ask about pricing: "สวัสดีค่ะ ราคา 700 บาทต่อชั่วโมงค่ะ"
+- If they ONLY greet (สวัสดี/สวัสดีค่ะ/สวัสดีครับ): "สวัสดีค่า" — nothing more
 
-CRITICAL: NEVER skip the greeting on the first message of a new session.`;
+CRITICAL:
+- NEVER skip the greeting on the first message of a new session.
+- NEVER fabricate context. If the customer only says hello, respond with ONLY a hello back. Do NOT assume what they want, do NOT confirm bookings, do NOT offer to search for anything.`;
     } else if (isThaiMessage) {
       userContent = `Customer message: "${params.customerMessage}"
 
@@ -1097,7 +820,8 @@ The customer is writing in ENGLISH. You MUST respond in ENGLISH ONLY.
 - DO NOT mix languages
 - Match the customer's language exactly
 
-Write naturally in English, be friendly and professional.`;
+Write naturally in English, be friendly and professional. Keep responses to 1 to 2 sentences.
+If the customer ONLY says a greeting (hello, hi, good day) with no question, respond with ONLY a short greeting like "Hello! How can I help?" and nothing more. Do NOT assume or predict what they want.`;
     }
 
     // 6. Add debug reasoning in dry run mode - DISABLED
@@ -1183,11 +907,11 @@ IMPORTANT:
 - If customer already received staff response today, skip the greeting
 
 `;
-    } else if (hasGreetedToday) {
-      // Explicitly tell AI NOT to greet again
+    } else if (hasGreetedToday || hasAssistantMessageToday) {
+      // Explicitly tell AI NOT to greet again — either we already greeted, or we've already been talking
       finalContextPrompt += `\n⚠️ DO NOT GREET AGAIN:
-Staff has already greeted the customer today. Do NOT start with "Hello", "Hi", "สวัสดี", or any greeting.
-Just answer the customer's question directly.
+Staff has already responded in this conversation today. Do NOT start with "Hello", "Hi", "Good morning", "สวัสดี", or any greeting.
+Just answer the customer's question directly. Skip any greeting prefix.
 
 `;
     }
@@ -1221,10 +945,10 @@ Just answer the customer's question directly.
     // Add current user message
     messages.push({ role: 'user', content: userContent });
 
-    // Let the model decide when to use tools naturally
-    // With simplified function descriptions and strict mode enabled, the model should
-    // be able to determine the appropriate action without forcing tool use
-    const toolChoice = 'auto';
+    // Only send tools relevant to the detected intent
+    // e.g., promotion_inquiry gets NO tools, booking_request gets check_bay + create_booking
+    const intentTools = getToolsForIntent(intent);
+    const toolChoice = intentTools.length > 0 ? 'auto' : undefined;
 
     let suggestedResponse = '';
     let functionCalled: string | undefined;
@@ -1246,17 +970,33 @@ Just answer the customer's question directly.
     // Use override model if provided, otherwise use default
     const modelToUse = params.overrideModel || AI_CONFIG.model;
 
+    // Newer models (gpt-5-*, o1-*, o3-*) require max_completion_tokens instead of max_tokens
+    const usesCompletionTokens = /^(gpt-5|o1|o3)/i.test(modelToUse);
+
     while (currentIteration < maxIterations) {
       currentIteration++;
 
+      // Build model-specific parameters
+      // Reasoning models (gpt-5-*, o1-*, o3-*) use max_completion_tokens, don't support custom temperature,
+      // and need a larger token budget because reasoning tokens count against the limit
+      const modelSpecificParams = usesCompletionTokens
+        ? {
+            max_completion_tokens: 1500,    // ~1000 reasoning + ~500 output
+            reasoning_effort: 'low' as const, // Reduce reasoning overhead for simple chat replies
+          }
+        : { max_tokens: AI_CONFIG.maxTokens, temperature: AI_CONFIG.temperature };
+
       // Capture the EXACT request being sent to OpenAI (in dry run mode)
+      // Only include tools/tool_choice if there are relevant tools for this intent
+      const toolParams = intentTools.length > 0
+        ? { tools: intentTools, tool_choice: toolChoice }
+        : {};
+
       const requestPayload = {
         model: modelToUse,
         messages: messages,
-        max_tokens: AI_CONFIG.maxTokens,
-        temperature: AI_CONFIG.temperature,
-        tools: getOpenAITools(),
-        tool_choice: toolChoice
+        ...modelSpecificParams,
+        ...toolParams
       };
 
       if (params.dryRun) {
@@ -1274,11 +1014,9 @@ Just answer the customer's question directly.
       const completion = await openai.chat.completions.create({
         model: modelToUse,
         messages: messages,
-        max_tokens: AI_CONFIG.maxTokens,
-        temperature: AI_CONFIG.temperature,
-        tools: getOpenAITools(),
-        tool_choice: toolChoice, // 'auto' by default
-      });
+        ...modelSpecificParams,
+        ...toolParams,
+      } as any);
 
       // Capture the EXACT response from OpenAI (in dry run mode)
       if (params.dryRun) {
@@ -1309,7 +1047,18 @@ Just answer the customer's question directly.
           // Type guard for function tool calls
           if (toolCall.type === 'function' && 'function' in toolCall) {
             const functionName = toolCall.function.name;
-            const functionArgs = JSON.parse(toolCall.function.arguments);
+            let functionArgs;
+            try {
+              functionArgs = JSON.parse(toolCall.function.arguments);
+            } catch (parseError) {
+              console.error(`Failed to parse function arguments for ${toolCall.function.name}:`, toolCall.function.arguments);
+              messages.push({
+                role: 'tool' as const,
+                content: JSON.stringify({ error: 'Invalid function arguments' }),
+                tool_call_id: toolCall.id
+              });
+              continue;
+            }
 
             console.log(`  → Executing: ${functionName}`, functionArgs);
             functionCallHistory.push(functionName);
@@ -1324,12 +1073,26 @@ Just answer the customer's question directly.
             functionCalled = functionName;
             functionResult = result;
 
-            // Check if function requires approval - if so, stop here
+            // Check if function requires approval - if so, generate a customer-facing message
             if (result.requiresApproval) {
               requiresApproval = true;
               approvalMessage = result.approvalMessage;
-              suggestedResponse = result.approvalMessage ||
-                `Please review the ${functionName} request and approve if correct.`;
+
+              // Generate a natural customer-facing message instead of exposing internal action text
+              // The approvalMessage is for staff review; the suggestedResponse is what staff sends to customer
+              const customerFacingMessages: Record<string, string> = {
+                'cancel_booking': isThaiMessage
+                  ? 'ยกเลิกให้เรียบร้อยค่ะ'
+                  : 'Done, I\'ve cancelled that for you.',
+                'create_booking': isThaiMessage
+                  ? 'จองให้เรียบร้อยค่ะ'
+                  : 'Your booking is confirmed!',
+                'modify_booking': isThaiMessage
+                  ? 'แก้ไขให้เรียบร้อยค่ะ'
+                  : 'Done, I\'ve updated your booking.',
+              };
+              suggestedResponse = customerFacingMessages[functionName] ||
+                (isThaiMessage ? 'เรียบร้อยค่ะ' : 'Done!');
 
               // Break out of function execution loop
               break;
@@ -1378,12 +1141,62 @@ Just answer the customer's question directly.
       throw new Error('No response generated from OpenAI');
     }
 
+    // Strip internal tags from customer-facing response
+    // [INTERNAL NOTE: ...] and [NEEDS MANAGEMENT: ...] are for staff/admin review only
+    // Extract them before removing so they can be stored separately
+    const managementMatch = suggestedResponse.match(/\[NEEDS MANAGEMENT:[^\]]*\]/g);
+    let managementNote = managementMatch ? managementMatch.join(' ') : null;
+    suggestedResponse = suggestedResponse
+      .replace(/\s*\[INTERNAL NOTE:[^\]]*\]\s*/g, '')
+      .replace(/\s*\[NEEDS MANAGEMENT:[^\]]*\]\s*/g, '')
+      .trim();
+
+    // Deterministic management escalation for high-risk topics
+    // The LLM sometimes forgets the [NEEDS MANAGEMENT] tag, especially with brevity rules.
+    // Detect patterns in the customer message + recent history and flag regardless of LLM output.
+    if (!managementNote) {
+      // Check current message AND recent customer messages for context
+      const recentCustomerMsgs = (params.conversationContext?.recentMessages || [])
+        .filter(m => m.senderType === 'user' || m.senderType === 'customer')
+        .slice(-5) // Check more history for context
+        .map(m => m.content)
+        .join(' ');
+      const msg = (params.customerMessage + ' ' + recentCustomerMsgs).toLowerCase();
+      const hasMoneyKeywords = /refund|คืนเงิน|เงินคืน|จ่ายเพิ่ม|pay extra|pay more|compensation|ชดเชย|รับเพิ่ม/.test(msg);
+      const hasPackageChange = /เปลี่ยนแพ[คก]|change package|switch package|upgrade|downgrade|ซื้อแพ[คก]|buy.*package/.test(msg);
+      const hasRefund = /refund|คืนเงิน|เงินคืน|ขอเงิน/.test(msg);
+      const hasPartnership = /partnership|พันธมิตร|sponsor|สปอนเซอร์|collaborate|ร่วมงาน/.test(msg);
+      const hasComplaint = /complaint|ร้องเรียน|ไม่พอใจ|disappointed|unacceptable/.test(msg);
+      const hasLargeGroup = /\b(1[0-9]|[2-9][0-9])\s*(คน|people|person|guests|pax)\b/.test(msg);
+      const hasPayment = /จ่ายเพิ่ม|pay extra|pay more|โอนเพิ่ม|transfer.*more|จ่าย.*\d{4,}|pay.*\d{4,}/.test(msg);
+
+      if (hasRefund) {
+        managementNote = '[NEEDS MANAGEMENT: Refund request]';
+      } else if (hasPackageChange) {
+        // Package changes always need management, with or without money
+        managementNote = hasMoneyKeywords || hasPayment
+          ? '[NEEDS MANAGEMENT: Package change with payment adjustment]'
+          : '[NEEDS MANAGEMENT: Package change request]';
+      } else if (hasPayment) {
+        managementNote = '[NEEDS MANAGEMENT: Payment adjustment request]';
+      } else if (hasPartnership) {
+        managementNote = '[NEEDS MANAGEMENT: Partnership/sponsorship inquiry]';
+      } else if (hasComplaint) {
+        managementNote = '[NEEDS MANAGEMENT: Customer complaint]';
+      } else if (hasLargeGroup) {
+        managementNote = '[NEEDS MANAGEMENT: Large group inquiry - may need custom pricing]';
+      }
+    }
+
     // 6. Calculate confidence score
     const confidenceScore = calculateConfidenceScore(
       similarMessages,
       !!matchingTemplate,
       !!params.customerContext,
-      suggestedResponse.length
+      suggestedResponse.length,
+      intent,
+      functionCalled,
+      functionResult ? functionResult.success !== false : undefined
     );
 
     const responseTime = Date.now() - startTime;
@@ -1391,14 +1204,28 @@ Just answer the customer's question directly.
     // 7. Build debug context if requested (for staff transparency)
     let debugContext: AIDebugContext | undefined;
     if (params.includeDebugContext) {
+      // Get skill names that were used for this intent
+      const skillNames = getSkillsForIntent(intent).map(s => s.name);
       debugContext = {
         customerMessage: params.customerMessage,
         conversationHistory: params.conversationContext.recentMessages || [],
         customerData: params.customerContext,
         similarMessagesUsed: similarMessages,
-        systemPromptExcerpt: LENGOLF_SYSTEM_PROMPT.substring(0, 500) + '...',
-        functionSchemas: getOpenAITools(),
-        toolChoice: toolChoice,
+        systemPromptExcerpt: contextualPrompt.substring(0, 500) + '...',
+        systemPrompt: finalContextPrompt,
+        userPrompt: userContent,
+        skillsUsed: skillNames,
+        intentDetected: intent,
+        intentSource: classification.source,
+        intentClassificationMs: classification.classificationTimeMs,
+        businessContextIncluded: !!params.businessContext,
+        faqMatches: faqMatches.map(f => ({
+          question: f.question,
+          answer: f.answer,
+          score: f.similarityScore || 0,
+        })),
+        functionSchemas: intentTools.length > 0 ? intentTools : undefined,
+        toolChoice: intentTools.length > 0 ? toolChoice : 'none',
         model: modelToUse
       };
     }
@@ -1458,6 +1285,80 @@ Just answer the customer's question directly.
       }
     }
 
+    // For promotion-related intents, also include ALL curated promotion images
+    // This ensures promotion images are always suggested when customers ask about deals/promos
+    if (intent === 'promotion_inquiry' && refacSupabaseAdmin) {
+      try {
+        const existingIds = new Set(suggestedImages.map(img => img.imageId));
+        const { data: promoImages, error } = await refacSupabaseAdmin
+          .from('line_curated_images')
+          .select('id, name, category, file_url, description')
+          .ilike('category', '%promotion%')
+          .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+          .limit(10);
+
+        if (!error && promoImages) {
+          for (const image of promoImages) {
+            // Skip if already included from RAG-matched results
+            if (existingIds.has(image.id)) continue;
+            suggestedImages.push({
+              imageId: image.id,
+              imageUrl: image.file_url,
+              title: image.name,
+              description: image.description || `${image.category}: ${image.name}`,
+              reason: 'Promotion image (customer asked about promotions/deals)',
+              similarityScore: undefined
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch promotion curated images:', error);
+      }
+    }
+
+    // For facility/equipment/pricing/coaching intents, match curated images by keyword in name
+    // e.g. "What is the AI bay?" → match images named "AI Bay", "AI Bay 2"
+    const keywordImageIntents = ['facility_inquiry', 'equipment_inquiry', 'pricing_inquiry', 'coaching_inquiry', 'location_inquiry'];
+    if (keywordImageIntents.includes(intent) && refacSupabaseAdmin) {
+      try {
+        const existingIds = new Set(suggestedImages.map(img => img.imageId));
+        // Extract meaningful keywords from the customer message (2+ chars, skip stopwords)
+        const stopwords = new Set(['what', 'is', 'the', 'a', 'an', 'do', 'you', 'have', 'how', 'much', 'does', 'can', 'i', 'me', 'my', 'about', 'for', 'at', 'to', 'in', 'of', 'and', 'or', 'your', 'this', 'that', 'are', 'was', 'it', 'be']);
+        const keywords = params.customerMessage
+          .toLowerCase()
+          .replace(/[^\w\s\u0E00-\u0E7F]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w.length >= 2 && !stopwords.has(w));
+
+        if (keywords.length > 0) {
+          // Build OR filter: name ILIKE '%keyword%' for each keyword
+          const nameFilters = keywords.map(kw => `name.ilike.%${kw}%`).join(',');
+          const { data: keywordImages, error } = await refacSupabaseAdmin
+            .from('line_curated_images')
+            .select('id, name, category, file_url, description')
+            .or(nameFilters)
+            .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+            .limit(5);
+
+          if (!error && keywordImages) {
+            for (const image of keywordImages) {
+              if (existingIds.has(image.id)) continue;
+              suggestedImages.push({
+                imageId: image.id,
+                imageUrl: image.file_url,
+                title: image.name,
+                description: image.description || `${image.category}: ${image.name}`,
+                reason: `Keyword match for "${params.customerMessage.substring(0, 50)}"`,
+                similarityScore: undefined
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch keyword-matched curated images:', error);
+      }
+    }
+
     // 8. Create suggestion object
     const suggestion: Omit<AISuggestion, 'id'> & { debugInfo?: any } = {
       suggestedResponse,
@@ -1475,6 +1376,7 @@ Just answer the customer's question directly.
       functionResult,
       requiresApproval,
       approvalMessage,
+      managementNote,
       // Image suggestions (multi-modal responses)
       suggestedImages: suggestedImages.length > 0 ? suggestedImages : undefined,
       // Debug context (for staff transparency)

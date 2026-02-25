@@ -116,7 +116,7 @@ export function inferDurationFromRange(input: string): number | null {
     const durationHours = (endHour - startHour) + (endMinute - startMinute) / 60;
 
     // Round to nearest valid duration
-    const validDurations = [0.5, 1, 1.5, 2, 2.5, 3];
+    const validDurations = [1, 1.5, 2, 2.5, 3];
     let closest = validDurations[0];
     let minDiff = Math.abs(durationHours - closest);
 

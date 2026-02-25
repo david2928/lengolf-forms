@@ -46,6 +46,8 @@ export interface AISuggestion {
   };
   requiresApproval?: boolean;
   approvalMessage?: string;
+  // Management escalation note
+  managementNote?: string | null;
   // Image suggestion metadata for multi-modal responses
   suggestedImages?: Array<{
     imageId: string;
@@ -271,6 +273,16 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
           <div className="text-gray-800 text-sm leading-relaxed">
             {cleanedResponse}
           </div>
+
+          {/* Management escalation warning - prominent red banner */}
+          {suggestion.managementNote && (
+            <div className="border-l-4 border-red-500 bg-red-50 pl-3 py-2 rounded-r text-xs">
+              <div className="flex items-start space-x-1">
+                <span className="text-red-600 font-medium">🚨 Needs Management:</span>
+                <span className="text-red-800">{suggestion.managementNote.replace(/\[NEEDS MANAGEMENT:\s?/g, '').replace(/\]/g, '')}</span>
+              </div>
+            </div>
+          )}
 
           {/* Internal staff note - integrated styling */}
           {internalNote && (
