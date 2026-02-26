@@ -1162,10 +1162,12 @@ Just answer the customer's question directly. Skip any greeting prefix.
       const hasMoneyKeywords = /refund|คืนเงิน|เงินคืน|จ่ายเพิ่ม|pay extra|pay more|compensation|ชดเชย|รับเพิ่ม/.test(msg);
       const hasPackageChange = /เปลี่ยนแพ[คก]|change package|switch package|upgrade|downgrade|ซื้อแพ[คก]|buy.*package/.test(msg);
       const hasRefund = /refund|คืนเงิน|เงินคืน|ขอเงิน/.test(msg);
-      const hasPartnership = /partnership|พันธมิตร|sponsor|สปอนเซอร์|collaborate|ร่วมงาน/.test(msg);
+      const hasPartnership = /partnership|พันธมิตร|sponsor|สปอนเซอร์|collaborate|ร่วมงาน|marketing agency|digital marketing|our services|our company|company profile|บริการของเรา|เสนอ.*บริการ|นำเสนอ/.test(msg);
       const hasComplaint = /complaint|ร้องเรียน|ไม่พอใจ|disappointed|unacceptable/.test(msg);
       const hasLargeGroup = /\b(1[0-9]|[2-9][0-9])\s*(คน|people|person|guests|pax)\b/.test(msg);
       const hasPayment = /จ่ายเพิ่ม|pay extra|pay more|โอนเพิ่ม|transfer.*more|จ่าย.*\d{4,}|pay.*\d{4,}/.test(msg);
+      // Unverifiable facts: AI cannot confirm email receipt, account status, etc.
+      const hasUnverifiable = /ได้รับอีเมล|ได้รับ.*mail|receive.*email|email.*received|spam.*อีเมล|อีเมล.*spam|didn't receive|not received|ไม่ได้รับ/.test(msg);
 
       if (hasRefund) {
         managementNote = '[NEEDS MANAGEMENT: Refund request]';
@@ -1177,11 +1179,13 @@ Just answer the customer's question directly. Skip any greeting prefix.
       } else if (hasPayment) {
         managementNote = '[NEEDS MANAGEMENT: Payment adjustment request]';
       } else if (hasPartnership) {
-        managementNote = '[NEEDS MANAGEMENT: Partnership/sponsorship inquiry]';
+        managementNote = '[NEEDS MANAGEMENT: Business opportunity/partnership inquiry]';
       } else if (hasComplaint) {
         managementNote = '[NEEDS MANAGEMENT: Customer complaint]';
       } else if (hasLargeGroup) {
         managementNote = '[NEEDS MANAGEMENT: Large group inquiry - may need custom pricing]';
+      } else if (hasUnverifiable) {
+        managementNote = '[NEEDS MANAGEMENT: Cannot verify - requires staff to check]';
       }
     }
 
