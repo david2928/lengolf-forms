@@ -12,6 +12,7 @@
 //   npx tsx scripts/sample-e2e-suggestions.ts --channel line      # Filter by channel (line/instagram/website)
 //   npx tsx scripts/sample-e2e-suggestions.ts --min-msgs 6        # Minimum messages per conversation
 //   npx tsx scripts/sample-e2e-suggestions.ts --conversation abc  # Test a specific conversation ID
+//   npx tsx scripts/sample-e2e-suggestions.ts --conversation abc --all  # Test ALL messages in a conversation
 //   npx tsx scripts/sample-e2e-suggestions.ts --review            # Review latest stored results
 //
 // Flags can be combined:
@@ -284,7 +285,10 @@ function pickTestPoints(convo: ConversationSample): TestPoint[] {
     });
   }
 
-  // Pick up to 2 test points: first customer msg + mid-conversation
+  // --all flag: test every customer message; otherwise pick 2 (first + mid)
+  const testAll = process.argv.includes('--all');
+  if (testAll) return points;
+
   if (points.length === 0) return [];
   if (points.length === 1) return points;
 
