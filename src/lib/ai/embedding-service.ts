@@ -98,6 +98,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     const response = await openai.embeddings.create({
       model: AI_CONFIG.embeddingModel,
       input: processedText,
+      dimensions: 1536, // Explicit: OpenAI silently routes some inputs to a variant that defaults to 384
     });
 
     return response.data[0]?.embedding || [];
