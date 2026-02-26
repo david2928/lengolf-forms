@@ -390,12 +390,14 @@ Keep the response concise, actionable, and match the customer's language exactly
   return contextPrompt;
 }
 
-// Find matching template based on message content
-async function findMatchingTemplate(customerMessage: string, intent: string): Promise<any> {
+// Find matching template based on classified intent (not raw keywords)
+async function findMatchingTemplate(customerMessage: string, intent: string, customerContext?: CustomerContext): Promise<any> {
   try {
     if (!refacSupabaseAdmin) return null;
 
-    // Simple template matching based on category and content
+    // Only match templates for specific intents — don't override the classifier with keyword matching
+    if (intent !== 'greeting' && intent !== 'booking_request') return null;
+
     const { data: templates, error } = await refacSupabaseAdmin
       .from('line_message_templates')
       .select('*')
@@ -404,15 +406,32 @@ async function findMatchingTemplate(customerMessage: string, intent: string): Pr
 
     if (error || !templates) return null;
 
-    // Basic template matching logic
-    const messageText = customerMessage.toLowerCase();
+    const isNewCustomer = !customerContext?.id || (customerContext.totalVisits || 0) === 0;
+    const isThai = /[\u0E00-\u0E7F]/.test(customerMessage);
 
-    if (intent === 'greeting' || messageText.includes('hello') || messageText.includes('สวัสดี')) {
-      return templates.find((t: any) => t.category === 'greeting');
+    if (intent === 'greeting') {
+      const greetingTemplates = templates.filter((t: any) => t.category === 'greeting');
+      // "First Registration" only for genuinely new customers
+      if (isNewCustomer) {
+        return greetingTemplates.find((t: any) =>
+          isThai ? t.title.includes('TH') && t.title.includes('Registration') :
+                   t.title.includes('EN') && t.title.includes('Registration')
+        ) || greetingTemplates[0] || null;
+      }
+      // Existing customers get a normal greeting
+      return greetingTemplates.find((t: any) =>
+        isThai ? t.title.includes('TH') && !t.title.includes('Registration') :
+                 t.title.includes('EN') && !t.title.includes('Registration')
+      ) || greetingTemplates[0] || null;
     }
 
     if (intent === 'booking_request') {
-      return templates.find((t: any) => t.title.includes('Registration') || t.title.includes('ลงทะเบียน'));
+      // Only show registration template for new customers
+      if (isNewCustomer) {
+        return templates.find((t: any) => t.title.includes('Registration') || t.title.includes('ลงทะเบียน'));
+      }
+      // Existing customers making a booking — use booking confirmation template if available
+      return templates.find((t: any) => t.category === 'booking' && !t.title.includes('Registration')) || null;
     }
 
     return null;
@@ -688,17 +707,20 @@ export async function generateAISuggestion(params: GenerateSuggestionParams): Pr
     // 1. Generate embedding for the customer message
     const messageEmbedding = await generateEmbedding(params.customerMessage);
 
-    // 2. Find similar messages for context
+    // 2. Find similar messages for context (filtered by message language)
+    const messageLanguage: 'th' | 'en' = /[\u0E00-\u0E7F]/.test(params.customerMessage) ? 'th' : 'en';
     const similarMessages = await findSimilarMessages(
       messageEmbedding,
       AI_CONFIG.maxSimilarMessages,
-      0.7 // Similarity threshold
+      0.7, // Similarity threshold
+      undefined,
+      messageLanguage
     );
 
     // 3. Classify intent using two-tier approach (regex fast-path + LLM classifier)
     const classification = await classifyIntent(params.customerMessage, params.conversationContext?.recentMessages);
     const intent = classification.intent;
-    const matchingTemplate = await findMatchingTemplate(params.customerMessage, intent);
+    const matchingTemplate = await findMatchingTemplate(params.customerMessage, intent, params.customerContext);
 
     // 3.1 For greeting-only messages, clear similar messages to prevent context contamination
     // Embedding search on "hello" returns random past conversations that cause the AI to

@@ -206,7 +206,8 @@ export async function findSimilarMessages(
   queryEmbedding: number[],
   maxResults: number = AI_CONFIG.maxSimilarMessages,
   similarityThreshold: number = 0.7,
-  excludeMessageId?: { line?: string; web?: string }
+  excludeMessageId?: { line?: string; web?: string },
+  filterLanguage?: 'th' | 'en'
 ): Promise<SimilarMessage[]> {
   try {
     if (!refacSupabaseAdmin) {
@@ -220,6 +221,7 @@ export async function findSimilarMessages(
         max_results: maxResults,
         exclude_line_message_id: excludeMessageId?.line || null,
         exclude_web_message_id: excludeMessageId?.web || null,
+        filter_language: filterLanguage || null,
       });
 
     if (error) {
