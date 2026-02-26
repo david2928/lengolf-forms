@@ -26,6 +26,37 @@ import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { AISuggestionCard, AISuggestion } from '@/components/ai/AISuggestionCard';
 import { OpportunitiesTab } from '@/components/chat-opportunities';
 
+// Detect system/automated messages that should NOT trigger AI suggestions
+function isSystemMessage(text: string): boolean {
+  if (!text || !text.trim()) return true; // Empty/whitespace-only messages
+
+  const t = text.trim();
+
+  // Booking confirmations (Thai & English)
+  if (/ยืนยันการจอง|การจองสำเร็จ|จองสำเร็จ/i.test(t)) return true;
+  if (/booking\s*confirm|your\s*booking|reservation\s*confirm/i.test(t)) return true;
+
+  // OTP / verification codes
+  if (/OTP|รหัสยืนยัน|verification\s*code|verify\s*code/i.test(t)) return true;
+  if (/^\d{4,6}$/.test(t)) return true; // Bare numeric codes (4-6 digits)
+
+  // LINE system messages / stickers / reactions
+  if (/^\[สติกเกอร์\]$|^\[Sticker\]$/i.test(t)) return true;
+  if (/^\[รูปภาพ\]$|^\[Image\]$|^\[Photo\]$/i.test(t)) return true;
+  if (/^\[วิดีโอ\]$|^\[Video\]$/i.test(t)) return true;
+  if (/^\[ไฟล์\]$|^\[File\]$/i.test(t)) return true;
+  if (/^\[Location\]$|^\[ตำแหน่ง\]$/i.test(t)) return true;
+  if (/unsent\s*a\s*message|ยกเลิกข้อความ/i.test(t)) return true;
+
+  // Auto-generated system notifications (require "ระบบ" at start or with colon to avoid false positives)
+  if (/^ระบบ|ระบบ:|system\s*notification|auto[-\s]?reply|automated\s*message/i.test(t)) return true;
+
+  // Payment/receipt confirmations (auto-generated)
+  if (/payment\s*received|ชำระเงินสำเร็จ|receipt\s*#/i.test(t)) return true;
+
+  return false;
+}
+
 export default function UnifiedChatPage() {
   // Core state - using unified chat system
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
@@ -262,8 +293,16 @@ export default function UnifiedChatPage() {
     setRightPanelCollapsed
   } = usePanelState();
 
+  // Ref for capturing staff responses in learning loop (set after aiSuggestions init)
+  const captureStaffResponseRef = useRef<((msg: string) => void) | null>(null);
+
   // Handle when a message is sent - only update conversations list, let realtime handle message addition
   const handleMessageSent = useCallback((message: any) => {
+    // Learning loop: capture staff's actual response if there was a declined/ignored AI suggestion
+    if (message.senderType === 'staff' || message.senderType === 'admin') {
+      captureStaffResponseRef.current?.(message.text || '');
+    }
+
     // Don't add message to messages array - let realtime handle that
     // Only update the conversations list for immediate UI feedback and sort
     setConversations(prev => {
@@ -351,6 +390,9 @@ export default function UnifiedChatPage() {
     }
   });
 
+  // Connect learning loop ref to aiSuggestions.captureStaffResponse
+  captureStaffResponseRef.current = aiSuggestions.captureStaffResponse;
+
   // Refresh customer data in-place (used by CustomerSidebar after booking edit/cancel)
   const handleRefreshCustomer = useCallback(() => {
     if (customerOps && selectedConversationObj?.customer?.id) {
@@ -367,7 +409,7 @@ export default function UnifiedChatPage() {
       .reverse()
       .find(m => m.senderType === 'user' && m.text);
 
-    if (lastCustomerMessage && lastCustomerMessage.text) {
+    if (lastCustomerMessage && lastCustomerMessage.text && !isSystemMessage(lastCustomerMessage.text)) {
       aiSuggestions.generateSuggestion(lastCustomerMessage.text, lastCustomerMessage.id);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -379,11 +421,22 @@ export default function UnifiedChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConversation]);
 
-  // Save AI suggestions toggle to localStorage
+  // Save AI suggestions toggle to localStorage & auto-trigger for current conversation
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('ai-suggestions-enabled', String(aiSuggestionsEnabled));
     }
+    // When AI is toggled ON with a conversation selected, trigger suggestion for the last customer message
+    if (aiSuggestionsEnabled && selectedConversation && messages.length > 0) {
+      const lastCustomerMessage = [...messages]
+        .reverse()
+        .find(m => m.senderType === 'user' && m.text && m.text.trim() && !isSystemMessage(m.text));
+      if (lastCustomerMessage) {
+        aiSuggestions.resetDedup(); // Clear dedup so we can re-generate
+        aiSuggestions.generateSuggestion(lastCustomerMessage.text, lastCustomerMessage.id, true);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiSuggestionsEnabled]);
 
   // Detect mobile screen size
@@ -418,8 +471,8 @@ export default function UnifiedChatPage() {
         messagesEnd?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
 
-      // Trigger AI suggestion if enabled and message is from customer
-      if (aiSuggestionsEnabled && message.senderType === 'user' && message.text && message.text.trim()) {
+      // Trigger AI suggestion if enabled, message is from customer, and NOT a system message
+      if (aiSuggestionsEnabled && message.senderType === 'user' && message.text && message.text.trim() && !isSystemMessage(message.text)) {
         // Small delay to avoid race conditions
         setTimeout(() => {
           aiSuggestions.generateSuggestion(message.text, message.id);

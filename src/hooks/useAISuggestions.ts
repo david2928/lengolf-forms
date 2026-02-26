@@ -50,6 +50,7 @@ interface GenerateSuggestionResponse {
     };
     requiresApproval?: boolean;
     approvalMessage?: string;
+    managementNote?: string | null; // Management escalation note
     debugContext?: any; // Debug context for transparency
   };
   error?: string;
@@ -80,13 +81,21 @@ export const useAISuggestions = ({
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastProcessedRef = useRef<string | null>(null);
+
+  // Reset dedup state (used when AI is toggled on to allow re-generation)
+  const resetDedup = useCallback(() => {
+    lastProcessedRef.current = null;
+  }, []);
 
   // Generate AI suggestion for a customer message
-  const generateSuggestion = useCallback(async (customerMessage: string, messageId?: string) => {
-    // Prevent duplicate processing of the same message
-    if (state.lastMessageProcessed === customerMessage) {
+  const generateSuggestion = useCallback(async (customerMessage: string, messageId?: string, force?: boolean) => {
+    // Prevent duplicate processing: use messageId (stable) when available, fall back to text
+    const dedupeKey = messageId || customerMessage;
+    if (!force && lastProcessedRef.current === dedupeKey) {
       return;
     }
+    lastProcessedRef.current = dedupeKey;
 
     // Abort any existing request
     if (abortControllerRef.current) {
@@ -106,7 +115,7 @@ export const useAISuggestions = ({
       isLoading: true,
       error: null,
       suggestion: null,
-      lastMessageProcessed: customerMessage
+      lastMessageProcessed: dedupeKey // kept for backwards compat but ref is primary
     }));
 
     try {
@@ -137,8 +146,9 @@ export const useAISuggestions = ({
         throw new Error(data.error || 'No suggestion generated');
       }
 
-      // Only show suggestions with reasonable confidence
-      if (data.suggestion.confidenceScore < 0.5) {
+      // Only hide very low confidence suggestions (below 0.25)
+      // Staff can see the confidence score on the card and judge quality themselves
+      if (data.suggestion.confidenceScore < 0.25) {
         setState(prev => ({
           ...prev,
           isLoading: false,
@@ -164,6 +174,8 @@ export const useAISuggestions = ({
         functionResult: data.suggestion.functionResult,
         requiresApproval: data.suggestion.requiresApproval,
         approvalMessage: data.suggestion.approvalMessage,
+        // Management escalation note
+        managementNote: data.suggestion.managementNote,
         // Debug context (for transparency)
         debugContext: data.suggestion.debugContext
       };
@@ -189,7 +201,8 @@ export const useAISuggestions = ({
         error: error instanceof Error ? error.message : 'Unknown error'
       }));
     }
-  }, [conversationId, channelType, customerId, state.lastMessageProcessed]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, channelType, customerId]);
 
   // Send feedback to the API
   const sendFeedback = useCallback(async (
@@ -331,6 +344,52 @@ export const useAISuggestions = ({
     }));
   }, []);
 
+  // Track last declined/ignored suggestion for learning loop
+  const lastDeclinedSuggestionRef = useRef<{ id: string; suggestedResponse: string } | null>(null);
+  // Ref to current state for use in callbacks without stale closures
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  // Override declineSuggestion to also store ref for learning loop
+  const declineSuggestionWithTracking = useCallback((suggestion: AISuggestion, feedback?: string) => {
+    lastDeclinedSuggestionRef.current = { id: suggestion.id, suggestedResponse: suggestion.suggestedResponse };
+    declineSuggestion(suggestion, feedback);
+  }, [declineSuggestion]);
+
+  // Capture staff's actual response when they type their own message
+  // Called by the parent when staff sends a message to a conversation that had an AI suggestion
+  const captureStaffResponse = useCallback((staffMessage: string) => {
+    const declined = lastDeclinedSuggestionRef.current;
+    if (!declined || !staffMessage?.trim()) return;
+
+    // Fire-and-forget: store the staff's actual response for the declined suggestion
+    fetch('/api/ai/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        suggestionId: declined.id,
+        action: 'decline',
+        finalResponse: staffMessage.trim(),
+        feedbackText: 'Staff typed own response'
+      })
+    }).catch(() => { /* non-critical */ });
+
+    lastDeclinedSuggestionRef.current = null;
+  }, []);
+
+  // Also capture when suggestion is cleared (e.g., conversation change) — mark as ignored
+  // Uses stateRef to avoid recreating on every state change
+  const clearSuggestionWithTracking = useCallback(() => {
+    const { suggestion, isLoading } = stateRef.current;
+    if (suggestion && !isLoading) {
+      lastDeclinedSuggestionRef.current = {
+        id: suggestion.id,
+        suggestedResponse: suggestion.suggestedResponse
+      };
+    }
+    clearSuggestion();
+  }, [clearSuggestion]);
+
   // Cleanup on unmount
   const cleanup = useCallback(() => {
     if (abortControllerRef.current) {
@@ -350,12 +409,14 @@ export const useAISuggestions = ({
 
     // Actions
     generateSuggestion,
+    resetDedup,
     acceptSuggestion,
     editSuggestion,
-    declineSuggestion,
+    declineSuggestion: declineSuggestionWithTracking,
     approveSuggestion,
     completeEditFeedback,
-    clearSuggestion,
+    clearSuggestion: clearSuggestionWithTracking,
+    captureStaffResponse,
     cleanup
   };
 };

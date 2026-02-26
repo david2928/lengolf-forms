@@ -183,7 +183,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   flex items-center justify-center flex-1
                 "
               >
-                1 Hour
+                {modifierInfo?.defaultModifier?.name || '1 Hour'}
               </button>
               
               <button

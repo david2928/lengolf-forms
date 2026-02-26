@@ -3,6 +3,15 @@
 import React from 'react';
 import { Coffee, Utensils, Flag, Package, MoreHorizontal, Folder } from 'lucide-react';
 
+// Custom golf club icon (no Lucide equivalent)
+const GolfClubIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 2L12 18" />
+    <path d="M12 2L18 8L12 6" />
+    <ellipse cx="12" cy="20.5" rx="4" ry="1.5" />
+  </svg>
+);
+
 export interface CategoryTabsProps {
   categories: any[]; // Dynamic categories from database
   activeTab: string;
@@ -17,6 +26,7 @@ const getIconForCategory = (categoryName: string) => {
   if (name.includes('drink') || name.includes('beverage')) return Coffee;
   if (name.includes('food') || name.includes('meal')) return Utensils;
   if (name.includes('golf') || name.includes('sport')) return Flag;
+  if (name.includes('club')) return GolfClubIcon;
   if (name.includes('package')) return Package;
   return Folder; // Default icon
 };
@@ -30,8 +40,11 @@ const getColorForCategory = (categoryName: string) => {
   if (name.includes('food') || name.includes('meal')) return { 
     color: 'text-orange-600', activeColor: 'text-orange-700' 
   };
-  if (name.includes('golf') || name.includes('sport')) return { 
-    color: 'text-green-600', activeColor: 'text-green-700' 
+  if (name.includes('golf') || name.includes('sport')) return {
+    color: 'text-green-600', activeColor: 'text-green-700'
+  };
+  if (name.includes('club')) return {
+    color: 'text-emerald-600', activeColor: 'text-emerald-700'
   };
   if (name.includes('package')) return { 
     color: 'text-purple-600', activeColor: 'text-purple-700' 

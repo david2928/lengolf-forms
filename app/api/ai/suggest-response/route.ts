@@ -5,6 +5,31 @@ import { validateOpenAIConfig } from '@/lib/ai/openai-client';
 import { generateAISuggestion, GenerateSuggestionParams } from '@/lib/ai/suggestion-service';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
+// Allowlist of models permitted for overrideModel — prevents cost abuse
+const ALLOWED_MODELS = new Set([
+  'gpt-4o-mini', 'gpt-4o', 'gpt-4.1-nano', 'gpt-4.1-mini', 'gpt-4.1',
+  'gpt-5-nano', 'gpt-5-mini', 'gpt-5',
+  'o3-mini', 'o4-mini',
+]);
+
+const MAX_CUSTOMER_MESSAGE_LENGTH = 5000;
+
+// Simple in-memory rate limiter per user (resets on cold start, which is acceptable)
+const rateLimiter = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_PER_MINUTE = 15;
+
+function checkRateLimit(email: string): boolean {
+  const now = Date.now();
+  const entry = rateLimiter.get(email);
+  if (!entry || now > entry.resetAt) {
+    rateLimiter.set(email, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_PER_MINUTE) return false;
+  entry.count++;
+  return true;
+}
+
 interface SuggestResponseRequest {
   customerMessage: string;
   conversationId: string;
@@ -13,8 +38,10 @@ interface SuggestResponseRequest {
   messageId?: string; // Message ID for database storage
   includeCustomerContext?: boolean;
   dryRun?: boolean; // For evaluation/testing without side effects
-  overrideModel?: string; // For model comparison testing
+  overrideModel?: string; // For model comparison testing (allowlisted models only)
   includeDebugContext?: boolean; // Include full AI context for transparency
+  // Test mode: pass conversation context directly instead of fetching from DB
+  conversationContext?: Array<{ content: string; senderType: string; createdAt: string }>;
 }
 
 /**
@@ -25,6 +52,13 @@ export async function POST(request: NextRequest) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Rate limit: prevent excessive API cost from rapid-fire requests
+  if (!checkRateLimit(session.user.email)) {
+    return NextResponse.json({
+      error: 'Rate limit exceeded. Please wait a moment before requesting another suggestion.'
+    }, { status: 429 });
   }
 
   try {
@@ -47,11 +81,91 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get conversation context (recent messages) and customer ID
-    const { conversationContext, customerId } = await getConversationContext(
-      body.conversationId,
-      body.channelType
-    );
+    // Validate message length to prevent excessive token usage
+    if (body.customerMessage.length > MAX_CUSTOMER_MESSAGE_LENGTH) {
+      return NextResponse.json({
+        error: `Customer message too long (max ${MAX_CUSTOMER_MESSAGE_LENGTH} characters)`
+      }, { status: 400 });
+    }
+
+    // Validate conversationId format
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(body.conversationId)) {
+      return NextResponse.json({
+        error: 'Invalid conversationId format'
+      }, { status: 400 });
+    }
+
+    // Server-side dedup: check if we already generated a suggestion for this message
+    if (body.messageId && UUID_RE.test(body.messageId) && refacSupabaseAdmin) {
+      const thirtySecondsAgo = new Date(Date.now() - 30_000).toISOString();
+
+      // Use separate queries instead of .or() to avoid filter injection risk
+      const selectCols = 'id, suggested_response, suggested_response_thai, confidence_score, response_time_ms, similar_messages_count, context_used, suggested_images';
+      const { data: existingLine } = await refacSupabaseAdmin
+        .from('ai_suggestions')
+        .select(selectCols)
+        .eq('line_message_id', body.messageId)
+        .gte('created_at', thirtySecondsAgo)
+        .limit(1)
+        .maybeSingle();
+
+      let existing = existingLine;
+      if (!existing) {
+        const { data: existingWeb, error: webError } = await refacSupabaseAdmin
+          .from('ai_suggestions')
+          .select(selectCols)
+          .eq('web_message_id', body.messageId)
+          .gte('created_at', thirtySecondsAgo)
+          .limit(1)
+          .maybeSingle();
+        if (webError) {
+          console.warn('Dedup web query error:', webError.message);
+        }
+        existing = existingWeb;
+      }
+
+      if (existing) {
+        return NextResponse.json({
+          success: true,
+          suggestion: {
+            id: existing.id,
+            suggestedResponse: existing.suggested_response,
+            suggestedResponseThai: existing.suggested_response_thai,
+            confidenceScore: existing.confidence_score,
+            responseTime: existing.response_time_ms,
+            contextSummary: 'Returned cached suggestion (dedup)',
+            similarMessagesCount: existing.similar_messages_count || 0,
+            suggestedImages: existing.suggested_images,
+          }
+        });
+      }
+    }
+
+    // Get conversation context — use client-provided context in dry-run test mode,
+    // otherwise fetch from database
+    let conversationContext;
+    let customerId: string | null = null;
+
+    if (body.dryRun && body.conversationContext && body.conversationContext.length > 0) {
+      // Test mode: use client-provided conversation history
+      conversationContext = {
+        id: body.conversationId,
+        channelType: body.channelType,
+        recentMessages: body.conversationContext.map(msg => ({
+          content: msg.content,
+          senderType: msg.senderType,
+          createdAt: msg.createdAt,
+        })),
+      };
+    } else {
+      const dbContext = await getConversationContext(
+        body.conversationId,
+        body.channelType
+      );
+      conversationContext = dbContext.conversationContext;
+      customerId = dbContext.customerId;
+    }
 
     // Get customer context automatically if customer is linked to conversation
     // OR if explicitly requested with customerId
@@ -61,20 +175,27 @@ export async function POST(request: NextRequest) {
       customerContext = await getCustomerContext(customerIdToUse);
     }
 
+    // Fetch business context (pricing, packages, coaching rates) - cached for 5 min
+    const businessContext = await getBusinessContext();
+
     // Prepare parameters for AI suggestion
     const suggestionParams: GenerateSuggestionParams = {
       customerMessage: body.customerMessage,
       conversationContext,
       customerContext,
+      businessContext: businessContext || undefined,
       staffUserEmail: session.user.email,
       messageId: body.messageId, // Pass message ID for database storage
       dryRun: body.dryRun || false, // Support evaluation mode
-      overrideModel: body.overrideModel, // Support model comparison testing
+      overrideModel: (body.overrideModel && ALLOWED_MODELS.has(body.overrideModel)) ? body.overrideModel : undefined,
       includeDebugContext: body.includeDebugContext || false // Support context transparency
     };
 
     // Generate AI suggestion
     const suggestion = await generateAISuggestion(suggestionParams);
+
+    // Log suggestion details for debugging
+    console.log(`[AI Suggestion] conv=${body.conversationId.slice(0, 8)} confidence=${suggestion.confidenceScore} time=${suggestion.responseTimeMs}ms response="${suggestion.suggestedResponse?.slice(0, 80)}..." mgmt=${suggestion.managementNote || 'none'}`);
 
     // Return suggestion
     return NextResponse.json({
@@ -96,6 +217,7 @@ export async function POST(request: NextRequest) {
         functionParameters: suggestion.functionResult?.data,
         requiresApproval: suggestion.requiresApproval,
         approvalMessage: suggestion.approvalMessage,
+        managementNote: suggestion.managementNote || null,
         // Full context for transparency (when enabled)
         ...(body.includeDebugContext && suggestion.debugContext && { debugContext: suggestion.debugContext })
       }
@@ -131,16 +253,16 @@ async function getConversationContext(
 
     const customerId = conversation?.customer_id || null;
 
-    // Get recent messages from the conversation (last 30 days for now, will optimize later)
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 30); // Temporarily 30 days for testing with older data
+    // Get recent messages from the conversation (last 7 days)
+    const messageCutoff = new Date();
+    messageCutoff.setDate(messageCutoff.getDate() - 7);
 
     const { data: messages, error } = await refacSupabaseAdmin
       .from('unified_messages')
       .select('content, sender_type, created_at')
       .eq('conversation_id', conversationId)
       .eq('channel_type', channelType)
-      .gte('created_at', twoDaysAgo.toISOString())
+      .gte('created_at', messageCutoff.toISOString())
       .order('created_at', { ascending: false })
       .limit(100); // Safety limit
 
@@ -330,6 +452,94 @@ async function getCustomerContext(customerId: string) {
   } catch (error) {
     console.error('Error getting customer context:', error);
     return undefined;
+  }
+}
+
+// Business context shape returned from getBusinessContext
+interface BusinessContext {
+  packageTypes: Array<{ name: string; hours: number; validity_days: number; description: string; type: string }>;
+  coachRates: Array<{ description: string; rate: number }>;
+  bayPricing: {
+    socialBay: { hourly: number; description: string };
+    aiBay: { hourly: number; description: string };
+    note: string;
+  };
+  operatingHours: { daily: string; note: string };
+  promotions: Array<Record<string, unknown>>;
+}
+
+// Get business context (pricing, packages, coaching rates, operating hours)
+// Cached in-memory for 5 minutes to avoid repeated DB queries
+let businessContextCache: { data: BusinessContext; timestamp: number } | null = null;
+const BUSINESS_CONTEXT_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getBusinessContext() {
+  // Return cached if fresh
+  if (businessContextCache && (Date.now() - businessContextCache.timestamp) < BUSINESS_CONTEXT_TTL) {
+    return businessContextCache.data;
+  }
+
+  try {
+    if (!refacSupabaseAdmin) return null;
+
+    // Fetch package types, coaching rates, and promotions in parallel
+    // coach_rates: columns are rate_type (text) and rate (numeric)
+    // package_types: columns are name, hours, type, validity_period, display_name, pax (no is_active, description, or validity_days)
+    const [packageTypesResult, coachRatesResult, promotionsResult] = await Promise.all([
+      refacSupabaseAdmin
+        .schema('backoffice')
+        .from('package_types')
+        .select('name, hours, type, validity_period, display_name, pax')
+        .order('display_order'),
+      refacSupabaseAdmin
+        .schema('backoffice')
+        .from('coach_rates')
+        .select('rate_type, rate'),
+      refacSupabaseAdmin
+        .from('promotions')
+        .select('title_en, title_th, description_en, description_th, valid_until, promo_type, badge_en, terms_en')
+        .eq('is_active', true)
+        .eq('is_customer_facing', true)
+        .eq('promo_type', 'discount') // Only real promotions, not general bundles/packages
+        .or(`valid_until.is.null,valid_until.gt.${new Date().toISOString()}`)
+        .order('display_order')
+    ]);
+
+    // Map DB results to BusinessContext interface
+    const packageTypes = (packageTypesResult.data || []).map((pkg: any) => ({
+      name: pkg.display_name || pkg.name,
+      hours: Number(pkg.hours) || 0,
+      validity_days: 0, // Not available, use validity_period text
+      description: `${pkg.type}${pkg.pax > 1 ? ` (${pkg.pax} PAX)` : ''}${pkg.validity_period ? `, valid ${pkg.validity_period}` : ''}`,
+      type: pkg.type
+    }));
+
+    const coachRates = (coachRatesResult.data || []).map((rate: any) => ({
+      description: rate.rate_type,
+      rate: Number(rate.rate)
+    }));
+
+    const context = {
+      packageTypes,
+      coachRates,
+      // Bay pricing from products.products (is_active=true) — verified Feb 2026
+      bayPricing: {
+        socialBay: { hourly: 500, description: 'Social Bay (up to 5 players): Weekday Morning ฿500/hr, Weekday Afternoon/Evening ฿700/hr, Weekend Morning ฿700/hr, Weekend Afternoon/Evening ฿900/hr' },
+        aiBay: { hourly: 500, description: 'AI Bay (1-2 players, advanced analytics): Same pricing as Social Bay' },
+        note: 'Prices vary by day/time. Standard club rental is FREE. Premium indoor clubs: ฿150/hr (Premium), ฿250/hr (Premium+).'
+      },
+      operatingHours: {
+        daily: '10:00 - 23:00',
+        note: 'Last booking at 22:00. Peak hours 18:00-21:00.'
+      },
+      promotions: promotionsResult.data || []
+    };
+
+    businessContextCache = { data: context, timestamp: Date.now() };
+    return context;
+  } catch (error) {
+    console.error('Error fetching business context:', error);
+    return null;
   }
 }
 
