@@ -9,6 +9,7 @@ import { Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useInventoryProducts } from '@/hooks/use-inventory-products'
 import { useInventorySubmission } from '@/hooks/use-inventory-submission'
+import { usePreviousInventory } from '@/hooks/use-previous-inventory'
 import { InventoryFormState, GloveSizeData } from '@/types/inventory'
 import { StaffSelector } from './staff-selector'
 import { CategorySection } from './category-section'
@@ -25,6 +26,7 @@ import {
 export default function InventoryForm() {
   const { data: productsData, isLoading: isLoadingProducts, error: productsError } = useInventoryProducts()
   const { submit, isLoading: isSubmitting, error: submissionError } = useInventorySubmission()
+  const { previousValues } = usePreviousInventory()
 
   const [formState, setFormState] = useState<InventoryFormState>({
     categories: [],
@@ -269,6 +271,7 @@ export default function InventoryForm() {
           formData={formState.formData}
           onChange={handleFieldChange}
           errors={errors}
+          previousValues={previousValues}
         />
       ))}
 

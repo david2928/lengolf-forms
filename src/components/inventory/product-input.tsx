@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -9,13 +10,48 @@ import { AlertTriangle } from 'lucide-react'
 import { ProductInputProps } from '@/types/inventory'
 import { getDisplayValue, shouldShowReorderAlert, getProductFieldId } from './utils/form-helpers'
 
-export function ProductInput({ product, value, onChange, error }: ProductInputProps) {
+// Spike warning thresholds (module level to avoid recreating on every render)
+const SPIKE_WARNING_THRESHOLD = 1.2
+const DROP_WARNING_THRESHOLD = 0.8
+
+export function ProductInput({ product, value, onChange, error, previousValue }: ProductInputProps) {
   const fieldId = getProductFieldId(product)
   const displayValue = getDisplayValue(product, value)
   const showReorderAlert = shouldShowReorderAlert(product, value)
 
   // Check if this is the cash field (Change #4)
   const isCashField = product.name.toLowerCase().includes('cash')
+
+  // Check for significant change (>20% increase or >20% decrease) compared to previous submission
+  const spikeWarning = useMemo(() => {
+    if (
+      previousValue === undefined ||
+      previousValue === null ||
+      product.input_type !== 'number' ||
+      isCashField // Don't warn on cash field - spikes are normal on busy days
+    ) {
+      return null
+    }
+    const currentNum = typeof value === 'number' ? value : (typeof value === 'string' && value !== '' ? parseFloat(value) : null)
+    if (currentNum === null || isNaN(currentNum)) return null
+
+    // Only warn if previous value was > 0 (avoid division by zero)
+    if (previousValue <= 0) return null
+
+    // Check for significant increase
+    if (currentNum > previousValue * SPIKE_WARNING_THRESHOLD) {
+      const pctChange = Math.round(((currentNum - previousValue) / previousValue) * 100)
+      return { type: 'increase' as const, pctChange, previousValue }
+    }
+
+    // Check for significant decrease
+    if (currentNum < previousValue * DROP_WARNING_THRESHOLD) {
+      const pctChange = Math.round(((previousValue - currentNum) / previousValue) * 100)
+      return { type: 'decrease' as const, pctChange, previousValue }
+    }
+
+    return null
+  }, [value, previousValue, product.input_type, isCashField])
 
   const handleChange = (newValue: string | number) => {
     onChange(product.id, newValue)
@@ -209,6 +245,22 @@ export function ProductInput({ product, value, onChange, error }: ProductInputPr
       )}
 
       {renderInput()}
+
+      {spikeWarning && (
+        <div className="flex items-start gap-2 rounded-md border border-orange-300 bg-orange-50 p-3 text-orange-800">
+          <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5 text-orange-600" />
+          <div className="text-sm">
+            <p className="font-semibold">
+              {spikeWarning.type === 'increase' ? 'Unusual increase detected' : 'Unusual decrease detected'}
+            </p>
+            <p>
+              This is <span className="font-bold">{spikeWarning.pctChange}% {spikeWarning.type === 'increase' ? 'higher' : 'lower'}</span> than
+              the previous count of <span className="font-bold">{spikeWarning.previousValue}</span>.
+              Please double-check this value.
+            </p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <p className="text-sm text-red-500">{error}</p>

@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CategorySectionProps } from '@/types/inventory'
 import { ProductInput } from './product-input'
 
-export function CategorySection({ category, formData, onChange, errors }: CategorySectionProps) {
+export function CategorySection({ category, formData, onChange, errors, previousValues }: CategorySectionProps) {
   if (!category.products || category.products.length === 0) {
     return null
   }
@@ -22,6 +22,7 @@ export function CategorySection({ category, formData, onChange, errors }: Catego
             value={formData[product.id]}
             onChange={onChange}
             error={errors?.[product.id]}
+            previousValue={previousValues?.[product.id]}
           />
         ))}
       </CardContent>
