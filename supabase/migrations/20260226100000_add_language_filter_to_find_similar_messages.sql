@@ -1,6 +1,7 @@
 -- Add optional language filter to find_similar_messages
--- When filter_language is provided (e.g. 'en' or 'th'), only return messages
--- in that language. NULL (default) preserves existing behavior (no filter).
+-- Filters both customer message language AND response language to avoid
+-- cross-language matches (e.g. English question with Thai staff response).
+-- NULL (default) preserves existing behavior (no filter).
 
 CREATE OR REPLACE FUNCTION public.find_similar_messages(
   query_embedding vector,
@@ -42,6 +43,13 @@ AS $function$
     AND (exclude_web_message_id IS NULL OR me.web_message_id != exclude_web_message_id)
     AND (1 - (me.embedding <=> query_embedding)) >= similarity_threshold
     AND (filter_language IS NULL OR me.language_detected = filter_language)
+    -- Also filter response language: Thai responses contain Thai chars, English ones don't
+    AND (
+      filter_language IS NULL
+      OR me.response_used IS NULL
+      OR (filter_language = 'th' AND me.response_used ~ '[\u0E00-\u0E7F]')
+      OR (filter_language = 'en' AND me.response_used !~ '[\u0E00-\u0E7F]')
+    )
   ORDER BY me.embedding <=> query_embedding
   LIMIT max_results;
 $function$;

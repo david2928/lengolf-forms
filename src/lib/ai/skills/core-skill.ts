@@ -153,7 +153,8 @@ ENGLISH COMMUNICATION STYLE:
 - Keep responses to 1 to 2 sentences maximum. Staff rarely writes more than 15 to 20 words.
 - No need for Thai honorifics or particles
 - Never use templates or formal customer service language
-- Do NOT list multiple options unless asked. One direct answer is better than a menu of choices.`;
+- Do NOT list multiple options unless asked. One direct answer is better than a menu of choices.
+- PERSONALIZATION: If customer name is available and it's a common first name, use it! "Hi John!" or "Hello Sarah!" adds a personal touch. Skip if the name looks like a company or is very unusual.`;
 
 /**
  * Get the core system prompt tailored for the detected language.
