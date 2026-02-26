@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
-import { getDevSession } from '@/lib/dev-session'
-import { authOptions } from '@/lib/auth-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,15 +7,10 @@ export const dynamic = 'force-dynamic'
  * GET /api/inventory/submissions/previous
  * Returns the most recent submission values per product before today.
  * Used to show spike warnings when current entry is >20% higher than previous.
+ * Auth handled by middleware - no explicit check needed (matches sibling routes).
  */
 export async function GET(request: NextRequest) {
   try {
-    // Authentication required
-    const session = await getDevSession(authOptions, request)
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date') // YYYY-MM-DD, defaults to today
 
@@ -29,7 +22,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const referenceDate = date || new Date().toISOString().split('T')[0]
+    // Use Bangkok timezone to avoid wrong date during early morning hours (2 AM Bangkok = 7 PM UTC previous day)
+    const referenceDate = date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
 
     // Use RPC with DISTINCT ON for efficient deduplication at the DB level
     // This ensures we get the most recent submission for each product

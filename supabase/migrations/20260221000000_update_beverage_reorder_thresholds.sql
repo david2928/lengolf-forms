@@ -2,8 +2,7 @@
 -- Based on 90-day POS sales averages from pos.lengolf_sales
 -- Calculation: CEIL(90_day_total_qty / 90 * 14) with minimum of 1
 -- Using stable product IDs instead of mutable names
-
-BEGIN;
+-- Note: Supabase migrations are already transactional - no explicit BEGIN/COMMIT needed
 
 -- Beer products (5 products)
 UPDATE inventory_products SET reorder_threshold = 59, updated_at = NOW()
@@ -102,5 +101,3 @@ WHERE id = '91cb14dc-1fde-4a62-b3fd-aa2c4912ecc1' AND is_active = true;
 UPDATE inventory_products SET reorder_threshold = 1, updated_at = NOW()
 WHERE id = '8787d404-611d-490c-b358-bf092590f31c' AND is_active = true;
 -- Water (Big Bottle): reduce from 10 → 1 (no matching POS data)
-
-COMMIT;

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -9,6 +10,10 @@ import { AlertTriangle } from 'lucide-react'
 import { ProductInputProps } from '@/types/inventory'
 import { getDisplayValue, shouldShowReorderAlert, getProductFieldId } from './utils/form-helpers'
 
+// Spike warning thresholds (module level to avoid recreating on every render)
+const SPIKE_WARNING_THRESHOLD = 1.2
+const DROP_WARNING_THRESHOLD = 0.8
+
 export function ProductInput({ product, value, onChange, error, previousValue }: ProductInputProps) {
   const fieldId = getProductFieldId(product)
   const displayValue = getDisplayValue(product, value)
@@ -18,10 +23,7 @@ export function ProductInput({ product, value, onChange, error, previousValue }:
   const isCashField = product.name.toLowerCase().includes('cash')
 
   // Check for significant change (>20% increase or >20% decrease) compared to previous submission
-  const SPIKE_WARNING_THRESHOLD = 1.2
-  const DROP_WARNING_THRESHOLD = 0.8
-
-  const spikeWarning = (() => {
+  const spikeWarning = useMemo(() => {
     if (
       previousValue === undefined ||
       previousValue === null ||
@@ -49,7 +51,7 @@ export function ProductInput({ product, value, onChange, error, previousValue }:
     }
 
     return null
-  })()
+  }, [value, previousValue, product.input_type, isCashField])
 
   const handleChange = (newValue: string | number) => {
     onChange(product.id, newValue)

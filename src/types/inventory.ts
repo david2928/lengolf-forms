@@ -103,7 +103,7 @@ export interface ProductInputProps {
   value: string | number | GloveSizeData | undefined;
   onChange: (productId: string, value: string | number) => void;
   error?: string;
-  previousValue?: number;
+  previousValue?: number | null; // Can be null from database queries
 }
 
 // Category section props
