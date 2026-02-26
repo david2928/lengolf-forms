@@ -3,6 +3,9 @@ import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { functionExecutor } from '@/lib/ai/function-executor';
 
+// Booking approval involves DB + calendar + LINE notification
+export const maxDuration = 30;
+
 interface ApproveBookingRequest {
   suggestionId: string;
   customerId?: string; // Customer ID for existing customers

@@ -5,6 +5,9 @@ import { validateOpenAIConfig } from '@/lib/ai/openai-client';
 import { generateAISuggestion, GenerateSuggestionParams } from '@/lib/ai/suggestion-service';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
+// AI pipeline: embedding + intent classification + DB queries + LLM generation + function calling
+export const maxDuration = 30;
+
 // Allowlist of models permitted for overrideModel — prevents cost abuse
 const ALLOWED_MODELS = new Set([
   'gpt-4o-mini', 'gpt-4o', 'gpt-4.1-nano', 'gpt-4.1-mini', 'gpt-4.1',

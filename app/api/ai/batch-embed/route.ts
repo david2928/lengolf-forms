@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/auth-config';
 import { validateOpenAIConfig } from '@/lib/ai/openai-client';
 import { batchProcessHistoricalMessages } from '@/lib/ai/embedding-service';
 
+// Batch embedding can process many messages
+export const maxDuration = 60;
+
 interface BatchEmbedRequest {
   daysBack?: number;
   batchSize?: number;

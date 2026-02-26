@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateOpenAIConfig } from '@/lib/ai/openai-client';
 import { batchProcessHistoricalMessages } from '@/lib/ai/embedding-service';
 
+// Batch embedding via cron
+export const maxDuration = 60;
+
 /**
  * Generate embeddings for recent messages
  * Called by pg_cron daily to keep embeddings up-to-date
