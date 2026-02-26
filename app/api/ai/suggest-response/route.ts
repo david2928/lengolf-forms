@@ -14,6 +14,22 @@ const ALLOWED_MODELS = new Set([
 
 const MAX_CUSTOMER_MESSAGE_LENGTH = 5000;
 
+// Simple in-memory rate limiter per user (resets on cold start, which is acceptable)
+const rateLimiter = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_PER_MINUTE = 15;
+
+function checkRateLimit(email: string): boolean {
+  const now = Date.now();
+  const entry = rateLimiter.get(email);
+  if (!entry || now > entry.resetAt) {
+    rateLimiter.set(email, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_PER_MINUTE) return false;
+  entry.count++;
+  return true;
+}
+
 interface SuggestResponseRequest {
   customerMessage: string;
   conversationId: string;
@@ -36,6 +52,13 @@ export async function POST(request: NextRequest) {
   const session = await getDevSession(authOptions, request);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Rate limit: prevent excessive API cost from rapid-fire requests
+  if (!checkRateLimit(session.user.email)) {
+    return NextResponse.json({
+      error: 'Rate limit exceeded. Please wait a moment before requesting another suggestion.'
+    }, { status: 429 });
   }
 
   try {

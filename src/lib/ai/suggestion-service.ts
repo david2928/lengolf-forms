@@ -253,10 +253,12 @@ function generateContextualPrompt(
       customerLabel = '✅ EXISTING CUSTOMER\n';
     }
 
+    // Only include contact details (phone) for intents that need them for function calling
+    const needsContactInfo = ['booking_request', 'availability_check', 'cancellation', 'modification_request'].includes(intent || '');
+
     contextPrompt += `CUSTOMER INFORMATION:
 ${customerLabel}- Name: ${customerContext.name || 'Unknown'}
-- Phone: ${customerContext.phone || 'Not provided'}
-- Total visits: ${customerContext.totalVisits || 0}
+${needsContactInfo ? `- Phone: ${customerContext.phone || 'Not provided'}\n` : ''}- Total visits: ${customerContext.totalVisits || 0}
 - Lifetime value: ฿${customerContext.lifetimeValue || 0}
 - Preferred language: ${customerContext.language || 'auto'}
 
@@ -934,9 +936,11 @@ Just answer the customer's question directly. Skip any greeting prefix.
 
     // Add ONLY today's conversation as proper message objects with timestamps
     // This gives AI clear context for current conversation flow and temporal understanding
-    if (todaysMessages.length > 0) {
-      for (const msg of todaysMessages) {
-        const role = msg.senderType === 'user' ? 'user' : 'assistant';
+    // Cap at last 20 messages to prevent excessive token usage on busy days
+    const recentTodaysMessages = todaysMessages.slice(-20);
+    if (recentTodaysMessages.length > 0) {
+      for (const msg of recentTodaysMessages) {
+        const role = (msg.senderType === 'user' || msg.senderType === 'customer') ? 'user' : 'assistant';
 
         // Format timestamp in readable format (HH:MM)
         let timePrefix = '';
