@@ -30,8 +30,8 @@ const INTENT_ENUM = [
   'general_inquiry',
 ] as const;
 
-// Configurable classifier model — default to gpt-4o-mini (proven, cheap)
-// Can switch to gpt-4.1-nano when available in your region
+// Configurable classifier model — default to gpt-4o-mini (best cost/accuracy/speed for classification)
+// Reasoning models (gpt-5-*) are slower and more expensive due to reasoning token overhead
 const CLASSIFIER_MODEL = process.env.INTENT_CLASSIFIER_MODEL || 'gpt-4o-mini';
 const CLASSIFIER_TIMEOUT_MS = 3000;
 
@@ -145,8 +145,11 @@ async function llmClassify(
         },
       },
     },
-    max_tokens: 50,
-    temperature: 0,
+    // gpt-5-nano and other reasoning models require max_completion_tokens (reasoning tokens count
+    // against the limit) and don't support custom temperature. Use reasoning_effort: 'low' to minimize cost.
+    ...(/^(gpt-5|o1|o3|o4)/i.test(CLASSIFIER_MODEL)
+      ? { max_completion_tokens: 500, reasoning_effort: 'low' as const }
+      : { max_tokens: 50, temperature: 0 }),
   // as any: json_schema response_format not fully typed in SDK
   } as any, { signal });
 
