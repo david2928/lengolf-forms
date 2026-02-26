@@ -3,6 +3,7 @@
 
 import { openai, AI_CONFIG } from './openai-client';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
+import { regexFullClassify } from './intent-classifier';
 
 export interface MessageEmbedding {
   id?: string;
@@ -38,59 +39,8 @@ export interface SimilarMessage {
   imageDescription?: string;
 }
 
-// Intent detection patterns based on analysis of existing messages
-// Expanded with high-volume unmatched topics from production data
-const INTENT_PATTERNS: Record<string, RegExp[]> = {
-  booking_request: [
-    /จอง|book|reservation|reserve/i,
-    /ต้องการจอง|want to book|would like to book/i,
-    /book.*\d{1,2}(pm|am|:\d{2})/i, // "book 8pm", "book 8:00"
-  ],
-  availability_check: [
-    /available|ว่าง|มี.*ว่าง/i,
-    /any.*bay.*available/i,
-    /เบย์.*ว่าง|ว่าง.*เบย์/i,
-    /slot|free\?|open\?/i,
-  ],
-  cancellation: [
-    /cancel|ยกเลิก|ขอยกเลิก/i,
-    /cancel.*booking|ยกเลิก.*จอง/i,
-  ],
-  modification_request: [
-    /change|เปลี่ยน|เลื่อน|reschedule/i,
-    /move.*booking|เลื่อน.*จอง/i,
-  ],
-  arrival_notification: [
-    /arrived|ถึงแล้ว|มาถึง|ไปถึง/i,
-    /here|อยู่แล้ว/i,
-  ],
-  pricing_inquiry: [
-    /ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า/i,
-  ],
-  promotion_inquiry: [
-    /โปรโม|promotion|discount|ส่วนลด|deal|special/i,
-  ],
-  equipment_inquiry: [
-    /อุปกรณ์|equipment|club|ไม้กอล์ฟ|rental|ยืม|glove|ถุงมือ/i,
-  ],
-  payment_inquiry: [
-    /จ่าย|pay|payment|โอน|transfer|QR|บัตร|card/i,
-  ],
-  location_inquiry: [
-    /ที่ไหน|where|location|แผนที่|map|parking|จอดรถ/i,
-  ],
-  coaching_inquiry: [
-    /coach|โค้ช|เรียน|lesson|สอน|คลาส|class/i,
-  ],
-  bay_inquiry: [
-    /bay|เบย์/i,
-    /social.*bay|ai.*bay/i,
-  ],
-  general_inquiry: [
-    /hello|hi|สวัสดี|หวัดดี/i,
-    /how|อย่างไร|ยังไง/i,
-  ],
-};
+// Intent detection consolidated into intent-classifier.ts (regexFullClassify)
+// The old INTENT_PATTERNS dict has been removed to avoid pattern drift across files
 
 // Language detection patterns
 function detectLanguage(text: string): 'th' | 'en' | 'auto' {
@@ -105,16 +55,9 @@ function detectLanguage(text: string): 'th' | 'en' | 'auto' {
   return 'auto'; // Mixed or unclear
 }
 
-// Intent detection based on message content
+// Intent detection — delegates to the canonical regex classifier in intent-classifier.ts
 function detectIntent(content: string): string {
-  for (const [intent, patterns] of Object.entries(INTENT_PATTERNS)) {
-    for (const pattern of patterns) {
-      if (pattern.test(content)) {
-        return intent;
-      }
-    }
-  }
-  return 'general_inquiry';
+  return regexFullClassify(content).intent;
 }
 
 // Message category mapping from intent
@@ -131,7 +74,8 @@ function getMessageCategory(intent: string): string {
     payment_inquiry: 'pricing',
     location_inquiry: 'facility',
     coaching_inquiry: 'coaching',
-    bay_inquiry: 'inquiry',
+    facility_inquiry: 'facility',
+    greeting: 'general',
     general_inquiry: 'general',
   };
   return categoryMap[intent] || 'general';

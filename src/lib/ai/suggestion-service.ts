@@ -2,12 +2,13 @@
 // Integrates RAG (Retrieval Augmented Generation) with Lengolf business context
 
 import { openai, AI_CONFIG } from './openai-client';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { generateEmbedding, findSimilarMessages, SimilarMessage, findRelevantFAQs, trackFAQUsage, FAQMatch } from './embedding-service';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import { getOpenAITools, getToolsForIntent } from './function-schemas';
 import { functionExecutor, FunctionResult } from './function-executor';
 import { getSkillsForIntent, composeSkillPromptForLanguage, getSkillExamples } from './skills';
-import { classifyIntent, IntentClassification } from './intent-classifier';
+import { classifyIntent, IntentClassification, regexFullClassify } from './intent-classifier';
 
 export interface CustomerContext {
   // Basic info
@@ -221,7 +222,7 @@ function generateContextualPrompt(
 
   // Use skills-based prompt: select skills for detected intent and compose
   // Language-aware: only includes Thai rules for Thai messages, English rules for English
-  const detectedIntent = intent || detectMessageIntent(customerMessage);
+  const detectedIntent = intent || regexFullClassify(customerMessage).intent;
   const skills = getSkillsForIntent(detectedIntent);
   const skillsPrompt = composeSkillPromptForLanguage(skills, messageLanguage);
 
@@ -421,57 +422,8 @@ async function findMatchingTemplate(customerMessage: string, intent: string): Pr
   }
 }
 
-// Detect intent from customer message (expanded for skill routing)
-// Optionally uses recent conversation history for contextual follow-ups
-function detectMessageIntent(message: string, recentMessages?: Array<{ content: string; senderType?: string }>): string {
-  const text = message.toLowerCase();
-
-  // Cancellation keywords override everything
-  if (text.match(/cancel|ยกเลิก|ขอยกเลิก/)) return 'cancellation';
-
-  // Booking and availability
-  if (text.match(/จอง|book|reservation|reserve/)) return 'booking_request';
-  if (text.match(/available|ว่าง|มี.*ว่าง|slot|free\?|open\?/)) return 'availability_check';
-  if (text.match(/change|เปลี่ยน|เลื่อน|reschedule/)) return 'modification_request';
-
-  // Coaching
-  if (text.match(/coach|โค้ช|โปร(?!โม)|เรียน|lesson|สอน|คลาส|class/)) return 'coaching_inquiry';
-
-  // Pricing & promotions
-  if (text.match(/ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า/)) return 'pricing_inquiry';
-  if (text.match(/โปรโม|promotion|discount|ส่วนลด|deal|special|แพ็ค|package/)) return 'promotion_inquiry';
-
-  // Payment
-  if (text.match(/จ่าย|pay|payment|โอน|transfer|QR|บัตร|card/)) return 'payment_inquiry';
-
-  // Equipment & facility
-  if (text.match(/อุปกรณ์|equipment|club|ไม้กอล์ฟ|rental|ยืม|glove|ถุงมือ/)) return 'equipment_inquiry';
-  if (text.match(/เปิด|ปิด|open|close|hour|เวลา|time|bay|เบย์|simulator|ห้อง/)) return 'facility_inquiry';
-  if (text.match(/photo|picture|รูป|ภาพ|venue|สถานที่/)) return 'facility_inquiry';
-  if (text.match(/ที่ไหน|where|location|แผนที่|map|parking|จอดรถ/)) return 'location_inquiry';
-
-  // Arrival
-  if (text.match(/arrived|ถึงแล้ว|มาถึง|ไปถึง/)) return 'arrival_notification';
-
-  // Greeting
-  if (text.match(/hello|hi|สวัสดี|หวัดดี/)) return 'greeting';
-
-  // Context-aware follow-ups: date/time references that depend on conversation history
-  // e.g. "What about tomorrow?", "How about Saturday?", "And 3pm?"
-  const hasDateReference = text.match(/tomorrow|today|tonight|พรุ่งนี้|วันนี้|คืนนี้|เย็นนี้|saturday|sunday|monday|tuesday|wednesday|thursday|friday|เสาร์|อาทิตย์|จันทร์|อังคาร|พุธ|พฤหัส|ศุกร์|what about|how about|แล้ว.*ล่ะ|\d{1,2}(pm|am|:00|:30|โมง|ทุ่ม)/);
-  if (hasDateReference && recentMessages && recentMessages.length > 0) {
-    // Check if recent conversation was about availability/booking
-    const recentContent = recentMessages.slice(-6).map(m => m.content).join(' ').toLowerCase();
-    if (recentContent.match(/available|ว่าง|bay|book|จอง|slot|fully booked|เต็ม|no bays/)) {
-      return 'availability_check';
-    }
-    if (recentContent.match(/coach|โค้ช|lesson|เรียน|สอน/)) {
-      return 'coaching_inquiry';
-    }
-  }
-
-  return 'general_inquiry';
-}
+// Intent detection consolidated into intent-classifier.ts (regexFullClassify + classifyIntent)
+// The old detectMessageIntent function has been removed — use regexFullClassify as fallback
 
 // Format function execution results into customer-facing messages
 function formatFunctionResult(functionName: string, result: FunctionResult, customerMessage: string): string {
@@ -930,7 +882,7 @@ Just answer the customer's question directly. Skip any greeting prefix.
 `;
     }
 
-    const messages: any[] = [
+    const messages: ChatCompletionMessageParam[] = [
       { role: 'system', content: finalContextPrompt }
     ];
 

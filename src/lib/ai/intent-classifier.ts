@@ -157,10 +157,11 @@ async function llmClassify(
 }
 
 /**
- * Regex-only fallback (used when LLM classifier fails).
- * This is the full regex classifier — more patterns than the fast-path.
+ * Full regex-based intent classification.
+ * Exported as the canonical regex classifier — used by embedding-service and
+ * suggestion-service as fallback. Also the LLM classifier fallback.
  */
-function regexFullClassify(message: string): { intent: string; language: 'th' | 'en' } {
+export function regexFullClassify(message: string): { intent: string; language: 'th' | 'en' } {
   const text = message.toLowerCase();
   const isThai = /[\u0E00-\u0E7F]/.test(message);
   const lang: 'th' | 'en' = isThai ? 'th' : 'en';
