@@ -882,12 +882,19 @@ ${previousDaysMessages.map(msg => `${msg.senderType}: ${msg.content}`).join('\n'
     // Only greet if we haven't found ANY assistant messages in today's conversation
     // AND haven't greeted yet (to prevent "Hello! ... Hello! ..." repetition)
     if (!hasAssistantMessageToday && !hasGreetedToday) {
+      // Extract first name for personalized greeting
+      const customerName = params.customerContext?.name;
+      const firstName = customerName && customerName !== 'Unknown'
+        ? customerName.split(' ')[0]
+        : null;
+
       finalContextPrompt += `\n👋 FIRST MESSAGE OF THE DAY:
 This is the FIRST staff response today in this conversation. You MUST start your response with a greeting.
 
 ${isThaiMessage ? `- Thai: Start with "สวัสดีค่า" or "สวัสดีค่ะ" then answer their question
-- Example: "สวัสดีค่ะ หาให้นะคะ" (Hello, I'll check for you)` : `- English: Start with a friendly greeting like "Good morning!" or "Hello!" then answer their question
-- Example: "Hello! Let me check the availability for you."`}
+- Example: "สวัสดีค่ะ หาให้นะคะ" (Hello, I'll check for you)` : `- English: Start with a friendly greeting using the customer's first name if known.
+${firstName ? `- Customer's name: ${firstName}. Say "Hi ${firstName}!" or "Hello ${firstName}!"` : `- Name unknown. Say "Hello!" or "Hi there!"`}
+- Example: ${firstName ? `"Hi ${firstName}! Let me check the availability for you."` : `"Hello! Let me check the availability for you."`}`}
 
 IMPORTANT:
 - Greet on the first message of each new day
