@@ -66,8 +66,10 @@ BEGIN
     (gen_random_uuid(), v_premplus_course_id, 'time', '14 Days', 12600.00, 7.000, false, true, 4);
 
   -- 8. Deactivate old "Premium Golf Club Rental" (replaced by new products with proper naming)
+  -- Uses slug for reliability across environments; UUID kept as secondary match for safety
   UPDATE products.products
   SET is_active = false, updated_at = now()
-  WHERE id = '014c6306-ae8d-4108-86c7-0b465a3357e1';
+  WHERE (slug = 'premium-golf-club-rental' OR id = '014c6306-ae8d-4108-86c7-0b465a3357e1')
+    AND is_active = true;
 
 END $$;

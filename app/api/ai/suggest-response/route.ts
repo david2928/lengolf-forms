@@ -5,6 +5,15 @@ import { validateOpenAIConfig } from '@/lib/ai/openai-client';
 import { generateAISuggestion, GenerateSuggestionParams } from '@/lib/ai/suggestion-service';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
+// Allowlist of models permitted for overrideModel — prevents cost abuse
+const ALLOWED_MODELS = new Set([
+  'gpt-4o-mini', 'gpt-4o', 'gpt-4.1-nano', 'gpt-4.1-mini', 'gpt-4.1',
+  'gpt-5-mini', 'gpt-5',
+  'o3-mini', 'o4-mini',
+]);
+
+const MAX_CUSTOMER_MESSAGE_LENGTH = 5000;
+
 interface SuggestResponseRequest {
   customerMessage: string;
   conversationId: string;
@@ -13,7 +22,7 @@ interface SuggestResponseRequest {
   messageId?: string; // Message ID for database storage
   includeCustomerContext?: boolean;
   dryRun?: boolean; // For evaluation/testing without side effects
-  overrideModel?: string; // For model comparison testing
+  overrideModel?: string; // For model comparison testing (allowlisted models only)
   includeDebugContext?: boolean; // Include full AI context for transparency
   // Test mode: pass conversation context directly instead of fetching from DB
   conversationContext?: Array<{ content: string; senderType: string; createdAt: string }>;
@@ -49,8 +58,22 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Server-side dedup: check if we already generated a suggestion for this message
+    // Validate message length to prevent excessive token usage
+    if (body.customerMessage.length > MAX_CUSTOMER_MESSAGE_LENGTH) {
+      return NextResponse.json({
+        error: `Customer message too long (max ${MAX_CUSTOMER_MESSAGE_LENGTH} characters)`
+      }, { status: 400 });
+    }
+
+    // Validate conversationId format
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(body.conversationId)) {
+      return NextResponse.json({
+        error: 'Invalid conversationId format'
+      }, { status: 400 });
+    }
+
+    // Server-side dedup: check if we already generated a suggestion for this message
     if (body.messageId && UUID_RE.test(body.messageId) && refacSupabaseAdmin) {
       const thirtySecondsAgo = new Date(Date.now() - 30_000).toISOString();
 
@@ -141,7 +164,7 @@ export async function POST(request: NextRequest) {
       staffUserEmail: session.user.email,
       messageId: body.messageId, // Pass message ID for database storage
       dryRun: body.dryRun || false, // Support evaluation mode
-      overrideModel: body.overrideModel, // Support model comparison testing
+      overrideModel: (body.overrideModel && ALLOWED_MODELS.has(body.overrideModel)) ? body.overrideModel : undefined,
       includeDebugContext: body.includeDebugContext || false // Support context transparency
     };
 
@@ -207,16 +230,16 @@ async function getConversationContext(
 
     const customerId = conversation?.customer_id || null;
 
-    // Get recent messages from the conversation (last 30 days for now, will optimize later)
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 30); // Temporarily 30 days for testing with older data
+    // Get recent messages from the conversation (last 7 days)
+    const messageCutoff = new Date();
+    messageCutoff.setDate(messageCutoff.getDate() - 7);
 
     const { data: messages, error } = await refacSupabaseAdmin
       .from('unified_messages')
       .select('content, sender_type, created_at')
       .eq('conversation_id', conversationId)
       .eq('channel_type', channelType)
-      .gte('created_at', twoDaysAgo.toISOString())
+      .gte('created_at', messageCutoff.toISOString())
       .order('created_at', { ascending: false })
       .limit(100); // Safety limit
 
@@ -409,9 +432,22 @@ async function getCustomerContext(customerId: string) {
   }
 }
 
+// Business context shape returned from getBusinessContext
+interface BusinessContext {
+  packageTypes: Array<{ name: string; hours: number; validity_days: number; description: string; type: string }>;
+  coachRates: Array<{ description: string; rate: number }>;
+  bayPricing: {
+    socialBay: { hourly: number; description: string };
+    aiBay: { hourly: number; description: string };
+    note: string;
+  };
+  operatingHours: { daily: string; note: string };
+  promotions: Array<Record<string, unknown>>;
+}
+
 // Get business context (pricing, packages, coaching rates, operating hours)
 // Cached in-memory for 5 minutes to avoid repeated DB queries
-let businessContextCache: { data: any; timestamp: number } | null = null;
+let businessContextCache: { data: BusinessContext; timestamp: number } | null = null;
 const BUSINESS_CONTEXT_TTL = 5 * 60 * 1000; // 5 minutes
 
 async function getBusinessContext() {

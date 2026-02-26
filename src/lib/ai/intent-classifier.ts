@@ -106,7 +106,8 @@ function regexFastPath(message: string): { intent: string; language: 'th' | 'en'
  */
 async function llmClassify(
   customerMessage: string,
-  recentMessages?: Array<{ content: string; senderType?: string }>
+  recentMessages?: Array<{ content: string; senderType?: string }>,
+  signal?: AbortSignal
 ): Promise<{ intent: string; language: 'th' | 'en' }> {
   // Build conversation context (last 4 messages + current)
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -146,7 +147,8 @@ async function llmClassify(
     },
     max_tokens: 50,
     temperature: 0,
-  } as any);
+  // as any: json_schema response_format not fully typed in SDK
+  } as any, { signal });
 
   const content = response.choices[0]?.message?.content;
   if (!content) throw new Error('Empty classifier response');
@@ -205,13 +207,13 @@ export async function classifyIntent(
   }
 
   // Tier 2: LLM classifier with conversation context + timeout
+  // Use AbortController to actually cancel the HTTP request on timeout
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CLASSIFIER_TIMEOUT_MS);
+
   try {
-    const result = await Promise.race([
-      llmClassify(customerMessage, recentMessages),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Classifier timeout')), CLASSIFIER_TIMEOUT_MS)
-      ),
-    ]);
+    const result = await llmClassify(customerMessage, recentMessages, controller.signal);
+    clearTimeout(timeout);
 
     return {
       ...result,
@@ -219,6 +221,7 @@ export async function classifyIntent(
       classificationTimeMs: Date.now() - startTime,
     };
   } catch (error) {
+    clearTimeout(timeout);
     console.warn(`Intent classifier failed (${Date.now() - startTime}ms):`, error instanceof Error ? error.message : error);
 
     // Fallback: full regex classification

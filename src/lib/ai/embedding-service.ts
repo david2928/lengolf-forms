@@ -447,11 +447,10 @@ export async function trackFAQUsage(faqIds: string[]): Promise<void> {
   if (!refacSupabaseAdmin || faqIds.length === 0) return;
 
   try {
-    // Batch fetch current counts, then update in parallel.
-    // Note: This is a read-then-write pattern — not fully atomic. Acceptable here
-    // because FAQ usage tracking is non-critical analytics (fire-and-forget) and
-    // concurrent increments for the same FAQ ID are rare in practice.
-    // TODO: Create a DB function for atomic increment if usage tracking becomes critical.
+    // Increment usage_count for each FAQ entry individually.
+    // Note: Not fully atomic (read-then-write per row), but acceptable for
+    // non-critical fire-and-forget analytics. Concurrent increments for the
+    // same FAQ ID are rare in practice.
     const { data: currentCounts } = await refacSupabaseAdmin
       .from('faq_knowledge_base')
       .select('id, usage_count')

@@ -46,6 +46,7 @@ export async function testOpenAIConnection(): Promise<{ success: boolean; error?
     // Test with a simple completion
     // Reasoning models (gpt-5-*, o1-*, o3-*) require max_completion_tokens and no temperature
     const isReasoningModel = /^(gpt-5|o1|o3)/i.test(AI_CONFIG.model);
+    // as any: reasoning_effort param not fully typed in SDK
     const response = await openai.chat.completions.create({
       model: AI_CONFIG.model,
       messages: [{ role: 'user', content: 'Hello' }],

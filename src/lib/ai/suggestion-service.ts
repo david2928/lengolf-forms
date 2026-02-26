@@ -79,6 +79,20 @@ export interface ConversationContext {
   }>;
 }
 
+// Sanitized customer data for debug context — omits PII fields
+interface SanitizedCustomerData {
+  name?: string;
+  totalVisits?: number;
+  lifetimeValue?: number;
+  activePackages?: {
+    count: number;
+    hasUnlimited: boolean;
+  };
+  upcomingBookings?: {
+    count: number;
+  };
+}
+
 export interface AIDebugContext {
   customerMessage: string;
   conversationHistory: Array<{
@@ -86,11 +100,9 @@ export interface AIDebugContext {
     senderType: string;
     createdAt: string;
   }>;
-  customerData?: CustomerContext;
+  customerData?: SanitizedCustomerData;
   similarMessagesUsed: SimilarMessage[];
   systemPromptExcerpt: string;
-  systemPrompt?: string;
-  userPrompt?: string;
   skillsUsed?: string[];
   intentDetected?: string;
   intentSource?: string;
@@ -1010,7 +1022,7 @@ Just answer the customer's question directly. Skip any greeting prefix.
         console.log('========== END OPENAI REQUEST ==========\n');
       }
 
-      // Call OpenAI API
+      // Call OpenAI API (as any: SDK types don't cover reasoning_effort + dynamic tool_choice union)
       const completion = await openai.chat.completions.create({
         model: modelToUse,
         messages: messages,
@@ -1209,11 +1221,22 @@ Just answer the customer's question directly. Skip any greeting prefix.
       debugContext = {
         customerMessage: params.customerMessage,
         conversationHistory: params.conversationContext.recentMessages || [],
-        customerData: params.customerContext,
+        // Sanitize customer data — omit PII (email, phone, notes) from debug context
+        customerData: params.customerContext ? {
+          name: params.customerContext.name,
+          totalVisits: params.customerContext.totalVisits,
+          lifetimeValue: params.customerContext.lifetimeValue,
+          activePackages: params.customerContext.activePackages ? {
+            count: params.customerContext.activePackages.count,
+            hasUnlimited: params.customerContext.activePackages.hasUnlimited,
+          } : undefined,
+          upcomingBookings: params.customerContext.upcomingBookings ? {
+            count: params.customerContext.upcomingBookings.count,
+          } : undefined,
+        } : undefined,
         similarMessagesUsed: similarMessages,
+        // Only include a short excerpt — never send full system/user prompts to the frontend
         systemPromptExcerpt: contextualPrompt.substring(0, 500) + '...',
-        systemPrompt: finalContextPrompt,
-        userPrompt: userContent,
         skillsUsed: skillNames,
         intentDetected: intent,
         intentSource: classification.source,
@@ -1328,7 +1351,10 @@ Just answer the customer's question directly. Skip any greeting prefix.
           .toLowerCase()
           .replace(/[^\w\s\u0E00-\u0E7F]/g, ' ')
           .split(/\s+/)
-          .filter(w => w.length >= 2 && !stopwords.has(w));
+          .filter(w => w.length >= 2 && !stopwords.has(w))
+          // Sanitize keywords: strip any characters that could be interpreted as PostgREST operators
+          .map(kw => kw.replace(/[^a-zA-Z0-9\u0E00-\u0E7F]/g, ''))
+          .filter(kw => kw.length >= 2);
 
         if (keywords.length > 0) {
           // Build OR filter: name ILIKE '%keyword%' for each keyword
