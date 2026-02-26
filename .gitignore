@@ -52,6 +52,13 @@ next-env.d.ts
 
 # claude code configuration (ignore only personal settings, keep project configs)
 .claude/settings*.json
+.claude/launch.json
+.claude/skills/
+
+# e2e sample data and eval results (generated locally)
+scripts/e2e-samples/*.json
+scripts/eval-e2e-results.json
+scripts/test-intent-classifier.ts
 
 # audit files (sensitive financial/tax documents)
 /audit/
