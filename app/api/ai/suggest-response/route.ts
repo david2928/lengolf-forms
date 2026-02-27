@@ -39,6 +39,7 @@ interface SuggestResponseRequest {
   channelType: 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp';
   customerId?: string;
   messageId?: string; // Message ID for database storage
+  imageUrl?: string; // Customer image URL for vision support
   includeCustomerContext?: boolean;
   dryRun?: boolean; // For evaluation/testing without side effects
   overrideModel?: string; // For model comparison testing (allowlisted models only)
@@ -77,18 +78,34 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body: SuggestResponseRequest = await request.json();
 
-    // Validate required fields
-    if (!body.customerMessage || !body.conversationId || !body.channelType) {
+    // Validate required fields (customerMessage can be empty if imageUrl is provided)
+    if ((!body.customerMessage && !body.imageUrl) || !body.conversationId || !body.channelType) {
       return NextResponse.json({
-        error: 'Missing required fields: customerMessage, conversationId, channelType'
+        error: 'Missing required fields: customerMessage (or imageUrl), conversationId, channelType'
       }, { status: 400 });
     }
 
     // Validate message length to prevent excessive token usage
-    if (body.customerMessage.length > MAX_CUSTOMER_MESSAGE_LENGTH) {
+    if (body.customerMessage && body.customerMessage.length > MAX_CUSTOMER_MESSAGE_LENGTH) {
       return NextResponse.json({
         error: `Customer message too long (max ${MAX_CUSTOMER_MESSAGE_LENGTH} characters)`
       }, { status: 400 });
+    }
+
+    // Validate imageUrl if provided — restrict to trusted domains to prevent SSRF
+    if (body.imageUrl) {
+      try {
+        const parsed = new URL(body.imageUrl);
+        if (parsed.protocol !== 'https:') {
+          return NextResponse.json({ error: 'Image URL must use HTTPS' }, { status: 400 });
+        }
+        const trustedHosts = ['bisimqmtxjsptehhqpeg.supabase.co', 'api-data.line.me'];
+        if (!trustedHosts.some(host => parsed.hostname === host || parsed.hostname.endsWith('.supabase.co'))) {
+          return NextResponse.json({ error: 'Image URL must be from a trusted source' }, { status: 400 });
+        }
+      } catch {
+        return NextResponse.json({ error: 'Invalid image URL format' }, { status: 400 });
+      }
     }
 
     // Validate conversationId format
@@ -183,12 +200,13 @@ export async function POST(request: NextRequest) {
 
     // Prepare parameters for AI suggestion
     const suggestionParams: GenerateSuggestionParams = {
-      customerMessage: body.customerMessage,
+      customerMessage: body.customerMessage || '',
       conversationContext,
       customerContext,
       businessContext: businessContext || undefined,
       staffUserEmail: session.user.email,
       messageId: body.messageId, // Pass message ID for database storage
+      imageUrl: body.imageUrl, // Customer image URL for vision support
       dryRun: body.dryRun || false, // Support evaluation mode
       overrideModel: (body.overrideModel && ALLOWED_MODELS.has(body.overrideModel)) ? body.overrideModel : undefined,
       includeDebugContext: body.includeDebugContext || false // Support context transparency
@@ -247,14 +265,47 @@ async function getConversationContext(
     }
 
     // Get conversation details including customer_id
-    const { data: conversation } = await refacSupabaseAdmin
+    // Use .maybeSingle() instead of .single() — the unified_conversations UNION ALL view
+    // can intermittently fail with .single(), silently returning null and losing customer_id
+    const { data: conversation, error: convError } = await refacSupabaseAdmin
       .from('unified_conversations')
       .select('customer_id')
       .eq('id', conversationId)
       .eq('channel_type', channelType)
-      .single();
+      .maybeSingle();
 
-    const customerId = conversation?.customer_id || null;
+    if (convError) {
+      console.warn(`[AI] unified_conversations query failed for ${conversationId}: ${convError.message}`);
+    }
+
+    let customerId = conversation?.customer_id || null;
+
+    // Fallback: if the view query returned no customer_id, query the underlying table directly
+    if (!customerId) {
+      const tableMap: Record<string, string> = {
+        line: 'line_conversations',
+        website: 'web_chat_conversations',
+        facebook: 'meta_conversations',
+        instagram: 'meta_conversations',
+        whatsapp: 'meta_conversations',
+      };
+      const tableName = tableMap[channelType];
+      if (tableName) {
+        const { data: directConv, error: directError } = await refacSupabaseAdmin
+          .from(tableName)
+          .select('customer_id')
+          .eq('id', conversationId)
+          .maybeSingle();
+
+        if (directError) {
+          console.warn(`[AI] Direct ${tableName} query failed for ${conversationId}: ${directError.message}`);
+        }
+        if (directConv?.customer_id) {
+          customerId = directConv.customer_id;
+          console.warn(`[AI] Customer ID found via fallback (${tableName}) for ${conversationId}: ${customerId}`);
+        }
+      }
+    }
 
     // Get recent messages from the conversation (last 7 days)
     const messageCutoff = new Date();
@@ -262,7 +313,7 @@ async function getConversationContext(
 
     const { data: messages, error } = await refacSupabaseAdmin
       .from('unified_messages')
-      .select('content, sender_type, created_at')
+      .select('content, sender_type, created_at, content_type, channel_metadata')
       .eq('conversation_id', conversationId)
       .eq('channel_type', channelType)
       .gte('created_at', messageCutoff.toISOString())
@@ -283,7 +334,9 @@ async function getConversationContext(
           .map((msg: any) => ({
             content: msg.content || '',
             senderType: msg.sender_type || 'unknown',
-            createdAt: msg.created_at
+            createdAt: msg.created_at,
+            contentType: msg.content_type || 'text',
+            imageUrl: msg.content_type === 'image' ? msg.channel_metadata?.file_url : undefined,
           }))
       },
       customerId

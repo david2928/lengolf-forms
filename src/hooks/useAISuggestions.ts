@@ -89,7 +89,7 @@ export const useAISuggestions = ({
   }, []);
 
   // Generate AI suggestion for a customer message
-  const generateSuggestion = useCallback(async (customerMessage: string, messageId?: string, force?: boolean) => {
+  const generateSuggestion = useCallback(async (customerMessage: string, messageId?: string, force?: boolean, imageUrl?: string) => {
     // Prevent duplicate processing: use messageId (stable) when available, fall back to text
     const dedupeKey = messageId || customerMessage;
     if (!force && lastProcessedRef.current === dedupeKey) {
@@ -130,6 +130,7 @@ export const useAISuggestions = ({
           channelType,
           customerId,
           messageId, // Include message ID for database storage
+          imageUrl, // Customer image URL for vision support
           includeCustomerContext: !!customerId,
           includeDebugContext: true // Always include for staff transparency
         }),

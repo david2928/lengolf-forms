@@ -77,6 +77,8 @@ export interface ConversationContext {
     content: string;
     senderType: string;
     createdAt: string;
+    contentType?: string; // 'text', 'image', 'sticker', etc.
+    imageUrl?: string; // Public URL for image messages
   }>;
 }
 
@@ -179,6 +181,7 @@ export interface GenerateSuggestionParams {
   businessContext?: BusinessContext;
   staffUserEmail?: string;
   messageId?: string; // Message ID for database storage
+  imageUrl?: string; // Customer image URL for vision support
   dryRun?: boolean; // Skip database storage during evaluation
   overrideModel?: string; // Override the default model for testing
   includeDebugContext?: boolean; // Include full context for transparency
@@ -704,11 +707,35 @@ export async function generateAISuggestion(params: GenerateSuggestionParams): Pr
   const startTime = Date.now();
 
   try {
-    // 1. Generate embedding for the customer message
-    const messageEmbedding = await generateEmbedding(params.customerMessage);
+    // 0. Image-aware preprocessing: when the customer sent an image, the raw message
+    // is just "sent a photo" which is useless for embedding/intent/language detection.
+    // Use the most recent customer TEXT message from conversation history instead.
+    const isImageMessage = !!params.imageUrl && (
+      !params.customerMessage.trim() ||
+      /^sent a photo$/i.test(params.customerMessage.trim())
+    );
+
+    let effectiveMessage = params.customerMessage;
+    if (isImageMessage) {
+      const recentCustomerText = (params.conversationContext?.recentMessages || [])
+        .filter(m =>
+          (m.senderType === 'user' || m.senderType === 'customer') &&
+          m.contentType !== 'image' &&
+          m.content &&
+          !/^sent a (photo|sticker)$/i.test(m.content.trim())
+        )
+        .slice(-1)[0]?.content;
+
+      if (recentCustomerText) {
+        effectiveMessage = recentCustomerText;
+      }
+    }
+
+    // 1. Generate embedding for the customer message (use effective message for images)
+    const messageEmbedding = await generateEmbedding(effectiveMessage || 'customer sent an image');
 
     // 2. Find similar messages for context (filtered by message language)
-    const messageLanguage: 'th' | 'en' = /[\u0E00-\u0E7F]/.test(params.customerMessage) ? 'th' : 'en';
+    const messageLanguage: 'th' | 'en' = /[\u0E00-\u0E7F]/.test(effectiveMessage) ? 'th' : 'en';
     const similarMessages = await findSimilarMessages(
       messageEmbedding,
       AI_CONFIG.maxSimilarMessages,
@@ -718,9 +745,9 @@ export async function generateAISuggestion(params: GenerateSuggestionParams): Pr
     );
 
     // 3. Classify intent using two-tier approach (regex fast-path + LLM classifier)
-    const classification = await classifyIntent(params.customerMessage, params.conversationContext?.recentMessages);
+    const classification = await classifyIntent(effectiveMessage, params.conversationContext?.recentMessages);
     const intent = classification.intent;
-    const matchingTemplate = await findMatchingTemplate(params.customerMessage, intent, params.customerContext);
+    const matchingTemplate = await findMatchingTemplate(effectiveMessage || params.customerMessage, intent, params.customerContext);
 
     // 3.1 For greeting-only messages, clear similar messages to prevent context contamination
     // Embedding search on "hello" returns random past conversations that cause the AI to
@@ -732,7 +759,7 @@ export async function generateAISuggestion(params: GenerateSuggestionParams): Pr
     // 3.5 Find relevant FAQ entries (intent-aware hybrid search)
     const faqMatches = await findRelevantFAQs(
       messageEmbedding,
-      params.customerMessage,
+      effectiveMessage || params.customerMessage,
       intent,
       3, // max results
       0.5 // lower threshold for FAQ
@@ -744,8 +771,9 @@ export async function generateAISuggestion(params: GenerateSuggestionParams): Pr
     }
 
     // 4. Generate contextual prompt (uses skills-based architecture)
+    // Use effectiveMessage for language detection in the prompt
     const contextualPrompt = generateContextualPrompt(
-      params.customerMessage,
+      effectiveMessage || params.customerMessage,
       params.conversationContext,
       params.customerContext,
       similarMessages,
@@ -757,10 +785,12 @@ export async function generateAISuggestion(params: GenerateSuggestionParams): Pr
 
     // 5. Detect language from CURRENT message only (not customer profile)
     // This ensures we respond in the language the customer is using RIGHT NOW
+    // For image messages, use effectiveMessage (recent customer text) for language detection
     let userContent = params.customerMessage;
-    const currentMessageLanguage = /[\u0E00-\u0E7F]/.test(params.customerMessage) ? 'thai' : 'english';
+    const langDetectionSource = isImageMessage ? effectiveMessage : params.customerMessage;
+    const currentMessageLanguage = /[\u0E00-\u0E7F]/.test(langDetectionSource) ? 'thai' : 'english';
     const isThaiMessage = currentMessageLanguage === 'thai';
-    const isGreeting = params.customerMessage.includes('สวัสดี') || /\b(hello|hi)\b/i.test(params.customerMessage);
+    const isGreeting = langDetectionSource.includes('สวัสดี') || /\b(hello|hi)\b/i.test(langDetectionSource);
     const hasNoConversationHistory = !params.conversationContext.recentMessages || params.conversationContext.recentMessages.length <= 1;
 
     // Priority: ALWAYS greet on first message of new conversations
@@ -873,7 +903,13 @@ If the customer ONLY says a greeting (hello, hi, good day) with no question, res
     let finalContextPrompt = contextualPrompt;
     if (previousDaysMessages.length > 0) {
       finalContextPrompt += `\nPREVIOUS CONVERSATION HISTORY (for context only):
-${previousDaysMessages.map(msg => `${msg.senderType}: ${msg.content}`).join('\n')}
+${previousDaysMessages.map(msg => {
+  // Replace "sent a photo" placeholder with descriptive text
+  const content = (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim()))
+    ? '[Customer sent an image]'
+    : msg.content;
+  return `${msg.senderType}: ${content}`;
+}).join('\n')}
 
 `;
     }
@@ -932,15 +968,45 @@ Just answer the customer's question directly. Skip any greeting prefix.
           timePrefix = `[${hours}:${minutes}] `;
         }
 
+        // Replace "sent a photo" placeholder with descriptive text for image messages in history
+        let msgContent = msg.content;
+        if (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim())) {
+          msgContent = '[Customer sent an image]';
+        }
+
         messages.push({
           role: role,
-          content: timePrefix + msg.content
+          content: timePrefix + msgContent
         });
       }
     }
 
-    // Add current user message
-    messages.push({ role: 'user', content: userContent });
+    // Add image-specific instruction to userContent when customer sent an image
+    if (isImageMessage) {
+      const imageInstruction = isThaiMessage
+        ? `\n\nลูกค้าส่งรูปภาพมา ดูรูปและตอบอย่างเหมาะสมตามบริบทของบทสนทนา
+หากเป็นรูปโปรโมชั่น/ใบปลิว ยืนยันว่าเป็นโปรโมชั่นอะไร
+หากเป็นสกรีนช็อตการจอง อ้างอิงรายละเอียดที่เห็น
+หากไม่เข้าใจรูป สอบถามลูกค้าเพิ่มเติม`
+        : `\n\nThe customer sent an image. Look at the image and respond appropriately in context with the conversation.
+If the image is a promotion/flyer, confirm which promotion it shows.
+If it's a screenshot of a booking, reference the details you see.
+If you can't understand the image, ask the customer to clarify.`;
+      userContent = (userContent || '') + imageInstruction;
+    }
+
+    // Add current user message (with vision content if image is present)
+    if (params.imageUrl) {
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'text' as const, text: userContent || '[Customer sent an image]' },
+          { type: 'image_url' as const, image_url: { url: params.imageUrl, detail: 'auto' as const } }
+        ]
+      });
+    } else {
+      messages.push({ role: 'user', content: userContent });
+    }
 
     // Only send tools relevant to the detected intent
     // e.g., promotion_inquiry gets NO tools, booking_request gets check_bay + create_booking

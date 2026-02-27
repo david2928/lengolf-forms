@@ -48,6 +48,11 @@ function isSystemMessage(text: string): boolean {
   if (/^\[Location\]$|^\[ตำแหน่ง\]$/i.test(t)) return true;
   if (/unsent\s*a\s*message|ยกเลิกข้อความ/i.test(t)) return true;
 
+  // Webhook media placeholders (from LINE webhook handler)
+  if (/^sent a (photo|sticker)$/i.test(t)) return true;
+  if (/^🎥 Video$|^🎵 Audio$|^📍 Location$/i.test(t)) return true;
+  if (/^📄 .+$/.test(t) && t.length < 50) return true;
+
   // Auto-generated system notifications (require "ระบบ" at start or with colon to avoid false positives)
   if (/^ระบบ|ระบบ:|system\s*notification|auto[-\s]?reply|automated\s*message/i.test(t)) return true;
 
@@ -404,13 +409,20 @@ export default function UnifiedChatPage() {
   const handleAIRetrigger = useCallback(() => {
     if (!aiSuggestionsEnabled || !messages.length) return;
 
-    // Find the last customer message
+    // Find the last customer message (text or image)
     const lastCustomerMessage = [...messages]
       .reverse()
-      .find(m => m.senderType === 'user' && m.text);
+      .find(m => m.senderType === 'user' && (m.text || (m.type === 'image' && m.fileUrl)));
 
-    if (lastCustomerMessage && lastCustomerMessage.text && !isSystemMessage(lastCustomerMessage.text)) {
-      aiSuggestions.generateSuggestion(lastCustomerMessage.text, lastCustomerMessage.id);
+    if (lastCustomerMessage) {
+      const isImage = lastCustomerMessage.type === 'image' && lastCustomerMessage.fileUrl;
+      const hasText = lastCustomerMessage.text && !isSystemMessage(lastCustomerMessage.text);
+      if (hasText || isImage) {
+        aiSuggestions.generateSuggestion(
+          lastCustomerMessage.text || '', lastCustomerMessage.id, false,
+          isImage ? lastCustomerMessage.fileUrl : undefined
+        );
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiSuggestionsEnabled, messages]);
@@ -430,10 +442,17 @@ export default function UnifiedChatPage() {
     if (aiSuggestionsEnabled && selectedConversation && messages.length > 0) {
       const lastCustomerMessage = [...messages]
         .reverse()
-        .find(m => m.senderType === 'user' && m.text && m.text.trim() && !isSystemMessage(m.text));
+        .find(m => m.senderType === 'user' && (
+          (m.text && m.text.trim() && !isSystemMessage(m.text)) ||
+          (m.type === 'image' && m.fileUrl)
+        ));
       if (lastCustomerMessage) {
         aiSuggestions.resetDedup(); // Clear dedup so we can re-generate
-        aiSuggestions.generateSuggestion(lastCustomerMessage.text, lastCustomerMessage.id, true);
+        const isImage = lastCustomerMessage.type === 'image' && lastCustomerMessage.fileUrl;
+        aiSuggestions.generateSuggestion(
+          lastCustomerMessage.text || '', lastCustomerMessage.id, true,
+          isImage ? lastCustomerMessage.fileUrl : undefined
+        );
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -471,12 +490,18 @@ export default function UnifiedChatPage() {
         messagesEnd?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
 
-      // Trigger AI suggestion if enabled, message is from customer, and NOT a system message
-      if (aiSuggestionsEnabled && message.senderType === 'user' && message.text && message.text.trim() && !isSystemMessage(message.text)) {
-        // Small delay to avoid race conditions
-        setTimeout(() => {
-          aiSuggestions.generateSuggestion(message.text, message.id);
-        }, 100);
+      // Trigger AI suggestion if enabled and message is from customer
+      if (aiSuggestionsEnabled && message.senderType === 'user') {
+        const isImage = message.type === 'image' && message.fileUrl;
+        const hasText = message.text?.trim() && !isSystemMessage(message.text);
+        if (hasText || isImage) {
+          setTimeout(() => {
+            aiSuggestions.generateSuggestion(
+              message.text || '', message.id, false,
+              isImage ? message.fileUrl : undefined
+            );
+          }, 100);
+        }
       }
     }
 
