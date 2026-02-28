@@ -7,7 +7,6 @@ import {
   FileText,
   ImageIcon,
   Users,
-  Send,
   Brain,
   Tag
 } from 'lucide-react'
@@ -46,12 +45,6 @@ const communicationItems = [
     title: "Audience Manager",
     description: "Create audiences and send broadcast messages to LINE contacts",
     path: "/staff/line-audiences"
-  },
-  {
-    icon: Send,
-    title: "Broadcast Campaigns",
-    description: "View and manage broadcast message campaigns and analytics",
-    path: "/staff/line-campaigns"
   },
   {
     icon: Brain,

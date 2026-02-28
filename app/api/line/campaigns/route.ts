@@ -119,6 +119,8 @@ export async function POST(request: NextRequest) {
       name,
       audience_id,
       message_type,
+      text_message,
+      image_url,
       flex_message,
       message_template_id,
       schedule_type = 'immediate',
@@ -148,6 +150,13 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    if (message_type === 'text' && !text_message) {
+      return NextResponse.json({
+        success: false,
+        error: 'text_message is required for text message type'
+      }, { status: 400 });
+    }
+
     // Verify audience exists
     const { data: audience, error: audienceError } = await refacSupabaseAdmin
       .from('line_audiences')
@@ -170,6 +179,8 @@ export async function POST(request: NextRequest) {
         audience_id,
         message_template_id,
         message_type,
+        text_message,
+        image_url,
         flex_message,
         schedule_type,
         scheduled_at,

@@ -29,9 +29,10 @@ function replaceFlexVariables(flexJson: any, variables: Record<string, any>): an
  */
 async function sendLineMessage(
   lineUserId: string,
-  message: any,
+  messages: any | any[],
   retries = 3
 ): Promise<{ success: boolean; error?: string; messageId?: string }> {
+  const messageArray = Array.isArray(messages) ? messages : [messages];
   const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
   if (!channelAccessToken) {
@@ -48,7 +49,7 @@ async function sendLineMessage(
         },
         body: JSON.stringify({
           to: lineUserId,
-          messages: [message]
+          messages: messageArray
         })
       });
 
@@ -97,20 +98,28 @@ async function sendLineMessage(
   return { success: false, error: 'Max retries exceeded' };
 }
 
+const CRON_SECRET = process.env.CRON_SECRET;
+
 /**
  * Send broadcast campaign to audience
  * POST /api/line/campaigns/[id]/send
+ *
+ * Accepts either session auth (staff/admin) or cron bearer token.
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getDevSession(authOptions, request);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Allow cron bearer token OR session auth
+  const authHeader = request.headers.get('authorization');
+  const isCronAuth = CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`;
 
-  try {
+  if (!isCronAuth) {
+    const session = await getDevSession(authOptions, request);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // Check if user is staff or admin
     const { data: user, error: userError } = await refacSupabaseAdmin
       .schema('backoffice')
@@ -122,7 +131,9 @@ export async function POST(
     if (userError || (!user?.is_admin && !user?.is_staff)) {
       return NextResponse.json({ error: "Staff access required" }, { status: 403 });
     }
+  }
 
+  try {
     const { id: campaignId } = await params;
 
     // Get campaign details
@@ -439,11 +450,23 @@ async function sendBroadcastMessages(
           contents: flexMessage
         };
       } else {
-        // Text message (would need template support)
-        message = {
+        // Plain text message from campaign, optionally with image
+        const messages: any[] = [];
+
+        if (campaign.image_url) {
+          messages.push({
+            type: 'image',
+            originalContentUrl: campaign.image_url,
+            previewImageUrl: campaign.image_url
+          });
+        }
+
+        messages.push({
           type: 'text',
-          text: 'Hello from Len Golf!'
-        };
+          text: campaign.text_message || campaign.name
+        });
+
+        message = messages;
       }
 
       // Send message

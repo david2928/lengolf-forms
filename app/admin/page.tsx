@@ -131,6 +131,12 @@ const customerManagementItems = [
     title: "Meta Leads",
     description: "Analyze Facebook/Instagram leads and spam detection",
     path: "/admin/meta-leads"
+  },
+  {
+    icon: MessageSquare,
+    title: "Broadcast Campaigns",
+    description: "Create and manage LINE broadcast campaigns with text, images, and scheduling",
+    path: "/admin/line-campaigns"
   }
 ];
 

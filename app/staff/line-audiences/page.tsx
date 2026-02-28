@@ -247,7 +247,7 @@ export default function LineAudiencesPage() {
                     )}
                     <Button
                       size="sm"
-                      onClick={() => router.push(`/staff/line-campaigns/new?audience_id=${audience.id}`)}
+                      onClick={() => router.push(`/admin/line-campaigns/new?audience_id=${audience.id}`)}
                     >
                       <Send className="h-4 w-4 mr-2" />
                       Create Campaign

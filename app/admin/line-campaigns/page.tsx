@@ -122,7 +122,7 @@ export default function LineCampaignsPage() {
             View and manage LINE broadcast message campaigns
           </p>
         </div>
-        <Button onClick={() => router.push('/staff/line-campaigns/new')}>
+        <Button onClick={() => router.push('/admin/line-campaigns/new')}>
           <Plus className="h-4 w-4 mr-2" />
           New Campaign
         </Button>
@@ -205,7 +205,7 @@ export default function LineCampaignsPage() {
               <p className="text-muted-foreground mb-4">
                 Create your first broadcast campaign to send messages to your audiences
               </p>
-              <Button onClick={() => router.push('/staff/line-campaigns/new')}>
+              <Button onClick={() => router.push('/admin/line-campaigns/new')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Campaign
               </Button>
@@ -238,7 +238,7 @@ export default function LineCampaignsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => router.push(`/staff/line-campaigns/${campaign.id}`)}
+                    onClick={() => router.push(`/admin/line-campaigns/${campaign.id}`)}
                   >
                     <Eye className="h-4 w-4 mr-2" />
                     View Details

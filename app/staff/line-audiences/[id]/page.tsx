@@ -220,7 +220,7 @@ export default function AudienceDetailPage() {
             </Button>
           )}
           <Button
-            onClick={() => router.push(`/staff/line-campaigns/new?audience_id=${audienceId}`)}
+            onClick={() => router.push(`/admin/line-campaigns/new?audience_id=${audienceId}`)}
           >
             <Send className="h-4 w-4 mr-2" />
             Create Campaign

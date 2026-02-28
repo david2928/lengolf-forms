@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star, Landmark, Receipt, CalendarCheck, Tag } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star, Landmark, Receipt, CalendarCheck, Tag, Send } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -296,5 +296,11 @@ export const menuItems: MenuItem[] = [
     title: "LINE Testing",
     path: '/admin/line-messages',
     description: "Debug and test LINE messaging functionality (Admin only)"
+  },
+  {
+    icon: Send,
+    title: "Broadcast Campaigns",
+    path: '/admin/line-campaigns',
+    description: "Create and manage LINE broadcast campaigns"
   }
 ] 
