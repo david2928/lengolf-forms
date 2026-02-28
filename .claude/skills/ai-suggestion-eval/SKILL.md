@@ -124,18 +124,20 @@ Compare AI responses vs actual staff responses. Look for these common quality is
 
 ### Issue Checklist
 
-| Issue | What to Look For | Severity |
-|-------|-----------------|----------|
-| **Verbosity** | AI response 3x+ longer than staff's. Staff averages ~10 words. | HIGH |
-| **Greeting hallucination** | AI invents context from a simple "hello" (booking confirmation, job application, etc.) | HIGH |
-| **Internal text leak** | Raw function results shown as customer message (e.g., "Cancel booking for 2026-02-26 - Name") | HIGH |
-| **Promotion auto-apply** | AI applies promotions or quotes pricing without being asked | MEDIUM |
-| **Language mismatch** | Thai customer gets English response or vice versa | HIGH |
-| **Mid-conversation greeting** | AI says "Hello [Name]!" on message #7 of a conversation | LOW |
-| **Over-asking** | AI asks 3-5 clarifying questions at once instead of 1 | MEDIUM |
-| **Hedging** | AI says "we can usually..." instead of being direct | MEDIUM |
-| **Missing warmth** | Staff references personal details; AI gives generic response | LOW |
-| **Multi-booking ignored** | Customer requests 4 slots; AI processes only 1 | MEDIUM |
+| Issue | What to Look For | Severity | Current Rate |
+|-------|-----------------|----------|-------------|
+| **Over-asking** | AI asks "would you like to confirm?" when staff just books | HIGH | 26% |
+| **Mid-conversation greeting** | AI says "สวัสดีค่า" / "Hi [Name]!" on message #3+ | MEDIUM | 40% (partly test artifact) |
+| **Missed function calls** | Staff created booking (📋), AI only asked a question | HIGH | 74% of booking actions |
+| **Sticker/photo generic response** | All stickers get "Hi!" instead of context-aware action | MEDIUM | 100% of sticker msgs |
+| **Verbosity** | AI response 3x+ longer than staff's | MEDIUM | 12% (improved from HIGH) |
+| **Greeting hallucination** | AI invents context from a simple "hello" | HIGH | 0% (fixed) |
+| **Internal text leak** | Raw function results shown as customer message | HIGH | 0% (fixed) |
+| **Language mismatch** | Thai customer gets English response or vice versa | HIGH | 0% |
+| **Hedging** | AI says "we can usually..." instead of being direct | MEDIUM | 0.8% |
+| **Promotion auto-apply** | AI applies promotions or quotes pricing without being asked | MEDIUM | ~0% |
+| **Missing warmth** | Staff references personal details; AI gives generic response | LOW | - |
+| **Multi-booking ignored** | Customer requests 4 slots; AI processes only 1 | MEDIUM | - |
 
 ### Where to Fix Each Issue
 
@@ -209,13 +211,58 @@ set -a && source .env && set +a && npx tsx scripts/sample-e2e-suggestions.ts --t
 
 ### What Good Looks Like
 
-| Metric | Target | Current Baseline |
-|--------|--------|-----------------|
-| Intent accuracy | >95% | 98% (64/65) |
-| Avg confidence | >65% | 69% |
-| Avg response time | <12s | 8.9s |
-| Greeting hallucination | 0 | 0 (fixed) |
-| Internal text leaks | 0 | 0 (fixed) |
+| Metric | Target | Current Baseline (Post-Change 3) |
+|--------|--------|--------------------------------|
+| Intent accuracy | >95% | 100% (13/13 curated), ~98% (sampler) |
+| Avg confidence | >65% | 63% (sampler), 65% (curated) |
+| Avg response time | <12s | 7.2s |
+| Response length ratio (AI/staff) | 0.8-1.2x | 0.9x |
+| Over-asking rate | <15% | 26% (needs improvement) |
+| Function call alignment | >60% | 26% (needs improvement) |
+| Language mismatch | 0% | 0% |
+| Hedging | <2% | 0.8% |
+| Greeting hallucination | 0 | 0 |
+| Internal text leaks | 0 | 0 |
+
+## Step 6: Qualitative Review (Periodic)
+
+Beyond automated metrics, periodically review response quality:
+
+### Quick Quality Audit
+
+```bash
+# Run sampler on recent conversations (all messages)
+set -a && source .env && set +a
+npx tsx scripts/sample-e2e-suggestions.ts --days 7 --count 20 --all
+
+# Review results side-by-side
+npx tsx scripts/sample-e2e-suggestions.ts --review
+```
+
+### What to Check
+
+1. **Over-asking** — Does AI ask a question when staff would just act? Count instances where AI response ends with "?" but staff response doesn't. Target: <15% of responses.
+2. **Action alignment** — When staff created a booking (📋) or cancelled (❌), did AI call the corresponding function? Target: >60%.
+3. **Tone match** — Does AI sound like a helpful friend or a corporate chatbot? Thai responses should be ultra-brief (5-8 words).
+4. **Sticker/photo handling** — Sticker-only messages should be handled contextually, not with generic greetings.
+5. **Unnecessary greetings** — After first exchange, AI should never greet again mid-conversation.
+
+### Analyzing Results with Node.js
+
+```bash
+# Quick stats from a sample file
+node -e "
+const data = require('./scripts/e2e-samples/SAMPLE_FILE.json');
+const overAsk = data.filter(d => (d.aiResponse||'').includes('?') && !(d.testPoint?.actualStaffResponse||'').includes('?')).length;
+const staffActions = data.filter(d => (d.testPoint?.actualStaffResponse||'').match(/📋|❌|Booking/));
+const aiMatched = staffActions.filter(d => d.functionCalled).length;
+console.log('Over-asking:', overAsk + '/' + data.length + ' (' + (overAsk/data.length*100).toFixed(0) + '%)');
+console.log('Function alignment:', aiMatched + '/' + staffActions.length);
+console.log('Avg confidence:', (data.reduce((a,d) => a + (d.confidenceScore||0), 0) / data.length * 100).toFixed(0) + '%');
+"
+```
+
+See full quality review: `docs/technical/AI_ARCHITECTURE_RECOMMENDATIONS.md` Section 11.
 
 ## Key Business Rules (CRITICAL)
 

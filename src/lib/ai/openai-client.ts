@@ -2,12 +2,19 @@
 // Uses GPT-5-mini for reasoning + cost-effective generation
 
 import OpenAI from 'openai';
+import { createOpenAI } from '@ai-sdk/openai';
 
 if (!process.env.OPENAI_API_KEY) {
   console.warn('OPENAI_API_KEY not found in environment variables');
 }
 
 export const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+});
+
+// Vercel AI SDK provider — used by generateText() in suggestion-service
+// Shares the same OPENAI_API_KEY; the raw `openai` instance stays for embeddings + intent classification
+export const openaiProvider = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });
 

@@ -79,25 +79,6 @@ export function getRequiredContext(skills: Skill[]): string[] {
   return Array.from(contextSet);
 }
 
-/**
- * Get few-shot examples from matched skills for the detected language.
- */
-export function getSkillExamples(skills: Skill[], language: 'th' | 'en'): string {
-  const examples: string[] = [];
-
-  skills.forEach(skill => {
-    if (!skill.examples) return;
-    const langExamples = skill.examples.filter(ex => ex.language === language);
-    langExamples.forEach(ex => {
-      examples.push(`Customer: ${ex.customerMessage}\nStaff: ${ex.staffResponse}`);
-    });
-  });
-
-  if (examples.length === 0) return '';
-
-  return `\nSKILL EXAMPLES:\n${examples.slice(0, 3).join('\n\n')}\n`;
-}
-
 // Re-export types
 export type { Skill } from './types';
 export { coreSkill, getCorePromptForLanguage } from './core-skill';

@@ -4,91 +4,33 @@
 import { Skill } from './types';
 
 // Shared booking rules (language-neutral)
-const BOOKING_RULES = `FACILITY INFORMATION:
-- We offer Social Bays (up to 5 players) and AI Bays (1-2 players, with advanced analytics)
-- Equipment: Bravo Golf launch monitors providing comprehensive swing data
+const BOOKING_RULES = `BOOKING RULES:
+- Social Bays: up to 5 players. AI Bays: 1-2 players with advanced analytics.
+- New customers need: Name (English), phone. Email optional.
 
-BOOKING REQUIREMENTS:
-- New customers need: Name (English), phone, email (optional)
-- Booking details: Date, time/duration, number of players
-- Social Bay: Maximum 5 players
-- AI Bay: Recommended for 1-2 players (includes advanced analytics)
+BOOKING FLOW:
+1. Availability question → ALWAYS call check_bay_availability (never respond without checking)
+2. Direct request with date+time ("book 2pm tomorrow", "วันนี้ 16:30", "จอง 14:00") → call get_customer_context then create_booking immediately
+3. Customer confirms after availability ("that one", "3.30pm", "เอา 19:00", "ใช่", "yes", "ok", "ได้") → call create_booking immediately
+4. Cancellation keywords ("ยกเลิก", "cancel") always override → call cancel_booking
 
-TYPICAL CUSTOMER FLOWS:
+ACT, DON'T ASK: When you have name + phone + date + time, call create_booking. Do NOT ask "would you like to confirm?" or "shall I book this?"
 
-1. Availability Questions (MUST use check_bay_availability function)
-   CRITICAL: Customer asks about availability → ALWAYS call check_bay_availability function
-   NEVER respond conversationally to availability questions - ALWAYS check real data!
+CRITICAL: Phone is MANDATORY for create_booking. Check CUSTOMER INFORMATION first. If phone available, use it — do NOT ask again. If missing, ask before booking.
 
-   Time Range vs Duration:
-   - "2-4 available?" = TIME RANGE → start_time="", duration=1 (show all slots between 2-4 PM)
-   - "I need 2 hours starting at 2pm" → start_time="14:00", duration=2 (specific request)
+TIME HANDLING:
+- "2-4 available?" = time range → start_time="", duration=1 (show slots between 2-4 PM)
+- "2 hours at 2pm" = specific → start_time="14:00", duration=2
 
-2. Booking Flow (2-step process)
-   Step 1: Customer asks availability → Use check_bay_availability
-   Step 2: Customer confirms → Use create_booking
+ARRIVAL vs BOOKING: "I'll arrive at 6:30" / "ไปถึง 18:30" = arrival notification, NOT a booking → no function call.
 
-3. Direct Booking (skip availability check)
-   - Customer says "I want to book 2pm tomorrow" → Use create_booking immediately
-   - Customer confirms time after availability shown → Use create_booking
+NO DEAD ENDS: When nothing is available, ALWAYS suggest an alternative time or day.`;
 
-4. Cancellation
-   - Customer wants to cancel → Check UPCOMING BOOKINGS in context, then call cancel_booking
+const ENGLISH_BOOKING = BOOKING_RULES;
 
-CRITICAL: WHEN CALLING create_booking:
-PHONE NUMBER IS MANDATORY - NEVER CREATE BOOKING WITHOUT IT!
-1. Check CUSTOMER INFORMATION section first
-2. If name AND phone available → use them directly, DO NOT ask again
-3. If phone missing → ask for it before calling create_booking
-
-CONVERSATION FLOW AWARENESS:
-- If availability was just shown and customer confirms → proceed to BOOKING
-- If customer says "Thank you" after an action → respond contextually
-- Cancellation keywords always override → ALWAYS call cancel_booking
-
-NO DEAD ENDS:
-- When no availability is found, ALWAYS suggest an alternative (different time or another day)
-- Never just say "fully booked" and stop. Always keep the conversation going.
-- Example: "Sorry, all bays are fully booked today. Would you like to check tomorrow?"`;
-
-
-// English-specific examples and non-function patterns
-const ENGLISH_BOOKING = `${BOOKING_RULES}
-
-WHEN NOT TO CALL FUNCTIONS:
-- Gratitude ("Thank you", "Thanks") → NO FUNCTION, just acknowledge
-- Arrival time ("I'll arrive at 6", "getting there at 6:30") → NO FUNCTION (not booking time!)
-- Past booking ("I already booked", "my earlier booking") → NO FUNCTION
-- Hypothetical ("If I book...", "What if I...") → NO FUNCTION, just explain
-- Facility questions ("Do you have clubs?", "Is parking free?") → NO FUNCTION, just answer
-- Greetings ("Hello", "Hi") → NO FUNCTION, just greet back
-
-FUNCTION CALLING EXAMPLES:
-- "available tonight?" → check_bay_availability
-- "I'd like to book 2pm" → create_booking
-- "cancel my booking" → cancel_booking
-- "I'll arrive at 6:30" → NO FUNCTION (arrival time, not booking!)
-- "Do you have left-handed clubs?" → NO FUNCTION (facility question)`;
-
-// Thai-specific examples and non-function patterns
 const THAI_BOOKING = `${BOOKING_RULES}
 
-WHEN NOT TO CALL FUNCTIONS:
-- ขอบคุณ/Thanks → NO FUNCTION, just acknowledge
-- ไปถึง 18:30/arrival time → NO FUNCTION (not booking time!)
-- ตอนแรกจองไว้/past booking → NO FUNCTION
-- จอง 2 ชม แล้วตอน...หรอ/hypothetical → NO FUNCTION, just explain
-- มีไม้กอล์ฟมั้ย/facility questions → NO FUNCTION, just answer
-- สวัสดี/greetings → NO FUNCTION, just greet back
-
-FUNCTION CALLING EXAMPLES:
-- "ว่างมั้ย" → check_bay_availability
-- "ขอจอง 14:00" → create_booking
-- "ยกเลิกนะครับ ขอบคุณ" → cancel_booking (cancellation overrides thanks)
-- "ไปถึงสัก 18.30 น" → NO FUNCTION (arrival time, not booking!)
-- "มันตีใส่จอเหมือน bay ทั่วไปไหม" → NO FUNCTION (facility question)
-
-EXCEPTION: ยกเลิก/ขอยกเลิก always override → ALWAYS call cancel_booking`;
+ยกเลิก/ขอยกเลิก always overrides any other intent → ALWAYS call cancel_booking`;
 
 export const bookingSkill: Skill = {
   name: 'booking',
@@ -99,33 +41,9 @@ export const bookingSkill: Skill = {
     'modification_request'
   ],
   requiredContext: ['customer_info', 'upcoming_bookings', 'recent_bookings'],
-  // Fallback (both languages) — used by composeSkillPrompt()
   systemPrompt: ENGLISH_BOOKING,
-  // Language-specific — used by composeSkillPromptForLanguage()
   systemPromptByLanguage: {
     thai: THAI_BOOKING,
     english: ENGLISH_BOOKING
-  },
-  examples: [
-    {
-      customerMessage: 'ว่างมั้ยคะ พรุ่งนี้ 14:00',
-      staffResponse: '[Call check_bay_availability with date=tomorrow, start_time="14:00"]',
-      language: 'th'
-    },
-    {
-      customerMessage: 'ขอจอง AI Bay 10.00-11.00',
-      staffResponse: '[Call create_booking with start_time="10:00", duration=1, bay_type="ai"]',
-      language: 'th'
-    },
-    {
-      customerMessage: 'Any slots available tonight?',
-      staffResponse: '[Call check_bay_availability with date=today, start_time=""]',
-      language: 'en'
-    },
-    {
-      customerMessage: 'I want to book 2pm tomorrow',
-      staffResponse: '[Call create_booking with date=tomorrow, start_time="14:00", duration=1]',
-      language: 'en'
-    }
-  ]
+  }
 };

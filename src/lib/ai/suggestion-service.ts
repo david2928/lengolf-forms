@@ -8,7 +8,7 @@ import { generateEmbedding, findSimilarMessages, SimilarMessage, findRelevantFAQ
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import { createAITools, getActiveToolsForIntent, createToolExecutionState, stopOnApproval, ContextProviders } from './function-schemas';
 import { FunctionResult } from './function-executor';
-import { getSkillsForIntent, composeSkillPromptForLanguage, getSkillExamples } from './skills';
+import { getSkillsForIntent, composeSkillPromptForLanguage } from './skills';
 import { classifyIntent, IntentClassification, regexFullClassify } from './intent-classifier';
 
 export interface CustomerContext {
@@ -240,10 +240,6 @@ function generateContextualPrompt(
     .replace(/{TOMORROW_DATE}/g, tomorrowDate)
     .replace(/{TOMORROW_DAY_OF_WEEK}/g, tomorrowDayOfWeek)
     .replace(/{CURRENT_TIME}/g, currentTime) + '\n\n';
-  const skillExamples = getSkillExamples(skills, customerLang);
-  if (skillExamples) {
-    contextPrompt += skillExamples + '\n';
-  }
 
   // Add customer context
   if (customerContext) {
@@ -780,49 +776,15 @@ export async function generateAISuggestion(params: GenerateSuggestionParams): Pr
     if (isThaiMessage && hasNoConversationHistory) {
       userContent = `Customer message: "${params.customerMessage}"
 
-THAI FIRST MESSAGE INSTRUCTION: This is the FIRST message in a new conversation. ALWAYS start with a greeting.
-
-Structure your response as:
-1. Start with "สวัสดีค่า" or "สวัสดีค่ะ"
-2. If they asked a specific question, answer it briefly (total response: 6-10 words maximum)
-3. If they ONLY said a greeting with no question, respond with ONLY "สวัสดีค่า" and STOP. Do NOT add anything else.
-
-Examples:
-- If they ask about left-handed support: "สวัสดีค่ะ ได้เลยค่ะ รองรับค่ะ"
-- If they ask about pricing: "สวัสดีค่ะ ราคา 700 บาทต่อชั่วโมงค่ะ"
-- If they ONLY greet (สวัสดี/สวัสดีค่ะ/สวัสดีครับ): "สวัสดีค่า" — nothing more
-
-CRITICAL:
-- NEVER skip the greeting on the first message of a new session.
-- NEVER fabricate context. If the customer only says hello, respond with ONLY a hello back. Do NOT assume what they want, do NOT confirm bookings, do NOT offer to search for anything.`;
+THAI FIRST MESSAGE: Start with "สวัสดีค่า". If they asked a question, answer briefly (6-10 words max). If greeting only, respond with ONLY "สวัสดีค่า" and stop. Never fabricate context or assume intent.`;
     } else if (isThaiMessage) {
       userContent = `Customer message: "${params.customerMessage}"
 
-THAI INSTRUCTION: Keep response short but polite (5-8 words maximum).
-Examples:
-- For left-handed question: "ได้เลยค่ะ รองรับค่ะ" (Yes, we support that)
-- For availability: "หาให้นะคะ" (I'll check for you)
-- For booking: "ใส่ชื่อเบอร์หน่อยค่ะ" (Please provide name and number)
-- For simple questions: Add brief confirmation like "ได้ค่ะ" + one more polite word
-
-Strike balance between brief and polite. Don't be too abrupt.
-
-STILL BANNED:
-- Long explanations
-- "ถ้ามีคำถามเพิ่มเติม"
-- Names in responses unless necessary`;
+THAI: 5-8 words max. Brief but polite. No greetings, no names, no "ถ้ามีคำถามเพิ่มเติม".`;
     } else {
-      // English message - enforce English response
       userContent = `Customer message: "${params.customerMessage}"
 
-🚨 CRITICAL LANGUAGE REQUIREMENT:
-The customer is writing in ENGLISH. You MUST respond in ENGLISH ONLY.
-- DO NOT use Thai language in your response
-- DO NOT mix languages
-- Match the customer's language exactly
-
-Write naturally in English, be friendly and professional. Keep responses to 1 to 2 sentences.
-If the customer ONLY says a greeting (hello, hi, good day) with no question, respond with ONLY a short greeting like "Hello! How can I help?" and nothing more. Do NOT assume or predict what they want.`;
+ENGLISH ONLY. Do not use Thai. 1 to 2 sentences. If greeting only, respond with just a greeting — don't assume intent.`;
     }
 
     // 6. Add debug reasoning in dry run mode - DISABLED
@@ -915,7 +877,7 @@ ${previousDaysMessages.map(msg => {
 - get_customer_context: Get customer profile, packages, and bookings for the current customer.
 - search_knowledge: Search FAQ and past conversations for answers to business questions.
 Do NOT call these for simple greetings or thank-you messages — just respond directly.
-For booking/cancellation/modification, call get_customer_context first to get the customer's details.
+For booking/cancellation/modification: call get_customer_context first, then proceed to the action (create_booking, cancel_booking) without asking the customer to confirm.
 
 `;
     }
@@ -927,21 +889,11 @@ For booking/cancellation/modification, call get_customer_context first to get th
     const shouldGreet = !hasAssistantMessageToday && !hasGreetedToday && !isOngoingConversation;
 
     if (shouldGreet) {
-      finalContextPrompt += `\n👋 FIRST MESSAGE OF THE DAY:
-This is the FIRST staff response in this conversation session. Start with a brief greeting.
-${isThaiMessage
-  ? `- Thai: Start with "สวัสดีค่า" or "สวัสดีค่ะ" then answer their question
-- Example: "สวัสดีค่ะ หาให้นะคะ" (Hello, I'll check for you)`
-  : `- English: Start with a friendly greeting. If you know the customer's name (from get_customer_context), use it.
-- Example: "Hi John! Let me check for you." or "Hello! How can I help?"`}
-
-After the first greeting, do NOT greet again in the same conversation session.
+      finalContextPrompt += `\n👋 FIRST MESSAGE: Start with a brief greeting${isThaiMessage ? ' ("สวัสดีค่า")' : ' (use customer name from get_customer_context if available)'}. Then answer their question. Do NOT greet again in this session.
 
 `;
     } else if (hasGreetedToday || hasAssistantMessageToday || isOngoingConversation) {
-      finalContextPrompt += `\n⚠️ DO NOT GREET:
-Staff has already responded in this conversation. Do NOT start with "Hello", "Hi", "Good morning", "สวัสดี", or any greeting.
-Just answer the customer's question directly. Skip any greeting prefix.
+      finalContextPrompt += `\n⚠️ DO NOT GREET: This is mid-conversation. No "สวัสดี", no "Hi [name]", no greeting of any kind. Answer directly.
 
 `;
     }

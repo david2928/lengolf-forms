@@ -7,7 +7,6 @@ export interface Skill {
   /** Language-specific prompt overrides. When present, used instead of systemPrompt. */
   systemPromptByLanguage?: { thai: string; english: string };
   requiredContext: SkillContextRequirement[];
-  examples?: SkillExample[];
 }
 
 export type SkillContextRequirement =
@@ -18,9 +17,3 @@ export type SkillContextRequirement =
   | 'customer_info'
   | 'upcoming_bookings'
   | 'recent_bookings';
-
-export interface SkillExample {
-  customerMessage: string;
-  staffResponse: string;
-  language: 'th' | 'en';
-}
