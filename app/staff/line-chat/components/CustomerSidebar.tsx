@@ -1054,22 +1054,26 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
               </CardContent>
             </Card>
 
-            {/* Active Packages */}
+            {/* Packages */}
+            {(() => {
+              const activePackages = customerPackages.filter(p => p.status !== 'inactive');
+              const inactivePackagesList = customerPackages.filter(p => p.status === 'inactive');
+              return (
             <Card className="mb-4">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center">
                   <Package className="h-4 w-4 mr-2" />
-                  Active Packages ({customerPackages.length})
+                  Packages ({customerPackages.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 {customerPackages.length > 0 ? (
                   <div className="space-y-3">
-                    {customerPackages.map((pkg) => {
+                    {/* Active packages first */}
+                    {activePackages.map((pkg) => {
                       const isUnlimited = pkg.remaining_hours === 'Unlimited';
                       const hoursLeft = Number(pkg.remaining_hours) || 0;
                       const totalHours = hoursLeft + (pkg.used_hours || 0);
-                      const usagePercentage = isUnlimited ? 0 : ((totalHours - hoursLeft) / totalHours) * 100;
                       const daysUntilExpiry = calculateDaysUntilExpiry(pkg.expiration_date);
 
                       return (
@@ -1168,15 +1172,85 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                         </div>
                       );
                     })}
+
+                    {/* Inactive packages (not yet activated) */}
+                    {inactivePackagesList.length > 0 && (
+                      <>
+                        {activePackages.length > 0 && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <div className="flex-1 h-px bg-gray-200" />
+                            <span className="text-xs text-orange-600 font-medium">Not Yet Activated</span>
+                            <div className="flex-1 h-px bg-gray-200" />
+                          </div>
+                        )}
+                        {inactivePackagesList.map((pkg) => {
+                          const isUnlimited = pkg.remaining_hours === 'Unlimited';
+                          const totalHours = Number(pkg.remaining_hours) || 0;
+
+                          return (
+                            <div
+                              key={pkg.id}
+                              className="relative rounded-lg border border-orange-200 bg-orange-50/50 shadow-sm overflow-hidden"
+                            >
+                              {/* Header bar - muted style for inactive */}
+                              <div className={`px-3 py-2.5 border-b border-orange-100 ${
+                                pkg.package_type_name.toLowerCase().includes('coaching')
+                                  ? 'bg-[#7B68EE]/60'
+                                  : 'bg-[#06C755]/60'
+                              }`}>
+                                <div className="flex items-center justify-between">
+                                  <span
+                                    className="text-white font-semibold text-sm truncate"
+                                    title={pkg.package_type_name}
+                                  >
+                                    {pkg.package_type_name}
+                                  </span>
+                                  <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 text-[10px] px-1.5 py-0 h-4 shrink-0 ml-2">
+                                    Inactive
+                                  </Badge>
+                                </div>
+                              </div>
+
+                              {/* Package details */}
+                              <div className="px-3 py-2.5 space-y-2">
+                                {/* Total hours */}
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-500">Hours:</span>
+                                  <span className="font-medium text-gray-700">
+                                    {isUnlimited ? '∞ Unlimited' : `${totalHours}h total`}
+                                  </span>
+                                </div>
+
+                                {/* Purchase date */}
+                                {pkg.purchase_date && (
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-500">Purchased:</span>
+                                    <span className="text-gray-700">
+                                      {new Date(pkg.purchase_date).toLocaleDateString('en-GB', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric'
+                                      })}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-6">
                     <Package className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-500">No active packages</p>
+                    <p className="text-sm text-gray-500">No packages</p>
                   </div>
                 )}
               </CardContent>
             </Card>
+              );
+            })()}
 
             {/* Past/Cancelled Bookings */}
             <Card>

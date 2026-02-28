@@ -740,14 +740,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   return (
     <div
-      className="flex-1 flex flex-col h-full min-h-0"
+      className="flex-1 flex flex-col h-full min-h-0 overflow-hidden"
       style={{ height: isMobile ? '100dvh' : undefined }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Chat Header */}
-      <div className="bg-[#1a4d2e] border-b p-2 md:p-4 flex items-center justify-between sticky top-0 z-10 md:static md:z-auto">
+      {/* Chat Header - flex-shrink-0 ensures it never scrolls away on mobile */}
+      <div className="bg-[#1a4d2e] border-b p-2 md:p-4 flex items-center justify-between flex-shrink-0 z-10">
         <div className="flex items-center space-x-2 md:space-x-3 flex-1 min-w-0">
           {/* Panel Controls - Desktop Only */}
           <div className="hidden md:flex items-center space-x-2 mr-4">

@@ -146,7 +146,7 @@ export async function GET(
       })
       .slice(0, 3);
 
-    // Fetch ALL active packages for this customer (not just package monitor categories)
+    // Fetch ALL active packages for this customer (not expired, with remaining hours)
     const { data: packages, error: packagesError } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('packages')
@@ -164,13 +164,36 @@ export async function GET(
         )
       `)
       .eq('customer_id', customerId)
+      .not('first_use_date', 'is', null) // Only activated packages
       .gte('expiration_date', new Date().toISOString().split('T')[0]) // Not expired
       .order('purchase_date', { ascending: false });
+
+    // Fetch inactive packages (purchased but not yet activated)
+    const { data: inactivePackages, error: inactiveError } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('packages')
+      .select(`
+        id,
+        customer_name,
+        purchase_date,
+        first_use_date,
+        expiration_date,
+        employee_name,
+        package_types!inner(
+          name,
+          type,
+          hours
+        )
+      `)
+      .eq('customer_id', customerId)
+      .is('first_use_date', null) // Not yet activated
+      .order('purchase_date', { ascending: false })
+      .limit(10);
 
     let processedPackages: any[] = [];
 
     if (packages && !packagesError) {
-      // Get usage data for all packages
+      // Get usage data for all active packages
       const packageIds = packages.map((p: any) => p.id);
       const { data: usageData } = await refacSupabaseAdmin
         .schema('backoffice')
@@ -178,7 +201,7 @@ export async function GET(
         .select('package_id, used_hours')
         .in('package_id', packageIds);
 
-      // Process packages with usage calculations
+      // Process active packages with usage calculations
       processedPackages = packages.map((pkg: any) => {
         const totalUsed = usageData
           ?.filter((usage: any) => usage.package_id === pkg.id)
@@ -192,7 +215,7 @@ export async function GET(
         return {
           id: pkg.id,
           customer_name: pkg.customer_name,
-          contact_number: customer.phone, // Use customer phone from our record
+          contact_number: customer.phone,
           package_type_name: pkg.package_types.name,
           package_type: pkg.package_types.type,
           purchase_date: pkg.purchase_date,
@@ -201,12 +224,36 @@ export async function GET(
           employee_name: pkg.employee_name,
           remaining_hours: remainingHours,
           used_hours: totalUsed,
-          hours_remaining: pkg.package_types.type === 'Unlimited' ? null : Math.max(0, totalHours - totalUsed)
+          hours_remaining: pkg.package_types.type === 'Unlimited' ? null : Math.max(0, totalHours - totalUsed),
+          status: 'active' as const
         };
       }).filter((pkg: any) => {
         // Only show packages that have remaining hours or are unlimited
         return pkg.package_type === 'Unlimited' || Number(pkg.remaining_hours) > 0;
       });
+    }
+
+    // Process inactive packages (no usage data needed - they haven't been used)
+    if (inactivePackages && !inactiveError) {
+      const processedInactive = inactivePackages.map((pkg: any) => {
+        const totalHours = Number(pkg.package_types.hours || 0);
+        return {
+          id: pkg.id,
+          customer_name: pkg.customer_name,
+          contact_number: customer.phone,
+          package_type_name: pkg.package_types.name,
+          package_type: pkg.package_types.type,
+          purchase_date: pkg.purchase_date,
+          first_use_date: null,
+          expiration_date: pkg.expiration_date,
+          employee_name: pkg.employee_name,
+          remaining_hours: pkg.package_types.type === 'Unlimited' ? 'Unlimited' : totalHours.toString(),
+          used_hours: 0,
+          hours_remaining: pkg.package_types.type === 'Unlimited' ? null : totalHours,
+          status: 'inactive' as const
+        };
+      });
+      processedPackages = [...processedPackages, ...processedInactive];
     }
 
     // Fetch recent transactions (last 5)
@@ -224,9 +271,9 @@ export async function GET(
       .order('transaction_date', { ascending: false })
       .limit(5);
 
-    // Calculate some quick stats
-    const totalActivePackages = processedPackages?.length || 0;
-    const totalRemainingHours = processedPackages?.reduce((total: number, pkg: any) => total + (pkg.hours_remaining || 0), 0) || 0;
+    // Calculate some quick stats (only count active packages for stats)
+    const totalActivePackages = processedPackages?.filter((pkg: any) => pkg.status === 'active').length || 0;
+    const totalRemainingHours = processedPackages?.filter((pkg: any) => pkg.status === 'active').reduce((total: number, pkg: any) => total + (pkg.hours_remaining || 0), 0) || 0;
     const recentTransactionAmount = transactions?.[0]?.total_amount || 0;
 
     return NextResponse.json({

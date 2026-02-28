@@ -140,6 +140,8 @@ export interface Package {
   expiration_date: string;
   package_type: string;
   hours_remaining?: number | null; // For numeric calculations, null for unlimited packages
+  status?: 'active' | 'inactive'; // inactive = purchased but not yet activated (no first_use_date)
+  purchase_date?: string;
 }
 
 export interface Transaction {
