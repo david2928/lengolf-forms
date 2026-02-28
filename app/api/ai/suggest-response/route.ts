@@ -187,13 +187,8 @@ export async function POST(request: NextRequest) {
       customerId = dbContext.customerId;
     }
 
-    // Get customer context automatically if customer is linked to conversation
-    // OR if explicitly requested with customerId
-    let customerContext;
+    // Customer context is now loaded on-demand by AI tools (Phase 2)
     const customerIdToUse = body.customerId || customerId;
-    if (customerIdToUse) {
-      customerContext = await getCustomerContext(customerIdToUse);
-    }
 
     // Fetch business context (pricing, packages, coaching rates) - cached for 5 min
     const businessContext = await getBusinessContext();
@@ -202,14 +197,17 @@ export async function POST(request: NextRequest) {
     const suggestionParams: GenerateSuggestionParams = {
       customerMessage: body.customerMessage || '',
       conversationContext,
-      customerContext,
+      // customerContext removed — loaded on-demand by get_customer_context tool
       businessContext: businessContext || undefined,
       staffUserEmail: session.user.email,
       messageId: body.messageId, // Pass message ID for database storage
       imageUrl: body.imageUrl, // Customer image URL for vision support
       dryRun: body.dryRun || false, // Support evaluation mode
       overrideModel: (body.overrideModel && ALLOWED_MODELS.has(body.overrideModel)) ? body.overrideModel : undefined,
-      includeDebugContext: body.includeDebugContext || false // Support context transparency
+      includeDebugContext: body.includeDebugContext || false, // Support context transparency
+      // Phase 2: on-demand context loading
+      customerIdForTools: customerIdToUse || undefined,
+      getCustomerContextFn: getCustomerContext,
     };
 
     // Generate AI suggestion

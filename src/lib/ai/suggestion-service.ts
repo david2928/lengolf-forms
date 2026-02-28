@@ -1,12 +1,13 @@
 // AI suggestion service for generating contextual chat responses
 // Integrates RAG (Retrieval Augmented Generation) with Lengolf business context
 
-import { openai, AI_CONFIG } from './openai-client';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { AI_CONFIG, openaiProvider } from './openai-client';
+import { generateText, stepCountIs } from 'ai';
+import type { ModelMessage } from '@ai-sdk/provider-utils';
 import { generateEmbedding, findSimilarMessages, SimilarMessage, findRelevantFAQs, trackFAQUsage, FAQMatch } from './embedding-service';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
-import { getOpenAITools, getToolsForIntent } from './function-schemas';
-import { functionExecutor, FunctionResult } from './function-executor';
+import { createAITools, getActiveToolsForIntent, createToolExecutionState, stopOnApproval, ContextProviders } from './function-schemas';
+import { FunctionResult } from './function-executor';
 import { getSkillsForIntent, composeSkillPromptForLanguage, getSkillExamples } from './skills';
 import { classifyIntent, IntentClassification, regexFullClassify } from './intent-classifier';
 
@@ -185,6 +186,9 @@ export interface GenerateSuggestionParams {
   dryRun?: boolean; // Skip database storage during evaluation
   overrideModel?: string; // Override the default model for testing
   includeDebugContext?: boolean; // Include full context for transparency
+  // Phase 2: on-demand context loading via tools
+  customerIdForTools?: string; // Customer ID for on-demand context tool
+  getCustomerContextFn?: (customerId: string) => Promise<CustomerContext | undefined>;
 }
 
 // Legacy monolithic prompt removed — now using skills-based architecture (src/lib/ai/skills/)
@@ -579,7 +583,9 @@ function calculateConfidenceScore(
   functionCalled?: string | null,
   functionSuccess?: boolean
 ): number {
-  let confidence = 0.4; // Lower base — earn confidence through signals
+  // Base confidence: 0.5 reflects that skill prompts already contain business knowledge.
+  // Context tools (similar messages, customer data) provide additional boosts when called.
+  let confidence = 0.5;
 
   // Boost confidence based on similar messages (up to +0.2)
   if (similarMessages.length > 0) {
@@ -734,53 +740,30 @@ export async function generateAISuggestion(params: GenerateSuggestionParams): Pr
     // 1. Generate embedding for the customer message (use effective message for images)
     const messageEmbedding = await generateEmbedding(effectiveMessage || 'customer sent an image');
 
-    // 2. Find similar messages for context (filtered by message language)
+    // 2. Language detection (used for similar messages filtering in search_knowledge tool)
     const messageLanguage: 'th' | 'en' = /[\u0E00-\u0E7F]/.test(effectiveMessage) ? 'th' : 'en';
-    const similarMessages = await findSimilarMessages(
-      messageEmbedding,
-      AI_CONFIG.maxSimilarMessages,
-      0.7, // Similarity threshold
-      undefined,
-      messageLanguage
-    );
 
     // 3. Classify intent using two-tier approach (regex fast-path + LLM classifier)
     const classification = await classifyIntent(effectiveMessage, params.conversationContext?.recentMessages);
     const intent = classification.intent;
     const matchingTemplate = await findMatchingTemplate(effectiveMessage || params.customerMessage, intent, params.customerContext);
 
-    // 3.1 For greeting-only messages, clear similar messages to prevent context contamination
-    // Embedding search on "hello" returns random past conversations that cause the AI to
-    // fabricate intent (e.g., confirming nonexistent bookings, asking about job applications)
-    if (intent === 'greeting') {
-      similarMessages.length = 0;
-    }
-
-    // 3.5 Find relevant FAQ entries (intent-aware hybrid search)
-    const faqMatches = await findRelevantFAQs(
-      messageEmbedding,
-      effectiveMessage || params.customerMessage,
-      intent,
-      3, // max results
-      0.5 // lower threshold for FAQ
-    );
-
-    // Track FAQ usage (fire-and-forget)
-    if (faqMatches.length > 0) {
-      trackFAQUsage(faqMatches.map(f => f.id)).catch(() => {});
-    }
+    // NOTE: Similar messages and FAQ matches are now loaded on-demand via context tools.
+    // The search_knowledge tool uses messageEmbedding (via closure) when the LLM calls it.
+    // Simple queries (greetings, thanks) skip the context entirely — saving ~700-1200 tokens.
 
     // 4. Generate contextual prompt (uses skills-based architecture)
-    // Use effectiveMessage for language detection in the prompt
+    // Customer context and knowledge (FAQ + similar messages) are NO LONGER pre-loaded.
+    // They are injected on-demand via get_customer_context and search_knowledge tools.
     const contextualPrompt = generateContextualPrompt(
       effectiveMessage || params.customerMessage,
       params.conversationContext,
-      params.customerContext,
-      similarMessages,
+      undefined,  // Customer context loaded on-demand by tools
+      [],         // Similar messages loaded on-demand by tools
       matchingTemplate,
       params.businessContext,
       intent,
-      faqMatches
+      []          // FAQ matches loaded on-demand by tools
     );
 
     // 5. Detect language from CURRENT message only (not customer profile)
@@ -884,72 +867,86 @@ If the customer ONLY says a greeting (hello, hi, good day) with no question, res
       }
     }
 
-    // Check if this is the first staff message of TODAY (greeting each day, not entire conversation)
-    // A conversation can span multiple days - customer messages again tomorrow → greet again
+    // Check if staff has already responded in this conversation session.
+    // First check today's messages; if empty (e.g. old conversation or 7-day cutoff),
+    // fall back to checking ALL loaded messages so we don't force-greet mid-conversation.
     const hasAssistantMessageToday = todaysMessages.some(msg =>
       msg.senderType === 'staff' || msg.senderType === 'assistant'
     );
+    const hasAssistantInPreviousDays = previousDaysMessages.some(msg =>
+      msg.senderType === 'staff' || msg.senderType === 'assistant'
+    );
 
-    // Also check if staff has already greeted today (to prevent "Hello! ... Hello! ..." repetition)
+    // Also check if staff has already greeted (to prevent "Hello! ... Hello! ..." repetition)
+    const isGreetingContent = (content: string) => {
+      const c = content.toLowerCase();
+      return c.startsWith('hello') || c.startsWith('hi') ||
+             c.includes('สวัสดี') || c.startsWith('good morning') ||
+             c.startsWith('good afternoon') || c.startsWith('good evening');
+    };
     const hasGreetedToday = todaysMessages.some(msg => {
       if (msg.senderType !== 'staff' && msg.senderType !== 'assistant') return false;
-      const content = (msg.content || '').toLowerCase();
-      return content.startsWith('hello') || content.startsWith('hi') ||
-             content.includes('สวัสดี') || content.startsWith('good morning') ||
-             content.startsWith('good afternoon') || content.startsWith('good evening');
+      return isGreetingContent(msg.content || '');
     });
 
-    // Add previous days' messages as text summary to system prompt
+    // If todaysMessages is empty but previous days have staff messages,
+    // the conversation is ongoing — don't treat this as "first message of the day"
+    const isOngoingConversation = todaysMessages.length === 0 && hasAssistantInPreviousDays;
+
+    // Add previous days' messages as text summary to system prompt (with dates for context)
     let finalContextPrompt = contextualPrompt;
     if (previousDaysMessages.length > 0) {
       finalContextPrompt += `\nPREVIOUS CONVERSATION HISTORY (for context only):
 ${previousDaysMessages.map(msg => {
-  // Replace "sent a photo" placeholder with descriptive text
   const content = (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim()))
     ? '[Customer sent an image]'
     : msg.content;
-  return `${msg.senderType}: ${content}`;
+  // Include date so the AI understands the timeline
+  const dateStr = msg.createdAt ? new Date(msg.createdAt).toISOString().split('T')[0] : '';
+  return `[${dateStr}] ${msg.senderType}: ${content}`;
 }).join('\n')}
 
 `;
     }
 
-    // Add greeting instruction if this is the first staff message of the day
-    // Only greet if we haven't found ANY assistant messages in today's conversation
-    // AND haven't greeted yet (to prevent "Hello! ... Hello! ..." repetition)
-    if (!hasAssistantMessageToday && !hasGreetedToday) {
-      // Extract first name for personalized greeting
-      const customerName = params.customerContext?.name;
-      const firstName = customerName && customerName !== 'Unknown'
-        ? customerName.split(' ')[0]
-        : null;
-
-      finalContextPrompt += `\n👋 FIRST MESSAGE OF THE DAY:
-This is the FIRST staff response today in this conversation. You MUST start your response with a greeting.
-
-${isThaiMessage ? `- Thai: Start with "สวัสดีค่า" or "สวัสดีค่ะ" then answer their question
-- Example: "สวัสดีค่ะ หาให้นะคะ" (Hello, I'll check for you)` : `- English: Start with a friendly greeting using the customer's first name if known.
-${firstName ? `- Customer's name: ${firstName}. Say "Hi ${firstName}!" or "Hello ${firstName}!"` : `- Name unknown. Say "Hello!" or "Hi there!"`}
-- Example: ${firstName ? `"Hi ${firstName}! Let me check the availability for you."` : `"Hello! Let me check the availability for you."`}`}
-
-IMPORTANT:
-- Greet on the first message of each new day
-- Do NOT greet again during ongoing conversation on the same day
-- If customer already received staff response today, skip the greeting
+    // Add context tool usage hints when tools are available
+    if (params.getCustomerContextFn) {
+      finalContextPrompt += `\nCONTEXT TOOLS AVAILABLE:
+- get_customer_context: Get customer profile, packages, and bookings for the current customer.
+- search_knowledge: Search FAQ and past conversations for answers to business questions.
+Do NOT call these for simple greetings or thank-you messages — just respond directly.
+For booking/cancellation/modification, call get_customer_context first to get the customer's details.
 
 `;
-    } else if (hasGreetedToday || hasAssistantMessageToday) {
-      // Explicitly tell AI NOT to greet again — either we already greeted, or we've already been talking
-      finalContextPrompt += `\n⚠️ DO NOT GREET AGAIN:
-Staff has already responded in this conversation today. Do NOT start with "Hello", "Hi", "Good morning", "สวัสดี", or any greeting.
+    }
+
+    // Greeting logic: decide whether to greet based on conversation state
+    // - First staff response in today's session → greet (personalize via get_customer_context if available)
+    // - Staff already responded today → skip greeting, answer directly
+    // - Ongoing conversation from previous days with no new-day gap → skip greeting
+    const shouldGreet = !hasAssistantMessageToday && !hasGreetedToday && !isOngoingConversation;
+
+    if (shouldGreet) {
+      finalContextPrompt += `\n👋 FIRST MESSAGE OF THE DAY:
+This is the FIRST staff response in this conversation session. Start with a brief greeting.
+${isThaiMessage
+  ? `- Thai: Start with "สวัสดีค่า" or "สวัสดีค่ะ" then answer their question
+- Example: "สวัสดีค่ะ หาให้นะคะ" (Hello, I'll check for you)`
+  : `- English: Start with a friendly greeting. If you know the customer's name (from get_customer_context), use it.
+- Example: "Hi John! Let me check for you." or "Hello! How can I help?"`}
+
+After the first greeting, do NOT greet again in the same conversation session.
+
+`;
+    } else if (hasGreetedToday || hasAssistantMessageToday || isOngoingConversation) {
+      finalContextPrompt += `\n⚠️ DO NOT GREET:
+Staff has already responded in this conversation. Do NOT start with "Hello", "Hi", "Good morning", "สวัสดี", or any greeting.
 Just answer the customer's question directly. Skip any greeting prefix.
 
 `;
     }
 
-    const messages: ChatCompletionMessageParam[] = [
-      { role: 'system', content: finalContextPrompt }
-    ];
+    const conversationMessages: ModelMessage[] = [];
 
     // Add ONLY today's conversation as proper message objects with timestamps
     // This gives AI clear context for current conversation flow and temporal understanding
@@ -974,8 +971,8 @@ Just answer the customer's question directly. Skip any greeting prefix.
           msgContent = '[Customer sent an image]';
         }
 
-        messages.push({
-          role: role,
+        conversationMessages.push({
+          role: role as 'user' | 'assistant',
           content: timePrefix + msgContent
         });
       }
@@ -997,28 +994,71 @@ If you can't understand the image, ask the customer to clarify.`;
 
     // Add current user message (with vision content if image is present)
     if (params.imageUrl) {
-      messages.push({
-        role: 'user',
-        content: [
-          { type: 'text' as const, text: userContent || '[Customer sent an image]' },
-          { type: 'image_url' as const, image_url: { url: params.imageUrl, detail: 'auto' as const } }
-        ]
-      });
+      let parsedImageUrl: URL | null = null;
+      try {
+        parsedImageUrl = new URL(params.imageUrl);
+      } catch {
+        console.warn('Invalid image URL, falling back to text-only:', params.imageUrl);
+      }
+
+      if (parsedImageUrl) {
+        conversationMessages.push({
+          role: 'user',
+          content: [
+            { type: 'text' as const, text: userContent || '[Customer sent an image]' },
+            { type: 'image' as const, image: parsedImageUrl }
+          ]
+        });
+      } else {
+        conversationMessages.push({ role: 'user', content: (userContent || '') + '\n[Customer sent an image but the URL could not be loaded]' });
+      }
     } else {
-      messages.push({ role: 'user', content: userContent });
+      conversationMessages.push({ role: 'user', content: userContent });
     }
 
-    // Only send tools relevant to the detected intent
-    // e.g., promotion_inquiry gets NO tools, booking_request gets check_bay + create_booking
-    const intentTools = getToolsForIntent(intent);
-    const toolChoice = intentTools.length > 0 ? 'auto' : undefined;
+    // --- Vercel AI SDK generateText replaces the manual while loop ---
 
-    let suggestedResponse = '';
-    let functionCalled: string | undefined;
-    let functionResult: FunctionResult | undefined;
-    let requiresApproval = false;
-    let approvalMessage: string | undefined;
-    const functionCallHistory: string[] = []; // Track all functions called
+    // Build on-demand context providers (closures over embedding, language, intent)
+    const customerIdForTools = params.customerIdForTools;
+    let contextProviders: ContextProviders | undefined;
+    if (params.getCustomerContextFn) {
+      contextProviders = {
+        getCustomerContext: params.getCustomerContextFn,
+        searchKnowledge: async (query: string) => {
+          // Vector search uses pre-computed embedding of the customer's actual message
+          // (not the LLM-provided query) to avoid ~200ms re-embedding latency.
+          // The query param is used for keyword-based FAQ search below.
+          const similar = await findSimilarMessages(
+            messageEmbedding,
+            AI_CONFIG.maxSimilarMessages,
+            0.7,
+            undefined,
+            messageLanguage,
+          );
+          // For greetings, clear similar messages to prevent context contamination
+          if (intent === 'greeting') similar.length = 0;
+          const faqs = await findRelevantFAQs(messageEmbedding, query, intent, 3, 0.5);
+          if (faqs.length > 0) {
+            trackFAQUsage(faqs.map(f => f.id)).catch(() => {});
+          }
+          return { faqMatches: faqs, similarMessages: similar };
+        },
+      };
+    }
+
+    // Tool setup: only send tools relevant to the detected intent
+    const activeToolNames = getActiveToolsForIntent(intent);
+    const toolState = createToolExecutionState();
+    const allTools = createAITools(toolState, customerIdForTools, contextProviders);
+
+    // Filter activeToolNames to only include tools that actually exist in allTools
+    // (e.g., get_customer_context excluded when no customerId)
+    const validActiveTools = activeToolNames.filter(name => name in allTools);
+    const hasTools = validActiveTools.length > 0;
+
+    // Model configuration
+    const modelToUse = params.overrideModel || AI_CONFIG.model;
+    const isReasoningModel = /^(gpt-5|o1|o3)/i.test(modelToUse);
 
     // Debug info (for dry run mode)
     const debugInfo: any = {
@@ -1026,168 +1066,80 @@ If you can't understand the image, ask the customer to clarify.`;
       openAIResponses: []
     };
 
-    // Multi-step loop: Keep calling API until AI stops requesting functions
-    let maxIterations = 5; // Safety limit to prevent infinite loops
-    let currentIteration = 0;
-
-    // Use override model if provided, otherwise use default
-    const modelToUse = params.overrideModel || AI_CONFIG.model;
-
-    // Newer models (gpt-5-*, o1-*, o3-*) require max_completion_tokens instead of max_tokens
-    const usesCompletionTokens = /^(gpt-5|o1|o3)/i.test(modelToUse);
-
-    while (currentIteration < maxIterations) {
-      currentIteration++;
-
-      // Build model-specific parameters
-      // Reasoning models (gpt-5-*, o1-*, o3-*) use max_completion_tokens, don't support custom temperature,
-      // and need a larger token budget because reasoning tokens count against the limit
-      const modelSpecificParams = usesCompletionTokens
-        ? {
-            max_completion_tokens: 1500,    // ~1000 reasoning + ~500 output
-            reasoning_effort: 'low' as const, // Reduce reasoning overhead for simple chat replies
-          }
-        : { max_tokens: AI_CONFIG.maxTokens, temperature: AI_CONFIG.temperature };
-
-      // Capture the EXACT request being sent to OpenAI (in dry run mode)
-      // Only include tools/tool_choice if there are relevant tools for this intent
-      const toolParams = intentTools.length > 0
-        ? { tools: intentTools, tool_choice: toolChoice }
-        : {};
-
-      const requestPayload = {
-        model: modelToUse,
-        messages: messages,
-        ...modelSpecificParams,
-        ...toolParams
-      };
-
-      if (params.dryRun) {
+    const generateResult = await generateText({
+      model: openaiProvider(modelToUse),
+      system: finalContextPrompt,
+      messages: conversationMessages,
+      ...(hasTools ? {
+        tools: allTools,
+        activeTools: validActiveTools as Array<keyof typeof allTools>,
+        toolChoice: 'auto' as const,
+      } : {}),
+      maxOutputTokens: isReasoningModel ? 1500 : AI_CONFIG.maxTokens,
+      temperature: isReasoningModel ? undefined : AI_CONFIG.temperature,
+      providerOptions: isReasoningModel ? { openai: { reasoningEffort: 'low' } } : undefined,
+      stopWhen: [stepCountIs(5), stopOnApproval(toolState)],
+      onStepFinish: params.dryRun ? (step) => {
+        const stepNum = step.stepNumber + 1;
         debugInfo.openAIRequests.push({
-          iteration: currentIteration,
-          payload: requestPayload
+          iteration: stepNum,
+          payload: { model: modelToUse, system: '(see finalContextPrompt)', messages: '(see conversationMessages)', tools: hasTools ? activeToolNames : undefined }
         });
-        console.log('\n========== OPENAI REQUEST (Iteration ' + currentIteration + ') ==========');
-        console.log(`Model: ${modelToUse}${params.overrideModel ? ' (OVERRIDE)' : ''}`);
-        console.log(JSON.stringify(requestPayload, null, 2));
-        console.log('========== END OPENAI REQUEST ==========\n');
-      }
-
-      // Call OpenAI API (as any: SDK types don't cover reasoning_effort + dynamic tool_choice union)
-      const completion = await openai.chat.completions.create({
-        model: modelToUse,
-        messages: messages,
-        ...modelSpecificParams,
-        ...toolParams,
-      } as any);
-
-      // Capture the EXACT response from OpenAI (in dry run mode)
-      if (params.dryRun) {
         debugInfo.openAIResponses.push({
-          iteration: currentIteration,
-          response: completion
-        });
-        console.log('\n========== OPENAI RESPONSE (Iteration ' + currentIteration + ') ==========');
-        console.log(JSON.stringify(completion, null, 2));
-        console.log('========== END OPENAI RESPONSE ==========\n');
-      }
-
-      const message = completion.choices[0]?.message;
-
-      if (!message) {
-        throw new Error('No message in completion');
-      }
-
-      // Add assistant's message to conversation history
-      messages.push(message);
-
-      // Check if AI wants to call functions
-      if (message.tool_calls && message.tool_calls.length > 0) {
-        console.log(`[Iteration ${currentIteration}] AI requested ${message.tool_calls.length} function call(s)`);
-
-        // Execute all requested function calls
-        for (const toolCall of message.tool_calls) {
-          // Type guard for function tool calls
-          if (toolCall.type === 'function' && 'function' in toolCall) {
-            const functionName = toolCall.function.name;
-            let functionArgs;
-            try {
-              functionArgs = JSON.parse(toolCall.function.arguments);
-            } catch (parseError) {
-              console.error(`Failed to parse function arguments for ${toolCall.function.name}:`, toolCall.function.arguments);
-              messages.push({
-                role: 'tool' as const,
-                content: JSON.stringify({ error: 'Invalid function arguments' }),
-                tool_call_id: toolCall.id
-              });
-              continue;
-            }
-
-            console.log(`  → Executing: ${functionName}`, functionArgs);
-            functionCallHistory.push(functionName);
-
-            // Execute the function
-            const result = await functionExecutor.execute({
-              name: functionName,
-              parameters: functionArgs
-            }, params.customerContext?.id); // Pass customerId for package selection
-
-            // Store the LAST function call details (for backwards compatibility)
-            functionCalled = functionName;
-            functionResult = result;
-
-            // Check if function requires approval - if so, generate a customer-facing message
-            if (result.requiresApproval) {
-              requiresApproval = true;
-              approvalMessage = result.approvalMessage;
-
-              // Generate a natural customer-facing message instead of exposing internal action text
-              // The approvalMessage is for staff review; the suggestedResponse is what staff sends to customer
-              const customerFacingMessages: Record<string, string> = {
-                'cancel_booking': isThaiMessage
-                  ? 'ยกเลิกให้เรียบร้อยค่ะ'
-                  : 'Done, I\'ve cancelled that for you.',
-                'create_booking': isThaiMessage
-                  ? 'จองให้เรียบร้อยค่ะ'
-                  : 'Your booking is confirmed!',
-                'modify_booking': isThaiMessage
-                  ? 'แก้ไขให้เรียบร้อยค่ะ'
-                  : 'Done, I\'ve updated your booking.',
-              };
-              suggestedResponse = customerFacingMessages[functionName] ||
-                (isThaiMessage ? 'เรียบร้อยค่ะ' : 'Done!');
-
-              // Break out of function execution loop
-              break;
-            }
-
-            // Add function result back to conversation
-            messages.push({
-              role: 'tool',
-              content: JSON.stringify(result.data || result.error || {}),
-              tool_call_id: toolCall.id
-            });
-
-            console.log(`  ✓ Completed: ${functionName}`, result.success ? 'success' : 'error');
+          iteration: stepNum,
+          response: {
+            text: step.text,
+            toolCalls: step.toolCalls,
+            toolResults: step.toolResults,
+            finishReason: step.finishReason,
+            usage: step.usage,
           }
+        });
+        console.log(`\n========== AI SDK STEP ${stepNum} ==========`);
+        console.log(`Model: ${modelToUse}${params.overrideModel ? ' (OVERRIDE)' : ''}`);
+        console.log(`Finish reason: ${step.finishReason}`);
+        if (step.toolCalls.length > 0) {
+          console.log(`Tool calls: ${step.toolCalls.map((tc: { toolName: string }) => tc.toolName).join(', ')}`);
         }
-
-        // If approval required, stop the loop
-        if (requiresApproval) {
-          break;
+        if (step.text) {
+          console.log(`Text: ${step.text.substring(0, 200)}${step.text.length > 200 ? '...' : ''}`);
         }
+        console.log(`========== END STEP ${stepNum} ==========\n`);
+      } : undefined,
+    });
 
-        // Continue loop to let AI potentially call more functions or generate final response
-      } else {
-        // No more function calls - AI has generated final response
-        suggestedResponse = message.content || '';
-        console.log(`[Iteration ${currentIteration}] Final response generated`);
-        break;
-      }
-    }
+    // --- Extract results from generateText ---
 
-    if (currentIteration >= maxIterations) {
-      console.warn('⚠️  Reached maximum function calling iterations');
+    const functionCalled = toolState.lastFunctionCalled;
+    const functionResult: FunctionResult | undefined = toolState.lastFunctionResult;
+    const requiresApproval = toolState.requiresApproval;
+    const approvalMessage = toolState.approvalMessage;
+    const functionCallHistory = toolState.functionCallHistory;
+
+    // Resolve on-demand context from tool state (populated if tools were called)
+    const similarMessages = toolState.similarMessages || [];
+    const faqMatches = toolState.faqMatches || [];
+    const resolvedCustomerContext = toolState.customerContext || params.customerContext;
+
+    let suggestedResponse = '';
+
+    if (requiresApproval && functionCalled) {
+      // Generate a natural customer-facing message for approval-gated functions
+      const customerFacingMessages: Record<string, string> = {
+        'cancel_booking': isThaiMessage
+          ? 'ยกเลิกให้เรียบร้อยค่ะ'
+          : 'Done, I\'ve cancelled that for you.',
+        'create_booking': isThaiMessage
+          ? 'จองให้เรียบร้อยค่ะ'
+          : 'Your booking is confirmed!',
+        'modify_booking': isThaiMessage
+          ? 'แก้ไขให้เรียบร้อยค่ะ'
+          : 'Done, I\'ve updated your booking.',
+      };
+      suggestedResponse = customerFacingMessages[functionCalled] ||
+        (isThaiMessage ? 'เรียบร้อยค่ะ' : 'Done!');
+    } else {
+      suggestedResponse = generateResult.text;
     }
 
     // If we executed functions but no final response, format the last function result
@@ -1259,7 +1211,7 @@ If you can't understand the image, ask the customer to clarify.`;
     const confidenceScore = calculateConfidenceScore(
       similarMessages,
       !!matchingTemplate,
-      !!params.customerContext,
+      !!resolvedCustomerContext,
       suggestedResponse.length,
       intent,
       functionCalled,
@@ -1277,16 +1229,16 @@ If you can't understand the image, ask the customer to clarify.`;
         customerMessage: params.customerMessage,
         conversationHistory: params.conversationContext.recentMessages || [],
         // Sanitize customer data — omit PII (email, phone, notes) from debug context
-        customerData: params.customerContext ? {
-          name: params.customerContext.name,
-          totalVisits: params.customerContext.totalVisits,
-          lifetimeValue: params.customerContext.lifetimeValue,
-          activePackages: params.customerContext.activePackages ? {
-            count: params.customerContext.activePackages.count,
-            hasUnlimited: params.customerContext.activePackages.hasUnlimited,
+        customerData: resolvedCustomerContext ? {
+          name: resolvedCustomerContext.name,
+          totalVisits: resolvedCustomerContext.totalVisits,
+          lifetimeValue: resolvedCustomerContext.lifetimeValue,
+          activePackages: resolvedCustomerContext.activePackages ? {
+            count: resolvedCustomerContext.activePackages.count,
+            hasUnlimited: resolvedCustomerContext.activePackages.hasUnlimited,
           } : undefined,
-          upcomingBookings: params.customerContext.upcomingBookings ? {
-            count: params.customerContext.upcomingBookings.count,
+          upcomingBookings: resolvedCustomerContext.upcomingBookings ? {
+            count: resolvedCustomerContext.upcomingBookings.count,
           } : undefined,
         } : undefined,
         similarMessagesUsed: similarMessages,
@@ -1302,8 +1254,8 @@ If you can't understand the image, ask the customer to clarify.`;
           answer: f.answer,
           score: f.similarityScore || 0,
         })),
-        functionSchemas: intentTools.length > 0 ? intentTools : undefined,
-        toolChoice: intentTools.length > 0 ? toolChoice : 'none',
+        functionSchemas: hasTools ? validActiveTools : undefined,
+        toolChoice: hasTools ? 'auto' : 'none',
         model: modelToUse
       };
     }
@@ -1451,7 +1403,7 @@ If you can't understand the image, ask the customer to clarify.`;
         title: matchingTemplate.title,
         content: matchingTemplate.content
       } : undefined,
-      contextSummary: `Used ${similarMessages.length} similar messages, ${matchingTemplate ? 'template matched' : 'no template'}, ${params.customerContext ? 'customer context available' : 'no customer context'}${functionCallHistory.length > 0 ? `, functions: ${functionCallHistory.join(' → ')}` : ''}`,
+      contextSummary: `Used ${similarMessages.length} similar messages, ${matchingTemplate ? 'template matched' : 'no template'}, ${resolvedCustomerContext ? 'customer context available' : 'no customer context'}${functionCallHistory.length > 0 ? `, functions: ${functionCallHistory.join(' → ')}` : ''}`,
       // Function calling metadata
       functionCalled,
       functionResult,
@@ -1467,6 +1419,11 @@ If you can't understand the image, ask the customer to clarify.`;
     };
 
     // 8. Store suggestion in database (skip during evaluation/dry run)
+    // Use resolved customer context for storage (may have been loaded on-demand)
+    const paramsForStorage = resolvedCustomerContext && !params.customerContext
+      ? { ...params, customerContext: resolvedCustomerContext }
+      : params;
+
     let suggestionId: string;
     if (params.dryRun) {
       // During evaluation, don't store in database to avoid foreign key constraints
@@ -1477,7 +1434,7 @@ If you can't understand the image, ask the customer to clarify.`;
       console.warn('No message ID provided for AI suggestion - cannot store in database');
       suggestionId = `temp-${crypto.randomUUID()}`;
     } else {
-      suggestionId = await storeSuggestion(suggestion, params, messageEmbedding);
+      suggestionId = await storeSuggestion(suggestion, paramsForStorage, messageEmbedding);
     }
 
     return {
