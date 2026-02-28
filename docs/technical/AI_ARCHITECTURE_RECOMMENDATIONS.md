@@ -35,36 +35,31 @@ Customer Message
     │
     ├── Rate limit + dedup check
     │
-    ├── PARALLEL CONTEXT LOADING (every request):
+    ├── EAGER CONTEXT LOADING:
     │   ├── getConversationContext()     → unified_messages (last 7 days, 100 msgs)
-    │   ├── getCustomerContext()         → customers + packages + bookings (5 queries)
-    │   ├── getBusinessContext()         → package_types + coach_rates + promotions (cached 5min)
-    │   ├── generateEmbedding()         → OpenAI text-embedding-3-small
-    │   ├── findSimilarMessages()       → pgvector RPC (top 5, >0.7 similarity)
-    │   └── findRelevantFAQs()          → keyword + vector hybrid search
+    │   └── getBusinessContext()         → package_types + coach_rates + promotions (cached 5min)
     │
-    ├── classifyIntent()                → regex fast-path OR gpt-4o-mini LLM
+    ├── classifyIntent()                → regex fast-path OR gpt-5-mini LLM
     │
-    ├── generateContextualPrompt()      → Assemble giant system prompt:
-    │   ├── Skills prompt (core + intent-matched)
-    │   ├── Customer info block
-    │   ├── Active packages block
-    │   ├── Upcoming bookings block
-    │   ├── Recent bookings block
+    ├── generateContextualPrompt()      → Condensed system prompt (~900-1300 tokens):
+    │   ├── Skills prompt (core + intent-matched, condensed)
     │   ├── Business context block (conditional on regex match)
-    │   ├── FAQ matches block
-    │   ├── Similar conversations block
     │   ├── Greeting logic block
     │   └── Language enforcement block
     │
-    ├── OpenAI API call (gpt-5-mini):
-    │   ├── System: assembled context prompt (~2000-4000 tokens)
-    │   ├── Messages: today's conversation + current message
-    │   ├── Tools: intent-filtered subset of 7 function schemas
-    │   └── Multi-step loop (max 5 iterations)
+    ├── ON-DEMAND CONTEXT (loaded by LLM via tools, Phase 2):
+    │   ├── get_customer_context()      → customers + packages + bookings
+    │   └── search_knowledge()          → FAQ + similar past conversations
     │
-    ├── Function execution (if tool_call returned):
-    │   └── AIFunctionExecutor calls internal APIs
+    ├── Vercel AI SDK generateText() (gpt-5-mini):
+    │   ├── System: condensed prompt + tool descriptions
+    │   ├── Messages: today's conversation + current message
+    │   ├── Tools: 9 Zod tool definitions (7 action + 2 context)
+    │   ├── activeTools: intent-filtered subset
+    │   └── maxSteps with stopOnApproval
+    │
+    ├── Function execution (if tool call):
+    │   └── AIFunctionExecutor calls internal APIs (Zod validates params)
     │
     └── Store suggestion in ai_suggestions table
         │
@@ -77,13 +72,13 @@ Customer Message
 | File | Lines | Role |
 |------|-------|------|
 | `app/api/ai/suggest-response/route.ts` | ~584 | API endpoint, context loading, rate limiting |
-| `src/lib/ai/suggestion-service.ts` | ~1545 | Prompt assembly, LLM call, multi-step loop, image handling, greeting logic |
-| `src/lib/ai/function-schemas.ts` | ~830 | 9 Zod tool definitions (7 action + 2 context) |
-| `src/lib/ai/function-executor.ts` | ~1662 | Function execution (availability, booking, cancellation, modification, lookup) |
+| `src/lib/ai/suggestion-service.ts` | ~1454 | Prompt assembly, LLM call, multi-step loop, image handling, greeting logic |
+| `src/lib/ai/function-schemas.ts` | ~503 | 9 Zod tool definitions (7 action + 2 context), intent→tool mapping |
+| `src/lib/ai/function-executor.ts` | ~1651 | Function execution (availability, booking, cancellation, modification, lookup) |
 | `src/lib/ai/intent-classifier.ts` | ~240 | Two-tier intent classification |
 | `src/lib/ai/embedding-service.ts` | ~536 | Vector embeddings + similarity search |
-| `src/lib/ai/skills/*.ts` | 8 files (~717 lines) | Modular prompt fragments |
-| `src/lib/ai/openai-client.ts` | ~70 | OpenAI SDK configuration |
+| `src/lib/ai/skills/*.ts` | 8 files (~358 lines) | Modular prompt fragments (condensed in Change 3) |
+| `src/lib/ai/openai-client.ts` | ~76 | OpenAI SDK + Vercel AI SDK provider configuration |
 
 ### What Works Well
 
