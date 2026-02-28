@@ -94,16 +94,19 @@ ${messagesText}
 Return JSON only.`;
 
     // Call OpenAI API
+    // Reasoning models (gpt-5-*, o1-*, o3-*) require max_completion_tokens instead of max_tokens
+    const isReasoningModel = /^(gpt-5|o1|o3|o4)/i.test(AI_CONFIG.model);
     const completion = await openai.chat.completions.create({
-      model: AI_CONFIG.model, // GPT-4o-mini
+      model: AI_CONFIG.model,
       messages: [
         { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
         { role: 'user', content: userPrompt }
       ],
-      max_tokens: 200,
-      temperature: 0.2, // Low temperature for consistent extraction
+      ...(isReasoningModel
+        ? { max_completion_tokens: 500, reasoning_effort: 'low' as const }
+        : { max_tokens: 200, temperature: 0.2 }),
       response_format: { type: 'json_object' } // Ensure JSON response
-    });
+    } as any);
 
     const responseText = completion.choices[0]?.message?.content;
     if (!responseText) {
