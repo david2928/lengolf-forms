@@ -420,6 +420,12 @@ export function Nav() {
                   Customer Outreach
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/line-campaigns" className="flex items-center gap-2 w-full">
+                  <Send className="h-4 w-4" />
+                  Broadcast Campaigns
+                </Link>
+              </DropdownMenuItem>
 
               <DropdownMenuSeparator />
 
@@ -558,12 +564,6 @@ export function Nav() {
                 <Link href="/admin/line-messages" className="flex items-center gap-2 w-full">
                   <MessageSquare className="h-4 w-4" />
                   LINE Testing
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/line-campaigns" className="flex items-center gap-2 w-full">
-                  <Send className="h-4 w-4" />
-                  Broadcast Campaigns
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
