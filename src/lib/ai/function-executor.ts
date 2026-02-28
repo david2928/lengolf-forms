@@ -1,7 +1,6 @@
 // AI Function Executor - Executes function calls from OpenAI
 // Leverages existing APIs to perform actions
 
-import { validateFunctionCall } from './function-schemas';
 import { generateBookingId } from '@/lib/booking-utils';
 
 export interface FunctionCall {
@@ -53,17 +52,7 @@ export class AIFunctionExecutor {
    * Execute a function call from OpenAI
    */
   async execute(functionCall: FunctionCall, customerId?: string): Promise<FunctionResult> {
-    // Validate parameters
-    const validation = validateFunctionCall(functionCall.name, functionCall.parameters);
-    if (!validation.valid) {
-      return {
-        success: false,
-        error: validation.error,
-        functionName: functionCall.name
-      };
-    }
-
-    // Route to appropriate function
+    // Route to appropriate function (Zod schemas in tool() definitions validate parameters before execute runs)
     switch (functionCall.name) {
       case 'check_bay_availability':
         return await this.checkBayAvailability(functionCall.parameters);

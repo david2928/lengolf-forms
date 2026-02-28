@@ -1,7 +1,7 @@
 # AI Chatbot Architecture: Recommendations & Impact Assessment
 
-**Date:** February 27, 2026 (research), February 28, 2026 (Phase 1 & 2 complete)
-**Status:** Phase 1 (SDK Migration) and Phase 2 (On-Demand Context) implemented and verified
+**Date:** February 27, 2026 (research), February 28, 2026 (Phase 1, 2, 3/Change 3 & 4 complete)
+**Status:** Phases 1-4 complete (SDK Migration, On-Demand Context, Prompt Simplification, Legacy Cleanup)
 **Scope:** Evaluate current AI suggestion system against 2025-2026 best practices
 
 ---
@@ -16,7 +16,10 @@
 6. [Implementation Roadmap](#6-implementation-roadmap)
 7. [Risk Analysis](#7-risk-analysis)
 8. [Phase 1 Implementation Report](#8-phase-1-implementation-report)
-9. [Phase 2 Implementation Report](#9-phase-2-implementation-report) **NEW**
+9. [Phase 2 Implementation Report](#9-phase-2-implementation-report)
+10. [Change 3 Implementation Report](#10-change-3-implementation-report)
+11. [Qualitative Response Review](#11-qualitative-response-review-post-change-3)
+12. [Phase 4 Implementation Report](#12-phase-4-implementation-report-legacy-cleanup)
 
 ---
 
@@ -107,16 +110,16 @@ Customer Message
 | **Multi-step Reasoning** | ~~Manual `while` loop, max 5 iterations~~ SDK `generateText()` + `stopWhen` | Framework-managed `maxSteps` | **Aligned (Phase 1)** |
 | **Streaming** | None (full JSON response) | Token streaming to UI | Behind |
 | **Context Loading** | ~~Pre-load everything, inject into prompt~~ On-demand via `get_customer_context` + `search_knowledge` tools | On-demand via tools | **Aligned (Phase 2)** |
-| **Prompt Architecture** | ~~Monolithic assembled prompt (~3000+ tokens)~~ Lean prompt + context tools (~1500-2000 tokens base) | Lean system prompt + tool descriptions | **Partially aligned (Phase 2)** |
+| **Prompt Architecture** | ~~Monolithic assembled prompt (~3000+ tokens)~~ ~~Lean prompt + context tools (~1500-2000 tokens base)~~ Condensed prompt (~900-1300 tokens) + tool descriptions | Lean system prompt + tool descriptions | **Aligned (Change 3)** |
 | **SDK** | ~~Raw OpenAI SDK~~ Vercel AI SDK `generateText()` (+ `openai` for embeddings/intent) | Vercel AI SDK (model-agnostic) | **Aligned (Phase 1)** |
 | **Model Portability** | ~~OpenAI-locked~~ Provider-agnostic via `@ai-sdk/openai` (swap to Anthropic/Google) | Multi-provider (Anthropic, OpenAI, Google) | **Aligned (Phase 1)** |
 | **Cost Optimization** | ~~Intent-filtered tools, cached business context~~ Intent-filtered tools + on-demand context + cached business context | Same + on-demand context loading | **Aligned (Phase 2)** |
 | **Observability** | Debug context in dry-run, analytics endpoint | Same | Aligned |
 | **Safety** | Approval gates, management escalation | Same | Aligned |
 
-### Overall: ~85-90% aligned with current best practices (up from ~75-80% post-Phase 1, ~60-65% pre-Phase 1)
+### Overall: ~90-95% aligned with current best practices (up from ~85-90% post-Phase 2, ~75-80% post-Phase 1, ~60-65% pre-Phase 1)
 
-The **core intelligence** (intent classification, function definitions, safety) is solid. RAG is partially aligned — pgvector similarity search works well for past conversations, but FAQ search is keyword-only (no vector search RPC exists in the database). After Phase 1, the **execution layer** (SDK, tool definitions, multi-step loop, model portability) is aligned. After Phase 2, **context loading** is now on-demand — the LLM calls `get_customer_context` and `search_knowledge` tools only when needed, saving tokens on simple queries. Remaining gap: streaming (deferred — staff-review workflow may not benefit).
+The **core intelligence** (intent classification, function definitions, safety) is solid. RAG is partially aligned — pgvector similarity search works well for past conversations, but FAQ search is keyword-only (no vector search RPC exists in the database). After Phase 1, the **execution layer** (SDK, tool definitions, multi-step loop, model portability) is aligned. After Phase 2, **context loading** is now on-demand. After Change 3, **prompt architecture** is condensed — skill prompts reduced ~40% by merging redundant behavioral rules, removing few-shot examples (tool descriptions serve this role), and eliminating duplication between skills. Remaining gap: streaming (deferred — staff-review workflow may not benefit).
 
 ---
 
@@ -571,7 +574,7 @@ We'd create MCP servers for:
 └─────────────────────────────────────────────────────┘
 ```
 
-### Current Architecture (Phase 1 + Phase 2)
+### Current Architecture (Phase 1 + Phase 2 + Change 3)
 ```
 ┌─────────────────────────────────────────────────────┐
 │  /api/ai/suggest-response                           │
@@ -580,9 +583,10 @@ We'd create MCP servers for:
 │  2. Generate embedding (reused by tools via closure) │
 │  3. Load business context (cached 5min)             │
 │                                                     │
-│  4. Build lean system prompt (~1500-2000 tokens)    │
-│     └── Skills + date/time + business + greeting    │
-│         + language rules + tool usage hints         │
+│  4. Build condensed system prompt (~900-1300 tokens) │
+│     └── Condensed skills + date/time + business     │
+│         + greeting + language rules + tool hints    │
+│     [No few-shot examples — tool descriptions only] │
 │                                                     │
 │  5. Vercel AI SDK generateText()                    │
 │     ├── model: openaiProvider(model)                │
@@ -822,8 +826,9 @@ All 64 messages across 10 real conversations processed successfully with no regr
 |-------|--------|-------|
 | Phase 1: SDK Migration | **Complete** | See [Section 8](#8-phase-1-implementation-report) |
 | Phase 2: On-Demand Context | **Complete** | See [Section 9](#9-phase-2-implementation-report) |
+| Change 3: Simplify Prompt Architecture | **Complete** | See [Section 10](#10-change-3-implementation-report) |
 | Phase 3: Streaming | Not started / May defer | Staff-review workflow may not benefit |
-| Phase 4: Validation & Cleanup | Partially complete | Evals done; cleanup pending |
+| Phase 4: Validation & Cleanup | **Complete** | See [Section 12](#12-phase-4-implementation-report-legacy-cleanup) |
 
 ---
 
@@ -999,6 +1004,258 @@ With on-demand context, the `similarMessages` and `customerContext` boosts (up t
 - Database schema — unchanged
 - API response format — unchanged (JSON, no streaming)
 - Frontend components — unchanged
+
+---
+
+## 10. Change 3 Implementation Report
+
+**Branch:** `feature/migrate-ai-sdk-phase1`
+**Date completed:** February 28, 2026
+**Status:** Implemented, tested, passing all evals
+
+### Summary
+
+Change 3 condensed the skills-based system prompt from ~1500-2000 tokens to ~900-1300 tokens (~40% reduction). The core skill was rewritten from 12+ verbose CRITICAL sections into dense, merged blocks. Domain skills (booking, pricing, coaching, facility, general) were condensed by removing duplication, FAQ-searchable content, and redundant sections. Few-shot examples were removed from all skills (tool descriptions serve this role). User message wrapping and greeting logic in suggestion-service.ts were also condensed.
+
+### Files Changed
+
+| File | Change Type | Description |
+|------|-------------|-------------|
+| `src/lib/ai/skills/core-skill.ts` | Major rewrite | 12+ CRITICAL sections → 6 dense blocks (~1200 → ~500 tokens) |
+| `src/lib/ai/skills/booking-skill.ts` | Moderate | Removed duplicate facility info, "WHEN NOT TO CALL" lists, examples (~300 → ~170 tokens) |
+| `src/lib/ai/skills/pricing-skill.ts` | Minor | Compact pricing table, removed redundant sections (~450 → ~350 tokens) |
+| `src/lib/ai/skills/coaching-skill.ts` | Moderate | Removed duplicate rates, kept coaching-specific flow (~250 → ~120 tokens) |
+| `src/lib/ai/skills/facility-skill.ts` | Moderate | Removed FAQ-searchable content, condensed (~250 → ~150 tokens) |
+| `src/lib/ai/skills/general-skill.ts` | Minor | Slight condensation (~150 → ~100 tokens) |
+| `src/lib/ai/skills/types.ts` | Minor | Removed `SkillExample` interface and `examples` property |
+| `src/lib/ai/skills/index.ts` | Minor | Removed `getSkillExamples()` function |
+| `src/lib/ai/suggestion-service.ts` | Minor | Removed examples import/call, condensed user message wrapping and greeting block |
+
+### Key Implementation Decisions
+
+#### 1. Merged Core Skill Sections
+
+12+ separate CRITICAL sections (BREVITY, TONE, FORMATTING, ENDING, RESPONSE STYLE, DECISIVENESS, WARMTH, ACCURACY, MULTI-PART, SECURITY, GREETINGS, PROMOTIONS) were merged into 6 dense blocks: RESPONSE RULES, COMMUNICATION, GREETINGS, PROMOTIONS, PACKAGE CHANGES & PAYMENTS, MANAGEMENT ESCALATION + SECURITY. Rules were combined without losing critical behavioral constraints.
+
+#### 2. Removed Few-Shot Examples
+
+All 5 domain skills had `examples` arrays adding ~100-200 tokens per request. Removed because:
+- Tool descriptions already contain usage examples (in Zod `.describe()` strings)
+- User message wrapping includes language-specific guidance
+- The LLM produces quality responses without them
+- `SkillExample` type and `getSkillExamples()` function cleaned up
+
+#### 3. Arrival-Time Guardrail Preserved
+
+The "WHEN NOT TO CALL FUNCTIONS" lists were removed from booking-skill, but the critical arrival-time vs booking-time distinction was preserved as a single line: `"I'll arrive at 6:30" / "ไปถึง 18:30" = arrival notification, NOT a booking → no function call.`
+
+#### 4. Pricing Data Retained in Prompt
+
+Pricing table kept in the prompt (compact format) rather than moved to search_knowledge. Already intent-filtered — only loaded for pricing/promotion/payment intents. Avoids extra tool round-trip for common pricing questions.
+
+#### 5. Missing Pricing Items Restored
+
+Code review caught 3 pricing items dropped during condensation: Outside Coaching Fee (฿200), Premium Course Club Rental (฿1,200/฿1,800), and Payment Methods. All restored.
+
+### Evaluation Results
+
+#### E2E Eval Suite (`eval-e2e-suggestions.ts`)
+
+| Metric | Phase 2 Baseline | Post-Change 3 | Delta |
+|--------|-----------------|--------------|-------|
+| Tests passed | 13/13 | 13/13 | No change |
+| Intent accuracy | 100% | 100% | No change |
+| Function calls triggered | 3 | 3 | No change |
+| Avg confidence | ~63% | ~65% | +2% |
+| Avg response time | ~10.2s | ~7.6s | **-25%** |
+
+### Token Savings Analysis
+
+| Component | Before (Phase 2) | After (Change 3) | Savings |
+|-----------|-----------------|-----------------|---------|
+| Core skill (language-aware) | ~900-1200 | ~500 | ~400-700 |
+| Intent-matched skill | ~200-450 | ~100-200 | ~100-250 |
+| Skill examples | ~100-200 | 0 | ~100-200 |
+| User message wrapping | ~150-300 | ~50-100 | ~100-200 |
+| **Total system prompt** | **~1500-2000** | **~900-1300** | **~35-40%** |
+
+### What Didn't Change
+
+- Intent classification (two-tier: regex + LLM) — unchanged
+- Skills composition system (`getSkillsForIntent`, `composeSkillPromptForLanguage`) — unchanged
+- Tool definitions in function-schemas.ts — unchanged (rich descriptions preserved)
+- Approval gates — unchanged
+- Management escalation detection — unchanged
+- Image/vision handling — unchanged
+- On-demand context tools (get_customer_context, search_knowledge) — unchanged
+- Database schema — unchanged
+- API response format — unchanged
+
+---
+
+## 11. Qualitative Response Review (Post-Change 3)
+
+**Date:** February 28, 2026
+**Sample:** 131 real conversation messages (E2E sampler) + 13 curated eval tests
+
+### Methodology
+
+Compared AI-generated responses against actual staff responses across multiple quality dimensions. The E2E sampler (`sample-e2e-suggestions.ts --all`) replays real customer messages through the full AI pipeline and stores results for side-by-side comparison.
+
+### What's Working Well
+
+| Dimension | Finding |
+|-----------|---------|
+| Thai brevity | Avg 2.9 segments per response, 0 responses >10 segments |
+| Response length parity | AI avg 45 chars vs staff avg 50 chars (0.9x ratio) |
+| Language matching | 0 mismatches (Thai customer → English response) |
+| Hedging | 1/131 responses (0.8%) used hedging language |
+| Pure greeting handling | Perfect match with staff ("สวัสดีค่า") |
+| Intent accuracy | 100% on curated tests, ~98% on sampler |
+| Response speed | 7.2s avg (down from 10.2s pre-Change 3) |
+
+### Quality Issues Identified (Pre-Prompt Tuning)
+
+| # | Issue | Rate | Severity | Root Cause |
+|---|-------|------|----------|------------|
+| 1 | **Over-asking** | 26% (34/131) | HIGH | AI asks clarifying questions when staff acts directly. Prompt says "be confident" but booking flow still defaults to confirmation step. |
+| 2 | **Mid-conversation greetings** | 40% (52/131) | MEDIUM | AI adds "สวัสดีค่า" / "Hi [name]" on msg 3-8+. Partly test artifact (`hasGreetedToday` state not replicated), partly prompt needs stronger suppression. |
+| 3 | **Sticker/photo shallow handling** | 15% (19/131) | MEDIUM | All stickers → "Hi!" / "Hello!". Staff takes context-aware action. LINE stickers often = acknowledgment/confirmation in Thai culture. |
+| 4 | **Missed function calls** | 74% (25/34 booking actions) | HIGH | Staff created bookings (📋), AI asked follow-up instead. AI overly cautious about `create_booking` without explicit "yes" confirmation. |
+| 5 | **Low-confidence catch-all** | 10% (13/131) | LOW | `general_inquiry` intent at 0.45 confidence for "ขอบคุณ", stickers, apologies. Correct behavior — no action needed. |
+
+### Examples: Over-Asking vs Staff Directness (Pre-Tuning)
+
+```
+Customer: "Today 16:30"
+  Staff:   📋 Booking - Wed, Nov 19 18:30-19:30 (ID: BK251119TWB8)
+  AI:      "Hi AR, do you want to confirm a 1-hour booking today at 16:30?"
+
+Customer: "I'd like to book one hour"
+  Staff:   "Hi. Sure, let us create the booking for you."
+  AI:      "Hi AR, would you like to book one hour for today or another day, and what start..."
+
+Customer: "ใช่ครับ" (= "yes")
+  Staff:   📋 Booking - Mon, Feb 9 14:00-16:00 (ID: BK260209M3HW)
+  AI:      "ต้องการเริ่มกี่โมงคะ" (= "what time do you want to start?")
+```
+
+### Prompt Tuning Applied (Change 4)
+
+**Date:** February 28, 2026
+**Changes:** 7 prompt-only edits across 4 files (no structural/code changes)
+
+| Change | File | What |
+|--------|------|------|
+| 1a-c | `function-schemas.ts` | Simplified `create_booking` tool description (-65 tokens), removed redundant validation warnings, added Thai confirmation examples |
+| 2 | `suggestion-service.ts` | Chained context→action in tool hints ("then proceed to the action without asking") |
+| 3 | `booking-skill.ts` | Rewrote BOOKING FLOW with explicit steps + "ACT, DON'T ASK" principle |
+| 4 | `core-skill.ts` | Strengthened COMMUNICATION: "NEVER ask to confirm what the customer already stated" |
+| 5 | `core-skill.ts` | Added mid-conversation anti-greeting rule |
+| 6 | `suggestion-service.ts` | Strengthened DO NOT GREET directive with explicit examples |
+| 7 | `suggestion-service.ts` | Removed names/greetings from Thai ongoing message template |
+
+### Post-Tuning Results
+
+**Sample:** 110 messages from 10 real conversations (E2E sampler, `--all` mode)
+
+| Metric | Before (Change 3) | Target | After (Change 4) | Result |
+|--------|-------------------|--------|-------------------|--------|
+| Over-asking rate | 26% (34/131) | <15% | ~5% (5-6/110) | **Exceeded** |
+| Function calls on booking actions | 26% (9/34) | >50% | 59% (16/27) | **Met** |
+| Mid-conversation greetings | 40% (52/131) | <15% | 6% (6/100) | **Exceeded** |
+| Avg response time | 7.2s | — | 7.7s | Stable |
+| Avg confidence | — | — | 62% | Baseline |
+
+**Remaining over-asking cases** (5/110):
+- "confirm I should book?" when all info already provided (2 cases)
+- Month disambiguation when month was established in context (2 cases)
+- "would you like to book?" in an already-booking context (1 case)
+
+**Remaining mid-conversation greetings** (6/100):
+- "Hi [Name]" on later messages (3 cases) — likely from English response template
+- "สวัสดีค่า" on msg#2 (2 cases) — close to conversation start
+- New-day session opener (1 case) — may be legitimate
+
+### Remaining Improvement Recommendations
+
+#### Near-Term
+
+1. **Sticker escalation** — Flag sticker-only messages for management review rather than responding with a generic greeting. LINE stickers often = acknowledgment/confirmation in Thai culture.
+2. **Month disambiguation** — When conversation context establishes a month, don't re-ask. Could add month-carry logic to prompt.
+
+#### Medium-Term (Eval Framework Enhancements)
+
+3. **LLM-as-Judge scoring** — Add an automated qualitative scoring step to the sampler that rates each response on a 1-5 scale across dimensions (appropriateness, helpfulness, tone match, brevity). Use a small model (GPT-4o-mini) to judge. Track scores over time.
+4. **Action alignment metric** — New metric: "Staff took booking action AND AI called function" / "Staff took booking action". Currently 59% (16/27). Target: >75%.
+5. **Conversation-level eval** — Instead of testing individual messages in isolation, evaluate entire conversation flows end-to-end. Tests individual messages lack state (e.g., `hasGreetedToday`, pending booking context).
+6. **Regression detection** — Store historical eval results and automatically flag when any metric degrades >5% between versions. Could be a simple JSON comparison script.
+
+#### Long-Term (System Changes)
+
+7. **Confidence-weighted routing** — Responses below a threshold (e.g., 0.5) flagged as "[NEEDS REVIEW]" rather than served as suggestions. Currently only 1 response triggers management escalation (0.8%).
+8. **Sticker semantics** — Build a lookup table mapping common LINE sticker packs to meanings (thumbs up = confirmation, waving = greeting, etc.). Use as input context.
+9. **A/B testing framework** — Track staff acceptance rate per prompt version. Compare acceptance rates between Change 2 → Change 3 prompts over a 1-week window.
+
+### Qualitative Review Process (Recommended)
+
+For future quality audits, follow this process:
+
+```bash
+# 1. Run sampler on recent conversations
+set -a && source .env && set +a
+npx tsx scripts/sample-e2e-suggestions.ts --days 7 --count 20 --all
+
+# 2. Review results
+npx tsx scripts/sample-e2e-suggestions.ts --review
+
+# 3. Check key metrics (manual analysis)
+# - Response length ratio (AI/staff) — target: 0.8-1.2x
+# - Over-asking rate — target: <15%
+# - Function call alignment — target: >60%
+# - Language mismatch — target: 0%
+# - Hedging — target: <2%
+
+# 4. Spot-check 10 random samples for:
+#    - Does the AI response sound natural?
+#    - Would a customer be satisfied with this response?
+#    - Is the AI adding unnecessary information?
+#    - Is the AI missing critical information that staff provided?
+```
+
+---
+
+## 12. Phase 4 Implementation Report: Legacy Cleanup
+
+**Branch:** `feature/migrate-ai-sdk-phase1`
+**Date completed:** February 28, 2026
+**Status:** Complete
+
+### Summary
+
+Phase 4 removed legacy JSON schema definitions and manual validation that were made redundant by the Vercel AI SDK migration (Phases 1-2). The Zod schemas in `tool()` definitions now handle all parameter validation automatically before `execute` functions run. The old `FunctionSchema` interface, `AI_FUNCTION_SCHEMAS` array (7 schema definitions), and `validateFunctionCall()` function were pure overhead — duplicating validation that Zod already performs.
+
+### What Was Removed
+
+| Item | File | Lines Removed | Purpose (now handled by Zod) |
+|------|------|---------------|------------------------------|
+| `FunctionSchema` interface | `function-schemas.ts` | 11 | Type definition for JSON schemas |
+| `AI_FUNCTION_SCHEMAS` array | `function-schemas.ts` | 121 | 7 JSON schema definitions for function parameters |
+| `validateFunctionCall()` | `function-schemas.ts` | 67 | Manual required-field + business rule validation |
+| Import + validation block | `function-executor.ts` | 10 | Called `validateFunctionCall()` before routing |
+
+**Total: ~209 lines removed**
+
+### What Was Kept
+
+- **`function-executor.ts`** — Still actively used by `executeAndTrack()` in tool execute functions and by `approve-booking/route.ts`
+- **`openai` raw SDK client** — Still needed for embeddings, intent classification, image analysis, and 6+ other consumers
+- **`formatFunctionResult()`** in suggestion-service.ts — Fallback for edge cases
+- **`FunctionResult` type** — Actively used throughout the AI system
+
+### Why This Is Safe
+
+The Zod schemas in each `tool()` definition enforce parameter types and constraints (enums, required fields) at the SDK level. When the LLM calls a tool, the AI SDK validates parameters against the Zod schema *before* the `execute` function runs. The removed `validateFunctionCall()` was running *after* Zod validation — checking the same constraints a second time.
 
 ---
 

@@ -1,6 +1,5 @@
 // AI function schemas for Lengolf AI assistant
-// Provides both legacy JSON Schema definitions (for function-executor validation)
-// and Vercel AI SDK tool() definitions (for generateText)
+// Provides Vercel AI SDK tool() definitions (for generateText) and intent→tool mapping
 
 import { z } from 'zod';
 import { tool } from 'ai';
@@ -9,216 +8,7 @@ import type { CustomerContext } from './suggestion-service';
 import type { SimilarMessage, FAQMatch } from './embedding-service';
 
 // ---------------------------------------------------------------------------
-// Legacy JSON Schema definitions — used by function-executor.ts validation
-// ---------------------------------------------------------------------------
-
-export interface FunctionSchema {
-  name: string;
-  description: string;
-  strict?: boolean;
-  parameters: {
-    type: 'object';
-    properties: Record<string, any>;
-    required: string[];
-    additionalProperties?: boolean;
-  };
-}
-
-export const AI_FUNCTION_SCHEMAS: FunctionSchema[] = [
-  {
-    name: 'check_bay_availability',
-    description: 'Check real-time bay availability',
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {
-        date: { type: 'string' },
-        start_time: { type: 'string' },
-        duration: { type: 'number', enum: [1, 1.5, 2, 2.5, 3] },
-        bay_type: { type: 'string', enum: ['social', 'ai', 'all'] }
-      },
-      required: ['date', 'start_time', 'duration', 'bay_type'],
-      additionalProperties: false
-    }
-  },
-  {
-    name: 'get_coaching_availability',
-    description: 'Get coach availability for golf lessons',
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {
-        date: { type: 'string' },
-        coach_name: { type: 'string', enum: ['Boss', 'Ratchavin', 'Noon', 'Min', 'any'] },
-        preferred_time: { type: 'string' }
-      },
-      required: ['date', 'coach_name', 'preferred_time'],
-      additionalProperties: false
-    }
-  },
-  {
-    name: 'create_booking',
-    description: 'Create a bay or coaching booking',
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {
-        customer_name: { type: 'string' },
-        phone_number: { type: 'string' },
-        email: { type: 'string' },
-        date: { type: 'string' },
-        start_time: { type: 'string' },
-        duration: { type: 'number', enum: [1, 1.5, 2, 2.5, 3] },
-        number_of_people: { type: 'number' },
-        bay_type: { type: 'string', enum: ['social', 'ai'] },
-        booking_type: { type: 'string' },
-        coach_name: { type: 'string' }
-      },
-      required: ['customer_name', 'phone_number', 'email', 'date', 'start_time', 'duration', 'number_of_people', 'bay_type', 'booking_type', 'coach_name'],
-      additionalProperties: false
-    }
-  },
-  {
-    name: 'lookup_booking',
-    description: 'Find existing booking details',
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {
-        booking_id: { type: 'string' },
-        customer_name: { type: 'string' },
-        phone_number: { type: 'string' },
-        date: { type: 'string' },
-        status: { type: 'string', enum: ['upcoming', 'past', 'cancelled', 'all'] }
-      },
-      required: ['booking_id', 'customer_name', 'phone_number', 'date', 'status'],
-      additionalProperties: false
-    }
-  },
-  {
-    name: 'lookup_customer',
-    description: 'Get detailed customer information',
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {
-        phone_number: { type: 'string' }
-      },
-      required: ['phone_number'],
-      additionalProperties: false
-    }
-  },
-  {
-    name: 'cancel_booking',
-    description: 'Cancel an existing booking',
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {
-        booking_id: { type: 'string' },
-        date: { type: 'string' },
-        customer_name: { type: 'string' },
-        phone_number: { type: 'string' },
-        cancellation_reason: { type: 'string' },
-        staff_name: { type: 'string' }
-      },
-      required: ['booking_id', 'date', 'customer_name', 'phone_number', 'cancellation_reason', 'staff_name'],
-      additionalProperties: false
-    }
-  },
-  {
-    name: 'modify_booking',
-    description: 'Modify an existing booking',
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {
-        booking_id: { type: 'string' },
-        date: { type: 'string' },
-        start_time: { type: 'string' },
-        duration: { type: 'number', enum: [0, 1, 1.5, 2, 2.5, 3] },
-        bay_type: { type: 'string', enum: ['', 'social', 'ai'] },
-        modification_reason: { type: 'string' }
-      },
-      required: ['booking_id', 'date', 'start_time', 'duration', 'bay_type', 'modification_reason'],
-      additionalProperties: false
-    }
-  }
-];
-
-/**
- * Validate function call parameters (used by function-executor.ts)
- */
-export function validateFunctionCall(name: string, parameters: Record<string, any>): {
-  valid: boolean;
-  error?: string;
-} {
-  const schema = AI_FUNCTION_SCHEMAS.find(s => s.name === name);
-
-  if (!schema) {
-    return { valid: false, error: `Unknown function: ${name}` };
-  }
-
-  // Check required parameters
-  for (const required of schema.parameters.required) {
-    if (!(required in parameters)) {
-      return { valid: false, error: `Missing required parameter: ${required}` };
-    }
-  }
-
-  // Validate specific rules
-  if (name === 'check_bay_availability' || name === 'create_booking') {
-    const validDurations = [1, 1.5, 2, 2.5, 3];
-    if (parameters.duration && !validDurations.includes(parameters.duration)) {
-      return { valid: false, error: `Invalid duration: ${parameters.duration}. Must be one of: ${validDurations.join(', ')}. Minimum booking is 1 hour.` };
-    }
-  }
-
-  if (name === 'create_booking') {
-    if (parameters.start_time) {
-      const hour = parseInt(parameters.start_time.split(':')[0]);
-      if (hour < 9 || hour >= 24) {
-        return { valid: false, error: `Invalid start_time: ${parameters.start_time}. Must be between 09:00 and 23:00` };
-      }
-    }
-    if (parameters.bay_type === 'ai' && parameters.number_of_people > 2) {
-      return { valid: false, error: 'AI bay supports maximum 2 players' };
-    }
-    if (parameters.bay_type === 'social' && parameters.number_of_people > 5) {
-      return { valid: false, error: 'Social bay supports maximum 5 players' };
-    }
-  }
-
-  if (name === 'modify_booking') {
-    if (!parameters.booking_id || parameters.booking_id === '') {
-      return { valid: false, error: 'booking_id is required and cannot be empty' };
-    }
-    const hasDateChange = parameters.date && parameters.date !== '';
-    const hasTimeChange = parameters.start_time && parameters.start_time !== '';
-    const hasDurationChange = parameters.duration && parameters.duration > 0;
-    const hasBayTypeChange = parameters.bay_type && parameters.bay_type !== '';
-    if (!hasDateChange && !hasTimeChange && !hasDurationChange && !hasBayTypeChange) {
-      return { valid: false, error: 'At least one field must be modified (date, start_time, duration, or bay_type)' };
-    }
-    if (hasTimeChange) {
-      const hour = parseInt(parameters.start_time.split(':')[0]);
-      if (hour < 9 || hour >= 24) {
-        return { valid: false, error: `Invalid start_time: ${parameters.start_time}. Must be between 09:00 and 23:00` };
-      }
-    }
-    if (hasDurationChange) {
-      const validDurations = [1, 1.5, 2, 2.5, 3];
-      if (!validDurations.includes(parameters.duration)) {
-        return { valid: false, error: `Invalid duration: ${parameters.duration}. Must be one of: ${validDurations.join(', ')}. Minimum booking is 1 hour.` };
-      }
-    }
-  }
-
-  return { valid: true };
-}
-
-// ---------------------------------------------------------------------------
-// Intent → tool name mapping (unchanged)
+// Intent → tool name mapping
 // ---------------------------------------------------------------------------
 
 const INTENT_TOOLS: Record<string, string[]> = {
@@ -558,37 +348,21 @@ Do NOT use when:
     create_booking: tool({
       description: `Create a bay or coaching booking. Requires staff approval before execution.
 
-🚨 CRITICAL: PHONE NUMBER IS MANDATORY - Check before calling this function! 🚨
-
 Use this when:
-- Customer confirms time after availability check: "3.30pm please!", "Confirm 19:00", "book it"
-- Customer directly requests booking: "I want to book 2pm", "ขอจอง 14:00", "reserve tomorrow"
-- Customer says booking words: "book", "จอง", "reserve", "reservation"
+- Customer gives date+time: "วันนี้ 16:30", "book 2pm tomorrow", "จอง 14:00"
+- Customer confirms after availability: "3.30pm please!", "เอาเลย", "book it", "ใช่", "yes", "ok"
+- Customer says booking words: "book", "จอง", "reserve"
 
 Do NOT use when:
 - Customer only asks "available?" without confirming (use check_bay_availability first)
-- Customer is asking general questions
-- Phone number is missing or empty (ask for it first!)
+- Name or phone is missing from customer context (ask for it first)
 
-Customer info handling - READ CAREFULLY:
-1. Check CUSTOMER INFORMATION section for name AND phone
-2. If BOTH name and phone are present (not "Unknown", not "Not provided", not empty):
-   → Use exact name and phone from context
-   → Call this function
-3. If EITHER name OR phone is missing:
-   → DO NOT call this function
-   → Ask customer for the missing information first
-   → Only call function after customer provides both name and phone
-
-Validation before calling:
-- customer_name must NOT be: "", "Unknown", or empty
-- phone_number must NOT be: "", "Not provided", or empty
-- If validation fails → Ask for missing info instead of calling function
+Phone check: Get name+phone from get_customer_context. If both present, proceed. If missing, ask.
 
 Defaults if not specified: 1 hour duration, 1 player, social bay`,
       inputSchema: z.object({
-        customer_name: z.string().describe('Customer full name. CRITICAL: Must be a real name (not "Unknown", not empty). If CUSTOMER INFORMATION shows a real name, USE IT. If name is missing, DO NOT call this function - ask customer for name first.'),
-        phone_number: z.string().describe('Customer phone number (MANDATORY - never empty!). CRITICAL: Must be a real phone number (not "Not provided", not empty, not ""). If CUSTOMER INFORMATION shows a real phone, USE IT. If phone is missing or empty, DO NOT call this function - ask customer for phone number first.'),
+        customer_name: z.string().describe('Customer full name from context. Use the name from get_customer_context.'),
+        phone_number: z.string().describe('Customer phone number from context. Must not be empty. Use the phone from get_customer_context.'),
         email: z.string().describe('Customer email address. Use "info@len.golf" if customer does not provide email.'),
         date: z.string().describe('Booking date in YYYY-MM-DD format'),
         start_time: z.string().describe('Start time in HH:00 format (must be between 09:00 and 23:00)'),
