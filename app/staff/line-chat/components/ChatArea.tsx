@@ -284,6 +284,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const combinedPrefillMessage = templatePrefillMessage || aiPrefillMessage;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Touch gesture state for swipe detection
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -374,9 +375,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       if (data.success) {
         setMessages(data.messages);
 
-        // Scroll to bottom on message load
+        // Scroll to bottom on message load (use scrollTop on container, not scrollIntoView which scrolls parent containers too)
         setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+          if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+          }
         }, 50);
 
         // Mark conversation as read
@@ -970,7 +973,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       )}
 
       {/* Messages */}
-      <div className={`flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container min-h-0 ${isMobile ? 'pb-[80px]' : ''}`}>
+      <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container min-h-0 ${isMobile ? 'pb-[80px]' : ''}`}>
         {messages.map((message, index) => {
           // Check if we need a date separator before this message
           const showDateSeparator = index === 0 ||

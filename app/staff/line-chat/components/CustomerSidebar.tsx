@@ -198,6 +198,8 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     customerPackages,
     currentBookingIndex,
     setCurrentBookingIndex,
+    currentPackageIndex,
+    setCurrentPackageIndex,
     sendBookingConfirmation,
     sendCancellationConfirmation,
     sendPackageInfo,
@@ -1054,11 +1056,7 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
               </CardContent>
             </Card>
 
-            {/* Packages */}
-            {(() => {
-              const activePackages = customerPackages.filter(p => p.status !== 'inactive');
-              const inactivePackagesList = customerPackages.filter(p => p.status === 'inactive');
-              return (
+            {/* Packages - Carousel */}
             <Card className="mb-4">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center">
@@ -1068,160 +1066,58 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
               </CardHeader>
               <CardContent className="pt-0">
                 {customerPackages.length > 0 ? (
-                  <div className="space-y-3">
-                    {/* Active packages first */}
-                    {activePackages.map((pkg) => {
+                  <div>
+                    {(() => {
+                      const pkg = customerPackages[currentPackageIndex];
+                      if (!pkg) return null;
+                      const isInactive = pkg.status === 'inactive';
                       const isUnlimited = pkg.remaining_hours === 'Unlimited';
                       const hoursLeft = Number(pkg.remaining_hours) || 0;
                       const totalHours = hoursLeft + (pkg.used_hours || 0);
-                      const daysUntilExpiry = calculateDaysUntilExpiry(pkg.expiration_date);
+                      const daysUntilExpiry = pkg.expiration_date ? calculateDaysUntilExpiry(pkg.expiration_date) : 0;
 
                       return (
                         <div
-                          key={pkg.id}
-                          className="relative rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
+                          className={`relative rounded-lg border shadow-sm overflow-hidden ${
+                            isInactive
+                              ? 'border-orange-200 bg-orange-50/50'
+                              : 'border-gray-200 bg-white hover:shadow-md transition-shadow duration-200'
+                          }`}
                         >
                           {/* Header bar with package name */}
-                          <div className={`px-3 py-2.5 border-b border-gray-100 ${
+                          <div className={`px-3 py-2.5 border-b ${
+                            isInactive ? 'border-orange-100' : 'border-gray-100'
+                          } ${
                             pkg.package_type_name.toLowerCase().includes('coaching')
-                              ? 'bg-[#7B68EE]'
-                              : 'bg-[#06C755]'
+                              ? isInactive ? 'bg-[#7B68EE]/60' : 'bg-[#7B68EE]'
+                              : isInactive ? 'bg-[#06C755]/60' : 'bg-[#06C755]'
                           }`}>
-                            <span
-                              className="text-white font-semibold text-sm truncate block"
-                              title={pkg.package_type_name}
-                            >
-                              {pkg.package_type_name}
-                            </span>
+                            <div className="flex items-center justify-between">
+                              <span
+                                className="text-white font-semibold text-sm truncate"
+                                title={pkg.package_type_name}
+                              >
+                                {pkg.package_type_name}
+                              </span>
+                              {isInactive && (
+                                <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 text-[10px] px-1.5 py-0 h-4 shrink-0 ml-2">
+                                  Inactive
+                                </Badge>
+                              )}
+                            </div>
                           </div>
 
                           {/* Package details */}
                           <div className="px-3 py-2.5 space-y-2">
-                            {/* Usage */}
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600">Usage:</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`font-bold ${
-                                  isUnlimited ? 'text-purple-600' :
-                                  hoursLeft <= 2 ? 'text-red-600' :
-                                  hoursLeft <= 5 ? 'text-orange-600' :
-                                  'text-green-600'
-                                }`}>
-                                  {isUnlimited ? '∞ hours' : `${hoursLeft}h left`}
-                                </span>
-                                {!isUnlimited && (
-                                  <span className="text-gray-500">
-                                    ({pkg.used_hours || 0}h/{totalHours}h)
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Expiration date */}
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600">Expires:</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-gray-900">
-                                  {new Date(pkg.expiration_date).toLocaleDateString('en-GB', {
-                                    day: 'numeric',
-                                    month: 'short',
-                                    year: 'numeric'
-                                  })}
-                                </span>
-                                <span className={`font-medium ${
-                                  daysUntilExpiry <= 3 ? 'text-red-600' :
-                                  daysUntilExpiry <= 7 ? 'text-orange-600' :
-                                  'text-green-600'
-                                }`}>
-                                  ({daysUntilExpiry > 0 ? `${daysUntilExpiry}d` : 'Expired'})
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Action button */}
-                          <div className="px-3 pb-3">
-                            <Button
-                              size="sm"
-                              variant="default"
-                              className={`w-full h-9 font-medium transition-all duration-200 ${
-                                pkg.package_type_name.toLowerCase().includes('coaching')
-                                  ? 'bg-purple-600 hover:bg-purple-700 text-white md:bg-transparent md:text-purple-600 md:border-purple-600 md:hover:bg-purple-50'
-                                  : 'bg-indigo-600 hover:bg-indigo-700 text-white md:bg-transparent md:text-indigo-600 md:border-indigo-600 md:hover:bg-indigo-50'
-                              }`}
-                              onClick={() => setConfirmingSend({
-                                type: 'package',
-                                id: pkg.id,
-                                displayName: pkg.package_type_name
-                              })}
-                              disabled={sendingPackageInfo === pkg.id}
-                            >
-                              {sendingPackageInfo === pkg.id ? (
-                                <>
-                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                                  Sending...
-                                </>
-                              ) : (
-                                <>
-                                  <Send className="h-4 w-4 mr-2" />
-                                  Send Package Info
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {/* Inactive packages (not yet activated) */}
-                    {inactivePackagesList.length > 0 && (
-                      <>
-                        {activePackages.length > 0 && (
-                          <div className="flex items-center gap-2 pt-1">
-                            <div className="flex-1 h-px bg-gray-200" />
-                            <span className="text-xs text-orange-600 font-medium">Not Yet Activated</span>
-                            <div className="flex-1 h-px bg-gray-200" />
-                          </div>
-                        )}
-                        {inactivePackagesList.map((pkg) => {
-                          const isUnlimited = pkg.remaining_hours === 'Unlimited';
-                          const totalHours = Number(pkg.remaining_hours) || 0;
-
-                          return (
-                            <div
-                              key={pkg.id}
-                              className="relative rounded-lg border border-orange-200 bg-orange-50/50 shadow-sm overflow-hidden"
-                            >
-                              {/* Header bar - muted style for inactive */}
-                              <div className={`px-3 py-2.5 border-b border-orange-100 ${
-                                pkg.package_type_name.toLowerCase().includes('coaching')
-                                  ? 'bg-[#7B68EE]/60'
-                                  : 'bg-[#06C755]/60'
-                              }`}>
-                                <div className="flex items-center justify-between">
-                                  <span
-                                    className="text-white font-semibold text-sm truncate"
-                                    title={pkg.package_type_name}
-                                  >
-                                    {pkg.package_type_name}
-                                  </span>
-                                  <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 text-[10px] px-1.5 py-0 h-4 shrink-0 ml-2">
-                                    Inactive
-                                  </Badge>
-                                </div>
-                              </div>
-
-                              {/* Package details */}
-                              <div className="px-3 py-2.5 space-y-2">
-                                {/* Total hours */}
+                            {isInactive ? (
+                              <>
+                                {/* Inactive: show total hours + purchase date */}
                                 <div className="flex items-center justify-between text-sm">
                                   <span className="text-gray-500">Hours:</span>
                                   <span className="font-medium text-gray-700">
-                                    {isUnlimited ? '∞ Unlimited' : `${totalHours}h total`}
+                                    {isUnlimited ? '∞ Unlimited' : `${hoursLeft}h total`}
                                   </span>
                                 </div>
-
-                                {/* Purchase date */}
                                 {pkg.purchase_date && (
                                   <div className="flex items-center justify-between text-sm">
                                     <span className="text-gray-500">Purchased:</span>
@@ -1234,11 +1130,116 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                                     </span>
                                   </div>
                                 )}
-                              </div>
+                              </>
+                            ) : (
+                              <>
+                                {/* Active: show usage + expiration */}
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-600">Usage:</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`font-bold ${
+                                      isUnlimited ? 'text-purple-600' :
+                                      hoursLeft <= 2 ? 'text-red-600' :
+                                      hoursLeft <= 5 ? 'text-orange-600' :
+                                      'text-green-600'
+                                    }`}>
+                                      {isUnlimited ? '∞ hours' : `${hoursLeft}h left`}
+                                    </span>
+                                    {!isUnlimited && (
+                                      <span className="text-gray-500">
+                                        ({pkg.used_hours || 0}h/{totalHours}h)
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-600">Expires:</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-gray-900">
+                                      {new Date(pkg.expiration_date).toLocaleDateString('en-GB', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric'
+                                      })}
+                                    </span>
+                                    <span className={`font-medium ${
+                                      daysUntilExpiry <= 3 ? 'text-red-600' :
+                                      daysUntilExpiry <= 7 ? 'text-orange-600' :
+                                      'text-green-600'
+                                    }`}>
+                                      ({daysUntilExpiry > 0 ? `${daysUntilExpiry}d` : 'Expired'})
+                                    </span>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Action button - only for active packages */}
+                          {!isInactive && (
+                            <div className="px-3 pb-3">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className={`w-full h-9 font-medium transition-all duration-200 ${
+                                  pkg.package_type_name.toLowerCase().includes('coaching')
+                                    ? 'bg-purple-600 hover:bg-purple-700 text-white md:bg-transparent md:text-purple-600 md:border-purple-600 md:hover:bg-purple-50'
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white md:bg-transparent md:text-indigo-600 md:border-indigo-600 md:hover:bg-indigo-50'
+                                }`}
+                                onClick={() => setConfirmingSend({
+                                  type: 'package',
+                                  id: pkg.id,
+                                  displayName: pkg.package_type_name
+                                })}
+                                disabled={sendingPackageInfo === pkg.id}
+                              >
+                                {sendingPackageInfo === pkg.id ? (
+                                  <>
+                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                    Sending...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Send className="h-4 w-4 mr-2" />
+                                    Send Package Info
+                                  </>
+                                )}
+                              </Button>
                             </div>
-                          );
-                        })}
-                      </>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Package Navigation */}
+                    {customerPackages.length > 1 && (
+                      <div className="flex items-center justify-center space-x-3 pt-3 border-t border-gray-100">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-gray-100"
+                          onClick={() => setCurrentPackageIndex(Math.max(0, currentPackageIndex - 1))}
+                          disabled={currentPackageIndex === 0}
+                          title="Previous package"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+
+                        <span className="text-sm text-gray-600 font-medium">
+                          {currentPackageIndex + 1}/{customerPackages.length}
+                        </span>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-gray-100"
+                          onClick={() => setCurrentPackageIndex(Math.min(customerPackages.length - 1, currentPackageIndex + 1))}
+                          disabled={currentPackageIndex === customerPackages.length - 1}
+                          title="Next package"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -1249,8 +1250,6 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                 )}
               </CardContent>
             </Card>
-              );
-            })()}
 
             {/* Past/Cancelled Bookings */}
             <Card>

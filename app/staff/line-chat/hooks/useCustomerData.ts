@@ -18,6 +18,7 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
   const [customerPackages, setCustomerPackages] = useState<Package[]>([]);
   const [customerTransactions, setCustomerTransactions] = useState<Transaction[]>([]);
   const [currentBookingIndex, setCurrentBookingIndex] = useState(0);
+  const [currentPackageIndex, setCurrentPackageIndex] = useState(0);
   const [linkingCustomer, setLinkingCustomer] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState<string | null>(null);
   const [sendingCancellation, setSendingCancellation] = useState<string | null>(null);
@@ -683,6 +684,13 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     }
   }, [customerBookings.length]);
 
+  // Enhanced setCurrentPackageIndex with bounds checking
+  const setCurrentPackageIndexSafe = useCallback((index: number) => {
+    if (customerPackages.length > 0 && index >= 0 && index < customerPackages.length) {
+      setCurrentPackageIndex(index);
+    }
+  }, [customerPackages.length]);
+
   // Update customer notes function
   const updateCustomerNotes = useCallback(async (customerId: string, notes: string) => {
     try {
@@ -877,6 +885,7 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     customerPackages,
     customerTransactions,
     currentBookingIndex,
+    currentPackageIndex,
     fetchCustomerDetails,
     linkCustomer,
     sendBookingConfirmation,
@@ -884,6 +893,7 @@ export const useCustomerData = (conversationId: string | null, selectedConversat
     sendPackageInfo,
     sendCoachingAvailability,
     setCurrentBookingIndex: setCurrentBookingIndexSafe,
+    setCurrentPackageIndex: setCurrentPackageIndexSafe,
     linkingCustomer,
     sendingConfirmation,
     sendingCancellation,

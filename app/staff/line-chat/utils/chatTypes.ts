@@ -179,6 +179,7 @@ export interface CustomerOperations {
   customerPackages: Package[];
   customerTransactions: Transaction[];
   currentBookingIndex: number;
+  currentPackageIndex: number;
   fetchCustomerDetails: (customerId: string) => Promise<void>;
   linkCustomer: (customerId: string, customer: any) => Promise<void>;
   sendBookingConfirmation: (bookingId: string) => Promise<void>;
@@ -186,6 +187,7 @@ export interface CustomerOperations {
   sendPackageInfo: (packageId: string) => Promise<void>;
   sendCoachingAvailability: () => Promise<void>;
   setCurrentBookingIndex: (index: number) => void;
+  setCurrentPackageIndex: (index: number) => void;
   linkingCustomer: boolean;
   sendingConfirmation: string | null;
   sendingCancellation: string | null;
