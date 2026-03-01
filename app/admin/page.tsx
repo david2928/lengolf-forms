@@ -30,7 +30,8 @@ import {
   Landmark,
   Banknote,
   Coins,
-  Tag
+  Tag,
+  Brain
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -98,6 +99,12 @@ const salesAnalyticsItems = [
     title: "Google Reviews",
     description: "View and manage Google Business Profile reviews",
     path: "/admin/google-reviews"
+  },
+  {
+    icon: Brain,
+    title: "AI Eval",
+    description: "Track AI suggestion quality scores across prompt versions",
+    path: "/admin/ai-eval"
   }
 ];
 

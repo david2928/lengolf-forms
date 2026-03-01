@@ -13,22 +13,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { bank_transaction_id, vendor_receipt_id, apply_extraction } = body;
+    const { bank_transaction_id, vendor_receipt_id, apply_extraction, source } = body;
 
     if (!bank_transaction_id || !vendor_receipt_id) {
       return NextResponse.json({ error: "bank_transaction_id and vendor_receipt_id required" }, { status: 400 });
     }
 
-    // Fetch the receipt
-    const { data: receipt, error: rErr } = await refacSupabaseAdmin
-      .schema('backoffice')
-      .from('vendor_receipts')
-      .select('*')
-      .eq('id', vendor_receipt_id)
-      .single();
-
-    if (rErr || !receipt) {
-      return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
+    if (source && source !== 'receipt' && source !== 'invoice') {
+      return NextResponse.json({ error: "Invalid source: must be 'receipt' or 'invoice'" }, { status: 400 });
     }
 
     // Fetch the bank transaction
@@ -46,105 +38,153 @@ export async function POST(request: NextRequest) {
     // Build the annotation update
     const annotationUpdate: Record<string, unknown> = {
       bank_transaction_id,
-      vendor_receipt_id,
       updated_by: session.user.email,
     };
 
-    if (apply_extraction) {
-      // Get vendor name for Drive upload filename (prefer English names)
-      let vendorName = receipt.extracted_company_name_en || receipt.extracted_vendor_name || 'Unknown';
-      if (receipt.vendor_id) {
-        const { data: vendor } = await refacSupabaseAdmin
-          .schema('backoffice')
-          .from('vendors')
-          .select('id, name, company_name, address, tax_id, is_company')
-          .eq('id', receipt.vendor_id)
-          .single();
+    if (source === 'invoice') {
+      // --- Invoice linking path ---
+      const { data: invoice, error: invErr } = await refacSupabaseAdmin
+        .schema('backoffice')
+        .from('invoices')
+        .select('id, invoice_number, invoice_date, subtotal, tax_rate, tax_amount, total_amount, pdf_file_path, supplier_id, invoice_suppliers!inner(name)')
+        .eq('id', vendor_receipt_id)
+        .single();
 
-        if (vendor) {
-          vendorName = vendor.company_name || vendor.name;
+      if (invErr || !invoice) {
+        return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+      }
 
-          // Smart vendor upsert from extraction data
-          if (receipt.extracted_vendor_name || receipt.extracted_address || receipt.extracted_tax_id) {
-            const updates = computeVendorUpdates(vendor, {
-              name: vendor.name,
-              company_name: receipt.extracted_company_name_en,
-              address: receipt.extracted_address,
-              tax_id: receipt.extracted_tax_id,
-            });
-            if (updates) {
-              await refacSupabaseAdmin
-                .schema('backoffice')
-                .from('vendors')
-                .update(updates)
-                .eq('id', vendor.id);
+      // Do NOT set vendor_receipt_id — this is an invoice, not a vendor receipt
+      annotationUpdate.invoice_ref = invoice.invoice_number;
+      if (invoice.pdf_file_path) {
+        annotationUpdate.document_url = invoice.pdf_file_path;
+      }
+      if (invoice.subtotal != null) {
+        annotationUpdate.tax_base = Number(invoice.subtotal);
+        annotationUpdate.tax_base_override = true;
+      }
+      // tax_amount is WHT (3% withholding tax on coaching/service invoices).
+      // Only map to wht_amount when tax_rate confirms it's WHT (<=5%), not VAT (7%).
+      const taxRate = Number(invoice.tax_rate) || 0;
+      if (invoice.tax_amount != null && Number(invoice.tax_amount) > 0 && taxRate > 0 && taxRate <= 5) {
+        annotationUpdate.wht_amount = Number(invoice.tax_amount);
+        annotationUpdate.wht_amount_override = true;
+        annotationUpdate.wht_type = 'pnd3';
+      }
+
+      const month = (invoice.invoice_date || tx.transaction_date).substring(0, 7);
+      annotationUpdate.wht_reporting_month = month;
+    } else {
+      // --- Receipt linking path (existing behavior) ---
+      const { data: receipt, error: rErr } = await refacSupabaseAdmin
+        .schema('backoffice')
+        .from('vendor_receipts')
+        .select('*')
+        .eq('id', vendor_receipt_id)
+        .single();
+
+      if (rErr || !receipt) {
+        return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
+      }
+
+      annotationUpdate.vendor_receipt_id = vendor_receipt_id;
+
+      if (apply_extraction) {
+        // Get vendor name for Drive upload filename (prefer English names)
+        let vendorName = receipt.extracted_company_name_en || receipt.extracted_vendor_name || 'Unknown';
+        if (receipt.vendor_id) {
+          const { data: vendor } = await refacSupabaseAdmin
+            .schema('backoffice')
+            .from('vendors')
+            .select('id, name, company_name, address, tax_id, is_company')
+            .eq('id', receipt.vendor_id)
+            .single();
+
+          if (vendor) {
+            vendorName = vendor.company_name || vendor.name;
+
+            // Smart vendor upsert from extraction data
+            if (receipt.extracted_vendor_name || receipt.extracted_address || receipt.extracted_tax_id) {
+              const updates = computeVendorUpdates(vendor, {
+                name: vendor.name,
+                company_name: receipt.extracted_company_name_en,
+                address: receipt.extracted_address,
+                tax_id: receipt.extracted_tax_id,
+              });
+              if (updates) {
+                await refacSupabaseAdmin
+                  .schema('backoffice')
+                  .from('vendors')
+                  .update(updates)
+                  .eq('id', vendor.id);
+              }
             }
           }
         }
-      }
 
-      // Copy file to expense document folder
-      let documentUrl: string | null = null;
-      if (receipt.file_id) {
-        try {
-          const { buffer, mimeType } = await downloadFileFromDrive(receipt.file_id);
-          const docType = (receipt.wht_applicable && receipt.vat_type === 'none')
-            ? 'wht' as const
-            : 'vat' as const;
+        // Copy file to expense document folder
+        let documentUrl: string | null = null;
+        if (receipt.file_id) {
+          try {
+            const { buffer, mimeType } = await downloadFileFromDrive(receipt.file_id);
+            const docType = (receipt.wht_applicable && receipt.vat_type === 'none')
+              ? 'wht' as const
+              : 'vat' as const;
 
-          const result = await uploadExpenseDocument(buffer, mimeType, {
-            paymentDate: tx.transaction_date,
-            vendorName,
-            documentType: docType,
-            originalFileName: receipt.file_name || undefined,
-          });
-          documentUrl = result.fileUrl;
-          console.log('[link-receipt] Copied to expense folder:', result.fileName);
-        } catch (driveErr) {
-          console.error('[link-receipt] Drive copy failed (non-fatal):', driveErr);
+            const result = await uploadExpenseDocument(buffer, mimeType, {
+              paymentDate: tx.transaction_date,
+              vendorName,
+              documentType: docType,
+              originalFileName: receipt.file_name || undefined,
+            });
+            documentUrl = result.fileUrl;
+            console.log('[link-receipt] Copied to expense folder:', result.fileName);
+          } catch (driveErr) {
+            console.error('[link-receipt] Drive copy failed (non-fatal):', driveErr);
+          }
         }
-      }
 
-      // Apply extraction data to annotation
-      annotationUpdate.vendor_id = receipt.vendor_id;
-      if (receipt.vat_type && receipt.vat_type !== 'none') {
-        annotationUpdate.vat_type = receipt.vat_type;
-      }
-      if (receipt.vat_amount != null) {
-        annotationUpdate.vat_amount = receipt.vat_amount;
-        annotationUpdate.vat_amount_override = true;
-      }
-      if (receipt.tax_base != null) {
-        annotationUpdate.tax_base = receipt.tax_base;
-        annotationUpdate.tax_base_override = true;
-      }
-      if (receipt.invoice_number) {
-        annotationUpdate.invoice_ref = receipt.invoice_number;
-      }
-      if (receipt.wht_applicable) {
-        // Determine WHT type based on vendor
-        let whtType = 'pnd3';
-        if (receipt.vendor_id) {
-          const { data: v } = await refacSupabaseAdmin
-            .schema('backoffice')
-            .from('vendors')
-            .select('is_company')
-            .eq('id', receipt.vendor_id)
-            .maybeSingle();
-          if (v?.is_company) whtType = 'pnd53';
+        // Apply extraction data to annotation
+        annotationUpdate.vendor_id = receipt.vendor_id;
+        if (receipt.vat_type && receipt.vat_type !== 'none') {
+          annotationUpdate.vat_type = receipt.vat_type;
         }
-        annotationUpdate.wht_type = whtType;
+        if (receipt.vat_amount != null) {
+          annotationUpdate.vat_amount = receipt.vat_amount;
+          annotationUpdate.vat_amount_override = true;
+        }
+        if (receipt.tax_base != null) {
+          annotationUpdate.tax_base = receipt.tax_base;
+          annotationUpdate.tax_base_override = true;
+        }
+        if (receipt.invoice_number) {
+          annotationUpdate.invoice_ref = receipt.invoice_number;
+        }
+        if (receipt.wht_applicable) {
+          // Determine WHT type based on vendor
+          let whtType = 'pnd3';
+          if (receipt.vendor_id) {
+            const { data: v } = await refacSupabaseAdmin
+              .schema('backoffice')
+              .from('vendors')
+              .select('is_company')
+              .eq('id', receipt.vendor_id)
+              .maybeSingle();
+            if (v?.is_company) whtType = 'pnd53';
+          }
+          annotationUpdate.wht_type = whtType;
+        }
+        if (documentUrl) {
+          annotationUpdate.document_url = documentUrl;
+        }
+        if (receipt.extraction_notes) {
+          annotationUpdate.notes = receipt.extraction_notes;
+        }
+        // Set reporting month from receipt date or transaction date
+        const month = (receipt.receipt_date || tx.transaction_date).substring(0, 7);
+        annotationUpdate.vat_reporting_month = month;
+        annotationUpdate.wht_reporting_month = month;
       }
-      if (documentUrl) {
-        annotationUpdate.document_url = documentUrl;
-      }
-      if (receipt.extraction_notes) {
-        annotationUpdate.notes = receipt.extraction_notes;
-      }
-      // Set reporting month from receipt date or transaction date
-      const month = (receipt.receipt_date || tx.transaction_date).substring(0, 7);
-      annotationUpdate.vat_reporting_month = month;
-      annotationUpdate.wht_reporting_month = month;
     }
 
     // Upsert annotation
@@ -192,11 +232,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "bank_transaction_id required" }, { status: 400 });
     }
 
+    // Clear both receipt and invoice linking fields
     const { error } = await refacSupabaseAdmin
       .schema('finance')
       .from('transaction_annotations')
       .update({
         vendor_receipt_id: null,
+        invoice_ref: null,
+        document_url: null,
         updated_by: session.user.email,
       })
       .eq('bank_transaction_id', bank_transaction_id);

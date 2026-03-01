@@ -1,8 +1,8 @@
 // AI Function Executor - Executes function calls from OpenAI
 // Leverages existing APIs to perform actions
 
-import { validateFunctionCall } from './function-schemas';
 import { generateBookingId } from '@/lib/booking-utils';
+import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 export interface FunctionCall {
   name: string;
@@ -53,17 +53,7 @@ export class AIFunctionExecutor {
    * Execute a function call from OpenAI
    */
   async execute(functionCall: FunctionCall, customerId?: string): Promise<FunctionResult> {
-    // Validate parameters
-    const validation = validateFunctionCall(functionCall.name, functionCall.parameters);
-    if (!validation.valid) {
-      return {
-        success: false,
-        error: validation.error,
-        functionName: functionCall.name
-      };
-    }
-
-    // Route to appropriate function
+    // Route to appropriate function (Zod schemas in tool() definitions validate parameters before execute runs)
     switch (functionCall.name) {
       case 'check_bay_availability':
         return await this.checkBayAvailability(functionCall.parameters);
@@ -101,7 +91,13 @@ export class AIFunctionExecutor {
    */
   private async checkBayAvailability(params: any): Promise<FunctionResult> {
     try {
-      const { date, start_time, duration, bay_type = 'all' } = params;
+      const { date, start_time, duration, bay_type = 'all', excludeBookingId } = params;
+
+      // When modifying a booking, use RPC that excludes the current booking
+      // so the customer's own booking doesn't block the time change
+      if (excludeBookingId && start_time) {
+        return await this.checkAvailabilityExcludingBooking(date, start_time, duration, bay_type, excludeBookingId);
+      }
 
       // Get current time in Thailand timezone
       const thailandTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -465,17 +461,19 @@ export class AIFunctionExecutor {
     // STEP 1: Check bay availability FIRST - don't even create approval if bay not available
     const requestedBayType = params.bay_type || 'social';
 
+    // Check ALL bay types so we can suggest alternatives if requested type is full
     const availabilityCheck = await this.checkBayAvailability({
       date: params.date,
       start_time: params.start_time,
       duration: params.duration,
-      bay_type: requestedBayType
+      bay_type: 'all'
     });
 
-    if (!availabilityCheck.success || !availabilityCheck.data?.available) {
-      // Bay not available - return error so AI can inform customer
-      const socialAvailable = availabilityCheck.data?.social_bays_available;
-      const aiAvailable = availabilityCheck.data?.ai_bay_available;
+    const socialAvailable = availabilityCheck.data?.social_bays_available ?? false;
+    const aiAvailable = availabilityCheck.data?.ai_bay_available ?? false;
+    const requestedTypeAvailable = requestedBayType === 'ai' ? aiAvailable : socialAvailable;
+
+    if (!availabilityCheck.success || !requestedTypeAvailable) {
 
       let errorMessage = `Sorry, ${requestedBayType === 'social' ? 'social bays are' : 'the AI bay is'} not available at ${params.start_time} on ${params.date}.`;
 
@@ -1541,18 +1539,22 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
                          newBayType !== (existingBooking.bay_type === 'AI Bay' ? 'ai' : 'social');
 
       if (timeChanged) {
-        // Check availability for the new time slot
+        // Check availability for ALL bay types, excluding the booking being modified
+        // so the customer's own booking doesn't block the time change
         const availCheck = await this.checkBayAvailability({
           date: newDate,
           start_time: newTime,
           duration: newDuration,
-          bay_type: newBayType
+          bay_type: 'all',
+          excludeBookingId: booking_id
         });
 
-        if (!availCheck.success || !availCheck.data?.available) {
-          // New time not available - return error with alternatives
-          const socialAvailable = availCheck.data?.social_bays_available;
-          const aiAvailable = availCheck.data?.ai_bay_available;
+        // Determine if the REQUESTED bay type is available
+        const socialAvailable = availCheck.data?.social_bays_available ?? false;
+        const aiAvailable = availCheck.data?.ai_bay_available ?? false;
+        const requestedTypeAvailable = newBayType === 'ai' ? aiAvailable : socialAvailable;
+
+        if (!availCheck.success || !requestedTypeAvailable) {
 
           let errorMessage = `Sorry, ${newBayType === 'social' ? 'social bays are' : 'the AI bay is'} not available at ${newTime} on ${newDate}.`;
 
@@ -1637,6 +1639,55 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
         error: 'Failed to prepare booking modification. Please try again.',
         functionName: 'modify_booking'
       };
+    }
+  }
+
+  /**
+   * Check availability using the DB RPC that can exclude a specific booking.
+   * Used during modify_booking so the customer's own booking doesn't block the check.
+   */
+  private async checkAvailabilityExcludingBooking(
+    date: string, startTime: string, duration: number, bayType: string, excludeBookingId: string
+  ): Promise<FunctionResult> {
+    try {
+      const { data, error } = await refacSupabaseAdmin.rpc('check_all_bays_availability', {
+        p_date: date,
+        p_start_time: startTime,
+        p_duration: duration,
+        p_exclude_booking_id: excludeBookingId
+      });
+
+      if (error) {
+        console.error('Error checking availability with exclusion:', error);
+        return { success: false, error: 'Failed to check availability', functionName: 'check_bay_availability' };
+      }
+
+      // RPC returns: { "Bay 1": true/false, "Bay 2": true/false, "Bay 3": true/false, "Bay 4": true/false }
+      const bayAvailability = data as Record<string, boolean>;
+      const socialBaysAvailable = ['Bay 1', 'Bay 2', 'Bay 3'].some(bay => bayAvailability[bay]);
+      const aiBayAvailable = bayAvailability['Bay 4'] ?? false;
+
+      const available = bayType === 'ai' ? aiBayAvailable :
+                        bayType === 'social' ? socialBaysAvailable :
+                        socialBaysAvailable || aiBayAvailable;
+
+      return {
+        success: true,
+        functionName: 'check_bay_availability',
+        data: {
+          date: formatDateNatural(date),
+          requested_time: startTime,
+          duration,
+          bay_type: bayType,
+          available,
+          social_bays_available: socialBaysAvailable,
+          ai_bay_available: aiBayAvailable,
+          available_bay_count: Object.values(bayAvailability).filter(Boolean).length
+        }
+      };
+    } catch (error) {
+      console.error('Error in checkAvailabilityExcludingBooking:', error);
+      return { success: false, error: 'Failed to check availability', functionName: 'check_bay_availability' };
     }
   }
 

@@ -13,7 +13,7 @@ import type { MatchResult } from '@/lib/receipt-matching-engine';
 
 interface ReceiptMatchPopoverProps {
   matches: MatchResult[];
-  onLink: (receiptId: string) => Promise<void>;
+  onLink: (receiptId: string, source?: 'receipt' | 'invoice') => Promise<void>;
 }
 
 function levelColor(level: string): string {
@@ -33,10 +33,10 @@ function formatAmount(n: number | null): string {
 export function ReceiptMatchPopover({ matches, onLink }: ReceiptMatchPopoverProps) {
   const [linking, setLinking] = useState<string | null>(null);
 
-  const handleLink = async (receiptId: string) => {
+  const handleLink = async (receiptId: string, source?: 'receipt' | 'invoice') => {
     setLinking(receiptId);
     try {
-      await onLink(receiptId);
+      await onLink(receiptId, source);
     } finally {
       setLinking(null);
     }
@@ -59,7 +59,7 @@ export function ReceiptMatchPopover({ matches, onLink }: ReceiptMatchPopoverProp
       <PopoverContent className="w-[320px] p-3" align="start">
         <div className="space-y-2">
           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Matching Receipts
+            Matching Documents
           </h4>
           {matches.map((match) => (
             <div
@@ -68,6 +68,11 @@ export function ReceiptMatchPopover({ matches, onLink }: ReceiptMatchPopoverProp
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
+                  {match.receipt.source === 'invoice' && (
+                    <Badge variant="outline" className="text-[10px] px-1 py-0 bg-purple-100 text-purple-700">
+                      Invoice
+                    </Badge>
+                  )}
                   <Badge variant="outline" className={`text-[10px] px-1 py-0 ${levelColor(match.level)}`}>
                     {match.level === 'auto' ? 'Auto' : match.level === 'suggested' ? 'Match' : 'Possible'}
                   </Badge>
@@ -115,7 +120,7 @@ export function ReceiptMatchPopover({ matches, onLink }: ReceiptMatchPopoverProp
                 size="sm"
                 variant="outline"
                 className="w-full h-7 text-xs"
-                onClick={() => handleLink(match.receipt.id)}
+                onClick={() => handleLink(match.receipt.id, match.receipt.source)}
                 disabled={linking !== null}
               >
                 {linking === match.receipt.id ? (
@@ -126,7 +131,7 @@ export function ReceiptMatchPopover({ matches, onLink }: ReceiptMatchPopoverProp
                 ) : (
                   <>
                     <Link2 className="mr-1 h-3 w-3" />
-                    Link Receipt
+                    Link {match.receipt.source === 'invoice' ? 'Invoice' : 'Receipt'}
                   </>
                 )}
               </Button>

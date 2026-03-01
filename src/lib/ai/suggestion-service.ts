@@ -1,13 +1,14 @@
 // AI suggestion service for generating contextual chat responses
 // Integrates RAG (Retrieval Augmented Generation) with Lengolf business context
 
-import { openai, AI_CONFIG } from './openai-client';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { AI_CONFIG, openaiProvider } from './openai-client';
+import { generateText, streamText, stepCountIs } from 'ai';
+import type { ModelMessage } from '@ai-sdk/provider-utils';
 import { generateEmbedding, findSimilarMessages, SimilarMessage, findRelevantFAQs, trackFAQUsage, FAQMatch } from './embedding-service';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
-import { getOpenAITools, getToolsForIntent } from './function-schemas';
-import { functionExecutor, FunctionResult } from './function-executor';
-import { getSkillsForIntent, composeSkillPromptForLanguage, getSkillExamples } from './skills';
+import { createAITools, getActiveToolsForIntent, createToolExecutionState, stopOnApproval, ContextProviders, ToolExecutionState } from './function-schemas';
+import { FunctionResult } from './function-executor';
+import { getSkillsForIntent, composeSkillPromptForLanguage } from './skills';
 import { classifyIntent, IntentClassification, regexFullClassify } from './intent-classifier';
 
 export interface CustomerContext {
@@ -185,6 +186,31 @@ export interface GenerateSuggestionParams {
   dryRun?: boolean; // Skip database storage during evaluation
   overrideModel?: string; // Override the default model for testing
   includeDebugContext?: boolean; // Include full context for transparency
+  // Phase 2: on-demand context loading via tools
+  customerIdForTools?: string; // Customer ID for on-demand context tool
+  getCustomerContextFn?: (customerId: string) => Promise<CustomerContext | undefined>;
+}
+
+// All pre-processing artifacts needed by both generateText and streamText
+export interface SuggestionContext {
+  startTime: number;
+  params: GenerateSuggestionParams;
+  messageEmbedding: number[];
+  messageLanguage: 'th' | 'en';
+  isThaiMessage: boolean;
+  intent: string;
+  classification: IntentClassification;
+  matchingTemplate: { id: string; title: string; content: string } | null;
+  contextualPrompt: string;
+  finalContextPrompt: string;
+  conversationMessages: ModelMessage[];
+  toolState: ToolExecutionState;
+  allTools: ReturnType<typeof createAITools>;
+  validActiveTools: string[];
+  hasTools: boolean;
+  modelToUse: string;
+  isReasoningModel: boolean;
+  debugInfo: { openAIRequests: unknown[]; openAIResponses: unknown[] };
 }
 
 // Legacy monolithic prompt removed — now using skills-based architecture (src/lib/ai/skills/)
@@ -236,10 +262,6 @@ function generateContextualPrompt(
     .replace(/{TOMORROW_DATE}/g, tomorrowDate)
     .replace(/{TOMORROW_DAY_OF_WEEK}/g, tomorrowDayOfWeek)
     .replace(/{CURRENT_TIME}/g, currentTime) + '\n\n';
-  const skillExamples = getSkillExamples(skills, customerLang);
-  if (skillExamples) {
-    contextPrompt += skillExamples + '\n';
-  }
 
   // Add customer context
   if (customerContext) {
@@ -579,7 +601,9 @@ function calculateConfidenceScore(
   functionCalled?: string | null,
   functionSuccess?: boolean
 ): number {
-  let confidence = 0.4; // Lower base — earn confidence through signals
+  // Base confidence: 0.5 reflects that skill prompts already contain business knowledge.
+  // Context tools (similar messages, customer data) provide additional boosts when called.
+  let confidence = 0.5;
 
   // Boost confidence based on similar messages (up to +0.2)
   if (similarMessages.length > 0) {
@@ -702,788 +726,749 @@ async function storeSuggestion(
   }
 }
 
-// Main function to generate AI suggestion
-export async function generateAISuggestion(params: GenerateSuggestionParams): Promise<AISuggestion> {
+// Pre-processing: everything before the LLM call.
+// Produces a SuggestionContext that can be consumed by either generateText or streamText.
+export async function prepareSuggestionContext(params: GenerateSuggestionParams): Promise<SuggestionContext> {
   const startTime = Date.now();
 
-  try {
-    // 0. Image-aware preprocessing: when the customer sent an image, the raw message
-    // is just "sent a photo" which is useless for embedding/intent/language detection.
-    // Use the most recent customer TEXT message from conversation history instead.
-    const isImageMessage = !!params.imageUrl && (
-      !params.customerMessage.trim() ||
-      /^sent a photo$/i.test(params.customerMessage.trim())
-    );
+  // 0. Image-aware preprocessing: when the customer sent an image, the raw message
+  // is just "sent a photo" which is useless for embedding/intent/language detection.
+  // Use the most recent customer TEXT message from conversation history instead.
+  const isImageMessage = !!params.imageUrl && (
+    !params.customerMessage.trim() ||
+    /^sent a photo$/i.test(params.customerMessage.trim())
+  );
 
-    let effectiveMessage = params.customerMessage;
-    if (isImageMessage) {
-      const recentCustomerText = (params.conversationContext?.recentMessages || [])
-        .filter(m =>
-          (m.senderType === 'user' || m.senderType === 'customer') &&
-          m.contentType !== 'image' &&
-          m.content &&
-          !/^sent a (photo|sticker)$/i.test(m.content.trim())
-        )
-        .slice(-1)[0]?.content;
+  let effectiveMessage = params.customerMessage;
+  if (isImageMessage) {
+    const recentCustomerText = (params.conversationContext?.recentMessages || [])
+      .filter(m =>
+        (m.senderType === 'user' || m.senderType === 'customer') &&
+        m.contentType !== 'image' &&
+        m.content &&
+        !/^sent a (photo|sticker)$/i.test(m.content.trim())
+      )
+      .slice(-1)[0]?.content;
 
-      if (recentCustomerText) {
-        effectiveMessage = recentCustomerText;
-      }
+    if (recentCustomerText) {
+      effectiveMessage = recentCustomerText;
     }
+  }
 
-    // 1. Generate embedding for the customer message (use effective message for images)
-    const messageEmbedding = await generateEmbedding(effectiveMessage || 'customer sent an image');
+  // Sticker-aware preprocessing: "sent a sticker" has no semantic content.
+  // Use conversation context to determine what the sticker acknowledges.
+  // Only match when the current message itself is a sticker placeholder text.
+  const isStickerMessage = !isImageMessage &&
+    /^sent a sticker$/i.test(params.customerMessage.trim());
 
-    // 2. Find similar messages for context (filtered by message language)
-    const messageLanguage: 'th' | 'en' = /[\u0E00-\u0E7F]/.test(effectiveMessage) ? 'th' : 'en';
-    const similarMessages = await findSimilarMessages(
-      messageEmbedding,
-      AI_CONFIG.maxSimilarMessages,
-      0.7, // Similarity threshold
-      undefined,
-      messageLanguage
-    );
+  if (isStickerMessage) {
+    const recentStaffMsg = (params.conversationContext?.recentMessages || [])
+      .filter(m =>
+        (m.senderType === 'staff' || m.senderType === 'assistant') &&
+        m.content && m.content.length > 2
+      )
+      .slice(-1)[0]?.content;
 
-    // 3. Classify intent using two-tier approach (regex fast-path + LLM classifier)
-    const classification = await classifyIntent(effectiveMessage, params.conversationContext?.recentMessages);
-    const intent = classification.intent;
-    const matchingTemplate = await findMatchingTemplate(effectiveMessage || params.customerMessage, intent, params.customerContext);
-
-    // 3.1 For greeting-only messages, clear similar messages to prevent context contamination
-    // Embedding search on "hello" returns random past conversations that cause the AI to
-    // fabricate intent (e.g., confirming nonexistent bookings, asking about job applications)
-    if (intent === 'greeting') {
-      similarMessages.length = 0;
-    }
-
-    // 3.5 Find relevant FAQ entries (intent-aware hybrid search)
-    const faqMatches = await findRelevantFAQs(
-      messageEmbedding,
-      effectiveMessage || params.customerMessage,
-      intent,
-      3, // max results
-      0.5 // lower threshold for FAQ
-    );
-
-    // Track FAQ usage (fire-and-forget)
-    if (faqMatches.length > 0) {
-      trackFAQUsage(faqMatches.map(f => f.id)).catch(() => {});
-    }
-
-    // 4. Generate contextual prompt (uses skills-based architecture)
-    // Use effectiveMessage for language detection in the prompt
-    const contextualPrompt = generateContextualPrompt(
-      effectiveMessage || params.customerMessage,
-      params.conversationContext,
-      params.customerContext,
-      similarMessages,
-      matchingTemplate,
-      params.businessContext,
-      intent,
-      faqMatches
-    );
-
-    // 5. Detect language from CURRENT message only (not customer profile)
-    // This ensures we respond in the language the customer is using RIGHT NOW
-    // For image messages, use effectiveMessage (recent customer text) for language detection
-    let userContent = params.customerMessage;
-    const langDetectionSource = isImageMessage ? effectiveMessage : params.customerMessage;
-    const currentMessageLanguage = /[\u0E00-\u0E7F]/.test(langDetectionSource) ? 'thai' : 'english';
-    const isThaiMessage = currentMessageLanguage === 'thai';
-    const isGreeting = langDetectionSource.includes('สวัสดี') || /\b(hello|hi)\b/i.test(langDetectionSource);
-    const hasNoConversationHistory = !params.conversationContext.recentMessages || params.conversationContext.recentMessages.length <= 1;
-
-    // Priority: ALWAYS greet on first message of new conversations
-    if (isThaiMessage && hasNoConversationHistory) {
-      userContent = `Customer message: "${params.customerMessage}"
-
-THAI FIRST MESSAGE INSTRUCTION: This is the FIRST message in a new conversation. ALWAYS start with a greeting.
-
-Structure your response as:
-1. Start with "สวัสดีค่า" or "สวัสดีค่ะ"
-2. If they asked a specific question, answer it briefly (total response: 6-10 words maximum)
-3. If they ONLY said a greeting with no question, respond with ONLY "สวัสดีค่า" and STOP. Do NOT add anything else.
-
-Examples:
-- If they ask about left-handed support: "สวัสดีค่ะ ได้เลยค่ะ รองรับค่ะ"
-- If they ask about pricing: "สวัสดีค่ะ ราคา 700 บาทต่อชั่วโมงค่ะ"
-- If they ONLY greet (สวัสดี/สวัสดีค่ะ/สวัสดีครับ): "สวัสดีค่า" — nothing more
-
-CRITICAL:
-- NEVER skip the greeting on the first message of a new session.
-- NEVER fabricate context. If the customer only says hello, respond with ONLY a hello back. Do NOT assume what they want, do NOT confirm bookings, do NOT offer to search for anything.`;
-    } else if (isThaiMessage) {
-      userContent = `Customer message: "${params.customerMessage}"
-
-THAI INSTRUCTION: Keep response short but polite (5-8 words maximum).
-Examples:
-- For left-handed question: "ได้เลยค่ะ รองรับค่ะ" (Yes, we support that)
-- For availability: "หาให้นะคะ" (I'll check for you)
-- For booking: "ใส่ชื่อเบอร์หน่อยค่ะ" (Please provide name and number)
-- For simple questions: Add brief confirmation like "ได้ค่ะ" + one more polite word
-
-Strike balance between brief and polite. Don't be too abrupt.
-
-STILL BANNED:
-- Long explanations
-- "ถ้ามีคำถามเพิ่มเติม"
-- Names in responses unless necessary`;
+    if (recentStaffMsg) {
+      effectiveMessage = `[Customer sent an acknowledgment sticker after staff said: "${recentStaffMsg.substring(0, 100)}"]`;
     } else {
-      // English message - enforce English response
-      userContent = `Customer message: "${params.customerMessage}"
-
-🚨 CRITICAL LANGUAGE REQUIREMENT:
-The customer is writing in ENGLISH. You MUST respond in ENGLISH ONLY.
-- DO NOT use Thai language in your response
-- DO NOT mix languages
-- Match the customer's language exactly
-
-Write naturally in English, be friendly and professional. Keep responses to 1 to 2 sentences.
-If the customer ONLY says a greeting (hello, hi, good day) with no question, respond with ONLY a short greeting like "Hello! How can I help?" and nothing more. Do NOT assume or predict what they want.`;
+      effectiveMessage = '[Customer sent a sticker as a greeting or acknowledgment]';
     }
+  }
 
-    // 6. Add debug reasoning in dry run mode - DISABLED
-    // This was causing AI to write about functions instead of calling them!
-    // The AI should use actual function calling, not text descriptions
-    // if (params.dryRun) {
-    //   userContent = userContent + `
-    //
-    // DEBUG MODE: After generating your response, add an internal reasoning section at the END:
-    //
-    // [INTERNAL REASONING:
-    // - Intent detected: [what you think customer wants]
-    // - Function to call: [which function you chose, or "none"]
-    // - Why this function: [brief explanation]
-    // - Parameters: [list key parameters]
-    // ]`;
-    // }
+  // 1. Generate embedding for the customer message (use effective message for images)
+  const messageEmbedding = await generateEmbedding(effectiveMessage || 'customer sent an image');
 
-    // 7. Multi-step function calling loop
-    // Build messages array with system prompt + conversation history + current message
+  // 2. Language detection (used for similar messages filtering in search_knowledge tool)
+  const messageLanguage: 'th' | 'en' = /[\u0E00-\u0E7F]/.test(effectiveMessage) ? 'th' : 'en';
 
-    // Split conversation by date:
-    // - Messages from TODAY (same day as current conversation) → send as message objects
-    // - Messages from previous days → add as text summary in system prompt
+  // 3. Classify intent using two-tier approach (regex fast-path + LLM classifier)
+  const classification = await classifyIntent(effectiveMessage, params.conversationContext?.recentMessages);
+  const intent = classification.intent;
+  const matchingTemplate = await findMatchingTemplate(effectiveMessage || params.customerMessage, intent, params.customerContext);
 
-    // Find the date of the current conversation (most recent message or now)
-    const conversationDate = params.conversationContext.recentMessages && params.conversationContext.recentMessages.length > 0
-      ? new Date(params.conversationContext.recentMessages[params.conversationContext.recentMessages.length - 1].createdAt || new Date()).toISOString().split('T')[0]
-      : new Date().toISOString().split('T')[0];
+  // NOTE: Similar messages and FAQ matches are now loaded on-demand via context tools.
+  // The search_knowledge tool uses messageEmbedding (via closure) when the LLM calls it.
+  // Simple queries (greetings, thanks) skip the context entirely — saving ~700-1200 tokens.
 
-    const todaysMessages: typeof params.conversationContext.recentMessages = [];
-    const previousDaysMessages: typeof params.conversationContext.recentMessages = [];
+  // 4. Generate contextual prompt (uses skills-based architecture)
+  // Customer context and knowledge (FAQ + similar messages) are NO LONGER pre-loaded.
+  // They are injected on-demand via get_customer_context and search_knowledge tools.
+  const contextualPrompt = generateContextualPrompt(
+    effectiveMessage || params.customerMessage,
+    params.conversationContext,
+    undefined,  // Customer context loaded on-demand by tools
+    [],         // Similar messages loaded on-demand by tools
+    matchingTemplate,
+    params.businessContext,
+    intent,
+    []          // FAQ matches loaded on-demand by tools
+  );
 
-    if (params.conversationContext.recentMessages && params.conversationContext.recentMessages.length > 0) {
-      for (const msg of params.conversationContext.recentMessages) {
-        const msgDate = msg.createdAt ? new Date(msg.createdAt).toISOString().split('T')[0] : conversationDate;
-        if (msgDate === conversationDate) {
-          todaysMessages.push(msg);
-        } else {
-          previousDaysMessages.push(msg);
-        }
-      }
-    }
+  // 5. Detect language from CURRENT message only (not customer profile)
+  // This ensures we respond in the language the customer is using RIGHT NOW
+  // For image/sticker messages, use recent customer text for language detection
+  // since "sent a photo"/"sent a sticker" contain no Thai characters.
+  // For structured data messages (name/phone/email only, no Thai or English prose),
+  // also fall back to conversation history to maintain language continuity.
+  let userContent = params.customerMessage;
+  let langDetectionSource = params.customerMessage;
 
-    // Check if this is the first staff message of TODAY (greeting each day, not entire conversation)
-    // A conversation can span multiple days - customer messages again tomorrow → greet again
-    const hasAssistantMessageToday = todaysMessages.some(msg =>
-      msg.senderType === 'staff' || msg.senderType === 'assistant'
+  // Detect if message is purely structured data (name, phone, email) with no real prose
+  // Matches: "Name Phone" on one line, or "Name\nPhone\nEmail" on separate lines
+  const trimmedMsg = params.customerMessage.trim();
+  const isStructuredDataOnly = !isImageMessage && !isStickerMessage &&
+    !/[\u0E00-\u0E7F]/.test(trimmedMsg) && // no Thai in the data itself
+    (
+      // Multi-line: Name\nPhone[\nEmail]
+      /^[A-Za-z\s().]+\n[0-9\s+\-]+(\n[\w.@]+)?$/m.test(trimmedMsg) ||
+      // Single-line: "Name Phone" (name = 2+ alpha words, phone = 7+ digits)
+      /^[A-Za-z]{2,}(\s+[A-Za-z]{2,})+\s+0[0-9\s\-]{7,}$/.test(trimmedMsg)
     );
 
-    // Also check if staff has already greeted today (to prevent "Hello! ... Hello! ..." repetition)
-    const hasGreetedToday = todaysMessages.some(msg => {
-      if (msg.senderType !== 'staff' && msg.senderType !== 'assistant') return false;
-      const content = (msg.content || '').toLowerCase();
-      return content.startsWith('hello') || content.startsWith('hi') ||
-             content.includes('สวัสดี') || content.startsWith('good morning') ||
-             content.startsWith('good afternoon') || content.startsWith('good evening');
-    });
+  // Also treat "sent a photo" text without imageUrl as needing language fallback
+  const isPhotoPlaceholder = !isImageMessage && /^sent a photo$/i.test(trimmedMsg);
 
-    // Add previous days' messages as text summary to system prompt
-    let finalContextPrompt = contextualPrompt;
-    if (previousDaysMessages.length > 0) {
-      finalContextPrompt += `\nPREVIOUS CONVERSATION HISTORY (for context only):
+  if (isImageMessage || isStickerMessage || isStructuredDataOnly || isPhotoPlaceholder) {
+    // Try customer messages first for language detection
+    const recentCustomerText = (params.conversationContext?.recentMessages || [])
+      .filter(m =>
+        (m.senderType === 'user' || m.senderType === 'customer') &&
+        m.contentType !== 'image' && m.contentType !== 'sticker' &&
+        m.content && !/^sent a (photo|sticker)$/i.test(m.content.trim())
+      )
+      .slice(-1)[0]?.content;
+    if (recentCustomerText) {
+      langDetectionSource = recentCustomerText;
+    } else {
+      // Fallback: check any recent message (including staff) for Thai text
+      const anyThaiMessage = (params.conversationContext?.recentMessages || [])
+        .find(m => m.content && /[\u0E00-\u0E7F]/.test(m.content));
+      if (anyThaiMessage) langDetectionSource = anyThaiMessage.content!;
+    }
+  }
+  const currentMessageLanguage = /[\u0E00-\u0E7F]/.test(langDetectionSource) ? 'thai' : 'english';
+  const isThaiMessage = currentMessageLanguage === 'thai';
+  const hasNoConversationHistory = !params.conversationContext.recentMessages || params.conversationContext.recentMessages.length <= 1;
+
+  // Priority: ALWAYS greet on first message of new conversations
+  if (isThaiMessage && hasNoConversationHistory) {
+    userContent = `Customer message: "${params.customerMessage}"
+
+THAI FIRST MESSAGE: Start with "สวัสดีค่า". If they asked a question, answer briefly (6-10 words max). If greeting only, respond with ONLY "สวัสดีค่า" and stop. Never fabricate context or assume intent.`;
+  } else if (isThaiMessage) {
+    userContent = `Customer message: "${params.customerMessage}"
+
+THAI: 5-8 words max. Brief but polite. No greetings, no names, no "ถ้ามีคำถามเพิ่มเติม".`;
+  } else {
+    userContent = `Customer message: "${params.customerMessage}"
+
+ENGLISH ONLY. Do not use Thai. 1 to 2 sentences. If greeting only, respond with just a greeting — don't assume intent.`;
+  }
+
+  // 7. Multi-step function calling loop
+  // Build messages array with system prompt + conversation history + current message
+
+  // Split conversation by date:
+  // - Messages from TODAY (same day as current conversation) → send as message objects
+  // - Messages from previous days → add as text summary in system prompt
+
+  // Find the date of the current conversation (most recent message or now)
+  const conversationDate = params.conversationContext.recentMessages && params.conversationContext.recentMessages.length > 0
+    ? new Date(params.conversationContext.recentMessages[params.conversationContext.recentMessages.length - 1].createdAt || new Date()).toISOString().split('T')[0]
+    : new Date().toISOString().split('T')[0];
+
+  const todaysMessages: typeof params.conversationContext.recentMessages = [];
+  const previousDaysMessages: typeof params.conversationContext.recentMessages = [];
+
+  if (params.conversationContext.recentMessages && params.conversationContext.recentMessages.length > 0) {
+    for (const msg of params.conversationContext.recentMessages) {
+      const msgDate = msg.createdAt ? new Date(msg.createdAt).toISOString().split('T')[0] : conversationDate;
+      if (msgDate === conversationDate) {
+        todaysMessages.push(msg);
+      } else {
+        previousDaysMessages.push(msg);
+      }
+    }
+  }
+
+  // Check if staff has already responded in this conversation session.
+  const hasAssistantMessageToday = todaysMessages.some(msg =>
+    msg.senderType === 'staff' || msg.senderType === 'assistant'
+  );
+  const hasAssistantInPreviousDays = previousDaysMessages.some(msg =>
+    msg.senderType === 'staff' || msg.senderType === 'assistant'
+  );
+
+  // Also check if staff has already greeted (to prevent "Hello! ... Hello! ..." repetition)
+  const isGreetingContent = (content: string) => {
+    const c = content.toLowerCase();
+    return c.startsWith('hello') || c.startsWith('hi') ||
+           c.includes('สวัสดี') || c.startsWith('good morning') ||
+           c.startsWith('good afternoon') || c.startsWith('good evening');
+  };
+  const hasGreetedToday = todaysMessages.some(msg => {
+    if (msg.senderType !== 'staff' && msg.senderType !== 'assistant') return false;
+    return isGreetingContent(msg.content || '');
+  });
+
+  // If todaysMessages is empty but previous days have staff messages,
+  // the conversation is ongoing — don't treat this as "first message of the day"
+  const isOngoingConversation = todaysMessages.length === 0 && hasAssistantInPreviousDays;
+
+  // Add previous days' messages as text summary to system prompt (with dates for context)
+  let finalContextPrompt = contextualPrompt;
+  if (previousDaysMessages.length > 0) {
+    finalContextPrompt += `\nPREVIOUS CONVERSATION HISTORY (for context only):
 ${previousDaysMessages.map(msg => {
-  // Replace "sent a photo" placeholder with descriptive text
-  const content = (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim()))
-    ? '[Customer sent an image]'
-    : msg.content;
-  return `${msg.senderType}: ${content}`;
+let content = msg.content;
+if (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim())) {
+  content = '[Customer sent an image]';
+} else if (msg.contentType === 'sticker' || /^sent a sticker$/i.test((msg.content || '').trim())) {
+  content = '[Customer sent a sticker]';
+}
+// Include date so the AI understands the timeline
+const dateStr = msg.createdAt ? new Date(msg.createdAt).toISOString().split('T')[0] : '';
+return `[${dateStr}] ${msg.senderType}: ${content}`;
 }).join('\n')}
 
 `;
-    }
+  }
 
-    // Add greeting instruction if this is the first staff message of the day
-    // Only greet if we haven't found ANY assistant messages in today's conversation
-    // AND haven't greeted yet (to prevent "Hello! ... Hello! ..." repetition)
-    if (!hasAssistantMessageToday && !hasGreetedToday) {
-      // Extract first name for personalized greeting
-      const customerName = params.customerContext?.name;
-      const firstName = customerName && customerName !== 'Unknown'
-        ? customerName.split(' ')[0]
-        : null;
-
-      finalContextPrompt += `\n👋 FIRST MESSAGE OF THE DAY:
-This is the FIRST staff response today in this conversation. You MUST start your response with a greeting.
-
-${isThaiMessage ? `- Thai: Start with "สวัสดีค่า" or "สวัสดีค่ะ" then answer their question
-- Example: "สวัสดีค่ะ หาให้นะคะ" (Hello, I'll check for you)` : `- English: Start with a friendly greeting using the customer's first name if known.
-${firstName ? `- Customer's name: ${firstName}. Say "Hi ${firstName}!" or "Hello ${firstName}!"` : `- Name unknown. Say "Hello!" or "Hi there!"`}
-- Example: ${firstName ? `"Hi ${firstName}! Let me check the availability for you."` : `"Hello! Let me check the availability for you."`}`}
-
-IMPORTANT:
-- Greet on the first message of each new day
-- Do NOT greet again during ongoing conversation on the same day
-- If customer already received staff response today, skip the greeting
+  // Add context tool usage hints when tools are available
+  if (params.getCustomerContextFn) {
+    finalContextPrompt += `\nCONTEXT TOOLS AVAILABLE:
+- get_customer_context: Get customer profile, packages, and bookings for the current customer.
+- search_knowledge: Search FAQ and past conversations for answers to business questions.
+Do NOT call these for simple greetings or thank-you messages — just respond directly.
+For booking/cancellation/modification: call get_customer_context first, then proceed to the action (create_booking, cancel_booking) without asking the customer to confirm.
 
 `;
-    } else if (hasGreetedToday || hasAssistantMessageToday) {
-      // Explicitly tell AI NOT to greet again — either we already greeted, or we've already been talking
-      finalContextPrompt += `\n⚠️ DO NOT GREET AGAIN:
-Staff has already responded in this conversation today. Do NOT start with "Hello", "Hi", "Good morning", "สวัสดี", or any greeting.
-Just answer the customer's question directly. Skip any greeting prefix.
+  }
+
+  // Greeting logic: decide whether to greet based on conversation state
+  const shouldGreet = !hasAssistantMessageToday && !hasGreetedToday && !isOngoingConversation;
+
+  if (shouldGreet) {
+    finalContextPrompt += `\n👋 FIRST MESSAGE: Start with a brief greeting${isThaiMessage ? ' ("สวัสดีค่า")' : ' (use customer name from get_customer_context if available)'}. Then answer their question. Do NOT greet again in this session.
 
 `;
-    }
+  } else if (hasGreetedToday || hasAssistantMessageToday || isOngoingConversation) {
+    finalContextPrompt += `\n⚠️ DO NOT GREET: This is mid-conversation. No "สวัสดี", no "Hi [name]", no greeting of any kind. Answer directly.
 
-    const messages: ChatCompletionMessageParam[] = [
-      { role: 'system', content: finalContextPrompt }
-    ];
+`;
+  }
 
-    // Add ONLY today's conversation as proper message objects with timestamps
-    // This gives AI clear context for current conversation flow and temporal understanding
-    // Cap at last 20 messages to prevent excessive token usage on busy days
-    const recentTodaysMessages = todaysMessages.slice(-20);
-    if (recentTodaysMessages.length > 0) {
-      for (const msg of recentTodaysMessages) {
-        const role = (msg.senderType === 'user' || msg.senderType === 'customer') ? 'user' : 'assistant';
+  const conversationMessages: ModelMessage[] = [];
 
-        // Format timestamp in readable format (HH:MM)
-        let timePrefix = '';
-        if (msg.createdAt) {
-          const msgTime = new Date(msg.createdAt);
-          const hours = msgTime.getHours().toString().padStart(2, '0');
-          const minutes = msgTime.getMinutes().toString().padStart(2, '0');
-          timePrefix = `[${hours}:${minutes}] `;
-        }
+  // Add ONLY today's conversation as proper message objects with timestamps
+  // Cap at last 20 messages to prevent excessive token usage on busy days
+  const recentTodaysMessages = todaysMessages.slice(-20);
+  if (recentTodaysMessages.length > 0) {
+    for (const msg of recentTodaysMessages) {
+      const role = (msg.senderType === 'user' || msg.senderType === 'customer') ? 'user' : 'assistant';
 
-        // Replace "sent a photo" placeholder with descriptive text for image messages in history
-        let msgContent = msg.content;
-        if (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim())) {
-          msgContent = '[Customer sent an image]';
-        }
-
-        messages.push({
-          role: role,
-          content: timePrefix + msgContent
-        });
+      // Format timestamp in readable format (HH:MM)
+      let timePrefix = '';
+      if (msg.createdAt) {
+        const msgTime = new Date(msg.createdAt);
+        const hours = msgTime.getHours().toString().padStart(2, '0');
+        const minutes = msgTime.getMinutes().toString().padStart(2, '0');
+        timePrefix = `[${hours}:${minutes}] `;
       }
-    }
 
-    // Add image-specific instruction to userContent when customer sent an image
-    if (isImageMessage) {
-      const imageInstruction = isThaiMessage
-        ? `\n\nลูกค้าส่งรูปภาพมา ดูรูปและตอบอย่างเหมาะสมตามบริบทของบทสนทนา
+      // Replace "sent a photo"/"sent a sticker" placeholders with descriptive text
+      let msgContent = msg.content;
+      if (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim())) {
+        msgContent = '[Customer sent an image]';
+      } else if (msg.contentType === 'sticker' || /^sent a sticker$/i.test((msg.content || '').trim())) {
+        msgContent = '[Customer sent a sticker]';
+      }
+
+      conversationMessages.push({
+        role: role as 'user' | 'assistant',
+        content: timePrefix + msgContent
+      });
+    }
+  }
+
+  // Add image-specific instruction to userContent when customer sent an image
+  if (isImageMessage) {
+    const imageInstruction = isThaiMessage
+      ? `\n\nลูกค้าส่งรูปภาพมา ดูรูปและตอบอย่างเหมาะสมตามบริบทของบทสนทนา
+ตอบเป็นภาษาไทยเท่านั้น ห้ามตอบเป็นภาษาอังกฤษ
 หากเป็นรูปโปรโมชั่น/ใบปลิว ยืนยันว่าเป็นโปรโมชั่นอะไร
 หากเป็นสกรีนช็อตการจอง อ้างอิงรายละเอียดที่เห็น
 หากไม่เข้าใจรูป สอบถามลูกค้าเพิ่มเติม`
-        : `\n\nThe customer sent an image. Look at the image and respond appropriately in context with the conversation.
+      : `\n\nThe customer sent an image. Look at the image and respond appropriately in context with the conversation.
 If the image is a promotion/flyer, confirm which promotion it shows.
 If it's a screenshot of a booking, reference the details you see.
 If you can't understand the image, ask the customer to clarify.`;
-      userContent = (userContent || '') + imageInstruction;
+    userContent = (userContent || '') + imageInstruction;
+  }
+
+  // Add current user message (with vision content if image is present)
+  if (params.imageUrl) {
+    let parsedImageUrl: URL | null = null;
+    try {
+      parsedImageUrl = new URL(params.imageUrl);
+    } catch {
+      console.warn('Invalid image URL, falling back to text-only:', params.imageUrl);
     }
 
-    // Add current user message (with vision content if image is present)
-    if (params.imageUrl) {
-      messages.push({
+    if (parsedImageUrl) {
+      conversationMessages.push({
         role: 'user',
         content: [
           { type: 'text' as const, text: userContent || '[Customer sent an image]' },
-          { type: 'image_url' as const, image_url: { url: params.imageUrl, detail: 'auto' as const } }
+          { type: 'image' as const, image: parsedImageUrl }
         ]
       });
     } else {
-      messages.push({ role: 'user', content: userContent });
+      conversationMessages.push({ role: 'user', content: (userContent || '') + '\n[Customer sent an image but the URL could not be loaded]' });
     }
+  } else {
+    conversationMessages.push({ role: 'user', content: userContent });
+  }
 
-    // Only send tools relevant to the detected intent
-    // e.g., promotion_inquiry gets NO tools, booking_request gets check_bay + create_booking
-    const intentTools = getToolsForIntent(intent);
-    const toolChoice = intentTools.length > 0 ? 'auto' : undefined;
-
-    let suggestedResponse = '';
-    let functionCalled: string | undefined;
-    let functionResult: FunctionResult | undefined;
-    let requiresApproval = false;
-    let approvalMessage: string | undefined;
-    const functionCallHistory: string[] = []; // Track all functions called
-
-    // Debug info (for dry run mode)
-    const debugInfo: any = {
-      openAIRequests: [],
-      openAIResponses: []
+  // Build on-demand context providers (closures over embedding, language, intent)
+  const customerIdForTools = params.customerIdForTools;
+  let contextProviders: ContextProviders | undefined;
+  if (params.getCustomerContextFn) {
+    contextProviders = {
+      getCustomerContext: params.getCustomerContextFn,
+      searchKnowledge: async (query: string) => {
+        const similar = await findSimilarMessages(
+          messageEmbedding,
+          AI_CONFIG.maxSimilarMessages,
+          0.7,
+          undefined,
+          messageLanguage,
+        );
+        if (intent === 'greeting') similar.length = 0;
+        const faqs = await findRelevantFAQs(messageEmbedding, query, intent, 3, 0.5);
+        if (faqs.length > 0) {
+          trackFAQUsage(faqs.map(f => f.id)).catch(() => {});
+        }
+        return { faqMatches: faqs, similarMessages: similar };
+      },
     };
+  }
 
-    // Multi-step loop: Keep calling API until AI stops requesting functions
-    let maxIterations = 5; // Safety limit to prevent infinite loops
-    let currentIteration = 0;
+  // Tool setup: only send tools relevant to the detected intent
+  const activeToolNames = getActiveToolsForIntent(intent);
+  const toolState = createToolExecutionState();
+  const allTools = createAITools(toolState, customerIdForTools, contextProviders);
 
-    // Use override model if provided, otherwise use default
-    const modelToUse = params.overrideModel || AI_CONFIG.model;
+  // Filter activeToolNames to only include tools that actually exist in allTools
+  const validActiveTools = activeToolNames.filter(name => name in allTools);
+  const hasTools = validActiveTools.length > 0;
 
-    // Newer models (gpt-5-*, o1-*, o3-*) require max_completion_tokens instead of max_tokens
-    const usesCompletionTokens = /^(gpt-5|o1|o3)/i.test(modelToUse);
+  // Model configuration
+  const modelToUse = params.overrideModel || AI_CONFIG.model;
+  const isReasoningModel = /^(gpt-5|o1|o3)/i.test(modelToUse);
 
-    while (currentIteration < maxIterations) {
-      currentIteration++;
+  // Debug info (for dry run mode)
+  const debugInfo: { openAIRequests: unknown[]; openAIResponses: unknown[] } = {
+    openAIRequests: [],
+    openAIResponses: []
+  };
 
-      // Build model-specific parameters
-      // Reasoning models (gpt-5-*, o1-*, o3-*) use max_completion_tokens, don't support custom temperature,
-      // and need a larger token budget because reasoning tokens count against the limit
-      const modelSpecificParams = usesCompletionTokens
-        ? {
-            max_completion_tokens: 1500,    // ~1000 reasoning + ~500 output
-            reasoning_effort: 'low' as const, // Reduce reasoning overhead for simple chat replies
-          }
-        : { max_tokens: AI_CONFIG.maxTokens, temperature: AI_CONFIG.temperature };
+  return {
+    startTime,
+    params,
+    messageEmbedding,
+    messageLanguage,
+    isThaiMessage,
+    intent,
+    classification,
+    matchingTemplate,
+    contextualPrompt,
+    finalContextPrompt,
+    conversationMessages,
+    toolState,
+    allTools,
+    validActiveTools,
+    hasTools,
+    modelToUse,
+    isReasoningModel,
+    debugInfo,
+  };
+}
 
-      // Capture the EXACT request being sent to OpenAI (in dry run mode)
-      // Only include tools/tool_choice if there are relevant tools for this intent
-      const toolParams = intentTools.length > 0
-        ? { tools: intentTools, tool_choice: toolChoice }
-        : {};
+// Post-processing: runs after LLM generation completes.
+// Takes the generated text + tool state + context, returns a complete AISuggestion.
+export async function postProcessSuggestion(
+  generatedText: string,
+  ctx: SuggestionContext
+): Promise<AISuggestion> {
+  const { toolState, params, isThaiMessage, intent, classification } = ctx;
+  const { matchingTemplate, contextualPrompt, messageEmbedding } = ctx;
 
-      const requestPayload = {
-        model: modelToUse,
-        messages: messages,
-        ...modelSpecificParams,
-        ...toolParams
+  const functionCalled = toolState.lastFunctionCalled;
+  const functionResult: FunctionResult | undefined = toolState.lastFunctionResult;
+  const requiresApproval = toolState.requiresApproval;
+  const approvalMessage = toolState.approvalMessage;
+  const functionCallHistory = toolState.functionCallHistory;
+
+  // Resolve on-demand context from tool state (populated if tools were called)
+  const similarMessages = toolState.similarMessages || [];
+  const faqMatches = toolState.faqMatches || [];
+  const resolvedCustomerContext = toolState.customerContext || params.customerContext;
+
+  let suggestedResponse = '';
+
+  if (requiresApproval && functionCalled) {
+    // Generate a natural customer-facing message for approval-gated functions.
+    // Check that the function actually succeeded before generating a confirmation.
+    if (!functionResult || functionResult.success === false) {
+      // Function failed or result missing — use the LLM-generated text which should describe
+      // the error, or fall back to a safe message
+      suggestedResponse = generatedText || functionResult?.error ||
+        (isThaiMessage ? 'ขอตรวจสอบให้ก่อนนะคะ' : 'Let me check on that for you.');
+    } else {
+      const customerFacingMessages: Record<string, string> = {
+        'cancel_booking': isThaiMessage
+          ? 'ยกเลิกให้เรียบร้อยค่ะ'
+          : 'Done, I\'ve cancelled that for you.',
+        'create_booking': isThaiMessage
+          ? 'จองให้เรียบร้อยค่ะ'
+          : 'Your booking is confirmed!',
+        'modify_booking': isThaiMessage
+          ? 'แก้ไขให้เรียบร้อยค่ะ'
+          : 'Done, I\'ve updated your booking.',
       };
-
-      if (params.dryRun) {
-        debugInfo.openAIRequests.push({
-          iteration: currentIteration,
-          payload: requestPayload
-        });
-        console.log('\n========== OPENAI REQUEST (Iteration ' + currentIteration + ') ==========');
-        console.log(`Model: ${modelToUse}${params.overrideModel ? ' (OVERRIDE)' : ''}`);
-        console.log(JSON.stringify(requestPayload, null, 2));
-        console.log('========== END OPENAI REQUEST ==========\n');
-      }
-
-      // Call OpenAI API (as any: SDK types don't cover reasoning_effort + dynamic tool_choice union)
-      const completion = await openai.chat.completions.create({
-        model: modelToUse,
-        messages: messages,
-        ...modelSpecificParams,
-        ...toolParams,
-      } as any);
-
-      // Capture the EXACT response from OpenAI (in dry run mode)
-      if (params.dryRun) {
-        debugInfo.openAIResponses.push({
-          iteration: currentIteration,
-          response: completion
-        });
-        console.log('\n========== OPENAI RESPONSE (Iteration ' + currentIteration + ') ==========');
-        console.log(JSON.stringify(completion, null, 2));
-        console.log('========== END OPENAI RESPONSE ==========\n');
-      }
-
-      const message = completion.choices[0]?.message;
-
-      if (!message) {
-        throw new Error('No message in completion');
-      }
-
-      // Add assistant's message to conversation history
-      messages.push(message);
-
-      // Check if AI wants to call functions
-      if (message.tool_calls && message.tool_calls.length > 0) {
-        console.log(`[Iteration ${currentIteration}] AI requested ${message.tool_calls.length} function call(s)`);
-
-        // Execute all requested function calls
-        for (const toolCall of message.tool_calls) {
-          // Type guard for function tool calls
-          if (toolCall.type === 'function' && 'function' in toolCall) {
-            const functionName = toolCall.function.name;
-            let functionArgs;
-            try {
-              functionArgs = JSON.parse(toolCall.function.arguments);
-            } catch (parseError) {
-              console.error(`Failed to parse function arguments for ${toolCall.function.name}:`, toolCall.function.arguments);
-              messages.push({
-                role: 'tool' as const,
-                content: JSON.stringify({ error: 'Invalid function arguments' }),
-                tool_call_id: toolCall.id
-              });
-              continue;
-            }
-
-            console.log(`  → Executing: ${functionName}`, functionArgs);
-            functionCallHistory.push(functionName);
-
-            // Execute the function
-            const result = await functionExecutor.execute({
-              name: functionName,
-              parameters: functionArgs
-            }, params.customerContext?.id); // Pass customerId for package selection
-
-            // Store the LAST function call details (for backwards compatibility)
-            functionCalled = functionName;
-            functionResult = result;
-
-            // Check if function requires approval - if so, generate a customer-facing message
-            if (result.requiresApproval) {
-              requiresApproval = true;
-              approvalMessage = result.approvalMessage;
-
-              // Generate a natural customer-facing message instead of exposing internal action text
-              // The approvalMessage is for staff review; the suggestedResponse is what staff sends to customer
-              const customerFacingMessages: Record<string, string> = {
-                'cancel_booking': isThaiMessage
-                  ? 'ยกเลิกให้เรียบร้อยค่ะ'
-                  : 'Done, I\'ve cancelled that for you.',
-                'create_booking': isThaiMessage
-                  ? 'จองให้เรียบร้อยค่ะ'
-                  : 'Your booking is confirmed!',
-                'modify_booking': isThaiMessage
-                  ? 'แก้ไขให้เรียบร้อยค่ะ'
-                  : 'Done, I\'ve updated your booking.',
-              };
-              suggestedResponse = customerFacingMessages[functionName] ||
-                (isThaiMessage ? 'เรียบร้อยค่ะ' : 'Done!');
-
-              // Break out of function execution loop
-              break;
-            }
-
-            // Add function result back to conversation
-            messages.push({
-              role: 'tool',
-              content: JSON.stringify(result.data || result.error || {}),
-              tool_call_id: toolCall.id
-            });
-
-            console.log(`  ✓ Completed: ${functionName}`, result.success ? 'success' : 'error');
-          }
-        }
-
-        // If approval required, stop the loop
-        if (requiresApproval) {
-          break;
-        }
-
-        // Continue loop to let AI potentially call more functions or generate final response
-      } else {
-        // No more function calls - AI has generated final response
-        suggestedResponse = message.content || '';
-        console.log(`[Iteration ${currentIteration}] Final response generated`);
-        break;
-      }
+      suggestedResponse = customerFacingMessages[functionCalled] ||
+        (isThaiMessage ? 'เรียบร้อยค่ะ' : 'Done!');
     }
+  } else {
+    suggestedResponse = generatedText;
+  }
 
-    if (currentIteration >= maxIterations) {
-      console.warn('⚠️  Reached maximum function calling iterations');
+  // If we executed functions but no final response, format the last function result
+  if (!suggestedResponse && functionCalled && functionResult) {
+    if (functionResult.success) {
+      suggestedResponse = formatFunctionResult(functionCalled, functionResult, params.customerMessage);
+    } else {
+      suggestedResponse = functionResult.error ||
+        `I encountered an issue while processing your request. Please let me check manually.`;
     }
+  }
 
-    // If we executed functions but no final response, format the last function result
-    if (!suggestedResponse && functionCalled && functionResult) {
-      if (functionResult.success) {
-        suggestedResponse = formatFunctionResult(functionCalled, functionResult, params.customerMessage);
-      } else {
-        suggestedResponse = functionResult.error ||
-          `I encountered an issue while processing your request. Please let me check manually.`;
-      }
+  if (!suggestedResponse) {
+    throw new Error('No response generated from OpenAI');
+  }
+
+  // Strip internal tags from customer-facing response
+  const managementMatch = suggestedResponse.match(/\[NEEDS MANAGEMENT:[^\]]*\]/g);
+  let managementNote = managementMatch ? managementMatch.join(' ') : null;
+  suggestedResponse = suggestedResponse
+    .replace(/\s*\[INTERNAL NOTE:[^\]]*\]\s*/g, '')
+    .replace(/\s*\[NEEDS MANAGEMENT:[^\]]*\]\s*/g, '')
+    .trim();
+
+  // Deterministic management escalation for high-risk topics
+  if (!managementNote) {
+    const recentCustomerMsgs = (params.conversationContext?.recentMessages || [])
+      .filter(m => m.senderType === 'user' || m.senderType === 'customer')
+      .slice(-5)
+      .map(m => m.content)
+      .join(' ');
+    const msg = (params.customerMessage + ' ' + recentCustomerMsgs).toLowerCase();
+    const hasMoneyKeywords = /refund|คืนเงิน|เงินคืน|จ่ายเพิ่ม|pay extra|pay more|compensation|ชดเชย|รับเพิ่ม/.test(msg);
+    const hasPackageChange = /เปลี่ยนแพ[คก]|change package|switch package|upgrade|downgrade|ซื้อแพ[คก]|buy.*package/.test(msg);
+    const hasRefund = /refund|คืนเงิน|เงินคืน|ขอเงิน/.test(msg);
+    const hasPartnership = /partnership|พันธมิตร|sponsor|สปอนเซอร์|collaborate|ร่วมงาน|marketing agency|digital marketing|our services|our company|company profile|บริการของเรา|เสนอ.*บริการ|นำเสนอ/.test(msg);
+    const hasComplaint = /complaint|ร้องเรียน|ไม่พอใจ|disappointed|unacceptable/.test(msg);
+    const hasLargeGroup = /\b(1[0-9]|[2-9][0-9])\s*(คน|people|person|guests|pax)\b/.test(msg);
+    const hasPayment = /จ่ายเพิ่ม|pay extra|pay more|โอนเพิ่ม|transfer.*more|จ่าย.*\d{4,}|pay.*\d{4,}/.test(msg);
+    const hasUnverifiable = /ได้รับอีเมล|ได้รับ.*mail|receive.*email|email.*received|spam.*อีเมล|อีเมล.*spam|didn't receive|not received|ไม่ได้รับ/.test(msg);
+
+    if (hasRefund) {
+      managementNote = '[NEEDS MANAGEMENT: Refund request]';
+    } else if (hasPackageChange) {
+      managementNote = hasMoneyKeywords || hasPayment
+        ? '[NEEDS MANAGEMENT: Package change with payment adjustment]'
+        : '[NEEDS MANAGEMENT: Package change request]';
+    } else if (hasPayment) {
+      managementNote = '[NEEDS MANAGEMENT: Payment adjustment request]';
+    } else if (hasPartnership) {
+      managementNote = '[NEEDS MANAGEMENT: Business opportunity/partnership inquiry]';
+    } else if (hasComplaint) {
+      managementNote = '[NEEDS MANAGEMENT: Customer complaint]';
+    } else if (hasLargeGroup) {
+      managementNote = '[NEEDS MANAGEMENT: Large group inquiry - may need custom pricing]';
+    } else if (hasUnverifiable) {
+      managementNote = '[NEEDS MANAGEMENT: Cannot verify - requires staff to check]';
     }
+  }
 
-    if (!suggestedResponse) {
-      throw new Error('No response generated from OpenAI');
-    }
+  // Calculate confidence score
+  const confidenceScore = calculateConfidenceScore(
+    similarMessages,
+    !!matchingTemplate,
+    !!resolvedCustomerContext,
+    suggestedResponse.length,
+    intent,
+    functionCalled,
+    functionResult ? functionResult.success !== false : undefined
+  );
 
-    // Strip internal tags from customer-facing response
-    // [INTERNAL NOTE: ...] and [NEEDS MANAGEMENT: ...] are for staff/admin review only
-    // Extract them before removing so they can be stored separately
-    const managementMatch = suggestedResponse.match(/\[NEEDS MANAGEMENT:[^\]]*\]/g);
-    let managementNote = managementMatch ? managementMatch.join(' ') : null;
-    suggestedResponse = suggestedResponse
-      .replace(/\s*\[INTERNAL NOTE:[^\]]*\]\s*/g, '')
-      .replace(/\s*\[NEEDS MANAGEMENT:[^\]]*\]\s*/g, '')
-      .trim();
+  const responseTime = Date.now() - ctx.startTime;
 
-    // Deterministic management escalation for high-risk topics
-    // The LLM sometimes forgets the [NEEDS MANAGEMENT] tag, especially with brevity rules.
-    // Detect patterns in the customer message + recent history and flag regardless of LLM output.
-    if (!managementNote) {
-      // Check current message AND recent customer messages for context
-      const recentCustomerMsgs = (params.conversationContext?.recentMessages || [])
-        .filter(m => m.senderType === 'user' || m.senderType === 'customer')
-        .slice(-5) // Check more history for context
-        .map(m => m.content)
-        .join(' ');
-      const msg = (params.customerMessage + ' ' + recentCustomerMsgs).toLowerCase();
-      const hasMoneyKeywords = /refund|คืนเงิน|เงินคืน|จ่ายเพิ่ม|pay extra|pay more|compensation|ชดเชย|รับเพิ่ม/.test(msg);
-      const hasPackageChange = /เปลี่ยนแพ[คก]|change package|switch package|upgrade|downgrade|ซื้อแพ[คก]|buy.*package/.test(msg);
-      const hasRefund = /refund|คืนเงิน|เงินคืน|ขอเงิน/.test(msg);
-      const hasPartnership = /partnership|พันธมิตร|sponsor|สปอนเซอร์|collaborate|ร่วมงาน|marketing agency|digital marketing|our services|our company|company profile|บริการของเรา|เสนอ.*บริการ|นำเสนอ/.test(msg);
-      const hasComplaint = /complaint|ร้องเรียน|ไม่พอใจ|disappointed|unacceptable/.test(msg);
-      const hasLargeGroup = /\b(1[0-9]|[2-9][0-9])\s*(คน|people|person|guests|pax)\b/.test(msg);
-      const hasPayment = /จ่ายเพิ่ม|pay extra|pay more|โอนเพิ่ม|transfer.*more|จ่าย.*\d{4,}|pay.*\d{4,}/.test(msg);
-      // Unverifiable facts: AI cannot confirm email receipt, account status, etc.
-      const hasUnverifiable = /ได้รับอีเมล|ได้รับ.*mail|receive.*email|email.*received|spam.*อีเมล|อีเมล.*spam|didn't receive|not received|ไม่ได้รับ/.test(msg);
-
-      if (hasRefund) {
-        managementNote = '[NEEDS MANAGEMENT: Refund request]';
-      } else if (hasPackageChange) {
-        // Package changes always need management, with or without money
-        managementNote = hasMoneyKeywords || hasPayment
-          ? '[NEEDS MANAGEMENT: Package change with payment adjustment]'
-          : '[NEEDS MANAGEMENT: Package change request]';
-      } else if (hasPayment) {
-        managementNote = '[NEEDS MANAGEMENT: Payment adjustment request]';
-      } else if (hasPartnership) {
-        managementNote = '[NEEDS MANAGEMENT: Business opportunity/partnership inquiry]';
-      } else if (hasComplaint) {
-        managementNote = '[NEEDS MANAGEMENT: Customer complaint]';
-      } else if (hasLargeGroup) {
-        managementNote = '[NEEDS MANAGEMENT: Large group inquiry - may need custom pricing]';
-      } else if (hasUnverifiable) {
-        managementNote = '[NEEDS MANAGEMENT: Cannot verify - requires staff to check]';
-      }
-    }
-
-    // 6. Calculate confidence score
-    const confidenceScore = calculateConfidenceScore(
-      similarMessages,
-      !!matchingTemplate,
-      !!params.customerContext,
-      suggestedResponse.length,
-      intent,
-      functionCalled,
-      functionResult ? functionResult.success !== false : undefined
-    );
-
-    const responseTime = Date.now() - startTime;
-
-    // 7. Build debug context if requested (for staff transparency)
-    let debugContext: AIDebugContext | undefined;
-    if (params.includeDebugContext) {
-      // Get skill names that were used for this intent
-      const skillNames = getSkillsForIntent(intent).map(s => s.name);
-      debugContext = {
-        customerMessage: params.customerMessage,
-        conversationHistory: params.conversationContext.recentMessages || [],
-        // Sanitize customer data — omit PII (email, phone, notes) from debug context
-        customerData: params.customerContext ? {
-          name: params.customerContext.name,
-          totalVisits: params.customerContext.totalVisits,
-          lifetimeValue: params.customerContext.lifetimeValue,
-          activePackages: params.customerContext.activePackages ? {
-            count: params.customerContext.activePackages.count,
-            hasUnlimited: params.customerContext.activePackages.hasUnlimited,
-          } : undefined,
-          upcomingBookings: params.customerContext.upcomingBookings ? {
-            count: params.customerContext.upcomingBookings.count,
-          } : undefined,
+  // Build debug context if requested (for staff transparency)
+  let debugContext: AIDebugContext | undefined;
+  if (params.includeDebugContext) {
+    const skillNames = getSkillsForIntent(intent).map(s => s.name);
+    debugContext = {
+      customerMessage: params.customerMessage,
+      conversationHistory: params.conversationContext.recentMessages || [],
+      customerData: resolvedCustomerContext ? {
+        name: resolvedCustomerContext.name,
+        totalVisits: resolvedCustomerContext.totalVisits,
+        lifetimeValue: resolvedCustomerContext.lifetimeValue,
+        activePackages: resolvedCustomerContext.activePackages ? {
+          count: resolvedCustomerContext.activePackages.count,
+          hasUnlimited: resolvedCustomerContext.activePackages.hasUnlimited,
         } : undefined,
-        similarMessagesUsed: similarMessages,
-        // Only include a short excerpt — never send full system/user prompts to the frontend
-        systemPromptExcerpt: contextualPrompt.substring(0, 500) + '...',
-        skillsUsed: skillNames,
-        intentDetected: intent,
-        intentSource: classification.source,
-        intentClassificationMs: classification.classificationTimeMs,
-        businessContextIncluded: !!params.businessContext,
-        faqMatches: faqMatches.map(f => ({
-          question: f.question,
-          answer: f.answer,
-          score: f.similarityScore || 0,
-        })),
-        functionSchemas: intentTools.length > 0 ? intentTools : undefined,
-        toolChoice: intentTools.length > 0 ? toolChoice : 'none',
-        model: modelToUse
-      };
+        upcomingBookings: resolvedCustomerContext.upcomingBookings ? {
+          count: resolvedCustomerContext.upcomingBookings.count,
+        } : undefined,
+      } : undefined,
+      similarMessagesUsed: similarMessages,
+      systemPromptExcerpt: contextualPrompt.substring(0, 500) + '...',
+      skillsUsed: skillNames,
+      intentDetected: intent,
+      intentSource: classification.source,
+      intentClassificationMs: classification.classificationTimeMs,
+      businessContextIncluded: !!params.businessContext,
+      faqMatches: faqMatches.map(f => ({
+        question: f.question,
+        answer: f.answer,
+        score: f.similarityScore || 0,
+      })),
+      functionSchemas: ctx.hasTools ? ctx.validActiveTools : undefined,
+      toolChoice: ctx.hasTools ? 'auto' : 'none',
+      model: ctx.modelToUse
+    };
+  }
+
+  // Extract image suggestions from similar messages
+  const suggestedImages: Array<{
+    imageId: string;
+    imageUrl: string;
+    title: string;
+    description: string;
+    reason: string;
+    similarityScore?: number;
+  }> = [];
+
+  const imageIds = new Set<string>();
+  const imageReasons = new Map<string, { score: number; customerQuestion: string }>();
+
+  for (const msg of similarMessages) {
+    if (msg.curatedImageId) {
+      imageIds.add(msg.curatedImageId);
+      if (!imageReasons.has(msg.curatedImageId) ||
+          msg.similarityScore > (imageReasons.get(msg.curatedImageId)?.score || 0)) {
+        imageReasons.set(msg.curatedImageId, {
+          score: msg.similarityScore,
+          customerQuestion: msg.content
+        });
+      }
     }
+  }
 
-    // 7.5. Extract image suggestions from similar messages
-    const suggestedImages: Array<{
-      imageId: string;
-      imageUrl: string;
-      title: string;
-      description: string;
-      reason: string;
-      similarityScore?: number;
-    }> = [];
+  if (imageIds.size > 0 && refacSupabaseAdmin) {
+    try {
+      const { data: images, error } = await refacSupabaseAdmin
+        .from('line_curated_images')
+        .select('id, name, category, file_url, description')
+        .in('id', Array.from(imageIds));
 
-    // Collect unique image IDs from similar messages that have images
-    const imageIds = new Set<string>();
-    const imageReasons = new Map<string, { score: number; customerQuestion: string }>();
-
-    for (const msg of similarMessages) {
-      if (msg.curatedImageId) {
-        imageIds.add(msg.curatedImageId);
-        // Store the reason (what customer asked and how similar it is)
-        if (!imageReasons.has(msg.curatedImageId) ||
-            msg.similarityScore > (imageReasons.get(msg.curatedImageId)?.score || 0)) {
-          imageReasons.set(msg.curatedImageId, {
-            score: msg.similarityScore,
-            customerQuestion: msg.content
+      if (!error && images) {
+        for (const image of images) {
+          const reasonData = imageReasons.get(image.id);
+          suggestedImages.push({
+            imageId: image.id,
+            imageUrl: image.file_url,
+            title: image.name,
+            description: image.description || `${image.category}: ${image.name}`,
+            reason: `Similar to: "${reasonData?.customerQuestion || 'previous question'}"`,
+            similarityScore: reasonData?.score
           });
         }
       }
+    } catch (error) {
+      console.warn('Failed to fetch curated image details:', error);
     }
+  }
 
-    // Fetch image details from database
-    if (imageIds.size > 0 && refacSupabaseAdmin) {
-      try {
-        const { data: images, error } = await refacSupabaseAdmin
-          .from('line_curated_images')
-          .select('id, name, category, file_url, description')
-          .in('id', Array.from(imageIds));
+  if (intent === 'promotion_inquiry' && refacSupabaseAdmin) {
+    try {
+      const existingIds = new Set(suggestedImages.map(img => img.imageId));
+      const { data: promoImages, error } = await refacSupabaseAdmin
+        .from('line_curated_images')
+        .select('id, name, category, file_url, description')
+        .ilike('category', '%promotion%')
+        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+        .limit(10);
 
-        if (!error && images) {
-          for (const image of images) {
-            const reasonData = imageReasons.get(image.id);
-            suggestedImages.push({
-              imageId: image.id,
-              imageUrl: image.file_url,
-              title: image.name,
-              description: image.description || `${image.category}: ${image.name}`,
-              reason: `Similar to: "${reasonData?.customerQuestion || 'previous question'}"`,
-              similarityScore: reasonData?.score
-            });
-          }
+      if (!error && promoImages) {
+        for (const image of promoImages) {
+          if (existingIds.has(image.id)) continue;
+          suggestedImages.push({
+            imageId: image.id,
+            imageUrl: image.file_url,
+            title: image.name,
+            description: image.description || `${image.category}: ${image.name}`,
+            reason: 'Promotion image (customer asked about promotions/deals)',
+            similarityScore: undefined
+          });
         }
-      } catch (error) {
-        console.warn('Failed to fetch curated image details:', error);
-        // Non-critical error, continue without images
       }
+    } catch (error) {
+      console.warn('Failed to fetch promotion curated images:', error);
     }
+  }
 
-    // For promotion-related intents, also include ALL curated promotion images
-    // This ensures promotion images are always suggested when customers ask about deals/promos
-    if (intent === 'promotion_inquiry' && refacSupabaseAdmin) {
-      try {
-        const existingIds = new Set(suggestedImages.map(img => img.imageId));
-        const { data: promoImages, error } = await refacSupabaseAdmin
+  const keywordImageIntents = ['facility_inquiry', 'equipment_inquiry', 'pricing_inquiry', 'coaching_inquiry', 'location_inquiry'];
+  if (keywordImageIntents.includes(intent) && refacSupabaseAdmin) {
+    try {
+      const existingIds = new Set(suggestedImages.map(img => img.imageId));
+      const stopwords = new Set(['what', 'is', 'the', 'a', 'an', 'do', 'you', 'have', 'how', 'much', 'does', 'can', 'i', 'me', 'my', 'about', 'for', 'at', 'to', 'in', 'of', 'and', 'or', 'your', 'this', 'that', 'are', 'was', 'it', 'be']);
+      const keywords = params.customerMessage
+        .toLowerCase()
+        .replace(/[^\w\s\u0E00-\u0E7F]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length >= 2 && !stopwords.has(w))
+        .map(kw => kw.replace(/[^a-zA-Z0-9\u0E00-\u0E7F]/g, ''))
+        .filter(kw => kw.length >= 2);
+
+      if (keywords.length > 0) {
+        const nameFilters = keywords.map(kw => `name.ilike.%${kw}%`).join(',');
+        const { data: keywordImages, error } = await refacSupabaseAdmin
           .from('line_curated_images')
           .select('id, name, category, file_url, description')
-          .ilike('category', '%promotion%')
+          .or(nameFilters)
           .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
-          .limit(10);
+          .limit(5);
 
-        if (!error && promoImages) {
-          for (const image of promoImages) {
-            // Skip if already included from RAG-matched results
+        if (!error && keywordImages) {
+          for (const image of keywordImages) {
             if (existingIds.has(image.id)) continue;
             suggestedImages.push({
               imageId: image.id,
               imageUrl: image.file_url,
               title: image.name,
               description: image.description || `${image.category}: ${image.name}`,
-              reason: 'Promotion image (customer asked about promotions/deals)',
+              reason: `Keyword match for "${params.customerMessage.substring(0, 50)}"`,
               similarityScore: undefined
             });
           }
         }
-      } catch (error) {
-        console.warn('Failed to fetch promotion curated images:', error);
       }
+    } catch (error) {
+      console.warn('Failed to fetch keyword-matched curated images:', error);
     }
+  }
 
-    // For facility/equipment/pricing/coaching intents, match curated images by keyword in name
-    // e.g. "What is the AI bay?" → match images named "AI Bay", "AI Bay 2"
-    const keywordImageIntents = ['facility_inquiry', 'equipment_inquiry', 'pricing_inquiry', 'coaching_inquiry', 'location_inquiry'];
-    if (keywordImageIntents.includes(intent) && refacSupabaseAdmin) {
-      try {
-        const existingIds = new Set(suggestedImages.map(img => img.imageId));
-        // Extract meaningful keywords from the customer message (2+ chars, skip stopwords)
-        const stopwords = new Set(['what', 'is', 'the', 'a', 'an', 'do', 'you', 'have', 'how', 'much', 'does', 'can', 'i', 'me', 'my', 'about', 'for', 'at', 'to', 'in', 'of', 'and', 'or', 'your', 'this', 'that', 'are', 'was', 'it', 'be']);
-        const keywords = params.customerMessage
-          .toLowerCase()
-          .replace(/[^\w\s\u0E00-\u0E7F]/g, ' ')
-          .split(/\s+/)
-          .filter(w => w.length >= 2 && !stopwords.has(w))
-          // Sanitize keywords: strip any characters that could be interpreted as PostgREST operators
-          .map(kw => kw.replace(/[^a-zA-Z0-9\u0E00-\u0E7F]/g, ''))
-          .filter(kw => kw.length >= 2);
+  // Create suggestion object
+  const suggestion: Omit<AISuggestion, 'id'> & { debugInfo?: unknown } = {
+    suggestedResponse,
+    confidenceScore,
+    responseTimeMs: responseTime,
+    similarMessagesUsed: similarMessages,
+    templateUsed: matchingTemplate ? {
+      id: matchingTemplate.id,
+      title: matchingTemplate.title,
+      content: matchingTemplate.content
+    } : undefined,
+    contextSummary: `Used ${similarMessages.length} similar messages, ${matchingTemplate ? 'template matched' : 'no template'}, ${resolvedCustomerContext ? 'customer context available' : 'no customer context'}${functionCallHistory.length > 0 ? `, functions: ${functionCallHistory.join(' → ')}` : ''}`,
+    functionCalled,
+    functionResult,
+    requiresApproval,
+    approvalMessage,
+    managementNote,
+    suggestedImages: suggestedImages.length > 0 ? suggestedImages : undefined,
+    debugContext,
+    ...(params.dryRun && { debugInfo: ctx.debugInfo })
+  };
 
-        if (keywords.length > 0) {
-          // Build OR filter: name ILIKE '%keyword%' for each keyword
-          const nameFilters = keywords.map(kw => `name.ilike.%${kw}%`).join(',');
-          const { data: keywordImages, error } = await refacSupabaseAdmin
-            .from('line_curated_images')
-            .select('id, name, category, file_url, description')
-            .or(nameFilters)
-            .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
-            .limit(5);
+  // Store suggestion in database (skip during evaluation/dry run)
+  const paramsForStorage = resolvedCustomerContext && !params.customerContext
+    ? { ...params, customerContext: resolvedCustomerContext }
+    : params;
 
-          if (!error && keywordImages) {
-            for (const image of keywordImages) {
-              if (existingIds.has(image.id)) continue;
-              suggestedImages.push({
-                imageId: image.id,
-                imageUrl: image.file_url,
-                title: image.name,
-                description: image.description || `${image.category}: ${image.name}`,
-                reason: `Keyword match for "${params.customerMessage.substring(0, 50)}"`,
-                similarityScore: undefined
-              });
-            }
-          }
+  let suggestionId: string;
+  if (params.dryRun) {
+    suggestionId = `eval-${crypto.randomUUID()}`;
+  } else if (!params.messageId) {
+    console.warn('No message ID provided for AI suggestion - cannot store in database');
+    suggestionId = `temp-${crypto.randomUUID()}`;
+  } else {
+    suggestionId = await storeSuggestion(suggestion, paramsForStorage, messageEmbedding);
+  }
+
+  return {
+    id: suggestionId,
+    ...suggestion
+  };
+}
+
+// Build the options object for generateText/streamText from a SuggestionContext
+function buildLLMOptions(ctx: SuggestionContext) {
+  return {
+    model: openaiProvider(ctx.modelToUse),
+    system: ctx.finalContextPrompt,
+    messages: ctx.conversationMessages,
+    ...(ctx.hasTools ? {
+      tools: ctx.allTools,
+      activeTools: ctx.validActiveTools as Array<keyof typeof ctx.allTools>,
+      toolChoice: 'auto' as const,
+    } : {}),
+    maxOutputTokens: ctx.isReasoningModel ? 1500 : AI_CONFIG.maxTokens,
+    temperature: ctx.isReasoningModel ? undefined : AI_CONFIG.temperature,
+    providerOptions: ctx.isReasoningModel ? { openai: { reasoningEffort: 'low' } } : undefined,
+    stopWhen: [stepCountIs(5), stopOnApproval(ctx.toolState)],
+    onStepFinish: ctx.params.dryRun ? (step: any) => {
+      const stepNum = step.stepNumber + 1;
+      ctx.debugInfo.openAIRequests.push({
+        iteration: stepNum,
+        payload: { model: ctx.modelToUse, system: '(see finalContextPrompt)', messages: '(see conversationMessages)', tools: ctx.hasTools ? ctx.validActiveTools : undefined }
+      });
+      ctx.debugInfo.openAIResponses.push({
+        iteration: stepNum,
+        response: {
+          text: step.text,
+          toolCalls: step.toolCalls,
+          toolResults: step.toolResults,
+          finishReason: step.finishReason,
+          usage: step.usage,
         }
-      } catch (error) {
-        console.warn('Failed to fetch keyword-matched curated images:', error);
+      });
+      console.log(`\n========== AI SDK STEP ${stepNum} ==========`);
+      console.log(`Model: ${ctx.modelToUse}${ctx.params.overrideModel ? ' (OVERRIDE)' : ''}`);
+      console.log(`Finish reason: ${step.finishReason}`);
+      if (step.toolCalls.length > 0) {
+        console.log(`Tool calls: ${step.toolCalls.map((tc: { toolName: string }) => tc.toolName).join(', ')}`);
       }
-    }
+      if (step.text) {
+        console.log(`Text: ${step.text.substring(0, 200)}${step.text.length > 200 ? '...' : ''}`);
+      }
+      console.log(`========== END STEP ${stepNum} ==========\n`);
+    } : undefined,
+  };
+}
 
-    // 8. Create suggestion object
-    const suggestion: Omit<AISuggestion, 'id'> & { debugInfo?: any } = {
-      suggestedResponse,
-      confidenceScore,
-      responseTimeMs: responseTime,
-      similarMessagesUsed: similarMessages,
-      templateUsed: matchingTemplate ? {
-        id: matchingTemplate.id,
-        title: matchingTemplate.title,
-        content: matchingTemplate.content
-      } : undefined,
-      contextSummary: `Used ${similarMessages.length} similar messages, ${matchingTemplate ? 'template matched' : 'no template'}, ${params.customerContext ? 'customer context available' : 'no customer context'}${functionCallHistory.length > 0 ? `, functions: ${functionCallHistory.join(' → ')}` : ''}`,
-      // Function calling metadata
-      functionCalled,
-      functionResult,
-      requiresApproval,
-      approvalMessage,
-      managementNote,
-      // Image suggestions (multi-modal responses)
-      suggestedImages: suggestedImages.length > 0 ? suggestedImages : undefined,
-      // Debug context (for staff transparency)
-      debugContext,
-      // Debug info (only in dry run mode)
-      ...(params.dryRun && { debugInfo })
-    };
+// Main function to generate AI suggestion (non-streaming)
+export async function generateAISuggestion(params: GenerateSuggestionParams): Promise<AISuggestion> {
+  const startTime = Date.now();
 
-    // 8. Store suggestion in database (skip during evaluation/dry run)
-    let suggestionId: string;
-    if (params.dryRun) {
-      // During evaluation, don't store in database to avoid foreign key constraints
-      suggestionId = `eval-${crypto.randomUUID()}`;
-    } else if (!params.messageId) {
-      // If no message ID provided, we can't satisfy the database constraint
-      // Use temporary ID and log warning
-      console.warn('No message ID provided for AI suggestion - cannot store in database');
-      suggestionId = `temp-${crypto.randomUUID()}`;
-    } else {
-      suggestionId = await storeSuggestion(suggestion, params, messageEmbedding);
-    }
-
-    return {
-      id: suggestionId,
-      ...suggestion
-    };
+  try {
+    const ctx = await prepareSuggestionContext(params);
+    const generateResult = await generateText(buildLLMOptions(ctx));
+    return await postProcessSuggestion(generateResult.text, ctx);
 
   } catch (error) {
     console.error('Error generating AI suggestion:', error);
@@ -1500,6 +1485,19 @@ If you can't understand the image, ask the customer to clarify.`;
 
     return fallbackSuggestion;
   }
+}
+
+// Streaming variant: runs pre-processing, returns context + stream options.
+// The caller is responsible for calling streamText() and postProcessSuggestion().
+export async function prepareStreamingSuggestion(params: GenerateSuggestionParams): Promise<{
+  ctx: SuggestionContext;
+  streamTextOptions: Parameters<typeof streamText>[0];
+}> {
+  const ctx = await prepareSuggestionContext(params);
+  return {
+    ctx,
+    streamTextOptions: buildLLMOptions(ctx) as Parameters<typeof streamText>[0],
+  };
 }
 
 // Update suggestion feedback (accept/edit/decline)

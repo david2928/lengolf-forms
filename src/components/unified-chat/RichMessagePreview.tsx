@@ -49,6 +49,8 @@ export interface RichMessagePreviewProps {
 const BookingConfirmationPreview: React.FC<{ booking: BookingDetails }> = ({ booking }) => {
   const headerText = booking.isCoaching ? 'COACHING SESSION CONFIRMED' : 'BOOKING CONFIRMED';
   const headerColor = booking.isCoaching ? 'bg-purple-600' : 'bg-green-600';
+  // Fallback to longDate for older messages stored by Edge Function
+  const displayDate = booking.date || ((booking as unknown as Record<string, unknown>).longDate as string) || '';
 
   return (
     <div className="max-w-sm rounded-lg overflow-hidden shadow-md border border-gray-200 bg-white">
@@ -82,7 +84,7 @@ const BookingConfirmationPreview: React.FC<{ booking: BookingDetails }> = ({ boo
         <div className="space-y-1">
           <div className="flex items-center space-x-2 text-gray-700">
             <Calendar className="h-4 w-4 text-gray-500" />
-            <p className="text-sm font-semibold">{booking.date}</p>
+            <p className="text-sm font-semibold">{displayDate}</p>
           </div>
           <div className="flex items-center space-x-2 text-gray-600">
             <Clock className="h-4 w-4 text-gray-500" />
@@ -152,6 +154,9 @@ const BookingConfirmationPreview: React.FC<{ booking: BookingDetails }> = ({ boo
  * Shows reminder message with countdown
  */
 const BookingReminderPreview: React.FC<{ booking: BookingDetails }> = ({ booking }) => {
+  // Fallback to longDate for older messages stored by Edge Function
+  const displayDate = booking.date || ((booking as unknown as Record<string, unknown>).longDate as string) || '';
+
   return (
     <div className="max-w-sm rounded-lg overflow-hidden shadow-md border border-gray-200 bg-white">
       {/* Header */}
@@ -177,7 +182,7 @@ const BookingReminderPreview: React.FC<{ booking: BookingDetails }> = ({ booking
         <div className="space-y-1">
           <div className="flex items-center space-x-2 text-gray-700">
             <Calendar className="h-4 w-4 text-gray-500" />
-            <p className="text-sm font-semibold">{booking.date}</p>
+            <p className="text-sm font-semibold">{displayDate}</p>
           </div>
           <div className="flex items-center space-x-2 text-gray-600">
             <Clock className="h-4 w-4 text-gray-500" />
@@ -217,6 +222,8 @@ const BookingReminderPreview: React.FC<{ booking: BookingDetails }> = ({ booking
  */
 const BookingCancellationPreview: React.FC<{ booking: BookingDetails }> = ({ booking }) => {
   const headerText = booking.isCoaching ? 'COACHING SESSION CANCELLED' : 'BOOKING CANCELLED';
+  // Fallback to longDate for older messages stored by Edge Function
+  const displayDate = booking.date || ((booking as unknown as Record<string, unknown>).longDate as string) || '';
 
   return (
     <div className="max-w-sm rounded-lg overflow-hidden shadow-md border border-gray-200 bg-white">
@@ -257,7 +264,7 @@ const BookingCancellationPreview: React.FC<{ booking: BookingDetails }> = ({ boo
         <div className="space-y-1">
           <div className="flex items-center space-x-2 text-gray-700">
             <Calendar className="h-4 w-4 text-gray-500" />
-            <p className="text-sm font-semibold">{booking.date}</p>
+            <p className="text-sm font-semibold">{displayDate}</p>
           </div>
           <div className="flex items-center space-x-2 text-gray-600">
             <Clock className="h-4 w-4 text-gray-500" />

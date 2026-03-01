@@ -1,56 +1,66 @@
 # AI-Powered Chat Suggestions
 
 **Advanced AI assistant integration for the unified chat system**
-*Implementation Date: September 2025*
+*Implementation Date: September 2025, Major refactors: February-March 2026*
 
-> 🚧 **Status**: This feature is currently disabled and under development. Documentation preserved for future reference.
+> **Status**: Active development. Streaming endpoint complete (Phase 5). UI integration ready but temporarily gated behind feature flag.
 
-## 🌟 Overview
+## Overview
 
-The AI Chat Suggestions system enhances the unified chat interface with intelligent, context-aware response suggestions powered by GPT-4o-mini and vector embeddings. This system helps staff provide faster, more consistent, and more accurate responses to customer inquiries.
+The AI Chat Suggestions system enhances the unified chat interface with intelligent, context-aware response suggestions. Staff sees suggested responses streamed in real-time as tokens are generated, with full context-aware function calling (booking, cancellation, availability checks).
 
-## 🎯 Key Features
+## Key Features
 
 ### Intelligent Response Generation
-- **GPT-4o-mini Integration**: Cost-effective, fast response generation
-- **RAG (Retrieval Augmented Generation)**: Uses similar past conversations as context
-- **Bilingual Support**: Handles both Thai and English naturally
-- **Template Integration**: Leverages existing message templates
-- **Customer Context**: Includes booking history and preferences
+- **Vercel AI SDK + OpenAI**: `generateText()`/`streamText()` with model-agnostic provider (`@ai-sdk/openai`)
+- **Two-tier Intent Classification**: Regex fast-path (0ms) → LLM classifier (~1s) routes to skill-specific prompts
+- **9 Zod-validated Tool Definitions**: `check_bay_availability`, `create_booking`, `cancel_booking`, `modify_booking`, `get_coaching_availability`, `lookup_booking`, `lookup_customer`, `get_customer_context`, `search_knowledge`
+- **On-demand Context Loading**: Customer data and knowledge base fetched via AI tools only when needed (not pre-loaded)
+- **RAG Pipeline**: pgvector similarity search + FAQ matching for context retrieval
+- **Bilingual Support**: Thai, English, and Chinese with language-specific brevity rules
+- **Approval Gates**: Mutation functions (create/cancel/modify) require staff approval before execution
 
-### Real-Time Suggestions
-- **Automatic Triggers**: Suggestions appear when customers send messages
-- **Fast Response Time**: Sub-2-second generation typical
-- **Confidence Scoring**: Only shows suggestions above 60% confidence
-- **Smart UI**: Non-intrusive, dismissible suggestions
+### Real-Time Streaming (Phase 5)
+- **SSE Streaming**: Tokens stream to UI via custom SSE protocol (`text-delta` → `metadata` → `done`)
+- **Perceived Latency**: <500ms to first token (down from 2-5s full response)
+- **Progressive Rendering**: Pulsing cursor during streaming, full suggestion card on completion
+- **Instant Dedup**: Cached suggestions return as instant SSE burst
 
 ### Learning & Analytics
-- **Feedback Loop**: Tracks accept/edit/decline actions
-- **Performance Metrics**: Response time, acceptance rates, confidence scores
-- **Continuous Improvement**: Learns from successful interactions
+- **Feedback Loop**: Tracks accept/edit/decline actions + staff's actual response when AI is declined
+- **Confidence Scoring**: Multi-signal scoring (base + embeddings + templates + customer context + intent + function results)
+- **Management Escalation**: `[NEEDS MANAGEMENT]` tag detection for policy decisions, refunds, complaints
 
-## 🏗️ Architecture
+## Architecture
 
 ### Core Components
 
 #### 1. AI Services (`src/lib/ai/`)
-- **`openai-client.ts`**: GPT-4o-mini configuration and connection
+- **`suggestion-service.ts`**: Composable stages — `prepareSuggestionContext()` → `buildLLMOptions()` → `postProcessSuggestion()` + `prepareStreamingSuggestion()`
+- **`suggest-response-helpers.ts`**: Shared route helpers (auth, validation, context loading, rate limiting)
+- **`function-schemas.ts`**: 9 Zod `tool()` definitions with intent→tool mapping
+- **`function-executor.ts`**: Function execution logic (availability, booking, cancellation, modification, lookup)
+- **`intent-classifier.ts`**: Two-tier intent classification (regex + LLM)
 - **`embedding-service.ts`**: Vector embedding generation and similarity search
-- **`suggestion-service.ts`**: Main AI suggestion generation logic
+- **`openai-client.ts`**: OpenAI SDK + Vercel AI SDK provider configuration
+- **`skills/*.ts`**: 8 modular prompt fragment files (core, booking, coaching, pricing, facility, general)
 
 #### 2. API Endpoints (`app/api/ai/`)
-- **`suggest-response/`**: Generate suggestions for customer messages
+- **`suggest-response/route.ts`**: JSON endpoint (eval, dryRun) — uses `generateText()`
+- **`suggest-response/stream/route.ts`**: SSE streaming endpoint (production) — uses `streamText()`
 - **`feedback/`**: Record user feedback (accept/edit/decline)
+- **`approve-booking/`**: Execute staff-approved booking mutations
 - **`analytics/`**: Performance metrics and insights
 - **`batch-embed/`**: Batch process historical messages
 
 #### 3. UI Components (`src/components/ai/`)
-- **`AISuggestionCard.tsx`**: Displays suggestions with accept/edit/decline actions
-- **`EnhancedMessageInput.tsx`**: Message input with AI suggestion integration
+- **`AISuggestionCard.tsx`**: Displays suggestions with streaming support + accept/edit/decline/approve actions
+- **`EnhancedMessageInput.tsx`**: Message input wired to streaming hook
 - **`EnhancedChatArea.tsx`**: Complete chat interface with AI features
 
 #### 4. Hooks (`src/hooks/`)
-- **`useAISuggestions.ts`**: Manages suggestion state and user interactions
+- **`useAISuggestionsStream.ts`**: SSE streaming consumer with full state management (loading, streaming, suggestion, error)
+- **`useAISuggestions.ts`**: Legacy non-streaming hook (kept for fallback)
 
 ### Database Schema
 
@@ -305,20 +315,18 @@ if (process.env.NODE_ENV === 'development') {
 }
 ```
 
-## 📈 Future Enhancements
+## Future Enhancements
 
-### Planned Features (Phase 2)
+### Completed
+- ~~Direct booking integration~~ — AI can create/cancel/modify bookings via function calling (Phase 1)
+- ~~Multilingual expansion~~ — Chinese support added alongside Thai/English
+- ~~Response streaming~~ — SSE streaming with <500ms first token (Phase 5)
+
+### Potential Future Work
 - **Voice message transcription**: Handle voice messages
-- **Proactive suggestions**: Suggest follow-up questions
+- **FAQ vector search**: Add pgvector RPC for FAQ entries (currently keyword-only)
+- **Fine-tuned models**: Custom models trained on Lengolf conversation data
 - **Auto-complete**: Real-time suggestion as staff types
-- **Sentiment analysis**: Detect escalation needs
-- **Multi-turn planning**: Plan entire conversation flows
-
-### Advanced Features (Phase 3)
-- **Fine-tuned models**: Custom models trained on Lengolf data
-- **Direct booking integration**: AI can create bookings
-- **Multilingual expansion**: Support Chinese, Japanese
-- **Video call integration**: AI suggestions during calls
 
 ## 🎯 Success Metrics
 
