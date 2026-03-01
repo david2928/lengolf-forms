@@ -110,7 +110,8 @@ export class AIFunctionExecutor {
       const today = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"})).toISOString().split('T')[0];
       const isToday = date === today;
       // Always round up to next hour to avoid showing slots that have already started
-      const startHour = isToday ? currentHour + 1 : 10;
+      // Enforce minimum of 10 (opening hour) - never show availability before 10:00 AM
+      const startHour = isToday ? Math.max(currentHour + 1, 10) : 10;
 
       // Determine which bays to check based on type
       const bays =
