@@ -1,5 +1,8 @@
 -- Weekly AI eval cron job
 -- Runs every Sunday at 04:00 UTC (11:00 AM Bangkok time)
+--
+-- Prerequisites: Store the anon key in Vault:
+--   SELECT vault.create_secret('eyJ...your_anon_key...', 'supabase_anon_key', 'Supabase anon key for cron edge function calls');
 
 SELECT cron.schedule(
   'ai-eval-weekly',
@@ -9,7 +12,7 @@ SELECT cron.schedule(
         url := 'https://bisimqmtxjsptehhqpeg.supabase.co/functions/v1/ai-eval-run',
         headers := jsonb_build_object(
             'Content-Type', 'application/json',
-            'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpc2ltcW10eGpzcHRlaGhxcGVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgzOTY5MzEsImV4cCI6MjA1Mzk3MjkzMX0.NZ_mEOOoaKEG1p9LBXkULWwSIr-rWmCbksVZq3OzSYE'
+            'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'supabase_anon_key' LIMIT 1)
         ),
         body := '{"action":"start","sample_count":150,"batch_size":10}'::jsonb,
         timeout_milliseconds := 150000

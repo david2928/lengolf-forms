@@ -47,7 +47,10 @@ serve(async (req: Request) => {
     })
 
     const body: EvalRequest = await req.json()
-    const { action, sample_count = 50, batch_size = 10 } = body
+    const { action } = body
+    // Clamp inputs to prevent abuse (max 200 samples, max 25 per batch)
+    const sample_count = Math.min(Math.max(1, Number(body.sample_count) || 50), 200)
+    const batch_size = Math.min(Math.max(1, Number(body.batch_size) || 10), 25)
 
     if (action === 'start') {
       return await handleStart(supabase, supabaseUrl, supabaseKey, openaiKey, vercelUrl, sample_count, batch_size)

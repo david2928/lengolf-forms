@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const sampleCount = body.sample_count || 50;
-    const batchSize = body.batch_size || 10;
+    const sampleCount = Math.min(Math.max(1, Number(body.sample_count) || 50), 200);
+    const batchSize = Math.min(Math.max(1, Number(body.batch_size) || 10), 25);
 
     const response = await fetch(`${supabaseUrl}/functions/v1/ai-eval-run`, {
       method: 'POST',

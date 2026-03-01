@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       const { data: invoice, error: invErr } = await refacSupabaseAdmin
         .schema('backoffice')
         .from('invoices')
-        .select('id, invoice_number, invoice_date, subtotal, tax_amount, total_amount, pdf_file_path, supplier_id, invoice_suppliers!inner(name)')
+        .select('id, invoice_number, invoice_date, subtotal, tax_rate, tax_amount, total_amount, pdf_file_path, supplier_id, invoice_suppliers!inner(name)')
         .eq('id', vendor_receipt_id)
         .single();
 
@@ -63,12 +63,14 @@ export async function POST(request: NextRequest) {
         annotationUpdate.tax_base = Number(invoice.subtotal);
         annotationUpdate.tax_base_override = true;
       }
-      if (invoice.tax_amount != null && Number(invoice.tax_amount) > 0) {
+      // tax_amount is WHT (3% withholding tax on coaching/service invoices).
+      // Only map to wht_amount when tax_rate confirms it's WHT (<=5%), not VAT (7%).
+      const taxRate = Number(invoice.tax_rate) || 0;
+      if (invoice.tax_amount != null && Number(invoice.tax_amount) > 0 && taxRate > 0 && taxRate <= 5) {
         annotationUpdate.wht_amount = Number(invoice.tax_amount);
         annotationUpdate.wht_amount_override = true;
+        annotationUpdate.wht_type = 'pnd3';
       }
-      // Coaching invoices are individuals → PND3
-      annotationUpdate.wht_type = 'pnd3';
 
       const month = (invoice.invoice_date || tx.transaction_date).substring(0, 7);
       annotationUpdate.wht_reporting_month = month;
