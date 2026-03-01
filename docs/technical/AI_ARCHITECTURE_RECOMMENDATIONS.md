@@ -1,7 +1,7 @@
 # AI Chatbot Architecture: Recommendations & Impact Assessment
 
-**Date:** February 27, 2026 (research), February 28, 2026 (Phases 1-4 complete), March 1, 2026 (Phase 5 complete)
-**Status:** Phases 1-5 complete (SDK Migration, On-Demand Context, Prompt Simplification, Legacy Cleanup, Response Streaming)
+**Date:** February 27, 2026 (research), February 28, 2026 (Phases 1-4 complete), March 1, 2026 (Phase 5 complete, LLM-as-Judge scoring)
+**Status:** Phases 1-5 complete (SDK Migration, On-Demand Context, Prompt Simplification, Legacy Cleanup, Response Streaming) + LLM-as-Judge eval scoring
 **Scope:** Evaluate current AI suggestion system against 2025-2026 best practices
 
 ---
@@ -21,6 +21,7 @@
 11. [Qualitative Response Review](#11-qualitative-response-review-post-change-3)
 12. [Phase 4 Implementation Report](#12-phase-4-implementation-report-legacy-cleanup)
 13. [Phase 5 Implementation Report](#13-phase-5-implementation-report-response-streaming)
+14. [LLM-as-Judge Scoring Implementation](#14-llm-as-judge-scoring-implementation)
 
 ---
 
@@ -1209,10 +1210,10 @@ Customer: "ใช่ครับ" (= "yes")
 
 #### Medium-Term (Eval Framework Enhancements)
 
-3. **LLM-as-Judge scoring** — Add an automated qualitative scoring step to the sampler that rates each response on a 1-5 scale across dimensions (appropriateness, helpfulness, tone match, brevity). Use a small model (GPT-4o-mini) to judge. Track scores over time.
+3. ~~**LLM-as-Judge scoring**~~ — **COMPLETE (March 1, 2026).** See [Section 14](#14-llm-as-judge-scoring-implementation). Automated 4-dimension scoring (appropriateness, helpfulness, tone match, brevity) via GPT-4o-mini. Standalone judge script + `--judge` flag on sampler. Baseline: 3.87/5.0 across 405 samples. Full optimization report: `docs/technical/AI_SUGGESTION_OPTIMIZATION_REPORT.md`.
 4. **Action alignment metric** — New metric: "Staff took booking action AND AI called function" / "Staff took booking action". Currently 59% (16/27). Target: >75%.
 5. **Conversation-level eval** — Instead of testing individual messages in isolation, evaluate entire conversation flows end-to-end. Tests individual messages lack state (e.g., `hasGreetedToday`, pending booking context).
-6. **Regression detection** — Store historical eval results and automatically flag when any metric degrades >5% between versions. Could be a simple JSON comparison script.
+6. ~~**Regression detection**~~ — **COMPLETE (March 1, 2026).** See [Section 14](#14-llm-as-judge-scoring-implementation). `judge-aggregator.ts` compares current run against most recent `judge-summary-*.json` and flags any dimension drop >0.5 points.
 
 #### Long-Term (System Changes)
 
@@ -1225,21 +1226,27 @@ Customer: "ใช่ครับ" (= "yes")
 For future quality audits, follow this process:
 
 ```bash
-# 1. Run sampler on recent conversations
+# 1. Run sampler on recent conversations with automated judge scoring
 set -a && source .env && set +a
-npx tsx scripts/sample-e2e-suggestions.ts --days 7 --count 20 --all
+npx tsx scripts/sample-e2e-suggestions.ts --days 7 --count 20 --all --judge
 
-# 2. Review results
+# 2. Or judge existing sample files separately
+npx tsx scripts/judge-sample-results.ts                     # Judge most recent
+npx tsx scripts/judge-sample-results.ts --all               # Judge all unjudged files
+npx tsx scripts/judge-sample-results.ts --rejudge           # Re-score after prompt changes
+
+# 3. Review results
 npx tsx scripts/sample-e2e-suggestions.ts --review
 
-# 3. Check key metrics (manual analysis)
-# - Response length ratio (AI/staff) — target: 0.8-1.2x
-# - Over-asking rate — target: <15%
-# - Function call alignment — target: >60%
-# - Language mismatch — target: 0%
-# - Hedging — target: <2%
+# 4. Automated quality metrics from judge summary:
+# - Overall score — target: 4.2+ (current baseline: 3.87)
+# - Appropriateness — target: 4.2+ (no hallucinated facts)
+# - Helpfulness — target: 3.9+ (addresses customer need)
+# - Tone Match — target: 4.2+ (Thai service culture)
+# - Brevity — target: 4.5+ (already strong)
+# - Regression detection — automatic (flags drops >0.5 points)
 
-# 4. Spot-check 10 random samples for:
+# 5. Manual spot-check 10 random samples for:
 #    - Does the AI response sound natural?
 #    - Would a customer be satisfied with this response?
 #    - Is the AI adding unnecessary information?
@@ -1410,6 +1417,86 @@ JSON endpoint (`/api/ai/suggest-response`) produces identical results to before 
 
 ---
 
+## 14. LLM-as-Judge Scoring Implementation
+
+**Branch:** `feature/migrate-ai-sdk-phase1`
+**Date completed:** March 1, 2026
+**Status:** Complete
+
+### Summary
+
+Added automated LLM-as-Judge scoring to the AI evaluation framework. GPT-4o-mini scores each AI suggestion across 4 weighted dimensions (appropriateness 0.3, helpfulness 0.3, tone match 0.2, brevity 0.2) on a 1-5 scale. Includes a standalone judge CLI, a `--judge` flag on the existing sampler, aggregation with regression detection, and a comprehensive optimization report.
+
+### Baseline Results (405 samples scored)
+
+| Dimension | Mean | Median | Weight |
+|-----------|------|--------|--------|
+| Appropriateness | 3.74 | 4 | 0.30 |
+| Helpfulness | 3.41 | 4 | 0.30 |
+| Tone Match | 4.07 | 4 | 0.20 |
+| Brevity | 4.53 | 5 | 0.20 |
+| **Overall** | **3.87** | **4.0** | — |
+
+### Files Created
+
+| File | Lines | Role |
+|------|-------|------|
+| `scripts/lib/judge.ts` | ~200 | Core judge module: types, scoring rubric prompt, `judgeOneSample()`, `judgeAllSamples()` |
+| `scripts/lib/judge-aggregator.ts` | ~165 | Aggregation stats, console summary, regression detection, summary file persistence |
+| `scripts/judge-sample-results.ts` | ~145 | Standalone CLI: `--file`, `--rejudge`, `--all` flags |
+| `docs/technical/AI_SUGGESTION_OPTIMIZATION_REPORT.md` | ~450 | Full analysis: 8 failure patterns, priority-ranked fixes, prompt-only quick wins |
+
+### File Modified
+
+| File | Change | Description |
+|------|--------|-------------|
+| `scripts/sample-e2e-suggestions.ts` | +15 lines | Added `--judge` flag for single-pass sampling + scoring |
+
+### Key Design Decisions
+
+1. **GPT-4o-mini for judging** — Matches established pattern from `evaluate-against-staff-actions.ts`. Cost: ~$0.04 for 405 samples.
+2. **Inline scores on sample files** — Judge scores are written back into the sample JSON (`judgeScores` field on each result), keeping data co-located.
+3. **Summary files for regression** — `judge-summary-{timestamp}.json` enables automatic comparison between runs. Any dimension drop >0.5 points triggers a regression warning.
+4. **200ms inter-call delay** — Prevents rate limiting while keeping total judge time reasonable (~5 min for 100 samples).
+
+### Top Findings from 405-Sample Analysis
+
+8 failure patterns identified, responsible for 53 failures (13.1% of samples):
+
+| Pattern | Failures | % of All Failures | Severity |
+|---------|----------|--------------------|----------|
+| Sticker messages → generic "Hello!" | 16 | 24% | High |
+| Hallucinated availability/pricing/policies | 15 | 22% | Critical |
+| False booking confirmations | 7 | 10% | Critical |
+| Date inference too conservative | 6 | 9% | Medium |
+| Chinese language not supported | 8 | — | Medium |
+| Registration data not recognized | 4 | 6% | High |
+| Modification lookup failures | 7 | 10% | Medium-High |
+| Long conversation context loss | 7 | 10% | Medium |
+
+Full analysis with specific examples, root causes, and file-level fix instructions: [`docs/technical/AI_SUGGESTION_OPTIMIZATION_REPORT.md`](AI_SUGGESTION_OPTIMIZATION_REPORT.md)
+
+### Usage
+
+```bash
+# Judge most recent sample file
+npx tsx scripts/judge-sample-results.ts
+
+# Judge a specific file
+npx tsx scripts/judge-sample-results.ts --file sample-random-2026-02-28.json
+
+# Re-judge after prompt changes (overwrites existing scores)
+npx tsx scripts/judge-sample-results.ts --rejudge
+
+# Judge all unjudged files
+npx tsx scripts/judge-sample-results.ts --all
+
+# Single-pass: sample + judge
+npx tsx scripts/sample-e2e-suggestions.ts --count 20 --judge
+```
+
+---
+
 ## References
 
 - [Vercel AI SDK Documentation](https://ai-sdk.dev/docs/introduction)
@@ -1420,3 +1507,4 @@ JSON endpoint (`/api/ai/suggest-response`) produces identical results to before 
 - Internal: `docs/technical/AI_IMPROVEMENTS_PLAN.md`
 - Internal: `docs/technical/AI_EVALUATION_FRAMEWORK.md`
 - Internal: `.claude/skills/ai-suggestion-eval/SKILL.md`
+- Internal: `docs/technical/AI_SUGGESTION_OPTIMIZATION_REPORT.md`
