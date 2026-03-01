@@ -382,6 +382,14 @@ Use this when:
 - Customer asks "what's my booking?", "ที่จองไว้", "my reservation?"
 - Customer asks about booking on specific date not shown in UPCOMING BOOKINGS
 - Customer asks about past or cancelled bookings
+- Customer wants to modify/cancel but you need to find the specific booking first
+- Customer references a booking with partial info ("my booking tomorrow", "the one at 3pm")
+
+Search strategy:
+- If customer mentions a date → use date field to narrow results
+- If customer mentions a name → use customer_name field
+- If booking is visible in UPCOMING BOOKINGS context → use that info directly, no need to call this
+- Try customer_name + date first. If no results, try phone_number.
 
 Do NOT use when:
 - Booking is already shown in UPCOMING BOOKINGS section in context
@@ -468,6 +476,12 @@ Do NOT use when:
 - Customer wants to cancel entirely (use cancel_booking instead)
 - Booking doesn't exist in UPCOMING BOOKINGS (use lookup_booking first)
 - Customer hasn't specified what to change to
+
+Finding the booking to modify:
+- Check UPCOMING BOOKINGS in context first — if booking is listed, use its booking_id.
+- If customer says "change my booking" without specifying which, and they have exactly ONE upcoming booking, use that one.
+- If customer says "move tomorrow's booking" or "change the 3pm one", match by date/time from UPCOMING BOOKINGS.
+- If no match in UPCOMING BOOKINGS, call lookup_booking first to find it.
 
 Workflow:
 1. First check UPCOMING BOOKINGS in context to find the booking

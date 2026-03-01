@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
-import { extractInvoiceData, resolveModel } from '@/lib/invoice-extraction-service';
+import { extractMultiInvoiceData, resolveModel } from '@/lib/invoice-extraction-service';
 import { uploadReceiptToDrive } from '@/lib/google-drive-service';
 import { computeVendorUpdates } from '@/lib/smart-vendor-upsert';
 import { ALLOWED_RECEIPT_TYPES, MAX_RECEIPT_FILE_SIZE } from '@/types/vendor-receipts';
@@ -46,20 +46,27 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Step 1: Extract invoice data via LLM
-    const { extraction, model_used } = await extractInvoiceData(
+    // Step 1: Extract invoice data via LLM (multi-invoice aware)
+    const { extraction, model_used } = await extractMultiInvoiceData(
       buffer,
       file.type || 'application/pdf',
       file.name,
       { model: resolveModel(requestedModel || undefined) }
     );
 
-    // Step 2: Resolve vendor
+    if (!extraction.invoices || extraction.invoices.length === 0) {
+      return NextResponse.json({
+        error: 'No invoices could be extracted from this document. Please try again or enter data manually.',
+        extraction,
+        model_used,
+      }, { status: 422 });
+    }
+
+    // Step 2: Resolve vendor (shared across all invoices)
     let vendorId = vendorIdOverride;
     let vendorName: string | null = null;
 
     if (vendorId) {
-      // Use override - fetch vendor name
       const { data: v } = await refacSupabaseAdmin
         .schema('backoffice')
         .from('vendors')
@@ -69,7 +76,6 @@ export async function POST(request: NextRequest) {
 
       if (v) {
         vendorName = v.name;
-        // Smart upsert vendor details from extraction
         if (extraction.vendor_name || extraction.vendor_address || extraction.vendor_tax_id) {
           const updates = computeVendorUpdates(v, {
             name: v.name,
@@ -88,7 +94,6 @@ export async function POST(request: NextRequest) {
         }
       }
     } else if (extraction.vendor_name) {
-      // Search by extracted name
       const { data: existing } = await refacSupabaseAdmin
         .schema('backoffice')
         .from('vendors')
@@ -113,7 +118,6 @@ export async function POST(request: NextRequest) {
             .eq('id', existing.id);
         }
       } else {
-        // Create new vendor
         const { data: newVendor, error: insertErr } = await refacSupabaseAdmin
           .schema('backoffice')
           .from('vendors')
@@ -142,55 +146,63 @@ export async function POST(request: NextRequest) {
       }, { status: 422 });
     }
 
-    // Step 3: Upload to Google Drive (receipts folder)
-    const receiptDate = receiptDateOverride || extraction.invoice_date || new Date().toISOString().split('T')[0];
+    // Step 3: Upload to Google Drive once (shared file for all invoices)
+    const firstInvoice = extraction.invoices[0];
+    const receiptDate = receiptDateOverride || firstInvoice?.invoice_date || new Date().toISOString().split('T')[0];
     const parsedDate = new Date(receiptDate);
     const uploadResult = await uploadReceiptToDrive(buffer, file.name, file.type, parsedDate);
 
-    // Step 4: Insert into vendor_receipts with extraction data
-    const { data: receipt, error: dbErr } = await refacSupabaseAdmin
+    // Step 4: Create one vendor_receipts record per invoice
+    const now = new Date().toISOString();
+    const receiptRows = extraction.invoices.map((inv) => ({
+      vendor_id: vendorId!,
+      receipt_date: inv.invoice_date || receiptDate,
+      file_url: uploadResult.fileUrl,
+      file_id: uploadResult.fileId,
+      file_name: uploadResult.fileName,
+      submitted_by: staffName,
+      notes: notes || inv.notes || null,
+      invoice_number: inv.invoice_number,
+      invoice_date: inv.invoice_date,
+      total_amount: inv.total_amount,
+      tax_base: inv.tax_base,
+      vat_amount: inv.vat_amount,
+      vat_type: inv.vat_type || 'none',
+      wht_applicable: inv.wht_applicable || false,
+      extraction_confidence: extraction.confidence,
+      confidence_explanation: extraction.confidence_explanation,
+      extracted_vendor_name: extraction.vendor_name,
+      extracted_company_name_en: extraction.vendor_company_name_en,
+      extracted_address: extraction.vendor_address,
+      extracted_tax_id: extraction.vendor_tax_id,
+      extraction_model: model_used,
+      extracted_at: now,
+      extraction_notes: inv.notes,
+    }));
+
+    const { data: receipts, error: dbErr } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('vendor_receipts')
-      .insert({
-        vendor_id: vendorId,
-        receipt_date: receiptDate,
-        file_url: uploadResult.fileUrl,
-        file_id: uploadResult.fileId,
-        file_name: uploadResult.fileName,
-        submitted_by: staffName,
-        notes: notes || extraction.notes || null,
-        // Extraction columns
-        invoice_number: extraction.invoice_number,
-        invoice_date: extraction.invoice_date,
-        total_amount: extraction.total_amount,
-        tax_base: extraction.tax_base,
-        vat_amount: extraction.vat_amount,
-        vat_type: extraction.vat_type || 'none',
-        wht_applicable: extraction.wht_applicable || false,
-        extraction_confidence: extraction.confidence,
-        confidence_explanation: extraction.confidence_explanation,
-        extracted_vendor_name: extraction.vendor_name,
-        extracted_company_name_en: extraction.vendor_company_name_en,
-        extracted_address: extraction.vendor_address,
-        extracted_tax_id: extraction.vendor_tax_id,
-        extraction_model: model_used,
-        extracted_at: new Date().toISOString(),
-        extraction_notes: extraction.notes,
-      })
-      .select()
-      .single();
+      .insert(receiptRows)
+      .select();
 
     if (dbErr) {
       console.error('[extract-and-upload] DB insert error:', dbErr);
-      return NextResponse.json({ error: 'Failed to save receipt record' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to save receipt records' }, { status: 500 });
     }
 
+    console.log(`[extract-and-upload] Created ${receipts?.length || 0} receipt record(s) for ${extraction.invoices.length} invoice(s)`);
+
+    // Return backwards-compatible response: `receipt` is the first record,
+    // `receipts` is the full array, `invoices_detected` indicates count.
     return NextResponse.json({
-      receipt,
+      receipt: receipts?.[0] || null,
+      receipts: receipts || [],
       extraction,
       model_used,
       vendor_id: vendorId,
       vendor_name: vendorName,
+      invoices_detected: extraction.invoices.length,
     }, { status: 201 });
   } catch (error) {
     console.error('[extract-and-upload] Error:', error);

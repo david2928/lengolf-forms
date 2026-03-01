@@ -755,6 +755,27 @@ export async function prepareSuggestionContext(params: GenerateSuggestionParams)
     }
   }
 
+  // Sticker-aware preprocessing: "sent a sticker" has no semantic content.
+  // Use conversation context to determine what the sticker acknowledges.
+  // Only match when the current message itself is a sticker placeholder text.
+  const isStickerMessage = !isImageMessage &&
+    /^sent a sticker$/i.test(params.customerMessage.trim());
+
+  if (isStickerMessage) {
+    const recentStaffMsg = (params.conversationContext?.recentMessages || [])
+      .filter(m =>
+        (m.senderType === 'staff' || m.senderType === 'assistant') &&
+        m.content && m.content.length > 2
+      )
+      .slice(-1)[0]?.content;
+
+    if (recentStaffMsg) {
+      effectiveMessage = `[Customer sent an acknowledgment sticker after staff said: "${recentStaffMsg.substring(0, 100)}"]`;
+    } else {
+      effectiveMessage = '[Customer sent a sticker as a greeting or acknowledgment]';
+    }
+  }
+
   // 1. Generate embedding for the customer message (use effective message for images)
   const messageEmbedding = await generateEmbedding(effectiveMessage || 'customer sent an image');
 
@@ -786,9 +807,46 @@ export async function prepareSuggestionContext(params: GenerateSuggestionParams)
 
   // 5. Detect language from CURRENT message only (not customer profile)
   // This ensures we respond in the language the customer is using RIGHT NOW
-  // For image messages, use effectiveMessage (recent customer text) for language detection
+  // For image/sticker messages, use recent customer text for language detection
+  // since "sent a photo"/"sent a sticker" contain no Thai characters.
+  // For structured data messages (name/phone/email only, no Thai or English prose),
+  // also fall back to conversation history to maintain language continuity.
   let userContent = params.customerMessage;
-  const langDetectionSource = isImageMessage ? effectiveMessage : params.customerMessage;
+  let langDetectionSource = params.customerMessage;
+
+  // Detect if message is purely structured data (name, phone, email) with no real prose
+  // Matches: "Name Phone" on one line, or "Name\nPhone\nEmail" on separate lines
+  const trimmedMsg = params.customerMessage.trim();
+  const isStructuredDataOnly = !isImageMessage && !isStickerMessage &&
+    !/[\u0E00-\u0E7F]/.test(trimmedMsg) && // no Thai in the data itself
+    (
+      // Multi-line: Name\nPhone[\nEmail]
+      /^[A-Za-z\s().]+\n[0-9\s+\-]+(\n[\w.@]+)?$/m.test(trimmedMsg) ||
+      // Single-line: "Name Phone" (name = 2+ alpha words, phone = 7+ digits)
+      /^[A-Za-z]{2,}(\s+[A-Za-z]{2,})+\s+0[0-9\s\-]{7,}$/.test(trimmedMsg)
+    );
+
+  // Also treat "sent a photo" text without imageUrl as needing language fallback
+  const isPhotoPlaceholder = !isImageMessage && /^sent a photo$/i.test(trimmedMsg);
+
+  if (isImageMessage || isStickerMessage || isStructuredDataOnly || isPhotoPlaceholder) {
+    // Try customer messages first for language detection
+    const recentCustomerText = (params.conversationContext?.recentMessages || [])
+      .filter(m =>
+        (m.senderType === 'user' || m.senderType === 'customer') &&
+        m.contentType !== 'image' && m.contentType !== 'sticker' &&
+        m.content && !/^sent a (photo|sticker)$/i.test(m.content.trim())
+      )
+      .slice(-1)[0]?.content;
+    if (recentCustomerText) {
+      langDetectionSource = recentCustomerText;
+    } else {
+      // Fallback: check any recent message (including staff) for Thai text
+      const anyThaiMessage = (params.conversationContext?.recentMessages || [])
+        .find(m => m.content && /[\u0E00-\u0E7F]/.test(m.content));
+      if (anyThaiMessage) langDetectionSource = anyThaiMessage.content!;
+    }
+  }
   const currentMessageLanguage = /[\u0E00-\u0E7F]/.test(langDetectionSource) ? 'thai' : 'english';
   const isThaiMessage = currentMessageLanguage === 'thai';
   const hasNoConversationHistory = !params.conversationContext.recentMessages || params.conversationContext.recentMessages.length <= 1;
@@ -863,9 +921,12 @@ ENGLISH ONLY. Do not use Thai. 1 to 2 sentences. If greeting only, respond with 
   if (previousDaysMessages.length > 0) {
     finalContextPrompt += `\nPREVIOUS CONVERSATION HISTORY (for context only):
 ${previousDaysMessages.map(msg => {
-const content = (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim()))
-  ? '[Customer sent an image]'
-  : msg.content;
+let content = msg.content;
+if (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim())) {
+  content = '[Customer sent an image]';
+} else if (msg.contentType === 'sticker' || /^sent a sticker$/i.test((msg.content || '').trim())) {
+  content = '[Customer sent a sticker]';
+}
 // Include date so the AI understands the timeline
 const dateStr = msg.createdAt ? new Date(msg.createdAt).toISOString().split('T')[0] : '';
 return `[${dateStr}] ${msg.senderType}: ${content}`;
@@ -916,10 +977,12 @@ For booking/cancellation/modification: call get_customer_context first, then pro
         timePrefix = `[${hours}:${minutes}] `;
       }
 
-      // Replace "sent a photo" placeholder with descriptive text for image messages in history
+      // Replace "sent a photo"/"sent a sticker" placeholders with descriptive text
       let msgContent = msg.content;
       if (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim())) {
         msgContent = '[Customer sent an image]';
+      } else if (msg.contentType === 'sticker' || /^sent a sticker$/i.test((msg.content || '').trim())) {
+        msgContent = '[Customer sent a sticker]';
       }
 
       conversationMessages.push({
@@ -933,6 +996,7 @@ For booking/cancellation/modification: call get_customer_context first, then pro
   if (isImageMessage) {
     const imageInstruction = isThaiMessage
       ? `\n\nลูกค้าส่งรูปภาพมา ดูรูปและตอบอย่างเหมาะสมตามบริบทของบทสนทนา
+ตอบเป็นภาษาไทยเท่านั้น ห้ามตอบเป็นภาษาอังกฤษ
 หากเป็นรูปโปรโมชั่น/ใบปลิว ยืนยันว่าเป็นโปรโมชั่นอะไร
 หากเป็นสกรีนช็อตการจอง อ้างอิงรายละเอียดที่เห็น
 หากไม่เข้าใจรูป สอบถามลูกค้าเพิ่มเติม`
@@ -1055,20 +1119,28 @@ export async function postProcessSuggestion(
   let suggestedResponse = '';
 
   if (requiresApproval && functionCalled) {
-    // Generate a natural customer-facing message for approval-gated functions
-    const customerFacingMessages: Record<string, string> = {
-      'cancel_booking': isThaiMessage
-        ? 'ยกเลิกให้เรียบร้อยค่ะ'
-        : 'Done, I\'ve cancelled that for you.',
-      'create_booking': isThaiMessage
-        ? 'จองให้เรียบร้อยค่ะ'
-        : 'Your booking is confirmed!',
-      'modify_booking': isThaiMessage
-        ? 'แก้ไขให้เรียบร้อยค่ะ'
-        : 'Done, I\'ve updated your booking.',
-    };
-    suggestedResponse = customerFacingMessages[functionCalled] ||
-      (isThaiMessage ? 'เรียบร้อยค่ะ' : 'Done!');
+    // Generate a natural customer-facing message for approval-gated functions.
+    // Check that the function actually succeeded before generating a confirmation.
+    if (!functionResult || functionResult.success === false) {
+      // Function failed or result missing — use the LLM-generated text which should describe
+      // the error, or fall back to a safe message
+      suggestedResponse = generatedText || functionResult?.error ||
+        (isThaiMessage ? 'ขอตรวจสอบให้ก่อนนะคะ' : 'Let me check on that for you.');
+    } else {
+      const customerFacingMessages: Record<string, string> = {
+        'cancel_booking': isThaiMessage
+          ? 'ยกเลิกให้เรียบร้อยค่ะ'
+          : 'Done, I\'ve cancelled that for you.',
+        'create_booking': isThaiMessage
+          ? 'จองให้เรียบร้อยค่ะ'
+          : 'Your booking is confirmed!',
+        'modify_booking': isThaiMessage
+          ? 'แก้ไขให้เรียบร้อยค่ะ'
+          : 'Done, I\'ve updated your booking.',
+      };
+      suggestedResponse = customerFacingMessages[functionCalled] ||
+        (isThaiMessage ? 'เรียบร้อยค่ะ' : 'Done!');
+    }
   } else {
     suggestedResponse = generatedText;
   }

@@ -292,6 +292,12 @@ export const menuItems: MenuItem[] = [
     description: "Manage AI learning questions and answers with image associations"
   },
   {
+    icon: Brain,
+    title: "AI Eval",
+    path: '/admin/ai-eval',
+    description: "Track AI suggestion quality scores"
+  },
+  {
     icon: MessageSquare,
     title: "LINE Testing",
     path: '/admin/line-messages',

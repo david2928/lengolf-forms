@@ -10,6 +10,8 @@
  *   npx tsx scripts/judge-sample-results.ts --file <name>.json # Judge a specific file
  *   npx tsx scripts/judge-sample-results.ts --rejudge          # Re-judge (overwrite existing scores)
  *   npx tsx scripts/judge-sample-results.ts --all              # Judge all unjudged sample files
+ *   npx tsx scripts/judge-sample-results.ts --persist          # Persist results to Supabase ai_eval schema
+ *   npx tsx scripts/judge-sample-results.ts --persist --label "v2 prompt"  # Persist with label
  *
  * Prerequisites:
  *   - OPENAI_API_KEY set in .env.local or environment
@@ -24,6 +26,8 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { judgeAllSamples, JudgeableSample } from './lib/judge';
 import { aggregateScores, printSummary, saveSummary, detectRegression } from './lib/judge-aggregator';
+import { getPromptVersion } from './lib/prompt-version';
+import { createEvalRun, insertEvalSamples, updateRunAggregates, finalizeRun, toSampleForInsert } from './lib/eval-persistence';
 
 const RESULTS_DIR = join(process.cwd(), 'scripts', 'e2e-samples');
 
@@ -32,6 +36,7 @@ const RESULTS_DIR = join(process.cwd(), 'scripts', 'e2e-samples');
 const args = process.argv.slice(2);
 const rejudge = args.includes('--rejudge');
 const judgeAll = args.includes('--all');
+const isPersist = args.includes('--persist');
 
 function getArg(name: string): string | null {
   const idx = args.indexOf(`--${name}`);
@@ -40,6 +45,7 @@ function getArg(name: string): string | null {
 }
 
 const specificFile = getArg('file');
+const persistLabel = getArg('label');
 
 // ─── Find target files ──────────────────────────────────────────────────────
 
@@ -146,6 +152,33 @@ async function main() {
   // Save summary
   const summaryPath = saveSummary(summary, RESULTS_DIR);
   console.log(`\nSummary saved to: ${summaryPath}`);
+
+  // Persist to DB if --persist flag set
+  if (isPersist && allSamples.length > 0) {
+    console.log('\nPersisting to Supabase...');
+    try {
+      const promptVersion = getPromptVersion(persistLabel || undefined);
+      console.log(`  Prompt version: ${promptVersion.version}`);
+
+      const runId = await createEvalRun({
+        promptVersion,
+        triggerType: 'manual',
+        sampleCountRequested: allSamples.length,
+        judgeModel: 'gpt-4o-mini',
+      });
+
+      const samplesToInsert = allSamples.map((s) => toSampleForInsert(s as JudgeableSample & { responseTimeMs: number; intentSource: string }));
+      const inserted = await insertEvalSamples(runId, samplesToInsert);
+      console.log(`  Inserted ${inserted} samples`);
+
+      await updateRunAggregates(runId);
+      await finalizeRun(runId, 'completed');
+      console.log(`  Run finalized: ${runId}`);
+    } catch (err) {
+      console.error(`  Persistence failed: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
   if (regression.hasRegression) {
     console.log('\n!!! REGRESSION DETECTED !!!');
     regression.details.forEach((d) => console.log(`  ${d}`));

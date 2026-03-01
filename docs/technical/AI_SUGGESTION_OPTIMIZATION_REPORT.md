@@ -282,23 +282,23 @@ When the AI calls `check_bay_availability` and gets a clear positive result, it 
 
 ## Priority-Ranked Optimization Roadmap
 
-### Tier 1: Critical (High impact, prevents dangerous failures)
+### Tier 1: Critical (High impact, prevents dangerous failures) — IMPLEMENTED
 
-| # | Optimization | Failure Pattern | Est. Fixes | Effort | Files |
-|---|-------------|-----------------|------------|--------|-------|
-| 1 | **Prevent hallucinated facts** — enforce tool-result-only assertions | Pattern 2 | 10–12 | Low | `core-skill.ts`, `booking-skill.ts` |
-| 2 | **Validate booking confirmation** — check function result before confirming | Pattern 3 | 5–7 | Medium | `booking-skill.ts`, `suggestion-service.ts` |
-| 3 | **Fix sticker handling** — use conversation context instead of "Hello!" | Pattern 1 | 14–16 | Medium | `suggest-response-helpers.ts`, `core-skill.ts`, `intent-classifier.ts` |
+| # | Optimization | Failure Pattern | Est. Fixes | Effort | Files | Status |
+|---|-------------|-----------------|------------|--------|-------|--------|
+| 1 | **Prevent hallucinated facts** — enforce tool-result-only assertions | Pattern 2 | 10–12 | Low | `core-skill.ts`, `booking-skill.ts` | **Done** |
+| 2 | **Validate booking confirmation** — check function result before confirming | Pattern 3 | 5–7 | Medium | `booking-skill.ts`, `suggestion-service.ts` | **Done** |
+| 3 | **Fix sticker handling** — use conversation context instead of "Hello!" | Pattern 1 | 14–16 | Medium | `suggestion-service.ts`, `core-skill.ts`, `intent-classifier.ts` | **Done** |
 
 **Combined Tier 1 impact:** Fixes ~33 failures (62% of all failures), estimated overall score increase: +0.15–0.20
 
-### Tier 2: Important (Improves reliability for common scenarios)
+### Tier 2: Important (Improves reliability for common scenarios) — IMPLEMENTED
 
-| # | Optimization | Failure Pattern | Est. Fixes | Effort | Files |
-|---|-------------|-----------------|------------|--------|-------|
-| 4 | **Smart date inference** — resolve partial dates to nearest future occurrence | Pattern 4 | 4–6 | Low | `booking-skill.ts`, `core-skill.ts` |
-| 5 | **Improve modification lookups** — fuzzy booking matching, trust conversation context | Pattern 7 | 4–5 | Medium | `function-executor.ts`, `booking-skill.ts` |
-| 6 | **Recognize registration data** — handle structured name/phone/email submissions | Pattern 6 | 3–4 | Low | `booking-skill.ts`, `intent-classifier.ts` |
+| # | Optimization | Failure Pattern | Est. Fixes | Effort | Files | Status |
+|---|-------------|-----------------|------------|--------|-------|--------|
+| 4 | **Smart date inference** — resolve partial dates to nearest future occurrence | Pattern 4 | 4–6 | Low | `booking-skill.ts` | **Done** |
+| 5 | **Improve modification lookups** — fuzzy booking matching, trust conversation context | Pattern 7 | 4–5 | Medium | `function-schemas.ts` | **Done** (prompt guidance) |
+| 6 | **Recognize registration data** — handle structured name/phone/email submissions | Pattern 6 | 3–4 | Low | `booking-skill.ts`, `core-skill.ts` | **Done** |
 
 **Combined Tier 2 impact:** Fixes ~12 failures, estimated overall score increase: +0.05–0.08
 
@@ -311,40 +311,147 @@ When the AI calls `check_bay_availability` and gets a clear positive result, it 
 
 **Combined Tier 3 impact:** Fixes ~10 failures, estimated overall score increase: +0.03–0.05
 
+### Tier 4: Post-Implementation Refinements (Discovered after Tier 1+2)
+
+Based on the post-implementation evaluation (145 fresh samples, score 3.99), six new improvement areas were identified. These are ordered by frequency and impact.
+
+| # | Optimization | New Pattern | Occurrences | Effort | Files |
+|---|-------------|-------------|-------------|--------|-------|
+| 9 | **Reduce "let me check" deflections** — anti-hallucination rules too broad | Pattern 9 | 19 (13%) | Low | `core-skill.ts` |
+| 10 | **Fix date resolution model compliance** — prompt is present but model ignores | Pattern 4 (residual) | 4 (2.8%) | Medium | `suggestion-service.ts` |
+| 11 | **Registration data: force conversation language** — structured data triggers English | Pattern 6 (residual) | 3 (2.1%) | Medium | `suggestion-service.ts` |
+| 12 | **Photo message language matching** — photos in Thai conversations get English | Pattern 10 | 3 (2.1%) | Low | `suggestion-service.ts`, `core-skill.ts` |
+| 13 | **Availability tool returns stale data** — tool result contradicts staff knowledge | Pattern 11 | 2 (1.4%) | High | `function-executor.ts` |
+| 14 | **Modification: use UPCOMING BOOKINGS context** — lookup_booking not matching | Pattern 7 (residual) | 3 (2.1%) | Medium | `function-executor.ts` |
+
 ---
 
-## Prompt-Only Quick Wins
+#### Pattern 9: Anti-Hallucination Overcorrection ("Let me check" Deflection)
 
-These changes require only prompt edits (no code changes) and can be deployed immediately:
+**Impact:** 19 occurrences (13% of samples), largest single contributor to helpfulness drop
+**Severity:** Medium — correct behavior for dynamic data, harmful for static knowledge
 
-### 1. Add to `core-skill.ts`:
+**What happens:** The anti-hallucination rules added in Tier 1 tell the model to "NEVER state facts without tool results." This is correct for real-time data (availability, pricing) but causes the model to deflect on questions it SHOULD answer directly from static knowledge or the business context already in the prompt.
+
+**Examples:**
+| Customer Message | AI Response | Staff Response | Score |
+|-----------------|-------------|----------------|-------|
+| "ทดลองเรียนมีเสียค่าซิมเพิ่มเท่าไหร่มั้ยคะ" (Trial lesson sim fee?) | "เดี๋ยวเช็กค่าใช้จ่ายซิมให้ค่ะ" (Let me check) | "ไม่มีค่าใช้จ่ายเลยค่า" (No fee at all) | 3.3 |
+| "ออกใบกำกับในนาม บริษัทได้ปกติมั้ยครับ" (Company tax invoice?) | "ขอเช็กเรื่องใบกำกับ..." | "ได้ค่ะ สามารถแจ้งหน้าร้านได้เลยค่ะ" | 4.4 |
+| "ครั้งแรกเป็น 1ชั่วโมงฟรี1ชั่วโมงใช่ไหมคะ" (First-timer promo?) | "เดี๋ยวเช็คสิทธิ์โปร..." | "ใช้ได้เลยค่ะ ☺️" | 4.2 |
+
+**Root cause:** The anti-hallucination rules don't distinguish between:
+- **Dynamic data** (availability, pricing, booking status) → MUST check tools
+- **Static knowledge** (free trial = no fee, club rental = free, tax invoices = yes) → can answer directly from BUSINESS CONTEXT
+
+**Fix:**
+- `src/lib/ai/skills/core-skill.ts` — Refine anti-hallucination rules to specify scope:
 ```
-CRITICAL RULES:
-- NEVER state availability, pricing, package status, or policy details
-  unless the information came from a tool call result in this conversation.
-  If unsure, say "ขอเช็คให้สักครู่ค่ะ" / "Let me check for you."
-- When the customer sends a sticker, emoji, or very short acknowledgment,
-  look at the last 3 messages to understand what they're responding to.
-  Continue the conversation thread — do NOT restart with a greeting.
-- When a customer provides structured data (name, phone, email on separate lines),
-  acknowledge their information and proceed with the booking flow.
+- NEVER state AVAILABILITY or BOOKING STATUS without calling check_bay_availability first.
+- NEVER quote specific PRICES without search_knowledge results or BUSINESS CONTEXT data.
+- For general facility questions (invoices, equipment policy, trial lesson info), you MAY
+  answer directly from the BUSINESS CONTEXT provided in this prompt. Do NOT say "let me check"
+  for information already available in your context.
 ```
 
-### 2. Add to `booking-skill.ts`:
-```
-DATE RESOLUTION:
-- When a customer gives a day number (e.g., "the 8th", "วันที่ 17"),
-  assume the nearest FUTURE date in the current or next month.
-- When a customer gives day-of-week + date (e.g., "Saturday 17th"),
-  resolve to the nearest matching occurrence.
-- Only ask for month clarification if the date is >30 days away.
+**Estimated impact:** Fixes 8–12 of the 19 deflections → +0.06–0.08 helpfulness
 
-BOOKING CONFIRMATION:
-- After calling create_booking, you MUST verify the result.
-- If the result indicates failure, error, fully booked, or missing data,
-  do NOT say "confirmed." Inform the customer and suggest alternatives.
-- If phone number is missing for a new customer, ask for it BEFORE booking.
-```
+---
+
+#### Pattern 10: Photo Message Language Mismatch
+
+**Impact:** 3 occurrences | Scores 2.3–3.0
+**Severity:** Medium — same root cause as sticker language issue
+
+**What happens:** Customer sends a photo in a Thai conversation. The AI responds in English ("Hi Neji — thanks, I got your photo") while staff responds in Thai.
+
+**Examples:**
+| Customer Message | AI Response | Staff Response | Score |
+|-----------------|-------------|----------------|-------|
+| "sent a photo" (Thai conversation) | "Hi Neji — thanks, I got your photo..." | "สวัสดีค่า ใช่ค่ะ" | 2.3 |
+| "sent a photo" (Thai conversation) | "Hi JJ — is this the photo of your..." | "สวัสดีค่ะ 🙏 อยากจองวันนี้หรอคะ" | 3.0 |
+
+**Root cause:** The sticker language detection fix was applied but photo messages have additional code paths for image description. The image description prompt may override the detected language.
+
+**Fix:**
+- `src/lib/ai/suggestion-service.ts` — Ensure image description responses respect the detected conversation language. Pass language preference to the image handling code path.
+- `src/lib/ai/skills/core-skill.ts` — Add: "When customer sends a photo, respond in the same language as the conversation, not English by default."
+
+**Estimated impact:** Fixes 2–3 failures
+
+---
+
+#### Pattern 11: Availability Tool Returns Stale/Wrong Data
+
+**Impact:** 2 confirmed occurrences | Scores 2.9–3.2
+**Severity:** High per-incident (customer gets wrong info), but low frequency
+
+**What happens:** `check_bay_availability` returns slots as available, but staff says they're fully booked. The AI correctly reports what the tool says, but the tool data is wrong.
+
+**Example:**
+| Customer | AI (from tool) | Staff (ground truth) |
+|----------|---------------|---------------------|
+| "19:00-21:00 มีเบว่างมั้ย" | "มีเบย์ปกติและ AI ว่างค่ะ" | "ช่วง 18.30-22.00 วันนี้ถูกจองเต็มทั้งหมด" |
+
+**Root cause:** The availability check queries the database for the booking date, but the test replays historical conversations where the dates have passed. When the AI checks availability for "today" (March 1, 2026) instead of the original date (December 2025), different results are returned. **This is a testing artifact, not a production issue.**
+
+**Fix:** This is a known limitation of the eval methodology. Not a code fix — document the limitation. For more accurate availability testing, use the `--7d` flag to sample only recent conversations where date context is still relevant.
+
+---
+
+#### Residual Issues from Tier 1+2 (Partially Fixed)
+
+**Date resolution (Pattern 4 residual):** 4 occurrences still ask "which month?" despite the prompt instruction. The model particularly struggles with Thai date formats like "วันพุธที่ 7". The prompt-only approach may have hit its ceiling — consider:
+- Adding explicit date resolution in code (parse "วันที่ X" → resolve to nearest future date before passing to LLM)
+- Injecting resolved dates into the system prompt context
+
+**Registration data language (Pattern 6 residual):** 3 occurrences still respond in English when customer sends structured data (name/phone/email). The language detection correctly identifies the conversation as Thai, but the LLM switches to English when the input text is English-alphabet names. Consider:
+- Adding explicit language instruction in the user message wrapper: `"[Language: respond in Thai]"`
+- Pre-processing registration data messages to append a Thai context hint
+
+**Modification lookup (Pattern 7 residual):** 3 occurrences still can't find the booking. The prompt guidance helps but `lookup_booking` doesn't support fuzzy matching. Consider:
+- Code change: Make `lookup_booking` accept approximate date + customer name (not just exact booking_id)
+- Code change: Auto-inject recent booking_id from UPCOMING BOOKINGS context into the modify_booking call
+
+---
+
+## Post-Implementation Results (2026-03-01)
+
+### Before vs After (Tier 1+2)
+
+| Dimension | Before (405 samples) | After (145 fresh samples) | Change |
+|-----------|---------------------|--------------------------|--------|
+| Appropriateness | 3.74 | **3.94** | **+0.20** |
+| Helpfulness | 3.41 | **3.50** | **+0.09** |
+| Tone Match | 4.07 | **4.25** | **+0.18** |
+| Brevity | 4.53 | **4.52** | -0.01 |
+| **Overall** | **3.87** | **3.99** | **+0.12** |
+
+### Score Distribution Shift
+
+| Range | Before | After | Change |
+|-------|--------|-------|--------|
+| <= 2.0 | 4 (1.0%) | 2 (1.4%) | ~ |
+| 2.1–3.0 | 49 (12.1%) | 15 (10.3%) | -1.8% |
+| 3.1–3.5 | 65 (16.0%) | 20 (13.8%) | -2.2% |
+| 3.6–4.0 | 80 (19.8%) | — | — |
+| 4.0+ | 207 (51.1%) | 112 (77.2%) | **+26.1%** |
+
+### Key Observations
+
+1. **Sticker handling: mostly fixed.** 2 of 3 sticker messages in the sample got contextual responses ("แล้วเจอกันบ่ายโมงครึ่งนะคะ", "แล้วเจอกันวันจันทร์ 10:00 น. ค่ะ") instead of "Hello!" One sticker from a null-name customer still failed.
+
+2. **Anti-hallucination tradeoff.** Appropriateness improved (+0.20) but helpfulness only gained +0.09 because the model now deflects with "let me check" on 13% of messages. Refining the rules to distinguish dynamic vs static knowledge (Pattern 9) would recover the helpfulness gap.
+
+3. **Date resolution: prompt-only partially effective.** 4 of 145 samples still ask "which month?" despite explicit date resolution rules. The model struggles with Thai date patterns — may need code-level date parsing.
+
+4. **Registration data language: still switches to English.** 3 of 145 samples respond in English when customer sends structured registration data. The LLM seems to key off the English alphabet in names/emails, overriding the conversation language. Needs stronger language forcing.
+
+5. **Tone match jumped +0.18.** Thai politeness particles and concise responses are more consistent. This is the biggest qualitative win.
+
+### Remaining Gap to 4.2+ Target
+
+The overall score gap from 3.99 to 4.2+ is primarily helpfulness-driven. The top priority for closing this gap is Pattern 9 (anti-hallucination overcorrection), which alone accounts for 19 deflections. Fixing this would likely push helpfulness from 3.50 to ~3.80 and overall from 3.99 to ~4.10.
 
 ---
 
@@ -371,14 +478,14 @@ npx tsx scripts/judge-sample-results.ts --rejudge
 - **Weekly:** Score 20–30 fresh samples with `--judge` flag
 - **Monthly:** Full regression check across all recent sample files
 
-### Target Scores (Post-Optimization)
-| Dimension | Current | Target | Notes |
-|-----------|---------|--------|-------|
-| Appropriateness | 3.74 | 4.2+ | Tier 1 fixes (hallucination, false confirmation) |
-| Helpfulness | 3.41 | 3.9+ | Tier 1+2 fixes (stickers, date, modifications) |
-| Tone Match | 4.07 | 4.2+ | Tier 3 fix (Chinese support) |
-| Brevity | 4.53 | 4.5+ | Already strong, maintain |
-| **Overall** | **3.87** | **4.2+** | — |
+### Target Scores
+| Dimension | Baseline | After T1+2 | Next Target | Key Fix |
+|-----------|----------|-----------|-------------|---------|
+| Appropriateness | 3.74 | **3.94** | 4.2+ | Tier 3 (Chinese support) |
+| Helpfulness | 3.41 | **3.50** | 3.9+ | Tier 4 #9 (reduce deflections) |
+| Tone Match | 4.07 | **4.25** | 4.3+ | Tier 4 #10 (photo language) |
+| Brevity | 4.53 | **4.52** | 4.5+ | Maintain |
+| **Overall** | **3.87** | **3.99** | **4.2+** | Tier 4 #9 is the critical path |
 
 ---
 
@@ -396,11 +503,16 @@ npx tsx scripts/judge-sample-results.ts --rejudge
 **Overall = weighted average** of 4 dimensions.
 
 ### Data Sources
+
+**Baseline (pre-Tier 1+2):**
 - `sample-random-2026-02-28T06-52-05.json` — 110 samples, 104 judged
 - `sample-random-2026-02-28T04-26-37.json` — 131 samples, 130 judged
 - `sample-random-2026-02-28T03-40-12.json` — 103 samples, 93 judged
 - `sample-random-2026-02-27T18-34-25.json` — 64 samples, 60 judged
 - `sample-today-2026-02-25T16-34-48.json` — 20 samples, 18 judged
+
+**Post-Tier 1+2 (fresh responses with updated prompts):**
+- `sample-random-2026-03-01T07-34-05.json` — 151 samples, 145 judged (score: 3.99)
 
 ### Cost
 - Judge scoring: ~$0.04 for 405 samples (GPT-4o-mini, ~500 tokens/call)

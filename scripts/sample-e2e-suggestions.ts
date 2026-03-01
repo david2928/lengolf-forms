@@ -14,6 +14,8 @@
 //   npx tsx scripts/sample-e2e-suggestions.ts --conversation abc  # Test a specific conversation ID
 //   npx tsx scripts/sample-e2e-suggestions.ts --conversation abc --all  # Test ALL messages in a conversation
 //   npx tsx scripts/sample-e2e-suggestions.ts --judge             # Also run LLM-as-Judge scoring on results
+//   npx tsx scripts/sample-e2e-suggestions.ts --persist           # Persist results to Supabase ai_eval schema
+//   npx tsx scripts/sample-e2e-suggestions.ts --persist --label "baseline v2"  # Persist with human label
 //   npx tsx scripts/sample-e2e-suggestions.ts --review            # Review latest stored results
 //
 // Flags can be combined:
@@ -28,6 +30,8 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 
 import { join } from 'path';
 import { judgeAllSamples, JudgeableSample } from './lib/judge';
 import { aggregateScores, printSummary, saveSummary } from './lib/judge-aggregator';
+import { getPromptVersion } from './lib/prompt-version';
+import { createEvalRun, insertEvalSamples, updateRunAggregates, finalizeRun, toSampleForInsert } from './lib/eval-persistence';
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 const RESULTS_DIR = join(process.cwd(), 'scripts', 'e2e-samples');
@@ -43,6 +47,8 @@ function getArg(name: string): string | null {
 const args = process.argv.slice(2);
 const isReview = args.includes('--review');
 const isJudge = args.includes('--judge');
+const isPersist = args.includes('--persist');
+const persistLabel = getArg('label');
 const isToday = args.includes('--today');
 const sampleCount = parseInt(getArg('count') || '10');
 const daysBack = parseInt(getArg('days') || '0');
@@ -462,7 +468,38 @@ async function runSampling() {
     console.log('\nSkipping judge: OPENAI_API_KEY not set');
   }
 
-  // 4. Save results
+  // 4. Persist to DB if --persist flag set
+  if (isPersist && allResults.length > 0) {
+    console.log(`\n${'─'.repeat(66)}`);
+    console.log('Persisting results to Supabase...\n');
+
+    try {
+      const promptVersion = getPromptVersion(persistLabel || undefined);
+      console.log(`  Prompt version: ${promptVersion.version}`);
+      console.log(`  Prompt hash: ${promptVersion.hash.substring(0, 12)}...`);
+      if (promptVersion.label) console.log(`  Label: ${promptVersion.label}`);
+
+      const runId = await createEvalRun({
+        promptVersion,
+        triggerType: 'manual',
+        sampleCountRequested: sampleCount,
+        judgeModel: isJudge ? 'gpt-4o-mini' : undefined,
+      });
+      console.log(`  Created eval run: ${runId}`);
+
+      const samplesToInsert = allResults.map((r) => toSampleForInsert(r as JudgeableSample & { responseTimeMs: number; intentSource: string }));
+      const inserted = await insertEvalSamples(runId, samplesToInsert);
+      console.log(`  Inserted ${inserted} samples`);
+
+      await updateRunAggregates(runId);
+      await finalizeRun(runId, 'completed');
+      console.log(`  Run finalized successfully`);
+    } catch (err) {
+      console.error(`  Persistence failed: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  // 5. Save results locally (always)
   if (!existsSync(RESULTS_DIR)) {
     mkdirSync(RESULTS_DIR, { recursive: true });
   }
