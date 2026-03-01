@@ -8,7 +8,8 @@ interface ExpenseTrackerTableProps {
   transactions: AnnotatedTransaction[];
   onAnnotationSaved: (bankTxId: number, annotation: AnnotationUpsert) => void;
   onVendorUpdated: (vendor: Vendor) => void;
-  onReceiptLinked?: (bankTxId: number, receiptId: string) => Promise<void>;
+  onReceiptLinked?: (bankTxId: number, receiptId: string, source?: 'receipt' | 'invoice') => Promise<void>;
+  onReceiptUnlinked?: (bankTxId: number) => Promise<void>;
   receiptMatches?: Record<number, MatchResult[]>;
   loading: boolean;
 }
@@ -18,6 +19,7 @@ export function ExpenseTrackerTable({
   onAnnotationSaved,
   onVendorUpdated,
   onReceiptLinked,
+  onReceiptUnlinked,
   receiptMatches,
   loading,
 }: ExpenseTrackerTableProps) {
@@ -69,6 +71,7 @@ export function ExpenseTrackerTable({
                 onVendorUpdated={onVendorUpdated}
                 receiptMatches={receiptMatches?.[row.transaction.id]}
                 onReceiptLinked={onReceiptLinked}
+                onReceiptUnlinked={onReceiptUnlinked}
               />
             ))}
           </tbody>

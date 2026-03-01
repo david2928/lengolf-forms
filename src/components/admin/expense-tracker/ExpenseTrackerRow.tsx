@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Copy, Tags, ExternalLink, Link2 } from 'lucide-react';
+import { Copy, Tags, ExternalLink, Link2, Unlink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VendorCombobox } from './VendorCombobox';
 import { VendorDetailPopover } from './VendorDetailPopover';
@@ -30,7 +30,8 @@ interface ExpenseTrackerRowProps {
   onAnnotationSaved: (bankTxId: number, annotation: AnnotationUpsert) => void;
   onVendorUpdated: (vendor: Vendor) => void;
   receiptMatches?: MatchResult[];
-  onReceiptLinked?: (bankTxId: number, receiptId: string) => Promise<void>;
+  onReceiptLinked?: (bankTxId: number, receiptId: string, source?: 'receipt' | 'invoice') => Promise<void>;
+  onReceiptUnlinked?: (bankTxId: number) => Promise<void>;
 }
 
 function formatNum(n: number | null | undefined): string {
@@ -49,7 +50,7 @@ function formatDate(d: string): string {
   return `${parts[2]}/${parts[1]}`;
 }
 
-export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, receiptMatches, onReceiptLinked }: ExpenseTrackerRowProps) {
+export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, receiptMatches, onReceiptLinked, onReceiptUnlinked }: ExpenseTrackerRowProps) {
   const { transaction: tx, annotation: ann, vendor: initialVendor } = row;
   const amount = Number(tx.withdrawal) || Number(tx.deposit) || 0;
   const isWithdrawal = Number(tx.withdrawal) > 0;
@@ -537,7 +538,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
           {receiptMatches && receiptMatches.length > 0 && onReceiptLinked && (
             <ReceiptMatchPopover
               matches={receiptMatches}
-              onLink={(receiptId) => onReceiptLinked(tx.id, receiptId)}
+              onLink={(receiptId, source) => onReceiptLinked(tx.id, receiptId, source)}
             />
           )}
         </div>
@@ -692,13 +693,29 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       {/* Document # / link */}
       <td className={cn(cellBase, 'w-[40px] text-center')}>
         <div className="flex items-center justify-center gap-0.5">
-          {ann?.vendor_receipt_id && (
-            <span
-              className="inline-flex items-center justify-center h-5 w-5 text-green-500"
-              title="Linked to vendor receipt"
-            >
-              <Link2 className="h-3 w-3" />
-            </span>
+          {(ann?.vendor_receipt_id || (ann?.invoice_ref && !ann?.vendor_receipt_id)) && (
+            onReceiptUnlinked ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Unlink this document from the transaction?')) {
+                    onReceiptUnlinked(tx.id);
+                  }
+                }}
+                className="group inline-flex items-center justify-center h-5 w-5 text-green-500 hover:text-red-500 rounded hover:bg-red-50"
+                title={ann?.vendor_receipt_id ? 'Click to unlink receipt' : 'Click to unlink invoice'}
+              >
+                <Link2 className="h-3 w-3 group-hover:hidden" />
+                <Unlink className="h-3 w-3 hidden group-hover:block" />
+              </button>
+            ) : (
+              <span
+                className="inline-flex items-center justify-center h-5 w-5 text-green-500"
+                title={ann?.vendor_receipt_id ? 'Linked to vendor receipt' : 'Linked to invoice'}
+              >
+                <Link2 className="h-3 w-3" />
+              </span>
+            )
           )}
           {documentUrl && (
             <a

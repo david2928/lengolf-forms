@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const lastDay = new Date(y, m, 0).getDate();
     const endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
 
-    // Fetch unlinked receipts with amount (within a wider date range for T+/-3 matching)
+    // Fetch unlinked receipts (within a wider date range for T+/-3 matching)
     const receiptStart = new Date(y, m - 1, -3).toISOString().split('T')[0]; // 3 days before month start
     const receiptEnd = new Date(y, m, lastDay + 3).toISOString().split('T')[0]; // 3 days after month end
 
@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
       .schema('backoffice')
       .from('vendor_receipts')
       .select('id, vendor_id, receipt_date, total_amount, invoice_number, extraction_confidence, file_url, vat_type, wht_applicable, extraction_notes, vendors!inner(name)')
-      .not('total_amount', 'is', null)
       .gte('receipt_date', receiptStart)
       .lte('receipt_date', receiptEnd);
 
@@ -73,9 +72,58 @@ export async function GET(request: NextRequest) {
         vat_type: r.vat_type,
         wht_applicable: r.wht_applicable || false,
         extraction_notes: r.extraction_notes,
+        source: 'receipt' as const,
       }));
 
-    if (receiptCandidates.length === 0) {
+    // Fetch invoices from backoffice.invoices (coaching/service invoices)
+    const { data: invoices, error: invErr } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('invoices')
+      .select('id, invoice_number, invoice_date, subtotal, tax_amount, total_amount, pdf_file_path, supplier_id, invoice_suppliers!inner(name)')
+      .gte('invoice_date', receiptStart)
+      .lte('invoice_date', receiptEnd);
+
+    if (invErr) {
+      console.error('[match-receipts] Invoice query error:', invErr);
+      // Non-fatal — continue with receipt candidates only
+    }
+
+    // Filter out invoices already linked via invoice_ref in annotations
+    let linkedInvoiceRefs = new Set<string>();
+    if (invoices && invoices.length > 0) {
+      const invoiceNumbers = invoices.map((inv: { invoice_number: string }) => inv.invoice_number);
+      const { data: linkedAnns } = await refacSupabaseAdmin
+        .schema('finance')
+        .from('transaction_annotations')
+        .select('invoice_ref')
+        .in('invoice_ref', invoiceNumbers)
+        .not('invoice_ref', 'is', null);
+
+      if (linkedAnns) {
+        linkedInvoiceRefs = new Set(linkedAnns.map((a: { invoice_ref: string }) => a.invoice_ref));
+      }
+    }
+
+    const invoiceCandidates: ReceiptCandidate[] = (invoices || [])
+      .filter((inv: { invoice_number: string }) => !linkedInvoiceRefs.has(inv.invoice_number))
+      .map((inv: any) => ({
+        id: inv.id,
+        vendor_id: inv.supplier_id || '',
+        vendor_name: inv.invoice_suppliers?.name || null,
+        receipt_date: inv.invoice_date,
+        total_amount: inv.total_amount != null ? Number(inv.total_amount) : null,
+        invoice_number: inv.invoice_number,
+        extraction_confidence: 'high',
+        file_url: inv.pdf_file_path || '',
+        vat_type: null,
+        wht_applicable: true,
+        extraction_notes: null,
+        source: 'invoice' as const,
+      }));
+
+    const allCandidates = [...receiptCandidates, ...invoiceCandidates];
+
+    if (allCandidates.length === 0) {
       return NextResponse.json({ matches: {} });
     }
 
@@ -101,17 +149,17 @@ export async function GET(request: NextRequest) {
 
     // Get existing annotations to know vendor_id and linked receipt
     const txIds = (txData || []).map((t: { id: number }) => t.id);
-    let annotationMap: Record<number, { vendor_id: string | null; vendor_receipt_id: string | null }> = {};
+    let annotationMap: Record<number, { vendor_id: string | null; vendor_receipt_id: string | null; invoice_ref: string | null }> = {};
     if (txIds.length > 0) {
       const { data: anns } = await refacSupabaseAdmin
         .schema('finance')
         .from('transaction_annotations')
-        .select('bank_transaction_id, vendor_id, vendor_receipt_id')
+        .select('bank_transaction_id, vendor_id, vendor_receipt_id, invoice_ref')
         .in('bank_transaction_id', txIds);
 
       if (anns) {
-        anns.forEach((a: { bank_transaction_id: number; vendor_id: string | null; vendor_receipt_id: string | null }) => {
-          annotationMap[a.bank_transaction_id] = { vendor_id: a.vendor_id, vendor_receipt_id: a.vendor_receipt_id };
+        anns.forEach((a: { bank_transaction_id: number; vendor_id: string | null; vendor_receipt_id: string | null; invoice_ref: string | null }) => {
+          annotationMap[a.bank_transaction_id] = { vendor_id: a.vendor_id, vendor_receipt_id: a.vendor_receipt_id, invoice_ref: a.invoice_ref };
         });
       }
     }
@@ -123,10 +171,11 @@ export async function GET(request: NextRequest) {
       description: t.description || '',
       details: t.details || '',
       vendor_id: annotationMap[t.id]?.vendor_id || null,
-      vendor_receipt_id: annotationMap[t.id]?.vendor_receipt_id || null,
+      // Treat invoice-linked transactions as already linked (skip in scoring)
+      vendor_receipt_id: annotationMap[t.id]?.vendor_receipt_id || annotationMap[t.id]?.invoice_ref || null,
     }));
 
-    const matches = findMatches(receiptCandidates, targets);
+    const matches = findMatches(allCandidates, targets);
 
     return NextResponse.json({ matches });
   } catch (error) {

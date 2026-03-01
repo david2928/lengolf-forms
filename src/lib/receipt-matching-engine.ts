@@ -15,6 +15,7 @@ export interface ReceiptCandidate {
   vat_type: string | null;
   wht_applicable: boolean;
   extraction_notes: string | null;
+  source?: 'receipt' | 'invoice';
 }
 
 export interface TransactionTarget {
@@ -49,6 +50,12 @@ function daysBetween(a: string, b: string): number {
 /**
  * Score a single receipt against a single transaction.
  * Returns null if the pair is not a viable match.
+ *
+ * Two scoring paths:
+ * 1. Amount-based (receipt has total_amount): exact amount match required, then
+ *    date/vendor/confidence bonuses. Can auto-link at high scores.
+ * 2. Vendor+date fallback (receipt has no amount): matches on vendor and date
+ *    only. Never auto-links — capped at 'suggested' since amount is unverified.
  */
 export function scoreMatch(
   receipt: ReceiptCandidate,
@@ -56,32 +63,44 @@ export function scoreMatch(
 ): MatchResult | null {
   // Only match withdrawals
   if (tx.withdrawal <= 0) return null;
-  // Only match receipts with an amount
-  if (receipt.total_amount == null) return null;
   // Skip already-linked receipts
   if (tx.vendor_receipt_id) return null;
 
   let score = 0;
   const reasons: string[] = [];
+  const hasAmount = receipt.total_amount != null;
 
-  // Exact amount match (within 0.01 THB)
-  const amountDiff = Math.abs(receipt.total_amount - tx.withdrawal);
-  if (amountDiff < 0.02) {
-    score += 40;
-    reasons.push('Exact amount match');
+  if (receipt.total_amount != null) {
+    // --- Amount-based scoring path ---
+    const amountDiff = Math.abs(receipt.total_amount - tx.withdrawal);
+    if (amountDiff < 0.02) {
+      score += 40;
+      reasons.push('Exact amount match');
+    } else {
+      return null;
+    }
   } else {
-    // No amount match at all - not a viable candidate
-    return null;
+    // --- Vendor+date fallback path (no amount extracted) ---
+    // Must have at least a vendor match to be viable.
+    // Vendor score is awarded below in the shared scoring section.
+    const desc = (tx.description + ' ' + tx.details).toLowerCase();
+    const hasVendorMatch =
+      (receipt.vendor_id && tx.vendor_id && receipt.vendor_id === tx.vendor_id) ||
+      (receipt.vendor_name && receipt.vendor_name.length >= 3 && desc.includes(receipt.vendor_name.toLowerCase()));
+
+    if (!hasVendorMatch) return null;
+
+    reasons.push('No amount extracted');
   }
 
   // Date matching
   if (receipt.receipt_date && tx.transaction_date) {
     const days = daysBetween(receipt.receipt_date, tx.transaction_date);
     if (days === 0) {
-      score += 25;
+      score += hasAmount ? 25 : 20;
       reasons.push('Same date');
     } else if (days === 1) {
-      score += 15;
+      score += hasAmount ? 15 : 10;
       reasons.push('Date within 1 day');
     } else if (days <= 3) {
       score += 5;
@@ -91,16 +110,16 @@ export function scoreMatch(
 
   // Same vendor
   if (receipt.vendor_id && tx.vendor_id && receipt.vendor_id === tx.vendor_id) {
-    score += 20;
+    score += hasAmount ? 20 : 25;
     reasons.push('Same vendor');
   }
 
-  // Vendor name in transaction description
-  if (receipt.vendor_name) {
+  // Vendor name in transaction description (min 3 chars to avoid false positives)
+  if (receipt.vendor_name && receipt.vendor_name.length >= 3) {
     const desc = (tx.description + ' ' + tx.details).toLowerCase();
     const name = receipt.vendor_name.toLowerCase();
     if (desc.includes(name)) {
-      score += 10;
+      score += hasAmount ? 10 : 15;
       reasons.push('Vendor name in description');
     }
   }
@@ -121,6 +140,13 @@ export function scoreMatch(
     level = 'possible';
   } else {
     return null; // Below threshold
+  }
+
+  // Never auto-link receipts without verified amounts.
+  // Current fallback max score is 65, but this guard protects against
+  // future scoring changes that might push it higher.
+  if (!hasAmount && level === 'auto') {
+    level = 'suggested';
   }
 
   return { receipt, score, level, reasons };

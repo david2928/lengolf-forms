@@ -42,7 +42,7 @@ export function InvoiceUploadButton({ onExtracted, paymentDate, vendorName }: In
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [model, setModel] = useState<string>('gpt-5.2');
+  const [model, setModel] = useState<string>('gpt-5-mini');
   const [lastModelUsed, setLastModelUsed] = useState<string | null>(null);
   const [pendingExtraction, setPendingExtraction] = useState<InvoiceExtraction | null>(null);
   const [pendingDocUrl, setPendingDocUrl] = useState<string | null>(null);

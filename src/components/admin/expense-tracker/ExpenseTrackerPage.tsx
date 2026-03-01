@@ -109,13 +109,14 @@ export function ExpenseTrackerPage() {
       .map(([txId, matches]) => ({
         bank_transaction_id: Number(txId),
         vendor_receipt_id: matches[0].receipt.id,
+        source: matches[0].receipt.source,
       }));
 
     if (autoMatches.length === 0) return;
     autoLinkedRef.current = true;
 
     // Link them in parallel
-    const linkPromises = autoMatches.map(async ({ bank_transaction_id, vendor_receipt_id }) => {
+    const linkPromises = autoMatches.map(async ({ bank_transaction_id, vendor_receipt_id, source }) => {
       try {
         const res = await fetch('/api/admin/expense-tracker/link-receipt', {
           method: 'POST',
@@ -124,6 +125,7 @@ export function ExpenseTrackerPage() {
             bank_transaction_id,
             vendor_receipt_id,
             apply_extraction: true,
+            ...(source === 'invoice' ? { source: 'invoice' } : {}),
           }),
         });
         return res.ok;
@@ -136,8 +138,8 @@ export function ExpenseTrackerPage() {
       const linked = results.filter(Boolean).length;
       if (linked > 0) {
         toast({
-          title: `Auto-linked ${linked} receipt${linked > 1 ? 's' : ''}`,
-          description: 'High-confidence receipt matches applied automatically.',
+          title: `Auto-linked ${linked} document${linked > 1 ? 's' : ''}`,
+          description: 'High-confidence matches applied automatically.',
         });
         // Refresh data after auto-linking
         fetchTransactions();
@@ -256,7 +258,7 @@ export function ExpenseTrackerPage() {
   }, []);
 
   const handleReceiptLinked = useCallback(
-    async (bankTxId: number, receiptId: string) => {
+    async (bankTxId: number, receiptId: string, source?: 'receipt' | 'invoice') => {
       try {
         const res = await fetch('/api/admin/expense-tracker/link-receipt', {
           method: 'POST',
@@ -265,6 +267,7 @@ export function ExpenseTrackerPage() {
             bank_transaction_id: bankTxId,
             vendor_receipt_id: receiptId,
             apply_extraction: true,
+            ...(source === 'invoice' ? { source: 'invoice' } : {}),
           }),
         });
         if (!res.ok) {
@@ -278,6 +281,31 @@ export function ExpenseTrackerPage() {
         toast({
           title: 'Link failed',
           description: err instanceof Error ? err.message : 'Failed to link receipt',
+          variant: 'destructive',
+        });
+      }
+    },
+    [fetchTransactions, fetchMatches]
+  );
+
+  const handleReceiptUnlinked = useCallback(
+    async (bankTxId: number) => {
+      try {
+        const res = await fetch('/api/admin/expense-tracker/link-receipt', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bank_transaction_id: bankTxId }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Unlink failed' }));
+          throw new Error(err.error);
+        }
+        await Promise.all([fetchTransactions(), fetchMatches()]);
+        toast({ title: 'Receipt unlinked' });
+      } catch (err) {
+        toast({
+          title: 'Unlink failed',
+          description: err instanceof Error ? err.message : 'Failed to unlink receipt',
           variant: 'destructive',
         });
       }
@@ -331,6 +359,7 @@ export function ExpenseTrackerPage() {
         onAnnotationSaved={handleAnnotationSaved}
         onVendorUpdated={handleVendorUpdated}
         onReceiptLinked={handleReceiptLinked}
+        onReceiptUnlinked={handleReceiptUnlinked}
         receiptMatches={receiptMatches}
         loading={loading}
       />
