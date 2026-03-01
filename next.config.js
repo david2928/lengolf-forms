@@ -2,6 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+
+  // Reduce memory usage during builds (prevents Vercel OOM)
+  experimental: {
+    webpackMemoryOptimizations: true,
+  },
   
   // Image optimization
   images: {
