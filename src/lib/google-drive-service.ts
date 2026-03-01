@@ -302,6 +302,99 @@ export async function uploadCashTransactionReceipt(
   }
 }
 
+// Tax filing folder IDs (Google Drive)
+const TAX_FILING_VAT_FOLDER_ID = '1JXze6KczYRbZd4Ufc8OYNtcd2jSxABCK'
+const TAX_FILING_WHT_FOLDER_ID = '16BP5QEzle1uUp5H9ZdzcFsy0nIQMfZOT'
+const TAX_FILING_SSO_FOLDER_ID = '1AdEkRgXy6AsdKvYoPXjqJsyH8biYPfuu'
+
+export type TaxFilingType = 'pp30' | 'pp36' | 'pnd3' | 'pnd53' | 'sso'
+
+/**
+ * Upload a document to the tax filing folder structure in Google Drive.
+ *
+ * Routing:
+ * - VAT (pp30/pp36): TAX_FILING_VAT_FOLDER_ID/{year}/  → {YYYYMM}_VAT_{PP30|PP36}_{description}.{ext}
+ * - WHT (pnd3/pnd53): TAX_FILING_WHT_FOLDER_ID (flat)  → {YYYYMM}_WHT_{PND3|PND53}.{ext}
+ * - SSO: TAX_FILING_SSO_FOLDER_ID (flat)                → {YYYYMM}.{ext}
+ */
+export async function uploadTaxDocument(
+  buffer: Buffer,
+  mimeType: string,
+  options: {
+    filingType: TaxFilingType
+    reportingMonth: string // YYYY-MM
+    description?: string
+    originalFileName?: string
+  }
+): Promise<UploadResult> {
+  const drive = getDriveService()
+
+  const [year, month] = options.reportingMonth.split('-')
+  const yyyymm = `${year}${month}`
+  const ext = options.originalFileName?.match(/\.([a-zA-Z0-9]+)$/)?.[1]
+    || (mimeType === 'application/pdf' ? 'pdf' : 'jpg')
+
+  let targetFolderId: string
+  let fileName: string
+
+  switch (options.filingType) {
+    case 'pp30':
+    case 'pp36': {
+      const yearFolderId = await findOrCreateFolder(drive, TAX_FILING_VAT_FOLDER_ID, year)
+      targetFolderId = yearFolderId
+      const tag = options.filingType.toUpperCase()
+      const desc = options.description
+        ? '_' + options.description.replace(/[^a-zA-Z0-9\u0E00-\u0E7F _-]/g, '').replace(/\s+/g, '_')
+        : ''
+      fileName = `${yyyymm}_VAT_${tag}${desc}.${ext}`
+      break
+    }
+    case 'pnd3':
+    case 'pnd53': {
+      targetFolderId = TAX_FILING_WHT_FOLDER_ID
+      const tag = options.filingType.toUpperCase()
+      fileName = `${yyyymm}_WHT_${tag}.${ext}`
+      break
+    }
+    case 'sso': {
+      targetFolderId = TAX_FILING_SSO_FOLDER_ID
+      fileName = `${yyyymm}.${ext}`
+      break
+    }
+    default: {
+      const _exhaustive: never = options.filingType
+      throw new Error(`Unknown filing type: ${_exhaustive}`)
+    }
+  }
+
+  const stream = new Readable()
+  stream.push(buffer)
+  stream.push(null)
+
+  const file = await drive.files.create({
+    requestBody: {
+      name: fileName,
+      parents: [targetFolderId],
+    },
+    media: {
+      mimeType,
+      body: stream,
+    },
+    fields: 'id, name',
+    supportsAllDrives: true,
+  })
+
+  if (!file.data.id) {
+    throw new Error('Upload succeeded but no file ID returned')
+  }
+
+  return {
+    fileId: file.data.id,
+    fileUrl: getViewableLink(file.data.id),
+    fileName: file.data.name || fileName,
+  }
+}
+
 export async function deleteFileFromDrive(fileId: string): Promise<boolean> {
   try {
     const drive = getDriveService()
