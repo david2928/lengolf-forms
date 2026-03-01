@@ -5,7 +5,7 @@ import { Copy, Tags, ExternalLink, Link2, Unlink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VendorCombobox } from './VendorCombobox';
 import { VendorDetailPopover } from './VendorDetailPopover';
-import { InvoiceUploadButton } from './InvoiceUploadButton';
+import { DocumentUploadButton } from './DocumentUploadButton';
 import { ReceiptMatchPopover } from './ReceiptMatchPopover';
 import { recalcAll, calcVat, calcWht } from './TaxCalculator';
 import {
@@ -131,6 +131,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       wht_amount_override: boolean;
       tax_base_override: boolean;
       invoice_ref: string | null;
+      document_url: string | null;
       transaction_type: TransactionType | null;
       notes: string | null;
     }>): AnnotationUpsert => ({
@@ -407,6 +408,15 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
     [tx.id, tx.transaction_date, amount, vendor, vatType, whtType, whtRate, whtAmount, whtOverride, reportingMonth, invoiceRef, documentUrl, notes, doSave, onVendorUpdated]
   );
 
+  const handleTaxDocUploaded = useCallback(
+    (url: string) => {
+      setDocumentUrl(url);
+      const data = buildAnnotation({ document_url: url });
+      doSave(data);
+    },
+    [buildAnnotation, doSave]
+  );
+
   // Mismatch detection: compare stored override values against formula-calculated values
   const vatMismatch = useMemo(() => {
     if (vatType === 'none' || vatAmount == null) return null;
@@ -530,10 +540,15 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
             compact
           />
           {vendor && <VendorDetailPopover vendor={vendor} onUpdate={onVendorUpdated} />}
-          <InvoiceUploadButton
+          <DocumentUploadButton
             onExtracted={handleInvoiceExtracted}
             paymentDate={tx.transaction_date}
             vendorName={vendor?.company_name || vendor?.name || vendorNameOverride || undefined}
+            vatType={vatType}
+            whtType={whtType}
+            transactionType={transactionType}
+            reportingMonth={reportingMonth || tx.transaction_date.substring(0, 7)}
+            onTaxDocUploaded={handleTaxDocUploaded}
           />
           {receiptMatches && receiptMatches.length > 0 && onReceiptLinked && (
             <ReceiptMatchPopover
