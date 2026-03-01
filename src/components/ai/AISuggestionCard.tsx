@@ -75,7 +75,7 @@ export interface AISuggestion {
 }
 
 interface AISuggestionCardProps {
-  suggestion: AISuggestion;
+  suggestion?: AISuggestion | null;
   onAccept: (suggestion: AISuggestion) => void;
   onEdit: (suggestion: AISuggestion) => void;
   onDecline: (suggestion: AISuggestion, feedback?: string) => void;
@@ -85,6 +85,9 @@ interface AISuggestionCardProps {
   // Image suggestion handlers
   onSendImage?: (imageId: string) => void;
   onSendWithText?: (imageId: string, text: string) => void;
+  // Streaming props
+  isStreaming?: boolean;
+  streamingText?: string;
 }
 
 // Confidence level styling
@@ -131,7 +134,9 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
   isVisible,
   className,
   onSendImage,
-  onSendWithText
+  onSendWithText,
+  isStreaming = false,
+  streamingText = '',
 }) => {
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
@@ -142,14 +147,17 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
   const [feedbackText, setFeedbackText] = useState('');
   const [isApproving, setIsApproving] = useState(false); // Loading state for approval
 
-  const confidenceStyle = getConfidenceStyle(suggestion.confidenceScore);
-  const requiresApproval = suggestion.requiresApproval || false;
+  // During streaming-only phase (no suggestion yet), show minimal card
+  const isStreamingOnly = isStreaming && !suggestion;
+
+  const confidenceStyle = suggestion ? getConfidenceStyle(suggestion.confidenceScore) : getConfidenceStyle(0);
+  const requiresApproval = suggestion?.requiresApproval || false;
 
   // Extract internal notes from the suggestion
   const internalNoteRegex = /\[INTERNAL NOTE: ([^\]]+)\]/;
-  const internalNoteMatch = suggestion.suggestedResponse.match(internalNoteRegex);
+  const internalNoteMatch = suggestion?.suggestedResponse?.match(internalNoteRegex);
   const internalNote = internalNoteMatch ? internalNoteMatch[1] : null;
-  const cleanedResponse = suggestion.suggestedResponse.replace(internalNoteRegex, '').trim();
+  const cleanedResponse = suggestion?.suggestedResponse?.replace(internalNoteRegex, '').trim() || '';
 
   // Detect mobile screen size
   useEffect(() => {
@@ -174,61 +182,64 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
   }, [isVisible, isDismissed]);
 
   // Handle accept action
+  // All handlers below are only callable when suggestion is non-null
+  // (action buttons are hidden during streaming-only phase)
   const handleAccept = () => {
+    if (!suggestion) return;
     setIsDismissed(true);
-    // Pass a modified suggestion with the cleaned response
-    const cleanedSuggestion = {
+    const cleanedSuggestion: AISuggestion = {
       ...suggestion,
       suggestedResponse: cleanedResponse
     };
     onAccept(cleanedSuggestion);
   };
 
-  // Handle edit action
   const handleEdit = () => {
+    if (!suggestion) return;
     setIsDismissed(true);
-    // Pass a modified suggestion with the cleaned response
-    const cleanedSuggestion = {
+    const cleanedSuggestion: AISuggestion = {
       ...suggestion,
       suggestedResponse: cleanedResponse
     };
     onEdit(cleanedSuggestion);
   };
 
-  // Handle decline action - show feedback input first
   const handleDecline = () => {
     setShowFeedbackInput(true);
   };
 
-  // Handle feedback submission
   const handleSubmitFeedback = () => {
+    if (!suggestion) return;
     setIsDismissed(true);
     onDecline(suggestion, feedbackText.trim() || undefined);
   };
 
-  // Handle skip feedback
   const handleSkipFeedback = () => {
+    if (!suggestion) return;
     setIsDismissed(true);
     onDecline(suggestion);
   };
 
-  // Handle approve action (for approval-required functions)
   const handleApprove = async () => {
-    if (onApprove) {
-      setIsApproving(true); // Show loading state
-      try {
-        await onApprove(suggestion);
-        setIsDismissed(true);
-      } catch (error) {
-        console.error('Error approving suggestion:', error);
-        setIsApproving(false); // Reset loading state on error
-      }
+    if (!suggestion || !onApprove) return;
+    setIsApproving(true);
+    try {
+      await onApprove(suggestion);
+      setIsDismissed(true);
+    } catch (error) {
+      console.error('Error approving suggestion:', error);
+      setIsApproving(false);
     }
   };
 
   // Auto-dismiss removed - let staff decide when to dismiss suggestions
 
   if (!isVisible || isDismissed) {
+    return null;
+  }
+
+  // Nothing to show: no suggestion and not streaming
+  if (!suggestion && !isStreaming) {
     return null;
   }
 
@@ -261,9 +272,13 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
             </div>
             <div>
               <div className="font-medium text-gray-900 text-sm">AI Assistant</div>
-              <div className="text-xs text-gray-500">
-                {formatConfidence(suggestion.confidenceScore)} confidence • {formatResponseTime(suggestion.responseTime)}
-              </div>
+              {isStreamingOnly ? (
+                <div className="text-xs text-purple-500 animate-pulse">Generating...</div>
+              ) : suggestion ? (
+                <div className="text-xs text-gray-500">
+                  {formatConfidence(suggestion.confidenceScore)} confidence • {formatResponseTime(suggestion.responseTime)}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -271,15 +286,22 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
         {/* Main AI response content - clean typography */}
         <div className="space-y-2">
           <div className="text-gray-800 text-sm leading-relaxed">
-            {cleanedResponse}
+            {isStreamingOnly ? (
+              <>
+                {streamingText}
+                <span className="inline-block w-1.5 h-4 ml-0.5 bg-purple-500 animate-pulse rounded-sm" />
+              </>
+            ) : (
+              cleanedResponse
+            )}
           </div>
 
           {/* Management escalation warning - prominent red banner */}
-          {suggestion.managementNote && (
+          {suggestion?.managementNote && (
             <div className="border-l-4 border-red-500 bg-red-50 pl-3 py-2 rounded-r text-xs">
               <div className="flex items-start space-x-1">
                 <span className="text-red-600 font-medium">🚨 Needs Management:</span>
-                <span className="text-red-800">{suggestion.managementNote.replace(/\[NEEDS MANAGEMENT:\s?/g, '').replace(/\]/g, '')}</span>
+                <span className="text-red-800">{suggestion?.managementNote?.replace(/\[NEEDS MANAGEMENT:\s?/g, '').replace(/\]/g, '')}</span>
               </div>
             </div>
           )}
@@ -294,6 +316,9 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
             </div>
           )}
         </div>
+
+        {/* All metadata, context, and action sections hidden during streaming-only phase */}
+        {suggestion && !isStreamingOnly && (<>
 
         {/* Function calling badge - if function was called */}
         {suggestion.functionCalled && (
@@ -518,8 +543,10 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
           </div>
         )}
 
-        {/* Feedback input (shown when declining) */}
-        {showFeedbackInput && (
+        </>)}
+
+        {/* Feedback input (shown when declining) — requires suggestion */}
+        {suggestion && showFeedbackInput && (
           <div className="border-t pt-3 space-y-2">
             <div className="text-sm font-medium text-gray-700">
               Why are you declining this suggestion? (optional)
@@ -553,8 +580,8 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
         )}
         </div>
 
-        {/* Sticky action buttons at bottom - Outside scrollable area */}
-        {!showFeedbackInput && (
+        {/* Sticky action buttons at bottom - Outside scrollable area — hidden during streaming */}
+        {suggestion && !isStreamingOnly && !showFeedbackInput && (
           <div className={cn(
             'flex items-center justify-between border-t bg-white',
             // Mobile: Sticky at bottom with padding

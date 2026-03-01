@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { AISuggestionCard, AISuggestion } from './AISuggestionCard';
-import { useAISuggestions } from '@/hooks/useAISuggestions';
+import { useAISuggestionsStream } from '@/hooks/useAISuggestionsStream';
 import {
   Send,
   RefreshCw,
@@ -71,9 +71,11 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // AI suggestions hook
+  // AI suggestions hook (streaming)
   const {
     isLoading: aiLoading,
+    isStreaming,
+    streamingText,
     suggestion,
     error: aiError,
     hasSuggestion,
@@ -84,7 +86,7 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
     completeEditFeedback,
     clearSuggestion,
     cleanup
-  } = useAISuggestions({
+  } = useAISuggestionsStream({
     conversationId,
     channelType,
     customerId,
@@ -214,31 +216,31 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
 
   return (
     <div className="sticky bottom-0 z-10">
-      {/* AI Suggestion Card - TEMPORARILY HIDDEN */}
-      {false && (hasSuggestion || aiLoading) && (
+      {/* AI Suggestion Card - TEMPORARILY HIDDEN (streaming wired up for when re-enabled) */}
+      {false && (hasSuggestion || aiLoading || isStreaming) && (
         <div className="bg-white border-t border-gray-200 p-3">
-          {aiLoading ? (
+          {aiLoading && !isStreaming && !suggestion ? (
             <div className="flex items-center space-x-1 p-2 text-xs text-gray-500">
               <RefreshCw className="h-3 w-3 animate-spin" />
               <span>Analyzing...</span>
             </div>
-          ) : suggestion ? (
+          ) : (isStreaming || suggestion) ? (
             <div className="space-y-2">
               <AISuggestionCard
-                suggestion={suggestion!}
+                suggestion={suggestion}
                 onAccept={acceptSuggestion}
                 onEdit={editSuggestion}
                 onDecline={declineSuggestion}
                 isVisible={true}
+                isStreaming={isStreaming}
+                streamingText={streamingText}
                 onSendImage={(imageId) => {
                   if (onCuratedImagesSelect) {
                     onCuratedImagesSelect([imageId]);
                   }
                 }}
                 onSendWithText={async (imageId, text) => {
-                  // Send text first
                   await onSendMessage(text, 'text');
-                  // Then send image
                   if (onCuratedImagesSelect) {
                     onCuratedImagesSelect([imageId]);
                   }

@@ -22,7 +22,8 @@ The AI suggestion pipeline:
 
 | File | Purpose |
 |------|---------|
-| `src/lib/ai/suggestion-service.ts` | Main orchestrator — prompt assembly, OpenAI calls, confidence scoring |
+| `src/lib/ai/suggestion-service.ts` | Main orchestrator — composable stages (prepare → generate/stream → postProcess) |
+| `src/lib/ai/suggest-response-helpers.ts` | Shared route helpers (auth, validation, context loading, rate limiting) |
 | `src/lib/ai/intent-classifier.ts` | Two-tier intent classification (regex + LLM) |
 | `src/lib/ai/skills/core-skill.ts` | Base persona, language rules, safety rules |
 | `src/lib/ai/skills/booking-skill.ts` | Booking intent prompt + rules |
@@ -32,8 +33,10 @@ The AI suggestion pipeline:
 | `src/lib/ai/skills/general-skill.ts` | Fallback for unmatched intents |
 | `src/lib/ai/embedding-service.ts` | Vector search, FAQ matching, hybrid search |
 | `src/lib/ai/function-executor.ts` | Function calling (bookings, availability) |
-| `src/lib/ai/function-schemas.ts` | OpenAI function definitions per intent |
-| `app/api/ai/suggest-response/route.ts` | API endpoint for suggestions |
+| `src/lib/ai/function-schemas.ts` | Zod tool definitions per intent |
+| `app/api/ai/suggest-response/route.ts` | JSON API endpoint (eval, dryRun) |
+| `app/api/ai/suggest-response/stream/route.ts` | SSE streaming endpoint (production) |
+| `src/hooks/useAISuggestionsStream.ts` | Frontend streaming consumer hook |
 
 ### Eval & Test Scripts
 
