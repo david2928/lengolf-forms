@@ -74,8 +74,11 @@ export async function POST(request: NextRequest) {
     }
     const order = orderData;
 
+    // Filter out soft-deleted items (quantity=0) before processing
+    const activeOrderItems = (order.order_items || []).filter((item: any) => item.quantity > 0);
+
     // Get product names
-    const productIds = order.order_items.map((item: any) => item.product_id);
+    const productIds = activeOrderItems.map((item: any) => item.product_id);
     const { data: products } = await supabase
       .schema('products')
       .from('products')
@@ -87,12 +90,12 @@ export async function POST(request: NextRequest) {
     // Format data for preview
     const previewData = {
       receiptNumber: transaction.receiptNumber,
-      items: (order.order_items || []).map((item: any) => ({
-        name: item.modifiers && item.modifiers.length > 0 
+      items: activeOrderItems.map((item: any) => ({
+        name: item.modifiers && item.modifiers.length > 0
           ? `${productMap.get(item.product_id) || 'Unknown Item'} (${item.modifiers[0].modifier_name})`
           : productMap.get(item.product_id) || 'Unknown Item',
         price: item.unit_price || 0,
-        qty: item.quantity || 1,
+        qty: item.quantity,
         notes: item.notes
       })),
       subtotal: transaction.subtotal,

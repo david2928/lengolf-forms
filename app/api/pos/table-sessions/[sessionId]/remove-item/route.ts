@@ -81,6 +81,14 @@ export async function POST(
       );
     }
 
+    // Guard against removing an already soft-deleted item
+    if (orderItem.quantity === 0) {
+      return NextResponse.json(
+        { error: "Item has already been removed" },
+        { status: 400 }
+      );
+    }
+
     const removeQuantity = quantityToRemove || orderItem.quantity;
     
     // Validate removal quantity
