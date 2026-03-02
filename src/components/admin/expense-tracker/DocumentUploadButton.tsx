@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { FileUp, FolderUp, Loader2, AlertCircle, Check, X, ExternalLink } from 'lucide-react';
 import {
   Popover,
@@ -727,6 +727,10 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 function NumInput({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
   const [text, setText] = useState(value != null ? String(value) : '');
+
+  useEffect(() => {
+    setText(value != null ? String(value) : '');
+  }, [value]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
