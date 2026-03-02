@@ -13,6 +13,7 @@ Rules:
 - If dates use Buddhist Era (พ.ศ.), convert to Common Era (ค.ศ.) by subtracting 543. Output dates as YYYY-MM-DD.
 - For vat_type: use "pp30" if Thai domestic VAT 7% is shown (most common), "pp36" only for foreign/reverse-charge services, "none" if no VAT
 - wht_applicable: true if this looks like a service that typically has withholding tax (services, consulting, professional fees, commissions, etc.). Rent and utilities do NOT have WHT — set to false for rent, lease, common area fees, and utility invoices.
+- TAX PAYMENT RECEIPTS: If the document is a tax payment receipt from กรมสรรพากร (Revenue Department) — e.g. PP30, PP36, PND3, PND53 filing receipts — set vendor_name to "กรมสรรพากร", vendor_company_name_en to "Revenue Department", use the เลขที่ใบเสร็จ (receipt number) as the invoice_number, set vat_type to "none", vat_amount to null, tax_base to null, wht_applicable to false, and for notes: use just the filing type code (e.g. "PP30", "PND3"), EXCEPT for PP36 filings where notes should include the payee company from ชื่อผู้ประกอบการซึ่งเป็นผู้รับเงิน (e.g. "PP36 - Google"). These are tax payments, NOT expenses with VAT/WHT.
 - confidence: "high" if document is clear and all key fields are readable, "medium" if some fields are uncertain, "low" if document is poor quality or heavily obscured
 - confidence_explanation: Brief explanation of why you chose that confidence level (e.g. "Clear printed invoice with all fields visible", "Handwritten receipt, some amounts hard to read", "Blurry photo, vendor name uncertain")
 
@@ -130,6 +131,7 @@ export async function extractInvoiceData(
   fileName: string,
   options?: { model?: string }
 ): Promise<ExtractionResult> {
+  const t0 = performance.now();
   const model = resolveModel(options?.model);
   const base64 = buffer.toString('base64');
   const isPdf = mimeType === 'application/pdf';
@@ -149,6 +151,9 @@ export async function extractInvoiceData(
           detail: 'high' as const,
         },
       };
+
+  const tPrep = performance.now();
+  console.log(`[invoice-extraction] Prep (base64 + filePart): ${Math.round(tPrep - t0)}ms`);
 
   // Reasoning models (o-series, gpt-5-mini) use 'developer' role instead of 'system'
   const isReasoningModel = model.startsWith('o') || model.includes('5-mini');
@@ -170,8 +175,12 @@ export async function extractInvoiceData(
       type: 'json_schema',
       json_schema: INVOICE_SCHEMA,
     },
-    ...(isReasoningModel ? {} : { temperature: 0 }),
+    ...(isReasoningModel
+      ? { max_completion_tokens: 1500, reasoning_effort: 'low' as const }
+      : { temperature: 0 }),
   });
+
+  const tLLM = performance.now();
 
   const content = response.choices[0]?.message?.content;
   const finishReason = response.choices[0]?.finish_reason;
@@ -179,6 +188,7 @@ export async function extractInvoiceData(
 
   console.log('[invoice-extraction] Model:', model);
   console.log('[invoice-extraction] File:', fileName, '| Type:', mimeType, '| isPdf:', isPdf);
+  console.log(`[invoice-extraction] LLM call: ${Math.round(tLLM - tPrep)}ms`);
   console.log('[invoice-extraction] Finish reason:', finishReason);
   console.log('[invoice-extraction] Tokens:', usage ? `prompt=${usage.prompt_tokens}, completion=${usage.completion_tokens}, total=${usage.total_tokens}` : 'N/A');
 
@@ -195,6 +205,7 @@ export async function extractInvoiceData(
     vat_type: extraction.vat_type,
     confidence: extraction.confidence,
   }));
+  console.log(`[invoice-extraction] Total: ${Math.round(performance.now() - t0)}ms`);
 
   return { extraction, model_used: model };
 }
@@ -213,6 +224,7 @@ Rules:
 - If dates use Buddhist Era (พ.ศ.), convert to Common Era (ค.ศ.) by subtracting 543. Output dates as YYYY-MM-DD.
 - For vat_type: use "pp30" if Thai domestic VAT 7% is shown (most common), "pp36" only for foreign/reverse-charge services, "none" if no VAT
 - wht_applicable: true if this looks like a service that typically has withholding tax (services, consulting, professional fees, commissions, etc.). Rent and utilities do NOT have WHT — set to false for rent, lease, common area fees, and utility invoices.
+- TAX PAYMENT RECEIPTS: If the document is a tax payment receipt from กรมสรรพากร (Revenue Department) — e.g. PP30, PP36, PND3, PND53 filing receipts — set vendor_name to "กรมสรรพากร", vendor_company_name_en to "Revenue Department", use the เลขที่ใบเสร็จ (receipt number) as the invoice_number, set vat_type to "none", vat_amount to null, tax_base to null, wht_applicable to false, and for notes: use just the filing type code (e.g. "PP30", "PND3"), EXCEPT for PP36 filings where notes should include the payee company from ชื่อผู้ประกอบการซึ่งเป็นผู้รับเงิน (e.g. "PP36 - Google"). These are tax payments, NOT expenses with VAT/WHT.
 - confidence: "high" if document is clear and all key fields are readable, "medium" if some fields are uncertain, "low" if document is poor quality or heavily obscured
 
 MULTI-PAGE / MULTI-INVOICE DOCUMENTS:
