@@ -87,8 +87,9 @@ export class ReceiptDataService {
       throw new Error(`Order not found for table session: ${transaction.table_session_id}`);
     }
 
-    // Combine all order items from all orders
-    let allOrderItems = ordersData.flatMap((order: any) => order.order_items || []);
+    // Combine all order items from all orders (exclude soft-deleted items with quantity=0)
+    let allOrderItems = ordersData.flatMap((order: any) => order.order_items || [])
+      .filter((item: any) => item.quantity > 0);
 
     // If no order items found, fall back to transaction_items table using the database ID
     if (allOrderItems.length === 0) {

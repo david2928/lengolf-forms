@@ -126,8 +126,9 @@ export class POSTransactionService {
       }
       
       orderData = {
-        ...orders[0]
-        // Order-level tax and subtotal removed - calculated at session/transaction level
+        ...orders[0],
+        // Filter out soft-deleted items (quantity=0) from order_items
+        order_items: (orders[0].order_items || []).filter((item: any) => item.quantity > 0)
       };
       if (!orderData.order_items || orderData.order_items.length === 0) {
         throw new PaymentError('No order items found for payment');
