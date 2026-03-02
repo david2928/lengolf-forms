@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LENGOLF — Monthly Performance Report — February 2026</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /*
+    ╔═══════════════════════════════════════════════════════╗
+    ║  UPDATE MONTHLY — replace values in the <script>     ║
+    ║  DATA block at the bottom of this file               ║
+    ╚═══════════════════════════════════════════════════════╝
+    */
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:      #005a32;
+      --primary-light:#007a45;
+      --primary-mid:  #1a7a4a;
+      --primary-dark: #003d22;
+      --gold:         #c8a96e;
+      --bg:           #f6fffa;   /* LENGOLF website light green bg */
+      --card:         #ffffff;
+      --text:         #111827;
+      --muted:        #4b6358;   /* green-tinted muted text */
+      --border:       #d1fae5;   /* light green border */
+      --up:           #059669;
+      --down:         #dc2626;
+      --neutral:      #6b7280;
+      /* segment colours — green family */
+      --c1: #005a32;
+      --c2: #c8a96e;
+      --c3: #38a169;
+      --c4: #68d391;
+      --c5: #a7f3d0;
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .report { max-width: 1100px; margin: 0 auto; background: var(--bg); }
+
+    /* ─── HEADER ─── */
+    .header {
+      background: linear-gradient(135deg, #002b1a 0%, var(--primary) 55%, #007a45 100%);
+      padding: 36px 48px;
+      display: flex; justify-content: space-between; align-items: center;
+      position: relative; overflow: hidden;
+    }
+    .header::before {
+      content:''; position:absolute; top:-80px; right:-80px;
+      width:250px; height:250px; border-radius:50%;
+      background:rgba(200,169,110,0.12);
+    }
+    .header::after {
+      content:''; position:absolute; bottom:-100px; left:35%;
+      width:320px; height:320px; border-radius:50%;
+      background:rgba(255,255,255,0.04);
+    }
+    .header-left { display:flex; align-items:center; gap:18px; position:relative; z-index:1; }
+    .logo-box {
+      width:56px; height:56px; border-radius:14px;
+      background:var(--gold);
+      display:flex; align-items:center; justify-content:center;
+      font-size:22px; font-weight:800; color:#002b1a; letter-spacing:-1px; flex-shrink:0;
+    }
+    .logo-text h1 { font-size:28px; font-weight:800; color:#fff; letter-spacing:3px; }
+    .logo-text p  { font-size:11px; color:rgba(255,255,255,0.55); letter-spacing:1.5px; text-transform:uppercase; margin-top:2px; }
+    .header-right { text-align:right; position:relative; z-index:1; }
+    .header-right .lbl  { font-size:11px; color:var(--gold); text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
+    .header-right .period { font-size:30px; font-weight:700; color:#fff; }
+    .header-right .gen  { font-size:11px; color:rgba(255,255,255,0.45); margin-top:4px; }
+
+    /* ─── HERO ─── */
+    .hero {
+      background: linear-gradient(180deg, #003d22 0%, var(--primary) 100%);
+      display:grid; grid-template-columns:repeat(4,1fr); gap:1px;
+      border-top:1px solid rgba(255,255,255,0.1);
+    }
+    .hcard {
+      padding:22px 24px;
+      background:rgba(255,255,255,0.05);
+      border-right:1px solid rgba(255,255,255,0.08);
+    }
+    .hcard:last-child { border-right:none; }
+    .h-label { font-size:10px; color:rgba(255,255,255,0.55); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px; }
+    .h-value { font-size:27px; font-weight:700; color:#fff; line-height:1.1; }
+    .h-value .cur { font-size:15px; font-weight:500; color:var(--gold); margin-right:1px; }
+    .h-change {
+      margin-top:8px; font-size:11px; font-weight:600;
+      display:inline-flex; align-items:center; gap:3px;
+      padding:2px 8px; border-radius:20px;
+    }
+    .h-change.up   { background:rgba(5,150,105,0.25); color:#6ee7b7; }
+    .h-change.down { background:rgba(220,38,38,0.25);  color:#fca5a5; }
+    .h-change.flat { background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.6); }
+
+    /* ─── BODY ─── */
+    .body { padding:24px 32px 40px; }
+
+    /* ─── SECTION HEADER ─── */
+    .sh { display:flex; align-items:center; gap:12px; margin:28px 0 18px; }
+    .si {
+      width:38px; height:38px; border-radius:10px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:17px; flex-shrink:0;
+    }
+    .si-g { background:#dcfce7; color:var(--primary); }
+    .si-b { background:#dcfce7; color:var(--primary-light); }
+    .si-p { background:#dcfce7; color:var(--primary-dark); }
+    .st h2 { font-size:17px; font-weight:700; }
+    .st p  { font-size:12px; color:var(--muted); margin-top:1px; }
+    .sr { flex:1; height:1px; background:var(--border); margin-left:8px; }
+
+    /* ─── GRIDS ─── */
+    .g2  { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+    .g3  { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:16px; }
+    .g4  { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+    .g21 { display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:16px; }
+
+    /* ─── CARD ─── */
+    .card {
+      background:var(--card); border-radius:12px; padding:20px 22px;
+      border:1px solid var(--border);
+      box-shadow:0 1px 3px rgba(0,0,0,0.05);
+    }
+    .ct {
+      font-size:11px; font-weight:600; color:var(--muted);
+      text-transform:uppercase; letter-spacing:0.8px;
+      margin-bottom:16px;
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .badge {
+      font-size:11px; font-weight:500; padding:2px 9px; border-radius:20px;
+      text-transform:none; letter-spacing:0;
+    }
+    .bg { background:#dcfce7; color:#166534; }
+    .bb { background:#dcfce7; color:var(--primary); }
+    .bo { background:#fef3c7; color:#92400e; }
+    .br { background:#fee2e2; color:#991b1b; }
+
+    /* ─── KPI MINI CARDS ─── */
+    .kc {
+      background:var(--card); border-radius:10px; padding:14px 16px;
+      border:1px solid var(--border); border-left:3px solid var(--primary);
+    }
+    .kc.g2b { border-left-color:var(--gold); }
+    .kc.b2b { border-left-color:var(--primary-light); }
+    .kl { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; }
+    .kv { font-size:22px; font-weight:700; color:var(--text); margin:4px 0 2px; }
+    .ks { font-size:11px; color:var(--muted); }
+    .tu { color:var(--up);   font-weight:600; }
+    .td { color:var(--down); font-weight:600; }
+    .tn { color:var(--muted); font-weight:600; }
+
+    /* ─── DONUT CHART ─── */
+    .dnut-wrap { display:flex; align-items:center; gap:20px; }
+    .dnut-outer {
+      width:130px; height:130px; border-radius:50%; flex-shrink:0; position:relative;
+      background: conic-gradient(
+        var(--c1) 0%   35.5%,
+        var(--c2) 35.5% 64.0%,
+        var(--c3) 64.0% 80.7%,
+        var(--c4) 80.7% 90.4%,
+        var(--c5) 90.4% 100%
+      );
+    }
+    .dnut-hole {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:72px; height:72px; border-radius:50%; background:var(--card);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+    }
+    .dh-v { font-size:11px; font-weight:700; }
+    .dh-l { font-size:8px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+    .leg { flex:1; }
+    .lr { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .lr:last-child { margin-bottom:0; }
+    .ll { display:flex; align-items:center; gap:8px; }
+    .ldot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .ln { font-size:13px; }
+    .lrr { text-align:right; }
+    .la { font-size:13px; font-weight:600; }
+    .lp { font-size:11px; color:var(--muted); }
+
+    /* ─── DAILY BAR CHART ─── */
+    .daily-chart { display:flex; align-items:flex-end; gap:3px; height:90px; margin-top:8px; }
+    .dc-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:3px; height:100%; }
+    .dc-inner { width:100%; display:flex; flex-direction:column; justify-content:flex-end; flex:1; }
+    .dc-bar { width:100%; border-radius:3px 3px 0 0; min-height:3px; }
+    .dc-bar.wd { background:var(--primary); opacity:0.85; }
+    .dc-bar.we { background:var(--gold); }
+    .dc-lbl { font-size:8px; color:var(--muted); text-align:center; }
+    .chart-leg { display:flex; gap:14px; margin-top:8px; }
+    .cl-item { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
+    .cl-dot { width:10px; height:10px; border-radius:2px; }
+
+    /* ─── TREND CHART (6-month mini bars) ─── */
+    .trend-chart {
+      display:flex; align-items:flex-end; gap:6px; height:80px;
+    }
+    .tc-col {
+      flex:1; display:flex; flex-direction:column;
+      align-items:center; gap:4px; height:100%;
+    }
+    .tc-inner { width:100%; display:flex; flex-direction:column; justify-content:flex-end; flex:1; }
+    .tc-bar {
+      width:100%; border-radius:3px 3px 0 0; min-height:4px;
+      background:#bbf7d0; transition:background 0.2s;
+    }
+    .tc-bar.current { background:var(--primary); }
+    .tc-bar.prev    { background:#6ee7b7; }
+    .tc-val { font-size:9px; color:var(--muted); text-align:center; white-space:nowrap; }
+    .tc-lbl { font-size:9px; color:var(--muted); text-align:center; }
+    .tc-col.current-col .tc-lbl { color:var(--primary); font-weight:700; }
+    .tc-col.current-col .tc-val { color:var(--primary); font-weight:700; }
+    /* second colour variant */
+    .tc-bar.gold-cur { background:var(--gold); }
+    .tc-bar.gold-prev { background:#d4edd2; }
+
+    /* ─── TREND TABLE ─── */
+    .trend-tbl { width:100%; border-collapse:collapse; }
+    .trend-tbl th {
+      font-size:10px; font-weight:600; color:var(--muted);
+      text-transform:uppercase; letter-spacing:0.5px;
+      padding:6px 8px; border-bottom:2px solid var(--border);
+      text-align:left;
+    }
+    .trend-tbl th:not(:first-child) { text-align:right; }
+    .trend-tbl td {
+      font-size:12px; padding:7px 8px;
+      border-bottom:1px solid #f3f4f6;
+    }
+    .trend-tbl td:not(:first-child) { text-align:right; font-variant-numeric:tabular-nums; }
+    .trend-tbl tr:last-child td { border-bottom:none; font-weight:700; color:var(--primary); background:#f0fdf4; border-top:1px solid #bbf7d0; }
+    .trend-tbl tr:last-child td:first-child { border-radius:0 0 0 8px; }
+    .trend-tbl tr:last-child td:last-child  { border-radius:0 0 8px 0; }
+    .trend-tbl tbody tr:hover td { background:#f6fffa; }
+    .tbl-up   { color:var(--up);   font-weight:600; }
+    .tbl-down { color:var(--down); font-weight:600; }
+
+    /* ─── STACKED MIX CHART ─── */
+    .mix-chart  { display:flex; flex-direction:column; gap:7px; margin-top:6px; }
+    .mix-row    { display:flex; align-items:center; gap:10px; }
+    .mix-lbl    { font-size:10px; color:var(--muted); width:52px; flex-shrink:0; text-align:right; }
+    .mix-bar    { flex:1; display:flex; height:24px; border-radius:5px; overflow:hidden; }
+    .mix-seg    { height:100%; }
+    .mix-legend { display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:12px; }
+    .ml-item    { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
+    .ml-dot     { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+
+    /* ─── PROGRESS BARS ─── */
+    .pl-list { display:flex; flex-direction:column; gap:11px; }
+    .pi {}
+    .ph { display:flex; justify-content:space-between; margin-bottom:4px; }
+    .pn { font-size:13px; }
+    .pv { font-size:12px; color:var(--muted); }
+    .pt { height:8px; background:#f3f4f6; border-radius:4px; overflow:hidden; }
+    .pf { height:100%; border-radius:4px; }
+
+    /* ─── P&L TABLE ─── */
+    .pl-row {
+      display:flex; justify-content:space-between; align-items:baseline;
+      padding:8px 0; border-bottom:1px solid #f3f4f6;
+    }
+    .pl-row:last-child { border-bottom:none; }
+    .pl-row.sub { border-top:1px dashed #d1d5db; margin-top:4px; padding-top:10px; }
+    .pl-row.tot {
+      border-top:2px solid var(--primary); border-bottom:none;
+      margin-top:6px; padding-top:12px;
+    }
+    .pll { font-size:13px; }
+    .pls { font-size:11px; color:var(--muted); }
+    .plv { font-size:13px; font-weight:600; }
+    .plv.neg { color:#dc2626; }
+    .plv.pos { color:var(--primary); }
+    .pl-row.tot .pll { font-weight:700; font-size:14px; color:var(--primary); }
+    .pl-row.tot .plv { font-size:20px; font-weight:700; color:var(--primary); }
+
+    /* ─── AD CARDS ─── */
+    .plat-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+    .plat-icon {
+      width:34px; height:34px; border-radius:8px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:14px; font-weight:700; flex-shrink:0;
+    }
+    .pi-g { background:#fff; border:1px solid var(--border); }
+    .pi-m { background:#1877f2; color:#fff; }
+    .pname  { font-size:14px; font-weight:600; }
+    .pspend { font-size:12px; color:var(--muted); }
+    .ad-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .ac {
+      background:#f6fffa; border-radius:8px; padding:9px 11px;
+      border:1px solid var(--border);
+    }
+    .acl { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+    .acv { font-size:17px; font-weight:700; color:var(--text); margin-top:2px; }
+    .acv.hi { color:var(--primary); }
+
+    /* ─── REVIEWS ─── */
+    .rv-hero { display:flex; align-items:center; gap:18px; margin-bottom:14px; }
+    .rv-big   { font-size:52px; font-weight:800; color:var(--primary); line-height:1; }
+    .rv-meta .stars { color:#f59e0b; font-size:18px; letter-spacing:1px; }
+    .rv-meta .cnt   { font-size:12px; color:var(--muted); margin-top:2px; }
+    .rv-meta .nw    { font-size:12px; color:var(--up); font-weight:600; margin-top:4px; }
+    .rtg { display:flex; flex-direction:column; gap:5px; }
+    .rtg-r { display:flex; align-items:center; gap:6px; }
+    .rtg-n { font-size:11px; color:var(--muted); width:12px; text-align:right; }
+    .rtg-t { flex:1; height:7px; background:#f3f4f6; border-radius:3px; overflow:hidden; }
+    .rtg-f { height:100%; border-radius:3px; background:#f59e0b; }
+    .rtg-p { font-size:10px; color:var(--muted); min-width:32px; text-align:right; }
+
+    /* ─── FOOTER ─── */
+    .footer {
+      background:var(--primary-dark); padding:20px 48px;
+      display:flex; justify-content:space-between; align-items:center;
+      margin-top:32px;
+      border-top:3px solid var(--gold);
+    }
+    .fb { font-size:18px; font-weight:800; color:var(--gold); letter-spacing:3px; }
+    .fs { font-size:11px; color:rgba(255,255,255,0.45); margin-top:2px; }
+    .fr { text-align:right; font-size:11px; color:rgba(255,255,255,0.45); line-height:1.7; }
+
+    /* ─── UTILS ─── */
+    .gap { height:8px; }
+    .mt0 { margin-top:0 !important; }
+
+    /* ─── PRINT ─── */
+    @media print {
+      body { background:#fff; }
+      .report { max-width:100%; }
+      .hero { break-inside:avoid; }
+      .card, .kc { box-shadow:none; }
+      .body { padding:16px 24px 24px; }
+    }
+  </style>
+</head>
+<body>
+<div class="report">
+
+<!-- ══ HEADER ══ -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo-box">LG</div>
+    <div class="logo-text">
+      <h1>LENGOLF</h1>
+      <p>Mercury Ville · BTS Chidlom · Bangkok</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="lbl">Monthly Performance Report</div>
+    <div class="period">February 2026</div>
+    <div class="gen">Prepared 2 March 2026 · Confidential — Shareholders</div>
+  </div>
+</header>
+
+<!-- ══ HERO KPIs ══ -->
+<div class="hero">
+  <div class="hcard">
+    <div class="h-label">Gross Revenue</div>
+    <div class="h-value"><span class="cur">฿</span>568,000</div>
+    <span class="h-change up">▲ +1.3% vs Jan</span>
+  </div>
+  <div class="hcard">
+    <div class="h-label">Gross Profit</div>
+    <div class="h-value"><span class="cur">฿</span>420,631</div>
+    <span class="h-change down">▼ −4.8% vs Jan · margin 76.3%</span>
+  </div>
+  <div class="hcard">
+    <div class="h-label">Unique Customers</div>
+    <div class="h-value">260</div>
+    <span class="h-change down">▼ −11.3% vs Jan</span>
+  </div>
+  <div class="hcard">
+    <div class="h-label">Net Profit (est.)</div>
+    <div class="h-value"><span class="cur">฿</span>151,766</div>
+    <span class="h-change flat">26.7% margin</span>
+  </div>
+</div>
+
+<div class="body">
+
+<!-- ══════════════════════ SALES ══════════════════════ -->
+<div class="sh">
+  <div class="si si-g">📊</div>
+  <div class="st"><h2>Sales Performance</h2><p>Bay Bookings · Packages · Coaching · F&amp;B</p></div>
+  <div class="sr"></div>
+</div>
+
+<div class="g2">
+  <!-- Revenue by Segment -->
+  <div class="card">
+    <div class="ct">Revenue by Segment <span class="badge bg">฿551,559 net of VAT &amp; discount</span></div>
+    <div class="dnut-wrap">
+      <div class="dnut-outer">
+        <div class="dnut-hole">
+          <span class="dh-v">฿552K</span>
+          <span class="dh-l">Revenue</span>
+        </div>
+      </div>
+      <div class="leg">
+        <div class="lr">
+          <div class="ll"><div class="ldot" style="background:var(--c1)"></div><span class="ln">Bay Bookings</span></div>
+          <div class="lrr"><div class="la">฿195,565</div><div class="lp">35.5%</div></div>
+        </div>
+        <div class="lr">
+          <div class="ll"><div class="ldot" style="background:var(--c2)"></div><span class="ln">Packages</span></div>
+          <div class="lrr"><div class="la">฿157,100</div><div class="lp">28.5%</div></div>
+        </div>
+        <div class="lr">
+          <div class="ll"><div class="ldot" style="background:var(--c3)"></div><span class="ln">Coaching</span></div>
+          <div class="lrr"><div class="la">฿92,100</div><div class="lp">16.7%</div></div>
+        </div>
+        <div class="lr">
+          <div class="ll"><div class="ldot" style="background:var(--c4)"></div><span class="ln">F&amp;B</span></div>
+          <div class="lrr"><div class="la">฿53,250</div><div class="lp">9.7%</div></div>
+        </div>
+        <div class="lr">
+          <div class="ll"><div class="ldot" style="background:var(--c5)"></div><span class="ln">Other</span></div>
+          <div class="lrr"><div class="la">฿53,544</div><div class="lp">9.7%</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Revenue -->
+  <div class="card">
+    <div class="ct">Daily Revenue — February 2026 <span class="badge bo">Peak ฿41,785 (Feb 17)</span></div>
+    <div class="daily-chart" id="dailyChart"></div>
+    <div class="chart-leg">
+      <div class="cl-item"><div class="cl-dot" style="background:var(--primary)"></div><span>Weekday (Mon–Thu)</span></div>
+      <div class="cl-item"><div class="cl-dot" style="background:var(--gold)"></div><span>Weekend (Fri–Sun)</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Row -->
+<div class="g3">
+  <div class="kc">
+    <div class="kl">Total Transactions</div>
+    <div class="kv">387</div>
+    <div class="ks"><span class="td">▼ 45 fewer</span> than January (432)</div>
+  </div>
+  <div class="kc g2b">
+    <div class="kl">Avg Revenue / Day</div>
+    <div class="kv">฿20,286</div>
+    <div class="ks">Range: ฿3,895 (Feb 9) — ฿41,785 (Feb 17)</div>
+  </div>
+  <div class="kc b2b">
+    <div class="kl">Avg Revenue / Transaction</div>
+    <div class="kv">฿1,467</div>
+    <div class="ks"><span class="tu">▲ +฿167 higher</span> than January (฿1,300)</div>
+  </div>
+</div>
+
+<!-- ══════════════════════ 6-MONTH TRENDS ══════════════════════ -->
+<div class="sh">
+  <div class="si si-g">📈</div>
+  <div class="st"><h2>6-Month Trend Overview</h2><p>September 2025 — February 2026</p></div>
+  <div class="sr"></div>
+</div>
+
+<div class="g2">
+
+  <!-- Revenue & Gross Profit Trend -->
+  <div class="card">
+    <div class="ct">Monthly Revenue &amp; Gross Profit</div>
+    <div class="trend-chart" id="revTrend"></div>
+    <div style="margin-top:12px;">
+      <table class="trend-tbl">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Revenue</th>
+            <th>Gross Profit</th>
+            <th>Margin</th>
+            <th>MoM</th>
+          </tr>
+        </thead>
+        <tbody id="revTblBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Customers & Transactions Trend -->
+  <div class="card">
+    <div class="ct">Unique Customers &amp; New Customers</div>
+    <div class="trend-chart" id="custTrend"></div>
+    <div style="margin-top:12px;">
+      <table class="trend-tbl">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Unique</th>
+            <th>New</th>
+            <th>Transactions</th>
+            <th>MoM Unique</th>
+          </tr>
+        </thead>
+        <tbody id="custTblBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Revenue Mix Trend (full-width card) -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="ct">Revenue Mix by Segment — 6-Month Trend <span class="badge bg">% share of monthly net revenue</span></div>
+  <div class="mix-chart" id="mixChart"></div>
+  <div class="mix-legend">
+    <div class="ml-item"><div class="ml-dot" style="background:#005a32"></div>Bay Bookings</div>
+    <div class="ml-item"><div class="ml-dot" style="background:#c8a96e"></div>Packages</div>
+    <div class="ml-item"><div class="ml-dot" style="background:#38a169"></div>Coaching</div>
+    <div class="ml-item"><div class="ml-dot" style="background:#68d391"></div>F&amp;B</div>
+    <div class="ml-item"><div class="ml-dot" style="background:#a7f3d0"></div>Other</div>
+  </div>
+  <div style="margin-top:14px;">
+    <table class="trend-tbl">
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Bay Bookings</th>
+          <th>Packages</th>
+          <th>Coaching</th>
+          <th>F&amp;B</th>
+          <th>Other</th>
+          <th>Total (net)</th>
+        </tr>
+      </thead>
+      <tbody id="mixTblBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="gap"></div>
+
+<!-- ══════════════════════ FINANCE ══════════════════════ -->
+<div class="sh">
+  <div class="si si-b">💰</div>
+  <div class="st"><h2>Financial Summary</h2><p>P&amp;L · Operating Expenses · Marketing Spend</p></div>
+  <div class="sr"></div>
+</div>
+
+<div class="g2">
+
+  <!-- P&L -->
+  <div class="card">
+    <div class="ct">Profit &amp; Loss Statement — February 2026</div>
+    <div class="pl-row">
+      <div><div class="pll">Gross Revenue (incl. VAT)</div></div>
+      <div class="plv pos">฿568,000</div>
+    </div>
+    <div class="pl-row">
+      <div><div class="pll">VAT Collected (7%)</div><div class="pls">Remitted to Revenue Department</div></div>
+      <div class="plv neg">− ฿37,158</div>
+    </div>
+    <div class="pl-row">
+      <div><div class="pll">Net Revenue (ex-VAT)</div></div>
+      <div class="plv">฿530,842</div>
+    </div>
+    <div class="pl-row">
+      <div><div class="pll">Cost of Goods Sold</div><div class="pls">F&amp;B cost, consumables</div></div>
+      <div class="plv neg">− ฿110,211</div>
+    </div>
+    <div class="pl-row sub">
+      <div><div class="pll" style="font-weight:600;">Gross Profit</div></div>
+      <div class="plv pos" style="font-size:15px;">฿420,631 <span style="font-size:11px;color:var(--muted);">76.3%</span></div>
+    </div>
+    <div class="pl-row" style="padding-top:12px;">
+      <div><div class="pll">Operating Expenses</div><div class="pls">Rent, staff, utilities, tax, maintenance</div></div>
+      <div class="plv neg">− ฿214,906</div>
+    </div>
+    <div class="pl-row">
+      <div><div class="pll">Marketing &amp; Advertising</div><div class="pls">Google Ads, Meta Ads, creative, LINE</div></div>
+      <div class="plv neg">− ฿53,959</div>
+    </div>
+    <div class="pl-row tot">
+      <div class="pll">Net Profit (est.)</div>
+      <div class="plv">฿151,766 <span style="font-size:12px;color:var(--muted);">(26.7%)</span></div>
+    </div>
+  </div>
+
+  <!-- OpEx Breakdown -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="card">
+      <div class="ct">Operating Expenses <span class="badge bb">฿214,906</span></div>
+      <div class="pl-list">
+        <div class="pi"><div class="ph"><span class="pn">Rent</span><span class="pv">฿125,000 · 58.2%</span></div><div class="pt"><div class="pf" style="width:58.2%;background:#005a32;"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Staff &amp; Service Tax</span><span class="pv">฿62,500 · 29.1%</span></div><div class="pt"><div class="pf" style="width:29.1%;background:#38a169;"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Utilities</span><span class="pv">฿11,000 · 5.1%</span></div><div class="pt"><div class="pf" style="width:5.1%;background:#68d391;"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Building Tax</span><span class="pv">฿7,610 · 3.5%</span></div><div class="pt"><div class="pf" style="width:3.5%;background:#9ae6b4;"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Bay Maintenance &amp; Other</span><span class="pv">฿8,796 · 4.1%</span></div><div class="pt"><div class="pf" style="width:4.1%;background:var(--gold);"></div></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct">Marketing &amp; Ads Spend <span class="badge bo">฿53,959 — lowest in 6 months</span></div>
+      <div class="pl-list">
+        <div class="pi"><div class="ph"><span class="pn">Google Ads</span><span class="pv">฿20,300 · 37.6%</span></div><div class="pt"><div class="pf" style="width:37.6%;background:#4285f4;"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Meta Ads (FB &amp; IG)</span><span class="pv">฿18,879 · 35.0%</span></div><div class="pt"><div class="pf" style="width:35.0%;background:#1877f2;"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Graphic Designer</span><span class="pv">฿13,000 · 24.1%</span></div><div class="pt"><div class="pf" style="width:24.1%;background:var(--gold);"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">LINE Official Account</span><span class="pv">฿1,780 · 3.3%</span></div><div class="pt"><div class="pf" style="width:3.3%;background:#06c755;"></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="gap"></div>
+
+<!-- ══════════════════════ MARKETING ══════════════════════ -->
+<div class="sh">
+  <div class="si si-p">📣</div>
+  <div class="st"><h2>Marketing Performance</h2><p>Google Ads · Meta Ads · Reviews · Customer Acquisition Trend</p></div>
+  <div class="sr"></div>
+</div>
+
+<!-- Ads Cards -->
+<div class="g2">
+  <div class="card">
+    <div class="ct">Google Ads</div>
+    <div class="plat-head">
+      <div class="plat-icon pi-g">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66 2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      </div>
+      <div><div class="pname">Google Search &amp; Performance Max</div><div class="pspend">฿20,300 spend · Feb 2026 <span style="color:var(--up);font-weight:600;">▼ −฿2,812 vs Jan</span></div></div>
+    </div>
+    <div class="ad-grid">
+      <div class="ac"><div class="acl">Impressions</div><div class="acv">291,137</div></div>
+      <div class="ac"><div class="acl">Clicks</div><div class="acv">3,734</div></div>
+      <div class="ac"><div class="acl">Click-Through Rate</div><div class="acv">1.28%</div></div>
+      <div class="ac"><div class="acl">Conversions (tracked)</div><div class="acv hi">348</div></div>
+      <div class="ac"><div class="acl">Cost / Conversion</div><div class="acv">฿58</div></div>
+      <div class="ac"><div class="acl">6-mo Spend Trend</div><div class="acv" style="font-size:12px;color:var(--up);font-weight:700;">↓ Lowest since Sep</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Meta Ads</div>
+    <div class="plat-head">
+      <div class="plat-icon pi-m">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      </div>
+      <div><div class="pname">Facebook &amp; Instagram Campaigns</div><div class="pspend">฿18,879 spend · Feb 2026 <span style="color:var(--up);font-weight:600;">▼ −฿3,972 vs Jan</span></div></div>
+    </div>
+    <div class="ad-grid">
+      <div class="ac"><div class="acl">Impressions</div><div class="acv">692,688</div></div>
+      <div class="ac"><div class="acl">Clicks</div><div class="acv">26,982</div></div>
+      <div class="ac"><div class="acl">Click-Through Rate</div><div class="acv">3.90%</div></div>
+      <div class="ac"><div class="acl">CPM (Cost / 1K Impr.)</div><div class="acv hi">฿27</div></div>
+      <div class="ac"><div class="acl">Cost per Click</div><div class="acv">฿0.70</div></div>
+      <div class="ac"><div class="acl">6-mo Spend Trend</div><div class="acv" style="font-size:12px;color:var(--up);font-weight:700;">↓ Lowest since Sep</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Marketing Trend + Reviews + CAC -->
+<div class="g3">
+
+  <!-- Ad Spend & CAC Trend -->
+  <div class="card" style="grid-column:span 2;">
+    <div class="ct">Ad Spend &amp; Customer Acquisition Cost — 6-Month Trend</div>
+    <div class="g2 mt0" style="margin-bottom:0;">
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Monthly Ad Spend (฿)</div>
+        <div class="trend-chart" id="adSpendTrend"></div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Customer Acquisition Cost (฿ / new customer)</div>
+        <div class="trend-chart" id="cacTrend"></div>
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <table class="trend-tbl">
+        <thead>
+          <tr><th>Month</th><th>Ad Spend</th><th>New Customers</th><th>CAC</th><th>Ad Spend % Rev</th></tr>
+        </thead>
+        <tbody id="mktTblBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Google Reviews -->
+  <div class="card">
+    <div class="ct">Google Reviews</div>
+    <div class="rv-hero">
+      <div class="rv-big">5.0</div>
+      <div class="rv-meta">
+        <div class="stars">★★★★★</div>
+        <div class="cnt">568 total reviews</div>
+        <div class="nw">+13 new in February</div>
+      </div>
+    </div>
+    <div class="rtg">
+      <div class="rtg-r"><span class="rtg-n">5</span><div class="rtg-t"><div class="rtg-f" style="width:98.6%"></div></div><span class="rtg-p">98.6%</span></div>
+      <div class="rtg-r"><span class="rtg-n">4</span><div class="rtg-t"><div class="rtg-f" style="width:1.2%"></div></div><span class="rtg-p">1.2%</span></div>
+      <div class="rtg-r"><span class="rtg-n">3</span><div class="rtg-t"><div class="rtg-f" style="width:0.2%"></div></div><span class="rtg-p">0.2%</span></div>
+      <div class="rtg-r"><span class="rtg-n">2</span><div class="rtg-t"><div class="rtg-f" style="width:0%"></div></div><span class="rtg-p">0%</span></div>
+      <div class="rtg-r"><span class="rtg-n">1</span><div class="rtg-t"><div class="rtg-f" style="width:0%"></div></div><span class="rtg-p">0%</span></div>
+    </div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);">
+      Outstanding NPS — 568 verified 5-star reviews on Google Places confirms premium customer experience.
+    </div>
+  </div>
+
+</div>
+
+</div><!-- /body -->
+
+<!-- ══ FOOTER ══ -->
+<footer class="footer">
+  <div>
+    <div class="fb">LENGOLF</div>
+    <div class="fs">LENGOLF CO., LTD. · The Mercury Ville @ BTS Chidlom, Bangkok</div>
+  </div>
+  <div class="fr">
+    <div>Confidential — For Shareholders Only</div>
+    <div>Data: Supabase · Generated 2 March 2026</div>
+  </div>
+</footer>
+
+</div><!-- /report -->
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   DATA BLOCK — update these values each month
+   ═══════════════════════════════════════════════════════ */
+var DATA = {
+  // Daily revenue for current month
+  // [day_of_month, revenue_thb, day_of_week (0=Sun,1=Mon,...,6=Sat)]
+  daily: [
+    [1,13560,0],[2,26145,1],[3,36515,2],[4,15940,3],
+    [5,14240,4],[6,11505,5],[7,14630,6],[8,16700,0],
+    [9,3895,1],[10,14690,2],[11,8365,3],[12,30579,4],
+    [13,16635,5],[14,7535,6],[15,11355,0],[16,26120,1],
+    [17,41785,2],[18,4420,3],[19,9630,4],[20,27695,5],
+    [21,32120,6],[22,18480,0],[23,18260,1],[24,37935,2],
+    [25,26400,3],[26,13910,4],[27,32175,5],[28,20340,6]
+  ],
+
+  // 6-month monthly summaries
+  // [month_label, revenue, gross_profit, transactions, unique_customers, new_customers]
+  monthly: [
+    ["Sep '25", 463990, 355052, 385, 243, 151],
+    ["Oct '25", 630948, 460408, 421, 279, 186],
+    ["Nov '25", 530864, 403395, 390, 252, 159],
+    ["Dec '25", 410835, 325208, 374, 254, 184],
+    ["Jan '26", 548890, 441972, 432, 292, 214],
+    ["Feb '26", 551559, 420631, 387, 260, 176]  // ← current month (always last)
+  ],
+
+  // 6-month marketing
+  // [month_label, google_spend, meta_spend, new_customers]
+  marketing: [
+    ["Sep '25", 20269, 19624, 151],
+    ["Oct '25", 20923, 23039, 186],
+    ["Nov '25", 22550, 25581, 159],
+    ["Dec '25", 23032, 23476, 184],
+    ["Jan '26", 23112, 22851, 214],
+    ["Feb '26", 20300, 18879, 176]  // ← current month
+  ],
+
+  // Revenue split by segment (net of VAT & discount, from pos.lengolf_sales)
+  // [month_label, bay_bookings, packages, coaching, fb, other]
+  revenue_split: [
+    ["Sep '25", 221250, 101170,  55200,  71545, 14825],
+    ["Oct '25", 249203, 189200,  87000,  88520, 17025],
+    ["Nov '25", 168915, 176014,  93745,  67035, 25155],
+    ["Dec '25", 204595,  40500,  44100,  75315, 46325],
+    ["Jan '26", 242240, 104400,  68500,  67330, 66420],
+    ["Feb '26", 189715, 157100,  92100,  53250, 59394]  // ← current month
+  ]
+};
+/* ═══════════════════════════════════════════════════════ */
+
+// ── Daily bar chart ──
+(function(){
+  var max = Math.max.apply(null, DATA.daily.map(function(d){return d[1];}));
+  var days = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  var html = '';
+  DATA.daily.forEach(function(d){
+    var isWe = d[2]===0||d[2]===5||d[2]===6;
+    var pct  = Math.round(d[1]/max*100);
+    html += '<div class="dc-col"><div class="dc-inner"><div class="dc-bar '+(isWe?'we':'wd')+'" style="height:'+pct+'%;"></div></div><div class="dc-lbl">'+days[d[2]]+'</div></div>';
+  });
+  document.getElementById('dailyChart').innerHTML = html;
+})();
+
+// ── Helper: build a trend bar chart ──
+function buildTrend(elId, values, opts) {
+  opts = opts||{};
+  var max = Math.max.apply(null, values);
+  var labels = DATA.monthly.map(function(m){return m[0];});
+  var html = '';
+  values.forEach(function(v,i){
+    var isCur = i === values.length - 1;
+    var pct   = Math.round(v/max*100);
+    var barCls = isCur ? (opts.gold ? 'tc-bar gold-cur' : 'tc-bar current') : (opts.gold ? 'tc-bar gold-prev' : 'tc-bar prev');
+    var colCls = isCur ? 'tc-col current-col' : 'tc-col';
+    var valStr = opts.fmt ? opts.fmt(v) : ('฿'+Math.round(v/1000)+'K');
+    html += '<div class="'+colCls+'">'
+          + '<div class="tc-val">'+valStr+'</div>'
+          + '<div class="tc-inner"><div class="'+barCls+'" style="height:'+pct+'%;"></div></div>'
+          + '<div class="tc-lbl">'+labels[i]+'</div>'
+          + '</div>';
+  });
+  document.getElementById(elId).innerHTML = html;
+}
+
+// Revenue trend
+buildTrend('revTrend', DATA.monthly.map(function(m){return m[1];}));
+
+// Customer trend — use unique customers
+buildTrend('custTrend', DATA.monthly.map(function(m){return m[4];}), {
+  gold: true,
+  fmt: function(v){return v;}
+});
+
+// Ad spend trend
+buildTrend('adSpendTrend', DATA.marketing.map(function(m){return m[1]+m[2];}), {
+  fmt: function(v){return '฿'+Math.round(v/1000)+'K';}
+});
+
+// CAC trend
+buildTrend('cacTrend', DATA.marketing.map(function(m){
+  var spend = m[1]+m[2];
+  return Math.round(spend/m[3]);
+}), {
+  gold: true,
+  fmt: function(v){return '฿'+v;}
+});
+
+// ── Revenue table ──
+(function(){
+  var html = '';
+  DATA.monthly.forEach(function(m, i){
+    var isCur = i===DATA.monthly.length-1;
+    var margin = Math.round(m[2]/m[1]*100*10)/10;
+    var mom = '';
+    if(i>0){
+      var prev = DATA.monthly[i-1][1];
+      var chg  = Math.round((m[1]-prev)/prev*100*10)/10;
+      var cls  = chg>=0?'tbl-up':'tbl-down';
+      mom = '<span class="'+cls+'">'+(chg>=0?'▲':'▼')+' '+Math.abs(chg)+'%</span>';
+    }
+    var row = isCur ? '<tr style="font-weight:700;background:#f0fdf4;">' : '<tr>';
+    html += row
+          + '<td>'+(isCur?'<strong>':'')+''+m[0]+(isCur?'</strong>':'')+'</td>'
+          + '<td>฿'+m[1].toLocaleString()+'</td>'
+          + '<td>฿'+m[2].toLocaleString()+'</td>'
+          + '<td>'+margin+'%</td>'
+          + '<td>'+mom+'</td>'
+          + '</tr>';
+  });
+  document.getElementById('revTblBody').innerHTML = html;
+})();
+
+// ── Customer table ──
+(function(){
+  var html = '';
+  DATA.monthly.forEach(function(m, i){
+    var isCur = i===DATA.monthly.length-1;
+    var mom = '';
+    if(i>0){
+      var prev = DATA.monthly[i-1][4];
+      var chg  = Math.round((m[4]-prev)/prev*100*10)/10;
+      var cls  = chg>=0?'tbl-up':'tbl-down';
+      mom = '<span class="'+cls+'">'+(chg>=0?'▲':'▼')+' '+Math.abs(chg)+'%</span>';
+    }
+    var row = isCur ? '<tr>' : '<tr>';
+    html += row
+          + '<td>'+(isCur?'<strong>':'')+''+m[0]+(isCur?'</strong>':'')+'</td>'
+          + '<td>'+m[4]+'</td>'
+          + '<td>'+m[5]+'</td>'
+          + '<td>'+m[3]+'</td>'
+          + '<td>'+mom+'</td>'
+          + '</tr>';
+  });
+  // highlight last row
+  html = html.replace(/<tr><td><strong>/, '<tr style="font-weight:700;background:#f0fdf4;"><td><strong>');
+  document.getElementById('custTblBody').innerHTML = html;
+})();
+
+// ── Marketing table ──
+(function(){
+  var html = '';
+  DATA.marketing.forEach(function(m, i){
+    var isCur = i===DATA.marketing.length-1;
+    var spend = m[1]+m[2];
+    var cac   = Math.round(spend/m[3]);
+    var rev   = DATA.monthly[i][1];
+    var pctRev = Math.round(spend/rev*100*10)/10;
+    var momCac = '';
+    if(i>0){
+      var prevSpend = DATA.marketing[i-1][1]+DATA.marketing[i-1][2];
+      var prevCac   = Math.round(prevSpend/DATA.marketing[i-1][3]);
+      var chg = cac-prevCac;
+      var cls = chg<=0?'tbl-up':'tbl-down'; // lower CAC = good
+      momCac = '';
+    }
+    var row = isCur ? '<tr style="font-weight:700;background:#f0fdf4;">' : '<tr>';
+    html += row
+          + '<td>'+(isCur?'<strong>':'')+''+m[0]+(isCur?'</strong>':'')+'</td>'
+          + '<td>฿'+spend.toLocaleString()+'</td>'
+          + '<td>'+m[3]+'</td>'
+          + '<td>฿'+cac+'</td>'
+          + '<td>'+pctRev+'% of rev</td>'
+          + '</tr>';
+  });
+  document.getElementById('mktTblBody').innerHTML = html;
+})();
+
+// ── Revenue mix stacked bars ──
+(function(){
+  var colors = ['#005a32','#c8a96e','#38a169','#68d391','#a7f3d0'];
+  var html = '';
+  DATA.revenue_split.forEach(function(m, i){
+    var isCur = i === DATA.revenue_split.length - 1;
+    var vals  = [m[1], m[2], m[3], m[4], m[5]];
+    var total = vals.reduce(function(a,b){return a+b;}, 0);
+    var bars  = vals.map(function(v, si){
+      var pct = (v / total * 100).toFixed(2);
+      return '<div class="mix-seg" title="' + ['Bay','Pkg','Coach','F&B','Other'][si] + ' ' + (v/total*100).toFixed(1) + '%" style="width:' + pct + '%;background:' + colors[si] + ';"></div>';
+    }).join('');
+    var lbl = isCur ? '<strong>' + m[0] + '</strong>' : m[0];
+    html += '<div class="mix-row"><div class="mix-lbl">' + lbl + '</div><div class="mix-bar">' + bars + '</div></div>';
+  });
+  document.getElementById('mixChart').innerHTML = html;
+})();
+
+// ── Revenue mix table ──
+(function(){
+  var html = '';
+  DATA.revenue_split.forEach(function(m, i){
+    var isCur = i === DATA.revenue_split.length - 1;
+    var vals  = [m[1], m[2], m[3], m[4], m[5]];
+    var total = vals.reduce(function(a,b){return a+b;}, 0);
+    function fmt(v){
+      return '฿' + Math.round(v/1000) + 'K <span style="color:var(--muted);font-size:10px;">(' + (v/total*100).toFixed(1) + '%)</span>';
+    }
+    var row = isCur ? '<tr style="background:#f0fdf4;">' : '<tr>';
+    html += row
+          + '<td>' + (isCur ? '<strong>' : '') + m[0] + (isCur ? '</strong>' : '') + '</td>'
+          + '<td>' + fmt(m[1]) + '</td>'
+          + '<td>' + fmt(m[2]) + '</td>'
+          + '<td>' + fmt(m[3]) + '</td>'
+          + '<td>' + fmt(m[4]) + '</td>'
+          + '<td>' + fmt(m[5]) + '</td>'
+          + '<td style="font-weight:600;">฿' + Math.round(total/1000) + 'K</td>'
+          + '</tr>';
+  });
+  document.getElementById('mixTblBody').innerHTML = html;
+})();
+</script>
+</body>
+</html>

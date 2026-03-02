@@ -105,6 +105,12 @@ const salesAnalyticsItems = [
     title: "AI Eval",
     description: "Track AI suggestion quality scores across prompt versions",
     path: "/admin/ai-eval"
+  },
+  {
+    icon: FileText,
+    title: "Shareholder Reports",
+    description: "Monthly performance reports for shareholders",
+    path: "/admin/reports"
   }
 ];
 

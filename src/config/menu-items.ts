@@ -208,6 +208,12 @@ export const menuItems: MenuItem[] = [
     description: "Unified Google + Meta Ads performance dashboard with KPIs and trends"
   },
   {
+    icon: FileText,
+    title: "Shareholder Reports",
+    path: '/admin/reports',
+    description: "Monthly performance reports for shareholders"
+  },
+  {
     icon: Star,
     title: "Google Reviews",
     path: '/admin/google-reviews',
