@@ -330,6 +330,10 @@ export async function uploadTaxDocument(
 ): Promise<UploadResult> {
   const drive = getDriveService()
 
+  if (!options.reportingMonth || !/^\d{4}-(0[1-9]|1[0-2])$/.test(options.reportingMonth)) {
+    throw new Error('reportingMonth must be in YYYY-MM format')
+  }
+
   const [year, month] = options.reportingMonth.split('-')
   const yyyymm = `${year}${month}`
   const ext = options.originalFileName?.match(/\.([a-zA-Z0-9]+)$/)?.[1]
@@ -354,12 +358,14 @@ export async function uploadTaxDocument(
     case 'pnd53': {
       targetFolderId = TAX_FILING_WHT_FOLDER_ID
       const tag = options.filingType.toUpperCase()
-      fileName = `${yyyymm}_WHT_${tag}.${ext}`
+      const suffix = Date.now().toString(36).slice(-4)
+      fileName = `${yyyymm}_WHT_${tag}_${suffix}.${ext}`
       break
     }
     case 'sso': {
       targetFolderId = TAX_FILING_SSO_FOLDER_ID
-      fileName = `${yyyymm}.${ext}`
+      const ssoSuffix = Date.now().toString(36).slice(-4)
+      fileName = `${yyyymm}_${ssoSuffix}.${ext}`
       break
     }
     default: {

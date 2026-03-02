@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth-config';
 import { extractInvoiceData, resolveModel } from '@/lib/invoice-extraction-service';
 import { uploadExpenseDocument } from '@/lib/google-drive-service';
 
+export const maxDuration = 60; // AI extraction + Drive upload
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getDevSession(authOptions, request);

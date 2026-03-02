@@ -403,10 +403,11 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
         tax_base_override: extraction.tax_base != null,
         invoice_ref: extraction.invoice_number || invoiceRef || null,
         document_url: docUrl || documentUrl || null,
+        transaction_type: transactionType,
         notes: extraction.notes || notes || null,
       });
     },
-    [tx.id, tx.transaction_date, amount, vendor, vatType, whtType, whtRate, whtAmount, whtOverride, reportingMonth, invoiceRef, documentUrl, notes, doSave, onVendorUpdated]
+    [tx.id, tx.transaction_date, amount, vendor, vatType, whtType, whtRate, whtAmount, whtOverride, reportingMonth, invoiceRef, documentUrl, transactionType, notes, doSave, onVendorUpdated]
   );
 
   const handleTaxDocUploaded = useCallback(
