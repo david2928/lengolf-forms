@@ -150,11 +150,12 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       wht_amount_override: whtOverride,
       tax_base_override: taxBaseOverride,
       invoice_ref: invoiceRef || null,
+      document_url: documentUrl,
       transaction_type: transactionType,
       notes: notes || null,
       ...overrides,
     }),
-    [tx.id, vendor, vendorNameOverride, vatType, vatAmount, reportingMonth, whtType, whtRate, whtAmount, taxBase, vatOverride, whtOverride, taxBaseOverride, invoiceRef, transactionType, notes]
+    [tx.id, vendor, vendorNameOverride, vatType, vatAmount, reportingMonth, whtType, whtRate, whtAmount, taxBase, vatOverride, whtOverride, taxBaseOverride, invoiceRef, documentUrl, transactionType, notes]
   );
 
   const recalcAndSave = useCallback(

@@ -41,7 +41,8 @@ async function findOrCreateFolder(
   const cached = folderIdCache.get(cacheKey)
   if (cached) return cached
 
-  const query = `name='${folderName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+  const safeName = folderName.replace(/'/g, "\\'")
+  const query = `name='${safeName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
   const response = await drive.files.list({
     q: query,
     spaces: 'drive',
