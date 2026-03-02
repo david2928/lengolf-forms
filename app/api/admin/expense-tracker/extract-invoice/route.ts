@@ -31,8 +31,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File too large (max 10MB)" }, { status: 400 });
     }
 
+    const t0 = performance.now();
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const tParse = performance.now();
+    console.log(`[extract-invoice] Parse FormData: ${Math.round(tParse - t0)}ms (${file.name}, ${(file.size / 1024).toFixed(0)}KB)`);
 
     // Use shared extraction service
     const { extraction, model_used } = await extractInvoiceData(
@@ -41,6 +45,8 @@ export async function POST(request: NextRequest) {
       file.name,
       { model: resolveModel(requestedModel) }
     );
+    const tExtract = performance.now();
+    console.log(`[extract-invoice] AI extraction: ${Math.round(tExtract - tParse)}ms (model: ${model_used})`);
 
     // Upload to Google Drive if we have enough context
     let document_url: string | null = null;
@@ -61,11 +67,15 @@ export async function POST(request: NextRequest) {
         });
 
         document_url = result.fileUrl;
-        console.log('[extract-invoice] Uploaded to Drive:', result.fileName, '→', docType, 'folder');
+        const tDrive = performance.now();
+        console.log(`[extract-invoice] Drive upload: ${Math.round(tDrive - tExtract)}ms → ${result.fileName} (${docType})`);
       } catch (driveErr) {
         console.error('[extract-invoice] Drive upload failed (non-fatal):', driveErr);
       }
     }
+
+    const tTotal = performance.now();
+    console.log(`[extract-invoice] Total: ${Math.round(tTotal - t0)}ms`);
 
     return NextResponse.json({ extraction, model_used, document_url });
   } catch (error) {
