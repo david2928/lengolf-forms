@@ -13,6 +13,7 @@ Rules:
 - If dates use Buddhist Era (พ.ศ.), convert to Common Era (ค.ศ.) by subtracting 543. Output dates as YYYY-MM-DD.
 - For vat_type: use "pp30" if Thai domestic VAT 7% is shown (most common), "pp36" only for foreign/reverse-charge services, "none" if no VAT
 - wht_applicable: true if this looks like a service that typically has withholding tax (services, consulting, professional fees, commissions, etc.). Rent and utilities do NOT have WHT — set to false for rent, lease, common area fees, and utility invoices.
+- TAX PAYMENT RECEIPTS: If the document is a tax payment receipt from กรมสรรพากร (Revenue Department), set vendor_name to "กรมสรรพากร", vendor_company_name_en to "Revenue Department", and use the เลขที่ใบเสร็จ (receipt number) as the invoice_number. Do NOT use the underlying taxpayer or service provider name as the vendor.
 - confidence: "high" if document is clear and all key fields are readable, "medium" if some fields are uncertain, "low" if document is poor quality or heavily obscured
 - confidence_explanation: Brief explanation of why you chose that confidence level (e.g. "Clear printed invoice with all fields visible", "Handwritten receipt, some amounts hard to read", "Blurry photo, vendor name uncertain")
 
@@ -213,6 +214,7 @@ Rules:
 - If dates use Buddhist Era (พ.ศ.), convert to Common Era (ค.ศ.) by subtracting 543. Output dates as YYYY-MM-DD.
 - For vat_type: use "pp30" if Thai domestic VAT 7% is shown (most common), "pp36" only for foreign/reverse-charge services, "none" if no VAT
 - wht_applicable: true if this looks like a service that typically has withholding tax (services, consulting, professional fees, commissions, etc.). Rent and utilities do NOT have WHT — set to false for rent, lease, common area fees, and utility invoices.
+- TAX PAYMENT RECEIPTS: If the document is a tax payment receipt from กรมสรรพากร (Revenue Department), set vendor_name to "กรมสรรพากร", vendor_company_name_en to "Revenue Department", and use the เลขที่ใบเสร็จ (receipt number) as the invoice_number. Do NOT use the underlying taxpayer or service provider name as the vendor.
 - confidence: "high" if document is clear and all key fields are readable, "medium" if some fields are uncertain, "low" if document is poor quality or heavily obscured
 
 MULTI-PAGE / MULTI-INVOICE DOCUMENTS:
