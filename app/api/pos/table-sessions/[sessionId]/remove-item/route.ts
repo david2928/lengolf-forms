@@ -103,15 +103,19 @@ export async function POST(
 
     // Update the order item quantity or remove it completely
     if (removeQuantity >= orderItem.quantity) {
-      // Remove the item completely
-      const { error: deleteError } = await supabase
+      // Soft-delete: set quantity and total_price to 0
+      // (DELETE is blocked by pos.prevent_deletion() trigger)
+      const { error: softDeleteError } = await supabase
         .schema('pos')
         .from('order_items')
-        .delete()
+        .update({
+          quantity: 0,
+          total_price: 0
+        })
         .eq('id', itemId);
 
-      if (deleteError) {
-        console.error('Failed to delete order item:', deleteError);
+      if (softDeleteError) {
+        console.error('Failed to soft-delete order item:', softDeleteError);
         return NextResponse.json(
           { error: "Failed to remove item" },
           { status: 500 }
