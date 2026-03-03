@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import type {
   ExpenseChecklistItem,
+  Pp36LineItem,
   KbankEdcItem,
   PlatformFeeItem,
   ExpenseChecklistSummary,
@@ -41,20 +42,24 @@ export async function GET(request: NextRequest) {
     const lastDay = new Date(y, m, 0).getDate();
     const endDate = `${period}-${String(lastDay).padStart(2, '0')}`;
 
+    // Calculate previous month for PP36 claimable lookup
+    const prevMonth = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+
     // Run all independent queries in parallel
-    const [annotationsResult, kbankData, salesData, otherSalesResult, platformFees, bankBalances] = await Promise.all([
+    const [annotationsResult, kbankData, salesData, otherSalesResult, platformFees, bankBalances, pp36Data] = await Promise.all([
       fetchAnnotationsWithBankTxns(startDate, endDate),
       fetchKbankEdc(period, startDate, endDate),
       fetchPosSales(startDate, endDate),
       fetchOtherSales(startDate, endDate),
       fetchPlatformFees(period, startDate, endDate),
       fetchBankBalances(startDate, endDate),
+      fetchPp36ByReportingMonth(prevMonth, period),
     ]);
 
     const { items, payroll } = annotationsResult;
 
     return NextResponse.json(
-      buildResponse(period, items, kbankData, platformFees, salesData, otherSalesResult, payroll, bankBalances)
+      buildResponse(period, items, kbankData, platformFees, salesData, otherSalesResult, payroll, bankBalances, pp36Data)
     );
   } catch (error) {
     console.error('Error in expense checklist endpoint:', error);
@@ -243,6 +248,127 @@ async function fetchAnnotationsWithBankTxns(
       total_sso: totalSso,
       sso_count: ssoCount,
     },
+  };
+}
+
+// ── Fetch PP36 by vat_reporting_month ────────────────────────────────────
+// PP36 input VAT is based on invoice month (vat_reporting_month), not bank date.
+// Claimable = previous month's invoices (PP36 filed & paid this month).
+// Payable = current month's invoices (PP36 to file & pay next month).
+
+interface Pp36Data {
+  claimable_items: Pp36LineItem[];
+  payable_items: Pp36LineItem[];
+  claimable_vat: number;
+  claimable_base: number;
+  payable_vat: number;
+  payable_base: number;
+}
+
+async function fetchPp36ByReportingMonth(
+  prevMonth: string,
+  currentMonth: string
+): Promise<Pp36Data> {
+  // Fetch PP36 annotations with bank transaction + vendor details
+  const { data: annotations, error: annError } = await refacSupabaseAdmin
+    .schema('finance')
+    .from('transaction_annotations')
+    .select('id, bank_transaction_id, vendor_id, vendor_name_override, vat_amount, tax_base, vat_reporting_month, notes, flow_completed')
+    .eq('vat_type', 'pp36')
+    .in('vat_reporting_month', [prevMonth, currentMonth]);
+
+  if (annError || !annotations || annotations.length === 0) {
+    if (annError) console.error('Error fetching PP36 by reporting month:', annError);
+    return { claimable_items: [], payable_items: [], claimable_vat: 0, claimable_base: 0, payable_vat: 0, payable_base: 0 };
+  }
+
+  // Fetch bank transactions for dates/withdrawals
+  const bankTxIds = annotations.map((a: { bank_transaction_id: number }) => a.bank_transaction_id);
+  const { data: bankTxns } = await refacSupabaseAdmin
+    .schema('finance')
+    .from('bank_statement_transactions')
+    .select('id, transaction_date, withdrawal')
+    .in('id', bankTxIds);
+
+  const bankTxMap = new Map<number, { transaction_date: string; withdrawal: number }>();
+  (bankTxns || []).forEach((tx: { id: number; transaction_date: string; withdrawal: number }) => {
+    bankTxMap.set(tx.id, tx);
+  });
+
+  // Fetch vendor names
+  const vendorIds = annotations
+    .map((a: { vendor_id: string | null }) => a.vendor_id)
+    .filter((id: string | null): id is string => id !== null);
+  const vendorMap = new Map<string, string>();
+  if (vendorIds.length > 0) {
+    const { data: vendors } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('vendors')
+      .select('id, name')
+      .in('id', Array.from(new Set(vendorIds)));
+    (vendors || []).forEach((v: { id: string; name: string }) => {
+      vendorMap.set(v.id, v.name);
+    });
+  }
+
+  // Build line items and aggregate
+  const claimableItems: Pp36LineItem[] = [];
+  const payableItems: Pp36LineItem[] = [];
+  let claimableVat = 0, claimableBase = 0, payableVat = 0, payableBase = 0;
+
+  (annotations as Array<{
+    id: number;
+    bank_transaction_id: number;
+    vendor_id: string | null;
+    vendor_name_override: string | null;
+    vat_amount: string | null;
+    tax_base: string | null;
+    vat_reporting_month: string;
+    notes: string | null;
+    flow_completed: boolean;
+  }>).forEach((ann) => {
+    const bankTx = bankTxMap.get(ann.bank_transaction_id);
+    const vat = parseFloat(String(ann.vat_amount || 0));
+    const grossBase = parseFloat(String(ann.tax_base || 0));
+    const netBase = Math.round((grossBase - vat) * 100) / 100;
+    const vendorName = ann.vendor_name_override
+      || (ann.vendor_id ? vendorMap.get(ann.vendor_id) : null)
+      || 'Unknown';
+
+    const item: Pp36LineItem = {
+      id: ann.id,
+      vendor_name: vendorName,
+      invoice_month: ann.vat_reporting_month,
+      vat_amount: Math.round(vat * 100) / 100,
+      tax_base: netBase,
+      withdrawal: bankTx?.withdrawal || 0,
+      transaction_date: bankTx?.transaction_date || '',
+      notes: ann.notes,
+      flow_completed: ann.flow_completed || false,
+    };
+
+    if (ann.vat_reporting_month === prevMonth) {
+      claimableItems.push(item);
+      claimableVat += vat;
+      claimableBase += netBase;
+    } else {
+      payableItems.push(item);
+      payableVat += vat;
+      payableBase += netBase;
+    }
+  });
+
+  // Sort by transaction date
+  claimableItems.sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
+  payableItems.sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
+
+  return {
+    claimable_items: claimableItems,
+    payable_items: payableItems,
+    claimable_vat: Math.round(claimableVat * 100) / 100,
+    claimable_base: Math.round(claimableBase * 100) / 100,
+    payable_vat: Math.round(payableVat * 100) / 100,
+    payable_base: Math.round(payableBase * 100) / 100,
   };
 }
 
@@ -784,7 +910,8 @@ function buildResponse(
   posData: { pos_credit: number; pos_ewallet: number; pos_qr: number; pos_cash: number; pos_sales_net: number; pos_sales_vat: number; pos_sales_total: number; pos_receipt_count: number },
   manualRevenue: MonthlySalesLineItem[],
   payroll: MonthlyPayrollData,
-  bankBalances: BankAccountBalance[]
+  bankBalances: BankAccountBalance[],
+  pp36Data: Pp36Data
 ): ExpenseChecklistData {
   const kbankItemCount = kbankEdc.length;
   const kbankCompleted = kbankEdc.filter((k) => k.flow_completed).length;
@@ -842,26 +969,26 @@ function buildResponse(
     (items.filter((i) => i.vat_type === 'pp30').reduce((s, i) => s + (i.vat_amount || 0), 0) + kbankVat + pfVatPp30) * 100
   ) / 100;
 
-  const inputVatPp36 = Math.round(
-    (items.filter((i) => i.vat_type === 'pp36').reduce((s, i) => s + (i.vat_amount || 0), 0) + pfVatPp36) * 100
-  ) / 100;
+  // PP36 input VAT: use vat_reporting_month (prev month invoices) instead of bank date
+  // Platform fee PP36 still uses receipt-date filtering (consistent with platform fee logic)
+  const inputVatPp36 = Math.round((pp36Data.claimable_vat + pfVatPp36) * 100) / 100;
 
-  // Total purchase base = sum of net tax_base for all VAT-claimed items
-  // PP36 items store tax_base as gross (withdrawal + vat), so subtract vat to get net base
-  const expensePurchaseBase = Math.round(
-    items.filter((i) => i.vat_type !== 'none').reduce((s, i) => {
-      const base = i.tax_base || 0;
-      if (i.vat_type === 'pp36') {
-        return s + (base - (i.vat_amount || 0));
-      }
-      return s + base;
-    }, 0) * 100
+  // Purchase base: PP30 items from bank-date filter + PP36 from reporting month
+  const pp30PurchaseBase = Math.round(
+    items.filter((i) => i.vat_type === 'pp30').reduce((s, i) => s + (i.tax_base || 0), 0) * 100
   ) / 100;
   const kbankPurchaseBase = kbankCommission; // commission is the tax base
   const pfPurchaseBase = Math.round(
     platformFees.filter((p) => p.vat_type !== 'none').reduce((s, p) => s + p.tax_base, 0) * 100
   ) / 100;
-  const totalPurchaseBase = Math.round((expensePurchaseBase + kbankPurchaseBase + pfPurchaseBase) * 100) / 100;
+  const totalPurchaseBase = Math.round((pp30PurchaseBase + pp36Data.claimable_base + kbankPurchaseBase + pfPurchaseBase) * 100) / 100;
+
+  // PP36 filing month label (next month after the selected period)
+  // Date constructor is 0-indexed, so passing 1-indexed pm gives next month.
+  // Dec (pm=12) correctly wraps to Jan of next year via Date overflow.
+  const [py, pm] = period.split('-').map(Number);
+  const filingDate = new Date(py, pm, 1);
+  const pp36FilingMonth = filingDate.toLocaleDateString('en-US', { month: 'long' });
 
   const totalSalesNet = Math.round((posData.pos_sales_net + otherSalesNet) * 100) / 100;
   const excessCarriedForward = 0; // TODO: configurable from previous period
@@ -873,6 +1000,8 @@ function buildResponse(
     total_purchase_base: totalPurchaseBase,
     input_vat_pp30: inputVatPp30,
     input_vat_pp36: inputVatPp36,
+    pp36_payable: pp36Data.payable_vat,
+    pp36_filing_month: pp36FilingMonth,
     excess_carried_forward: excessCarriedForward,
     tax_to_be_paid: netResult > 0 ? netResult : 0,
     excess_to_be_claimed: netResult < 0 ? Math.abs(netResult) : 0,
@@ -897,9 +1026,14 @@ function buildResponse(
     total_sso: payroll.total_sso,
   };
 
+  // Filter PP36 out of main items — PP36 is shown in its own section
+  const pp30Items = items.filter((i) => i.vat_type !== 'pp36');
+
   return {
     period,
-    items,
+    items: pp30Items,
+    pp36_claimable: pp36Data.claimable_items,
+    pp36_payable: pp36Data.payable_items,
     kbank_edc: kbankEdc,
     platform_fees: platformFees,
     sales,

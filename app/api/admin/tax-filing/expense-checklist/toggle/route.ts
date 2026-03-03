@@ -83,15 +83,18 @@ export async function PUT(request: NextRequest) {
       const { error } = await refacSupabaseAdmin
         .schema('finance')
         .from('expense_checklist_extras')
-        .update({
-          flow_completed,
-          flow_completed_at: now,
-        })
-        .eq('period', body.period)
-        .eq('item_key', body.item_key);
+        .upsert(
+          {
+            period: body.period,
+            item_key: body.item_key,
+            flow_completed,
+            flow_completed_at: now,
+          },
+          { onConflict: 'period,item_key' }
+        );
 
       if (error) {
-        console.error('Error updating platform fee:', error);
+        console.error('Error upserting platform fee:', error);
         return NextResponse.json({ error: "Failed to update platform fee" }, { status: 500 });
       }
 

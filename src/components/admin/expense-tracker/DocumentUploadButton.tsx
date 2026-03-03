@@ -8,7 +8,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import type { InvoiceExtraction, VatType, WhtType, TransactionType } from '@/types/expense-tracker';
+import type { InvoiceExtraction, VatType, TransactionType } from '@/types/expense-tracker';
 
 // ── Tax filing types (extensible — add new types here) ─────────────────────
 
@@ -22,19 +22,12 @@ const FILING_CONFIG: Record<FilingType, { label: string; color: string; needsDes
   sso:   { label: 'SSO',         color: 'bg-teal-100 text-teal-700',    needsDescription: false },
 };
 
-function getAvailableFilingTypes(
-  vatType: VatType,
-  whtType: WhtType,
-  transactionType: TransactionType | null
-): FilingType[] {
-  const types: FilingType[] = [];
-  // pp30/pp36 are NOT included here — vendor invoices with VAT use extraction
-  // mode (FileUp) and go to the expense VAT folder, not the tax filing folder.
-  // Tax filing mode is only for WHT certificates (PND3/PND53) and SSO forms.
-  if (whtType === 'pnd3') types.push('pnd3');
-  if (whtType === 'pnd53') types.push('pnd53');
-  if (transactionType === 'sso') types.push('sso');
-  return types;
+function getAvailableFilingTypes(transactionType: TransactionType | null): FilingType[] {
+  // Tax filing mode: tax_payment transactions can be any tax form type.
+  // AI will classify the document to determine the specific filing type.
+  if (transactionType === 'tax_payment') return ['pp30', 'pp36', 'pnd3', 'pnd53'];
+  if (transactionType === 'sso') return ['sso'];
+  return [];
 }
 
 // ── AI extraction config ───────────────────────────────────────────────────
@@ -68,8 +61,6 @@ interface DocumentUploadButtonProps {
   paymentDate?: string;
   vendorName?: string;
   // Tax context — when present and relevant, switches to tax filing mode
-  vatType?: VatType;
-  whtType?: WhtType;
   transactionType?: TransactionType | null;
   reportingMonth?: string;
   onTaxDocUploaded?: (documentUrl: string) => void;
@@ -79,14 +70,12 @@ export function DocumentUploadButton({
   onExtracted,
   paymentDate,
   vendorName,
-  vatType = 'none',
-  whtType = 'none',
   transactionType = null,
   reportingMonth,
   onTaxDocUploaded,
 }: DocumentUploadButtonProps) {
   // Determine mode
-  const availableFilingTypes = getAvailableFilingTypes(vatType, whtType, transactionType);
+  const availableFilingTypes = getAvailableFilingTypes(transactionType);
   const isTaxMode = availableFilingTypes.length > 0;
 
   // ── Shared state ───────────────────────────────────────
@@ -108,11 +97,15 @@ export function DocumentUploadButton({
   const [taxDescription, setTaxDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [taxSuccess, setTaxSuccess] = useState(false);
+  const [classifying, setClassifying] = useState(false);
+  const [classified, setClassified] = useState(false);
+  const [classificationConfidence, setClassificationConfidence] = useState<string | null>(null);
+  const [classificationExplanation, setClassificationExplanation] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const effectiveFiling = availableFilingTypes.length === 1 ? availableFilingTypes[0] : selectedFiling;
   const needsDescription = effectiveFiling ? FILING_CONFIG[effectiveFiling].needsDescription : false;
-  const canUploadTax = effectiveFiling && selectedFile && (!needsDescription || taxDescription.trim());
+  const canUploadTax = effectiveFiling && selectedFile && classified && (!needsDescription || taxDescription.trim());
 
   // ── Shared helpers ─────────────────────────────────────
 
@@ -137,6 +130,10 @@ export function DocumentUploadButton({
     setTaxDescription('');
     setSelectedFile(null);
     setTaxSuccess(false);
+    setClassifying(false);
+    setClassified(false);
+    setClassificationConfidence(null);
+    setClassificationExplanation(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [cleanupPreview]);
 
@@ -212,13 +209,64 @@ export function DocumentUploadButton({
 
   // ── Tax filing mode handlers ───────────────────────────
 
-  const handleTaxFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTaxFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File too large (max 10MB)');
+      return;
+    }
+
     setSelectedFile(file);
     setError(null);
     setTaxSuccess(false);
-  }, []);
+    setClassified(false);
+    setClassificationConfidence(null);
+    setClassificationExplanation(null);
+
+    // For SSO (single type), skip classification
+    if (availableFilingTypes.length === 1) {
+      setClassified(true);
+      return;
+    }
+
+    // Auto-classify via AI
+    setClassifying(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/admin/expense-tracker/classify-tax-document', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Classification failed' }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const detected = data.filing_type as FilingType | 'unknown';
+
+      if (detected !== 'unknown' && availableFilingTypes.includes(detected as FilingType)) {
+        setSelectedFiling(detected as FilingType);
+      }
+      if (data.description) {
+        setTaxDescription(data.description);
+      }
+      setClassificationConfidence(data.confidence);
+      setClassificationExplanation(data.confidence_explanation);
+      setClassified(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Classification failed');
+      // Still allow manual selection on failure
+      setClassified(true);
+    } finally {
+      setClassifying(false);
+    }
+  }, [availableFilingTypes]);
 
   const handleTaxUpload = useCallback(async () => {
     if (!effectiveFiling || !selectedFile) return;
@@ -294,12 +342,23 @@ export function DocumentUploadButton({
             onFileSelect={handleTaxFileSelect}
             onClearFile={() => {
               setSelectedFile(null);
+              setClassified(false);
+              setClassifying(false);
+              setClassificationConfidence(null);
+              setClassificationExplanation(null);
+              setSelectedFiling(null);
+              setTaxDescription('');
+              setError(null);
               if (fileInputRef.current) fileInputRef.current.value = '';
             }}
             fileInputRef={fileInputRef}
             onFilingSelect={setSelectedFiling}
             canUpload={!!canUploadTax}
             uploading={uploading}
+            classifying={classifying}
+            classified={classified}
+            classificationConfidence={classificationConfidence}
+            classificationExplanation={classificationExplanation}
             error={error}
             success={taxSuccess}
             onUpload={handleTaxUpload}
@@ -349,6 +408,10 @@ function TaxFilingPanel({
   onFilingSelect,
   canUpload,
   uploading,
+  classifying,
+  classified,
+  classificationConfidence,
+  classificationExplanation,
   error,
   success,
   onUpload,
@@ -366,43 +429,23 @@ function TaxFilingPanel({
   onFilingSelect: (ft: FilingType) => void;
   canUpload: boolean;
   uploading: boolean;
+  classifying: boolean;
+  classified: boolean;
+  classificationConfidence: string | null;
+  classificationExplanation: string | null;
   error: string | null;
   success: boolean;
   onUpload: () => void;
   reportingMonth?: string;
 }) {
+  const isSingleType = availableTypes.length === 1;
+
   return (
     <div className="space-y-3">
       <div className="text-sm font-medium">File to Tax Folder</div>
 
-      {/* Filing type selector (only if multiple) */}
-      {availableTypes.length > 1 && (
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Filing Type</label>
-          <div className="flex flex-wrap gap-1">
-            {availableTypes.map((ft) => {
-              const cfg = FILING_CONFIG[ft];
-              return (
-                <button
-                  key={ft}
-                  type="button"
-                  onClick={() => onFilingSelect(ft)}
-                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                    effectiveFiling === ft
-                      ? cfg.color + ' ring-1 ring-current'
-                      : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                  }`}
-                >
-                  {cfg.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Auto-selected badge for single type */}
-      {availableTypes.length === 1 && (
+      {/* Auto-selected badge for single type (e.g. SSO) */}
+      {isSingleType && (
         <div className="flex items-center gap-1.5">
           <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${FILING_CONFIG[availableTypes[0]].color}`}>
             {FILING_CONFIG[availableTypes[0]].label}
@@ -413,8 +456,96 @@ function TaxFilingPanel({
         </div>
       )}
 
-      {/* Description input (VAT types) */}
-      {needsDescription && (
+      {/* Step 1: Choose File */}
+      {selectedFile ? (
+        <div className="flex items-center gap-2 px-2 py-1.5 border rounded bg-muted/30 text-xs">
+          <span className="truncate flex-1">{selectedFile.name}</span>
+          <button
+            type="button"
+            onClick={onClearFile}
+            className="text-muted-foreground hover:text-foreground shrink-0"
+          >
+            &times;
+          </button>
+        </div>
+      ) : (
+        <div className="relative">
+          <Button size="sm" variant="outline" className="w-full h-8 text-xs">
+            <FolderUp className="mr-1 h-3 w-3" />
+            Choose File
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,image/*"
+            onChange={onFileSelect}
+            className="absolute inset-0 opacity-0 cursor-pointer"
+          />
+        </div>
+      )}
+
+      {/* Step 2: Classifying indicator */}
+      {classifying && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Classifying document...
+        </div>
+      )}
+
+      {/* Step 3: Classification result + override */}
+      {classified && selectedFile && !isSingleType && (
+        <div className="space-y-2">
+          {/* AI result badge */}
+          {effectiveFiling && (
+            <div className="flex items-center gap-1.5">
+              <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${FILING_CONFIG[effectiveFiling].color}`}>
+                {FILING_CONFIG[effectiveFiling].label}
+              </span>
+              {classificationConfidence && (
+                <span className={`text-[10px] font-medium ${CONFIDENCE_COLORS[classificationConfidence] || ''}`}>
+                  {classificationConfidence}
+                </span>
+              )}
+              {reportingMonth && (
+                <span className="text-[10px] text-muted-foreground">{reportingMonth}</span>
+              )}
+            </div>
+          )}
+
+          {classificationExplanation && (
+            <p className="text-[10px] text-muted-foreground">{classificationExplanation}</p>
+          )}
+
+          {/* Override selector */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-medium text-muted-foreground">
+              {effectiveFiling ? 'Override type' : 'Select type'}
+            </label>
+            <div className="flex flex-wrap gap-1">
+              {availableTypes.map((ft) => {
+                const cfg = FILING_CONFIG[ft];
+                return (
+                  <button
+                    key={ft}
+                    type="button"
+                    onClick={() => onFilingSelect(ft)}
+                    className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                      effectiveFiling === ft
+                        ? cfg.color + ' ring-1 ring-current'
+                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                    }`}
+                  >
+                    {cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Description input (VAT types need it) */}
+      {classified && needsDescription && (
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">
             Description <span className="text-red-500">*</span>
@@ -426,38 +557,6 @@ function TaxFilingPanel({
             placeholder="e.g. KBank EDC fees"
             className="h-7 text-xs px-2 border rounded bg-background w-full focus:outline-none focus:ring-1 focus:ring-ring"
           />
-        </div>
-      )}
-
-      {/* File selection */}
-      {effectiveFiling && (
-        <div className="space-y-1.5">
-          {selectedFile ? (
-            <div className="flex items-center gap-2 px-2 py-1.5 border rounded bg-muted/30 text-xs">
-              <span className="truncate flex-1">{selectedFile.name}</span>
-              <button
-                type="button"
-                onClick={onClearFile}
-                className="text-muted-foreground hover:text-foreground shrink-0"
-              >
-                &times;
-              </button>
-            </div>
-          ) : (
-            <div className="relative">
-              <Button size="sm" variant="outline" className="w-full h-8 text-xs">
-                <FolderUp className="mr-1 h-3 w-3" />
-                Choose File
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,image/*"
-                onChange={onFileSelect}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
-            </div>
-          )}
         </div>
       )}
 
@@ -475,7 +574,7 @@ function TaxFilingPanel({
         </div>
       )}
 
-      {selectedFile && !success && (
+      {selectedFile && classified && !success && (
         <Button
           size="sm"
           className="w-full h-8 text-xs"

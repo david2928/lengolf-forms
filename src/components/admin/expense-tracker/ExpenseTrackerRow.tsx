@@ -546,8 +546,6 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
             onExtracted={handleInvoiceExtracted}
             paymentDate={tx.transaction_date}
             vendorName={vendor?.company_name || vendor?.name || vendorNameOverride || undefined}
-            vatType={vatType}
-            whtType={whtType}
             transactionType={transactionType}
             reportingMonth={reportingMonth || tx.transaction_date.substring(0, 7)}
             onTaxDocUploaded={handleTaxDocUploaded}
