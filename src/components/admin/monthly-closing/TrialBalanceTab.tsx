@@ -16,8 +16,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
-  ExpenseChecklistData,
-  ExpenseChecklistItem,
+  TrialBalanceTxEntry,
+  TrialBalanceData,
   BankAccountBalance,
 } from '@/types/tax-filing';
 
@@ -51,7 +51,7 @@ const ACCOUNT_LABELS: Record<string, string> = {
 };
 
 export function TrialBalanceTab({ period }: TrialBalanceTabProps) {
-  const [data, setData] = useState<ExpenseChecklistData | null>(null);
+  const [data, setData] = useState<TrialBalanceData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
@@ -60,12 +60,12 @@ export function TrialBalanceTab({ period }: TrialBalanceTabProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/tax-filing/expense-checklist?period=${p}`);
+      const res = await fetch(`/api/admin/tax-filing/trial-balance?period=${p}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Request failed' }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
-      const result: ExpenseChecklistData = await res.json();
+      const result: TrialBalanceData = await res.json();
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
@@ -79,43 +79,60 @@ export function TrialBalanceTab({ period }: TrialBalanceTabProps) {
     fetchData(period);
   }, [period, fetchData]);
 
-  const toggleItem = useCallback(async (id: number, currentValue: boolean) => {
-    const toggleKey = `ann_${id}`;
-    const newValue = !currentValue;
+  const toggleItem = useCallback(async (entry: TrialBalanceTxEntry) => {
+    const toggleKey = `tx_${entry.bank_transaction_id}`;
+    const newValue = !entry.flow_completed;
 
     setTogglingIds((prev) => new Set(prev).add(toggleKey));
     setData((prev) => {
       if (!prev) return prev;
-      const items = prev.items.map((i) =>
-        i.id === id ? { ...i, flow_completed: newValue } : i
-      );
-      return { ...prev, items };
+      return {
+        ...prev,
+        entries: prev.entries.map((e) =>
+          e.bank_transaction_id === entry.bank_transaction_id
+            ? { ...e, flow_completed: newValue }
+            : e
+        ),
+      };
     });
 
     try {
+      const body =
+        entry.annotation_id !== null
+          ? { type: 'annotation', id: entry.annotation_id, flow_completed: newValue }
+          : { type: 'bank_transaction', item_key: `bt_${entry.bank_transaction_id}`, period, flow_completed: newValue };
+
       const res = await fetch('/api/admin/tax-filing/expense-checklist/toggle', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'annotation', id, flow_completed: newValue }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
         // Revert on failure
         setData((prev) => {
           if (!prev) return prev;
-          const items = prev.items.map((i) =>
-            i.id === id ? { ...i, flow_completed: currentValue } : i
-          );
-          return { ...prev, items };
+          return {
+            ...prev,
+            entries: prev.entries.map((e) =>
+              e.bank_transaction_id === entry.bank_transaction_id
+                ? { ...e, flow_completed: entry.flow_completed }
+                : e
+            ),
+          };
         });
       }
     } catch {
       setData((prev) => {
         if (!prev) return prev;
-        const items = prev.items.map((i) =>
-          i.id === id ? { ...i, flow_completed: currentValue } : i
-        );
-        return { ...prev, items };
+        return {
+          ...prev,
+          entries: prev.entries.map((e) =>
+            e.bank_transaction_id === entry.bank_transaction_id
+              ? { ...e, flow_completed: entry.flow_completed }
+              : e
+          ),
+        };
       });
     } finally {
       setTogglingIds((prev) => {
@@ -124,9 +141,9 @@ export function TrialBalanceTab({ period }: TrialBalanceTabProps) {
         return next;
       });
     }
-  }, []);
+  }, [period]);
 
-  const accountGroups = data ? groupByAccount(data.items) : [];
+  const accountGroups = data ? groupByAccount(data.entries) : [];
   const bankBalances = data?.bank_balances || [];
 
   return (
@@ -174,9 +191,9 @@ export function TrialBalanceTab({ period }: TrialBalanceTabProps) {
 
 interface TrialBalanceContentProps {
   bankBalances: BankAccountBalance[];
-  accountGroups: { account: string; items: ExpenseChecklistItem[] }[];
+  accountGroups: { account: string; entries: TrialBalanceTxEntry[] }[];
   togglingIds: Set<string>;
-  onToggle: (id: number, currentValue: boolean) => void;
+  onToggle: (entry: TrialBalanceTxEntry) => void;
 }
 
 function TrialBalanceContent({
@@ -243,17 +260,23 @@ function TrialBalanceContent({
       {/* Detailed transaction tables per account */}
       {accountGroups.map((group) => {
         const balance = balanceMap.get(group.account);
+        const checked = group.entries.filter((e) => e.flow_completed).length;
         return (
           <div key={group.account} className="border rounded-lg overflow-x-auto">
             <div className="bg-gray-100 border-b px-3 py-1.5 flex items-center justify-between">
               <span className="text-xs font-medium text-gray-600">
                 {ACCOUNT_LABELS[group.account] || `Account ${group.account}`}
               </span>
-              {balance && (
+              <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-400">
-                  {formatNum(balance.beginning_balance)} &rarr; {formatNum(balance.ending_balance)}
+                  {checked}/{group.entries.length} checked
                 </span>
-              )}
+                {balance && (
+                  <span className="text-xs text-gray-400">
+                    {formatNum(balance.beginning_balance)} &rarr; {formatNum(balance.ending_balance)}
+                  </span>
+                )}
+              </div>
             </div>
             <table className="w-full text-sm">
               <thead>
@@ -261,58 +284,56 @@ function TrialBalanceContent({
                   <th className="px-2 py-2 text-center font-medium text-gray-500 w-[30px]"></th>
                   <th className="px-2 py-2 text-left font-medium text-gray-500 w-[30px]">#</th>
                   <th className="px-2 py-2 text-left font-medium text-gray-500 w-[65px]">Date</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[180px]">Vendor</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[120px]">Description</th>
+                  <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[160px]">Description / Vendor</th>
+                  <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[80px]">Notes</th>
                   <th className="px-2 py-2 text-left font-medium text-gray-500 w-[100px]">Tax</th>
-                  <th className="px-2 py-2 text-right font-medium text-gray-500 w-[100px]">Amount</th>
-                  <th className="px-2 py-2 text-right font-medium text-gray-500 w-[80px]">VAT</th>
-                  <th className="px-2 py-2 text-right font-medium text-gray-500 w-[80px]">WHT</th>
+                  <th className="px-2 py-2 text-right font-medium text-red-500 w-[100px]">Withdrawal</th>
+                  <th className="px-2 py-2 text-right font-medium text-green-600 w-[100px]">Deposit</th>
+                  <th className="px-2 py-2 text-right font-medium text-gray-500 w-[100px]">Balance</th>
                 </tr>
               </thead>
               {balance && (
                 <tbody>
                   <tr className="border-b bg-blue-50/30">
-                    <td colSpan={6} className="px-2 py-1.5 text-xs text-gray-500 italic">
+                    <td colSpan={8} className="px-2 py-1.5 text-xs text-gray-500 italic">
                       Beginning Balance
                     </td>
-                    <td colSpan={3} className="px-2 py-1.5 text-right font-mono text-xs font-medium">
+                    <td className="px-2 py-1.5 text-right font-mono text-xs font-medium">
                       {formatNum(balance.beginning_balance)}
                     </td>
                   </tr>
                 </tbody>
               )}
               <tbody>
-                {group.items.map((item, idx) => (
+                {group.entries.map((entry, idx) => (
                   <TrialBalanceRow
-                    key={item.id}
-                    item={item}
+                    key={entry.bank_transaction_id}
+                    entry={entry}
                     seq={idx + 1}
-                    isToggling={togglingIds.has(`ann_${item.id}`)}
-                    onToggle={() => onToggle(item.id, item.flow_completed)}
+                    isToggling={togglingIds.has(`tx_${entry.bank_transaction_id}`)}
+                    onToggle={() => onToggle(entry)}
                   />
                 ))}
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50 border-t font-medium">
                   <td colSpan={6} className="px-2 py-2 text-right text-gray-500">
-                    Totals ({group.items.length} items)
+                    Totals ({group.entries.length} items)
                   </td>
-                  <td className="px-2 py-2 text-right font-mono">
-                    {formatNum(group.items.reduce((s, i) => s + i.withdrawal, 0))}
+                  <td className="px-2 py-2 text-right font-mono text-red-600">
+                    {formatNum(group.entries.reduce((s, e) => s + e.withdrawal, 0))}
                   </td>
-                  <td className="px-2 py-2 text-right font-mono">
-                    {formatNum(group.items.reduce((s, i) => s + (i.vat_amount || 0), 0))}
+                  <td className="px-2 py-2 text-right font-mono text-green-600">
+                    {formatNum(group.entries.reduce((s, e) => s + e.deposit, 0))}
                   </td>
-                  <td className="px-2 py-2 text-right font-mono">
-                    {formatNum(group.items.reduce((s, i) => s + (i.wht_amount || 0), 0))}
-                  </td>
+                  <td className="px-2 py-2 text-right font-mono" />
                 </tr>
                 {balance && (
                   <tr className="bg-blue-50/30 border-t">
-                    <td colSpan={6} className="px-2 py-1.5 text-xs text-gray-500 italic text-right">
+                    <td colSpan={8} className="px-2 py-1.5 text-xs text-gray-500 italic text-right">
                       Ending Balance
                     </td>
-                    <td colSpan={3} className="px-2 py-1.5 text-right font-mono text-xs font-medium">
+                    <td className="px-2 py-1.5 text-right font-mono text-xs font-medium">
                       {formatNum(balance.ending_balance)}
                     </td>
                   </tr>
@@ -329,30 +350,34 @@ function TrialBalanceContent({
 // ── Row Component ───────────────────────────────────────────────────────
 
 function TrialBalanceRow({
-  item,
+  entry,
   seq,
   isToggling,
   onToggle,
 }: {
-  item: ExpenseChecklistItem;
+  entry: TrialBalanceTxEntry;
   seq: number;
   isToggling: boolean;
   onToggle: () => void;
 }) {
-  const completed = item.flow_completed;
+  const completed = entry.flow_completed;
+  const isDeposit = entry.deposit > 0;
   const badges: { label: string; color: string }[] = [];
 
-  if (item.vat_type !== 'none') {
-    badges.push({ label: item.vat_type.toUpperCase(), color: TAX_BADGE_COLORS[item.vat_type] });
+  if (entry.vat_type !== 'none') {
+    badges.push({ label: entry.vat_type.toUpperCase(), color: TAX_BADGE_COLORS[entry.vat_type] });
   }
-  if (item.wht_type !== 'none') {
-    badges.push({ label: item.wht_type.toUpperCase(), color: TAX_BADGE_COLORS[item.wht_type] });
+  if (entry.wht_type !== 'none') {
+    badges.push({ label: entry.wht_type.toUpperCase(), color: TAX_BADGE_COLORS[entry.wht_type] });
   }
+
+  const displayName = entry.vendor_name || entry.description || '';
 
   return (
     <tr className={cn(
       "border-b hover:bg-gray-50/50 transition-colors",
-      completed && "bg-green-50/30"
+      completed && "bg-green-50/30",
+      isDeposit && !completed && "bg-green-50/10"
     )}>
       <td className="px-2 py-1.5 text-center">
         <Checkbox
@@ -364,13 +389,13 @@ function TrialBalanceRow({
       </td>
       <td className={cn("px-2 py-1.5 text-gray-400 text-xs", completed && "text-gray-300")}>{seq}</td>
       <td className={cn("px-2 py-1.5 text-xs whitespace-nowrap", completed && "text-gray-400")}>
-        {formatDate(item.transaction_date)}
+        {formatDate(entry.transaction_date)}
       </td>
-      <td className={cn("px-2 py-1.5 font-medium", completed ? "text-gray-400 line-through" : "text-gray-700")}>
-        {item.vendor_name}
+      <td className={cn("px-2 py-1.5 font-medium text-xs", completed ? "text-gray-400 line-through" : "text-gray-700")}>
+        {displayName}
       </td>
       <td className={cn("px-2 py-1.5 text-xs", completed ? "text-gray-400" : "text-gray-500")}>
-        {item.notes || ''}
+        {entry.notes || ''}
       </td>
       <td className="px-2 py-1.5">
         <div className="flex gap-1 flex-wrap">
@@ -385,14 +410,14 @@ function TrialBalanceRow({
           ))}
         </div>
       </td>
-      <td className={cn("px-2 py-1.5 text-right font-mono text-xs", completed && "text-gray-400")}>
-        {formatNum(item.withdrawal)}
+      <td className={cn("px-2 py-1.5 text-right font-mono text-xs", completed ? "text-gray-400" : "text-red-600")}>
+        {entry.withdrawal > 0 ? formatNum(entry.withdrawal) : ''}
+      </td>
+      <td className={cn("px-2 py-1.5 text-right font-mono text-xs", completed ? "text-gray-400" : "text-green-600")}>
+        {entry.deposit > 0 ? formatNum(entry.deposit) : ''}
       </td>
       <td className={cn("px-2 py-1.5 text-right font-mono text-xs", completed && "text-gray-400")}>
-        {item.vat_amount && item.vat_amount > 0 ? formatNum(item.vat_amount) : ''}
-      </td>
-      <td className={cn("px-2 py-1.5 text-right font-mono text-xs", completed && "text-gray-400")}>
-        {item.wht_amount && item.wht_amount > 0 ? formatNum(item.wht_amount) : ''}
+        {formatNum(entry.balance)}
       </td>
     </tr>
   );
@@ -400,31 +425,33 @@ function TrialBalanceRow({
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-function groupByAccount(items: ExpenseChecklistItem[]): { account: string; items: ExpenseChecklistItem[] }[] {
-  const map = new Map<string, ExpenseChecklistItem[]>();
-  items.forEach((item) => {
-    const key = item.account_number || OPERATING_ACCOUNT;
+function groupByAccount(
+  entries: TrialBalanceTxEntry[]
+): { account: string; entries: TrialBalanceTxEntry[] }[] {
+  const map = new Map<string, TrialBalanceTxEntry[]>();
+  entries.forEach((entry) => {
+    const key = entry.account_number || OPERATING_ACCOUNT;
     const group = map.get(key);
     if (group) {
-      group.push(item);
+      group.push(entry);
     } else {
-      map.set(key, [item]);
+      map.set(key, [entry]);
     }
   });
 
   const order = [OPERATING_ACCOUNT, SAVINGS_ACCOUNT];
-  const result: { account: string; items: ExpenseChecklistItem[] }[] = [];
+  const result: { account: string; entries: TrialBalanceTxEntry[] }[] = [];
 
   order.forEach((acct) => {
     const group = map.get(acct);
     if (group) {
-      result.push({ account: acct, items: group });
+      result.push({ account: acct, entries: group });
       map.delete(acct);
     }
   });
 
   map.forEach((group, acct) => {
-    result.push({ account: acct, items: group });
+    result.push({ account: acct, entries: group });
   });
 
   return result;

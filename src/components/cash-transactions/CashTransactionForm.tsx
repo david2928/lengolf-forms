@@ -189,7 +189,7 @@ export function CashTransactionForm() {
       <Button
         type="button"
         className="w-full"
-        disabled={isSubmitting || !staffName || !spendingType || !amount || !file}
+        disabled={isSubmitting || submitStatus === 'success' || !staffName || !spendingType || !amount || !file}
         onClick={handleSubmit}
       >
         {isSubmitting ? (

@@ -12,8 +12,45 @@ import type {
   ExpenseTrackerFilters as FilterState,
   Vendor,
   AnnotationUpsert,
+  TransactionType,
 } from '@/types/expense-tracker';
 import type { MatchResult } from '@/lib/receipt-matching-engine';
+
+/**
+ * Rule-based classifier for deposit transactions.
+ * Returns a transaction_type if the description+channel pattern is unambiguous,
+ * or null if manual review is needed.
+ */
+function classifyDeposit(
+  description: string,
+  channel: string,
+  details: string,
+): TransactionType | null {
+  // Cash machine deposits
+  if (description === 'Cash Deposit') return 'cash_deposit';
+  // KBank card terminal settlements
+  if (description === 'Trade Finance Deposit') return 'sale';
+  if (description === 'Transfer Deposit' && channel === 'Trade Finance') return 'sale';
+  // Internal transfers from other LENGOLF accounts via K BIZ
+  if (
+    description === 'Transfer Deposit' &&
+    channel === 'K BIZ' &&
+    details.toLowerCase().includes('lengolf')
+  ) return 'internal_transfer';
+  // Card payments (Visa/Mastercard full-pay/installment)
+  if (description === 'Payment Received: FullPay/Install/Redemp') return 'credit_card';
+  // E-wallet payments (Alipay, WeChat Pay)
+  if (description === 'Payment Received: Alipay/WeChat') return 'ewallet';
+  // Platform settlements (GoWabi) — check before generic Internet/Mobile rule
+  if (description === 'Transfer Deposit' && channel === 'K-Cash Connect Plus') return 'platform_settlement';
+  if (description === 'Transfer Deposit' && details.toLowerCase().includes('gowabi')) return 'platform_settlement';
+  // QR/PromptPay transfers from customers via any bank
+  if (
+    description === 'Transfer Deposit' &&
+    (channel === 'K PLUS' || channel === 'MAKE by KBank' || channel.startsWith('Internet/Mobile'))
+  ) return 'qr_payment';
+  return null;
+}
 
 const ACCOUNTS = [
   { account_number: '170-3-27029-4', account_name: 'Savings (29-4)' },
@@ -54,6 +91,7 @@ export function ExpenseTrackerPage() {
   const [error, setError] = useState<string | null>(null);
   const [receiptMatches, setReceiptMatches] = useState<Record<number, MatchResult[]>>({});
   const autoLinkedRef = useRef(false);
+  const autoClassifiedRef = useRef(false);
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -97,6 +135,7 @@ export function ExpenseTrackerPage() {
 
   useEffect(() => {
     autoLinkedRef.current = false;
+    autoClassifiedRef.current = false;
     fetchTransactions();
     fetchMatches();
   }, [fetchTransactions, fetchMatches]);
@@ -147,6 +186,55 @@ export function ExpenseTrackerPage() {
       }
     });
   }, [receiptMatches, fetchTransactions, fetchMatches]);
+
+  // Auto-classify deposit transactions using rule-based patterns
+  useEffect(() => {
+    if (autoClassifiedRef.current) return;
+    if (transactions.length === 0) return;
+
+    const toClassify = transactions
+      .filter((row) => row.transaction.deposit > 0 && !row.annotation?.transaction_type)
+      .map((row) => ({
+        bank_transaction_id: row.transaction.id,
+        transaction_type: classifyDeposit(
+          row.transaction.description ?? '',
+          row.transaction.channel ?? '',
+          row.transaction.details ?? '',
+        ),
+      }))
+      .filter(
+        (item): item is { bank_transaction_id: number; transaction_type: TransactionType } =>
+          item.transaction_type !== null,
+      );
+
+    autoClassifiedRef.current = true;
+
+    if (toClassify.length === 0) return;
+
+    Promise.all(
+      toClassify.map(async ({ bank_transaction_id, transaction_type }) => {
+        try {
+          const res = await fetch('/api/admin/expense-tracker/annotations', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bank_transaction_id, transaction_type }),
+          });
+          return res.ok;
+        } catch {
+          return false;
+        }
+      }),
+    ).then((results) => {
+      const classified = results.filter(Boolean).length;
+      if (classified > 0) {
+        toast({
+          title: `Auto-classified ${classified} deposit${classified > 1 ? 's' : ''}`,
+          description: 'Transaction types applied automatically.',
+        });
+        fetchTransactions();
+      }
+    });
+  }, [transactions, fetchTransactions]);
 
   const handleAnnotationSaved = useCallback(
     (bankTxId: number, annotation: AnnotationUpsert) => {

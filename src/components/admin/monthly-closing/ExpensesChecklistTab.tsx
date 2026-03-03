@@ -421,6 +421,29 @@ export function ExpensesChecklistTab({ period, onVatSummaryUpdate }: ExpensesChe
                           </td>
                         </tr>
                       ))}
+                      {data.kbank_edc.length > 1 && (() => {
+                        const totalCommission = Math.round(data.kbank_edc.reduce((s, k) => s + k.total_commission, 0) * 100) / 100;
+                        const totalVat = Math.round(totalCommission * 7) / 100;
+                        const totalAmount = Math.round((totalCommission + totalVat) * 100) / 100;
+                        return (
+                          <tr className="bg-gray-50 border-t-2 border-gray-200">
+                            <td></td>
+                            <td className="px-2 py-2 font-semibold text-gray-700">Total</td>
+                            <td className="px-2 py-2 text-right font-semibold text-gray-700">
+                              {data.kbank_edc.reduce((s, k) => s + k.settlement_count, 0)}
+                            </td>
+                            <td className="px-2 py-2 text-right font-mono font-semibold text-gray-700">
+                              {formatNum(totalCommission)}
+                            </td>
+                            <td className="px-2 py-2 text-right font-mono font-semibold text-gray-700">
+                              {formatNum(totalVat)}
+                            </td>
+                            <td className="px-2 py-2 text-right font-mono font-semibold text-gray-700">
+                              {formatNum(totalAmount)}
+                            </td>
+                          </tr>
+                        );
+                      })()}
                     </tbody>
                   </table>
                 </div>

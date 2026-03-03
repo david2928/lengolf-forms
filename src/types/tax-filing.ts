@@ -161,6 +161,34 @@ export interface BankAccountBalance {
   transaction_count: number;
 }
 
+// ── Trial Balance (all bank transactions) ─────────────────────────────────
+
+export interface TrialBalanceTxEntry {
+  bank_transaction_id: number;
+  transaction_date: string;
+  description: string;
+  deposit: number;        // 0 if not a deposit
+  withdrawal: number;     // 0 if not a withdrawal
+  balance: number;
+  account_number: string;
+  // annotation overlay (null if no annotation exists)
+  annotation_id: number | null;
+  vendor_name: string | null;
+  vat_type: 'none' | 'pp30' | 'pp36';
+  wht_type: 'none' | 'pnd3' | 'pnd53';
+  vat_amount: number | null;
+  wht_amount: number | null;
+  transaction_type: string | null;
+  notes: string | null;
+  flow_completed: boolean;
+}
+
+export interface TrialBalanceData {
+  period: string;
+  entries: TrialBalanceTxEntry[];
+  bank_balances: BankAccountBalance[];
+}
+
 export interface ExpenseChecklistData {
   period: string;
   items: ExpenseChecklistItem[];

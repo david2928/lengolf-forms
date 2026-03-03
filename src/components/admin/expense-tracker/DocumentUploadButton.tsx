@@ -28,8 +28,9 @@ function getAvailableFilingTypes(
   transactionType: TransactionType | null
 ): FilingType[] {
   const types: FilingType[] = [];
-  if (vatType === 'pp30') types.push('pp30');
-  if (vatType === 'pp36') types.push('pp36');
+  // pp30/pp36 are NOT included here — vendor invoices with VAT use extraction
+  // mode (FileUp) and go to the expense VAT folder, not the tax filing folder.
+  // Tax filing mode is only for WHT certificates (PND3/PND53) and SSO forms.
   if (whtType === 'pnd3') types.push('pnd3');
   if (whtType === 'pnd53') types.push('pnd53');
   if (transactionType === 'sso') types.push('sso');

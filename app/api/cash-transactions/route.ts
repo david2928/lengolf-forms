@@ -48,6 +48,25 @@ export async function POST(request: NextRequest) {
     }
 
     const dateStr = transactionDate || new Date().toISOString().split('T')[0]
+    const parsedAmount = Math.round(parseFloat(amount) * 100) / 100
+
+    // Check for duplicate submission (same date + staff + type + amount within last 5 minutes)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    const { data: existing } = await refacSupabaseAdmin
+      .schema('finance')
+      .from('cash_transactions')
+      .select('*')
+      .eq('transaction_date', dateStr)
+      .eq('staff_name', staffName)
+      .eq('spending_type', spendingType)
+      .eq('amount', parsedAmount)
+      .gte('created_at', fiveMinutesAgo)
+      .limit(1)
+      .single()
+
+    if (existing) {
+      return NextResponse.json(existing, { status: 200 })
+    }
 
     // Upload to Google Drive
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -65,7 +84,7 @@ export async function POST(request: NextRequest) {
         transaction_date: dateStr,
         staff_name: staffName,
         spending_type: spendingType,
-        amount: Math.round(parseFloat(amount) * 100) / 100,
+        amount: parsedAmount,
         file_url: uploadResult.fileUrl,
         file_id: uploadResult.fileId,
         file_name: uploadResult.fileName,
