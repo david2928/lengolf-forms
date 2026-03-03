@@ -332,6 +332,82 @@
     .gap { height:8px; }
     .mt0 { margin-top:0 !important; }
 
+    /* ─── MOBILE ─── */
+    @media (max-width: 768px) {
+      .header { padding:20px 18px; flex-direction:column; gap:12px; text-align:center; }
+      .header-left { justify-content:center; }
+      .header-right { text-align:center; }
+      .header-right .period { font-size:22px; }
+      .logo-text h1 { font-size:22px; }
+
+      .hero { grid-template-columns:1fr 1fr; }
+      .hcard { padding:14px 16px; }
+      .h-value { font-size:20px; }
+      .h-change { font-size:10px; display:block; margin-top:6px; line-height:1.4; }
+
+      .body { padding:14px 14px 28px; }
+
+      .sh { margin:20px 0 12px; }
+      .st h2 { font-size:15px; }
+
+      .g2, .g21 { grid-template-columns:1fr; }
+      .g3 { grid-template-columns:1fr; }
+      .g4 { grid-template-columns:1fr 1fr; }
+
+      .card { padding:16px 14px; }
+      .ct { font-size:10px; flex-direction:column; align-items:flex-start; gap:4px; }
+
+      .dnut-wrap { flex-direction:column; align-items:center; gap:14px; }
+      .dnut-outer { width:110px; height:110px; }
+      .leg { width:100%; }
+      .lr { margin-bottom:6px; }
+      .ln { font-size:12px; }
+      .la { font-size:12px; }
+
+      .daily-chart { height:70px; gap:2px; }
+      .dc-lbl { font-size:7px; }
+
+      .trend-chart { height:60px; gap:4px; }
+      .tc-val { font-size:8px; }
+      .tc-lbl { font-size:8px; }
+
+      .kc { padding:12px 14px; }
+      .kv { font-size:18px; }
+      .ks { font-size:10px; }
+
+      .trend-tbl { font-size:11px; }
+      .trend-tbl th { font-size:9px; padding:5px 4px; }
+      .trend-tbl td { font-size:11px; padding:5px 4px; }
+
+      .pl-row { gap:8px; }
+      .pll { font-size:12px; }
+      .plv { font-size:12px; }
+      .pl-row.tot .plv { font-size:16px; }
+
+      .ad-grid { grid-template-columns:1fr; }
+      .plat-head { flex-direction:column; align-items:flex-start; gap:6px; }
+
+      .rv-hero { flex-direction:column; align-items:flex-start; gap:8px; }
+      .rv-big { font-size:36px; }
+
+      .mix-row { gap:6px; }
+      .mix-lbl { width:44px; font-size:9px; }
+      .mix-bar { height:20px; }
+      .mix-legend { gap:6px 12px; }
+      .ml-item { font-size:10px; }
+
+      .footer { padding:16px 18px; flex-direction:column; gap:8px; text-align:center; }
+      .fr { text-align:center; }
+    }
+
+    /* ─── SMALL MOBILE ─── */
+    @media (max-width: 400px) {
+      .hero { grid-template-columns:1fr; }
+      .hcard { border-right:none; border-bottom:1px solid rgba(255,255,255,0.08); }
+      .hcard:last-child { border-bottom:none; }
+      .g4 { grid-template-columns:1fr; }
+    }
+
     /* ─── PRINT ─── */
     @media print {
       body { background:#fff; }
