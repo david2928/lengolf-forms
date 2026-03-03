@@ -364,24 +364,24 @@
 <!-- ══ HERO KPIs ══ -->
 <div class="hero">
   <div class="hcard">
-    <div class="h-label">Gross Revenue</div>
-    <div class="h-value"><span class="cur">฿</span>568,000</div>
-    <span class="h-change up">▲ +1.3% vs Jan</span>
+    <div class="h-label">Net Sales</div>
+    <div class="h-value"><span class="cur">฿</span>532,892</div>
+    <span class="h-change down">▼ −0.5% MoM · ▼ −1.4% YoY</span>
   </div>
   <div class="hcard">
     <div class="h-label">Gross Profit</div>
-    <div class="h-value"><span class="cur">฿</span>420,631</div>
-    <span class="h-change down">▼ −4.8% vs Jan · margin 76.3%</span>
+    <div class="h-value"><span class="cur">฿</span>422,681</div>
+    <span class="h-change down">▼ −4.6% MoM · <span style="color:#6ee7b7;">▲ +4.2% YoY</span></span>
   </div>
   <div class="hcard">
-    <div class="h-label">Unique Customers</div>
-    <div class="h-value">260</div>
-    <span class="h-change down">▼ −11.3% vs Jan</span>
+    <div class="h-label">Marketing Expenses</div>
+    <div class="h-value"><span class="cur">฿</span>53,958</div>
+    <span class="h-change up">▼ −11.2% MoM · ▼ −36.1% YoY</span>
   </div>
   <div class="hcard">
-    <div class="h-label">Net Profit</div>
-    <div class="h-value"><span class="cur">฿</span>135,200</div>
-    <span class="h-change down">▼ −15.5% vs Jan · 25.2% margin</span>
+    <div class="h-label">EBITDA</div>
+    <div class="h-value"><span class="cur">฿</span>153,817</div>
+    <span class="h-change down">▼ −8.1% MoM · <span style="color:#6ee7b7;">▲ +41.5% YoY</span></span>
   </div>
 </div>
 
@@ -550,68 +550,72 @@
 
 <div class="g2">
 
-  <!-- P&L (from accounting books) -->
+  <!-- P&L (from finance dashboard) -->
   <div class="card">
-    <div class="ct">Income Statement — February 2026 <span class="badge bg">Audited book figures</span></div>
+    <div class="ct">P&amp;L Statement — February 2026</div>
+
+    <!-- Revenue -->
     <div class="pl-row">
-      <div><div class="pll">Revenue from Services</div><div class="pls">Net of VAT (ex-VAT book revenue)</div></div>
-      <div class="plv pos">฿537,307</div>
+      <div><div class="pll">Total Sales (POS)</div></div>
+      <div class="plv">฿568,000</div>
     </div>
     <div class="pl-row">
-      <div><div class="pll">Cost of Goods Sold</div><div class="pls">F&amp;B purchases ฿38,929 · Service costs ฿950</div></div>
-      <div class="plv neg">− ฿39,879</div>
+      <div><div class="pll">Net Sales (POS)</div><div class="pls">Ex-VAT &amp; discounts</div></div>
+      <div class="plv">฿530,842</div>
+    </div>
+    <div class="pl-row">
+      <div><div class="pll">Net Sales (ClassPass + Gowabi)</div><div class="pls">฿1,500 + ฿550</div></div>
+      <div class="plv">฿2,050</div>
+    </div>
+    <div class="pl-row sub">
+      <div><div class="pll" style="font-weight:600;">Total Net Sales</div></div>
+      <div class="plv pos" style="font-size:15px;">฿532,892</div>
+    </div>
+
+    <!-- COGS -->
+    <div class="pl-row" style="padding-top:12px;">
+      <div><div class="pll">Cost of Goods Sold</div><div class="pls">Food, drinks, coaching</div></div>
+      <div class="plv neg">− ฿110,211</div>
     </div>
     <div class="pl-row sub">
       <div><div class="pll" style="font-weight:600;">Gross Profit</div></div>
-      <div class="plv pos" style="font-size:15px;">฿497,428 <span style="font-size:11px;color:var(--muted);">92.6%</span></div>
+      <div class="plv pos" style="font-size:15px;">฿422,681 <span style="font-size:11px;color:var(--muted);">79.3%</span></div>
     </div>
+
+    <!-- Operating Expenses -->
     <div class="pl-row" style="padding-top:12px;">
-      <div><div class="pll">Rent</div></div>
-      <div class="plv neg">− ฿125,252</div>
+      <div><div class="pll">Operating Expenses</div><div class="pls">Fixed + variable costs</div></div>
+      <div class="plv neg">− ฿214,906</div>
     </div>
     <div class="pl-row">
-      <div><div class="pll">Vendor Services &amp; Software</div><div class="pls">Contractors, GolfZon, applications</div></div>
-      <div class="plv neg">− ฿81,605</div>
+      <div><div class="pll">Marketing Expenses</div><div class="pls">Google, Meta, LINE, designer</div></div>
+      <div class="plv neg">− ฿53,958</div>
     </div>
-    <div class="pl-row">
-      <div><div class="pll">Staff Costs</div><div class="pls">Salary, OT, commission, SSF, allowance</div></div>
-      <div class="plv neg">− ฿66,921</div>
-    </div>
-    <div class="pl-row">
-      <div><div class="pll">Marketing &amp; Advertising</div><div class="pls">Google Ads, Meta Ads, creative, LINE</div></div>
-      <div class="plv neg">− ฿55,523</div>
-    </div>
-    <div class="pl-row">
-      <div><div class="pll">Electricity</div></div>
-      <div class="plv neg">− ฿13,931</div>
-    </div>
-    <div class="pl-row">
-      <div><div class="pll">Bank &amp; Transaction Fees</div></div>
-      <div class="plv neg">− ฿7,967</div>
-    </div>
-    <div class="pl-row">
-      <div><div class="pll">Other Expenses</div><div class="pls">Selling, miscellaneous, non-taxable</div></div>
-      <div class="plv neg">− ฿11,030</div>
-    </div>
+
     <div class="pl-row tot">
-      <div class="pll">Net Profit</div>
-      <div class="plv">฿135,200 <span style="font-size:12px;color:var(--muted);">(25.2%)</span></div>
+      <div class="pll">EBITDA</div>
+      <div class="plv">฿153,817 <span style="font-size:12px;color:var(--muted);">(28.9%)</span></div>
     </div>
   </div>
 
   <!-- Right column: Expense Breakdown + Tax Summary -->
   <div style="display:flex;flex-direction:column;gap:16px;">
 
-    <!-- Expense Breakdown -->
+    <!-- Operating Expenses Breakdown -->
     <div class="card">
-      <div class="ct">Expense Breakdown <span class="badge bb">฿402,107 total</span></div>
+      <div class="ct">Operating Expenses <span class="badge bb">฿214,906</span></div>
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Fixed Costs</div>
       <div class="pl-list">
-        <div class="pi"><div class="ph"><span class="pn">Rent</span><span class="pv">฿125,252 · 31.1%</span></div><div class="pt"><div class="pf" style="width:31.1%;background:#005a32;"></div></div></div>
-        <div class="pi"><div class="ph"><span class="pn">Vendor Services &amp; Software</span><span class="pv">฿81,605 · 20.3%</span></div><div class="pt"><div class="pf" style="width:20.3%;background:#38a169;"></div></div></div>
-        <div class="pi"><div class="ph"><span class="pn">Staff Costs</span><span class="pv">฿66,921 · 16.6%</span></div><div class="pt"><div class="pf" style="width:16.6%;background:#68d391;"></div></div></div>
-        <div class="pi"><div class="ph"><span class="pn">Marketing &amp; Advertising</span><span class="pv">฿55,523 · 13.8%</span></div><div class="pt"><div class="pf" style="width:13.8%;background:var(--gold);"></div></div></div>
-        <div class="pi"><div class="ph"><span class="pn">COGS (F&amp;B)</span><span class="pv">฿39,879 · 9.9%</span></div><div class="pt"><div class="pf" style="width:9.9%;background:#9ae6b4;"></div></div></div>
-        <div class="pi"><div class="ph"><span class="pn">Electricity + Bank + Other</span><span class="pv">฿32,928 · 8.2%</span></div><div class="pt"><div class="pf" style="width:8.2%;background:#d1d5db;"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Rent</span><span class="pv">฿125,000 · 58.2%</span></div><div class="pt"><div class="pf" style="width:58.2%;background:#005a32;"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Building Tax</span><span class="pv">฿7,610 · 3.5%</span></div><div class="pt"><div class="pf" style="width:3.5%;background:#38a169;"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Insurance + Golf Balls + Maintenance</span><span class="pv">฿3,796 · 1.8%</span></div><div class="pt"><div class="pf" style="width:1.8%;background:#68d391;"></div></div></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 8px;">Variable Costs</div>
+      <div class="pl-list">
+        <div class="pi"><div class="ph"><span class="pn">Staff Salaries</span><span class="pv">฿48,500 · 22.6%</span></div><div class="pt"><div class="pf" style="width:22.6%;background:var(--gold);"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Service Tax (Staff Payout)</span><span class="pv">฿14,000 · 6.5%</span></div><div class="pt"><div class="pf" style="width:6.5%;background:#9ae6b4;"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Utilities</span><span class="pv">฿11,000 · 5.1%</span></div><div class="pt"><div class="pf" style="width:5.1%;background:#a7f3d0;"></div></div></div>
+        <div class="pi"><div class="ph"><span class="pn">Operational Support</span><span class="pv">฿5,000 · 2.3%</span></div><div class="pt"><div class="pf" style="width:2.3%;background:#d1d5db;"></div></div></div>
       </div>
     </div>
 
@@ -651,49 +655,53 @@
   </div>
 </div>
 
-<!-- MoM Comparison -->
+<!-- MoM & YoY Comparison -->
 <div class="card" style="margin-top:16px;">
-  <div class="ct">Month-over-Month Comparison <span class="badge bb">Book figures · Jan vs Feb 2026</span></div>
+  <div class="ct">Period Comparison <span class="badge bb">Finance Dashboard · MoM &amp; YoY</span></div>
   <table class="trend-tbl">
     <thead>
-      <tr><th></th><th>Jan 2026</th><th>Feb 2026</th><th>Change</th></tr>
+      <tr><th></th><th>Feb 2025</th><th>Jan 2026</th><th>Feb 2026</th><th>MoM</th><th>YoY</th></tr>
     </thead>
     <tbody>
       <tr>
-        <td>Revenue (ex-VAT)</td>
-        <td>฿534,613</td>
-        <td><strong>฿537,307</strong></td>
-        <td><span class="tbl-up">▲ +0.5%</span></td>
+        <td>Net Sales</td>
+        <td>฿540,446</td>
+        <td>฿535,698</td>
+        <td><strong>฿532,892</strong></td>
+        <td><span class="tbl-down">▼ −0.5%</span></td>
+        <td><span class="tbl-down">▼ −1.4%</span></td>
       </tr>
       <tr>
-        <td>Total Expenses</td>
-        <td>฿374,664</td>
-        <td><strong>฿402,107</strong></td>
-        <td><span class="tbl-down">▲ +7.3%</span></td>
+        <td>Gross Profit</td>
+        <td>฿405,528</td>
+        <td>฿443,090</td>
+        <td><strong>฿422,681</strong></td>
+        <td><span class="tbl-down">▼ −4.6%</span></td>
+        <td><span class="tbl-up">▲ +4.2%</span></td>
       </tr>
       <tr>
-        <td>Net Profit</td>
-        <td>฿159,949</td>
-        <td><strong>฿135,200</strong></td>
-        <td><span class="tbl-down">▼ −15.5%</span></td>
+        <td>Marketing</td>
+        <td>฿84,438</td>
+        <td>฿60,742</td>
+        <td><strong>฿53,958</strong></td>
+        <td><span class="tbl-up">▼ −11.2%</span></td>
+        <td><span class="tbl-up">▼ −36.1%</span></td>
       </tr>
       <tr>
-        <td>Profit Margin</td>
-        <td>29.9%</td>
-        <td><strong>25.2%</strong></td>
-        <td><span class="tbl-down">▼ −4.7pp</span></td>
+        <td>EBITDA</td>
+        <td>฿108,724</td>
+        <td>฿167,442</td>
+        <td><strong>฿153,817</strong></td>
+        <td><span class="tbl-down">▼ −8.1%</span></td>
+        <td><span class="tbl-up">▲ +41.5%</span></td>
       </tr>
       <tr>
-        <td>Sales VAT Payable</td>
-        <td>฿21,681</td>
-        <td><strong>฿22,973</strong></td>
-        <td><span class="tbl-down">▲ +6.0%</span></td>
-      </tr>
-      <tr>
-        <td>WHT (PND3)</td>
-        <td>฿1,195</td>
-        <td><strong>฿2,425</strong></td>
-        <td><span class="tbl-down">▲ +103%</span></td>
+        <td>EBITDA Margin</td>
+        <td>20.1%</td>
+        <td>31.3%</td>
+        <td><strong>28.9%</strong></td>
+        <td><span class="tbl-down">▼ −2.4pp</span></td>
+        <td><span class="tbl-up">▲ +8.8pp</span></td>
       </tr>
     </tbody>
   </table>
