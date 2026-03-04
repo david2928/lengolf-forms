@@ -23,7 +23,8 @@ import {
   CalendarPlus,
   Sparkles,
   GraduationCap,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import type { MessageInputProps, MessageType } from '../utils/chatTypes';
 
@@ -37,6 +38,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onTemplateSelect,
   onCuratedImagesSelect,
   onFileUpload,
+  onMultiFileUpload,
   onAIRetrigger,
   enableAISuggestions = false,
   aiSuggestionLoading = false,
@@ -66,10 +68,21 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [showCuratedImages, setShowCuratedImages] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [sendingProgress, setSendingProgress] = useState<{current: number, total: number} | null>(null);
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
   const [staffName, setStaffName] = useState<string>('');
 
   // Typing indicator debounce ref
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [stagedPreviews, setStagedPreviews] = useState<string[]>([]);
+
+  // Generate and cleanup preview URLs when staged files change
+  useEffect(() => {
+    const urls = stagedFiles.map(f => URL.createObjectURL(f));
+    setStagedPreviews(urls);
+    return () => {
+      urls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [stagedFiles]);
 
   // Handle conversation changes - save current draft and load new draft
   useEffect(() => {
@@ -87,6 +100,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           sessionStorage.removeItem(prevDraftKey);
         }
       }
+
+      // Clear staged files when switching conversations
+      setStagedFiles([]);
 
       // Load draft for new conversation
       if (typeof window !== 'undefined' && currentConversationId) {
@@ -187,17 +203,61 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  // Handle file selection
+  // Handle file selection - supports multiple images (up to 5)
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setShowAttachmentMenu(false);
-      setShowMobileQuickActions(false);
+    const fileList = event.target.files;
+    if (!fileList || fileList.length === 0) return;
 
+    setShowAttachmentMenu(false);
+    setShowMobileQuickActions(false);
+
+    const files = Array.from(fileList);
+
+    // Single non-image file (PDF) — send immediately via old path
+    if (files.length === 1 && !files[0].type.startsWith('image/')) {
       if (onFileUpload) {
-        await onFileUpload(file);
+        await onFileUpload(files[0]);
       }
+      // Reset the input so the same file can be re-selected
+      event.target.value = '';
+      return;
     }
+
+    // Filter to images only for multi-select
+    const imageFiles = files.filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      event.target.value = '';
+      return;
+    }
+
+    // Enforce max 5
+    if (imageFiles.length > 5) {
+      alert('You can send up to 5 images at once. Only the first 5 will be staged.');
+    }
+
+    const toStage = imageFiles.slice(0, 5);
+    setStagedFiles(toStage);
+
+    // Reset the input so the same files can be re-selected
+    event.target.value = '';
+  };
+
+  // Send staged files
+  const handleSendStagedFiles = async () => {
+    if (stagedFiles.length === 0) return;
+
+    if (stagedFiles.length === 1 && onFileUpload) {
+      await onFileUpload(stagedFiles[0]);
+    } else if (onMultiFileUpload) {
+      await onMultiFileUpload(stagedFiles);
+    }
+
+    setStagedFiles([]);
+  };
+
+  // Remove a staged file by index
+  const handleRemoveStagedFile = (index: number) => {
+    setStagedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   // Handle curated image selection
@@ -305,6 +365,55 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
+      {/* Staged Image Preview Strip */}
+      {stagedFiles.length > 0 && (
+        <div className="bg-gray-50 border-t px-3 py-2">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-gray-500 font-medium">
+              {stagedFiles.length}/{5} image{stagedFiles.length !== 1 ? 's' : ''} selected
+            </span>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setStagedFiles([])}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                Cancel
+              </button>
+              <Button
+                onClick={handleSendStagedFiles}
+                disabled={disabled}
+                size="sm"
+                className="h-7 px-3 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-md"
+              >
+                <Send className="h-3 w-3 mr-1" />
+                Send {stagedFiles.length} image{stagedFiles.length !== 1 ? 's' : ''}
+              </Button>
+            </div>
+          </div>
+          <div className="flex space-x-2 overflow-x-auto pb-1">
+            {stagedFiles.map((file, index) => (
+              <div key={`${file.name}-${index}`} className="relative flex-shrink-0 group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={stagedPreviews[index]}
+                  alt={file.name}
+                  className="h-16 w-16 object-cover rounded-lg border border-gray-200"
+                />
+                <button
+                  onClick={() => handleRemoveStagedFile(index)}
+                  className="absolute -top-1.5 -right-1.5 bg-gray-700 text-white rounded-full h-5 w-5 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+                <span className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[9px] px-1 truncate rounded-b-lg">
+                  {file.name.length > 10 ? file.name.slice(0, 8) + '...' : file.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Message Input Container */}
       <div className={`${isMobile ? 'bg-white p-2' : 'bg-white p-4'} ${replyingToMessage ? '' : 'border-t'}`}>
         {/* Mobile Input - starts single line, grows upward */}
@@ -338,6 +447,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                         <input
                           type="file"
                           accept="image/*,.pdf"
+                          multiple
                           onChange={handleFileSelect}
                           className="hidden"
                         />
@@ -518,6 +628,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                           <input
                             type="file"
                             accept="image/*,.pdf"
+                            multiple
                             onChange={handleFileSelect}
                             className="hidden"
                           />

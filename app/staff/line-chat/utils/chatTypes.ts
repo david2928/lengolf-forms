@@ -164,6 +164,7 @@ export interface ChatOperations {
   sendMessage: (content: string, type?: MessageType, replyToMessageId?: string) => Promise<void>;
   sendingMessage: boolean;
   handleFileUpload: (file: File) => Promise<void>;
+  handleMultiFileUpload: (files: File[]) => Promise<void>;
   selectedFile: File | null;
   setSelectedFile: (file: File | null) => void;
   sendBatchImages: (imageIds: string[]) => Promise<void>;
@@ -307,6 +308,7 @@ export interface MessageInputProps {
   onTemplateSelect?: (template: any) => Promise<void>;
   onCuratedImagesSelect?: (imageIds: string[]) => Promise<void>;
   onFileUpload?: (file: File) => Promise<void>;
+  onMultiFileUpload?: (files: File[]) => Promise<void>;
   // AI suggestions
   onAIRetrigger?: () => void;
   enableAISuggestions?: boolean;

@@ -310,6 +310,106 @@ export const useChatOperations = (
     }
   }, [conversationId, selectedConversationObj, onMessageSent, displayName, staffEmail]);
 
+  // Multi-file upload function - uploads multiple device files sequentially with progress
+  const handleMultiFileUpload = useCallback(async (files: File[]) => {
+    if (!conversationId || files.length === 0) return;
+
+    try {
+      setSendingMessage(true);
+      setSendingProgress({ current: 0, total: files.length });
+
+      for (let i = 0; i < files.length; i++) {
+        try {
+          setSendingProgress({ current: i + 1, total: files.length });
+
+          const file = files[i];
+
+          // Compress image if it's an image file
+          let processedFile = file;
+          if (file.type.startsWith('image/')) {
+            processedFile = await compressImage(file);
+          }
+
+          const formData = new FormData();
+          formData.append('file', processedFile);
+          formData.append('type', file.type.startsWith('image/') ? 'image' : 'file');
+          formData.append('senderName', displayName);
+          formData.append('staffEmail', staffEmail);
+
+          let response;
+
+          if (selectedConversationObj?.channel_type === 'website' || selectedConversationObj?.channelType === 'website') {
+            const websiteFormData = new FormData();
+            websiteFormData.append('file', processedFile);
+            websiteFormData.append('conversationId', conversationId);
+            websiteFormData.append('sessionId', selectedConversationObj.channel_user_id);
+            websiteFormData.append('senderName', displayName);
+            websiteFormData.append('staffEmail', staffEmail);
+
+            response = await fetch('/api/conversations/website/upload', {
+              method: 'POST',
+              body: websiteFormData,
+            });
+          } else if (['facebook', 'instagram', 'whatsapp'].includes(selectedConversationObj?.channel_type || selectedConversationObj?.channelType || '')) {
+            const metaFormData = new FormData();
+            metaFormData.append('file', processedFile);
+            metaFormData.append('conversationId', conversationId);
+            metaFormData.append('platformUserId', selectedConversationObj.lineUserId || selectedConversationObj.channel_user_id);
+            metaFormData.append('platform', selectedConversationObj.channelType || selectedConversationObj.channel_type);
+
+            response = await fetch('/api/meta/upload-file', {
+              method: 'POST',
+              body: metaFormData,
+            });
+          } else {
+            response = await fetch(`/api/line/conversations/${conversationId}/messages`, {
+              method: 'POST',
+              body: formData,
+            });
+          }
+
+          if (!response.ok) {
+            console.error(`Upload ${i + 1}/${files.length} failed with status ${response.status}`);
+            alert(`Failed to upload image ${i + 1}: Server error (${response.status})`);
+            continue;
+          }
+
+          const data = await response.json();
+
+          if (data.success) {
+            if (onMessageSent && data.message) {
+              onMessageSent(data.message);
+            }
+          } else {
+            console.error(`Failed to upload file ${i + 1}/${files.length}:`, data.error);
+            alert(`Failed to upload image ${i + 1}: ${data.error}`);
+          }
+        } catch (fileError) {
+          console.error(`Error uploading file ${i + 1}/${files.length}:`, fileError);
+          alert(`Failed to upload image ${i + 1}: ${fileError}`);
+        }
+      }
+
+      // Show completion
+      setSendingProgress({ current: files.length, total: files.length });
+      setTimeout(() => {
+        setSendingProgress(null);
+      }, 1000);
+
+      // Scroll to bottom
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+    } catch (error) {
+      console.error('Error uploading multiple files:', error);
+      alert('Failed to upload images: ' + error);
+    } finally {
+      setTimeout(() => {
+        setSendingMessage(false);
+      }, 1000);
+    }
+  }, [conversationId, selectedConversationObj, onMessageSent, displayName, staffEmail]);
+
   // Batch image sending function extracted from main component
   const sendBatchImages = useCallback(async (imageIds: string[]) => {
     if (!conversationId || imageIds.length === 0) return;
@@ -556,6 +656,7 @@ export const useChatOperations = (
     sendMessage,
     sendingMessage,
     handleFileUpload,
+    handleMultiFileUpload,
     selectedFile,
     setSelectedFile,
     sendBatchImages,
