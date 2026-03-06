@@ -136,6 +136,16 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
         existing = existingWeb;
       }
+      if (!existing) {
+        const { data: existingMeta } = await refacSupabaseAdmin
+          .from('ai_suggestions')
+          .select(selectCols)
+          .eq('meta_message_id', body.messageId)
+          .gte('created_at', thirtySecondsAgo)
+          .limit(1)
+          .maybeSingle();
+        existing = existingMeta;
+      }
 
       if (existing) {
         // Return dedup hit as a complete SSE stream (instant)

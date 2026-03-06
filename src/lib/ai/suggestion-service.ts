@@ -679,14 +679,15 @@ async function storeSuggestion(
     const isMetaChannel = ['facebook', 'instagram', 'whatsapp'].includes(params.conversationContext.channelType);
 
     // Use the provided message ID and assign to the correct field based on channel type
-    // The constraint requires exactly ONE of line_message_id or web_message_id to be non-null
+    // The constraint requires exactly ONE of line_message_id, web_message_id, or meta_message_id to be non-null
     const { data, error} = await refacSupabaseAdmin
       .from('ai_suggestions')
       .insert({
         conversation_id: params.conversationContext.id,
         // Assign message ID to appropriate field based on channel type
         line_message_id: isLineChannel ? params.messageId : null,
-        web_message_id: (isWebChannel || isMetaChannel) ? params.messageId : null,
+        web_message_id: isWebChannel ? params.messageId : null,
+        meta_message_id: isMetaChannel ? params.messageId : null,
         customer_message: params.customerMessage,
         customer_message_embedding: `[${messageEmbedding.join(',')}]`,
         suggested_response: suggestion.suggestedResponse,

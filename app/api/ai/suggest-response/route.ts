@@ -113,6 +113,19 @@ export async function POST(request: NextRequest) {
         }
         existing = existingWeb;
       }
+      if (!existing) {
+        const { data: existingMeta, error: metaError } = await refacSupabaseAdmin
+          .from('ai_suggestions')
+          .select(selectCols)
+          .eq('meta_message_id', body.messageId)
+          .gte('created_at', thirtySecondsAgo)
+          .limit(1)
+          .maybeSingle();
+        if (metaError) {
+          console.warn('Dedup meta query error:', metaError.message);
+        }
+        existing = existingMeta;
+      }
 
       if (existing) {
         return NextResponse.json({
