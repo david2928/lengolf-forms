@@ -923,10 +923,11 @@ ENGLISH ONLY. Do not use Thai. 1 to 2 sentences. If greeting only, respond with 
     finalContextPrompt += `\nPREVIOUS CONVERSATION HISTORY (for context only):
 ${previousDaysMessages.map(msg => {
 let content = msg.content;
+const prevSender = (msg.senderType === 'staff' || msg.senderType === 'assistant') ? 'Staff' : 'Customer';
 if (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim())) {
-  content = '[Customer sent an image]';
+  content = `[${prevSender} sent an image]`;
 } else if (msg.contentType === 'sticker' || /^sent a sticker$/i.test((msg.content || '').trim())) {
-  content = '[Customer sent a sticker]';
+  content = `[${prevSender} sent a sticker]`;
 }
 // Include date so the AI understands the timeline
 const dateStr = msg.createdAt ? new Date(msg.createdAt).toISOString().split('T')[0] : '';
@@ -978,18 +979,58 @@ For booking/cancellation/modification: call get_customer_context first, then pro
         timePrefix = `[${hours}:${minutes}] `;
       }
 
-      // Replace "sent a photo"/"sent a sticker" placeholders with descriptive text
-      let msgContent = msg.content;
-      if (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim())) {
-        msgContent = '[Customer sent an image]';
-      } else if (msg.contentType === 'sticker' || /^sent a sticker$/i.test((msg.content || '').trim())) {
-        msgContent = '[Customer sent a sticker]';
-      }
+      // Handle image messages: include actual image for vision if URL available
+      const isImage = msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim());
+      const isSticker = msg.contentType === 'sticker' || /^sent a sticker$/i.test((msg.content || '').trim());
+      const senderLabel = role === 'user' ? 'Customer' : 'Staff';
 
-      conversationMessages.push({
-        role: role as 'user' | 'assistant',
-        content: timePrefix + msgContent
-      });
+      if (isImage && msg.imageUrl) {
+        // Pass image as multi-modal content so the AI can actually see it
+        // Note: only 'user' role supports multi-modal content in the API
+        let parsedUrl: URL | null = null;
+        try { parsedUrl = new URL(msg.imageUrl); } catch { /* invalid URL */ }
+
+        if (parsedUrl) {
+          if (role === 'assistant') {
+            // Staff images: inject as a user message since assistant role doesn't support vision
+            conversationMessages.push({
+              role: 'user' as const,
+              content: [
+                { type: 'text' as const, text: `${timePrefix}[Staff sent this image to the customer — refer to it if relevant]` },
+                { type: 'image' as const, image: parsedUrl }
+              ]
+            });
+          } else {
+            conversationMessages.push({
+              role: 'user' as const,
+              content: [
+                { type: 'text' as const, text: `${timePrefix}[Customer sent an image]` },
+                { type: 'image' as const, image: parsedUrl }
+              ]
+            });
+          }
+        } else {
+          conversationMessages.push({
+            role: role as 'user' | 'assistant',
+            content: `${timePrefix}[${senderLabel} sent an image]`
+          });
+        }
+      } else if (isImage) {
+        conversationMessages.push({
+          role: role as 'user' | 'assistant',
+          content: `${timePrefix}[${senderLabel} sent an image]`
+        });
+      } else if (isSticker) {
+        conversationMessages.push({
+          role: role as 'user' | 'assistant',
+          content: `${timePrefix}[${senderLabel} sent a sticker]`
+        });
+      } else {
+        conversationMessages.push({
+          role: role as 'user' | 'assistant',
+          content: timePrefix + (msg.content || '')
+        });
+      }
     }
   }
 
@@ -1181,7 +1222,7 @@ export async function postProcessSuggestion(
     const hasRefund = /refund|คืนเงิน|เงินคืน|ขอเงิน/.test(msg);
     const hasPartnership = /partnership|พันธมิตร|sponsor|สปอนเซอร์|collaborate|ร่วมงาน|marketing agency|digital marketing|our services|our company|company profile|บริการของเรา|เสนอ.*บริการ|นำเสนอ/.test(msg);
     const hasComplaint = /complaint|ร้องเรียน|ไม่พอใจ|disappointed|unacceptable/.test(msg);
-    const hasLargeGroup = /\b(1[0-9]|[2-9][0-9])\s*(คน|people|person|guests|pax)\b/.test(msg);
+    const hasLargeGroup = /\b(1[5-9]|[2-9][0-9])\s*(คน|people|person|guests|pax)\b/.test(msg);
     const hasPayment = /จ่ายเพิ่ม|pay extra|pay more|โอนเพิ่ม|transfer.*more|จ่าย.*\d{4,}|pay.*\d{4,}/.test(msg);
     const hasUnverifiable = /ได้รับอีเมล|ได้รับ.*mail|receive.*email|email.*received|spam.*อีเมล|อีเมล.*spam|didn't receive|not received|ไม่ได้รับ/.test(msg);
 
