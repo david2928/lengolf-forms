@@ -591,16 +591,10 @@ export function StaffCompensationSettings() {
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="holiday_rate">Holiday Rate (THB/hour)</Label>
-                <Input
-                  id="holiday_rate"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.holiday_rate_per_hour}
-                  onChange={(e) => handleFormChange('holiday_rate_per_hour', e.target.value)}
-                  placeholder="72.00"
-                />
+                <Label htmlFor="holiday_rate">Holiday Rate</Label>
+                <div className="flex items-center h-10 px-3 py-2 rounded-md border border-input bg-muted text-sm text-muted-foreground">
+                  Auto: 2× effective rate (LPA §62)
+                </div>
               </div>
               <div>
                 <Label htmlFor="effective_from">Effective From</Label>
