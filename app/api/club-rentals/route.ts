@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getDevSession } from '@/lib/dev-session'
+import { authOptions } from '@/lib/auth-config'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 
 export async function GET(request: NextRequest) {
+  const session = await getDevSession(authOptions, request)
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') || ''
@@ -28,7 +35,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.or(`rental_code.ilike.%${search}%,customer_name.ilike.%${search}%,customer_phone.ilike.%${search}%`)
+      // Sanitize search input: escape PostgREST special characters to prevent filter injection
+      const sanitized = search.replace(/[%_,()\\]/g, '')
+      if (sanitized) {
+        query = query.or(`rental_code.ilike.%${sanitized}%,customer_name.ilike.%${sanitized}%,customer_phone.ilike.%${sanitized}%`)
+      }
     }
 
     const { data, error } = await query

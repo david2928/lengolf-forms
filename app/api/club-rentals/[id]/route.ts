@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getDevSession } from '@/lib/dev-session'
+import { authOptions } from '@/lib/auth-config'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -11,6 +13,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getDevSession(authOptions, request)
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const { id } = await params
     const body = await request.json()

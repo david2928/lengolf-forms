@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getDevSession } from '@/lib/dev-session'
+import { authOptions } from '@/lib/auth-config'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 
 export async function GET(request: NextRequest) {
+  const session = await getDevSession(authOptions, request)
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const rentalType = searchParams.get('type') || 'indoor'

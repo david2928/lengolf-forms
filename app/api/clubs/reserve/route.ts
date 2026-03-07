@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getDevSession } from '@/lib/dev-session'
+import { authOptions } from '@/lib/auth-config'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 
 function getIndoorPrice(set: Record<string, unknown>, durationHours: number): number {
@@ -15,6 +17,11 @@ function getCoursePrice(set: Record<string, unknown>, durationDays: number): num
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getDevSession(authOptions, request)
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const body = await request.json()
 
