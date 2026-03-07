@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/use-toast'
 import { CancelRentalModal } from '@/components/manage-club-rentals/CancelRentalModal'
+import { EditRentalModal } from '@/components/manage-club-rentals/EditRentalModal'
 import {
   Loader2,
   Search,
@@ -21,6 +22,7 @@ import {
   CheckCircle2,
   LogOut,
   RotateCcw,
+  Pencil,
 } from 'lucide-react'
 
 interface ClubRental {
@@ -69,6 +71,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
 }
 
 const STATUS_FILTERS = [
+  { value: 'active', label: 'Active' },
   { value: 'all', label: 'All' },
   { value: 'reserved', label: 'Reserved' },
   { value: 'confirmed', label: 'Paid' },
@@ -92,16 +95,22 @@ function formatDate(dateStr: string): string {
 }
 
 export function ManageRentalsClient() {
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('active')
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [updating, setUpdating] = useState<string | null>(null)
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
   const [selectedRentalForCancel, setSelectedRentalForCancel] = useState<ClubRental | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [selectedRentalForEdit, setSelectedRentalForEdit] = useState<ClubRental | null>(null)
   const { toast } = useToast()
 
   const queryParams = new URLSearchParams()
-  if (statusFilter !== 'all') queryParams.set('status', statusFilter)
+  if (statusFilter === 'active') {
+    queryParams.set('status', 'active')
+  } else if (statusFilter !== 'all') {
+    queryParams.set('status', statusFilter)
+  }
   if (search) queryParams.set('search', search)
 
   const { data, error, isLoading, mutate } = useSWR<{ rentals: ClubRental[] }>(
@@ -144,6 +153,64 @@ export function ManageRentalsClient() {
   const handleCloseCancelModal = () => {
     setIsCancelModalOpen(false)
     setSelectedRentalForCancel(null)
+  }
+
+  const handleOpenEditModal = (rental: ClubRental) => {
+    setSelectedRentalForEdit(rental)
+    setIsEditModalOpen(true)
+  }
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false)
+    setSelectedRentalForEdit(null)
+  }
+
+  const handleEditSuccess = async (
+    updated: ClubRental,
+    previous: Record<string, unknown>,
+    employeeName: string
+  ) => {
+    toast({
+      title: 'Rental Updated',
+      description: `Rental ${updated.rental_code} has been updated.`,
+    })
+    mutate()
+
+    // Build changes summary for LINE notification
+    try {
+      const changes: string[] = []
+      const prevSet = previous.rental_club_sets as { name: string } | null
+      const newSet = updated.rental_club_sets
+      if (prevSet?.name !== newSet?.name) {
+        changes.push(`Set: ${prevSet?.name || 'N/A'} -> ${newSet?.name || 'N/A'}`)
+      }
+      if (previous.start_date !== updated.start_date || previous.duration_days !== updated.duration_days) {
+        changes.push(`Dates: ${previous.start_date} (${previous.duration_days}d) -> ${updated.start_date} (${updated.duration_days}d)`)
+      }
+      if (previous.delivery_requested !== updated.delivery_requested) {
+        changes.push(`Delivery: ${previous.delivery_requested ? 'Yes' : 'No'} -> ${updated.delivery_requested ? 'Yes' : 'No'}`)
+      }
+      if (Number(previous.total_price) !== Number(updated.total_price)) {
+        changes.push(`Total: ${Number(previous.total_price).toLocaleString()} -> ${Number(updated.total_price).toLocaleString()}`)
+      }
+      if ((previous.notes || '') !== (updated.notes || '')) {
+        changes.push('Notes updated')
+      }
+
+      const summaryText = changes.length > 0 ? changes.join(', ') : 'Details updated'
+      const startDateDisplay = formatDate(updated.start_date)
+      const endDateDisplay = formatDate(updated.end_date)
+
+      const lineMessage = `Club Rental Modified (${updated.rental_code})\n----------------------------------\nSet: ${newSet?.name || 'N/A'}\nDates: ${startDateDisplay}${updated.start_time ? ` ${updated.start_time.slice(0, 5)}` : ''} -> ${endDateDisplay}${updated.return_time ? ` ${updated.return_time.slice(0, 5)}` : ''} (${updated.duration_days}d)\n${updated.delivery_requested ? `Delivery: ${updated.delivery_address || 'Address pending'}` : 'Pickup at LENGOLF'}\nCustomer: ${updated.customer_name}\nTotal: ${Number(updated.total_price).toLocaleString()}\n----------------------------------\nChanges: ${summaryText}\nModified by: ${employeeName}`
+
+      await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: lineMessage }),
+      })
+    } catch (e) {
+      console.error('Failed to send LINE notification for rental edit:', e)
+    }
   }
 
   const handleCancelSuccess = async (rentalId: string, employeeName: string, reason: string) => {
@@ -290,7 +357,9 @@ export function ManageRentalsClient() {
                         <Badge variant="outline" className="text-xs px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200">
                           {set.gender === 'mens' ? "Men's" : "Women's"}
                         </Badge>
-                        <span className="text-sm text-gray-700">{set.name}</span>
+                        <span className="text-sm text-gray-700">
+                          {set.name.includes(' - ') ? set.name.split(' - ').slice(1).join(' - ') : set.name}
+                        </span>
                       </div>
                     )}
 
@@ -362,6 +431,16 @@ export function ManageRentalsClient() {
                             <Button
                               size="sm"
                               variant="outline"
+                              className="text-xs h-7"
+                              onClick={() => handleOpenEditModal(rental)}
+                              disabled={isUpdating}
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
                               className="text-xs h-7 text-green-700 border-green-200 hover:bg-green-50"
                               onClick={() => handleStatusChange(rental.id, 'confirmed')}
                               disabled={isUpdating}
@@ -384,6 +463,16 @@ export function ManageRentalsClient() {
 
                         {rental.status === 'confirmed' && (
                           <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7"
+                              onClick={() => handleOpenEditModal(rental)}
+                              disabled={isUpdating}
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
                             <Button
                               size="sm"
                               variant="outline"
@@ -434,6 +523,13 @@ export function ManageRentalsClient() {
         onClose={handleCloseCancelModal}
         rental={selectedRentalForCancel}
         onSuccess={handleCancelSuccess}
+      />
+
+      <EditRentalModal
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        rental={selectedRentalForEdit}
+        onSuccess={handleEditSuccess}
       />
     </div>
   )

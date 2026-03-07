@@ -30,7 +30,9 @@ export async function GET(request: NextRequest) {
       .order('start_date', { ascending: false })
       .order('created_at', { ascending: false })
 
-    if (status && status !== 'all') {
+    if (status === 'active') {
+      query = query.in('status', ['reserved', 'confirmed', 'checked_out'])
+    } else if (status && status !== 'all') {
       query = query.eq('status', status)
     }
 
