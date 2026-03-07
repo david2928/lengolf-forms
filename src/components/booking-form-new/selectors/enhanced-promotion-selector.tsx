@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { Gift, Users, Percent } from "lucide-react"
+import { Gift, Percent } from "lucide-react"
 
 interface EnhancedPromotionSelectorProps {
   value: string | null
@@ -41,25 +41,12 @@ export function EnhancedPromotionSelector({
     }
   ]
 
-  // Premium club options
-  const premiumClubOptions = [
-    {
-      value: 'Premium Club Rental',
-      label: 'Premium Club Rental',
-      icon: Users,
-      gradient: 'from-purple-500 to-purple-600',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-200',
-      newCustomerOnly: false
-    }
-  ]
-
   // Filter promotions based on customer type
-  const availablePromotions = promotions.filter(promo => 
+  const availablePromotions = promotions.filter(promo =>
     !promo.newCustomerOnly || isNewCustomer
   )
 
-  const allOptions = [...availablePromotions, ...premiumClubOptions]
+  const allOptions = availablePromotions
 
   const handleOptionSelect = (optionValue: string) => {
     // If clicking on already selected option, deselect it
