@@ -41,6 +41,8 @@ interface ClubRental {
   add_ons_total: number
   delivery_requested: boolean
   delivery_address: string | null
+  delivery_time: string | null
+  return_time: string | null
   delivery_fee: number
   total_price: number
   notes: string | null
@@ -314,9 +316,18 @@ export function ManageRentalsClient() {
 
                     {/* Delivery */}
                     {rental.delivery_requested ? (
-                      <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
-                        <Truck className="h-3 w-3" />
-                        Delivery: {rental.delivery_address || 'Address pending'}
+                      <div className="text-xs text-gray-500 mb-1 space-y-0.5">
+                        <div className="flex items-center gap-1">
+                          <Truck className="h-3 w-3" />
+                          Delivery: {rental.delivery_address || 'Address pending'}
+                        </div>
+                        {(rental.delivery_time || rental.return_time) && (
+                          <div className="pl-4 text-gray-400">
+                            {rental.delivery_time && `Pickup: ${rental.delivery_time}`}
+                            {rental.delivery_time && rental.return_time && ' · '}
+                            {rental.return_time && `Return: ${rental.return_time}`}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
