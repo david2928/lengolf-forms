@@ -1,7 +1,10 @@
 # POS System Comparison Analysis: Old vs New
-**Analysis Date**: August 9, 2025  
-**Analysis Period**: August 6-8, 2025  
-**Author**: Claude Code Analysis  
+**Analysis Date**: August 9, 2025
+**Analysis Period**: August 6-8, 2025
+**Author**: Claude Code Analysis
+
+> **Note (March 2026):** `pos.dim_product` referenced in this document has been dropped. All product lookups now use `products.products` + `products.categories`. SQL examples below are historical and should not be used as-is.
+
 
 ## Executive Summary
 

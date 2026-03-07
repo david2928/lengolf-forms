@@ -231,17 +231,13 @@ LEFT JOIN products.categories AS cat ON products.category_id = cat.id
 - Consistent styling with other admin pages
 - Role-based access control integration
 
-## Migration Strategy
+## Migration Status
 
-### Phase 1: Parallel Operation
-- Both `pos.dim_product` and `products.products` supported
-- Gradual migration of product mappings
-- Fallback mechanisms for unmapped products
-
-### Phase 2: Full Migration
-- Complete transition to `products.products`
-- Removal of `pos.dim_product` dependencies
-- Data validation and cleanup
+### Completed (March 2026)
+- `pos.dim_product` has been dropped
+- All functions now use `products.products` + `products.categories`
+- ETL (`transform_sales_data`) joins on `products.legacy_pos_name`
+- Analytics functions join on `product_id` (UUID)
 
 ## Monitoring and Analytics
 
