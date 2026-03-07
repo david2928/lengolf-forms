@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle2, Loader2, Clock, Users, Calendar, MapPin, Shield } from 'lucide-react';
+import { CheckCircle2, Loader2, Clock, Users, Calendar, MapPin, Shield, Flag, ClipboardList } from 'lucide-react';
 
 import { EnhancedEmployeeSelector } from './selectors/enhanced-employee-selector';
 import { EnhancedCustomerTypeSelector } from './selectors/enhanced-customer-type-selector';
@@ -17,6 +17,7 @@ import { EnhancedContactMethodSelector } from './selectors/enhanced-contact-meth
 import { EnhancedBookingTypeSelector } from './selectors/enhanced-booking-type-selector';
 import { EnhancedCoachSelector } from './selectors/enhanced-coach-selector';
 import { EnhancedPromotionSelector } from './selectors/enhanced-promotion-selector';
+import { ClubRentalSelector, type ClubRentalSelection } from './selectors/club-rental-selector';
 import { CustomerDetails } from './customer-details';
 import { PackageSelector } from './package-selector';
 import { TimeSlotStep } from './steps/time-slot-step';
@@ -57,6 +58,10 @@ const initialFormData: FormData = {
   notes: '',
   numberOfPax: 1,
   promotion: null,
+  clubRentalSetId: null,
+  clubRentalSetName: null,
+  clubRentalTier: null,
+  clubRentalGender: null,
   isSubmitted: false,
   submissionStatus: {
     booking: false,
@@ -698,15 +703,39 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
           {/* Action buttons at top - Hide for external source */}
           {!isFromExternalSource && (
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center space-y-2 sm:space-y-0">
-              <Button
-                variant="ghost"
-                onClick={() => setShowBayBlockingModal(true)}
-                disabled={isSubmitting}
-                className="text-muted-foreground hover:text-foreground text-sm sm:text-base"
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Block Bays
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowBayBlockingModal(true)}
+                  disabled={isSubmitting}
+                  className="text-muted-foreground hover:text-foreground text-sm sm:text-base"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Block Bays
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  asChild
+                  className="text-muted-foreground hover:text-foreground text-sm sm:text-base whitespace-nowrap"
+                >
+                  <a href="/create-course-rental" className="inline-flex items-center">
+                    <Flag className="h-4 w-4 mr-2 flex-shrink-0" />
+                    Course Rental
+                  </a>
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  asChild
+                  className="text-muted-foreground hover:text-foreground text-sm sm:text-base whitespace-nowrap"
+                >
+                  <a href="/manage-club-rentals" className="inline-flex items-center">
+                    <ClipboardList className="h-4 w-4 mr-2 flex-shrink-0" />
+                    Rentals
+                  </a>
+                </Button>
+              </div>
 
               <Button
                 variant="outline"
@@ -962,7 +991,57 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            
+
+            <div>
+              <Label htmlFor="club-rental">Club Rental (Optional)</Label>
+              <ClubRentalSelector
+                value={{
+                  setId: formData.clubRentalSetId ?? null,
+                  setName: formData.clubRentalSetName ?? null,
+                  tier: formData.clubRentalTier ?? null,
+                  gender: formData.clubRentalGender ?? null,
+                }}
+                onChange={(sel: ClubRentalSelection) => {
+                  setFormData(prev => {
+                    let newNotes = prev.notes || ''
+                    // Remove old club rental note if present
+                    newNotes = newNotes.replace(/;\s*Golf Club Rental:.*$/g, '').replace(/^Golf Club Rental:.*?(;\s*|$)/g, '').trim()
+                    // Add new club rental note
+                    if (sel.setName && sel.setId !== 'standard') {
+                      const clubNote = `Golf Club Rental: ${sel.setName}`
+                      if (!newNotes.includes(clubNote)) {
+                        newNotes = newNotes ? `${newNotes}; ${clubNote}` : clubNote
+                      }
+                    } else if (sel.setId === 'standard') {
+                      const clubNote = 'Golf Club Rental: Standard Set'
+                      if (!newNotes.includes(clubNote)) {
+                        newNotes = newNotes ? `${newNotes}; ${clubNote}` : clubNote
+                      }
+                    }
+                    return {
+                      ...prev,
+                      clubRentalSetId: sel.setId,
+                      clubRentalSetName: sel.setName,
+                      clubRentalTier: sel.tier,
+                      clubRentalGender: sel.gender,
+                      notes: newNotes,
+                    }
+                  })
+                }}
+                bookingDate={formData.bookingDate ? (
+                  typeof formData.bookingDate === 'string'
+                    ? formData.bookingDate
+                    : formData.bookingDate.toISOString().split('T')[0]
+                ) : null}
+                startTime={formData.startTime ? (
+                  typeof formData.startTime === 'string'
+                    ? formData.startTime
+                    : `${String(formData.startTime.getHours()).padStart(2, '0')}:${String(formData.startTime.getMinutes()).padStart(2, '0')}`
+                ) : null}
+                durationHours={formData.duration ? formData.duration / 60 : null}
+              />
+            </div>
+
             <div>
               <Label htmlFor="promotions">Promotions & Extras (Optional)</Label>
               <EnhancedPromotionSelector
@@ -970,7 +1049,7 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
                 onChange={(value) => {
                   setFormData(prev => {
                     let newNotes = prev.notes || ''
-                    
+
                     // Auto-populate notes based on selection
                     if (value) {
                       const promotionNote = value
@@ -979,7 +1058,7 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
                         newNotes = newNotes ? `${newNotes}; ${promotionNote}` : promotionNote
                       }
                     }
-                    
+
                     return { ...prev, promotion: value, notes: newNotes }
                   })
                 }}

@@ -102,6 +102,12 @@ export function Nav() {
                 Bookings Calendar
               </Link>
             </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/manage-club-rentals" className="flex items-center gap-2 w-full">
+                <ClipboardList className="h-4 w-4" />
+                Club Rentals
+              </Link>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
