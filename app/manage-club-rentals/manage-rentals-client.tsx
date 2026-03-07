@@ -176,32 +176,51 @@ export function ManageRentalsClient() {
     })
     mutate()
 
-    // Build changes summary for LINE notification
+    // Build changes summary and send LINE notification (same format as bay booking modifications)
     try {
       const changes: string[] = []
       const prevSet = previous.rental_club_sets as { name: string } | null
       const newSet = updated.rental_club_sets
       if (prevSet?.name !== newSet?.name) {
-        changes.push(`Set: ${prevSet?.name || 'N/A'} -> ${newSet?.name || 'N/A'}`)
+        changes.push(`Set: ${prevSet?.name || 'N/A'} \u2192 ${newSet?.name || 'N/A'}`)
       }
-      if (previous.start_date !== updated.start_date || previous.duration_days !== updated.duration_days) {
-        changes.push(`Dates: ${previous.start_date} (${previous.duration_days}d) -> ${updated.start_date} (${updated.duration_days}d)`)
+      if (previous.start_date !== updated.start_date) {
+        changes.push(`Start: ${previous.start_date} \u2192 ${updated.start_date}`)
+      }
+      if (previous.duration_days !== updated.duration_days) {
+        changes.push(`Duration: ${previous.duration_days}d \u2192 ${updated.duration_days}d`)
+      }
+      if ((previous.start_time || '') !== (updated.start_time || '')) {
+        changes.push(`Pickup: ${(previous.start_time as string)?.slice(0, 5) || 'None'} \u2192 ${updated.start_time?.slice(0, 5) || 'None'}`)
+      }
+      if ((previous.return_time || '') !== (updated.return_time || '')) {
+        changes.push(`Return: ${(previous.return_time as string)?.slice(0, 5) || 'None'} \u2192 ${updated.return_time?.slice(0, 5) || 'None'}`)
       }
       if (previous.delivery_requested !== updated.delivery_requested) {
-        changes.push(`Delivery: ${previous.delivery_requested ? 'Yes' : 'No'} -> ${updated.delivery_requested ? 'Yes' : 'No'}`)
+        changes.push(`Delivery: ${previous.delivery_requested ? 'Yes' : 'No'} \u2192 ${updated.delivery_requested ? 'Yes' : 'No'}`)
+      }
+      if (updated.delivery_requested && (previous.delivery_address || '') !== (updated.delivery_address || '')) {
+        changes.push(`Address: ${(previous.delivery_address as string) || 'None'} \u2192 ${updated.delivery_address || 'None'}`)
+      }
+      const prevAddOns = (previous.add_ons as Array<{ label: string }>) || []
+      const newAddOns = updated.add_ons || []
+      const prevAddOnKeys = prevAddOns.map(a => a.label).sort().join(', ')
+      const newAddOnKeys = newAddOns.map(a => a.label).sort().join(', ')
+      if (prevAddOnKeys !== newAddOnKeys) {
+        changes.push(`Add-ons: ${prevAddOnKeys || 'None'} \u2192 ${newAddOnKeys || 'None'}`)
       }
       if (Number(previous.total_price) !== Number(updated.total_price)) {
-        changes.push(`Total: ${Number(previous.total_price).toLocaleString()} -> ${Number(updated.total_price).toLocaleString()}`)
+        changes.push(`Total: \u0E3F${Number(previous.total_price).toLocaleString()} \u2192 \u0E3F${Number(updated.total_price).toLocaleString()}`)
       }
       if ((previous.notes || '') !== (updated.notes || '')) {
-        changes.push('Notes updated')
+        changes.push(`Notes: ${(previous.notes as string) || 'None'} \u2192 ${updated.notes || 'None'}`)
       }
 
-      const summaryText = changes.length > 0 ? changes.join(', ') : 'Details updated'
+      const summaryText = changes.join(', ')
       const startDateDisplay = formatDate(updated.start_date)
       const endDateDisplay = formatDate(updated.end_date)
 
-      const lineMessage = `Club Rental Modified (${updated.rental_code})\n----------------------------------\nSet: ${newSet?.name || 'N/A'}\nDates: ${startDateDisplay}${updated.start_time ? ` ${updated.start_time.slice(0, 5)}` : ''} -> ${endDateDisplay}${updated.return_time ? ` ${updated.return_time.slice(0, 5)}` : ''} (${updated.duration_days}d)\n${updated.delivery_requested ? `Delivery: ${updated.delivery_address || 'Address pending'}` : 'Pickup at LENGOLF'}\nCustomer: ${updated.customer_name}\nTotal: ${Number(updated.total_price).toLocaleString()}\n----------------------------------\nChanges: ${summaryText}\nModified by: ${employeeName}`
+      const lineMessage = `\u2139\uFE0F CLUB RENTAL MODIFIED (${updated.rental_code}) \uD83D\uDD04\n----------------------------------\n\uD83C\uDFCC\uFE0F Set: ${newSet?.name || 'N/A'}\n\uD83D\uDCC5 Dates: ${startDateDisplay}${updated.start_time ? ` ${updated.start_time.slice(0, 5)}` : ''} \u2192 ${endDateDisplay}${updated.return_time ? ` ${updated.return_time.slice(0, 5)}` : ''} (${updated.duration_days}d)\n${updated.delivery_requested ? `\uD83D\uDE9A Delivery: ${updated.delivery_address || 'Address pending'}` : '\uD83D\uDCCD Pickup at LENGOLF'}\n\uD83D\uDC64 Customer: ${updated.customer_name}${updated.customer_phone ? `\n\uD83D\uDCDE Phone: ${updated.customer_phone}` : ''}\n\uD83D\uDCB0 Total: \u0E3F${Number(updated.total_price).toLocaleString()}\n----------------------------------\n\uD83D\uDEE0\uFE0F Changes: ${summaryText}\n\uD83E\uDDD1\u200D\uD83D\uDCBC By: ${employeeName}`
 
       await fetch('/api/notify', {
         method: 'POST',
