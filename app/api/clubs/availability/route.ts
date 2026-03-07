@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const rentalType = searchParams.get('type') || 'indoor'
+    if (!['indoor', 'course'].includes(rentalType)) {
+      return NextResponse.json({ error: 'Invalid type. Must be "indoor" or "course".' }, { status: 400 })
+    }
     const date = searchParams.get('date')
     const startTime = searchParams.get('start_time') || null
     const durationHours = searchParams.get('duration') ? parseFloat(searchParams.get('duration')!) : null

@@ -52,20 +52,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid rental_type. Must be "indoor" or "course".' }, { status: 400 })
     }
 
-    // Validate add-on prices server-side
-    const VALID_ADD_ONS: Record<string, number> = {
-      gloves: 600,
-      balls: 400,
+    // Validate add-on prices server-side (synced with website GEAR_UP_ITEMS)
+    const VALID_ADD_ONS: Record<string, { label: string; price: number }> = {
+      gloves: { label: 'Golf Glove', price: 600 },
+      balls: { label: 'Practice Balls (1 bucket)', price: 400 },
+      delivery: { label: 'Delivery Service', price: 500 },
     }
-    const validatedAddOns = (add_ons as Array<{ key: string; label: string; price: number }>).map(
-      (item: { key: string; label: string; price: number }) => {
-        const expectedPrice = VALID_ADD_ONS[item.key]
-        if (expectedPrice === undefined) {
+    const validatedAddOns = (add_ons as Array<{ key: string; label: string; price: number }>)
+      .filter((item: { key: string }) => item.key !== 'delivery') // delivery handled separately via delivery_fee
+      .map((item: { key: string; label: string; price: number }) => {
+        const expected = VALID_ADD_ONS[item.key]
+        if (!expected) {
           return item // unknown add-on, keep as-is (could be new)
         }
-        return { ...item, price: expectedPrice } // enforce server-side price
-      }
-    )
+        return { ...item, label: expected.label, price: expected.price } // enforce server-side price & label
+      })
 
     // Calculate end_date: for course rentals, "1 day" = return next day at same time
     let end_date = body.end_date || start_date
@@ -119,6 +120,19 @@ export async function POST(request: NextRequest) {
     const delivery_fee = delivery_requested ? 500 : 0
     const total_price = rental_price + add_ons_total + delivery_fee
 
+    // Resolve user_id from customer_id via profiles table
+    let user_id: string | null = null
+    if (customer_id) {
+      const { data: profile } = await refacSupabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('customer_id', customer_id)
+        .maybeSingle()
+      if (profile) {
+        user_id = profile.id
+      }
+    }
+
     // Generate rental code
     const { data: rentalCode, error: codeError } = await refacSupabaseAdmin.rpc('generate_rental_code')
     if (codeError || !rentalCode) {
@@ -134,6 +148,7 @@ export async function POST(request: NextRequest) {
         rental_club_set_id,
         booking_id: booking_id || null,
         customer_id: customer_id || null,
+        user_id,
         customer_name,
         customer_email: customer_email || null,
         customer_phone: customer_phone || null,
@@ -160,6 +175,24 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       console.error('[ClubReserve] Insert error:', insertError)
       return NextResponse.json({ error: 'Failed to create rental reservation' }, { status: 500 })
+    }
+
+    // TOCTOU race condition check: re-verify availability after insert
+    const { data: postCount } = await refacSupabaseAdmin.rpc('check_club_set_availability', {
+      p_set_id: rental_club_set_id,
+      p_start_date: start_date,
+      p_end_date: end_date,
+      p_start_time: start_time || null,
+      p_duration_hours: duration_hours || null,
+    })
+    if (postCount !== null && postCount < 0) {
+      // Overbooking detected — roll back by deleting the just-created rental
+      await refacSupabaseAdmin.from('club_rentals').delete().eq('id', rental.id)
+      console.warn(`[ClubReserve] TOCTOU rollback: rental ${rentalCode} deleted due to overbooking`)
+      return NextResponse.json(
+        { error: 'This set was just booked by someone else. Please try again.' },
+        { status: 409 }
+      )
     }
 
     console.log(`[ClubReserve] Created rental ${rentalCode} for ${clubSet.name}, total: ฿${total_price}`)
