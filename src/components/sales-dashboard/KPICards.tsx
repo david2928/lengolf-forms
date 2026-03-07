@@ -195,7 +195,7 @@ const KPICard: React.FC<IndividualKPICardProps & { metricKey?: string }> = ({
 
 const KPICardsLoading: React.FC = () => {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }).map((_, index) => (
         <KPICard key={index} card={{} as KPICardData} isLoading={true} comparisonLabel="WoW" />
       ))}
@@ -325,19 +325,19 @@ export const KPICards: React.FC<KPICardsProps> = ({
   return (
     <div className="space-y-4">
       {/* Header Section */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Key Performance Indicators</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Real-time business metrics with week-over-week comparisons
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Key Performance Indicators</h2>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">
+            Real-time business metrics with comparisons
           </p>
         </div>
         <div className="flex items-center space-x-4">
-          <MetricsTooltip 
+          <MetricsTooltip
             position="left"
             className="relative"
           />
-          <div className="flex items-center space-x-2 text-xs text-gray-500">
+          <div className="hidden sm:flex items-center space-x-2 text-xs text-gray-500">
             <div className="flex items-center space-x-1">
               <TrendingUp className="h-3 w-3 text-green-600" />
               <span>Improvement</span>
@@ -355,7 +355,7 @@ export const KPICards: React.FC<KPICardsProps> = ({
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {kpiCards.map((card, index) => (
           <KPICard 
             key={index} 
@@ -367,7 +367,7 @@ export const KPICards: React.FC<KPICardsProps> = ({
       </div>
 
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-3 mt-6">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3 mt-4 sm:mt-6">
         <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">

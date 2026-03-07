@@ -6,6 +6,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { Target, TrendingUp, TrendingDown, Activity } from 'lucide-react';
 import { 
   LineChart, 
@@ -355,31 +356,27 @@ export const SimUtilizationChart: React.FC<SimUtilizationChartProps> = ({
 
   return (
     <Card className="col-span-1">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Sim Utilization Trends
-            </CardTitle>
-            <p className="text-sm text-gray-600 mt-1">
-              Daily utilization rates with {targetUtilization}% target benchmark
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-500">Target</p>
-            <p className="text-lg font-semibold text-orange-600">
-              {formatPercentage(targetUtilization)}
-            </p>
-          </div>
+      <CardHeader className="pb-2 sm:pb-6">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Target className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+            Sim Utilization
+          </CardTitle>
+          <Badge variant="outline" className="text-xs flex-shrink-0">
+            Target: {formatPercentage(targetUtilization)}
+          </Badge>
         </div>
+        <p className="hidden sm:block text-sm text-gray-600 mt-1">
+          Daily utilization rates with {targetUtilization}% target benchmark
+        </p>
       </CardHeader>
       
       <CardContent>
         <UtilizationStats data={data} targetUtilization={targetUtilization} />
         
-        <ResponsiveContainer width="100%" height={350}>
-          <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <div className="h-[280px] sm:h-[350px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             
             <XAxis 
@@ -389,15 +386,11 @@ export const SimUtilizationChart: React.FC<SimUtilizationChartProps> = ({
               stroke="#6b7280"
             />
             
-            <YAxis 
+            <YAxis
               domain={yAxisDomain}
-              tick={{ fontSize: 12 }}
-              label={{ 
-                value: 'Utilization %', 
-                angle: -90, 
-                position: 'insideLeft',
-                style: { textAnchor: 'middle' }
-              }}
+              tick={{ fontSize: 11 }}
+              tickFormatter={(value) => `${value}%`}
+              width={45}
               stroke="#6b7280"
             />
             
@@ -450,9 +443,10 @@ export const SimUtilizationChart: React.FC<SimUtilizationChartProps> = ({
             />
           </ComposedChart>
         </ResponsiveContainer>
+        </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-6 mt-4 text-xs">
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 mt-3 sm:mt-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-3 h-0.5 bg-blue-500"></div>
             <span className="text-gray-600">Daily Utilization</span>

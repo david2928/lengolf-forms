@@ -222,15 +222,15 @@ export default function SalesDashboardPage() {
     : getDateRangeForPreset(filters.datePreset);
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8">
+    <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-8">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <TrendingUp className="h-8 w-8 text-blue-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2 sm:gap-3">
+            <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
             Sales Dashboard
           </h1>
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-3">
             <Badge variant="outline" className="text-xs">
               {filters.datePreset === 'custom' ? 'Custom: ' : ''}{formatDisplayDate(dateRange.start)} - {formatDisplayDate(dateRange.end)}
             </Badge>
@@ -249,10 +249,10 @@ export default function SalesDashboardPage() {
         </div>
 
         {/* Dashboard Controls */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
           {/* Date Range Selector */}
           <Select value={filters.datePreset} onValueChange={handleDatePresetChange}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <Calendar className="h-4 w-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
@@ -270,7 +270,7 @@ export default function SalesDashboardPage() {
 
           {/* Comparison Period */}
           <Select value={filters.comparisonPeriod} onValueChange={handleComparisonChange}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-44">
               <BarChart3 className="h-4 w-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
@@ -287,7 +287,7 @@ export default function SalesDashboardPage() {
             variant="outline"
             size="sm"
             disabled={isValidating}
-            className="flex items-center gap-2"
+            className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${isValidating ? 'animate-spin' : ''}`} />
             Refresh
@@ -296,47 +296,47 @@ export default function SalesDashboardPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex space-x-8">
+      <div className="border-b border-gray-200 mb-4 sm:mb-6 -mx-3 sm:mx-0 px-3 sm:px-0">
+        <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'overview'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Dashboard Overview
+            Overview
           </button>
           <button
             onClick={() => setActiveTab('reports')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'reports'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Monthly/Weekly Reports
+            Reports
           </button>
           <button
             onClick={() => setActiveTab('referrals')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'referrals'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Referral Analytics
+            Referrals
           </button>
           <button
             onClick={() => setActiveTab('products')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'products'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Product Performance
+            Products
           </button>
         </nav>
       </div>
@@ -376,8 +376,8 @@ export default function SalesDashboardPage() {
 
             {/* Charts Grid Section */}
             <section>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Performance Analytics</h2>
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Performance Analytics</h2>
                 <Button
                   onClick={() => toggleSection('charts')}
                   variant="ghost"
@@ -465,10 +465,10 @@ export default function SalesDashboardPage() {
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 text-xs">
+                    <div className="flex items-center gap-2 sm:gap-4 text-xs">
                       <ClientTimestamp />
-                      <span>•</span>
-                      <span>Auto-refresh: Disabled</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="hidden sm:inline">Auto-refresh: Disabled</span>
                     </div>
                   </div>
                 </CardContent>
@@ -495,8 +495,8 @@ export default function SalesDashboardPage() {
 
       {/* Custom Date Range Modal */}
       {showCustomDateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-90vw">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
             <h3 className="text-lg font-semibold mb-4">Select Custom Date Range</h3>
             <div className="space-y-4">
               <div>

@@ -245,8 +245,8 @@ export default function CustomerGrowthChart({
 
   return (
     <Card className={className}>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg font-semibold text-gray-900">
+      <CardHeader className="pb-2 sm:pb-3">
+        <CardTitle className="text-base sm:text-lg font-semibold text-gray-900">
           {title}
         </CardTitle>
       </CardHeader>
@@ -304,7 +304,7 @@ export default function CustomerGrowthChart({
             )}
 
             {/* Growth metrics summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
                   <Users className="h-4 w-4 text-blue-600" />
@@ -355,9 +355,9 @@ export default function CustomerGrowthChart({
             </div>
 
             {/* Line Chart Only */}
-            <div className="h-80">
+            <div className="h-64 sm:h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={processedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <LineChart data={processedData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis 
                     dataKey="displayDate" 

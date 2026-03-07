@@ -315,25 +315,19 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({
 
   return (
     <Card className="col-span-2">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Revenue by Category
-            </CardTitle>
-            <p className="text-sm text-gray-600 mt-1">
-              Revenue distribution across product categories (sorted by revenue)
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              <Package className="h-3 w-3 mr-1" />
-              {data.length} categories
-            </Badge>
-          </div>
+      <CardHeader className="pb-2 sm:pb-6">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+            Revenue by Category
+          </CardTitle>
+          <Badge variant="outline" className="text-xs flex-shrink-0">
+            {data.length} categories
+          </Badge>
         </div>
+        <p className="hidden sm:block text-sm text-gray-600 mt-1">
+          Revenue distribution across product categories (sorted by revenue)
+        </p>
       </CardHeader>
       
       <CardContent>
@@ -342,10 +336,11 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Bar Chart - Left side */}
           <div className="lg:col-span-2">
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart 
-                data={chartData} 
-                margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+            <div className="h-[300px] sm:h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                margin={{ top: 10, right: 10, left: 0, bottom: 60 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis 
@@ -371,6 +366,7 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Table - Right side */}

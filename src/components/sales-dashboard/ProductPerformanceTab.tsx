@@ -154,51 +154,51 @@ export default function ProductPerformanceTab({ dateRange }: ProductPerformanceT
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Products Sold</p>
-                <p className="text-2xl font-bold">{data.summary.total_products}</p>
+                <p className="text-xs sm:text-sm text-gray-600">Products Sold</p>
+                <p className="text-lg sm:text-2xl font-bold">{data.summary.total_products}</p>
               </div>
-              <Package className="h-8 w-8 text-blue-600" />
+              <Package className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold">{formatCurrency(data.summary.total_revenue)}</p>
+                <p className="text-xs sm:text-sm text-gray-600">Total Revenue</p>
+                <p className="text-lg sm:text-2xl font-bold">{formatCurrency(data.summary.total_revenue)}</p>
               </div>
-              <TrendingUp className="h-8 w-8 text-green-600" />
+              <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 hidden sm:block" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Profit</p>
-                <p className="text-2xl font-bold">{formatCurrency(data.summary.total_profit)}</p>
+                <p className="text-xs sm:text-sm text-gray-600">Total Profit</p>
+                <p className="text-lg sm:text-2xl font-bold">{formatCurrency(data.summary.total_profit)}</p>
               </div>
-              <Target className="h-8 w-8 text-purple-600" />
+              <Target className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 hidden sm:block" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Avg Profit Margin</p>
-                <p className="text-2xl font-bold">{formatPercentage(data.summary.avg_profit_margin)}</p>
+                <p className="text-xs sm:text-sm text-gray-600">Avg Margin</p>
+                <p className="text-lg sm:text-2xl font-bold">{formatPercentage(data.summary.avg_profit_margin)}</p>
               </div>
-              <BarChart3 className="h-8 w-8 text-orange-600" />
+              <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 hidden sm:block" />
             </div>
           </CardContent>
         </Card>
@@ -275,39 +275,38 @@ export default function ProductPerformanceTab({ dateRange }: ProductPerformanceT
           {/* Products Display */}
           {selectedProduct ? (
             // Selected Product Summary
-            <div className="border rounded-lg p-4 bg-blue-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Package className="h-5 w-5 text-blue-600" />
+            <div className="border rounded-lg p-3 sm:p-4 bg-blue-50">
+              <div className="flex items-start justify-between mb-2 sm:mb-0">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <Package className="h-5 w-5 text-blue-600 flex-shrink-0" />
                   <div>
-                    <h3 className="font-semibold text-blue-900">{selectedProduct.name}</h3>
+                    <h3 className="font-semibold text-blue-900 text-sm sm:text-base">{selectedProduct.name}</h3>
                     <Badge variant="outline" className="text-xs">
                       {selectedProduct.category}
                     </Badge>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-sm text-blue-600">Revenue</p>
-                    <p className="font-semibold text-blue-900">{formatCurrency(selectedProduct.total_revenue || 0)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-blue-600">Profit</p>
-                    <p className="font-semibold text-blue-900">{formatCurrency(selectedProduct.total_profit || 0)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-blue-600">Margin</p>
-                    <p className="font-semibold text-blue-900">{formatPercentage(selectedProduct.avg_profit_margin)}</p>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => setSelectedProduct(null)}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    <X className="h-4 w-4" />
-                    Deselect
-                  </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedProduct(null)}
+                  className="text-blue-600 hover:text-blue-800 flex-shrink-0 p-1 h-auto"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-2">
+                <div className="text-center sm:text-right">
+                  <p className="text-xs text-blue-600">Revenue</p>
+                  <p className="font-semibold text-blue-900 text-sm sm:text-base">{formatCurrency(selectedProduct.total_revenue || 0)}</p>
+                </div>
+                <div className="text-center sm:text-right">
+                  <p className="text-xs text-blue-600">Profit</p>
+                  <p className="font-semibold text-blue-900 text-sm sm:text-base">{formatCurrency(selectedProduct.total_profit || 0)}</p>
+                </div>
+                <div className="text-center sm:text-right">
+                  <p className="text-xs text-blue-600">Margin</p>
+                  <p className="font-semibold text-blue-900 text-sm sm:text-base">{formatPercentage(selectedProduct.avg_profit_margin)}</p>
                 </div>
               </div>
             </div>
