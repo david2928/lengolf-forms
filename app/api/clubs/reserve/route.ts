@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getDevSession } from '@/lib/dev-session'
 import { authOptions } from '@/lib/auth-config'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
+import { sendCourseRentalConfirmationEmail } from '@/lib/email-service'
 
 function getIndoorPrice(set: Record<string, unknown>, durationHours: number): number {
   if (durationHours <= 1) return Number(set.indoor_price_1h)
   if (durationHours <= 2) return Number(set.indoor_price_2h)
-  return Number(set.indoor_price_4h)
+  if (durationHours <= 3) return Number(set.indoor_price_3h || set.indoor_price_4h)
+  if (durationHours <= 4) return Number(set.indoor_price_4h)
+  return Number(set.indoor_price_5h || set.indoor_price_4h)
 }
 
 function getCoursePrice(set: Record<string, unknown>, durationDays: number): number {
@@ -196,6 +199,28 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[ClubReserve] Created rental ${rentalCode} for ${clubSet.name}, total: ฿${total_price}`)
+
+    // Send confirmation email for course rentals when customer email is provided
+    if (rental_type === 'course' && customer_email) {
+      sendCourseRentalConfirmationEmail({
+        customerName: customer_name,
+        email: customer_email,
+        rentalCode,
+        clubSetName: clubSet.name,
+        clubSetTier: clubSet.tier,
+        clubSetGender: clubSet.gender,
+        startDate: start_date,
+        endDate: end_date,
+        durationDays: duration_days || 1,
+        deliveryRequested: delivery_requested,
+        deliveryAddress: delivery_address,
+        addOns: validatedAddOns.map((a: { label: string; price: number }) => ({ label: a.label, price: a.price })),
+        rentalPrice: rental_price,
+        deliveryFee: delivery_fee,
+        totalPrice: total_price,
+        notes,
+      }).catch(err => console.error('[ClubReserve] Email send failed (non-blocking):', err))
+    }
 
     return NextResponse.json({
       success: true,
