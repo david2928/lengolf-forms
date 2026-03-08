@@ -179,6 +179,7 @@ export default function TrafficAnalyticsPage() {
                 dailyTrends={data.dailyTrends}
                 deviceBreakdown={data.deviceBreakdown}
                 channelBreakdown={data.channelBreakdown}
+                channelDailyTrends={data.channelDailyTrends}
                 topPages={data.topPages}
                 pageDailyTrends={data.pageDailyTrends}
               />

@@ -77,12 +77,20 @@ export interface PageDailyTrendItem {
   conversions: number;
 }
 
+export interface ChannelDailyTrendItem {
+  date: string;
+  sessions: number;
+  users: number;
+  conversions: number;
+}
+
 export interface TrafficAnalyticsData {
   kpis: TrafficKPIs | null;
   topPages: TopPage[];
   pageDailyTrends: Record<string, PageDailyTrendItem[]>;
   funnelData: FunnelDataItem[];
   channelBreakdown: ChannelBreakdownItem[];
+  channelDailyTrends: Record<string, ChannelDailyTrendItem[]>;
   deviceBreakdown: DeviceBreakdownItem[];
   dailyTrends: DailyTrendItem[];
   propertyFilter: string;
@@ -135,6 +143,7 @@ const emptyData: TrafficAnalyticsData = {
   pageDailyTrends: {},
   funnelData: [],
   channelBreakdown: [],
+  channelDailyTrends: {},
   deviceBreakdown: [],
   dailyTrends: [],
   propertyFilter: 'all',

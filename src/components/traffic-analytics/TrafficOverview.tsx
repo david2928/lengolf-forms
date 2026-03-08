@@ -21,12 +21,20 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
-import { DailyTrendItem, DeviceBreakdownItem, ChannelBreakdownItem, TopPage, PageDailyTrendItem } from '@/hooks/useTrafficAnalytics';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { DailyTrendItem, DeviceBreakdownItem, ChannelBreakdownItem, ChannelDailyTrendItem, TopPage, PageDailyTrendItem } from '@/hooks/useTrafficAnalytics';
 
 interface TrafficOverviewProps {
   dailyTrends: DailyTrendItem[];
   deviceBreakdown: DeviceBreakdownItem[];
   channelBreakdown: ChannelBreakdownItem[];
+  channelDailyTrends: Record<string, ChannelDailyTrendItem[]>;
   topPages: TopPage[];
   pageDailyTrends: Record<string, PageDailyTrendItem[]>;
 }
@@ -161,9 +169,10 @@ function shortPageLabel(path: string, maxLen = 40): string {
   }
 }
 
-const TrafficOverview: React.FC<TrafficOverviewProps> = ({ dailyTrends, deviceBreakdown, channelBreakdown, topPages, pageDailyTrends }) => {
+const TrafficOverview: React.FC<TrafficOverviewProps> = ({ dailyTrends, deviceBreakdown, channelBreakdown, channelDailyTrends, topPages, pageDailyTrends }) => {
   const [granularity, setGranularity] = useState<Granularity>('daily');
   const [selectedPage, setSelectedPage] = useState<string | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<string>('all');
   const [pageSearch, setPageSearch] = useState('');
   const [showPageSearch, setShowPageSearch] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -179,7 +188,21 @@ const TrafficOverview: React.FC<TrafficOverviewProps> = ({ dailyTrends, deviceBr
     return () => document.removeEventListener('mousedown', handler);
   }, [showPageSearch]);
 
-  const overallTrends = useMemo(() => aggregateOverallTrends(dailyTrends, granularity), [dailyTrends, granularity]);
+  // When a channel is selected, use channel-specific daily data; otherwise use overall
+  const activeDailyTrends = useMemo((): DailyTrendItem[] => {
+    if (selectedChannel === 'all') return dailyTrends;
+    const channelData = channelDailyTrends[selectedChannel];
+    if (!channelData) return [];
+    return channelData.map(d => ({
+      date: d.date,
+      sessions: d.sessions,
+      users: d.users,
+      conversions: d.conversions,
+      conversionRate: d.sessions > 0 ? Number((d.conversions / d.sessions * 100).toFixed(2)) : 0,
+    }));
+  }, [selectedChannel, dailyTrends, channelDailyTrends]);
+
+  const overallTrends = useMemo(() => aggregateOverallTrends(activeDailyTrends, granularity), [activeDailyTrends, granularity]);
 
   const pageTrends = useMemo(() => {
     if (!selectedPage || !pageDailyTrends[selectedPage]) return null;
@@ -221,7 +244,9 @@ const TrafficOverview: React.FC<TrafficOverviewProps> = ({ dailyTrends, deviceBr
             <CardTitle>
               {isPageMode
                 ? `${granularityLabel} Page Trends`
-                : `${granularityLabel} Traffic Trends`
+                : selectedChannel !== 'all'
+                  ? `${granularityLabel} ${selectedChannel} Trends`
+                  : `${granularityLabel} Traffic Trends`
               }
             </CardTitle>
             {isPageMode && (
@@ -235,7 +260,19 @@ const TrafficOverview: React.FC<TrafficOverviewProps> = ({ dailyTrends, deviceBr
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+            {/* Channel filter */}
+            <Select value={selectedChannel} onValueChange={(v) => { setSelectedChannel(v); setSelectedPage(null); }}>
+              <SelectTrigger className="w-[140px] h-7 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Channels</SelectItem>
+                {channelBreakdown.map(ch => (
+                  <SelectItem key={ch.channel} value={ch.channel}>{ch.channel}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {/* Page filter */}
             <div className="relative" ref={dropdownRef}>
               <Button

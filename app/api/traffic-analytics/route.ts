@@ -342,12 +342,38 @@ export async function GET(request: NextRequest) {
       conversionRate: data.sessions > 0 ? Number((data.conversions / data.sessions * 100).toFixed(2)) : 0,
     })).sort((a, b) => a.date.localeCompare(b.date));
 
+    // === Channel Daily Trends ===
+    const channelDailyMap = new Map<string, Map<string, { sessions: number; users: number; conversions: number }>>();
+    currentTrafficData?.forEach(row => {
+      const channel = row.channel_grouping;
+      if (!channelDailyMap.has(channel)) {
+        channelDailyMap.set(channel, new Map());
+      }
+      const dateMap = channelDailyMap.get(channel)!;
+      const date = row.date;
+      if (!dateMap.has(date)) {
+        dateMap.set(date, { sessions: 0, users: 0, conversions: 0 });
+      }
+      const c = dateMap.get(date)!;
+      c.sessions += row.sessions || 0;
+      c.users += row.users || 0;
+      c.conversions += row.booking_conversions || 0;
+    });
+
+    const channelDailyTrends: Record<string, Array<{ date: string; sessions: number; users: number; conversions: number }>> = {};
+    channelDailyMap.forEach((dateMap, channel) => {
+      channelDailyTrends[channel] = Array.from(dateMap.entries())
+        .map(([date, d]) => ({ date, sessions: d.sessions, users: d.users, conversions: d.conversions }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    });
+
     return NextResponse.json({
       kpis,
       topPages,
       pageDailyTrends,
       funnelData,
       channelBreakdown,
+      channelDailyTrends,
       deviceBreakdown,
       dailyTrends,
       propertyFilter: property,
