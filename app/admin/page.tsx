@@ -31,7 +31,8 @@ import {
   Banknote,
   Coins,
   Tag,
-  Brain
+  Brain,
+  Globe
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -81,6 +82,12 @@ const salesAnalyticsItems = [
     title: "Marketing Dashboard",
     description: "Unified Google + Meta Ads performance dashboard with KPIs and trends",
     path: "/admin/marketing-dashboard"
+  },
+  {
+    icon: Globe,
+    title: "Traffic Analytics",
+    description: "GA4 traffic insights across all LENGOLF web properties",
+    path: "/admin/traffic-analytics"
   },
   {
     icon: BarChart3,

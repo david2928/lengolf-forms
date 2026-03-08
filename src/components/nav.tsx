@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target, Percent, MessageSquare, Headphones, ImageIcon, Star, Landmark, Banknote, Phone, Tag, Send } from 'lucide-react'
+import { Home, LogOut, Calendar, ClipboardList, Package, Edit, Settings, PlusCircle, PackageSearch, PackageCheck, Archive, ChevronDown, TrendingUp, Calculator, FileText, Activity, Mail, Receipt, Users, UserCheck, Link2, BarChart3, Cog, Timer, Clock, ShoppingCart, Target, Percent, MessageSquare, Headphones, ImageIcon, Star, Landmark, Banknote, Phone, Tag, Send, Globe } from 'lucide-react'
 import { PackageMonitorNavButton } from './package-monitor/nav-button'
 import { NotificationBell } from './notifications/NotificationBell'
 import {
@@ -353,6 +353,12 @@ export function Nav() {
                 <Link href="/admin/marketing-dashboard" className="flex items-center gap-2 w-full">
                   <Target className="h-4 w-4" />
                   Marketing Dashboard
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/traffic-analytics" className="flex items-center gap-2 w-full">
+                  <Globe className="h-4 w-4" />
+                  Traffic Analytics
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
