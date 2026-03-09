@@ -141,7 +141,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
         duration: durationInMinutes, // always minutes
         number_of_people: booking.number_of_people || 1,
         customer_notes: booking.customer_notes || '',
-        employee_name: booking?.updated_by_identifier || '',
+        employee_name: '',
         // New fields for Phase 3 enhancements
         package_id: booking.package_id || null,
         package_name: booking.package_name || null,
@@ -572,11 +572,11 @@ export function EditBookingModal({ isOpen, onClose, booking, onSuccess }: EditBo
 
           // Track new editable fields
           if (payload.booking_type && booking.booking_type !== payload.booking_type) changesSummary.push(`Type: ${booking.booking_type || 'None'} -> ${payload.booking_type}`);
-          if (payload.package_id !== undefined && booking.package_id !== payload.package_id) {
+          if (payload.package_id !== undefined && (booking.package_id || null) !== (payload.package_id || null)) {
             const oldPackage = booking.package_name || 'None';
             let newPackage = 'None';
             if (payload.package_id === null) {
-              newPackage = 'Keep Current';
+              newPackage = booking.package_name ? 'Keep Current' : 'None';
             } else if (payload.package_id === '') {
               newPackage = 'None';
             } else {
