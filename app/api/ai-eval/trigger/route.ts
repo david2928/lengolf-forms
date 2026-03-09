@@ -22,6 +22,15 @@ export async function POST(request: NextRequest) {
     const dateFilter = typeof body.date_filter === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date_filter)
       ? body.date_filter
       : undefined;
+    const label = typeof body.label === 'string' ? body.label.slice(0, 100) : undefined;
+
+    // Auto-generate version from Vercel git info or date
+    const gitHash = process.env.VERCEL_GIT_COMMIT_SHA || undefined;
+    const version = (() => {
+      const d = new Date();
+      const dateStr = `v${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+      return gitHash ? `${dateStr}-${gitHash.substring(0, 7)}` : dateStr;
+    })();
 
     const response = await fetch(`${supabaseUrl}/functions/v1/ai-eval-run`, {
       method: 'POST',
@@ -34,6 +43,9 @@ export async function POST(request: NextRequest) {
         sample_count: sampleCount,
         batch_size: batchSize,
         ...(dateFilter && { date_filter: dateFilter }),
+        ...(label && { label }),
+        version,
+        ...(gitHash && { git_hash: gitHash }),
       }),
     });
 

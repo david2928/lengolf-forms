@@ -12,6 +12,9 @@ interface EvalRequest {
   batch_size?: number
   run_id?: string
   date_filter?: string // ISO date string (YYYY-MM-DD) to filter conversations to a specific day
+  label?: string       // Human-readable label for the run (e.g., "post-classifier-fix")
+  version?: string     // Prompt/code version (e.g., "v2026.03.09-abc1234")
+  git_hash?: string    // Git commit hash
 }
 
 interface ConversationMessage {
@@ -30,6 +33,9 @@ The AI generates staff-facing response suggestions. Score the AI's suggested res
 - helpfulness (0.3 weight): Resolves question/request, actionable and complete
 - toneMatch (0.2 weight): Thai premium service tone, warm, professional, polite particles
 - brevity (0.2 weight): Ideal length, concise and complete (1-2 sentences)
+
+IMPORTANT: These are historical conversations replayed for evaluation. Bay availability and booking data are checked against the CURRENT date, not the original conversation date. Do NOT penalize the AI for incorrect availability results, wrong time slots, or "fully booked" responses that differ from what the staff saw. Instead, evaluate whether the AI took the RIGHT APPROACH (checked availability, asked relevant questions, attempted to book) regardless of the specific availability data returned.
+
 Respond in JSON: {"appropriateness":{"score":N,"reasoning":"..."},"helpfulness":{"score":N,"reasoning":"..."},"toneMatch":{"score":N,"reasoning":"..."},"brevity":{"score":N,"reasoning":"..."}}`
 
 serve(async (req: Request) => {
@@ -55,7 +61,10 @@ serve(async (req: Request) => {
     const batch_size = Math.min(Math.max(1, Number(body.batch_size) || 10), 25)
 
     if (action === 'start') {
-      return await handleStart(supabase, supabaseUrl, supabaseKey, openaiKey, cronSecret, vercelUrl, sample_count, batch_size, body.date_filter)
+      const label = typeof body.label === 'string' ? body.label.slice(0, 100) : undefined
+      const version = typeof body.version === 'string' ? body.version.slice(0, 50) : undefined
+      const gitHash = typeof body.git_hash === 'string' ? body.git_hash.slice(0, 40) : undefined
+      return await handleStart(supabase, supabaseUrl, supabaseKey, openaiKey, cronSecret, vercelUrl, sample_count, batch_size, body.date_filter, { label, version, gitHash })
     } else if (action === 'continue') {
       if (!body.run_id) {
         return jsonResponse({ error: 'run_id required for continue action' }, 400)
@@ -80,6 +89,7 @@ async function handleStart(
   sampleCount: number,
   batchSize: number,
   dateFilter?: string,
+  meta?: { label?: string; version?: string; gitHash?: string },
 ) {
   // Build conversation query — either specific date or last 60 days
   let query = supabase
@@ -107,6 +117,13 @@ async function handleStart(
   const selected = shuffled.slice(0, sampleCount).map((c: { id: string }) => c.id)
   const totalBatches = Math.ceil(selected.length / batchSize)
 
+  // Auto-generate version if not provided: vYYYY.MM.DD-<hash>
+  const autoVersion = meta?.version || (() => {
+    const d = new Date()
+    const dateStr = `v${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+    return meta?.gitHash ? `${dateStr}-${meta.gitHash.substring(0, 7)}` : dateStr
+  })()
+
   // Create eval run
   const { data: run, error: runError } = await supabase
     .schema('ai_eval')
@@ -119,6 +136,9 @@ async function handleStart(
       batch_current: 0,
       batch_total: totalBatches,
       conversation_ids: selected,
+      prompt_version: autoVersion,
+      prompt_label: meta?.label || null,
+      git_commit_hash: meta?.gitHash || null,
     })
     .select('id')
     .single()
@@ -140,8 +160,11 @@ async function handleStart(
     .update({ batch_current: 1 })
     .eq('id', runId)
 
-  // If more batches, self-invoke
-  if (totalBatches > 1) {
+  // If first batch produced nothing and it's the only batch, fail early
+  if (processed === 0 && totalBatches <= 1) {
+    await finalizeRun(supabase, runId, 'failed', 'No eligible samples found in conversations')
+  } else if (totalBatches > 1) {
+    // If more batches, self-invoke
     selfInvoke(supabaseUrl, supabaseKey, runId, batchSize)
   } else {
     await finalizeRun(supabase, runId, 'completed')
