@@ -119,24 +119,27 @@ async function llmClassify(
     { role: 'system', content: CLASSIFIER_SYSTEM_PROMPT },
   ];
 
-  // Present the full conversation as a single user message so the classifier
+  // Present the conversation as a single user message so the classifier
   // sees the overall topic, not just the latest short message in isolation.
-  let conversationBlock = '';
-  if (recentMessages && recentMessages.length > 0) {
-    conversationBlock = recentMessages
-      .map(msg => {
-        const sender = (msg.senderType === 'user' || msg.senderType === 'customer') ? 'Customer' : 'Staff';
-        return `${sender}: ${msg.content}`;
-      })
-      .join('\n');
+  // Cap at last 20 messages to balance context vs cost/latency.
+  const recent = (recentMessages || []).slice(-20);
+  const lines: string[] = recent.map(msg => {
+    const sender = (msg.senderType === 'user' || msg.senderType === 'customer') ? 'Customer' : 'Staff';
+    return `${sender}: ${msg.content}`;
+  });
+
+  // Deduplicate: only append current message if it's not already the last entry
+  const lastMsg = recent[recent.length - 1];
+  const isAlreadyIncluded = lastMsg &&
+    (lastMsg.senderType === 'user' || lastMsg.senderType === 'customer') &&
+    lastMsg.content === customerMessage;
+  if (!isAlreadyIncluded) {
+    lines.push(`Customer: ${customerMessage}`);
   }
-  // Append the current message (may already be the last in recentMessages for real-time,
-  // but included explicitly so it's always visible)
-  conversationBlock += `\nCustomer: ${customerMessage}`;
 
   messages.push({
     role: 'user',
-    content: `CONVERSATION:\n${conversationBlock}\n\nClassify the overall conversation topic.`
+    content: `CONVERSATION:\n${lines.join('\n')}\n\nClassify the overall conversation topic.`
   });
 
   const response = await openai.chat.completions.create({
