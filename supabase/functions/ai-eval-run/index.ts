@@ -41,6 +41,7 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const openaiKey = Deno.env.get('OPENAI_API_KEY')!
+    const cronSecret = Deno.env.get('CRON_SECRET') || ''
     const vercelUrl = Deno.env.get('VERCEL_PRODUCTION_URL') || 'https://lengolf-forms.vercel.app'
 
     const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -54,12 +55,12 @@ serve(async (req: Request) => {
     const batch_size = Math.min(Math.max(1, Number(body.batch_size) || 10), 25)
 
     if (action === 'start') {
-      return await handleStart(supabase, supabaseUrl, supabaseKey, openaiKey, vercelUrl, sample_count, batch_size, body.date_filter)
+      return await handleStart(supabase, supabaseUrl, supabaseKey, openaiKey, cronSecret, vercelUrl, sample_count, batch_size, body.date_filter)
     } else if (action === 'continue') {
       if (!body.run_id) {
         return jsonResponse({ error: 'run_id required for continue action' }, 400)
       }
-      return await handleContinue(supabase, supabaseUrl, supabaseKey, openaiKey, vercelUrl, body.run_id, batch_size)
+      return await handleContinue(supabase, supabaseUrl, supabaseKey, openaiKey, cronSecret, vercelUrl, body.run_id, batch_size)
     }
 
     return jsonResponse({ error: 'Invalid action' }, 400)
@@ -74,6 +75,7 @@ async function handleStart(
   supabaseUrl: string,
   supabaseKey: string,
   openaiKey: string,
+  cronSecret: string,
   vercelUrl: string,
   sampleCount: number,
   batchSize: number,
@@ -129,7 +131,7 @@ async function handleStart(
 
   // Process first batch
   const firstBatch = selected.slice(0, batchSize)
-  const { processed } = await processBatch(supabase, openaiKey, vercelUrl, runId, firstBatch)
+  const { processed } = await processBatch(supabase, openaiKey, cronSecret, vercelUrl, runId, firstBatch)
 
   // Update progress
   await supabase
@@ -159,6 +161,7 @@ async function handleContinue(
   supabaseUrl: string,
   supabaseKey: string,
   openaiKey: string,
+  cronSecret: string,
   vercelUrl: string,
   runId: string,
   batchSize: number,
@@ -198,7 +201,7 @@ async function handleContinue(
     return jsonResponse({ success: true, run_id: runId, status: 'completed' })
   }
 
-  const { processed } = await processBatch(supabase, openaiKey, vercelUrl, runId, batchIds)
+  const { processed } = await processBatch(supabase, openaiKey, cronSecret, vercelUrl, runId, batchIds)
   const newBatchCurrent = currentBatch + 1
 
   await supabase
@@ -228,6 +231,7 @@ async function handleContinue(
 async function processBatch(
   supabase: ReturnType<typeof createClient>,
   openaiKey: string,
+  cronSecret: string,
   vercelUrl: string,
   runId: string,
   conversationIds: string[],
@@ -282,7 +286,10 @@ async function processBatch(
       const suggestStart = Date.now()
       const suggestResp = await fetch(`${vercelUrl}/api/ai/suggest-response`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(cronSecret && { 'Authorization': `Bearer ${cronSecret}` }),
+        },
         body: JSON.stringify({
           customerMessage: testMsg.content,
           conversationId: convId,

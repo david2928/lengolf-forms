@@ -23,16 +23,25 @@ export const maxDuration = 30;
  * POST /api/ai/suggest-response
  */
 export async function POST(request: NextRequest) {
-  const session = await getDevSession(authOptions, request);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Allow internal service calls (e.g., AI eval Edge Function) via CRON_SECRET
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+  const isInternalCall = !!(cronSecret && authHeader === `Bearer ${cronSecret}`);
 
-  // Rate limit: prevent excessive API cost from rapid-fire requests
-  if (!checkRateLimit(session.user.email)) {
-    return NextResponse.json({
-      error: 'Rate limit exceeded. Please wait a moment before requesting another suggestion.'
-    }, { status: 429 });
+  let userEmail = 'ai-eval@internal';
+  if (!isInternalCall) {
+    const session = await getDevSession(authOptions, request);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    userEmail = session.user.email;
+
+    // Rate limit: prevent excessive API cost from rapid-fire requests
+    if (!checkRateLimit(userEmail)) {
+      return NextResponse.json({
+        error: 'Rate limit exceeded. Please wait a moment before requesting another suggestion.'
+      }, { status: 429 });
+    }
   }
 
   try {
@@ -181,7 +190,7 @@ export async function POST(request: NextRequest) {
       conversationContext,
       // customerContext removed — loaded on-demand by get_customer_context tool
       businessContext: businessContext || undefined,
-      staffUserEmail: session.user.email,
+      staffUserEmail: userEmail,
       messageId: body.messageId, // Pass message ID for database storage
       imageUrl: body.imageUrl, // Customer image URL for vision support
       dryRun: body.dryRun || false, // Support evaluation mode
