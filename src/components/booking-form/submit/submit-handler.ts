@@ -287,6 +287,43 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
     // Calendar events are now managed by the automated sync system only
     // Individual booking calendar events are no longer created during booking flow
 
+    // --- Step 4: Create club rental reservation if a premium set was selected ---
+    if (formData.clubRentalSetId && formData.clubRentalSetId !== 'standard' && formData.clubRentalSetId !== 'none') {
+      try {
+        const durationHours = formData.duration / 60;
+        const startTimeStr = typeof formData.startTime === 'string'
+          ? formData.startTime
+          : formData.startTime ? format(formData.startTime as Date, 'HH:mm') : undefined;
+
+        const clubReserveRes = await fetch('/api/clubs/reserve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rental_club_set_id: formData.clubRentalSetId,
+            rental_type: 'indoor',
+            start_date: dbBookingData.date,
+            start_time: startTimeStr,
+            duration_hours: durationHours,
+            booking_id: bookingId,
+            customer_name: formData.customerName || 'Unknown',
+            customer_phone: formData.customerPhone || undefined,
+            customer_email: formData.customerEmail || undefined,
+            customer_id: formData.customerId || undefined,
+            source: 'staff',
+          }),
+        });
+
+        if (clubReserveRes.ok) {
+          const clubResult = await clubReserveRes.json();
+          console.log(`[StaffBooking] Club rental created: ${clubResult.rental_code}`);
+        } else {
+          console.warn('[StaffBooking] Club rental reservation failed (non-blocking):', await clubReserveRes.text());
+        }
+      } catch (clubErr) {
+        console.warn('[StaffBooking] Club rental reservation error (non-blocking):', clubErr);
+      }
+    }
+
     // --- Step 5: Format LINE Notification ---
     // Use the is_new_customer value from the API response (determined server-side based on booking history)
     const isNewCustomerFromApi = bookingResult.booking?.is_new_customer;

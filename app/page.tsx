@@ -29,7 +29,11 @@ const packageItems = appMenuItems.filter(item =>
 
 // Note: operationsItems is dynamically filtered below based on admin status
 
-const coachingItems = appMenuItems.filter(item => 
+const clubRentalItems = appMenuItems.filter(item =>
+  item.title === "Course Club Rental" || item.title === "Manage Club Rentals"
+);
+
+const coachingItems = appMenuItems.filter(item =>
   item.title === "Coaching Assistant"
 );
 
@@ -217,6 +221,19 @@ export default function Home() {
           </div>
         </div>
         <div>
+          <h2 className="text-lg font-semibold mb-3">Club Rentals</h2>
+          <div className="space-y-3">
+            {clubRentalItems.map((item: AppMenuItemType) => (
+              <MobileMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
+        <div>
           <h2 className="text-lg font-semibold mb-3">Coaching</h2>
           <div className="space-y-3">
             {coachingItems.map((item: AppMenuItemType) => (
@@ -264,6 +281,19 @@ export default function Home() {
           <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Daily Operations</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
             {operationsItems.map((item: AppMenuItemType) => (
+              <DesktopMenuItem
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                onClick={() => router.push(item.path)}
+              />
+            ))}
+          </div>
+        </div>
+        <div>
+          <h2 className="text-2xl font-semibold mb-4 mt-8 text-center md:text-left">Club Rentals</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 auto-rows-fr">
+            {clubRentalItems.map((item: AppMenuItemType) => (
               <DesktopMenuItem
                 key={item.title}
                 icon={item.icon}

@@ -616,6 +616,7 @@ serve(async (req) => {
     const flexData = {
       bookingId: record.id,
       customerName: record.name,
+      date: longDate,
       longDate,
       time: `${record.start_time} - ${endTime}`,
       bay: bayDisplay,

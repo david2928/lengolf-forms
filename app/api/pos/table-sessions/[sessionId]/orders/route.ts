@@ -90,12 +90,13 @@ export async function GET(
       .eq('table_session_id', sessionId)
       .order('created_at', { ascending: true });
     
-    // Fetch order items separately
+    // Fetch order items separately (exclude soft-deleted items with quantity <= 0)
     const { data: orderItemsData, error: itemsError } = await supabase
       .schema('pos')
       .from('order_items')
       .select('*')
       .in('order_id', (ordersData || []).map((o: DatabaseOrder) => o.id))
+      .gt('quantity', 0)
       .order('created_at', { ascending: true });
 
     if (ordersError || itemsError) {

@@ -42,6 +42,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check for duplicate submission (same vendor + date within last 5 minutes)
+    const dateStr = receiptDate || new Date().toISOString().split('T')[0]
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    const { data: existing } = await refacSupabaseAdmin
+      .schema('backoffice')
+      .from('vendor_receipts')
+      .select('*')
+      .eq('vendor_id', vendorId)
+      .eq('receipt_date', dateStr)
+      .gte('created_at', fiveMinutesAgo)
+      .limit(1)
+      .single()
+
+    if (existing) {
+      return NextResponse.json(existing, { status: 200 })
+    }
+
     // Upload to Google Drive
     const t0 = Date.now()
     const buffer = Buffer.from(await file.arrayBuffer())

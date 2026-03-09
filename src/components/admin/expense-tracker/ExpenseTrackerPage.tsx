@@ -12,8 +12,45 @@ import type {
   ExpenseTrackerFilters as FilterState,
   Vendor,
   AnnotationUpsert,
+  TransactionType,
 } from '@/types/expense-tracker';
 import type { MatchResult } from '@/lib/receipt-matching-engine';
+
+/**
+ * Rule-based classifier for deposit transactions.
+ * Returns a transaction_type if the description+channel pattern is unambiguous,
+ * or null if manual review is needed.
+ */
+function classifyDeposit(
+  description: string,
+  channel: string,
+  details: string,
+): TransactionType | null {
+  // Cash machine deposits
+  if (description === 'Cash Deposit') return 'cash_deposit';
+  // KBank card terminal settlements
+  if (description === 'Trade Finance Deposit') return 'sale';
+  if (description === 'Transfer Deposit' && channel === 'Trade Finance') return 'sale';
+  // Internal transfers from other LENGOLF accounts via K BIZ
+  if (
+    description === 'Transfer Deposit' &&
+    channel === 'K BIZ' &&
+    details.toLowerCase().includes('lengolf')
+  ) return 'internal_transfer';
+  // Card payments (Visa/Mastercard full-pay/installment)
+  if (description === 'Payment Received: FullPay/Install/Redemp') return 'credit_card';
+  // E-wallet payments (Alipay, WeChat Pay)
+  if (description === 'Payment Received: Alipay/WeChat') return 'ewallet';
+  // Platform settlements (GoWabi) — check before generic Internet/Mobile rule
+  if (description === 'Transfer Deposit' && channel === 'K-Cash Connect Plus') return 'platform_settlement';
+  if (description === 'Transfer Deposit' && details.toLowerCase().includes('gowabi')) return 'platform_settlement';
+  // QR/PromptPay transfers from customers via any bank
+  if (
+    description === 'Transfer Deposit' &&
+    (channel === 'K PLUS' || channel === 'MAKE by KBank' || channel.startsWith('Internet/Mobile'))
+  ) return 'qr_payment';
+  return null;
+}
 
 const ACCOUNTS = [
   { account_number: '170-3-27029-4', account_name: 'Savings (29-4)' },
@@ -54,6 +91,7 @@ export function ExpenseTrackerPage() {
   const [error, setError] = useState<string | null>(null);
   const [receiptMatches, setReceiptMatches] = useState<Record<number, MatchResult[]>>({});
   const autoLinkedRef = useRef(false);
+  const autoClassifiedRef = useRef(false);
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -97,6 +135,7 @@ export function ExpenseTrackerPage() {
 
   useEffect(() => {
     autoLinkedRef.current = false;
+    autoClassifiedRef.current = false;
     fetchTransactions();
     fetchMatches();
   }, [fetchTransactions, fetchMatches]);
@@ -109,13 +148,14 @@ export function ExpenseTrackerPage() {
       .map(([txId, matches]) => ({
         bank_transaction_id: Number(txId),
         vendor_receipt_id: matches[0].receipt.id,
+        source: matches[0].receipt.source,
       }));
 
     if (autoMatches.length === 0) return;
     autoLinkedRef.current = true;
 
     // Link them in parallel
-    const linkPromises = autoMatches.map(async ({ bank_transaction_id, vendor_receipt_id }) => {
+    const linkPromises = autoMatches.map(async ({ bank_transaction_id, vendor_receipt_id, source }) => {
       try {
         const res = await fetch('/api/admin/expense-tracker/link-receipt', {
           method: 'POST',
@@ -124,6 +164,7 @@ export function ExpenseTrackerPage() {
             bank_transaction_id,
             vendor_receipt_id,
             apply_extraction: true,
+            ...(source === 'invoice' ? { source: 'invoice' } : {}),
           }),
         });
         return res.ok;
@@ -136,8 +177,8 @@ export function ExpenseTrackerPage() {
       const linked = results.filter(Boolean).length;
       if (linked > 0) {
         toast({
-          title: `Auto-linked ${linked} receipt${linked > 1 ? 's' : ''}`,
-          description: 'High-confidence receipt matches applied automatically.',
+          title: `Auto-linked ${linked} document${linked > 1 ? 's' : ''}`,
+          description: 'High-confidence matches applied automatically.',
         });
         // Refresh data after auto-linking
         fetchTransactions();
@@ -145,6 +186,55 @@ export function ExpenseTrackerPage() {
       }
     });
   }, [receiptMatches, fetchTransactions, fetchMatches]);
+
+  // Auto-classify deposit transactions using rule-based patterns
+  useEffect(() => {
+    if (autoClassifiedRef.current) return;
+    if (transactions.length === 0) return;
+
+    const toClassify = transactions
+      .filter((row) => row.transaction.deposit > 0 && !row.annotation?.transaction_type)
+      .map((row) => ({
+        bank_transaction_id: row.transaction.id,
+        transaction_type: classifyDeposit(
+          row.transaction.description ?? '',
+          row.transaction.channel ?? '',
+          row.transaction.details ?? '',
+        ),
+      }))
+      .filter(
+        (item): item is { bank_transaction_id: number; transaction_type: TransactionType } =>
+          item.transaction_type !== null,
+      );
+
+    autoClassifiedRef.current = true;
+
+    if (toClassify.length === 0) return;
+
+    Promise.all(
+      toClassify.map(async ({ bank_transaction_id, transaction_type }) => {
+        try {
+          const res = await fetch('/api/admin/expense-tracker/annotations', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bank_transaction_id, transaction_type }),
+          });
+          return res.ok;
+        } catch {
+          return false;
+        }
+      }),
+    ).then((results) => {
+      const classified = results.filter(Boolean).length;
+      if (classified > 0) {
+        toast({
+          title: `Auto-classified ${classified} deposit${classified > 1 ? 's' : ''}`,
+          description: 'Transaction types applied automatically.',
+        });
+        fetchTransactions();
+      }
+    });
+  }, [transactions, fetchTransactions]);
 
   const handleAnnotationSaved = useCallback(
     (bankTxId: number, annotation: AnnotationUpsert) => {
@@ -256,7 +346,7 @@ export function ExpenseTrackerPage() {
   }, []);
 
   const handleReceiptLinked = useCallback(
-    async (bankTxId: number, receiptId: string) => {
+    async (bankTxId: number, receiptId: string, source?: 'receipt' | 'invoice') => {
       try {
         const res = await fetch('/api/admin/expense-tracker/link-receipt', {
           method: 'POST',
@@ -265,6 +355,7 @@ export function ExpenseTrackerPage() {
             bank_transaction_id: bankTxId,
             vendor_receipt_id: receiptId,
             apply_extraction: true,
+            ...(source === 'invoice' ? { source: 'invoice' } : {}),
           }),
         });
         if (!res.ok) {
@@ -278,6 +369,31 @@ export function ExpenseTrackerPage() {
         toast({
           title: 'Link failed',
           description: err instanceof Error ? err.message : 'Failed to link receipt',
+          variant: 'destructive',
+        });
+      }
+    },
+    [fetchTransactions, fetchMatches]
+  );
+
+  const handleReceiptUnlinked = useCallback(
+    async (bankTxId: number) => {
+      try {
+        const res = await fetch('/api/admin/expense-tracker/link-receipt', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bank_transaction_id: bankTxId }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Unlink failed' }));
+          throw new Error(err.error);
+        }
+        await Promise.all([fetchTransactions(), fetchMatches()]);
+        toast({ title: 'Receipt unlinked' });
+      } catch (err) {
+        toast({
+          title: 'Unlink failed',
+          description: err instanceof Error ? err.message : 'Failed to unlink receipt',
           variant: 'destructive',
         });
       }
@@ -331,6 +447,7 @@ export function ExpenseTrackerPage() {
         onAnnotationSaved={handleAnnotationSaved}
         onVendorUpdated={handleVendorUpdated}
         onReceiptLinked={handleReceiptLinked}
+        onReceiptUnlinked={handleReceiptUnlinked}
         receiptMatches={receiptMatches}
         loading={loading}
       />

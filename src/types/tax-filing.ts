@@ -126,10 +126,26 @@ export interface VatSummaryData {
   output_vat: number;                // sales VAT
   total_purchase_base: number;       // total tax base of VAT-claimed purchases
   input_vat_pp30: number;            // purchase VAT PP30
-  input_vat_pp36: number;            // purchase VAT PP36
+  input_vat_pp36: number;            // purchase VAT PP36 (claimable — from prev month invoices)
+  pp36_payable: number;              // PP36 to file next month (this month's foreign invoices)
+  pp36_filing_month: string;         // label, e.g. "March" — the month PP36 must be filed
   excess_carried_forward: number;    // from previous period (0 for now)
   tax_to_be_paid: number;            // positive = pay, 0 if credit
   excess_to_be_claimed: number;      // positive = claim, 0 if payable
+}
+
+// ── PP36 Line Items (by vat_reporting_month) ─────────────────────────────
+
+export interface Pp36LineItem {
+  id: number;
+  vendor_name: string;
+  invoice_month: string;           // vat_reporting_month (YYYY-MM)
+  vat_amount: number;
+  tax_base: number;                // net (gross - vat)
+  withdrawal: number;              // bank withdrawal amount
+  transaction_date: string;        // bank payment date
+  notes: string | null;
+  flow_completed: boolean;
 }
 
 // ── Platform Fees (GoWabi, etc.) ──────────────────────────────────────────
@@ -161,9 +177,39 @@ export interface BankAccountBalance {
   transaction_count: number;
 }
 
+// ── Trial Balance (all bank transactions) ─────────────────────────────────
+
+export interface TrialBalanceTxEntry {
+  bank_transaction_id: number;
+  transaction_date: string;
+  description: string;
+  deposit: number;        // 0 if not a deposit
+  withdrawal: number;     // 0 if not a withdrawal
+  balance: number;
+  account_number: string;
+  // annotation overlay (null if no annotation exists)
+  annotation_id: number | null;
+  vendor_name: string | null;
+  vat_type: 'none' | 'pp30' | 'pp36';
+  wht_type: 'none' | 'pnd3' | 'pnd53';
+  vat_amount: number | null;
+  wht_amount: number | null;
+  transaction_type: string | null;
+  notes: string | null;
+  flow_completed: boolean;
+}
+
+export interface TrialBalanceData {
+  period: string;
+  entries: TrialBalanceTxEntry[];
+  bank_balances: BankAccountBalance[];
+}
+
 export interface ExpenseChecklistData {
   period: string;
-  items: ExpenseChecklistItem[];
+  items: ExpenseChecklistItem[];           // PP30 items only (by bank date)
+  pp36_claimable: Pp36LineItem[];          // prev month invoices — input VAT on this PP30
+  pp36_payable: Pp36LineItem[];            // this month invoices — file PP36 next month
   kbank_edc: KbankEdcItem[];
   platform_fees: PlatformFeeItem[];
   sales: MonthlySalesData;

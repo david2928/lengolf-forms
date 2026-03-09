@@ -193,7 +193,7 @@ const RevenueSummary: React.FC<RevenueSummaryProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4 mb-4 sm:mb-6">
       <div className="text-center">
         <p className="text-xs text-gray-500 mb-1">Total Revenue</p>
         <p className="text-lg font-bold text-blue-600">
@@ -270,7 +270,7 @@ const RevenueTrendsChartLoading: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 mb-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="text-center">
               <Skeleton className="h-3 w-16 mx-auto mb-1" />
@@ -355,32 +355,27 @@ export const RevenueTrendsChart: React.FC<RevenueTrendsChartProps> = ({
 
   return (
     <Card className="col-span-2">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Gross Profit & Sim Utilization
-            </CardTitle>
-            <p className="text-sm text-gray-600 mt-1">
-              {periodType === 'day' ? 'Daily' : periodType === 'week' ? 'Weekly' : 'Monthly'} gross profit (bars) and sim utilization trends (line)
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              <Calendar className="h-3 w-3 mr-1" />
-              {data.length} {periodType}s
-            </Badge>
-          </div>
+      <CardHeader className="pb-2 sm:pb-6">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+            Profit & Utilization
+          </CardTitle>
+          <Badge variant="outline" className="text-xs flex-shrink-0">
+            {data.length} {periodType}s
+          </Badge>
         </div>
+        <p className="hidden sm:block text-sm text-gray-600 mt-1">
+          {periodType === 'day' ? 'Daily' : periodType === 'week' ? 'Weekly' : 'Monthly'} gross profit (bars) and sim utilization trends (line)
+        </p>
       </CardHeader>
       
       <CardContent>
         <RevenueSummary data={data} periodType={periodType} />
         
-        <ResponsiveContainer width="100%" height={400}>
-          <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <div className="h-[300px] sm:h-[400px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             
             <XAxis 
@@ -390,32 +385,22 @@ export const RevenueTrendsChart: React.FC<RevenueTrendsChartProps> = ({
               stroke="#6b7280"
             />
             
-            <YAxis 
+            <YAxis
               yAxisId="profit"
               domain={profitDomain}
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 11 }}
               tickFormatter={(value) => formatCompactCurrency(value)}
-              label={{ 
-                value: 'Gross Profit (THB)', 
-                angle: -90, 
-                position: 'insideLeft',
-                style: { textAnchor: 'middle' }
-              }}
+              width={60}
               stroke="#6b7280"
             />
-            
-            <YAxis 
+
+            <YAxis
               yAxisId="utilization"
               orientation="right"
               domain={utilizationDomain}
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 11 }}
               tickFormatter={(value) => `${value}%`}
-              label={{ 
-                value: 'Sim Utilization (%)', 
-                angle: 90, 
-                position: 'insideRight',
-                style: { textAnchor: 'middle' }
-              }}
+              width={40}
               stroke="#6b7280"
             />
             
@@ -453,6 +438,7 @@ export const RevenueTrendsChart: React.FC<RevenueTrendsChartProps> = ({
             />
           </ComposedChart>
         </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );

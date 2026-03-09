@@ -194,17 +194,36 @@ function TaxFilingSummary({
           <div className="space-y-1 py-3">
             <div className="flex justify-between items-center py-1">
               <span className="text-gray-700 font-medium">This month&apos;s purchase VAT claimed</span>
-              <span className="font-mono">{formatNum(vatSummary.total_purchase_base)}</span>
+              <span className="font-mono">{formatNum(vatSummary.input_vat_pp30 + vatSummary.input_vat_pp36)}</span>
             </div>
             <div className="flex justify-between items-center py-1 pl-4">
-              <span className="text-gray-600">This month&apos;s purchase VAT per Report P.P. 30</span>
+              <span className="text-gray-600">Input VAT per Report P.P. 30</span>
               <span className="font-mono">{formatNum(vatSummary.input_vat_pp30)}</span>
             </div>
             <div className="flex justify-between items-center py-1 pl-4">
-              <span className="text-gray-600">This month&apos;s purchase VAT per Report P.P. 36</span>
+              <span className="text-gray-600">Input VAT per Report P.P. 36</span>
               <span className="font-mono">{formatNum(vatSummary.input_vat_pp36)}</span>
             </div>
+            <div className="flex justify-between items-center py-1 pl-4">
+              <span className="text-gray-500 text-xs">Total purchase base</span>
+              <span className="font-mono text-gray-500 text-xs">{formatNum(vatSummary.total_purchase_base)}</span>
+            </div>
           </div>
+
+          {/* PP36 payable (informational) */}
+          {vatSummary.pp36_payable > 0 && (
+            <div className="py-3">
+              <div className="flex justify-between items-center py-1">
+                <span className="text-amber-700 font-medium">
+                  PP36 to file in {vatSummary.pp36_filing_month}
+                </span>
+                <span className="font-mono text-amber-700">{formatNum(vatSummary.pp36_payable)}</span>
+              </div>
+              <p className="text-xs text-gray-400 pl-0 mt-0.5">
+                Foreign service invoices for this month — file &amp; pay PP36 next month
+              </p>
+            </div>
+          )}
 
           {/* Carried forward */}
           <div className="py-3">

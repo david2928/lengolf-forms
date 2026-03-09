@@ -21,7 +21,7 @@ erDiagram
     table_sessions ||--o{ transactions : "processes_payments"
     orders ||--o{ order_items : "contains"
     transactions ||--o{ transaction_items : "contains"
-    dim_product ||--o{ transaction_items : "defines_product"
+    products.products ||--o{ transaction_items : "defines_product"
     table_sessions ||--o{ item_removals : "tracks_removals"
 ```
 
@@ -39,7 +39,7 @@ Primary sales data table containing all transaction line items.
 
 **Key Relationships**:
 - `customer_id` → `public.customers.id`
-- `product_id` → `dim_product.id`
+- `product_id` → `products.products.id`
 
 **Population**: Imported from Qashier POS via CSV uploads and ETL processes
 
@@ -226,7 +226,7 @@ Individual items within orders.
 
 **Key Relationships**:
 - `order_id` → `orders.id`
-- `product_id` → `dim_product.id`
+- `product_id` → `products.products.id`
 
 **Population**: Created when items added to orders
 
@@ -332,39 +332,11 @@ Individual items in payment transactions.
 
 ---
 
-### 9. **dim_product** ✅ ACTIVE
-Product master data for POS items.
+### 9. **~~dim_product~~** ❌ DROPPED (March 2026)
+Legacy product master data table. Replaced by `products.products` + `products.categories` in the `products` schema.
 
-**Activity**: Regular product lookups, pricing queries
-**Status**: ACTIVE - Product master data
-**Integration**: Referenced by transaction and order systems
-
-**Purpose**: Central product catalog for all POS items
-
-**Key Relationships**:
-- Referenced by `transaction_items`, `order_items`
-
-**Population**: Synced from POS system or manually maintained
-
-**Usage**:
-- Product lookups
-- Pricing information
-- Category management
-
-**Columns**:
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|---------|-------------|
-| id | integer | NO | nextval() | Primary key |
-| product_name | text | NO | - | Product name |
-| tab | text | YES | - | POS tab/section |
-| category | text | YES | - | Product category |
-| parent_category | text | YES | - | Parent category |
-| barcode | text | YES | - | Product barcode |
-| sku_number | text | YES | - | SKU |
-| unit_price | numeric | YES | - | Current price |
-| unit_cost | numeric | YES | - | Cost price |
-| is_sim_usage | boolean | YES | false | Simulator time flag |
-| product_id | uuid | YES | - | UUID reference |
+**Status**: DROPPED - All references migrated to `products.products`
+**Migration**: Functions updated to JOIN `products.products` via `product_id` (UUID) and `products.categories` via `category_id`
 
 ---
 

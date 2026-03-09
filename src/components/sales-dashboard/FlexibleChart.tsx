@@ -306,15 +306,15 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
 
   return (
     <Card className={className}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
+      <CardHeader className="pb-2 sm:pb-6">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
             {title}
           </CardTitle>
           <div className="flex items-center gap-2">
             {data?.summary && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs hidden sm:inline-flex">
                 {data.summary.period_count} {data.summary.time_period_label.toLowerCase()} periods
               </Badge>
             )}
@@ -322,17 +322,17 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
               variant="outline"
               size="sm"
               onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-1"
+              className="flex items-center gap-1 flex-shrink-0"
             >
               <Settings className="h-4 w-4" />
-              {showSettings ? 'Hide' : 'Settings'}
+              <span className="hidden sm:inline">{showSettings ? 'Hide' : 'Settings'}</span>
             </Button>
           </div>
         </div>
 
         {/* Settings Panel */}
         {showSettings && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 p-4 bg-gray-50 rounded-lg">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-4 p-3 sm:p-4 bg-gray-50 rounded-lg">
             {/* Metric Selection */}
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">
@@ -479,11 +479,12 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
         )}
 
         {/* Chart */}
-        <ResponsiveContainer width="100%" height={400}>
+        <div className="h-[300px] sm:h-[400px]">
+        <ResponsiveContainer width="100%" height="100%">
           {chartType === 'line' ? (
             <LineChart
               data={chartData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
@@ -535,7 +536,7 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
           ) : (
             <BarChart
               data={chartData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis 
@@ -578,6 +579,7 @@ const FlexibleChart: React.FC<FlexibleChartProps> = ({
             </BarChart>
           )}
         </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );

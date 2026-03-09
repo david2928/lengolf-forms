@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import type {
   ExpenseChecklistData,
   ExpenseChecklistItem,
+  Pp36LineItem,
   KbankEdcItem,
   PlatformFeeItem,
   ExpenseChecklistSummary,
@@ -92,7 +93,13 @@ export function ExpensesChecklistTab({ period, onVatSummaryUpdate }: ExpensesChe
         const items = prev.items.map((i) =>
           i.id === id ? { ...i, flow_completed: originalValue } : i
         );
-        return { ...prev, items, summary: recalcSummary(items, prev.kbank_edc, prev.platform_fees, prev.payroll) };
+        const pp36_claimable = prev.pp36_claimable.map((i) =>
+          i.id === id ? { ...i, flow_completed: originalValue } : i
+        );
+        const pp36_payable = prev.pp36_payable.map((i) =>
+          i.id === id ? { ...i, flow_completed: originalValue } : i
+        );
+        return { ...prev, items, pp36_claimable, pp36_payable, summary: recalcSummary(items, prev.kbank_edc, prev.platform_fees, prev.payroll) };
       } else if (type === 'kbank_edc') {
         const kbank_edc = prev.kbank_edc.map((k) =>
           k.item_key === itemKey ? { ...k, flow_completed: originalValue } : k
@@ -124,7 +131,13 @@ export function ExpensesChecklistTab({ period, onVatSummaryUpdate }: ExpensesChe
         const items = prev.items.map((i) =>
           i.id === id ? { ...i, flow_completed: newValue } : i
         );
-        return { ...prev, items, summary: recalcSummary(items, prev.kbank_edc, prev.platform_fees, prev.payroll) };
+        const pp36_claimable = prev.pp36_claimable.map((i) =>
+          i.id === id ? { ...i, flow_completed: newValue } : i
+        );
+        const pp36_payable = prev.pp36_payable.map((i) =>
+          i.id === id ? { ...i, flow_completed: newValue } : i
+        );
+        return { ...prev, items, pp36_claimable, pp36_payable, summary: recalcSummary(items, prev.kbank_edc, prev.platform_fees, prev.payroll) };
       } else if (type === 'kbank_edc') {
         const kbank_edc = prev.kbank_edc.map((k) =>
           k.item_key === itemKey ? { ...k, flow_completed: newValue } : k
@@ -217,17 +230,37 @@ export function ExpensesChecklistTab({ period, onVatSummaryUpdate }: ExpensesChe
     }
   }, [data, period, fetchData]);
 
-  // Derive VAT-only items for purchase VAT section
+  // Derive VAT-only items for purchase VAT section (items are already PP30-only from API)
   const vatItems = data ? data.items.filter((i) => i.vat_type !== 'none') : [];
   const vatPlatformFees = data ? data.platform_fees.filter((p) => p.vat_type !== 'none') : [];
+  const pp30PlatformFees = vatPlatformFees.filter((p) => p.vat_type === 'pp30');
+  const pp36Claimable = data?.pp36_claimable || [];
+  const pp36Payable = data?.pp36_payable || [];
 
-  // Count completed among VAT items only
+  // Count completed among all VAT items
   const vatItemsCompleted = vatItems.filter((i) => i.flow_completed).length;
   const kbankCompleted = data ? data.kbank_edc.filter((k) => k.flow_completed).length : 0;
   const vatPfCompleted = vatPlatformFees.filter((p) => p.flow_completed).length;
-  const totalVatItems = vatItems.length + (data?.kbank_edc.length || 0) + vatPlatformFees.length;
-  const totalVatCompleted = vatItemsCompleted + kbankCompleted + vatPfCompleted;
+  const pp36ClaimableCompleted = pp36Claimable.filter((i) => i.flow_completed).length;
+  const pp36PayableCompleted = pp36Payable.filter((i) => i.flow_completed).length;
+  const totalVatItems = vatItems.length + pp36Claimable.length + pp36Payable.length + (data?.kbank_edc.length || 0) + vatPlatformFees.length;
+  const totalVatCompleted = vatItemsCompleted + pp36ClaimableCompleted + pp36PayableCompleted + kbankCompleted + vatPfCompleted;
   const allVatComplete = totalVatItems > 0 && totalVatCompleted === totalVatItems;
+
+  // PP30 filing total = PP30 input VAT + PP36 input VAT (both claimable on PP30)
+  const pp30Total = data ? Math.round((data.vat_summary.input_vat_pp30 + data.vat_summary.input_vat_pp36) * 100) / 100 : 0;
+
+  // Helper to get month label from YYYY-MM
+  const getMonthLabel = (ym: string) => {
+    const [yr, mo] = ym.split('-').map(Number);
+    return new Date(yr, mo - 1, 1).toLocaleDateString('en-US', { month: 'long' });
+  };
+  // Previous month label for PP36 claimable section header
+  const [periodY, periodM] = (data?.period || period).split('-').map(Number);
+  const prevMonthLabel = getMonthLabel(
+    periodM === 1 ? `${periodY - 1}-12` : `${periodY}-${String(periodM - 1).padStart(2, '0')}`
+  );
+  const currentMonthLabel = getMonthLabel(data?.period || period);
 
   return (
     <div className="space-y-4">
@@ -264,28 +297,14 @@ export function ExpensesChecklistTab({ period, onVatSummaryUpdate }: ExpensesChe
       {data && !loading && (
         <>
           {/* ─── Purchase VAT KPI Cards ─── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             <Card>
               <CardContent className="pt-4 pb-3 px-4">
                 <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-                  <Receipt className="h-4 w-4" />
-                  <span>Purchase VAT Base</span>
+                  <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", TAX_BADGE_COLORS.pp30)}>PP30</Badge>
+                  <span>Total Input VAT</span>
                 </div>
-                <p className="text-2xl font-bold">{formatNum(data.vat_summary.total_purchase_base)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-3 px-4">
-                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-                  <CircleCheck className="h-4 w-4" />
-                  <span>Completed</span>
-                </div>
-                <p className="text-2xl font-bold">
-                  <span className={allVatComplete ? 'text-green-600' : totalVatCompleted > 0 ? 'text-amber-600' : ''}>
-                    {totalVatCompleted}
-                  </span>
-                  <span className="text-gray-400 text-lg"> / {totalVatItems}</span>
-                </p>
+                <p className="text-2xl font-bold">{formatNum(pp30Total)}</p>
               </CardContent>
             </Card>
             <Card>
@@ -306,137 +325,369 @@ export function ExpensesChecklistTab({ period, onVatSummaryUpdate }: ExpensesChe
                 <p className="text-2xl font-bold">{formatNum(data.vat_summary.input_vat_pp36)}</p>
               </CardContent>
             </Card>
-          </div>
-
-          {/* Empty state for VAT items */}
-          {vatItems.length === 0 && data.kbank_edc.length === 0 && vatPlatformFees.length === 0 && (
-            <div className="text-center py-12 text-gray-400">
-              <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="text-lg font-medium">No purchase VAT items found</p>
-              <p className="text-sm mt-1">
-                No VAT-claimed expenses for this period
-              </p>
-            </div>
-          )}
-
-          {/* ─── Purchase VAT Items Table (VAT items only) ─── */}
-          {vatItems.length > 0 && (
-            <div className="border rounded-lg overflow-x-auto">
-              <div className="bg-blue-50 border-b px-3 py-1.5 text-xs font-medium text-blue-700">
-                Purchase VAT Items ({vatItems.length} items)
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="px-2 py-2 text-center font-medium text-gray-500 w-[30px]"></th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-500 w-[30px]">#</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-500 w-[65px]">Date</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[180px]">Vendor</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[120px]">Description</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-500 w-[100px]">Tax</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-500 w-[100px]">Tax Base</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-500 w-[80px]">VAT</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-500 w-[100px]">Withdrawal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {vatItems.map((item, idx) => (
-                    <ChecklistRow
-                      key={item.id}
-                      item={item}
-                      seq={idx + 1}
-                      isToggling={togglingIds.has(`ann_${item.id}`)}
-                      onToggle={() => toggleItem('annotation', item.id, undefined, item.flow_completed)}
-                    />
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-gray-50 border-t font-medium">
-                    <td colSpan={6} className="px-2 py-2 text-right text-gray-500">
-                      Totals ({vatItems.length} items)
-                    </td>
-                    <td className="px-2 py-2 text-right font-mono">
-                      {formatNum(vatItems.reduce((s, i) => s + (i.tax_base || 0), 0))}
-                    </td>
-                    <td className="px-2 py-2 text-right font-mono">
-                      {formatNum(vatItems.reduce((s, i) => s + (i.vat_amount || 0), 0))}
-                    </td>
-                    <td className="px-2 py-2 text-right font-mono">
-                      {formatNum(vatItems.reduce((s, i) => s + i.withdrawal, 0))}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-
-          {/* ─── KBank EDC ─── */}
-          {data.kbank_edc.length > 0 && (
             <Card>
               <CardContent className="pt-4 pb-3 px-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">KBank EDC Fees</h3>
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                  <CircleCheck className="h-4 w-4" />
+                  <span>Completed</span>
+                </div>
+                <p className="text-2xl font-bold">
+                  <span className={allVatComplete ? 'text-green-600' : totalVatCompleted > 0 ? 'text-amber-600' : ''}>
+                    {totalVatCompleted}
+                  </span>
+                  <span className="text-gray-400 text-lg"> / {totalVatItems}</span>
+                </p>
+              </CardContent>
+            </Card>
+            {data.vat_summary.pp36_payable > 0 ? (
+              <Card className="border-amber-200 bg-amber-50/30">
+                <CardContent className="pt-4 pb-3 px-4">
+                  <div className="flex items-center gap-2 text-sm text-amber-700 mb-1">
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 border-amber-200">PP36</Badge>
+                    <span>Payable</span>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-700">{formatNum(data.vat_summary.pp36_payable)}</p>
+                  <p className="text-[10px] text-amber-600 mt-0.5">File in {data.vat_summary.pp36_filing_month}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="pt-4 pb-3 px-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                    <Receipt className="h-4 w-4" />
+                    <span>Purchase VAT Base</span>
+                  </div>
+                  <p className="text-2xl font-bold">{formatNum(data.vat_summary.total_purchase_base)}</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════════
+               SECTION 1: Monthly PP30 Filing
+               PP30 domestic items + PP36 claimable (prev month invoices)
+             ═══════════════════════════════════════════════════════════════ */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={cn("text-xs px-2 py-0.5", TAX_BADGE_COLORS.pp30)}>PP30</Badge>
+              <h3 className="text-sm font-semibold text-gray-800">Monthly PP30 Filing</h3>
+            </div>
+
+            {/* Combined PP30 + PP36 claimable + KBank EDC + PP30 platform fees table */}
+            {(vatItems.length > 0 || pp36Claimable.length > 0 || pp30PlatformFees.length > 0 || (data?.kbank_edc.length || 0) > 0) && (
+              <div className="border rounded-lg overflow-x-auto">
+                <div className="bg-blue-50 border-b px-3 py-1.5 text-xs font-medium text-blue-700">
+                  Purchase VAT Items ({vatItems.length + pp36Claimable.length + (data?.kbank_edc.length || 0) + pp30PlatformFees.length} items)
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="px-2 py-2 text-center font-medium text-gray-500 w-[30px]"></th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500 w-[30px]">#</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500 w-[65px]">Date</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[180px]">Vendor</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[120px]">Description</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500 w-[100px]">Tax</th>
+                      <th className="px-2 py-2 text-right font-medium text-gray-500 w-[100px]">Tax Base</th>
+                      <th className="px-2 py-2 text-right font-medium text-gray-500 w-[80px]">VAT</th>
+                      <th className="px-2 py-2 text-right font-medium text-gray-500 w-[100px]">Withdrawal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* PP30 items */}
+                    {vatItems.map((item, idx) => (
+                      <ChecklistRow
+                        key={item.id}
+                        item={item}
+                        seq={idx + 1}
+                        isToggling={togglingIds.has(`ann_${item.id}`)}
+                        onToggle={() => toggleItem('annotation', item.id, undefined, item.flow_completed)}
+                      />
+                    ))}
+                    {/* PP36 claimable items (prev month foreign invoices) */}
+                    {pp36Claimable.map((p36, idx) => (
+                      <tr key={`p36c_${p36.id}`} className={cn(
+                        "border-b hover:bg-gray-50/50 transition-colors",
+                        p36.flow_completed && "bg-green-50/30"
+                      )}>
+                        <td className="px-2 py-1.5 text-center">
+                          <Checkbox
+                            checked={p36.flow_completed}
+                            onCheckedChange={() => toggleItem('annotation', p36.id, undefined, p36.flow_completed)}
+                            disabled={togglingIds.has(`ann_${p36.id}`)}
+                            className={cn(p36.flow_completed && 'accent-green-600')}
+                          />
+                        </td>
+                        <td className={cn("px-2 py-1.5 text-gray-400 text-xs", p36.flow_completed && "text-gray-300")}>{vatItems.length + idx + 1}</td>
+                        <td className={cn("px-2 py-1.5 text-xs whitespace-nowrap", p36.flow_completed && "text-gray-400")}>{formatDate(p36.transaction_date)}</td>
+                        <td className={cn("px-2 py-1.5 font-medium", p36.flow_completed ? "text-gray-400 line-through" : "text-gray-700")}>{p36.vendor_name}</td>
+                        <td className={cn("px-2 py-1.5 text-xs", p36.flow_completed ? "text-gray-400" : "text-gray-500")}>{p36.notes || ''}</td>
+                        <td className="px-2 py-1.5">
+                          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", TAX_BADGE_COLORS.pp36, p36.flow_completed && "opacity-50")}>PP36</Badge>
+                        </td>
+                        <td className={cn("px-2 py-1.5 text-right font-mono text-xs", p36.flow_completed && "text-gray-400")}>{formatNum(p36.tax_base)}</td>
+                        <td className={cn("px-2 py-1.5 text-right font-mono text-xs", p36.flow_completed && "text-gray-400")}>{formatNum(p36.vat_amount)}</td>
+                        <td className={cn("px-2 py-1.5 text-right font-mono text-xs", p36.flow_completed && "text-gray-400")}>{formatNum(p36.withdrawal)}</td>
+                      </tr>
+                    ))}
+                    {/* KBank EDC fees */}
+                    {(data?.kbank_edc || []).map((kbank, idx) => (
+                      <tr key={`kbank_${kbank.item_key}`} className={cn(
+                        "border-b hover:bg-gray-50/50 transition-colors",
+                        kbank.flow_completed && "bg-green-50/30"
+                      )}>
+                        <td className="px-2 py-1.5 text-center">
+                          <Checkbox
+                            checked={kbank.flow_completed}
+                            onCheckedChange={() => toggleItem('kbank_edc', undefined, kbank.item_key, kbank.flow_completed)}
+                            disabled={togglingIds.has(`kbank_${kbank.item_key}`)}
+                            className={cn(kbank.flow_completed && 'accent-green-600')}
+                          />
+                        </td>
+                        <td className={cn("px-2 py-1.5 text-gray-400 text-xs", kbank.flow_completed && "text-gray-300")}>{vatItems.length + pp36Claimable.length + idx + 1}</td>
+                        <td className={cn("px-2 py-1.5 text-xs whitespace-nowrap", kbank.flow_completed && "text-gray-400")}></td>
+                        <td className={cn("px-2 py-1.5 font-medium", kbank.flow_completed ? "text-gray-400 line-through" : "text-gray-700")}>{kbank.label}</td>
+                        <td className={cn("px-2 py-1.5 text-xs", kbank.flow_completed ? "text-gray-400" : "text-gray-500")}>Bank charges ({kbank.settlement_count} settlements)</td>
+                        <td className="px-2 py-1.5">
+                          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", TAX_BADGE_COLORS.pp30, kbank.flow_completed && "opacity-50")}>PP30</Badge>
+                        </td>
+                        <td className={cn("px-2 py-1.5 text-right font-mono text-xs", kbank.flow_completed && "text-gray-400")}>{formatNum(kbank.total_commission)}</td>
+                        <td className={cn("px-2 py-1.5 text-right font-mono text-xs", kbank.flow_completed && "text-gray-400")}>{formatNum(kbank.total_vat)}</td>
+                        <td className={cn("px-2 py-1.5 text-right font-mono text-xs", kbank.flow_completed && "text-gray-400")}>{formatNum(kbank.total_amount)}</td>
+                      </tr>
+                    ))}
+                    {/* PP30 platform fees (GoWabi, etc.) */}
+                    {pp30PlatformFees.map((pf, idx) => (
+                      <tr key={`pf30_${pf.item_key}`} className={cn(
+                        "border-b hover:bg-gray-50/50 transition-colors",
+                        pf.flow_completed && "bg-green-50/30"
+                      )}>
+                        <td className="px-2 py-1.5 text-center">
+                          <Checkbox
+                            checked={pf.flow_completed}
+                            onCheckedChange={() => toggleItem('platform_fee', undefined, pf.item_key, pf.flow_completed)}
+                            disabled={togglingIds.has(`pf_${pf.item_key}`)}
+                            className={cn(pf.flow_completed && 'accent-green-600')}
+                          />
+                        </td>
+                        <td className={cn("px-2 py-1.5 text-gray-400 text-xs", pf.flow_completed && "text-gray-300")}>{vatItems.length + pp36Claimable.length + (data?.kbank_edc.length || 0) + idx + 1}</td>
+                        <td className={cn("px-2 py-1.5 text-xs whitespace-nowrap", pf.flow_completed && "text-gray-400")}>{pf.receipt_date ? formatDate(pf.receipt_date) : ''}</td>
+                        <td className={cn("px-2 py-1.5 font-medium", pf.flow_completed ? "text-gray-400 line-through" : "text-gray-700")}>
+                          {pf.label}
+                          {pf.invoice_ref && <span className="text-gray-400 text-xs ml-1.5">#{pf.invoice_ref}</span>}
+                        </td>
+                        <td className={cn("px-2 py-1.5 text-xs", pf.flow_completed ? "text-gray-400" : "text-gray-500")}>Platform fee</td>
+                        <td className="px-2 py-1.5">
+                          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", TAX_BADGE_COLORS.pp30, pf.flow_completed && "opacity-50")}>PP30</Badge>
+                        </td>
+                        <td className={cn("px-2 py-1.5 text-right font-mono text-xs", pf.flow_completed && "text-gray-400")}>{pf.has_receipt ? formatNum(pf.tax_base) : ''}</td>
+                        <td className={cn("px-2 py-1.5 text-right font-mono text-xs", pf.flow_completed && "text-gray-400")}>{pf.has_receipt && pf.vat_amount > 0 ? formatNum(pf.vat_amount) : ''}</td>
+                        <td className={cn("px-2 py-1.5 text-right font-mono text-xs", pf.flow_completed && "text-gray-400")}>{pf.has_receipt ? formatNum(pf.total_amount) : ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-50 border-t font-medium">
+                      <td colSpan={6} className="px-2 py-2 text-right text-gray-500">
+                        Totals ({vatItems.length + pp36Claimable.length + (data?.kbank_edc.length || 0) + pp30PlatformFees.length} items)
+                      </td>
+                      <td className="px-2 py-2 text-right font-mono">
+                        {formatNum(
+                          vatItems.reduce((s, i) => s + (i.tax_base || 0), 0) +
+                          pp36Claimable.reduce((s, i) => s + i.tax_base, 0) +
+                          (data?.kbank_edc || []).reduce((s, k) => s + k.total_commission, 0) +
+                          pp30PlatformFees.reduce((s, p) => s + p.tax_base, 0)
+                        )}
+                      </td>
+                      <td className="px-2 py-2 text-right font-mono">
+                        {formatNum(
+                          vatItems.reduce((s, i) => s + (i.vat_amount || 0), 0) +
+                          pp36Claimable.reduce((s, i) => s + i.vat_amount, 0) +
+                          (data?.kbank_edc || []).reduce((s, k) => s + k.total_vat, 0) +
+                          pp30PlatformFees.reduce((s, p) => s + p.vat_amount, 0)
+                        )}
+                      </td>
+                      <td className="px-2 py-2 text-right font-mono">
+                        {formatNum(
+                          vatItems.reduce((s, i) => s + i.withdrawal, 0) +
+                          pp36Claimable.reduce((s, i) => s + i.withdrawal, 0) +
+                          (data?.kbank_edc || []).reduce((s, k) => s + k.total_amount, 0) +
+                          pp30PlatformFees.reduce((s, p) => s + p.total_amount, 0)
+                        )}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+
+            {/* ═══ PP36 Monthly Filing — this month's foreign invoices ═══ */}
+            {pp36Payable.length > 0 && (
+              <>
+                <div className="flex items-center gap-2 mt-4">
+                  <Badge variant="outline" className={cn("text-xs px-2 py-0.5", TAX_BADGE_COLORS.pp36)}>PP36</Badge>
+                  <h3 className="text-sm font-semibold text-gray-800">Monthly PP36 Filing</h3>
+                  <span className="text-xs text-gray-500">
+                    {currentMonthLabel} invoices — file in {data.vat_summary.pp36_filing_month}
+                  </span>
+                </div>
                 <div className="border rounded-lg overflow-x-auto">
+                  <div className="bg-violet-50 border-b px-3 py-1.5 text-xs font-medium text-violet-700">
+                    Purchase VAT Items ({pp36Payable.length} items)
+                  </div>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 border-b">
                         <th className="px-2 py-2 text-center font-medium text-gray-500 w-[30px]"></th>
-                        <th className="px-2 py-2 text-left font-medium text-gray-500">Type</th>
-                        <th className="px-2 py-2 text-right font-medium text-gray-500">Settlements</th>
-                        <th className="px-2 py-2 text-right font-medium text-gray-500">Commission</th>
-                        <th className="px-2 py-2 text-right font-medium text-gray-500">VAT</th>
-                        <th className="px-2 py-2 text-right font-medium text-gray-500">Total</th>
+                        <th className="px-2 py-2 text-left font-medium text-gray-500 w-[30px]">#</th>
+                        <th className="px-2 py-2 text-left font-medium text-gray-500 w-[65px]">Date</th>
+                        <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[180px]">Vendor</th>
+                        <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[120px]">Description</th>
+                        <th className="px-2 py-2 text-left font-medium text-gray-500 w-[100px]">Tax</th>
+                        <th className="px-2 py-2 text-right font-medium text-gray-500 w-[100px]">Tax Base</th>
+                        <th className="px-2 py-2 text-right font-medium text-gray-500 w-[80px]">VAT</th>
+                        <th className="px-2 py-2 text-right font-medium text-gray-500 w-[100px]">Withdrawal</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {data.kbank_edc.map((kbank) => (
-                        <tr
-                          key={kbank.item_key}
-                          className={cn(
-                            "border-b hover:bg-gray-50/50 transition-colors",
-                            kbank.flow_completed && "bg-green-50/30"
-                          )}
-                        >
-                          <td className="px-2 py-2 text-center">
+                      {pp36Payable.map((p36, idx) => (
+                        <tr key={`p36p_${p36.id}`} className={cn(
+                          "border-b hover:bg-gray-50/50 transition-colors",
+                          p36.flow_completed && "bg-green-50/30"
+                        )}>
+                          <td className="px-2 py-1.5 text-center">
                             <Checkbox
-                              checked={kbank.flow_completed}
-                              onCheckedChange={() => toggleItem('kbank_edc', undefined, kbank.item_key, kbank.flow_completed)}
-                              disabled={togglingIds.has(`kbank_${kbank.item_key}`)}
-                              className={cn(kbank.flow_completed && 'accent-green-600')}
+                              checked={p36.flow_completed}
+                              onCheckedChange={() => toggleItem('annotation', p36.id, undefined, p36.flow_completed)}
+                              disabled={togglingIds.has(`ann_${p36.id}`)}
+                              className={cn(p36.flow_completed && 'accent-green-600')}
                             />
                           </td>
-                          <td className={cn("px-2 py-2 font-medium", kbank.flow_completed && "text-gray-400")}>
-                            {kbank.label}
+                          <td className={cn("px-2 py-1.5 text-gray-400 text-xs", p36.flow_completed && "text-gray-300")}>{idx + 1}</td>
+                          <td className={cn("px-2 py-1.5 text-xs whitespace-nowrap", p36.flow_completed && "text-gray-400")}>{formatDate(p36.transaction_date)}</td>
+                          <td className={cn("px-2 py-1.5 font-medium", p36.flow_completed ? "text-gray-400 line-through" : "text-gray-700")}>{p36.vendor_name}</td>
+                          <td className={cn("px-2 py-1.5 text-xs", p36.flow_completed ? "text-gray-400" : "text-gray-500")}>{p36.notes || ''}</td>
+                          <td className="px-2 py-1.5">
+                            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", TAX_BADGE_COLORS.pp36, p36.flow_completed && "opacity-50")}>PP36</Badge>
                           </td>
-                          <td className={cn("px-2 py-2 text-right", kbank.flow_completed && "text-gray-400")}>
-                            {kbank.settlement_count}
-                          </td>
-                          <td className={cn("px-2 py-2 text-right font-mono", kbank.flow_completed && "text-gray-400")}>
-                            {formatNum(kbank.total_commission)}
-                          </td>
-                          <td className={cn("px-2 py-2 text-right font-mono", kbank.flow_completed && "text-gray-400")}>
-                            {formatNum(kbank.total_vat)}
-                          </td>
-                          <td className={cn("px-2 py-2 text-right font-mono font-medium", kbank.flow_completed && "text-gray-400")}>
-                            {formatNum(kbank.total_amount)}
-                          </td>
+                          <td className={cn("px-2 py-1.5 text-right font-mono text-xs", p36.flow_completed && "text-gray-400")}>{formatNum(p36.tax_base)}</td>
+                          <td className={cn("px-2 py-1.5 text-right font-mono text-xs", p36.flow_completed && "text-gray-400")}>{formatNum(p36.vat_amount)}</td>
+                          <td className={cn("px-2 py-1.5 text-right font-mono text-xs", p36.flow_completed && "text-gray-400")}>{formatNum(p36.withdrawal)}</td>
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot>
+                      <tr className="bg-gray-50 border-t font-medium">
+                        <td colSpan={6} className="px-2 py-2 text-right text-gray-500">
+                          Totals ({pp36Payable.length} items)
+                        </td>
+                        <td className="px-2 py-2 text-right font-mono">
+                          {formatNum(pp36Payable.reduce((s, i) => s + i.tax_base, 0))}
+                        </td>
+                        <td className="px-2 py-2 text-right font-mono">
+                          {formatNum(pp36Payable.reduce((s, i) => s + i.vat_amount, 0))}
+                        </td>
+                        <td className="px-2 py-2 text-right font-mono">
+                          {formatNum(pp36Payable.reduce((s, i) => s + i.withdrawal, 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
-                <p className="text-xs text-gray-400 mt-2">
-                  Record as Bank Charges in Flow Account
-                </p>
-              </CardContent>
-            </Card>
-          )}
+              </>
+            )}
 
-          {/* ─── Platform Fees (GoWabi, etc.) ─── */}
-          <PlatformFeesSection
-            platformFees={vatPlatformFees}
-            togglingIds={togglingIds}
-            onToggle={(itemKey, currentValue) => toggleItem('platform_fee', undefined, itemKey, currentValue)}
-          />
+            {/* KBank EDC */}
+            {data.kbank_edc.length > 0 && (
+              <Card>
+                <CardContent className="pt-4 pb-3 px-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">KBank EDC Fees</h3>
+                  <div className="border rounded-lg overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 border-b">
+                          <th className="px-2 py-2 text-center font-medium text-gray-500 w-[30px]"></th>
+                          <th className="px-2 py-2 text-left font-medium text-gray-500">Type</th>
+                          <th className="px-2 py-2 text-right font-medium text-gray-500">Settlements</th>
+                          <th className="px-2 py-2 text-right font-medium text-gray-500">Commission</th>
+                          <th className="px-2 py-2 text-right font-medium text-gray-500">VAT</th>
+                          <th className="px-2 py-2 text-right font-medium text-gray-500">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.kbank_edc.map((kbank) => (
+                          <tr
+                            key={kbank.item_key}
+                            className={cn(
+                              "border-b hover:bg-gray-50/50 transition-colors",
+                              kbank.flow_completed && "bg-green-50/30"
+                            )}
+                          >
+                            <td className="px-2 py-2 text-center">
+                              <Checkbox
+                                checked={kbank.flow_completed}
+                                onCheckedChange={() => toggleItem('kbank_edc', undefined, kbank.item_key, kbank.flow_completed)}
+                                disabled={togglingIds.has(`kbank_${kbank.item_key}`)}
+                                className={cn(kbank.flow_completed && 'accent-green-600')}
+                              />
+                            </td>
+                            <td className={cn("px-2 py-2 font-medium", kbank.flow_completed && "text-gray-400")}>
+                              {kbank.label}
+                            </td>
+                            <td className={cn("px-2 py-2 text-right", kbank.flow_completed && "text-gray-400")}>
+                              {kbank.settlement_count}
+                            </td>
+                            <td className={cn("px-2 py-2 text-right font-mono", kbank.flow_completed && "text-gray-400")}>
+                              {formatNum(kbank.total_commission)}
+                            </td>
+                            <td className={cn("px-2 py-2 text-right font-mono", kbank.flow_completed && "text-gray-400")}>
+                              {formatNum(kbank.total_vat)}
+                            </td>
+                            <td className={cn("px-2 py-2 text-right font-mono font-medium", kbank.flow_completed && "text-gray-400")}>
+                              {formatNum(kbank.total_amount)}
+                            </td>
+                          </tr>
+                        ))}
+                        {data.kbank_edc.length > 1 && (() => {
+                          const totalCommission = Math.round(data.kbank_edc.reduce((s, k) => s + k.total_commission, 0) * 100) / 100;
+                          const totalVat = Math.round(totalCommission * 7) / 100;
+                          const totalAmount = Math.round((totalCommission + totalVat) * 100) / 100;
+                          return (
+                            <tr className="bg-gray-50 border-t-2 border-gray-200">
+                              <td></td>
+                              <td className="px-2 py-2 font-semibold text-gray-700">Total</td>
+                              <td className="px-2 py-2 text-right font-semibold text-gray-700">
+                                {data.kbank_edc.reduce((s, k) => s + k.settlement_count, 0)}
+                              </td>
+                              <td className="px-2 py-2 text-right font-mono font-semibold text-gray-700">
+                                {formatNum(totalCommission)}
+                              </td>
+                              <td className="px-2 py-2 text-right font-mono font-semibold text-gray-700">
+                                {formatNum(totalVat)}
+                              </td>
+                              <td className="px-2 py-2 text-right font-mono font-semibold text-gray-700">
+                                {formatNum(totalAmount)}
+                              </td>
+                            </tr>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Record as Bank Charges in Flow Account
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Platform Fees */}
+            <PlatformFeesSection
+              platformFees={vatPlatformFees}
+              togglingIds={togglingIds}
+              onToggle={(itemKey, currentValue) => toggleItem('platform_fee', undefined, itemKey, currentValue)}
+            />
+          </div>
 
           {/* ─── Completion Bar ─── */}
           {totalVatItems > 0 && (
@@ -634,6 +885,55 @@ function ChecklistRow({
         {formatNum(item.withdrawal)}
       </td>
     </tr>
+  );
+}
+
+// ── PP36 Items Table ─────────────────────────────────────────────────────
+
+function Pp36ItemsTable({ items }: { items: Pp36LineItem[] }) {
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="bg-gray-50 border-b">
+          <th className="px-2 py-2 text-left font-medium text-gray-500 w-[30px]">#</th>
+          <th className="px-2 py-2 text-left font-medium text-gray-500 w-[65px]">Paid</th>
+          <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[180px]">Vendor</th>
+          <th className="px-2 py-2 text-left font-medium text-gray-500 min-w-[120px]">Description</th>
+          <th className="px-2 py-2 text-right font-medium text-gray-500 w-[100px]">Tax Base</th>
+          <th className="px-2 py-2 text-right font-medium text-gray-500 w-[80px]">VAT</th>
+          <th className="px-2 py-2 text-right font-medium text-gray-500 w-[100px]">Withdrawal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((item, idx) => (
+          <tr key={item.id} className="border-b hover:bg-gray-50/50 transition-colors">
+            <td className="px-2 py-1.5 text-gray-400 text-xs">{idx + 1}</td>
+            <td className="px-2 py-1.5 text-xs whitespace-nowrap">{formatDate(item.transaction_date)}</td>
+            <td className="px-2 py-1.5 font-medium text-gray-700">{item.vendor_name}</td>
+            <td className="px-2 py-1.5 text-xs text-gray-500">{item.notes || ''}</td>
+            <td className="px-2 py-1.5 text-right font-mono text-xs">{formatNum(item.tax_base)}</td>
+            <td className="px-2 py-1.5 text-right font-mono text-xs">{formatNum(item.vat_amount)}</td>
+            <td className="px-2 py-1.5 text-right font-mono text-xs">{formatNum(item.withdrawal)}</td>
+          </tr>
+        ))}
+      </tbody>
+      <tfoot>
+        <tr className="bg-gray-50 border-t font-medium">
+          <td colSpan={4} className="px-2 py-2 text-right text-gray-500">
+            Totals ({items.length} items)
+          </td>
+          <td className="px-2 py-2 text-right font-mono">
+            {formatNum(items.reduce((s, i) => s + i.tax_base, 0))}
+          </td>
+          <td className="px-2 py-2 text-right font-mono">
+            {formatNum(items.reduce((s, i) => s + i.vat_amount, 0))}
+          </td>
+          <td className="px-2 py-2 text-right font-mono">
+            {formatNum(items.reduce((s, i) => s + i.withdrawal, 0))}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
   );
 }
 

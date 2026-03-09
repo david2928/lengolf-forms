@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Copy, Tags, ExternalLink, Link2 } from 'lucide-react';
+import { Copy, Tags, ExternalLink, Link2, Unlink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VendorCombobox } from './VendorCombobox';
 import { VendorDetailPopover } from './VendorDetailPopover';
-import { InvoiceUploadButton } from './InvoiceUploadButton';
+import { DocumentUploadButton } from './DocumentUploadButton';
 import { ReceiptMatchPopover } from './ReceiptMatchPopover';
 import { recalcAll, calcVat, calcWht } from './TaxCalculator';
 import {
@@ -30,7 +30,8 @@ interface ExpenseTrackerRowProps {
   onAnnotationSaved: (bankTxId: number, annotation: AnnotationUpsert) => void;
   onVendorUpdated: (vendor: Vendor) => void;
   receiptMatches?: MatchResult[];
-  onReceiptLinked?: (bankTxId: number, receiptId: string) => Promise<void>;
+  onReceiptLinked?: (bankTxId: number, receiptId: string, source?: 'receipt' | 'invoice') => Promise<void>;
+  onReceiptUnlinked?: (bankTxId: number) => Promise<void>;
 }
 
 function formatNum(n: number | null | undefined): string {
@@ -49,7 +50,7 @@ function formatDate(d: string): string {
   return `${parts[2]}/${parts[1]}`;
 }
 
-export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, receiptMatches, onReceiptLinked }: ExpenseTrackerRowProps) {
+export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, receiptMatches, onReceiptLinked, onReceiptUnlinked }: ExpenseTrackerRowProps) {
   const { transaction: tx, annotation: ann, vendor: initialVendor } = row;
   const amount = Number(tx.withdrawal) || Number(tx.deposit) || 0;
   const isWithdrawal = Number(tx.withdrawal) > 0;
@@ -130,6 +131,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       wht_amount_override: boolean;
       tax_base_override: boolean;
       invoice_ref: string | null;
+      document_url: string | null;
       transaction_type: TransactionType | null;
       notes: string | null;
     }>): AnnotationUpsert => ({
@@ -148,11 +150,12 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       wht_amount_override: whtOverride,
       tax_base_override: taxBaseOverride,
       invoice_ref: invoiceRef || null,
+      document_url: documentUrl,
       transaction_type: transactionType,
       notes: notes || null,
       ...overrides,
     }),
-    [tx.id, vendor, vendorNameOverride, vatType, vatAmount, reportingMonth, whtType, whtRate, whtAmount, taxBase, vatOverride, whtOverride, taxBaseOverride, invoiceRef, transactionType, notes]
+    [tx.id, vendor, vendorNameOverride, vatType, vatAmount, reportingMonth, whtType, whtRate, whtAmount, taxBase, vatOverride, whtOverride, taxBaseOverride, invoiceRef, documentUrl, transactionType, notes]
   );
 
   const recalcAndSave = useCallback(
@@ -400,10 +403,20 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
         tax_base_override: extraction.tax_base != null,
         invoice_ref: extraction.invoice_number || invoiceRef || null,
         document_url: docUrl || documentUrl || null,
+        transaction_type: transactionType,
         notes: extraction.notes || notes || null,
       });
     },
-    [tx.id, tx.transaction_date, amount, vendor, vatType, whtType, whtRate, whtAmount, whtOverride, reportingMonth, invoiceRef, documentUrl, notes, doSave, onVendorUpdated]
+    [tx.id, tx.transaction_date, amount, vendor, vatType, whtType, whtRate, whtAmount, whtOverride, reportingMonth, invoiceRef, documentUrl, transactionType, notes, doSave, onVendorUpdated]
+  );
+
+  const handleTaxDocUploaded = useCallback(
+    (url: string) => {
+      setDocumentUrl(url);
+      const data = buildAnnotation({ document_url: url });
+      doSave(data);
+    },
+    [buildAnnotation, doSave]
   );
 
   // Mismatch detection: compare stored override values against formula-calculated values
@@ -529,15 +542,18 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
             compact
           />
           {vendor && <VendorDetailPopover vendor={vendor} onUpdate={onVendorUpdated} />}
-          <InvoiceUploadButton
+          <DocumentUploadButton
             onExtracted={handleInvoiceExtracted}
             paymentDate={tx.transaction_date}
             vendorName={vendor?.company_name || vendor?.name || vendorNameOverride || undefined}
+            transactionType={transactionType}
+            reportingMonth={reportingMonth || tx.transaction_date.substring(0, 7)}
+            onTaxDocUploaded={handleTaxDocUploaded}
           />
           {receiptMatches && receiptMatches.length > 0 && onReceiptLinked && (
             <ReceiptMatchPopover
               matches={receiptMatches}
-              onLink={(receiptId) => onReceiptLinked(tx.id, receiptId)}
+              onLink={(receiptId, source) => onReceiptLinked(tx.id, receiptId, source)}
             />
           )}
         </div>
@@ -692,13 +708,29 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       {/* Document # / link */}
       <td className={cn(cellBase, 'w-[40px] text-center')}>
         <div className="flex items-center justify-center gap-0.5">
-          {ann?.vendor_receipt_id && (
-            <span
-              className="inline-flex items-center justify-center h-5 w-5 text-green-500"
-              title="Linked to vendor receipt"
-            >
-              <Link2 className="h-3 w-3" />
-            </span>
+          {(ann?.vendor_receipt_id || (ann?.invoice_ref && !ann?.vendor_receipt_id)) && (
+            onReceiptUnlinked ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Unlink this document from the transaction?')) {
+                    onReceiptUnlinked(tx.id);
+                  }
+                }}
+                className="group inline-flex items-center justify-center h-5 w-5 text-green-500 hover:text-red-500 rounded hover:bg-red-50"
+                title={ann?.vendor_receipt_id ? 'Click to unlink receipt' : 'Click to unlink invoice'}
+              >
+                <Link2 className="h-3 w-3 group-hover:hidden" />
+                <Unlink className="h-3 w-3 hidden group-hover:block" />
+              </button>
+            ) : (
+              <span
+                className="inline-flex items-center justify-center h-5 w-5 text-green-500"
+                title={ann?.vendor_receipt_id ? 'Linked to vendor receipt' : 'Linked to invoice'}
+              >
+                <Link2 className="h-3 w-3" />
+              </span>
+            )
           )}
           {documentUrl && (
             <a

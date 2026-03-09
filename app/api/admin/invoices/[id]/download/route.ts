@@ -16,11 +16,11 @@ export async function GET(
 
     const { id } = await params
 
-    // Get invoice with PDF path
+    // Get invoice
     const { data: invoice, error: invoiceError } = await refacSupabaseAdmin
       .schema('backoffice')
       .from('invoices')
-      .select('invoice_number, pdf_file_path')
+      .select('invoice_number')
       .eq('id', id)
       .single()
 
@@ -33,12 +33,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
     }
 
-    if (!invoice.pdf_file_path) {
-      return NextResponse.json({ error: 'PDF not available for this invoice' }, { status: 404 })
-    }
-
-    // For now, we'll redirect to the PDF generation endpoint which returns HTML
-    // In production, you would serve the actual PDF file from storage
+    // Generate PDF on the fly via the PDF endpoint
     const response = await fetch(`${request.nextUrl.origin}/api/admin/invoices/${id}/pdf`, {
       method: 'POST',
       headers: {

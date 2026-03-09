@@ -30,7 +30,9 @@ import {
   Landmark,
   Banknote,
   Coins,
-  Tag
+  Tag,
+  Brain,
+  Globe
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -82,6 +84,12 @@ const salesAnalyticsItems = [
     path: "/admin/marketing-dashboard"
   },
   {
+    icon: Globe,
+    title: "Traffic Analytics",
+    description: "GA4 traffic insights across all LENGOLF web properties",
+    path: "/admin/traffic-analytics"
+  },
+  {
     icon: BarChart3,
     title: "Referral Analytics",
     description: "Track and analyze customer referral patterns",
@@ -98,6 +106,18 @@ const salesAnalyticsItems = [
     title: "Google Reviews",
     description: "View and manage Google Business Profile reviews",
     path: "/admin/google-reviews"
+  },
+  {
+    icon: Brain,
+    title: "AI Eval",
+    description: "Track AI suggestion quality scores across prompt versions",
+    path: "/admin/ai-eval"
+  },
+  {
+    icon: FileText,
+    title: "Shareholder Reports",
+    description: "Monthly performance reports for shareholders",
+    path: "/admin/reports"
   }
 ];
 

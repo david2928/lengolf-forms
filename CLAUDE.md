@@ -223,39 +223,18 @@ const { data, error } = await supabase
 
 **Schema Migrations:**
 
-⚠️ **IMPORTANT:** Always use the Supabase branching workflow for schema changes.
+Schema changes go **directly to production** via `mcp__supabase__apply_migration`. No branching workflow required.
 
-**Recommended Workflow (Local Development with Dev Branch):**
-1. Create persistent `develop` branch in Supabase Dashboard
-2. Link locally to dev branch: `npx supabase link --project-ref <dev-branch-id>`
-3. Make schema changes and test locally against dev branch
-4. Generate migration: `npm run db:diff migration_name`
-5. Commit migration to git
-6. Open PR → Preview branch auto-created → Test → Merge → Production
+**Workflow:**
+1. Write the migration SQL
+2. Apply directly via `mcp__supabase__apply_migration`
+3. Save the migration file in `supabase/migrations/` for version control
+4. Commit to git
 
-See complete guide: [Local Development Workflow](docs/SUPABASE_LOCAL_DEVELOPMENT_WORKFLOW.md)
-
-**Quick Workflow (Direct to PR):**
 ```bash
-# Create migration file (use your personal access token from Supabase Dashboard)
-export SUPABASE_ACCESS_TOKEN="$SUPABASE_ACCESS_TOKEN"  # Set in your shell profile or .env.local
-npm run db:diff migration_name
-
-# Commit and push to GitHub
-git add supabase/migrations/
-git commit -m "feat: Add migration description"
-git push
-
-# Open PR → Preview branch created automatically
-# Test on preview branch → Merge → Auto-deploys to production
+# Migration file naming convention
+supabase/migrations/YYYYMMDDHHMMSS_description.sql
 ```
-
-See setup guide: [Supabase Branching Setup](docs/SUPABASE_BRANCHING_SETUP.md)
-
-**Do NOT:**
-- ❌ Use MCP `apply_migration` for schema changes (only for emergency fixes)
-- ❌ Make schema changes directly in production Supabase Dashboard
-- ❌ Apply migrations without testing on dev/preview branch
 
 ## Testing & Development
 
@@ -653,15 +632,10 @@ if (process.env.NODE_ENV === 'development') {
 - `mcp__supabase__get_logs` - Debug Supabase logs
 - `mcp__supabase__generate_typescript_types` - Generate TypeScript types
 
-**⚠️ Migration Policy:**
+**Migration Policy:**
 - Use `execute_sql` for **querying data only** (SELECT statements)
-- Use `apply_migration` **only for emergency production fixes** (rare cases)
-- For **all planned schema changes**, use the Supabase branching workflow (see [Supabase Branching Setup](docs/SUPABASE_BRANCHING_SETUP.md))
-- This ensures all schema changes are:
-  - ✅ Tested on preview branches before production
-  - ✅ Tracked in version control (git)
-  - ✅ Reviewed through pull requests
-  - ✅ Automatically deployed on merge
+- Use `apply_migration` for **all schema changes** (DDL) — applies directly to production
+- Save migration files in `supabase/migrations/` for version control tracking
 
 ## 📚 Documentation Resources
 

@@ -146,6 +146,29 @@ export interface InvoiceExtraction {
   confidence_explanation: string;
 }
 
+// ── Multi-invoice extraction (for PDFs with multiple invoices) ──────────────
+
+export interface InvoiceLineItem {
+  invoice_number: string | null;
+  invoice_date: string | null;
+  total_amount: number | null;
+  tax_base: number | null;
+  vat_amount: number | null;
+  vat_type: VatType;
+  wht_applicable: boolean;
+  notes: string | null;
+}
+
+export interface MultiInvoiceExtraction {
+  vendor_name: string | null;
+  vendor_company_name_en: string | null;
+  vendor_address: string | null;
+  vendor_tax_id: string | null;
+  invoices: InvoiceLineItem[];
+  confidence: 'high' | 'medium' | 'low';
+  confidence_explanation: string;
+}
+
 // ── Filter state ────────────────────────────────────────────────────────────
 
 export interface ExpenseTrackerFilters {

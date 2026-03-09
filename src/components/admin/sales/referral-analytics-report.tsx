@@ -58,7 +58,7 @@ export default function ReferralAnalyticsReport() {
         },
         body: JSON.stringify({
           startDate: '2024-01-01',
-          endDate: '2025-12-31',
+          endDate: new Date().toISOString().split('T')[0],
           analysisType
         })
       });

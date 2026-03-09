@@ -96,6 +96,11 @@ function regexFastPath(message: string): { intent: string; language: 'th' | 'en'
     return { intent: 'greeting', language: lang };
   }
 
+  // Sticker messages — classify as general_inquiry, actual response is context-dependent
+  if (text.match(/^sent a sticker$/i)) {
+    return { intent: 'general_inquiry', language: lang };
+  }
+
   // No confident match — let LLM handle it
   return null;
 }

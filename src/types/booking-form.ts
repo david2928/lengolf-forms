@@ -36,6 +36,11 @@ export interface BookingFormData {
   packageName?: string;
   coach?: string | null; // Added coach field for coaching bookings
   promotion?: string | null; // Added promotion field for special offers
+  // Club rental selection
+  clubRentalSetId?: string | null;
+  clubRentalSetName?: string | null;
+  clubRentalTier?: string | null;
+  clubRentalGender?: string | null;
   // Phase 1 booking enhancement fields
   referralSource?: ReferralSource | string | null; // Allow string for "Other" referral values
   customerEmail?: string; // Customer email (optional, collected via self-service or manually)

@@ -1,4 +1,4 @@
-import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star, Landmark, Receipt, CalendarCheck, Tag, Send } from 'lucide-react'
+import { CalendarRange, FileText, Clock, Package2, ListOrdered, ClipboardList, Calendar, Users, UserCheck, Link2, Trophy, Timer, ShoppingCart, Target, PencilLine, TrendingUp, CreditCard, Phone, Banknote, Search, BarChart3, Facebook, Share2, Activity, DollarSign, Settings, MessageSquare, Headphones, Brain, Star, Landmark, Receipt, CalendarCheck, Tag, Send, Flag, Globe } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 
 export interface MenuItem {
@@ -154,6 +154,18 @@ export const menuItems: MenuItem[] = [
     description: "Upload vendor invoices and receipts"
   },
   {
+    icon: Flag,
+    title: "Course Club Rental",
+    path: '/create-course-rental',
+    description: "Create course club rentals (not linked to bay bookings)"
+  },
+  {
+    icon: ClipboardList,
+    title: "Manage Club Rentals",
+    path: '/manage-club-rentals',
+    description: "View, cancel, and manage course club rental bookings"
+  },
+  {
     icon: Tag,
     title: "Add Used Club",
     path: '/staff/used-clubs',
@@ -206,6 +218,18 @@ export const menuItems: MenuItem[] = [
     title: "Marketing Dashboard",
     path: '/admin/marketing-dashboard',
     description: "Unified Google + Meta Ads performance dashboard with KPIs and trends"
+  },
+  {
+    icon: Globe,
+    title: "Traffic Analytics",
+    path: '/admin/traffic-analytics',
+    description: "GA4 traffic insights across all LENGOLF web properties"
+  },
+  {
+    icon: FileText,
+    title: "Shareholder Reports",
+    path: '/admin/reports',
+    description: "Monthly performance reports for shareholders"
   },
   {
     icon: Star,
@@ -290,6 +314,12 @@ export const menuItems: MenuItem[] = [
     title: "FAQ Knowledge Base",
     path: '/staff/faq-knowledge',
     description: "Manage AI learning questions and answers with image associations"
+  },
+  {
+    icon: Brain,
+    title: "AI Eval",
+    path: '/admin/ai-eval',
+    description: "Track AI suggestion quality scores"
   },
   {
     icon: MessageSquare,

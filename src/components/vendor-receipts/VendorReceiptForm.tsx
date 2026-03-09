@@ -222,7 +222,7 @@ export function VendorReceiptForm({ onSubmitted }: VendorReceiptFormProps) {
       <Button
         type="button"
         className="w-full"
-        disabled={isSubmitting || !staffName || !vendorId || !file}
+        disabled={isSubmitting || submitStatus === 'success' || !staffName || !vendorId || !file}
         onClick={handleSubmit}
       >
         {isSubmitting ? (

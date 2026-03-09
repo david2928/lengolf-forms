@@ -266,15 +266,16 @@ WHERE s.date BETWEEN ? AND ?
   AND s.is_voided = FALSE;
 ```
 
-#### **Supporting Tables (pos schema)**
+#### **Supporting Tables**
 ```sql
--- Product dimension data
-pos.dim_product (product categorization, costs, SIM usage flags)
+-- Product catalog (products schema)
+products.products (product details, costs, SIM usage flags)
+products.categories (product categorization hierarchy)
 
--- Customer data enhancements  
+-- Customer data enhancements (pos schema)
 pos.lengolf_sales_modifications (manual customer corrections)
 
--- ETL process logs
+-- ETL process logs (pos schema)
 pos.sales_sync_logs (processing history and monitoring)
 ```
 
@@ -419,7 +420,7 @@ WHERE date BETWEEN start_date AND end_date
 
 **Dashboard Data Sources:**
 - `pos.lengolf_sales` - POS transaction data from Qashier system
-- `pos.dim_product` - Product dimensions and costs
+- `products.products` + `products.categories` - Product catalog and categorization
 - `pos.lengolf_sales_modifications` - Customer data corrections
 
 The Sales Dashboard shows Point of Sale (POS) analytics from the Qashier transaction system, displaying revenue from purchases of drinks, food, equipment, and simulator usage.

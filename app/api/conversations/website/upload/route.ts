@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     console.log('Uploading file to storage:', { fileName, size: file.size, type: file.type });
 
     const { data: uploadData, error: uploadError } = await refacSupabase.storage
-      .from('line-assets') // Using existing bucket
+      .from('line-messages')
       .upload(filePath, file, {
         contentType: file.type,
         cacheControl: '3600',
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     // Get public URL for the uploaded file
     const { data: publicUrlData } = refacSupabase.storage
-      .from('line-assets')
+      .from('line-messages')
       .getPublicUrl(filePath);
 
     const imageUrl = publicUrlData.publicUrl;

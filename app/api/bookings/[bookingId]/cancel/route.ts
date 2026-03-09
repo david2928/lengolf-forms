@@ -99,6 +99,24 @@ export async function POST(
 
     console.log(`Booking ${bookingId} successfully cancelled in Supabase:`, cancelledBooking);
 
+    // 3b. Auto-cancel any linked club rental (indoor rentals follow bay booking status)
+    try {
+      const { data: cancelledRentals, error: rentalCancelError } = await refacSupabaseAdmin
+        .from('club_rentals')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('booking_id', bookingId)
+        .neq('status', 'cancelled')
+        .select('rental_code')
+
+      if (rentalCancelError) {
+        console.warn(`Cancel booking: Failed to cancel linked club rentals for ${bookingId}:`, rentalCancelError);
+      } else if (cancelledRentals && cancelledRentals.length > 0) {
+        console.log(`Cancel booking: Auto-cancelled ${cancelledRentals.length} linked club rental(s): ${cancelledRentals.map((r: { rental_code: string }) => r.rental_code).join(', ')}`);
+      }
+    } catch (rentalError) {
+      console.warn(`Cancel booking: Error cancelling linked club rentals for ${bookingId}:`, rentalError);
+    }
+
     // 4. Booking history insert
     const oldBookingSnapshot = { ...currentBooking }; // State before cancellation
     // cancelledBooking already contains the status: 'cancelled' and audit fields

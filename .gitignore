@@ -54,6 +54,16 @@ next-env.d.ts
 .claude/settings*.json
 .claude/launch.json
 .claude/skills/
+.claude/worktrees/
+
+# misc files in project root (images, PDFs, CSVs)
+*.jpg
+*.png
+*.pdf
+*.csv
+!src/**
+!public/**
+!app/**
 
 # e2e sample data and eval results (generated locally)
 scripts/e2e-samples/*.json

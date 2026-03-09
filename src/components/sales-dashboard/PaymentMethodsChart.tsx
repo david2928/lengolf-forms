@@ -284,18 +284,14 @@ export default function PaymentMethodsChart({
 
   return (
     <Card className={className}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              {title}
-            </CardTitle>
-            <p className="text-sm text-gray-600 mt-1">
-              Revenue distribution by payment method
-            </p>
-          </div>
-        </div>
+      <CardHeader className="pb-2 sm:pb-6">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+          <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+          {title}
+        </CardTitle>
+        <p className="hidden sm:block text-sm text-gray-600 mt-1">
+          Revenue distribution by payment method
+        </p>
       </CardHeader>
 
       <CardContent>
@@ -329,10 +325,11 @@ export default function PaymentMethodsChart({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Bar Chart - Left side (2/3 width) */}
           <div className="lg:col-span-2">
-            <ResponsiveContainer width="100%" height={400}>
+            <div className="h-[300px] sm:h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={processedData}
-                margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+                margin={{ top: 10, right: 10, left: 0, bottom: 60 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis 
@@ -361,6 +358,7 @@ export default function PaymentMethodsChart({
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Table - Right side (1/3 width) */}
@@ -422,7 +420,7 @@ export default function PaymentMethodsChart({
         {/* Summary Statistics */}
         <div className="mt-6 p-3 bg-gray-50 rounded-lg">
           <h4 className="text-sm font-medium text-gray-900 mb-2">Payment Insights</h4>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs text-gray-600">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-xs text-gray-600">
             <div className="text-center">
               <p className="text-lg font-bold text-gray-900">
                 {processedData.length}

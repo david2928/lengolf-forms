@@ -66,36 +66,32 @@ export function InvoiceHistoryTab() {
   }, [fetchInvoices])
 
   const handleDownloadPDF = async (invoice: Invoice) => {
-    if (!invoice.pdf_file_path) {
-      toast({
-        title: 'Error',
-        description: 'PDF not available for this invoice',
-        variant: 'destructive',
-      })
-      return
-    }
-
     try {
-      const response = await fetch(`/api/admin/invoices/${invoice.id}/download`)
+      // Always generate PDF on the fly via POST endpoint
+      const response = await fetch(`/api/admin/invoices/${invoice.id}/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
       if (response.ok) {
         const contentType = response.headers.get('content-type') || ''
         const blob = await response.blob()
-        
+
         // If it's HTML, open in new tab
         if (contentType.includes('text/html')) {
           const url = window.URL.createObjectURL(blob)
           window.open(url, '_blank')
-          
+
           // Clean up URL after a delay
           setTimeout(() => window.URL.revokeObjectURL(url), 1000)
-          
+
           toast({
             title: 'Invoice Opened',
             description: 'Invoice opened in new tab.',
           })
           return
         }
-        
+
         // If it's a PDF, download normally
         const url = window.URL.createObjectURL(blob)
         const link = document.createElement('a')
@@ -109,7 +105,7 @@ export function InvoiceHistoryTab() {
       } else {
         toast({
           title: 'Error',
-          description: 'Failed to download invoice',
+          description: 'Failed to generate invoice PDF',
           variant: 'destructive',
         })
       }

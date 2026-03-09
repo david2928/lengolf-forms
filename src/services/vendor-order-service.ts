@@ -155,7 +155,8 @@ async function getVendorItemsFallback(orderId: string): Promise<{
       notes,
       product_name
     `)
-    .eq('order_id', orderId);
+    .eq('order_id', orderId)
+    .gt('quantity', 0);
 
   if (error || !orderItems) {
     console.error('Error in fallback query:', error);

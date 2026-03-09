@@ -92,28 +92,16 @@ export default function ProductPerformanceChart({ data }: ProductPerformanceChar
 
   const othersMargin = othersAggregate.revenue > 0 ? (othersAggregate.profit / othersAggregate.revenue) * 100 : 0;
 
-  const chartData = [
-    ...top5Products.map((product, index) => ({
-      name: product.name.length > 12 ? product.name.substring(0, 12) + '...' : product.name,
-      fullName: product.name,
-      category: product.category,
-      revenue: product.total_revenue || 0,
-      profit: product.total_profit || 0,
-      quantity: product.quantity_sold,
-      margin: product.avg_profit_margin || 0,
-      color: COLORS[index % COLORS.length],
-    })),
-    ...(otherProducts.length > 0 ? [{
-      name: `Others (${othersAggregate.count})`,
-      fullName: `${othersAggregate.count} other products`,
-      category: 'Mixed',
-      revenue: othersAggregate.revenue,
-      profit: othersAggregate.profit,
-      quantity: othersAggregate.quantity,
-      margin: othersMargin,
-      color: COLORS[5 % COLORS.length],
-    }] : [])
-  ];
+  const chartData = top5Products.map((product, index) => ({
+    name: product.name.length > 15 ? product.name.substring(0, 15) + '...' : product.name,
+    fullName: product.name,
+    category: product.category,
+    revenue: product.total_revenue || 0,
+    profit: product.total_profit || 0,
+    quantity: product.quantity_sold,
+    margin: product.avg_profit_margin || 0,
+    color: COLORS[index % COLORS.length],
+  }));
 
   // Category aggregation for pie chart
   const categoryData = data.reduce((acc, product) => {
@@ -182,23 +170,32 @@ export default function ProductPerformanceChart({ data }: ProductPerformanceChar
     return [formatCurrency(numValue), name === 'revenue' ? 'Revenue' : 'Profit'];
   };
 
+  const formatCompactCurrency = (value: number) => {
+    if (value >= 1000000) return `฿${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `฿${(value / 1000).toFixed(0)}K`;
+    return `฿${value}`;
+  };
+
   const renderBarChart = () => (
-    <ResponsiveContainer width="100%" height={450}>
-      <BarChart data={chartData} margin={{ top: 20, right: 30, left: 60, bottom: 120 }}>
+    <div className="h-[350px] sm:h-[450px]">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 80 }}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis 
-          dataKey="name" 
+        <XAxis
+          dataKey="name"
           angle={-45}
           textAnchor="end"
-          height={120}
-          fontSize={11}
+          height={80}
+          fontSize={10}
           interval={0}
         />
-        <YAxis 
+        <YAxis
+          width={55}
+          tick={{ fontSize: 11 }}
           tickFormatter={(value) => {
-            if (metric === 'margin') return formatPercentage(value);
+            if (metric === 'margin') return `${value}%`;
             if (metric === 'quantity') return value?.toLocaleString() || '0';
-            return formatCurrency(value || 0);
+            return formatCompactCurrency(value || 0);
           }}
         />
         <Tooltip 
@@ -215,10 +212,12 @@ export default function ProductPerformanceChart({ data }: ProductPerformanceChar
         />
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 
   const renderPieChart = () => (
-    <ResponsiveContainer width="100%" height={400}>
+    <div className="h-[300px] sm:h-[400px]">
+    <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Pie
           data={pieChartData}
@@ -244,10 +243,12 @@ export default function ProductPerformanceChart({ data }: ProductPerformanceChar
         <Legend />
       </PieChart>
     </ResponsiveContainer>
+    </div>
   );
 
   const renderScatterChart = () => (
-    <ResponsiveContainer width="100%" height={400}>
+    <div className="h-[300px] sm:h-[400px]">
+    <ResponsiveContainer width="100%" height="100%">
       <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
         <CartesianGrid />
         <XAxis 
@@ -280,6 +281,7 @@ export default function ProductPerformanceChart({ data }: ProductPerformanceChar
         <Scatter name="Products" data={scatterData} fill="#3B82F6" />
       </ScatterChart>
     </ResponsiveContainer>
+    </div>
   );
 
   const renderChart = () => {
@@ -307,17 +309,17 @@ export default function ProductPerformanceChart({ data }: ProductPerformanceChar
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Product Performance Analysis</CardTitle>
-          <div className="flex items-center gap-2">
+      <CardHeader className="pb-3 sm:pb-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base sm:text-lg">Product Performance</CardTitle>
             {/* Chart Type Selector */}
             <div className="flex items-center gap-1 border rounded-lg p-1">
               <Button
                 variant={chartType === 'bar' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setChartType('bar')}
-                className="p-2"
+                className="p-2 h-8 w-8"
               >
                 <BarChart3 className="h-4 w-4" />
               </Button>
@@ -325,7 +327,7 @@ export default function ProductPerformanceChart({ data }: ProductPerformanceChar
                 variant={chartType === 'pie' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setChartType('pie')}
-                className="p-2"
+                className="p-2 h-8 w-8"
               >
                 <PieChartIcon className="h-4 w-4" />
               </Button>
@@ -333,54 +335,58 @@ export default function ProductPerformanceChart({ data }: ProductPerformanceChar
                 variant={chartType === 'scatter' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setChartType('scatter')}
-                className="p-2"
+                className="p-2 h-8 w-8"
               >
                 <ScatterIcon className="h-4 w-4" />
               </Button>
             </div>
-
-            {/* Metric Selector (only for bar and pie charts) */}
-            {chartType !== 'scatter' && (
-              <div className="flex items-center gap-1 border rounded-lg p-1">
-                <Button
-                  variant={metric === 'revenue' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setMetric('revenue')}
-                >
-                  Revenue
-                </Button>
-                <Button
-                  variant={metric === 'profit' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setMetric('profit')}
-                >
-                  Profit
-                </Button>
-                <Button
-                  variant={metric === 'quantity' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setMetric('quantity')}
-                >
-                  Quantity
-                </Button>
-                <Button
-                  variant={metric === 'margin' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setMetric('margin')}
-                >
-                  Margin
-                </Button>
-              </div>
-            )}
           </div>
+
+          {/* Metric Selector - own row */}
+          {chartType !== 'scatter' && (
+            <div className="flex items-center gap-1 border rounded-lg p-1 overflow-x-auto scrollbar-hide">
+              <Button
+                variant={metric === 'revenue' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setMetric('revenue')}
+                className="text-xs sm:text-sm flex-shrink-0"
+              >
+                Revenue
+              </Button>
+              <Button
+                variant={metric === 'profit' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setMetric('profit')}
+                className="text-xs sm:text-sm flex-shrink-0"
+              >
+                Profit
+              </Button>
+              <Button
+                variant={metric === 'quantity' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setMetric('quantity')}
+                className="text-xs sm:text-sm flex-shrink-0"
+              >
+                Quantity
+              </Button>
+              <Button
+                variant={metric === 'margin' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setMetric('margin')}
+                className="text-xs sm:text-sm flex-shrink-0"
+              >
+                Margin
+              </Button>
+            </div>
+          )}
         </div>
-        <div className="text-sm text-gray-600">
-          {chartType === 'bar' && `Top 5 products by ${metric}${otherProducts.length > 0 ? ' (+ others)' : ''}`}
+        <p className="text-xs sm:text-sm text-gray-600 mt-1">
+          {chartType === 'bar' && `Top 5 products by ${metric}`}
           {chartType === 'pie' && `${metric} distribution by category`}
           {chartType === 'scatter' && 'Revenue vs Profit analysis'}
-        </div>
+        </p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-2 sm:px-6">
         {renderChart()}
       </CardContent>
     </Card>

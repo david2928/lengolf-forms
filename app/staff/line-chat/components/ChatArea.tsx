@@ -1208,6 +1208,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           onTemplateSelect={handleTemplateSelect}
           onCuratedImagesSelect={handleCuratedImagesSelect}
           onFileUpload={chatOperations.handleFileUpload}
+          onMultiFileUpload={chatOperations.handleMultiFileUpload}
           onSendCoachingAvailability={customerOperations?.sendCoachingAvailability}
           sendingCoachingAvailability={customerOperations?.sendingAvailability}
           hasLinkedCustomer={!!customerOperations?.customerDetails}
