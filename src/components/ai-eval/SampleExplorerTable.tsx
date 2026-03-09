@@ -13,6 +13,8 @@ interface HistoryMessage {
   content: string;
   sender_type: string;
   created_at?: string;
+  content_type?: string;
+  file_url?: string;
 }
 
 function scoreColor(score: number | null): string {
@@ -77,7 +79,17 @@ function SampleDetail({ sample }: { sample: EvalSample }) {
                       ? 'bg-blue-50 dark:bg-blue-950 text-foreground'
                       : 'bg-purple-50 dark:bg-purple-950 text-foreground'
                   }`}>
-                    {msg.content}
+                    {msg.file_url && (msg.content_type === 'image' || msg.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
+                      <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={msg.file_url} alt="Shared image" className="max-w-[200px] max-h-[150px] rounded object-cover" />
+                        {msg.content !== 'sent a photo' && msg.content !== 'You sent a photo' && (
+                          <span className="block mt-1">{msg.content}</span>
+                        )}
+                      </a>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 </div>
               );

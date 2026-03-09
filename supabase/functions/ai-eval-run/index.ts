@@ -21,6 +21,8 @@ interface ConversationMessage {
   content: string
   sender_type: string
   created_at: string
+  content_type?: string
+  file_url?: string
 }
 
 const JUDGE_MODEL = 'gpt-4o-mini'
@@ -265,13 +267,22 @@ async function processBatch(
   for (const convId of conversationIds) {
     try {
       // Fetch messages for this conversation
-      const { data: messages } = await supabase
+      const { data: rawMessages } = await supabase
         .from('unified_messages')
-        .select('content, sender_type, created_at')
+        .select('content, sender_type, created_at, content_type, channel_metadata')
         .eq('conversation_id', convId)
         .not('content', 'is', null)
         .not('content', 'eq', '')
         .order('created_at', { ascending: true })
+
+      // Flatten channel_metadata.file_url into top-level for storage efficiency
+      const messages = rawMessages?.map((m: Record<string, unknown>) => ({
+        content: m.content as string,
+        sender_type: m.sender_type as string,
+        created_at: m.created_at as string,
+        ...(m.content_type && m.content_type !== 'text' ? { content_type: m.content_type as string } : {}),
+        ...((m.channel_metadata as Record<string, unknown>)?.file_url ? { file_url: (m.channel_metadata as Record<string, unknown>).file_url as string } : {}),
+      })) || null
 
       if (!messages || messages.length < 3) continue
 
