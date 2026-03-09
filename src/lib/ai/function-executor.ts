@@ -76,6 +76,9 @@ export class AIFunctionExecutor {
       case 'modify_booking':
         return await this.prepareModificationForApproval(functionCall.parameters);
 
+      case 'check_club_availability':
+        return await this.checkClubAvailability(functionCall.parameters);
+
       default:
         return {
           success: false,
@@ -1712,6 +1715,99 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
     } catch (error) {
       console.error('Error in checkAvailabilityExcludingBooking:', error);
       return { success: false, error: 'Failed to check availability', functionName: 'check_bay_availability' };
+    }
+  }
+
+  /**
+   * Check club set availability using the get_available_club_sets RPC
+   */
+  private async checkClubAvailability(params: any): Promise<FunctionResult> {
+    try {
+      const { rental_type, date, end_date, start_time, duration_hours } = params;
+
+      if (!refacSupabaseAdmin) {
+        return {
+          success: false,
+          error: 'Database connection not available',
+          functionName: 'check_club_availability'
+        };
+      }
+
+      const { data, error } = await refacSupabaseAdmin.rpc('get_available_club_sets', {
+        p_rental_type: rental_type,
+        p_start_date: date,
+        p_end_date: end_date && end_date !== '' ? end_date : date,
+        p_start_time: start_time && start_time !== '' ? start_time : null,
+        p_duration_hours: duration_hours && duration_hours > 0 ? duration_hours : null,
+      });
+
+      if (error) {
+        console.error('Error checking club availability:', error);
+        return {
+          success: false,
+          error: `Failed to check club availability: ${error.message}`,
+          functionName: 'check_club_availability'
+        };
+      }
+
+      const sets = data || [];
+      const dateLabel = formatDateNatural(date);
+
+      if (sets.length === 0) {
+        return {
+          success: true,
+          data: {
+            available: false,
+            message: `No club sets available for ${dateLabel}.`,
+            rental_type,
+            date,
+          },
+          functionName: 'check_club_availability'
+        };
+      }
+
+      // Format results for the AI
+      const formatted = sets.map((s: any) => ({
+        name: s.name,
+        tier: s.tier,
+        gender: s.gender,
+        brand: s.brand,
+        model: s.model,
+        available_count: s.available_count,
+        // Include relevant pricing based on rental type
+        ...(rental_type === 'course' ? {
+          price_1d: s.course_price_1d,
+          price_3d: s.course_price_3d,
+          price_7d: s.course_price_7d,
+          price_14d: s.course_price_14d,
+        } : {
+          price_1h: s.indoor_price_1h,
+          price_2h: s.indoor_price_2h,
+          price_4h: s.indoor_price_4h,
+        }),
+      }));
+
+      const availableSets = formatted.filter((s: any) => s.available_count > 0);
+      const unavailableSets = formatted.filter((s: any) => s.available_count === 0);
+
+      return {
+        success: true,
+        data: {
+          available: availableSets.length > 0,
+          date: dateLabel,
+          rental_type,
+          available_sets: availableSets,
+          unavailable_sets: unavailableSets.length > 0 ? unavailableSets.map((s: any) => s.name) : undefined,
+        },
+        functionName: 'check_club_availability'
+      };
+    } catch (error) {
+      console.error('Error checking club availability:', error);
+      return {
+        success: false,
+        error: `Error checking club availability: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        functionName: 'check_club_availability'
+      };
     }
   }
 

@@ -47,7 +47,7 @@ Intents:
 - pricing_inquiry: About prices, rates, costs, how much, or asking about price of something discussed earlier
 - promotion_inquiry: About promotions, discounts, deals
 - payment_inquiry: About payment methods, transfer, QR, cards
-- equipment_inquiry: About equipment, clubs, gloves, rentals
+- equipment_inquiry: About equipment, clubs, gloves, rentals, renting clubs for indoor or course use, club availability
 - facility_inquiry: About the facility, bay types, simulators, opening hours, photos, venue (only when NOT asking about price or availability)
 - arrival_notification: Customer says they arrived or are coming
 - greeting: ONLY for standalone greetings with no other context (Hello, hi, สวัสดี). NOT for follow-up messages.
@@ -193,7 +193,7 @@ export function regexFullClassify(message: string): { intent: string; language: 
   if (text.match(/ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า/)) return { intent: 'pricing_inquiry', language: lang };
   if (text.match(/โปรโม|promotion|discount|ส่วนลด|deal|special|แพ็ค|package/)) return { intent: 'promotion_inquiry', language: lang };
   if (text.match(/จ่าย|pay|payment|โอน|transfer|QR|บัตร|card/)) return { intent: 'payment_inquiry', language: lang };
-  if (text.match(/อุปกรณ์|equipment|club|ไม้กอล์ฟ|rental|ยืม|glove|ถุงมือ/)) return { intent: 'equipment_inquiry', language: lang };
+  if (text.match(/อุปกรณ์|equipment|club|ไม้กอล์ฟ|rental|ยืม|glove|ถุงมือ|เช่าไม้|rent.*club|club.*rent|ไม้เช่า|เช่า.*กอล์ฟ|course.*club|club.*course/)) return { intent: 'equipment_inquiry', language: lang };
   if (text.match(/เปิด|ปิด|open|close|hour|เวลา|time|bay|เบย์|simulator|ห้อง/)) return { intent: 'facility_inquiry', language: lang };
   if (text.match(/photo|picture|รูป|ภาพ|venue|สถานที่/)) return { intent: 'facility_inquiry', language: lang };
   if (text.match(/ที่ไหน|where|location|แผนที่|map|parking|จอดรถ/)) return { intent: 'location_inquiry', language: lang };

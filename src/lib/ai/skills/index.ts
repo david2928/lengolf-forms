@@ -7,6 +7,7 @@ import { bookingSkill } from './booking-skill';
 import { pricingSkill } from './pricing-skill';
 import { coachingSkill } from './coaching-skill';
 import { facilitySkill } from './facility-skill';
+import { clubRentalSkill } from './club-rental-skill';
 import { generalSkill } from './general-skill';
 
 // All available skills (excluding core, which is always loaded)
@@ -15,6 +16,7 @@ const SKILL_REGISTRY: Skill[] = [
   pricingSkill,
   coachingSkill,
   facilitySkill,
+  clubRentalSkill,
   generalSkill,
 ];
 

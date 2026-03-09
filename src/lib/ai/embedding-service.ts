@@ -262,7 +262,7 @@ export interface FAQMatch {
 const INTENT_TO_FAQ_CATEGORY: Record<string, string[]> = {
   pricing_inquiry: ['pricing', 'packages', 'general'],
   promotion_inquiry: ['pricing', 'promotions', 'packages'],
-  equipment_inquiry: ['facility', 'equipment', 'general'],
+  equipment_inquiry: ['facility', 'equipment', 'club_rental', 'general'],
   facility_inquiry: ['facility', 'hours', 'general'],
   location_inquiry: ['facility', 'location', 'general'],
   coaching_inquiry: ['coaching', 'pricing', 'general'],

@@ -14,7 +14,7 @@ BAY RATES (per hour, same for Social and AI Bay):
 - Weekend before 1PM: ฿700 | Afternoon/Evening: ฿900
 - Standard club rental: FREE
 
-PREMIUM CLUBS: Indoor ฿150/hr, Premium+ ฿250/hr, Course ฿1,200/฿1,800, Delivery ฿500
+PREMIUM CLUBS: See CLUB RENTAL section for full indoor and course pricing.
 
 SIMULATOR PACKAGES:
 - Bronze 5H: ฿3,000 (1mo) | Early Bird 10H morning: ฿4,800 (6mo) | Early Bird+ unlimited morning: ฿5,000 (1mo)
