@@ -36,7 +36,7 @@ const CLASSIFIER_MODEL = process.env.INTENT_CLASSIFIER_MODEL || 'gpt-4o-mini';
 const CLASSIFIER_TIMEOUT_MS = 3000;
 
 // Compact system prompt (~250 tokens) — kept minimal for speed
-const CLASSIFIER_SYSTEM_PROMPT = `Classify the latest customer message for Lengolf, a golf simulator business in Bangkok.
+const CLASSIFIER_SYSTEM_PROMPT = `Classify the OVERALL CONVERSATION TOPIC for Lengolf, a golf simulator business in Bangkok. You will see the full conversation — classify what the conversation is about, not just the last message.
 
 Intents:
 - availability_check: Asking if bays/times are available, or ANY follow-up about availability
@@ -49,13 +49,14 @@ Intents:
 - payment_inquiry: About payment methods, transfer, QR, cards
 - equipment_inquiry: About equipment, clubs, gloves, rentals
 - facility_inquiry: About the facility, bay types, simulators, opening hours, photos, venue (only when NOT asking about price or availability)
-- location_inquiry: About location, directions, parking, address
 - arrival_notification: Customer says they arrived or are coming
 - greeting: ONLY for standalone greetings with no other context (Hello, hi, สวัสดี). NOT for follow-up messages.
 - general_inquiry: Thanks, OK, acknowledgement, or anything else
 
 CRITICAL RULES:
-- Follow-up messages MUST be classified based on the conversation topic, not in isolation.
+- Classify the CONVERSATION TOPIC, not just the latest message in isolation.
+- Short follow-up messages (names, phone numbers, locations, "OK", "yes") inherit the conversation topic.
+- Example: customer asks about a lesson → provides name → provides phone → sends "Singapore" → the topic is STILL coaching_inquiry, not location.
 - "แล้วพรุ่งนี้ล่ะ" / "What about tomorrow?" / "How about Saturday?" after availability discussion = availability_check
 - "And the AI bay?" / "แล้ว AI bay ล่ะ" after pricing discussion = pricing_inquiry
 - Short Thai messages like "แล้ว...ล่ะ" are follow-ups, NEVER greetings.
@@ -114,22 +115,29 @@ async function llmClassify(
   recentMessages?: Array<{ content: string; senderType?: string }>,
   signal?: AbortSignal
 ): Promise<{ intent: string; language: 'th' | 'en' }> {
-  // Build conversation context (last 4 messages + current)
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: CLASSIFIER_SYSTEM_PROMPT },
   ];
 
+  // Present the full conversation as a single user message so the classifier
+  // sees the overall topic, not just the latest short message in isolation.
+  let conversationBlock = '';
   if (recentMessages && recentMessages.length > 0) {
-    // Include last 4 messages for context (both user and assistant)
-    const recent = recentMessages.slice(-4);
-    for (const msg of recent) {
-      const role = msg.senderType === 'user' ? 'user' as const : 'assistant' as const;
-      messages.push({ role, content: msg.content });
-    }
+    conversationBlock = recentMessages
+      .map(msg => {
+        const sender = (msg.senderType === 'user' || msg.senderType === 'customer') ? 'Customer' : 'Staff';
+        return `${sender}: ${msg.content}`;
+      })
+      .join('\n');
   }
+  // Append the current message (may already be the last in recentMessages for real-time,
+  // but included explicitly so it's always visible)
+  conversationBlock += `\nCustomer: ${customerMessage}`;
 
-  // Add current message as the final user message
-  messages.push({ role: 'user', content: customerMessage });
+  messages.push({
+    role: 'user',
+    content: `CONVERSATION:\n${conversationBlock}\n\nClassify the overall conversation topic.`
+  });
 
   const response = await openai.chat.completions.create({
     model: CLASSIFIER_MODEL,
