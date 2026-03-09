@@ -331,6 +331,7 @@ export const useAISuggestionsStream = ({
           functionResult: suggestion.functionResult,
           customerId,
           conversationId,
+          channelType,
         }),
       });
 
@@ -351,7 +352,7 @@ export const useAISuggestionsStream = ({
         error: error instanceof Error ? error.message : 'Failed to approve booking',
       }));
     }
-  }, [sendFeedback, onSuggestionApproved, customerId, conversationId]);
+  }, [sendFeedback, onSuggestionApproved, customerId, conversationId, channelType]);
 
   const completeEditFeedback = useCallback((
     suggestionId: string,

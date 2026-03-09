@@ -178,7 +178,7 @@ export function regexFullClassify(message: string): { intent: string; language: 
   if (text.match(/จอง|book|reservation|reserve/)) return { intent: 'booking_request', language: lang };
   if (text.match(/available|ว่าง|มี.*ว่าง|slot/)) return { intent: 'availability_check', language: lang };
   if (text.match(/change|เปลี่ยน|เลื่อน|reschedule/)) return { intent: 'modification_request', language: lang };
-  if (text.match(/coach|โค้ช|โปร(?!โม)|เรียน|lesson|สอน|คลาส|class/)) return { intent: 'coaching_inquiry', language: lang };
+  if (text.match(/coach|โค้ช|โปร(?!โม)|เรียน|lesson|สอน|คลาส|class|ตารางโปร/)) return { intent: 'coaching_inquiry', language: lang };
   if (text.match(/ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า/)) return { intent: 'pricing_inquiry', language: lang };
   if (text.match(/โปรโม|promotion|discount|ส่วนลด|deal|special|แพ็ค|package/)) return { intent: 'promotion_inquiry', language: lang };
   if (text.match(/จ่าย|pay|payment|โอน|transfer|QR|บัตร|card/)) return { intent: 'payment_inquiry', language: lang };

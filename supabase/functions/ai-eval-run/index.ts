@@ -11,6 +11,7 @@ interface EvalRequest {
   sample_count?: number
   batch_size?: number
   run_id?: string
+  date_filter?: string // ISO date string (YYYY-MM-DD) to filter conversations to a specific day
 }
 
 interface ConversationMessage {
@@ -53,7 +54,7 @@ serve(async (req: Request) => {
     const batch_size = Math.min(Math.max(1, Number(body.batch_size) || 10), 25)
 
     if (action === 'start') {
-      return await handleStart(supabase, supabaseUrl, supabaseKey, openaiKey, vercelUrl, sample_count, batch_size)
+      return await handleStart(supabase, supabaseUrl, supabaseKey, openaiKey, vercelUrl, sample_count, batch_size, body.date_filter)
     } else if (action === 'continue') {
       if (!body.run_id) {
         return jsonResponse({ error: 'run_id required for continue action' }, 400)
@@ -76,15 +77,24 @@ async function handleStart(
   vercelUrl: string,
   sampleCount: number,
   batchSize: number,
+  dateFilter?: string,
 ) {
-  // Fetch random conversation IDs with staff responses (last 60 days)
-  const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
-
-  const { data: conversations, error: convError } = await supabase
+  // Build conversation query — either specific date or last 60 days
+  let query = supabase
     .from('unified_conversations')
     .select('id')
-    .gte('last_message_at', sixtyDaysAgo)
-    .limit(500)
+
+  if (dateFilter && /^\d{4}-\d{2}-\d{2}$/.test(dateFilter)) {
+    // Filter to conversations with messages on the specific date (Bangkok time = UTC+7)
+    const dateStart = `${dateFilter}T00:00:00+07:00`
+    const dateEnd = `${dateFilter}T23:59:59+07:00`
+    query = query.gte('last_message_at', dateStart).lte('last_message_at', dateEnd)
+  } else {
+    const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
+    query = query.gte('last_message_at', sixtyDaysAgo)
+  }
+
+  const { data: conversations, error: convError } = await query.limit(500)
 
   if (convError || !conversations?.length) {
     return jsonResponse({ error: `No conversations found: ${convError?.message || 'empty'}` }, 500)

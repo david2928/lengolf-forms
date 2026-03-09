@@ -19,6 +19,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const sampleCount = Math.min(Math.max(1, Number(body.sample_count) || 50), 200);
     const batchSize = Math.min(Math.max(1, Number(body.batch_size) || 10), 25);
+    const dateFilter = typeof body.date_filter === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date_filter)
+      ? body.date_filter
+      : undefined;
 
     const response = await fetch(`${supabaseUrl}/functions/v1/ai-eval-run`, {
       method: 'POST',
@@ -30,6 +33,7 @@ export async function POST(request: NextRequest) {
         action: 'start',
         sample_count: sampleCount,
         batch_size: batchSize,
+        ...(dateFilter && { date_filter: dateFilter }),
       }),
     });
 

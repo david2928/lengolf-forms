@@ -602,7 +602,7 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
    * Reuses: /api/bookings/create
    * Note: Availability is already checked in prepareBookingForApproval()
    */
-  async executeApprovedBooking(params: any, customerId?: string): Promise<FunctionResult> {
+  async executeApprovedBooking(params: any, customerId?: string, channelType?: string): Promise<FunctionResult> {
     try {
       // Get requested bay type from params (already validated in prepare stage)
       const requestedBayType = params.bay_type || 'social';
@@ -610,6 +610,7 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
       // If customer has packages, try to auto-select one
       let packageId: string | null = null;
       let packageName: string | null = null;
+      let packageNote: string | null = null; // Track why package wasn't applied
 
       if (customerId) {
         try {
@@ -621,8 +622,15 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
           const response = await fetch(`${baseUrl}/api/line/customers/${customerId}/details`);
           if (response.ok) {
             const data = await response.json();
+            // Only use activated packages (status === 'active'), not inactive/unactivated ones
             const activePackages = data.packages?.filter((pkg: any) =>
-              (pkg.remaining_hours !== '0' && pkg.remaining_hours !== 0) || pkg.package_type === 'Unlimited'
+              pkg.status === 'active' &&
+              ((pkg.remaining_hours !== '0' && pkg.remaining_hours !== 0) || pkg.package_type === 'Unlimited')
+            ) || [];
+
+            // Check if there are inactive (not yet activated) packages
+            const inactivePackages = data.packages?.filter((pkg: any) =>
+              pkg.status === 'inactive'
             ) || [];
 
             // Filter packages based on booking type
@@ -651,6 +659,11 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
               console.log(`Auto-selected ${isCoachingBooking ? 'coaching' : 'regular'} package: ${packageName} (${selectedPackage.remaining_hours || selectedPackage.hours_remaining}h remaining)`);
             } else {
               console.log(`No eligible ${isCoachingBooking ? 'coaching' : 'regular'} packages found for customer`);
+              // Add note about why package wasn't applied
+              if (inactivePackages.length > 0) {
+                const inactiveNames = inactivePackages.map((p: any) => p.package_type_name).join(', ');
+                packageNote = `Package not applied: ${inactiveNames} not yet activated`;
+              }
             }
           }
         } catch (error) {
@@ -689,7 +702,7 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
         booking_type: bookingType,
         package_id: packageId, // Auto-selected package
         package_name: packageName, // Auto-selected package name
-        customer_notes: `🤖 AI BOOKING`
+        customer_notes: packageNote || undefined
       };
 
       // If customer ID is provided (existing customer), use it
@@ -803,11 +816,21 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
         message += `\nBay: ${bayAssigned}`;
         message += `\nType: ${bookingTypeDisplay}`;
         message += `\nPeople: ${params.number_of_people}`;
-        message += `\nChannel: AI Chat`;
+        // Show actual channel (LINE, Website, etc.) - LINE is all-caps
+        const channelDisplayMap: Record<string, string> = {
+          line: 'LINE', website: 'Website', facebook: 'Facebook',
+          instagram: 'Instagram', whatsapp: 'WhatsApp'
+        };
+        const channelDisplay = channelType
+          ? (channelDisplayMap[channelType] || channelType)
+          : 'LINE';
+        message += `\nChannel: ${channelDisplay}`;
         message += `\nCreated by: AI Assistant`;
 
-        // Add notes (AI booking indicator) - /api/notify will append this again, so we skip it here
-        // The customer_notes parameter will be used by /api/notify to append notes
+        // Add package note if applicable
+        if (packageNote) {
+          message += `\nNote: ${packageNote}`;
+        }
 
         // Send to LINE staff channel using the same endpoint
         // Note: /api/notify will append customer_notes to the message automatically

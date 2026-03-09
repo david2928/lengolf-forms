@@ -388,6 +388,14 @@ export default function UnifiedChatPage() {
     },
     onSuggestionApproved: async (suggestion, bookingResult) => {
       console.log('AI suggestion approved (booking created):', bookingResult);
+      // Send the AI-suggested text response to the customer alongside the booking (only if booking succeeded)
+      if (bookingResult?.booking_id && suggestion.suggestedResponse && suggestion.suggestedResponse.trim()) {
+        try {
+          await chatOps.sendMessage(suggestion.suggestedResponse.trim());
+        } catch (err) {
+          console.error('Failed to send AI response to customer:', err);
+        }
+      }
       // Refresh customer data to show new booking
       if (customerOps && selectedConversationObj?.customer?.id) {
         await customerOps.fetchCustomerDetails(selectedConversationObj.customer.id);
@@ -471,6 +479,18 @@ export default function UnifiedChatPage() {
       window.removeEventListener('resize', checkMobile);
     };
   }, []);
+
+  // Prevent body scroll on mobile to keep chat header sticky
+  useEffect(() => {
+    if (isMobile) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      };
+    }
+  }, [isMobile]);
 
   // Handle new messages from realtime - updated for unified system
   const handleNewMessage = useCallback((message: any) => {

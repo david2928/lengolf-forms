@@ -848,8 +848,11 @@ export async function prepareSuggestionContext(params: GenerateSuggestionParams)
       if (anyThaiMessage) langDetectionSource = anyThaiMessage.content!;
     }
   }
-  const currentMessageLanguage = /[\u0E00-\u0E7F]/.test(langDetectionSource) ? 'thai' : 'english';
-  const isThaiMessage = currentMessageLanguage === 'thai';
+  // Detect language: Thai, Chinese/Japanese/Korean, or English/other
+  const isThai = /[\u0E00-\u0E7F]/.test(langDetectionSource);
+  const isCJK = /[\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF]/.test(langDetectionSource);
+  const currentMessageLanguage = isThai ? 'thai' : 'english'; // Skills system uses thai/english for prompt selection
+  const isThaiMessage = isThai;
   const hasNoConversationHistory = !params.conversationContext.recentMessages || params.conversationContext.recentMessages.length <= 1;
 
   // Priority: ALWAYS greet on first message of new conversations
@@ -861,6 +864,10 @@ THAI FIRST MESSAGE: Start with "สวัสดีค่า". If they asked a qu
     userContent = `Customer message: "${params.customerMessage}"
 
 THAI: 5-8 words max. Brief but polite. No greetings, no names, no "ถ้ามีคำถามเพิ่มเติม".`;
+  } else if (isCJK) {
+    userContent = `Customer message: "${params.customerMessage}"
+
+RESPOND IN THE SAME LANGUAGE AS THE CUSTOMER (Chinese/Japanese/Korean). Match their language exactly. 1 to 2 sentences. Do not use Thai or English unless they did.`;
   } else {
     userContent = `Customer message: "${params.customerMessage}"
 
