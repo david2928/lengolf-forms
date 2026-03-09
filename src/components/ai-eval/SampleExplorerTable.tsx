@@ -2,11 +2,17 @@
 
 import { useState, useCallback } from 'react';
 import { EvalSample, JudgeReasoning } from '@/types/ai-eval';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, MessageSquare, Bot, User, Star } from 'lucide-react';
 
 interface SampleExplorerTableProps {
   samples: EvalSample[];
   isLoading: boolean;
+}
+
+interface HistoryMessage {
+  content: string;
+  sender_type: string;
+  created_at?: string;
 }
 
 function scoreColor(score: number | null): string {
@@ -16,12 +22,147 @@ function scoreColor(score: number | null): string {
   return 'text-red-600';
 }
 
+function scoreBg(score: number | null): string {
+  if (score == null) return 'bg-muted';
+  if (score >= 4) return 'bg-green-100 dark:bg-green-950';
+  if (score >= 3) return 'bg-yellow-100 dark:bg-yellow-950';
+  return 'bg-red-100 dark:bg-red-950';
+}
+
+function isCustomerMsg(senderType: string): boolean {
+  return senderType === 'user' || senderType === 'customer';
+}
+
+function ScorePill({ label, score, reasoning }: { label: string; score: number | null; reasoning?: string }) {
+  return (
+    <div className={`rounded-lg p-2.5 ${scoreBg(score)}`}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <span className={`text-sm font-bold ${scoreColor(score)}`}>{score ?? '--'}</span>
+      </div>
+      {reasoning && (
+        <p className="text-xs text-muted-foreground leading-relaxed">{reasoning}</p>
+      )}
+    </div>
+  );
+}
+
+function SampleDetail({ sample }: { sample: EvalSample }) {
+  const history = (sample.conversation_history || []) as HistoryMessage[];
+  const reasoning = sample.judge_reasoning as JudgeReasoning | null;
+
+  return (
+    <div className="space-y-4">
+      {/* Conversation History */}
+      {history.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Conversation History ({history.length} messages)
+            </span>
+          </div>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto rounded-lg border bg-background p-3">
+            {history.map((msg, i) => {
+              const isCust = isCustomerMsg(msg.sender_type);
+              return (
+                <div key={i} className={`flex gap-2 ${isCust ? '' : 'flex-row-reverse'}`}>
+                  <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] mt-0.5 ${
+                    isCust ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                  }`}>
+                    {isCust ? 'C' : 'S'}
+                  </div>
+                  <div className={`rounded-lg px-2.5 py-1.5 text-xs max-w-[80%] ${
+                    isCust
+                      ? 'bg-blue-50 dark:bg-blue-950 text-foreground'
+                      : 'bg-purple-50 dark:bg-purple-950 text-foreground'
+                  }`}>
+                    {msg.content}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Test Point: Customer Message → AI Response vs Staff Response */}
+      <div className="rounded-lg border overflow-hidden">
+        {/* Customer input */}
+        <div className="bg-blue-50 dark:bg-blue-950 p-3 border-b">
+          <div className="flex items-center gap-1.5 mb-1">
+            <User className="h-3.5 w-3.5 text-blue-600" />
+            <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Customer Message (test input)</span>
+          </div>
+          <p className="text-sm whitespace-pre-wrap">{sample.customer_message}</p>
+        </div>
+
+        {/* Side-by-side: AI vs Staff */}
+        <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x">
+          {/* AI Response */}
+          <div className="p-3">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Bot className="h-3.5 w-3.5 text-orange-600" />
+              <span className="text-xs font-medium text-orange-700 dark:text-orange-400">AI Suggestion</span>
+              {sample.confidence_score != null && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground ml-auto">
+                  {(sample.confidence_score * 100).toFixed(0)}% conf
+                </span>
+              )}
+            </div>
+            <p className="text-sm whitespace-pre-wrap">{sample.ai_response || '(no response)'}</p>
+            {sample.function_called && (
+              <div className="mt-2 text-[10px] px-2 py-1 rounded bg-muted text-muted-foreground inline-block font-mono">
+                fn: {sample.function_called}
+              </div>
+            )}
+          </div>
+
+          {/* Staff Response */}
+          <div className="p-3">
+            <div className="flex items-center gap-1.5 mb-1">
+              <User className="h-3.5 w-3.5 text-green-600" />
+              <span className="text-xs font-medium text-green-700 dark:text-green-400">Actual Staff Response</span>
+            </div>
+            <p className="text-sm whitespace-pre-wrap">{sample.actual_staff_response || '(not available)'}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Judge Scores with Reasoning */}
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <Star className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Judge Scores
+          </span>
+          <span className={`text-sm font-bold ml-auto ${scoreColor(sample.judge_overall)}`}>
+            Overall: {sample.judge_overall?.toFixed(1) ?? '--'}
+          </span>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <ScorePill label="Appropriateness" score={sample.judge_appropriateness} reasoning={reasoning?.appropriateness} />
+          <ScorePill label="Helpfulness" score={sample.judge_helpfulness} reasoning={reasoning?.helpfulness} />
+          <ScorePill label="Tone Match" score={sample.judge_tone_match} reasoning={reasoning?.toneMatch} />
+          <ScorePill label="Brevity" score={sample.judge_brevity} reasoning={reasoning?.brevity} />
+        </div>
+      </div>
+
+      {/* Metadata */}
+      <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground pt-1 border-t">
+        <span>Intent: <strong>{sample.intent || '--'}</strong> ({sample.intent_source || '--'})</span>
+        <span>Channel: <strong>{sample.channel_type || '--'}</strong></span>
+        {sample.suggestion_latency_ms != null && <span>Latency: <strong>{sample.suggestion_latency_ms}ms</strong></span>}
+        {sample.has_customer_context && <span>Has customer context</span>}
+        {sample.needs_management && <span className="text-orange-600 font-medium">Needs Management</span>}
+      </div>
+    </div>
+  );
+}
+
 function SampleRow({ sample }: { sample: EvalSample }) {
   const [expanded, setExpanded] = useState(false);
-
   const toggle = useCallback(() => setExpanded((prev) => !prev), []);
-
-  const reasoning = sample.judge_reasoning as JudgeReasoning | null;
 
   return (
     <>
@@ -54,41 +195,9 @@ function SampleRow({ sample }: { sample: EvalSample }) {
         </td>
       </tr>
       {expanded && (
-        <tr className="border-b bg-muted/30">
-          <td colSpan={9} className="p-4">
-            <div className="grid gap-3 text-sm">
-              <div>
-                <span className="font-medium">Customer Message:</span>
-                <p className="mt-1 whitespace-pre-wrap bg-background rounded p-2">{sample.customer_message}</p>
-              </div>
-              <div>
-                <span className="font-medium">AI Response:</span>
-                <p className="mt-1 whitespace-pre-wrap bg-blue-50 dark:bg-blue-950 rounded p-2">{sample.ai_response || '--'}</p>
-              </div>
-              {sample.actual_staff_response && (
-                <div>
-                  <span className="font-medium">Staff Response (ground truth):</span>
-                  <p className="mt-1 whitespace-pre-wrap bg-green-50 dark:bg-green-950 rounded p-2">{sample.actual_staff_response}</p>
-                </div>
-              )}
-              {reasoning && (
-                <div>
-                  <span className="font-medium">Judge Reasoning:</span>
-                  <div className="mt-1 grid gap-1 text-xs">
-                    <div><strong>Appropriateness ({sample.judge_appropriateness}):</strong> {reasoning.appropriateness}</div>
-                    <div><strong>Helpfulness ({sample.judge_helpfulness}):</strong> {reasoning.helpfulness}</div>
-                    <div><strong>Tone Match ({sample.judge_tone_match}):</strong> {reasoning.toneMatch}</div>
-                    <div><strong>Brevity ({sample.judge_brevity}):</strong> {reasoning.brevity}</div>
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-4 text-xs text-muted-foreground">
-                {sample.function_called && <span>Function: {sample.function_called}</span>}
-                {sample.confidence_score != null && <span>Confidence: {(sample.confidence_score * 100).toFixed(0)}%</span>}
-                {sample.suggestion_latency_ms != null && <span>Latency: {sample.suggestion_latency_ms}ms</span>}
-                {sample.needs_management && <span className="text-orange-600">Needs Management</span>}
-              </div>
-            </div>
+        <tr className="border-b">
+          <td colSpan={9} className="p-4 bg-muted/20">
+            <SampleDetail sample={sample} />
           </td>
         </tr>
       )}
