@@ -259,10 +259,8 @@ async function processBatch(
         .eq('id', convId)
         .single()
 
-      // Find a customer message with staff response
-      let testMsg: ConversationMessage | null = null
-      let staffResponse: string | null = null
-      let history: ConversationMessage[] = []
+      // Find all eligible customer messages (with staff response after them)
+      const candidates: Array<{ idx: number; msg: ConversationMessage; staffResp: string }> = []
 
       for (let i = 0; i < messages.length; i++) {
         const msg = messages[i]
@@ -270,15 +268,29 @@ async function processBatch(
           // Find next staff response
           for (let j = i + 1; j < messages.length; j++) {
             if (messages[j].sender_type === 'admin' || messages[j].sender_type === 'staff') {
-              testMsg = msg
-              staffResponse = messages[j].content
-              history = messages.slice(0, i)
+              candidates.push({ idx: i, msg, staffResp: messages[j].content })
               break
             }
           }
-          if (testMsg) break
         }
       }
+
+      if (candidates.length === 0) continue
+
+      // Pick a random candidate, preferring later messages (more context, more interesting)
+      // Use weighted random: later messages get higher probability
+      const weights = candidates.map((_, i) => i + 1)
+      const totalWeight = weights.reduce((a, b) => a + b, 0)
+      let rand = Math.random() * totalWeight
+      let chosen = candidates[candidates.length - 1]
+      for (let i = 0; i < candidates.length; i++) {
+        rand -= weights[i]
+        if (rand <= 0) { chosen = candidates[i]; break }
+      }
+
+      let testMsg: ConversationMessage | null = chosen.msg
+      let staffResponse: string | null = chosen.staffResp
+      let history: ConversationMessage[] = messages.slice(0, chosen.idx)
 
       if (!testMsg) continue
 
@@ -296,6 +308,7 @@ async function processBatch(
           channelType: conv?.channel_type || 'line',
           customerId: conv?.customer_id || null,
           dryRun: true,
+          includeDebugContext: true,
           conversationContext: history,
         }),
       })
