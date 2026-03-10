@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
       p_end_date: end_date,
       p_start_time: start_time || null,
       p_duration_hours: duration_hours || null,
+      p_rental_type: rental_type,
     })
 
     if (availError) {
@@ -198,6 +199,7 @@ export async function POST(request: NextRequest) {
       p_end_date: end_date,
       p_start_time: start_time || null,
       p_duration_hours: duration_hours || null,
+      p_rental_type: rental_type,
     })
     if (postCount !== null && postCount < 0) {
       // Overbooking detected — roll back by deleting the just-created rental
