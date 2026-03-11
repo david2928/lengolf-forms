@@ -72,6 +72,7 @@ export default function UnifiedChatPage() {
 
   // Opportunities modal state
   const [showOpportunities, setShowOpportunities] = useState(false);
+  const [focusOpportunityId, setFocusOpportunityId] = useState<string | null>(null);
   const [opportunityConversationIds, setOpportunityConversationIds] = useState<string[]>([]);
   const [conversationFilter, setConversationFilter] = useState<'all' | 'following' | 'spam' | 'assigned' | 'opportunities'>('all');
   const [currentOpportunity, setCurrentOpportunity] = useState<{
@@ -139,6 +140,7 @@ export default function UnifiedChatPage() {
   // Handle closing the opportunities modal - refresh IDs in case scan was run
   const handleCloseOpportunities = useCallback(() => {
     setShowOpportunities(false);
+    setFocusOpportunityId(null);
     fetchOpportunityIds(); // Refresh in case new opportunities were created
   }, [fetchOpportunityIds]);
 
@@ -811,7 +813,10 @@ export default function UnifiedChatPage() {
               messages={messages}
               onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
               opportunity={currentOpportunity}
-              onOpenOpportunity={() => setShowOpportunities(true)}
+              onOpenOpportunity={(oppId) => {
+                setFocusOpportunityId(oppId);
+                setShowOpportunities(true);
+              }}
               onRefreshCustomer={handleRefreshCustomer}
             />
           </div>
@@ -843,7 +848,8 @@ export default function UnifiedChatPage() {
                 messages={messages}
                 onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
                 opportunity={currentOpportunity}
-                onOpenOpportunity={() => {
+                onOpenOpportunity={(oppId) => {
+                  setFocusOpportunityId(oppId);
                   setShowMobileCustomer(false);
                   setShowOpportunities(true);
                 }}
@@ -917,6 +923,7 @@ export default function UnifiedChatPage() {
               <OpportunitiesTab
                 onOpenChat={handleOpenChatFromOpportunity}
                 userEmail={currentUserEmail}
+                initialOpportunityId={focusOpportunityId}
               />
             </div>
           </div>

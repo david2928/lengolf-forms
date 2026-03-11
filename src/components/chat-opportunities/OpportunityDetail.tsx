@@ -21,7 +21,6 @@ import {
   Clock,
   Phone,
   Mail,
-  User,
   Sparkles,
   Copy,
   Check,
@@ -29,6 +28,7 @@ import {
   ArrowLeft,
   Send,
   RotateCcw,
+  Pencil,
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import { Globe } from 'lucide-react';
@@ -83,6 +83,11 @@ export function OpportunityDetail({
   const [outcomeNotes, setOutcomeNotes] = useState<string>('');
   const [copiedMessage, setCopiedMessage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditingOutcome, setIsEditingOutcome] = useState(false);
+  const [editOutcome, setEditOutcome] = useState<string>('');
+  const [editOutcomeNotes, setEditOutcomeNotes] = useState<string>('');
+  const [editStatus, setEditStatus] = useState<OpportunityStatus>('lost');
+  const [editError, setEditError] = useState<string | null>(null);
 
   const displayName = opportunity.customer_name ||
     opportunity.conv_channel_metadata?.display_name ||
@@ -102,6 +107,27 @@ export function OpportunityDetail({
     setIsSubmitting(true);
     try {
       await onUpdateStatus(opportunity, status, selectedOutcome, outcomeNotes);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStartEditOutcome = () => {
+    setEditOutcome(opportunity.outcome || '');
+    setEditOutcomeNotes(opportunity.outcome_notes || '');
+    setEditStatus(opportunity.status as OpportunityStatus);
+    setEditError(null);
+    setIsEditingOutcome(true);
+  };
+
+  const handleSaveEditOutcome = async () => {
+    setIsSubmitting(true);
+    setEditError(null);
+    try {
+      await onUpdateStatus(opportunity, editStatus, editOutcome, editOutcomeNotes);
+      setIsEditingOutcome(false);
+    } catch {
+      setEditError('Failed to save. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -387,45 +413,133 @@ export function OpportunityDetail({
         {(opportunity.status === 'converted' || opportunity.status === 'lost' || opportunity.status === 'dismissed') && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Outcome</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Outcome</CardTitle>
+                {!isEditingOutcome && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700"
+                    onClick={handleStartEditOutcome}
+                  >
+                    <Pencil className="w-3.5 h-3.5 mr-1" />
+                    Edit
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="pt-0">
-              {opportunity.outcome && (
-                <div className="mb-2">
-                  <Label className="text-xs text-gray-500">Result</Label>
-                  <p className="mt-1 text-sm text-gray-700 capitalize">
-                    {opportunity.outcome.replace(/_/g, ' ')}
-                  </p>
+              {isEditingOutcome ? (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Status</Label>
+                    <Select value={editStatus} onValueChange={(v) => setEditStatus(v as OpportunityStatus)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent position="popper" sideOffset={4}>
+                        <SelectItem value="converted">Converted</SelectItem>
+                        <SelectItem value="lost">Lost</SelectItem>
+                        <SelectItem value="dismissed">Dismissed</SelectItem>
+                        <SelectItem value="contacted">Contacted</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Result</Label>
+                    <Select value={editOutcome} onValueChange={setEditOutcome}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select outcome..." />
+                      </SelectTrigger>
+                      <SelectContent position="popper" sideOffset={4}>
+                        <SelectItem value="booked">Booked / Purchased</SelectItem>
+                        <SelectItem value="interested">Still Interested - Follow Up Later</SelectItem>
+                        <SelectItem value="not_interested">Not Interested</SelectItem>
+                        <SelectItem value="no_response">No Response</SelectItem>
+                        <SelectItem value="wrong_contact">Wrong Contact Info</SelectItem>
+                        <SelectItem value="not_opportunity">Not a Real Opportunity</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Notes (optional)</Label>
+                    <Textarea
+                      className="mt-1"
+                      placeholder="Add notes about the outcome..."
+                      value={editOutcomeNotes}
+                      onChange={(e) => setEditOutcomeNotes(e.target.value)}
+                      rows={2}
+                    />
+                  </div>
+
+                  {editError && (
+                    <p className="text-xs text-red-600">{editError}</p>
+                  )}
+
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setIsEditingOutcome(false)}
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleSaveEditOutcome}
+                      disabled={isSubmitting || loading}
+                    >
+                      {isSubmitting ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
                 </div>
-              )}
-              {opportunity.outcome_notes && (
-                <div className="mb-2">
-                  <Label className="text-xs text-gray-500">Notes</Label>
-                  <p className="mt-1 text-sm text-gray-700">
-                    {opportunity.outcome_notes}
-                  </p>
-                </div>
-              )}
-              {opportunity.contacted_by && (
-                <div className="mb-3">
-                  <Label className="text-xs text-gray-500">Handled By</Label>
-                  <p className="mt-1 text-sm text-gray-700">
-                    {opportunity.contacted_by}
-                  </p>
-                </div>
-              )}
-              {/* Restore button for dismissed opportunities */}
-              {opportunity.status === 'dismissed' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full mt-2"
-                  onClick={() => handleStatusUpdate('pending')}
-                  disabled={isSubmitting || loading}
-                >
-                  <RotateCcw className="w-4 h-4 mr-1.5" />
-                  Restore to Pending
-                </Button>
+              ) : (
+                <>
+                  {opportunity.outcome && (
+                    <div className="mb-2">
+                      <Label className="text-xs text-gray-500">Result</Label>
+                      <p className="mt-1 text-sm text-gray-700 capitalize">
+                        {opportunity.outcome.replace(/_/g, ' ')}
+                      </p>
+                    </div>
+                  )}
+                  {opportunity.outcome_notes && (
+                    <div className="mb-2">
+                      <Label className="text-xs text-gray-500">Notes</Label>
+                      <p className="mt-1 text-sm text-gray-700">
+                        {opportunity.outcome_notes}
+                      </p>
+                    </div>
+                  )}
+                  {opportunity.contacted_by && (
+                    <div className="mb-3">
+                      <Label className="text-xs text-gray-500">Handled By</Label>
+                      <p className="mt-1 text-sm text-gray-700">
+                        {opportunity.contacted_by}
+                      </p>
+                    </div>
+                  )}
+                  {/* Restore button for dismissed opportunities */}
+                  {opportunity.status === 'dismissed' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={() => handleStatusUpdate('pending')}
+                      disabled={isSubmitting || loading}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-1.5" />
+                      Restore to Pending
+                    </Button>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

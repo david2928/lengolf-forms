@@ -37,6 +37,14 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      // 42P01 = relation does not exist — table hasn't been created yet
+      if (error.code === '42P01') {
+        return NextResponse.json({
+          success: true,
+          lastRun: null,
+          summary: { last7DaysCreated: 0, last7DaysRuns: 0 },
+        });
+      }
       throw error;
     }
 

@@ -224,10 +224,19 @@ export function useChatOpportunities(
         throw new Error(result.error || 'Failed to update opportunity');
       }
 
-      // Update local state
-      setOpportunities(prev =>
-        prev.map(opp => opp.id === id ? { ...opp, ...result.opportunity } : opp)
-      );
+      // Update local state - if the status changed and we're filtering by status,
+      // the item may no longer belong in the current list, so re-fetch
+      const updatedOpp = result.opportunity;
+      const statusChanged = data.status && updatedOpp.status !== undefined;
+
+      if (statusChanged) {
+        // Re-fetch to ensure the list matches the current filter
+        await fetchOpportunities();
+      } else {
+        setOpportunities(prev =>
+          prev.map(opp => opp.id === id ? { ...opp, ...updatedOpp } : opp)
+        );
+      }
 
       // Refresh stats
       await fetchStats();
@@ -241,7 +250,7 @@ export function useChatOpportunities(
     } finally {
       setActionLoading(false);
     }
-  }, [fetchStats]);
+  }, [fetchOpportunities, fetchStats]);
 
   // Analyze a conversation with AI
   const analyzeConversation = useCallback(async (
