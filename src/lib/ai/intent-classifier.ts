@@ -57,6 +57,7 @@ CRITICAL RULES:
 - Classify the CONVERSATION TOPIC, not just the latest message in isolation.
 - Short follow-up messages (names, phone numbers, locations, "OK", "yes") inherit the conversation topic.
 - Example: customer asks about a lesson → provides name → provides phone → sends "Singapore" → the topic is STILL coaching_inquiry, not location.
+- COACHING STAYS COACHING: If the conversation mentions coaching, lessons, a coach name (Min, Tan, Noon, Boss, Ratchavin, Kru Min), or staff shared coach availability → ALL follow-ups are coaching_inquiry, even time confirmations like "1pm sounds good" or "4pm works". A customer confirming a coaching time is NOT booking_request — it is coaching_inquiry.
 - "แล้วพรุ่งนี้ล่ะ" / "What about tomorrow?" / "How about Saturday?" after availability discussion = availability_check
 - "And the AI bay?" / "แล้ว AI bay ล่ะ" after pricing discussion = pricing_inquiry
 - Short Thai messages like "แล้ว...ล่ะ" are follow-ups, NEVER greetings.

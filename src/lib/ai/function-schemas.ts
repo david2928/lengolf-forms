@@ -13,7 +13,7 @@ import type { SimilarMessage, FAQMatch } from './embedding-service';
 
 const INTENT_TOOLS: Record<string, string[]> = {
   availability_check: ['check_bay_availability', 'get_customer_context', 'search_knowledge'],
-  booking_request: ['check_bay_availability', 'create_booking', 'get_customer_context'],
+  booking_request: ['check_bay_availability', 'get_coaching_availability', 'create_booking', 'get_customer_context'],
   cancellation: ['cancel_booking', 'lookup_booking', 'get_customer_context'],
   modification_request: ['modify_booking', 'lookup_booking', 'get_customer_context'],
   coaching_inquiry: ['get_coaching_availability', 'create_booking', 'get_customer_context', 'search_knowledge'],

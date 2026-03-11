@@ -632,6 +632,47 @@ const TEST_CASES: TestCase[] = [
     acceptableIntents: ['booking_request', 'availability_check'],
     category: 'multilingual',
   },
+
+  // =====================================================
+  // COACHING FOLLOW-UPS — must stay coaching_inquiry
+  // =====================================================
+  {
+    name: 'REAL: Coaching time confirmation "1pm sounds good"',
+    message: '1pm sounds good ',
+    history: [
+      { content: 'Hello ka, I wanted to book another one person golf lesson for next Wednesday 😊', senderType: 'user' },
+      { content: 'Good morning! We have the following times available for next week.', senderType: 'assistant' },
+      { content: "Pro Min's Coaching Availability:\nMarch\n• Wed 18: 13.00–16.00", senderType: 'assistant' },
+    ],
+    expectedIntent: 'coaching_inquiry',
+    category: 'real_world',
+  },
+  {
+    name: 'REAL: Coaching time confirmation "4pm is alright too!"',
+    message: '4pm is alright too!',
+    history: [
+      { content: 'Hello ka, I wanted to book another one person golf lesson for next Wednesday 😊', senderType: 'user' },
+      { content: 'Good morning! We have the following times available for next week.', senderType: 'assistant' },
+      { content: "Pro Min's Coaching Availability:\nMarch\n• Wed 18: 13.00–16.00", senderType: 'assistant' },
+      { content: '1pm sounds good ', senderType: 'user' },
+      { content: 'Apologies, we actually have a private event during this time next week, should we ask Min if he would be available at an earlier time (e.g. 11am, 11.30am) or rather 4pm?', senderType: 'assistant' },
+    ],
+    expectedIntent: 'coaching_inquiry',
+    category: 'real_world',
+  },
+  {
+    name: 'REAL: Coaching follow-up with coach name in TH context',
+    message: 'ได้ค่ะ',
+    history: [
+      { content: 'อยากจองเรียนกอล์ฟกับโปรมินค่ะ', senderType: 'user' },
+      { content: 'โปรมินว่างวันพุธ 13.00-16.00 ค่ะ', senderType: 'assistant' },
+      { content: '14.00 ได้มั้ยคะ', senderType: 'user' },
+      { content: '14.00 ว่างค่ะ จองเลยนะคะ?', senderType: 'assistant' },
+    ],
+    expectedIntent: 'coaching_inquiry',
+    acceptableIntents: ['coaching_inquiry', 'booking_request'],
+    category: 'real_world',
+  },
 ];
 
 interface TestResult {
