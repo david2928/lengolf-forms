@@ -185,7 +185,10 @@ export function ManageRentalsClient() {
         changes.push(`Set: ${prevSet?.name || 'N/A'} \u2192 ${newSet?.name || 'N/A'}`)
       }
       if (previous.start_date !== updated.start_date) {
-        changes.push(`Start: ${previous.start_date} \u2192 ${updated.start_date}`)
+        changes.push(`Start: ${formatDate(previous.start_date as string)} \u2192 ${formatDate(updated.start_date)}`)
+      }
+      if (previous.end_date !== updated.end_date) {
+        changes.push(`End: ${formatDate(previous.end_date as string)} \u2192 ${formatDate(updated.end_date)}`)
       }
       if (previous.duration_days !== updated.duration_days) {
         changes.push(`Duration: ${previous.duration_days}d \u2192 ${updated.duration_days}d`)
@@ -247,7 +250,7 @@ export function ManageRentalsClient() {
       const r = rental
       const set = r.rental_club_sets
       try {
-        const lineMessage = `🚫 CLUB RENTAL CANCELLED 🚫\n----------------------------------\n📋 Code: ${r.rental_code}\n👤 Customer: ${r.customer_name}${r.customer_phone ? `\n📞 Phone: ${r.customer_phone}` : ''}\n🏌️ Set: ${set?.name || 'N/A'}\n📅 ${r.start_date} → ${r.end_date}\n💰 Total: ฿${Number(r.total_price).toLocaleString()}\n----------------------------------\n🗑️ Cancelled By: ${employeeName}${reason ? `\n💬 Reason: ${reason}` : ''}`
+        const lineMessage = `🚫 CLUB RENTAL CANCELLED 🚫\n----------------------------------\n📋 Code: ${r.rental_code}\n👤 Customer: ${r.customer_name}${r.customer_phone ? `\n📞 Phone: ${r.customer_phone}` : ''}\n🏌️ Set: ${set?.name || 'N/A'}\n📅 ${formatDate(r.start_date)} → ${formatDate(r.end_date)}\n💰 Total: ฿${Number(r.total_price).toLocaleString()}\n----------------------------------\n🗑️ Cancelled By: ${employeeName}${reason ? `\n💬 Reason: ${reason}` : ''}`
 
         await fetch('/api/notify', {
           method: 'POST',

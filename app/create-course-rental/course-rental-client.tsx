@@ -220,6 +220,7 @@ export function CourseRentalClient() {
           add_ons: addOns,
           delivery_requested: deliveryRequested,
           delivery_address: deliveryRequested ? deliveryAddress.trim() : undefined,
+          return_time: returnTime || undefined,
           notes: notes.trim() || undefined,
           source: 'staff',
         }),
@@ -327,7 +328,7 @@ export function CourseRentalClient() {
                   <span className="font-medium text-gray-900">
                     {new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     {startTime && ` ${startTime}`}
-                    {durationDays > 1 && ` - ${new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${startTime ? ` ${startTime}` : ''}`}
+                    {durationDays > 1 && ` - ${new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${returnTime ? ` ${returnTime}` : ''}`}
                     {' '}({durationDays}d)
                   </span>
                 </div>
