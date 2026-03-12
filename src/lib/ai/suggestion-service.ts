@@ -10,6 +10,7 @@ import { createAITools, getActiveToolsForIntent, createToolExecutionState, stopO
 import { FunctionResult } from './function-executor';
 import { getSkillsForIntent, composeSkillPromptForLanguage } from './skills';
 import { classifyIntent, IntentClassification, regexFullClassify } from './intent-classifier';
+import { formatPricingForAI } from '@/lib/pricing-service';
 
 export interface CustomerContext {
   // Basic info
@@ -154,11 +155,7 @@ export interface AISuggestion {
 export interface BusinessContext {
   packageTypes?: Array<{ name: string; hours: number; validity_days?: number; description: string; type: string }>;
   coachRates?: Array<{ description: string; rate: number }>;
-  bayPricing?: {
-    socialBay: { hourly: number; description: string };
-    aiBay: { hourly: number; description: string };
-    note: string;
-  };
+  productCatalog?: import('@/lib/pricing-service').PricingCatalog;
   operatingHours?: {
     daily: string;
     note: string;
@@ -261,7 +258,22 @@ function generateContextualPrompt(
     .replace(/{TODAY_DAY_OF_WEEK}/g, todayDayOfWeek)
     .replace(/{TOMORROW_DATE}/g, tomorrowDate)
     .replace(/{TOMORROW_DAY_OF_WEEK}/g, tomorrowDayOfWeek)
-    .replace(/{CURRENT_TIME}/g, currentTime) + '\n\n';
+    .replace(/{CURRENT_TIME}/g, currentTime);
+
+  // Replace pricing placeholders with dynamic data from product catalog
+  if (businessContext?.productCatalog) {
+    const formatted = formatPricingForAI(businessContext.productCatalog);
+    contextPrompt = contextPrompt
+      .replace(/{DYNAMIC_PRICING}/g, formatted.pricing)
+      .replace(/{DYNAMIC_CLUB_PRICING}/g, formatted.clubRental);
+  } else {
+    console.warn('[AI] productCatalog unavailable, using fallback text in skill prompts');
+    contextPrompt = contextPrompt
+      .replace(/{DYNAMIC_PRICING}/g, 'Pricing data temporarily unavailable. Flag [NEEDS MANAGEMENT] for pricing questions.')
+      .replace(/{DYNAMIC_CLUB_PRICING}/g, 'Club rental pricing temporarily unavailable. Flag [NEEDS MANAGEMENT].');
+  }
+
+  contextPrompt += '\n\n';
 
   // Add customer context
   if (customerContext) {
