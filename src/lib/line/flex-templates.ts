@@ -1095,8 +1095,7 @@ export function createEarlyOpeningSurveyMessage(surveyId: string = 'early_openin
             action: {
               type: 'postback',
               label: 'Yes please!',
-              data: `action=survey_9am&response=yes&survey_id=${surveyId}`,
-              displayText: 'Yes, I\'d love a 9 AM opening!'
+              data: `action=survey_9am&response=yes&survey_id=${surveyId}`
             }
           },
           {
@@ -1106,8 +1105,7 @@ export function createEarlyOpeningSurveyMessage(surveyId: string = 'early_openin
             action: {
               type: 'postback',
               label: '10 AM is fine',
-              data: `action=survey_9am&response=no&survey_id=${surveyId}`,
-              displayText: 'No thanks, 10 AM works for me'
+              data: `action=survey_9am&response=no&survey_id=${surveyId}`
             }
           }
         ],
