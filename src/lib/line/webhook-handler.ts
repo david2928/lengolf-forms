@@ -811,10 +811,20 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
         } else {
           displayText = `📊 Survey response: ${response}`;
         }
-        responseMessage = 'Thank you for your feedback!';
 
-        // Record survey response in dedicated table (upsert to handle re-votes)
+        // Check if user already responded — only send thank you on first response
         try {
+          const { data: existing } = await supabase
+            .from('survey_responses')
+            .select('id')
+            .eq('survey_id', surveyId)
+            .eq('line_user_id', event.source.userId)
+            .single();
+
+          if (!existing) {
+            responseMessage = 'Thank you for your feedback!';
+          }
+
           // Get display name and customer_id from line_users
           const { data: lineUser } = await supabase
             .from('line_users')
@@ -822,6 +832,7 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
             .eq('line_user_id', event.source.userId)
             .single();
 
+          // Upsert (insert first time, update if they change their mind)
           await supabase
             .from('survey_responses')
             .upsert({
