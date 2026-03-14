@@ -800,34 +800,73 @@ async function handlePostbackEvent(event: LineWebhookEvent): Promise<void> {
         break;
       }
 
+      case 'survey_9am': {
+        const response = params.get('response');
+        const surveyId = params.get('survey_id') || 'early_opening_2026';
+
+        if (response === 'yes') {
+          displayText = '✅ Yes - interested in 9 AM opening';
+        } else if (response === 'no') {
+          displayText = '❌ No - not interested in 9 AM opening';
+        } else {
+          displayText = `📊 Survey response: ${response}`;
+        }
+        responseMessage = 'Thank you for your feedback!';
+
+        // Record survey response in dedicated table (upsert to handle re-votes)
+        try {
+          // Get display name and customer_id from line_users
+          const { data: lineUser } = await supabase
+            .from('line_users')
+            .select('display_name, customer_id')
+            .eq('line_user_id', event.source.userId)
+            .single();
+
+          await supabase
+            .from('survey_responses')
+            .upsert({
+              survey_id: surveyId,
+              line_user_id: event.source.userId,
+              customer_id: lineUser?.customer_id || null,
+              response: response || 'unknown',
+              display_name: lineUser?.display_name || null
+            }, { onConflict: 'survey_id,line_user_id' });
+        } catch (surveyError) {
+          console.error('Error storing survey response:', surveyError);
+        }
+        break;
+      }
+
       default:
         responseMessage = '🤔 We received your response but couldn\'t understand the action. Our staff will follow up with you.';
         displayText = '❓ Unknown action';
     }
 
-    // Store the customer's action as a message
-    const { error: postbackError } = await supabase
-      .from('line_messages')
-      .insert({
-        conversation_id: conversation.id,
-        webhook_event_id: event.webhookEventId,
-        line_user_id: event.source.userId,
-        message_type: 'postback',
-        message_text: displayText,
-        reply_token: event.replyToken,
-        timestamp: event.timestamp,
-        sender_type: 'user',
-        is_read: false,
-        raw_event: event
-      });
+    // Store the customer's action as a message (skip for survey_9am which stores its own enriched record)
+    if (action !== 'survey_9am') {
+      const { error: postbackError } = await supabase
+        .from('line_messages')
+        .insert({
+          conversation_id: conversation.id,
+          webhook_event_id: event.webhookEventId,
+          line_user_id: event.source.userId,
+          message_type: 'postback',
+          message_text: displayText,
+          reply_token: event.replyToken,
+          timestamp: event.timestamp,
+          sender_type: 'user',
+          is_read: false,
+          raw_event: event
+        });
 
-    if (postbackError) {
-      console.error('Error storing postback message:', postbackError);
-      throw postbackError;
+      if (postbackError) {
+        console.error('Error storing postback message:', postbackError);
+        throw postbackError;
+      }
     }
 
-    // Send automated response for opt-out and booking confirmations
-    if ((action === 'opt_out' || action === 'book_slot') && responseMessage && event.replyToken) {
+    // Send automated response for opt-out, booking confirmations, and surveys
+    if ((action === 'opt_out' || action === 'book_slot' || action === 'survey_9am') && responseMessage && event.replyToken) {
       try {
         const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
         if (channelAccessToken) {
