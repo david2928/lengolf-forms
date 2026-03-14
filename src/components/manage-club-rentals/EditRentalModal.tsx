@@ -365,6 +365,8 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
                   id="edit-start-time"
                   type="time"
                   step="3600"
+                  min="09:00"
+                  max="23:00"
                   value={startTime}
                   onChange={e => setStartTime(e.target.value)}
                   className="mt-0.5"
@@ -376,6 +378,8 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
                   id="edit-return-time"
                   type="time"
                   step="3600"
+                  min="09:00"
+                  max="23:00"
                   value={returnTime}
                   onChange={e => setReturnTime(e.target.value)}
                   className="mt-0.5"

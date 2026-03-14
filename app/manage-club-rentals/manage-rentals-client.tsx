@@ -391,6 +391,7 @@ export function ManageRentalsClient() {
                       {rental.start_time && ` ${rental.start_time.slice(0, 5)}`}
                       {' → '}
                       {formatDate(rental.end_date)}
+                      {rental.return_time && ` ${rental.return_time.slice(0, 5)}`}
                       {rental.duration_days && ` (${rental.duration_days}d)`}
                     </div>
 

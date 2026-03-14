@@ -511,6 +511,8 @@ export function CourseRentalClient() {
                     id="start-time"
                     type="time"
                     step="3600"
+                    min="09:00"
+                    max="23:00"
                     value={startTime}
                     onChange={e => {
                       setStartTime(e.target.value)
@@ -525,6 +527,8 @@ export function CourseRentalClient() {
                     id="return-time"
                     type="time"
                     step="3600"
+                    min="09:00"
+                    max="23:00"
                     value={returnTime}
                     onChange={e => setReturnTime(e.target.value)}
                     className="mt-1"
