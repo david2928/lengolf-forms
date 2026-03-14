@@ -87,13 +87,6 @@ const EMPLOYEES_LIST = [
   { value: 'David', label: 'David' },
 ]
 
-const DURATION_OPTIONS = [
-  { days: 1, label: '1 Day' },
-  { days: 3, label: '3 Days' },
-  { days: 7, label: '7 Days' },
-  { days: 14, label: '14 Days' },
-]
-
 const ADD_ON_OPTIONS = [
   { key: 'gloves', label: 'Golf Glove', price: 600 },
   { key: 'balls', label: 'Practice Balls (1 bucket)', price: 400 },
@@ -120,7 +113,7 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
   const [startDate, setStartDate] = useState('')
   const [startTime, setStartTime] = useState('')
   const [returnTime, setReturnTime] = useState('')
-  const [durationDays, setDurationDays] = useState(1)
+  const [endDate, setEndDate] = useState('')
   const [deliveryRequested, setDeliveryRequested] = useState(false)
   const [deliveryAddress, setDeliveryAddress] = useState('')
   const [addOns, setAddOns] = useState<AddOn[]>([])
@@ -142,7 +135,7 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
       setStartDate(rental.start_date)
       setStartTime(rental.start_time ? rental.start_time.slice(0, 5) : '')
       setReturnTime(rental.return_time ? rental.return_time.slice(0, 5) : '')
-      setDurationDays(rental.duration_days || 1)
+      setEndDate(rental.end_date)
       setDeliveryRequested(rental.delivery_requested)
       setDeliveryAddress(rental.delivery_address || '')
       setAddOns(rental.add_ons || [])
@@ -152,14 +145,10 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
     }
   }, [rental, isOpen])
 
-  // Computed end date
-  const endDate = startDate
-    ? (() => {
-        const d = new Date(startDate)
-        d.setDate(d.getDate() + durationDays)
-        return d.toISOString().split('T')[0]
-      })()
-    : ''
+  // Computed duration from start/end dates
+  const durationDays = startDate && endDate
+    ? Math.max(1, Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)))
+    : 1
 
   // Fetch available sets when dates change
   // The current rental counts against availability in the DB, so we adjust
@@ -353,7 +342,10 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
                 id="edit-start-date"
                 type="date"
                 value={startDate}
-                onChange={e => setStartDate(e.target.value)}
+                onChange={e => {
+                  setStartDate(e.target.value)
+                  if (endDate && e.target.value > endDate) setEndDate('')
+                }}
                 className="mt-0.5"
               />
             </div>
@@ -388,29 +380,16 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
             </div>
 
             <div>
-              <Label className="text-xs text-gray-500">Duration</Label>
-              <div className="grid grid-cols-4 gap-1.5 mt-0.5">
-                {DURATION_OPTIONS.map(opt => (
-                  <button
-                    key={opt.days}
-                    type="button"
-                    onClick={() => setDurationDays(opt.days)}
-                    className={cn(
-                      'p-2 rounded-lg border-2 text-center transition-all',
-                      durationDays === opt.days
-                        ? 'border-green-600 bg-green-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    )}
-                  >
-                    <p className="text-xs font-medium text-gray-900">{opt.label}</p>
-                    {selectedSet && (
-                      <p className="text-xs font-bold text-green-700 mt-0.5">
-                        &#3647;{getCoursePrice(selectedSet, opt.days).toLocaleString()}
-                      </p>
-                    )}
-                  </button>
-                ))}
-              </div>
+              <Label htmlFor="edit-end-date" className="text-xs text-gray-500">End Date</Label>
+              <Input
+                id="edit-end-date"
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                disabled={!startDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="mt-0.5"
+              />
             </div>
 
             {startDate && endDate && (
