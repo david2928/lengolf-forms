@@ -53,6 +53,11 @@ function groupConsecutiveSlots(timeSlots: string[]): string[] {
   return grouped;
 }
 
+// Coaches excluded from customer-facing availability sharing (copy/send)
+// These coaches are still visible in the admin UI but won't be included when
+// staff copies availability text to share with customers
+const EXCLUDED_FROM_SHARING = ['Ratchavin'];
+
 function formatAvailabilityForClipboard(
   coachGroupedSlots: CoachGroupedSlots,
   selectedCoach: string,
@@ -63,10 +68,11 @@ function formatAvailabilityForClipboard(
 ): string {
   let filteredSlots = Object.entries(coachGroupedSlots)
     .filter(([coachId]) => selectedCoach === 'all' || coachId === selectedCoach)
-    .filter(([, coachData]) => 
-      searchTerm === '' || 
+    .filter(([, coachData]) =>
+      searchTerm === '' ||
       coachData.coach_name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    )
+    .filter(([, coachData]) => !EXCLUDED_FROM_SHARING.includes(coachData.coach_name));
 
   // If single coach ID is provided, filter to only that coach
   if (singleCoachId) {
