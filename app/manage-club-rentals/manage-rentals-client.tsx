@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/use-toast'
 import { CancelRentalModal } from '@/components/manage-club-rentals/CancelRentalModal'
 import { EditRentalModal } from '@/components/manage-club-rentals/EditRentalModal'
+import { StaffConfirmModal } from '@/components/manage-club-rentals/StaffConfirmModal'
 import {
   Loader2,
   Search,
@@ -103,6 +104,9 @@ export function ManageRentalsClient() {
   const [selectedRentalForCancel, setSelectedRentalForCancel] = useState<ClubRental | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedRentalForEdit, setSelectedRentalForEdit] = useState<ClubRental | null>(null)
+  const [isStaffConfirmOpen, setIsStaffConfirmOpen] = useState(false)
+  const [staffConfirmAction, setStaffConfirmAction] = useState<'checked_out' | 'returned'>('checked_out')
+  const [selectedRentalForAction, setSelectedRentalForAction] = useState<ClubRental | null>(null)
   const { toast } = useToast()
 
   const queryParams = new URLSearchParams()
@@ -124,13 +128,13 @@ export function ManageRentalsClient() {
     setSearch(searchInput.trim())
   }
 
-  const handleStatusChange = async (rentalId: string, newStatus: string) => {
+  const handleStatusChange = async (rentalId: string, newStatus: string, employeeName?: string) => {
     setUpdating(rentalId)
     try {
       const res = await fetch(`/api/club-rentals/${rentalId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, employee_name: employeeName }),
       })
       if (!res.ok) {
         const data = await res.json()
@@ -143,6 +147,16 @@ export function ManageRentalsClient() {
     } finally {
       setUpdating(null)
     }
+  }
+
+  const handleOpenStaffConfirm = (rental: ClubRental, action: 'checked_out' | 'returned') => {
+    setSelectedRentalForAction(rental)
+    setStaffConfirmAction(action)
+    setIsStaffConfirmOpen(true)
+  }
+
+  const handleStaffConfirm = async (rentalId: string, staffName: string) => {
+    await handleStatusChange(rentalId, staffConfirmAction, staffName)
   }
 
   const handleOpenCancelModal = (rental: ClubRental) => {
@@ -500,7 +514,7 @@ export function ManageRentalsClient() {
                               size="sm"
                               variant="outline"
                               className="text-xs h-7 text-orange-700 border-orange-200 hover:bg-orange-50"
-                              onClick={() => handleStatusChange(rental.id, 'checked_out')}
+                              onClick={() => handleOpenStaffConfirm(rental, 'checked_out')}
                               disabled={isUpdating}
                             >
                               <LogOut className="h-3 w-3 mr-1" />
@@ -524,7 +538,7 @@ export function ManageRentalsClient() {
                             size="sm"
                             variant="outline"
                             className="text-xs h-7 text-green-700 border-green-200 hover:bg-green-50"
-                            onClick={() => handleStatusChange(rental.id, 'returned')}
+                            onClick={() => handleOpenStaffConfirm(rental, 'returned')}
                             disabled={isUpdating}
                           >
                             <RotateCcw className="h-3 w-3 mr-1" />
@@ -553,6 +567,14 @@ export function ManageRentalsClient() {
         onClose={handleCloseEditModal}
         rental={selectedRentalForEdit}
         onSuccess={handleEditSuccess}
+      />
+
+      <StaffConfirmModal
+        isOpen={isStaffConfirmOpen}
+        onClose={() => { setIsStaffConfirmOpen(false); setSelectedRentalForAction(null) }}
+        action={staffConfirmAction}
+        rental={selectedRentalForAction}
+        onConfirm={handleStaffConfirm}
       />
     </div>
   )
