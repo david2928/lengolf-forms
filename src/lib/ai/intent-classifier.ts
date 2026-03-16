@@ -42,13 +42,14 @@ Intents:
 - availability_check: Asking if bays/times are available, or ANY follow-up about availability
 - booking_request: Wants to make a booking, or confirms after seeing availability ("OK book it", "จองเลย")
 - cancellation: Wants to cancel a booking
-- modification_request: Wants to reschedule or change a booking
+- modification_request: Wants to reschedule or change a booking, extend/renew a package, or change package expiry
 - coaching_inquiry: About coaching, lessons, instructors, or "โปร" meaning coach (not promotion)
 - pricing_inquiry: About prices, rates, costs, how much, or asking about price of something discussed earlier
 - promotion_inquiry: About promotions, discounts, deals
 - payment_inquiry: About payment methods, transfer, QR, cards
 - equipment_inquiry: About equipment, clubs, gloves, rentals, renting clubs for indoor or course use, club availability
-- facility_inquiry: About the facility, bay types, simulators, opening hours, photos, venue (only when NOT asking about price or availability)
+- facility_inquiry: About the facility, bay types, simulators, opening hours, photos, venue (only when NOT asking about price or availability). NOT parking — parking is location_inquiry.
+- location_inquiry: About location, directions, how to get there, parking (ที่จอดรถ), which exit, which floor, address
 - arrival_notification: Customer says they arrived or are coming
 - greeting: ONLY for standalone greetings with no other context (Hello, hi, สวัสดี). NOT for follow-up messages.
 - general_inquiry: Thanks, OK, acknowledgement, or anything else
@@ -58,6 +59,11 @@ CRITICAL RULES:
 - Short follow-up messages (names, phone numbers, locations, "OK", "yes") inherit the conversation topic.
 - Example: customer asks about a lesson → provides name → provides phone → sends "Singapore" → the topic is STILL coaching_inquiry, not location.
 - COACHING STAYS COACHING: If the conversation mentions coaching, lessons, a coach name (Min, Tan, Noon, Boss, Ratchavin, Kru Min), or staff shared coach availability → ALL follow-ups are coaching_inquiry, even time confirmations like "1pm sounds good" or "4pm works". A customer confirming a coaching time is NOT booking_request — it is coaching_inquiry.
+- TOPIC SWITCH OVERRIDES: When the customer explicitly introduces a NEW topic, classify by the new topic, not the old conversation:
+  * "Is there coach tomorrow?" after a bay booking discussion → coaching_inquiry (explicitly asks about coach)
+  * "extend my package" / "renew" / "change expiry" after coaching discussion → modification_request (package change overrides coaching)
+  * "how much is it?" after facility discussion → pricing_inquiry
+- PARKING = location_inquiry: Questions about parking (ที่จอดรถ, parking, จอดรถ) are location_inquiry, not facility_inquiry. Parking relates to getting TO the venue.
 - "แล้วพรุ่งนี้ล่ะ" / "What about tomorrow?" / "How about Saturday?" after availability discussion = availability_check
 - "And the AI bay?" / "แล้ว AI bay ล่ะ" after pricing discussion = pricing_inquiry
 - Short Thai messages like "แล้ว...ล่ะ" are follow-ups, NEVER greetings.
