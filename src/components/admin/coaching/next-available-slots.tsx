@@ -53,10 +53,8 @@ function groupConsecutiveSlots(timeSlots: string[]): string[] {
   return grouped;
 }
 
-// Coaches excluded from customer-facing availability sharing (copy/send)
-// These coaches are still visible in the admin UI but won't be included when
-// staff copies availability text to share with customers
-const EXCLUDED_FROM_SHARING = ['Ratchavin'];
+// Coaches excluded from "Copy All" but still individually copyable
+const EXCLUDED_FROM_COPY_ALL = ['Ratchavin'];
 
 function formatAvailabilityForClipboard(
   coachGroupedSlots: CoachGroupedSlots,
@@ -71,8 +69,12 @@ function formatAvailabilityForClipboard(
     .filter(([, coachData]) =>
       searchTerm === '' ||
       coachData.coach_name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .filter(([, coachData]) => !EXCLUDED_FROM_SHARING.includes(coachData.coach_name));
+    );
+
+  // Exclude phased-out coaches from "Copy All", but allow individual copy
+  if (!singleCoachId) {
+    filteredSlots = filteredSlots.filter(([, coachData]) => !EXCLUDED_FROM_COPY_ALL.includes(coachData.coach_name));
+  }
 
   // If single coach ID is provided, filter to only that coach
   if (singleCoachId) {
