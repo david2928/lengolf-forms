@@ -16,14 +16,14 @@ const INTENT_TOOLS: Record<string, string[]> = {
   booking_request: ['check_bay_availability', 'get_coaching_availability', 'create_booking', 'get_customer_context'],
   cancellation: ['cancel_booking', 'lookup_booking', 'get_customer_context'],
   modification_request: ['modify_booking', 'lookup_booking', 'get_customer_context'],
-  coaching_inquiry: ['get_coaching_availability', 'create_booking', 'get_customer_context', 'search_knowledge'],
-  pricing_inquiry: ['search_knowledge'],
-  promotion_inquiry: ['search_knowledge'],
-  facility_inquiry: ['search_knowledge'],
-  equipment_inquiry: ['check_club_availability', 'search_knowledge'],
+  coaching_inquiry: ['get_coaching_availability', 'create_booking', 'get_customer_context', 'search_knowledge', 'suggest_images'],
+  pricing_inquiry: ['search_knowledge', 'suggest_images'],
+  promotion_inquiry: ['search_knowledge', 'suggest_images'],
+  facility_inquiry: ['search_knowledge', 'suggest_images'],
+  equipment_inquiry: ['check_club_availability', 'search_knowledge', 'suggest_images'],
   payment_inquiry: ['search_knowledge'],
-  location_inquiry: ['search_knowledge', 'get_customer_context'],
-  general_inquiry: ['search_knowledge', 'get_customer_context'],
+  location_inquiry: ['search_knowledge', 'get_customer_context', 'suggest_images'],
+  general_inquiry: ['search_knowledge', 'get_customer_context', 'suggest_images'],
   greeting: ['get_customer_context'], // Optional — AI can personalize greetings for known customers
   // arrival_notification: no tools
 };
@@ -51,6 +51,19 @@ export interface ToolExecutionState {
   customerContext?: CustomerContext;
   similarMessages?: SimilarMessage[];
   faqMatches?: FAQMatch[];
+  // Set by suggest_images tool — indices into the image catalog
+  suggestedImageSelections?: Array<{ id: string; source: 'curated' | 'promotion'; imageUrl: string; title: string; description: string }>;
+}
+
+/** A single entry in the combined image catalog (curated + promotions) */
+export interface ImageCatalogEntry {
+  index: number;
+  id: string;
+  source: 'curated' | 'promotion';
+  name: string;
+  description: string;
+  imageUrl: string;
+  category?: string;
 }
 
 /**
@@ -228,6 +241,7 @@ export function createAITools(
   state: ToolExecutionState,
   customerId?: string,
   contextProviders?: ContextProviders,
+  imageCatalog?: ImageCatalogEntry[],
 ) {
   // Context tools — only included when providers are available
   const contextTools: Record<string, any> = {};
@@ -294,6 +308,43 @@ Do NOT use for:
           console.error('Error in search_knowledge tool:', error);
           return 'Error searching knowledge base. Please answer based on your existing knowledge.';
         }
+      },
+    });
+  }
+
+  // Image suggestion tool — only included when image catalog is available
+  if (imageCatalog && imageCatalog.length > 0) {
+    contextTools.suggest_images = tool({
+      description: `Select images to send to the customer alongside your text response.
+Call this when an image would help — e.g., pricing cards, coach profiles, facility photos, or active promotions.
+Pick ONLY images directly relevant to the current conversation. Usually 1-2 images max.
+Do NOT call for simple greetings, confirmations, thank-you messages, or booking actions.
+
+AVAILABLE IMAGES:
+${imageCatalog.map(img => `[${img.index}] ${img.name} — ${img.description}`).join('\n')}`,
+      inputSchema: z.object({
+        image_indices: z.array(z.number()).describe('Image numbers from the list above. Only pick relevant ones.'),
+      }),
+      execute: async (args: { image_indices: number[] }) => {
+        const selected: typeof state.suggestedImageSelections = [];
+        for (const idx of args.image_indices) {
+          const entry = imageCatalog.find(img => img.index === idx);
+          if (entry) {
+            selected.push({
+              id: entry.id,
+              source: entry.source,
+              imageUrl: entry.imageUrl,
+              title: entry.name,
+              description: entry.description,
+            });
+          }
+        }
+        state.suggestedImageSelections = selected;
+        state.functionCallHistory.push('suggest_images');
+        if (selected.length === 0) {
+          return 'No valid images selected.';
+        }
+        return `Selected ${selected.length} image(s): ${selected.map(s => s.title).join(', ')}. These will be shown to staff as suggestions.`;
       },
     });
   }

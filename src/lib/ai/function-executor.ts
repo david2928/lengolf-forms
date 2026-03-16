@@ -170,25 +170,59 @@ export class AIFunctionExecutor {
       const aiBayAvailable = availableBays.includes('Bay 4');
 
       // OPTIMIZATION: Only include detailed slots if checking general availability
-      // For specific time requests, only return yes/no availability
+      // For specific time requests, return yes/no + nearest alternatives when unavailable
       if (start_time) {
-        // Specific time request - minimal response
         // IMPORTANT: Do NOT include internal bay names (Bay 1, Bay 2, Bay 4)
         // AI should only mention "Social bay" or "AI bay" to customers
+        const responseData: Record<string, unknown> = {
+          date: formatDateNatural(date),
+          requested_time: start_time,
+          duration,
+          bay_type,
+          available: availableBays.length > 0,
+          social_bays_available: socialBaysAvailable.length > 0,
+          ai_bay_available: aiBayAvailable,
+          available_bay_count: availableBays.length
+        };
+
+        // When the requested time is unavailable, include nearest future alternatives
+        // so the AI can suggest real options instead of hallucinating
+        if (availableBays.length === 0) {
+          const allFutureSlots = results
+            .filter(r => r.slots.length > 0)
+            .flatMap(r => {
+              const isSocial = ['Bay 1', 'Bay 2', 'Bay 3'].includes(r.bay);
+              return r.slots
+                .filter((s: any) => s.time > start_time)
+                .map((s: any) => ({ time: s.time, bayType: isSocial ? 'social' : 'ai' }));
+            });
+
+          // Deduplicate and sort by time, take closest 3
+          const seen = new Set<string>();
+          const nearest = allFutureSlots
+            .sort((a, b) => a.time.localeCompare(b.time))
+            .filter(s => {
+              const key = s.time;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            })
+            .slice(0, 3);
+
+          if (nearest.length > 0) {
+            responseData.nearest_available = nearest.map(s =>
+              `${s.time} (${s.bayType === 'social' ? 'Social bay' : 'AI bay'})`
+            );
+          } else {
+            responseData.no_availability_remaining = true;
+            responseData.suggestion = 'No more slots available today. Suggest checking tomorrow.';
+          }
+        }
+
         return {
           success: true,
           functionName: 'check_bay_availability',
-          data: {
-            date: formatDateNatural(date),
-            requested_time: start_time,
-            duration,
-            bay_type,
-            available: availableBays.length > 0,
-            social_bays_available: socialBaysAvailable.length > 0,
-            ai_bay_available: aiBayAvailable,
-            available_bay_count: availableBays.length
-            // Removed: available_bays field - internal bay names should not be exposed to customers
-          }
+          data: responseData
         };
       }
 
