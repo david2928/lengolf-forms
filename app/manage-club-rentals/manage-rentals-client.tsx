@@ -368,17 +368,27 @@ export function ManageRentalsClient() {
                   'transition-opacity',
                   isUpdating && 'opacity-50 pointer-events-none'
                 )}>
-                  <CardContent className="pt-4 pb-4">
-                    {/* Top row: code + status */}
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-mono text-sm font-bold text-gray-900">
-                        {rental.rental_code}
-                      </span>
-                      <Badge variant="outline" className={cn('text-xs', statusCfg.className)}>
+                  <CardContent className="p-0">
+                    {/* Header bar: customer + status */}
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 rounded-t-lg border-b border-gray-100">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-900">{rental.customer_name}</span>
+                          {rental.customer_phone && (
+                            <span className="flex items-center gap-1 text-xs text-gray-400">
+                              <Phone className="h-3 w-3" />
+                              {rental.customer_phone}
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-mono text-[11px] text-gray-400">{rental.rental_code}</span>
+                      </div>
+                      <Badge variant="outline" className={cn('text-xs shrink-0', statusCfg.className)}>
                         {statusCfg.label}
                       </Badge>
                     </div>
 
+                    <div className="px-4 pt-3 pb-4">
                     {/* Club set */}
                     {set && (
                       <div className="flex items-center gap-1.5 mb-2">
@@ -391,7 +401,7 @@ export function ManageRentalsClient() {
                           {set.tier === 'premium-plus' ? 'Premium+' : 'Premium'}
                         </Badge>
                         <Badge variant="outline" className="text-xs px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200">
-                          {set.gender === 'mens' ? "Men's" : "Women's"}
+                          {set.gender === 'mens' ? "Men\u2019s" : "Women\u2019s"}
                         </Badge>
                         <span className="text-sm text-gray-700">
                           {set.name.includes(' - ') ? set.name.split(' - ').slice(1).join(' - ') : set.name}
@@ -399,60 +409,39 @@ export function ManageRentalsClient() {
                       </div>
                     )}
 
-                    {/* Date range */}
-                    <div className="text-sm text-gray-600 mb-1">
-                      {formatDate(rental.start_date)}
-                      {rental.start_time && ` ${rental.start_time.slice(0, 5)}`}
-                      {' → '}
-                      {formatDate(rental.end_date)}
-                      {rental.return_time && ` ${rental.return_time.slice(0, 5)}`}
-                      {rental.duration_days && ` (${rental.duration_days}d)`}
-                    </div>
-
-                    {/* Customer */}
-                    <div className="flex items-center gap-3 text-sm text-gray-600 mb-1">
-                      <span className="font-medium text-gray-900">{rental.customer_name}</span>
-                      {rental.customer_phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {rental.customer_phone}
-                        </span>
+                    {/* Schedule & transport */}
+                    <div className="bg-gray-50 rounded-md px-3 py-2 mb-2 space-y-1">
+                      <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                        <span className="text-gray-400 text-xs w-14 shrink-0">Pickup</span>
+                        <span>{formatDate(rental.start_date)}{rental.start_time ? ` ${rental.start_time.slice(0, 5)}` : ''}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                        <span className="text-gray-400 text-xs w-14 shrink-0">Return</span>
+                        <span>{formatDate(rental.end_date)}{rental.return_time ? ` ${rental.return_time.slice(0, 5)}` : ''}</span>
+                        {rental.duration_days && (
+                          <span className="text-xs text-gray-400">({rental.duration_days}d)</span>
+                        )}
+                      </div>
+                      {rental.delivery_requested ? (
+                        <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                          <span className="text-gray-400 text-xs w-14 shrink-0 flex items-center gap-0.5"><Truck className="h-3 w-3" /> To</span>
+                          <span>{rental.delivery_address || 'Address pending'}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                          <span className="text-gray-400 text-xs w-14 shrink-0 flex items-center gap-0.5"><MapPin className="h-3 w-3" /> At</span>
+                          <span>LENGOLF</span>
+                        </div>
                       )}
                     </div>
 
-                    {/* Delivery */}
-                    {rental.delivery_requested ? (
-                      <div className="text-xs text-gray-500 mb-1 space-y-0.5">
-                        <div className="flex items-center gap-1">
-                          <Truck className="h-3 w-3" />
-                          Delivery: {rental.delivery_address || 'Address pending'}
-                        </div>
-                        {(rental.delivery_time || rental.return_time) && (
-                          <div className="pl-4 text-gray-400">
-                            {rental.delivery_time && `Pickup: ${rental.delivery_time}`}
-                            {rental.delivery_time && rental.return_time && ' · '}
-                            {rental.return_time && `Return: ${rental.return_time}`}
-                          </div>
+                    {/* Add-ons + Notes (compact) */}
+                    {(rental.add_ons?.length > 0 || rental.notes) && (
+                      <div className="text-xs text-gray-400 mb-1 space-y-0.5">
+                        {rental.add_ons && rental.add_ons.length > 0 && (
+                          <div>Add-ons: {rental.add_ons.map(a => a.label).join(', ')}</div>
                         )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
-                        <MapPin className="h-3 w-3" />
-                        Pickup at LENGOLF
-                      </div>
-                    )}
-
-                    {/* Add-ons */}
-                    {rental.add_ons && rental.add_ons.length > 0 && (
-                      <div className="text-xs text-gray-500 mb-1">
-                        Add-ons: {rental.add_ons.map(a => a.label).join(', ')}
-                      </div>
-                    )}
-
-                    {/* Notes */}
-                    {rental.notes && (
-                      <div className="text-xs text-gray-400 italic mb-2">
-                        {rental.notes}
+                        {rental.notes && <div className="italic">{rental.notes}</div>}
                       </div>
                     )}
 
@@ -546,6 +535,7 @@ export function ManageRentalsClient() {
                           </Button>
                         )}
                       </div>
+                    </div>
                     </div>
                   </CardContent>
                 </Card>
