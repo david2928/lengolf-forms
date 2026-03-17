@@ -31,6 +31,17 @@ interface CustomerLinkModalProps {
     primaryPhone?: string;
     email?: string;
   };
+  initialMode?: 'search' | 'create';
+}
+
+// Normalize ALL CAPS or all lowercase names to Title Case
+function normalizeNameCase(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return trimmed;
+  const isAllUpper = trimmed === trimmed.toUpperCase() && /[A-Za-z\u0E00-\u0E7F]/.test(trimmed);
+  const isAllLower = trimmed === trimmed.toLowerCase() && /[A-Za-z]/.test(trimmed);
+  if (!isAllUpper && !isAllLower) return trimmed;
+  return trimmed.toLowerCase().replace(/(?:^|\s)\S/g, (char) => char.toUpperCase());
 }
 
 export function CustomerLinkModal({
@@ -39,7 +50,8 @@ export function CustomerLinkModal({
   onCustomerSelect,
   loading = false,
   lineUserName,
-  prefillData
+  prefillData,
+  initialMode
 }: CustomerLinkModalProps) {
   // Mode state
   const [mode, setMode] = useState<'search' | 'create'>('search');
@@ -188,7 +200,7 @@ export function CustomerLinkModal({
   useEffect(() => {
     if (mode === 'create' && !hasPreFilled) {
       // Priority: prefillData > lineUserName for name
-      const nameToUse = prefillData?.fullName || lineUserName || '';
+      const nameToUse = normalizeNameCase(prefillData?.fullName || lineUserName || '');
       const phoneToUse = prefillData?.primaryPhone || '';
       const emailToUse = prefillData?.email || '';
 
@@ -201,12 +213,15 @@ export function CustomerLinkModal({
     }
   }, [mode, lineUserName, prefillData, hasPreFilled]);
 
-  // Reset hasPreFilled when modal opens with new prefill data
+  // Reset hasPreFilled and set initial mode when modal opens
   useEffect(() => {
     if (isOpen) {
       setHasPreFilled(false);
+      if (initialMode) {
+        setMode(initialMode);
+      }
     }
-  }, [isOpen, prefillData]);
+  }, [isOpen, prefillData, initialMode]);
 
   // Validate create form
   const validateCreateForm = (): boolean => {

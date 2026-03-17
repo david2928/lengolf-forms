@@ -291,6 +291,7 @@ export interface CustomerSidebarProps {
   onShowLinkModal?: () => void;
   messages?: Message[]; // Messages for extraction
   onShowLinkModalWithPrefill?: (prefillData: { fullName?: string; primaryPhone?: string; email?: string }) => void;
+  onSelectCustomerForLink?: (customerId: string, customer: any) => void;
   // Opportunity data
   opportunity?: ConversationOpportunity | null;
   onOpenOpportunity?: (opportunityId: string) => void;

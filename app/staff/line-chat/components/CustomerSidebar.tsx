@@ -187,6 +187,7 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   onShowLinkModal,
   messages,
   onShowLinkModalWithPrefill,
+  onSelectCustomerForLink,
   opportunity,
   onOpenOpportunity,
   onRefreshCustomer,
@@ -562,10 +563,38 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                       </div>
                     )}
 
-                    {/* Duplicate warning */}
-                    {hasDuplicates && (
-                      <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800">
-                        ⚠️ Similar customer found in system
+                    {/* Duplicate match - show direct link buttons */}
+                    {hasDuplicates && duplicates.length > 0 && (
+                      <div className="bg-amber-50 border border-amber-200 rounded p-2 space-y-2">
+                        <div className="text-xs text-amber-800 font-medium">
+                          Existing customer match found:
+                        </div>
+                        {duplicates.map((dup) => (
+                          <div key={dup.id} className="bg-white rounded border border-amber-200 p-2 flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium text-gray-900 truncate">{dup.customer_name}</div>
+                              <div className="text-xs text-gray-500">
+                                {dup.customer_code}{dup.contact_number ? ` \u00B7 ${dup.contact_number}` : ''}
+                              </div>
+                              {dup.match_method && (
+                                <Badge variant="outline" className="text-xs mt-1 bg-green-50 text-green-700 border-green-200">
+                                  {dup.match_method === 'phone' ? 'Phone match' : dup.match_method === 'name' ? 'Name match' : 'Email match'}
+                                </Badge>
+                              )}
+                            </div>
+                            {onSelectCustomerForLink && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="shrink-0"
+                                onClick={() => onSelectCustomerForLink(dup.id, dup)}
+                                disabled={linkingCustomer}
+                              >
+                                Link
+                              </Button>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
 

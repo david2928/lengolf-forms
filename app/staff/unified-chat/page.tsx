@@ -812,6 +812,7 @@ export default function UnifiedChatPage() {
               onShowLinkModal={() => setShowLinkModal(true)}
               messages={messages}
               onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
+              onSelectCustomerForLink={handleCustomerSelection}
               opportunity={currentOpportunity}
               onOpenOpportunity={(oppId) => {
                 setFocusOpportunityId(oppId);
@@ -847,6 +848,7 @@ export default function UnifiedChatPage() {
                 onShowLinkModal={() => setShowLinkModal(true)}
                 messages={messages}
                 onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
+                onSelectCustomerForLink={handleCustomerSelection}
                 opportunity={currentOpportunity}
                 onOpenOpportunity={(oppId) => {
                   setFocusOpportunityId(oppId);
@@ -870,6 +872,7 @@ export default function UnifiedChatPage() {
           loading={customerOps.linkingCustomer}
           lineUserName={selectedConversationObj?.user?.displayName || ''}
           prefillData={linkModalPrefillData}
+          initialMode={linkModalPrefillData ? 'create' : 'search'}
         />
 
         <CustomerConfirmationModal
