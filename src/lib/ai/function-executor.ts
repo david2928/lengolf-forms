@@ -22,6 +22,11 @@ export interface FunctionResult {
  * Format an ISO date (YYYY-MM-DD) into a natural language string.
  * e.g. "2026-02-26" → "tomorrow (Thursday)" or "Thursday, February 26"
  */
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
 function formatDateNatural(isoDate: string): string {
   const thailandNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
   const today = thailandNow.toISOString().split('T')[0];
@@ -185,34 +190,41 @@ export class AIFunctionExecutor {
           available_bay_count: availableBays.length
         };
 
-        // When the requested time is unavailable, include nearest future alternatives
-        // so the AI can suggest real options instead of hallucinating
+        // When the requested time is unavailable, include nearest alternatives
+        // (both before AND after) so the AI can suggest real nearby options
         if (availableBays.length === 0) {
-          const allFutureSlots = results
+          const allSlots = results
             .filter(r => r.slots.length > 0)
             .flatMap(r => {
               const isSocial = ['Bay 1', 'Bay 2', 'Bay 3'].includes(r.bay);
               return r.slots
-                .filter((s: any) => s.time > start_time)
+                .filter((s: any) => s.time !== start_time)
                 .map((s: any) => ({ time: s.time, bayType: isSocial ? 'social' : 'ai' }));
             });
 
-          // Deduplicate and sort by time, take closest 3
+          // Deduplicate by time
           const seen = new Set<string>();
-          const nearest = allFutureSlots
-            .sort((a, b) => a.time.localeCompare(b.time))
-            .filter(s => {
-              const key = s.time;
-              if (seen.has(key)) return false;
-              seen.add(key);
-              return true;
+          const unique = allSlots.filter(s => {
+            if (seen.has(s.time)) return false;
+            seen.add(s.time);
+            return true;
+          });
+
+          // Sort by distance from requested time, then take closest 5
+          const nearest = unique
+            .sort((a, b) => {
+              const minutesA = Math.abs(timeToMinutes(a.time) - timeToMinutes(start_time));
+              const minutesB = Math.abs(timeToMinutes(b.time) - timeToMinutes(start_time));
+              return minutesA - minutesB;
             })
-            .slice(0, 3);
+            .slice(0, 5);
 
           if (nearest.length > 0) {
-            responseData.nearest_available = nearest.map(s =>
-              `${s.time} (${s.bayType === 'social' ? 'Social bay' : 'AI bay'})`
-            );
+            responseData.nearest_available = nearest
+              .sort((a, b) => a.time.localeCompare(b.time))
+              .map(s =>
+                `${s.time} (${s.bayType === 'social' ? 'Social bay' : 'AI bay'})`
+              );
           } else {
             responseData.no_availability_remaining = true;
             responseData.suggestion = 'No more slots available today. Suggest checking tomorrow.';
@@ -524,6 +536,9 @@ export class AIFunctionExecutor {
         errorMessage += ' Would you like to check availability for a different time?';
       }
 
+      // Include nearest available slots from the availability check so AI doesn't hallucinate
+      const nearestSlots = availabilityCheck.data?.nearest_available;
+
       return {
         success: false,
         error: errorMessage,
@@ -533,7 +548,8 @@ export class AIFunctionExecutor {
           social_bays_available: socialAvailable,
           ai_bay_available: aiAvailable,
           requested_time: params.start_time,
-          requested_date: params.date
+          requested_date: params.date,
+          ...(nearestSlots ? { nearest_available: nearestSlots } : {})
         }
       };
     }
@@ -743,12 +759,21 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
       };
 
       // If customer ID is provided (existing customer), use it
-      // Otherwise mark as new customer
+      // Otherwise mark as new customer and add Buy 1 Get 1 promotion (same as staff form)
       if (customerId) {
         bookingData.customer_id = customerId;
         bookingData.isNewCustomer = false;
       } else {
         bookingData.isNewCustomer = true; // API will check for duplicates
+        // Auto-add Buy 1 Get 1 to notes for new customers, matching staff form behavior
+        const promoNote = 'Buy 1 Get 1';
+        if (bookingData.customer_notes) {
+          if (!bookingData.customer_notes.includes(promoNote)) {
+            bookingData.customer_notes = `${bookingData.customer_notes}; ${promoNote}`;
+          }
+        } else {
+          bookingData.customer_notes = promoNote;
+        }
       }
 
       // DRY RUN MODE: Return mock success without creating booking
@@ -842,11 +867,16 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
         const bookingTypeDisplay = packageName ? `${bookingType} (${packageName})` : bookingType;
 
         // Build message in exact same format as booking form
+        const isNewCustomerBooking = result.booking?.is_new_customer === true;
+        const customerNameDisplay = isNewCustomerBooking
+          ? `${params.customer_name} (New Customer)`
+          : params.customer_name;
+
         let message = 'Booking Notification';
         if (bookingId) {
           message += ` (ID: ${bookingId})`;
         }
-        message += `\nName: ${params.customer_name}`;
+        message += `\nName: ${customerNameDisplay}`;
         message += `\nPhone: ${params.phone_number}`;
         message += `\nDate: ${formattedDate}`;
         message += `\nTime: ${params.start_time} - ${endTime}`;
@@ -868,6 +898,7 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
         if (packageNote) {
           message += `\nNote: ${packageNote}`;
         }
+
 
         // Send to LINE staff channel using the same endpoint
         // Note: /api/notify will append customer_notes to the message automatically
