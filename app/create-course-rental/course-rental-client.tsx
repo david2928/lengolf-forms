@@ -51,11 +51,23 @@ const ADD_ON_OPTIONS = [
   { key: 'balls', label: 'Golf Balls (6-pack)', price: 400, description: 'Pro V1 quality balls' },
 ]
 
+/** Optimal combo pricing — finds cheapest combination of 1d/3d/7d/14d packs */
 function getCoursePrice(set: ClubSet, days: number): number {
-  if (days <= 1) return Number(set.course_price_1d)
-  if (days <= 3) return Number(set.course_price_3d)
-  if (days <= 7) return Number(set.course_price_7d)
-  return Number(set.course_price_14d)
+  const prices = [
+    { d: 1, p: Number(set.course_price_1d) },
+    { d: 3, p: Number(set.course_price_3d) },
+    { d: 7, p: Number(set.course_price_7d) },
+    { d: 14, p: Number(set.course_price_14d) },
+  ]
+  const dp = new Array(days + 1).fill(Infinity)
+  dp[0] = 0
+  for (let i = 1; i <= days; i++) {
+    for (const { d, p } of prices) {
+      const prev = Math.max(0, i - d)
+      if (dp[prev] + p < dp[i]) dp[i] = dp[prev] + p
+    }
+  }
+  return dp[days]
 }
 
 // Customer type matching booking form
@@ -236,22 +248,28 @@ export function CourseRentalClient() {
 
       // Send LINE notification (non-blocking)
       try {
-        const dateDisplay = new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-        const endDateDisplay = new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        const dateDisplay = new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })
+        const endDateDisplay = new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })
         const pickupDisplay = startTime ? ` ${startTime}` : ''
-        const returnDisplay = returnTime ? ` ${returnTime}` : pickupDisplay
+        const returnDisplay = returnTime ? ` ${returnTime}` : ''
+        const tierLabel = selectedSet.tier === 'premium-plus' ? 'Premium+' : 'Premium'
+        const genderLabel = selectedSet.gender === 'mens' ? "Men's" : "Women's"
 
-        let lineMessage = `Club Rental Booking (${data.rental_code})`
-        lineMessage += `\nSet: ${selectedSet.name}`
-        lineMessage += `\nDates: ${dateDisplay}${pickupDisplay} → ${endDateDisplay}${returnDisplay} (${durationDays}d)`
-        lineMessage += `\n${deliveryRequested ? `Delivery: ${deliveryAddress.trim()}` : 'Pickup at LENGOLF'}`
-        lineMessage += `\nCustomer: ${customerName.trim()}`
-        lineMessage += `\nPhone: ${customerPhone.trim()}`
-        if (addOns.length > 0) {
-          lineMessage += `\nAdd-ons: ${addOns.map(a => a.label).join(', ')}`
-        }
-        lineMessage += `\nTotal: ฿${totalPrice.toLocaleString()}`
-        lineMessage += `\nCreated by: ${employeeName}`
+        const lines = [
+          `Club Rental Notification (${data.rental_code})`,
+          `Customer: ${customerName.trim()}`,
+          `Phone: ${customerPhone.trim()}`,
+          customerEmail?.trim() ? `Email: ${customerEmail.trim()}` : null,
+          `Set: ${selectedSet.name} (${tierLabel}, ${genderLabel})`,
+          `Dates: ${dateDisplay}${pickupDisplay} - ${endDateDisplay}${returnDisplay} (${durationDays}d)`,
+          deliveryRequested ? `Delivery to: ${deliveryAddress.trim()}` : 'Pickup at LENGOLF',
+          addOns.length > 0 ? `Add-ons: ${addOns.map(a => a.label).join(', ')}` : null,
+          `Total: ฿${totalPrice.toLocaleString()}`,
+          `Created by: ${employeeName}`,
+          ``,
+          `Please contact the customer to confirm availability and arrange payment.`,
+        ]
+        const lineMessage = lines.filter(Boolean).join('\n')
 
         await fetch('/api/notify', {
           method: 'POST',
