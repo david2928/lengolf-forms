@@ -56,6 +56,10 @@ next-env.d.ts
 .claude/skills/
 .claude/worktrees/
 
+# superpowers (local tooling config and plans)
+.superpowers/
+docs/superpowers/
+
 # misc files in project root (images, PDFs, CSVs)
 *.jpg
 *.png
