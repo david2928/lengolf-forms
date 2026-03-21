@@ -6,7 +6,7 @@ import { generateText, streamText, stepCountIs } from 'ai';
 import type { ModelMessage } from '@ai-sdk/provider-utils';
 import { generateEmbedding, findSimilarMessages, SimilarMessage, findRelevantFAQs, trackFAQUsage, FAQMatch } from './embedding-service';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
-import { createAITools, getActiveToolsForIntent, createToolExecutionState, stopOnApproval, ContextProviders, ToolExecutionState, ImageCatalogEntry } from './function-schemas';
+import { createAITools, createToolExecutionState, stopOnApproval, ContextProviders, ToolExecutionState, ImageCatalogEntry } from './function-schemas';
 import { FunctionResult } from './function-executor';
 import { getSkillsForIntent, composeSkillPromptForLanguage } from './skills';
 import { classifyIntent, IntentClassification, regexFullClassify } from './intent-classifier';
@@ -205,10 +205,8 @@ export interface SuggestionContext {
   conversationMessages: ModelMessage[];
   toolState: ToolExecutionState;
   allTools: ReturnType<typeof createAITools>;
-  validActiveTools: string[];
   hasTools: boolean;
   modelToUse: string;
-  isReasoningModel: boolean;
   debugInfo: { openAIRequests: unknown[]; openAIResponses: unknown[] };
   imageCatalog: ImageCatalogEntry[];
 }
@@ -1133,8 +1131,7 @@ If you can't understand the image, ask the customer to clarify.`;
 
   // Load combined image catalog (curated images + active promotions) for suggest_images tool
   let imageCatalog: ImageCatalogEntry[] = [];
-  const activeToolNames = getActiveToolsForIntent(intent);
-  if (activeToolNames.includes('suggest_images') && refacSupabaseAdmin) {
+  if (refacSupabaseAdmin) {
     try {
       const now = new Date().toISOString();
       // Load curated images (non-expired)
@@ -1190,13 +1187,10 @@ If you can't understand the image, ask the customer to clarify.`;
   const toolState = createToolExecutionState();
   const allTools = createAITools(toolState, customerIdForTools, contextProviders, imageCatalog.length > 0 ? imageCatalog : undefined);
 
-  // Filter activeToolNames to only include tools that actually exist in allTools
-  const validActiveTools = activeToolNames.filter(name => name in allTools);
-  const hasTools = validActiveTools.length > 0;
+  const hasTools = Object.keys(allTools).length > 0;
 
   // Model configuration
   const modelToUse = params.overrideModel || AI_CONFIG.model;
-  const isReasoningModel = /^(gpt-5|o1|o3)/i.test(modelToUse);
 
   // Debug info (for dry run mode)
   const debugInfo: { openAIRequests: unknown[]; openAIResponses: unknown[] } = {
@@ -1218,10 +1212,8 @@ If you can't understand the image, ask the customer to clarify.`;
     conversationMessages,
     toolState,
     allTools,
-    validActiveTools,
     hasTools,
     modelToUse,
-    isReasoningModel,
     debugInfo,
     imageCatalog,
   };
@@ -1378,7 +1370,7 @@ export async function postProcessSuggestion(
         answer: f.answer,
         score: f.similarityScore || 0,
       })),
-      functionSchemas: ctx.hasTools ? ctx.validActiveTools : undefined,
+      functionSchemas: ctx.hasTools ? Object.keys(ctx.allTools) : undefined,
       functionCallHistory: functionCallHistory,
       toolChoice: ctx.hasTools ? 'auto' : 'none',
       model: ctx.modelToUse
@@ -1460,18 +1452,16 @@ function buildLLMOptions(ctx: SuggestionContext) {
     messages: ctx.conversationMessages,
     ...(ctx.hasTools ? {
       tools: ctx.allTools,
-      activeTools: ctx.validActiveTools as Array<keyof typeof ctx.allTools>,
       toolChoice: 'auto' as const,
     } : {}),
-    maxOutputTokens: ctx.isReasoningModel ? 1500 : AI_CONFIG.maxTokens,
-    temperature: ctx.isReasoningModel ? undefined : AI_CONFIG.temperature,
-    providerOptions: ctx.isReasoningModel ? { openai: { reasoningEffort: 'low' } } : undefined,
+    maxOutputTokens: AI_CONFIG.maxTokens,
+    temperature: AI_CONFIG.temperature,
     stopWhen: [stepCountIs(5), stopOnApproval(ctx.toolState)],
     onStepFinish: ctx.params.dryRun ? (step: any) => {
       const stepNum = step.stepNumber + 1;
       ctx.debugInfo.openAIRequests.push({
         iteration: stepNum,
-        payload: { model: ctx.modelToUse, system: '(see finalContextPrompt)', messages: '(see conversationMessages)', tools: ctx.hasTools ? ctx.validActiveTools : undefined }
+        payload: { model: ctx.modelToUse, system: '(see finalContextPrompt)', messages: '(see conversationMessages)', tools: ctx.hasTools ? Object.keys(ctx.allTools) : undefined }
       });
       ctx.debugInfo.openAIResponses.push({
         iteration: stepNum,
