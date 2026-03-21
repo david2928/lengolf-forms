@@ -263,6 +263,7 @@ async function processBatch(
 ): Promise<{ processed: number; errors: number }> {
   let processed = 0
   let errors = 0
+  let modelTracked = false
 
   for (const convId of conversationIds) {
     try {
@@ -355,6 +356,18 @@ async function processBatch(
       const suggestion = suggestData.suggestion
       const aiResponse = suggestion.suggestedResponse || suggestion.suggestedResponseThai || ''
       const debug = suggestion.debugContext
+
+      const detectedModel = debug?.model || null
+
+      // Track suggestion model on the run (first sample wins per batch)
+      if (detectedModel && !modelTracked) {
+        await supabase
+          .schema('ai_eval')
+          .from('eval_runs')
+          .update({ suggestion_model: detectedModel })
+          .eq('id', runId)
+        modelTracked = true
+      }
 
       // Judge the response
       const judgeStart = Date.now()
