@@ -5,7 +5,7 @@ import { Skill } from './types';
 
 export const pricingSkill: Skill = {
   name: 'pricing',
-  intents: ['pricing_inquiry', 'promotion_inquiry', 'payment_inquiry'],
+  intents: ['pricing_inquiry', 'promotion_inquiry', 'payment_inquiry', 'booking_request'],
   requiredContext: ['packages', 'bay_pricing'],
   systemPrompt: `PRICING (active catalog — loaded dynamically from database):
 

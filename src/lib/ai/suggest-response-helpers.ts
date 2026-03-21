@@ -321,7 +321,7 @@ export async function getBusinessContext() {
         .select('rate_type, rate'),
       refacSupabaseAdmin
         .from('promotions')
-        .select('title_en, title_th, description_en, description_th, valid_until, promo_type, badge_en, terms_en')
+        .select('title_en, title_th, description_en, description_th, valid_until, promo_type, badge_en, terms_en, conditions')
         .eq('is_active', true)
         .eq('is_customer_facing', true)
         .eq('promo_type', 'discount')

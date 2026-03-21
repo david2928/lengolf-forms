@@ -169,6 +169,7 @@ export interface BusinessContext {
     promo_type: string;
     badge_en: string | null;
     terms_en: string | null;
+    conditions?: Record<string, boolean>;
   }>;
 }
 
@@ -360,7 +361,9 @@ ${needsContactInfo ? `- Phone: ${customerContext.phone || 'Not provided'}\n` : '
   // Only inject DYNAMIC data here: active promotions, operating hours from DB.
   if (businessContext) {
     const msgLower = customerMessage.toLowerCase();
-    const isPricingQuestion = /ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า|โปร|promotion|discount|ส่วนลด|deal|special|package|แพ็ค/i.test(msgLower);
+    // Check both current message and recent conversation for pricing/promo keywords
+    const recentConvoText = (conversationContext?.recentMessages || []).map(m => m.content || '').join(' ').toLowerCase();
+    const isPricingQuestion = /ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า|โปร|promotion|discount|ส่วนลด|deal|special|package|แพ็ค|buy.*get|b1g1|ซื้อ.*แถม/i.test(msgLower + ' ' + recentConvoText);
     const isFacilityQuestion = /เปิด|ปิด|open|close|hour|เวลา|time|อุปกรณ์|equipment|club|ไม้กอล์ฟ|rental|ยืม/i.test(msgLower);
 
     // Operating hours from DB (facility questions only)
@@ -378,6 +381,7 @@ ${needsContactInfo ? `- Phone: ${customerContext.phone || 'Not provided'}\n` : '
         contextPrompt += `${i + 1}. ${promo.title_en}`;
         if (promo.badge_en) contextPrompt += ` [${promo.badge_en}]`;
         contextPrompt += `: ${promo.description_en}`;
+        if (promo.conditions?.new_customer_only) contextPrompt += ' [NEW CUSTOMERS ONLY]';
         if (promo.valid_until) contextPrompt += ` (until ${new Date(promo.valid_until).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })})`;
         contextPrompt += '\n';
       });
