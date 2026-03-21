@@ -224,14 +224,19 @@ export async function classifyIntent(
 ): Promise<IntentClassification> {
   const startTime = Date.now();
 
-  // Tier 1: Regex fast-path for obvious, unambiguous intents
-  const fastResult = regexFastPath(customerMessage);
-  if (fastResult) {
-    return {
-      ...fastResult,
-      source: 'regex',
-      classificationTimeMs: Date.now() - startTime,
-    };
+  // Tier 1: Regex fast-path — only for first messages (no conversation history).
+  // Follow-up messages go through the LLM classifier which sees conversation context.
+  // recentMessages includes the current message, so length <= 1 means first message.
+  const hasHistory = recentMessages && recentMessages.length > 1;
+  if (!hasHistory) {
+    const fastResult = regexFastPath(customerMessage);
+    if (fastResult) {
+      return {
+        ...fastResult,
+        source: 'regex',
+        classificationTimeMs: Date.now() - startTime,
+      };
+    }
   }
 
   // Tier 2: LLM classifier with conversation context + timeout
