@@ -45,6 +45,56 @@ The AI suggestion pipeline:
 | `scripts/eval-intent-classifier.ts` | Unit tests for intent classification (65 test cases) |
 | `scripts/eval-e2e-suggestions.ts` | Curated E2E tests with known expected outcomes |
 | `scripts/sample-e2e-suggestions.ts` | Random sampling tool for discovery & regression testing |
+| `scripts/judge-sample-results.ts` | LLM-as-a-judge scoring for sample results |
+| `scripts/lib/judge.ts` | Core judge module (GPT-4o-mini, 4-dimension scoring) |
+| `scripts/lib/judge-aggregator.ts` | Score aggregation, regression detection, summary output |
+| `scripts/lib/eval-persistence.ts` | Write eval runs/samples to Supabase `ai_eval` schema |
+| `scripts/lib/prompt-version.ts` | Prompt version tracking (git hash, date, label) |
+
+### Automated Weekly Eval (LLM-as-a-Judge)
+
+The system runs an automated weekly evaluation via a Supabase Edge Function + pg_cron:
+
+| Component | Location |
+|-----------|----------|
+| Edge Function | `supabase/functions/ai-eval-run/index.ts` |
+| Weekly Cron | `supabase/migrations/20260302130000_add_ai_eval_weekly_cron.sql` |
+| DB Schema | `supabase/migrations/20260302120000_create_ai_eval_tables.sql` |
+| Admin Dashboard | `app/admin/ai-eval/page.tsx` |
+| Dashboard Components | `src/components/ai-eval/` (7 components) |
+| API Routes | `app/api/ai-eval/` (trigger, runs, runs/[runId], samples, trends) |
+
+**Schedule:** Every Sunday at 04:00 UTC (11:00 AM Bangkok time)
+**Sample size:** 150 conversations, batch size 10
+**Judge model:** GPT-4o-mini, temperature=0
+
+### Judge Scoring Dimensions
+
+| Dimension | Weight | What It Measures |
+|-----------|--------|-----------------|
+| **Appropriateness** | 0.30 | Addresses customer need, correct language, no hallucination |
+| **Helpfulness** | 0.30 | Resolves question/request, actionable and complete |
+| **Tone Match** | 0.20 | Thai premium service tone, warm, professional, polite particles |
+| **Brevity** | 0.20 | Ideal length (1-2 sentences, matching staff style) |
+
+Overall score = weighted average (1-5 scale).
+
+### Database Schema (`ai_eval`)
+
+**`ai_eval.eval_runs`** — One row per eval run:
+- Metadata: status, trigger_type (cron/manual/ci), timestamps
+- Versioning: prompt_version, prompt_hash, git_commit_hash, prompt_label
+- Aggregates: avg_overall, avg_appropriateness, avg_helpfulness, avg_tone_match, avg_brevity
+- Distribution: score_distribution (JSONB), by_intent (JSONB)
+- Batching: batch_current, batch_total, conversation_ids
+- Errors: error_count, error_message
+
+**`ai_eval.eval_samples`** — One row per judged sample:
+- Context: conversation_id, customer_name, channel_type, customer_message, conversation_history
+- AI output: ai_response, ai_response_thai
+- Classification: intent, intent_source, confidence_score, function_called
+- Judge scores: judge_overall, judge_appropriateness/helpfulness/tone_match/brevity (1-5)
+- Judge reasoning: judge_reasoning (JSONB), judge_model, judge_latency_ms
 
 ## Step 1: Run Intent Classifier Eval
 
@@ -120,6 +170,82 @@ npx tsx scripts/sample-e2e-suggestions.ts --review
 ```
 
 Results are saved to `scripts/e2e-samples/sample-{label}-{timestamp}.json`.
+
+## Step 2b: LLM-as-a-Judge Scoring
+
+After sampling, score AI responses using GPT-4o-mini as a judge across 4 dimensions.
+
+### Local Judging (CLI)
+
+```bash
+set -a && source .env && set +a
+
+# Judge most recent sample file
+npx tsx scripts/judge-sample-results.ts
+
+# Judge a specific file
+npx tsx scripts/judge-sample-results.ts --file sample-today-2026-03-22.json
+
+# Re-judge (overwrite existing scores)
+npx tsx scripts/judge-sample-results.ts --rejudge
+
+# Judge all unjudged sample files
+npx tsx scripts/judge-sample-results.ts --all
+
+# Persist results to Supabase ai_eval schema
+npx tsx scripts/judge-sample-results.ts --persist
+
+# Persist with a label (for prompt version tracking)
+npx tsx scripts/judge-sample-results.ts --persist --label "v2 tool selection"
+```
+
+**Output:** Per-sample scores (A:appropriateness H:helpfulness T:tone B:brevity), overall weighted average, by-intent breakdown, and regression detection vs. previous run.
+
+### Automated Weekly Eval
+
+Runs automatically every Sunday at 11:00 AM Bangkok time via pg_cron + Supabase Edge Function:
+
+1. Edge Function (`ai-eval-run`) samples 150 random conversations from last 60 days
+2. For each sample: calls `/api/ai/suggest-response` in dry-run mode, then judges the response
+3. Processes in batches of 10 (self-invoking between batches)
+4. Stores results in `ai_eval.eval_runs` + `ai_eval.eval_samples`
+5. Computes aggregates (mean/median/stddev per dimension, score distribution, by-intent breakdown)
+
+**Circuit breaker:** Max 1 hour, max 30 batches.
+
+**To trigger manually:**
+
+```bash
+# Via API (requires dev server running)
+curl -X POST http://localhost:3000/api/ai-eval/trigger \
+  -H "Content-Type: application/json" \
+  -d '{"sample_count": 50, "batch_size": 10}'
+```
+
+Or use the "Run Eval" button in the admin dashboard.
+
+### Admin Dashboard (`/admin/ai-eval/`)
+
+Visual dashboard with three tabs:
+
+| Tab | Contents |
+|-----|----------|
+| **Overview** | KPI cards (latest vs previous run), score trends chart, score distribution histogram, performance by intent |
+| **Run History** | List of eval runs with metadata, prompt version comparison chart |
+| **Sample Explorer** | Filter samples by intent, view detailed judge scores and reasoning per sample |
+
+**Key metrics to watch:**
+- Overall score trending down > 0.5 points = regression flag
+- By-intent breakdown reveals which conversation types are degrading
+- Score distribution shift (more 1-2 scores appearing) = quality problem
+
+### Regression Detection
+
+The judge-aggregator automatically compares the current run to the previous run:
+- Flags if any dimension drops > 0.5 points
+- Flags if overall average drops > 0.3 points
+- Prints comparison table in CLI output
+- Dashboard KPI cards show delta arrows (green/red)
 
 ## Step 3: Review Results & Identify Issues
 
@@ -293,3 +419,5 @@ These are commonly violated by the AI and cause staff to reject suggestions:
 | `customers` | Customer profiles (name, phone, notes) |
 | `faq_knowledge_base` | FAQ entries with embeddings for RAG |
 | `message_embeddings` | Message embeddings for similarity search |
+| `ai_eval.eval_runs` | Eval run metadata, aggregates, prompt versioning, batch tracking |
+| `ai_eval.eval_samples` | Individual judged samples with scores, reasoning, and AI output |
