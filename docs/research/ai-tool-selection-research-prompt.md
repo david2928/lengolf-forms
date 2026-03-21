@@ -220,10 +220,11 @@ app/api/ai/suggest-response/stream/route.ts # Streaming endpoint
 
 ## Key Constraints
 
-- **Budget**: Currently ~$150/month for AI. Can justify up to ~$300/month if quality improves meaningfully.
+- **Budget**: Actual cost is ~$15.43/month (measured Feb 20 - Mar 22, 2026). gpt-5-mini suggestion generation is 94% of cost ($14.57). After switching to gpt-4.1-mini: estimated ~$5.75/month.
 - **Latency**: Staff see suggestions in real-time. Current p95 is ~2-3 seconds. Cannot exceed ~5 seconds.
 - **Languages**: Thai (primary, ~70%) and English (~30%). Thai is harder for LLMs.
-- **Volume**: ~1,000 suggestions/day, peak ~3,000/day during promotions.
+- **Volume**: ~8.5 suggestions/day (254/month), ~355 total API requests/day (includes classifier, eval, embeddings). Peak day: ~37 suggestions.
 - **Safety**: Write operations require staff approval. Bot suggests, staff decides.
 - **Framework**: Vercel AI SDK (currently v5). Next.js 15.5 on Vercel.
 - **Provider**: OpenAI only (no multi-provider setup currently).
+- **OpenAI Budget**: $20/month limit set in OpenAI dashboard.
