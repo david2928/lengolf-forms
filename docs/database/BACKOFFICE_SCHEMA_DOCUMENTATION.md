@@ -3,9 +3,9 @@
 ## Overview
 The `backoffice` schema contains administrative and operational tables for managing staff, payroll, packages, invoicing, and financial reconciliation. This schema powers the back-office operations and is accessed primarily by admin users.
 
-**Current Status (2025-01-08)**:
-- **Total Tables**: 22 tables (all operational schemas)
-- **✅ ALL ACTIVE**: 22/22 tables in active use
+**Current Status (2026-03-21)**:
+- **Total Tables**: 24 tables (all operational schemas)
+- **✅ ALL ACTIVE**: 24/24 tables in active use
 - **Status**: EXCELLENT - No cleanup needed, all features implemented and used
 - **Database Operations**: All tables showing regular activity patterns
 - **Performance**: Well-designed schema with appropriate indexing
@@ -26,6 +26,7 @@ erDiagram
     invoices ||--o{ invoice_items : "contains"
     invoice_suppliers ||--o{ invoices : "supplies"
     reconciliation_sessions ||--o{ reconciliation_items : "contains"
+    google_business_oauth ||--o{ google_reviews : "authorizes_sync"
 ```
 
 ## Tables
@@ -570,6 +571,8 @@ Service charge pool for distribution.
 - `calculate_package_expiration()` ✅ ACTIVE: Computes package expiry dates
 - `log_staff_changes()` ✅ ACTIVE: Trigger for staff audit trail
 - `validate_time_entry()` ✅ ACTIVE: Ensures valid clock-in/out sequences
+- `update_google_reviews_updated_at()` ✅ ACTIVE: Trigger for google_reviews timestamp
+- `update_google_business_oauth_updated_at()` ✅ ACTIVE: Trigger for google_business_oauth timestamp
 
 ---
 
@@ -660,6 +663,93 @@ Dedicated audit trail for staff-related changes.
 - HR compliance
 - Staff change tracking
 - Administrative oversight
+
+---
+
+### 22. **google_reviews** ✅ ACTIVE
+Synced Google Business Profile reviews for LENGOLF.
+
+**Activity**: Regular sync from Google Business Profile API
+**Status**: ACTIVE - Review management and monitoring
+**Features**: Star rating tracking, reply status, language detection, sync metadata
+
+**Purpose**: Stores synced Google Business Profile reviews for monitoring, response management, and reputation analytics
+
+**Key Relationships**: None (standalone table, synced from external API)
+
+**Population**: Automated sync from Google Business Profile API using OAuth tokens from `google_business_oauth`
+
+**Usage**:
+- Review monitoring and response management
+- Reputation analytics and reporting
+- Identifying reviews that need replies
+- Language-based review filtering
+
+**Columns**:
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| id | uuid | NO | gen_random_uuid() | Primary key |
+| google_review_name | text | NO | - | Full Google resource path (unique, e.g., accounts/X/locations/Y/reviews/Z) |
+| reviewer_name | text | NO | - | Name of the reviewer |
+| star_rating | text | NO | - | Rating (ONE/TWO/THREE/FOUR/FIVE) |
+| comment | text | YES | - | Review text content |
+| language | text | YES | - | Detected language (EN/TH/OTHER) |
+| review_created_at | timestamptz | NO | - | When review was posted on Google |
+| review_updated_at | timestamptz | NO | - | When review was last updated on Google |
+| has_reply | boolean | NO | false | Whether review has a business reply |
+| reply_text | text | YES | - | Existing reply text |
+| reply_updated_at | timestamptz | YES | - | When reply was last updated |
+| synced_at | timestamptz | NO | now() | Last sync time |
+| created_at | timestamptz | NO | now() | Record creation |
+| updated_at | timestamptz | NO | now() | Last update (auto-trigger) |
+
+**Indexes**:
+- `idx_google_reviews_has_reply` - Filter unreplied reviews
+- `idx_google_reviews_created` - Sort by review date (DESC)
+- `idx_google_reviews_rating` - Filter by star rating
+- `idx_google_reviews_language` - Filter by language
+
+**Trigger**: `trigger_update_google_reviews_updated_at` - Auto-updates `updated_at` on row changes.
+
+---
+
+### 23. **google_business_oauth** ✅ ACTIVE
+OAuth tokens for Google Business Profile API access.
+
+**Activity**: Token refresh and usage tracking
+**Status**: ACTIVE - Required for Google Reviews sync
+**Features**: Token lifecycle management, scope tracking, usage monitoring
+
+**Purpose**: Stores OAuth tokens for the dedicated Google Business account (info@len.golf), separate from user authentication. Enables automated Google Business Profile API access for review syncing and management.
+
+**Key Relationships**: None (standalone credential store, used by review sync process)
+
+**Population**: Admin OAuth flow to authorize Google Business Profile access
+
+**Usage**:
+- Google Business Profile API authentication
+- Automated review sync authorization
+- Token refresh and lifecycle management
+
+**Columns**:
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| id | uuid | NO | gen_random_uuid() | Primary key |
+| email | text | NO | - | Google Business account email (unique, e.g., info@len.golf) |
+| access_token | text | NO | - | Current OAuth access token |
+| refresh_token | text | NO | - | Long-lived refresh token |
+| token_expires_at | timestamptz | NO | - | Access token expiry time |
+| scope | text | NO | - | Authorized OAuth scopes (should include business.manage) |
+| created_at | timestamptz | NO | now() | Record creation |
+| updated_at | timestamptz | NO | now() | Last update (auto-trigger) |
+| last_used_at | timestamptz | NO | now() | Last API usage time |
+
+**Indexes**:
+- `idx_google_business_oauth_email` - Quick lookup by email
+
+**Trigger**: `trigger_update_google_business_oauth_updated_at` - Auto-updates `updated_at` on row changes.
+
+**Security Note**: This table stores sensitive OAuth credentials. Access should be restricted to service role only. Tokens are for the dedicated business account, not individual user accounts.
 
 ---
 

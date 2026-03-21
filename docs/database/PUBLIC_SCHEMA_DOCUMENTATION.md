@@ -1,12 +1,12 @@
 # Public Schema Documentation
 
 ## Overview
-The `public` schema contains core application tables for managing bookings, customer data, inventory, competitive analytics, and system operations. This is the primary schema for user-facing functionality.
+The `public` schema contains core application tables for managing bookings, customer data, inventory, competitive analytics, chat opportunity recovery, club rentals, and system operations. This is the primary schema for user-facing functionality.
 
-**Current Status (2025-01-08)**:
-- **Total Tables**: 35 (+ 2 views)
+**Current Status (2026-03-21)**:
+- **Total Tables**: 40 (+ 2 views)
 - **🔥 Highly Active**: 2 tables (customers: 26.9M ops, processed_leads: 7.2K ops)
-- **✅ Active**: 8 tables with regular operations (bookings, crm_packages, etc.)
+- **✅ Active**: 13 tables with regular operations (bookings, crm_packages, chat_opportunities, club_rentals, etc.)
 - **⚠️ Low Activity**: 3 tables with minimal usage
 - **❌ Unused**: 12 tables with zero/minimal activity (cleanup candidates)
 - **Database Operations**: 26.9M+ total operations, heavily concentrated in customer management
@@ -27,6 +27,10 @@ erDiagram
     inventory_categories ||--o{ inventory_products : "contains"
     inventory_products ||--o{ inventory_submission : "tracks_submissions"
     profiles ||--o{ crm_customer_mapping : "maps_to"
+    chat_opportunities ||--o{ chat_opportunity_logs : "tracks_actions"
+    rental_club_sets ||--o{ club_rentals : "rented_as"
+    bookings ||--o{ club_rentals : "has_rental"
+    customers ||--o{ club_rentals : "rents"
 ```
 
 ## Tables
@@ -734,6 +738,263 @@ Tournament scoring feature.
 
 ---
 
+### 27. **chat_opportunities** ✅ ACTIVE
+Sales opportunity tracking from chat conversations.
+
+**Activity**: Regular creation and status updates from batch processing and staff actions
+**Status**: ACTIVE - Chat opportunity recovery system
+
+**Purpose**: Track and manage sales opportunities identified from chat conversations. Separate from "Following" which is for short-term operational follow-up.
+
+**Key Relationships**:
+- `conversation_id` → `unified_conversations.id` (one opportunity per conversation)
+- Referenced by `chat_opportunity_logs`
+
+**Population**: Created by batch processing (cron or manual) via LLM analysis of chat conversations
+
+**Usage**:
+- Sales opportunity identification and prioritization
+- Staff follow-up workflow management
+- Conversion tracking and analytics
+- Dashboard statistics and reporting
+
+**Columns**:
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| id | uuid | NO | gen_random_uuid() | Primary key |
+| conversation_id | uuid | NO | - | Linked conversation (unique) |
+| channel_type | text | NO | - | Chat channel type |
+| opportunity_type | text | NO | - | Classification (coaching_inquiry/pricing_inquiry/booking_failed/package_interest/equipment_inquiry/general_interest) |
+| priority | text | YES | 'medium' | Priority level (high/medium/low) |
+| confidence_score | decimal(3,2) | YES | - | LLM confidence score (0-1) |
+| analysis_summary | text | YES | - | LLM analysis summary |
+| suggested_action | text | YES | - | LLM suggested follow-up action |
+| suggested_message | text | YES | - | LLM suggested outreach message |
+| customer_name | text | YES | - | Extracted customer name |
+| customer_phone | text | YES | - | Extracted customer phone |
+| customer_email | text | YES | - | Extracted customer email |
+| status | text | YES | 'pending' | Status (pending/contacted/converted/lost/dismissed) |
+| contacted_at | timestamptz | YES | - | When staff reached out |
+| contacted_by | text | YES | - | Staff who made contact |
+| outcome | text | YES | - | Contact outcome |
+| outcome_notes | text | YES | - | Detailed outcome notes |
+| created_at | timestamptz | YES | now() | Record creation |
+| updated_at | timestamptz | YES | now() | Last update (auto-trigger) |
+| analyzed_at | timestamptz | YES | - | When LLM analysis completed |
+| expires_at | timestamptz | YES | now() + 60 days | Opportunity expiry |
+
+**Indexes**:
+- `idx_chat_opportunities_status` - Filter by status
+- `idx_chat_opportunities_priority` - Filter by priority
+- `idx_chat_opportunities_type` - Filter by opportunity type
+- `idx_chat_opportunities_created` - Sort by creation date (DESC)
+- `idx_chat_opportunities_channel` - Filter by channel
+- `idx_chat_opportunities_expires` - Partial index on pending opportunities nearing expiry
+
+**RLS**: Enabled. Authenticated users can SELECT/INSERT/UPDATE. Service role has full access.
+
+---
+
+### 28. **chat_opportunity_logs** ✅ ACTIVE
+Audit log for chat opportunity follow-up history and actions.
+
+**Activity**: Created on every opportunity state change or staff action
+**Status**: ACTIVE - Audit trail for opportunity management
+
+**Purpose**: Tracks the full history of actions taken on each chat opportunity
+
+**Key Relationships**:
+- `opportunity_id` → `chat_opportunities.id` (CASCADE on delete)
+
+**Population**: Auto-created on opportunity status changes and staff actions
+
+**Usage**:
+- Audit trail for opportunity follow-up
+- Staff action tracking
+- Status change history
+
+**Columns**:
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| id | uuid | NO | gen_random_uuid() | Primary key |
+| opportunity_id | uuid | NO | - | Parent opportunity (FK, CASCADE delete) |
+| action | text | NO | - | Action type (created/analyzed/contacted/status_changed/note_added/message_sent/expired) |
+| actor | text | YES | - | Staff email or 'system' |
+| previous_status | text | YES | - | Status before change |
+| new_status | text | YES | - | Status after change |
+| details | jsonb | YES | - | Additional action details |
+| created_at | timestamptz | YES | now() | Action timestamp |
+
+**Indexes**:
+- `idx_chat_opportunity_logs_opportunity` - Lookup by opportunity
+- `idx_chat_opportunity_logs_created` - Sort by date (DESC)
+- `idx_chat_opportunity_logs_actor` - Filter by staff member
+
+**RLS**: Enabled. Authenticated users can SELECT/INSERT. Service role has full access.
+
+---
+
+### 29. **chat_opportunity_batch_runs** ✅ ACTIVE
+Audit log for batch processing runs of the chat opportunity system.
+
+**Activity**: Created on each batch processing run (cron or manual)
+**Status**: ACTIVE - Monitoring and debugging for opportunity batch processing
+
+**Purpose**: Track batch processing runs for monitoring pipeline health and debugging failures
+
+**Key Relationships**: None (standalone audit table)
+
+**Population**: Created by batch processing cron job or manual trigger
+
+**Usage**:
+- Batch processing monitoring
+- Pipeline health dashboards
+- Error tracking and debugging
+- Performance metrics
+
+**Columns**:
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| id | uuid | NO | gen_random_uuid() | Primary key |
+| started_at | timestamptz | YES | now() | Run start time |
+| completed_at | timestamptz | YES | - | Run completion time |
+| status | text | YES | 'running' | Run status (running/completed/failed) |
+| trigger_type | text | YES | 'cron' | Trigger source (cron/manual) |
+| scanned | int | YES | 0 | Conversations scanned |
+| analyzed | int | YES | 0 | Conversations sent to LLM |
+| created | int | YES | 0 | Opportunities created |
+| skipped | int | YES | 0 | Skipped (not opportunity, low confidence, duplicate) |
+| errors | int | YES | 0 | Errors encountered |
+| processing_time_ms | int | YES | - | Total processing time in milliseconds |
+| parameters | jsonb | YES | - | Parameters used for the run |
+| error_message | text | YES | - | Error details if failed |
+
+**Indexes**:
+- `idx_chat_opportunity_batch_runs_started` - Sort by start time (DESC)
+- `idx_chat_opportunity_batch_runs_status` - Filter by status
+
+**RLS**: Enabled. Authenticated users can SELECT. Service role has full access.
+
+---
+
+### 30. **rental_club_sets** ✅ ACTIVE
+Bookable club set inventory for indoor simulator and course rentals.
+
+**Activity**: Read-heavy for availability queries and booking flows
+**Status**: ACTIVE - Club rental feature
+
+**Purpose**: Defines available golf club sets for rental, with pricing tiers for both indoor (hourly) and course (daily) use. Separate from `used_clubs_inventory` which tracks clubs for sale.
+
+**Key Relationships**:
+- Referenced by `club_rentals.rental_club_set_id`
+
+**Population**: Admin-managed inventory records
+
+**Usage**:
+- Club rental availability display
+- Pricing calculations for indoor and course rentals
+- Inventory management
+- Website and booking app product listings
+
+**Columns**:
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| id | uuid | NO | gen_random_uuid() | Primary key |
+| name | text | NO | - | Set display name |
+| slug | text | NO | - | URL-friendly unique identifier |
+| tier | text | NO | - | Pricing tier (premium/premium-plus) |
+| gender | text | NO | - | Target gender (mens/womens) |
+| brand | text | YES | - | Club brand name |
+| model | text | YES | - | Club model name |
+| description | text | YES | - | Detailed description |
+| specifications | jsonb | YES | '[]' | Club specifications list |
+| image_url | text | YES | - | Product image URL |
+| rental_type | text | NO | - | Availability type (indoor/course/both) |
+| indoor_price_1h | numeric(10,2) | YES | 0 | Indoor 1-hour price |
+| indoor_price_2h | numeric(10,2) | YES | 0 | Indoor 2-hour price |
+| indoor_price_4h | numeric(10,2) | YES | 0 | Indoor 4-hour price |
+| course_price_1d | numeric(10,2) | YES | 0 | Course 1-day price |
+| course_price_3d | numeric(10,2) | YES | 0 | Course 3-day price |
+| course_price_7d | numeric(10,2) | YES | 0 | Course 7-day price |
+| course_price_14d | numeric(10,2) | YES | 0 | Course 14-day price |
+| quantity | int | NO | 1 | Available quantity |
+| is_active | boolean | NO | true | Active listing flag |
+| display_order | int | NO | 0 | Sort order |
+| created_at | timestamptz | NO | now() | Record creation |
+| updated_at | timestamptz | NO | now() | Last update |
+
+**RLS**: Enabled. Public read access (SELECT for all). Service role has full write access.
+
+---
+
+### 31. **club_rentals** ✅ ACTIVE
+Club rental reservations for indoor simulator and course use.
+
+**Activity**: Created on each club rental booking; updated through lifecycle
+**Status**: ACTIVE - Club rental reservation system
+
+**Purpose**: Tracks all club rental reservations. Indoor rentals link to bay bookings via `booking_id`; course rentals are standalone (booking_id = NULL).
+
+**Key Relationships**:
+- `rental_club_set_id` → `rental_club_sets.id` (required)
+- `booking_id` → `bookings.id` (optional, indoor rentals only, SET NULL on delete)
+- `customer_id` → `customers.id` (optional)
+
+**Population**: Created through booking app, website, LIFF, staff interface, or LINE
+
+**Usage**:
+- Rental reservation management
+- Club availability tracking
+- Staff checkout/return workflow
+- Revenue tracking and reporting
+- Customer rental history
+
+**Columns**:
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| id | uuid | NO | gen_random_uuid() | Primary key |
+| rental_code | text | NO | - | Unique rental code |
+| rental_club_set_id | uuid | NO | - | Club set reference (FK) |
+| booking_id | text | YES | - | Bay booking reference (FK, indoor only) |
+| customer_id | uuid | YES | - | Customer reference (FK) |
+| customer_name | text | NO | - | Customer name |
+| customer_email | text | YES | - | Customer email |
+| customer_phone | text | YES | - | Customer phone |
+| user_id | uuid | YES | - | Booking app profile ID (nullable for guests) |
+| rental_type | text | NO | - | Type (indoor/course) |
+| status | text | NO | 'reserved' | Status (reserved/confirmed/checked_out/returned/cancelled/no_show) |
+| start_date | date | NO | - | Rental start date |
+| end_date | date | NO | - | Rental end date |
+| start_time | time | YES | - | Start time (indoor only) |
+| duration_hours | numeric(4,1) | YES | - | Duration in hours (indoor: 1, 2, 4) |
+| duration_days | int | YES | - | Duration in days (course: 1, 3, 7, 14) |
+| rental_price | numeric(10,2) | NO | 0 | Base rental price |
+| add_ons | jsonb | YES | '[]' | Add-on items |
+| add_ons_total | numeric(10,2) | YES | 0 | Add-ons subtotal |
+| delivery_requested | boolean | YES | false | Delivery requested flag |
+| delivery_address | text | YES | - | Delivery address |
+| delivery_fee | numeric(10,2) | YES | 0 | Delivery fee |
+| total_price | numeric(10,2) | NO | 0 | Total price (rental + add-ons + delivery) |
+| pos_order_id | uuid | YES | - | POS order linkage |
+| checked_out_at | timestamptz | YES | - | When clubs were handed out |
+| checked_out_by | text | YES | - | Staff who checked out |
+| returned_at | timestamptz | YES | - | When clubs were returned |
+| returned_by | text | YES | - | Staff who processed return |
+| notes | text | YES | - | Staff notes |
+| source | text | YES | 'booking_app' | Booking source (website/booking_app/liff/staff/line) |
+| created_at | timestamptz | NO | now() | Record creation |
+| updated_at | timestamptz | NO | now() | Last update |
+
+**Indexes**:
+- `idx_club_rentals_availability` - Availability queries (partial: excludes cancelled/no_show/returned)
+- `idx_club_rentals_booking` - Lookup by bay booking (partial: non-null booking_id only)
+- `idx_club_rentals_status_date` - Dashboard queries by status and date
+- `idx_club_rentals_customer` - Customer lookup (partial: non-null customer_id only)
+
+**RLS**: Enabled. Users can SELECT own rentals (by user_id). Service role has full access. Anon can INSERT (guest course rental bookings).
+
+---
+
 ## Views and Materialized Views
 
 ### customer_analytics ✅ ACTIVE
@@ -754,6 +1015,11 @@ Daily aggregated referral counts.
 - `update_customer_search_vector()` - Maintains full-text search index
 - `log_booking_change()` - Trigger function for booking history
 - `normalize_phone_number()` - Standardizes phone formats
+- `find_chat_opportunities(p_days_threshold, p_max_age_days)` - Identifies conversations that could be sales opportunities based on age and keyword content
+- `get_chat_opportunities(p_status, p_priority, p_opportunity_type, p_channel_type, p_offset, p_limit)` - Returns paginated, filterable list of opportunities with conversation details
+- `count_chat_opportunities()` - Returns opportunity counts grouped by status
+- `get_chat_opportunity_stats()` - Returns dashboard statistics including conversion rate, average contact time, and breakdowns by type/priority/channel
+- `update_chat_opportunities_updated_at()` - Trigger function to auto-update `updated_at` on chat_opportunities
 
 ## Security & Access Control
 

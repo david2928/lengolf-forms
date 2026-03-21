@@ -447,37 +447,6 @@ useEffect(() => {
 - Always validate on both client and server side
 - Handle duplicate phone numbers gracefully
 
-## Scraper Service Architecture
-
-The social media competitor scraping functionality has been moved to a separate service for better scalability and reliability:
-
-### Architecture
-```
-Main App (Vercel) → Scraper Service (Cloud Run) → Supabase Database
-```
-
-### Local Development
-The scraper service is located in `./scraper-service/` directory and runs independently:
-
-```bash
-# Start scraper service
-cd scraper-service
-npm install
-npm run dev  # Runs on port 8080
-
-# Main app calls scraper service
-SCRAPER_SERVICE_URL=http://localhost:8080
-SCRAPER_API_KEY=your_api_key
-```
-
-### API Integration
-- `POST /api/competitors/sync` - Triggers full competitor sync via Cloud Run
-- `POST /api/competitors/test` - Tests individual platform scraping
-
-### Deployment
-- **Main App**: Deployed to Vercel (no Playwright dependencies)
-- **Scraper Service**: Deployed to Google Cloud Run with Playwright
-
 ## Memories & Notes
 
 ### Development Environment
