@@ -237,6 +237,16 @@ export async function PUT(
   if (payload.start_time && !/^\d{2}:\d{2}$/.test(payload.start_time)) {
     return NextResponse.json({ error: 'Invalid start_time format. Expected HH:mm' }, { status: 400 });
   }
+  if (payload.start_time) {
+    const startTimeHour = parseInt(payload.start_time.split(':')[0], 10);
+    if (startTimeHour < 9 || startTimeHour >= 24) {
+      return NextResponse.json({
+        error: 'Bookings can only be set to times between 09:00 and 23:59',
+        selected_time: payload.start_time,
+        allowed_hours: '09:00 - 23:59'
+      }, { status: 400 });
+    }
+  }
   if (payload.end_time && !/^\d{2}:\d{2}$/.test(payload.end_time)) {
     return NextResponse.json({ error: 'Invalid end_time format. Expected HH:mm' }, { status: 400 });
   }
