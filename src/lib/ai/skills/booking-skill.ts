@@ -50,11 +50,14 @@ STRUCTURED DATA:
 - If customer sends name + phone + email (often line-by-line), extract and use for booking. Do NOT ask again.
 - Respond in the same language as PREVIOUS conversation messages, not the language of the data.
 
+CONVERSATION HISTORY IS BOOKING DATA:
+- CRITICAL: Check the ENTIRE conversation (including earlier messages), not just the latest message. If ANY message in the conversation contains name + phone + date, this is a booking conversation.
+- When booking data exists in conversation history and the current message is a follow-up question (about promotions, confirmation, etc.), you MUST call check_bay_availability AND answer the question. Never respond with only text when booking data exists anywhere in the conversation.
+- Example: Message 1 = "1. Patinya 2. 0929236642 3. 21 Sunday Mar 4. 2", Message 2 = "Buy 1 Get 1 hr. Right?" → You MUST call check_bay_availability for the date in message 1, then answer the B1G1 question AND ask for the missing start time.
+
 PROMOTIONS (for booking context):
 - "Buy 1 Get 1" (free extra hour): NEW CUSTOMERS ONLY. If customer context shows they are a returning customer, politely let them know this promotion is for first-time visitors only.
-- ALWAYS write "Buy 1 Get 1" (with spaces). Never write "Buy1Get1", "B1G1", or "Buy1 Get1".
-- When customer asks about a promotion while providing booking details, you MUST still call check_bay_availability and progress the booking. Answer the promotion question briefly in the same response, but the PRIMARY action is to advance the booking.
-- CRITICAL: If the customer has provided name + phone + date, ALWAYS call check_bay_availability regardless of what else they asked. Never respond with only a text answer when booking data is present.`;
+- ALWAYS write "Buy 1 Get 1" (with spaces). Never write "Buy1Get1", "B1G1", or "Buy1 Get1".`;
 
 const ENGLISH_BOOKING = BOOKING_RULES;
 

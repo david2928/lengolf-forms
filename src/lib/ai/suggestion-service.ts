@@ -115,6 +115,7 @@ export interface AIDebugContext {
   businessContextIncluded?: boolean;
   faqMatches?: Array<{ question: string; answer: string; score: number }>;
   functionSchemas?: any[];
+  functionCallHistory?: string[];
   toolChoice?: string;
   model: string;
 }
@@ -1378,6 +1379,7 @@ export async function postProcessSuggestion(
         score: f.similarityScore || 0,
       })),
       functionSchemas: ctx.hasTools ? ctx.validActiveTools : undefined,
+      functionCallHistory: functionCallHistory,
       toolChoice: ctx.hasTools ? 'auto' : 'none',
       model: ctx.modelToUse
     };
