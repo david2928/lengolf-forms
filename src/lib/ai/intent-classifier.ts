@@ -69,6 +69,7 @@ CRITICAL RULES:
 - Short Thai messages like "แล้ว...ล่ะ" are follow-ups, NEVER greetings.
 - When in doubt between facility_inquiry and pricing_inquiry, check if the previous messages discussed prices.
 - "book the rental club" / "rent clubs" / questions about borrowing or renting equipment = equipment_inquiry, NOT booking_request. The word "book" here refers to reserving equipment, not a bay booking.
+- STRUCTURED BOOKING DATA = booking_request: When the conversation contains customer name + phone number + date + duration (often sent as a numbered list like "1. Name 2. Phone 3. Date 4. Hours"), this is ALWAYS a booking_request, even if a follow-up message asks about promotions ("Buy 1 Get 1", "B1G1"). The customer intends to book and is asking about the promotion that applies to their booking.
 
 Respond with JSON only.`;
 

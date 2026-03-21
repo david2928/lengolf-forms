@@ -18,12 +18,12 @@ const INTENT_TOOLS: Record<string, string[]> = {
   modification_request: ['modify_booking', 'lookup_booking', 'get_customer_context'],
   coaching_inquiry: ['get_coaching_availability', 'create_booking', 'get_customer_context', 'search_knowledge', 'suggest_images'],
   pricing_inquiry: ['search_knowledge', 'suggest_images'],
-  promotion_inquiry: ['search_knowledge', 'suggest_images'],
+  promotion_inquiry: ['check_bay_availability', 'create_booking', 'get_customer_context', 'search_knowledge', 'suggest_images'],
   facility_inquiry: ['search_knowledge', 'suggest_images'],
   equipment_inquiry: ['check_club_availability', 'search_knowledge', 'suggest_images'],
   payment_inquiry: ['search_knowledge'],
   location_inquiry: ['search_knowledge', 'get_customer_context', 'suggest_images'],
-  general_inquiry: ['search_knowledge', 'get_customer_context', 'suggest_images'],
+  general_inquiry: ['check_bay_availability', 'create_booking', 'get_customer_context', 'search_knowledge', 'suggest_images'],
   greeting: ['get_customer_context'], // Optional — AI can personalize greetings for known customers
   // arrival_notification: no tools
 };
