@@ -32,6 +32,7 @@ export interface SuggestResponseRequest {
   overrideModel?: string;
   includeDebugContext?: boolean;
   conversationContext?: Array<{ content: string; senderType: string; createdAt: string }>;
+  channelDisplayName?: string; // Display name override for dryRun testing
 }
 
 // ─── Rate limiter ────────────────────────────────────────────────────────────
@@ -64,7 +65,7 @@ export async function getConversationContext(
 
     const { data: conversation, error: convError } = await refacSupabaseAdmin
       .from('unified_conversations')
-      .select('customer_id')
+      .select('customer_id, channel_metadata')
       .eq('id', conversationId)
       .eq('channel_type', channelType)
       .maybeSingle();
@@ -74,6 +75,8 @@ export async function getConversationContext(
     }
 
     let customerId = conversation?.customer_id || null;
+    const channelMetadata = conversation?.channel_metadata as Record<string, unknown> | null;
+    const channelDisplayName = (channelMetadata?.display_name as string) || (channelMetadata?.customer_name as string) || undefined;
 
     // Fallback: query underlying table directly if view returned no customer_id
     if (!customerId) {
@@ -123,6 +126,7 @@ export async function getConversationContext(
       conversationContext: {
         id: conversationId,
         channelType,
+        channelDisplayName,
         recentMessages: (messages || [])
           .reverse()
           .map((msg: Record<string, unknown>) => ({
@@ -141,6 +145,7 @@ export async function getConversationContext(
       conversationContext: {
         id: conversationId,
         channelType,
+        channelDisplayName: undefined,
         recentMessages: []
       },
       customerId: null

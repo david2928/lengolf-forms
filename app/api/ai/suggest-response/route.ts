@@ -163,6 +163,7 @@ export async function POST(request: NextRequest) {
       conversationContext = {
         id: body.conversationId,
         channelType: body.channelType,
+        channelDisplayName: body.channelDisplayName,
         recentMessages: body.conversationContext.map(msg => ({
           content: msg.content,
           senderType: msg.senderType,

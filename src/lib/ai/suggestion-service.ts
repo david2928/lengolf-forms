@@ -75,6 +75,7 @@ export interface ConversationContext {
   id: string;
   channelType: 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp';
   customerId?: string;
+  channelDisplayName?: string; // Display name from channel (LINE profile, IG handle, etc.)
   recentMessages: Array<{
     content: string;
     senderType: string;
@@ -933,7 +934,7 @@ RESPOND IN THE SAME LANGUAGE AS THE CUSTOMER (Chinese/Japanese/Korean). Match th
   } else {
     userContent = `Customer message: "${params.customerMessage}"
 
-ENGLISH ONLY. Do not use Thai. 1 to 2 sentences. If greeting only, respond with just a greeting — don't assume intent.`;
+ENGLISH ONLY. Do not use Thai. 1 to 2 sentences. If greeting only, greet warmly with their name (if known) and ask how you can help, e.g. "Hi Sebastian! How can we help?" — don't assume intent beyond that.`;
   }
 
   // 7. Multi-step function calling loop
@@ -982,9 +983,8 @@ ENGLISH ONLY. Do not use Thai. 1 to 2 sentences. If greeting only, respond with 
     return isGreetingContent(msg.content || '');
   });
 
-  // If todaysMessages is empty but previous days have staff messages,
-  // the conversation is ongoing — don't treat this as "first message of the day"
-  const isOngoingConversation = todaysMessages.length === 0 && hasAssistantInPreviousDays;
+  // Every new day = fresh greeting. Previous-day messages don't suppress today's greeting.
+  const isOngoingConversation = false;
 
   // Add previous days' messages as text summary to system prompt (with dates for context)
   let finalContextPrompt = contextualPrompt;
@@ -1029,10 +1029,15 @@ When the customer asks about pricing, promotions, facilities, coaches, food/drin
   // Greeting logic: decide whether to greet based on conversation state
   const shouldGreet = !hasAssistantMessageToday && !hasGreetedToday && !isOngoingConversation;
 
+  // Resolve customer display name: prefer customer context name, fall back to channel display name
+  const channelDisplayName = params.conversationContext.channelDisplayName;
+  const displayNameHint = channelDisplayName ? ` The customer's name is "${channelDisplayName}".` : '';
+
   if (shouldGreet) {
-    finalContextPrompt += `\n👋 FIRST MESSAGE: Start with a brief greeting${isThaiMessage ? ' ("สวัสดีค่า")' : ' (use customer name from get_customer_context if available)'}. Then answer their question. Do NOT greet again in this session.
+    finalContextPrompt += `\n👋 FIRST MESSAGE: Start with a brief greeting${isThaiMessage ? ' ("สวัสดีค่า")' : ` (use customer name from get_customer_context if available${channelDisplayName ? `, or use "${channelDisplayName}"` : ''})`}. Then answer their question. Do NOT greet again in this session.${displayNameHint}
 
 `;
+
   } else if (hasGreetedToday || hasAssistantMessageToday || isOngoingConversation) {
     finalContextPrompt += `\n⚠️ DO NOT GREET: This is mid-conversation. No "สวัสดี", no "Hi [name]", no greeting of any kind. Answer directly.
 
