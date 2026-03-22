@@ -1473,33 +1473,53 @@ function buildLLMOptions(ctx: SuggestionContext) {
     maxOutputTokens: AI_CONFIG.maxTokens,
     temperature: AI_CONFIG.temperature,
     stopWhen: [stepCountIs(5), stopOnApproval(ctx.toolState)],
-    onStepFinish: ctx.params.dryRun ? (step: any) => {
+    onStepFinish: (step: any) => {
       const stepNum = step.stepNumber + 1;
-      ctx.debugInfo.openAIRequests.push({
-        iteration: stepNum,
-        payload: { model: ctx.modelToUse, system: '(see finalContextPrompt)', messages: '(see conversationMessages)', tools: ctx.hasTools ? Object.keys(ctx.allTools) : undefined }
+
+      // Always collect trace steps for production logging
+      ctx.traceSteps.push({
+        stepNumber: stepNum,
+        finishReason: step.finishReason,
+        toolCalls: step.toolCalls?.length > 0
+          ? step.toolCalls.map((tc: any) => ({ toolCallId: tc.toolCallId, toolName: tc.toolName, args: tc.args }))
+          : null,
+        toolResults: step.toolResults?.length > 0
+          ? step.toolResults.map((tr: any) => ({ toolCallId: tr.toolCallId, toolName: tr.toolName, result: tr.result }))
+          : null,
+        textOutput: step.text || null,
+        promptTokens: step.usage?.promptTokens ?? null,
+        completionTokens: step.usage?.completionTokens ?? null,
+        totalTokens: step.usage?.totalTokens ?? null,
       });
-      ctx.debugInfo.openAIResponses.push({
-        iteration: stepNum,
-        response: {
-          text: step.text,
-          toolCalls: step.toolCalls,
-          toolResults: step.toolResults,
-          finishReason: step.finishReason,
-          usage: step.usage,
+
+      // Dry-run: also do existing debug logging
+      if (ctx.params.dryRun) {
+        ctx.debugInfo.openAIRequests.push({
+          iteration: stepNum,
+          payload: { model: ctx.modelToUse, system: '(see finalContextPrompt)', messages: '(see conversationMessages)', tools: ctx.hasTools ? Object.keys(ctx.allTools) : undefined }
+        });
+        ctx.debugInfo.openAIResponses.push({
+          iteration: stepNum,
+          response: {
+            text: step.text,
+            toolCalls: step.toolCalls,
+            toolResults: step.toolResults,
+            finishReason: step.finishReason,
+            usage: step.usage,
+          }
+        });
+        console.log(`\n========== AI SDK STEP ${stepNum} ==========`);
+        console.log(`Model: ${ctx.modelToUse}${ctx.params.overrideModel ? ' (OVERRIDE)' : ''}`);
+        console.log(`Finish reason: ${step.finishReason}`);
+        if (step.toolCalls.length > 0) {
+          console.log(`Tool calls: ${step.toolCalls.map((tc: { toolName: string }) => tc.toolName).join(', ')}`);
         }
-      });
-      console.log(`\n========== AI SDK STEP ${stepNum} ==========`);
-      console.log(`Model: ${ctx.modelToUse}${ctx.params.overrideModel ? ' (OVERRIDE)' : ''}`);
-      console.log(`Finish reason: ${step.finishReason}`);
-      if (step.toolCalls.length > 0) {
-        console.log(`Tool calls: ${step.toolCalls.map((tc: { toolName: string }) => tc.toolName).join(', ')}`);
+        if (step.text) {
+          console.log(`Text: ${step.text.substring(0, 200)}${step.text.length > 200 ? '...' : ''}`);
+        }
+        console.log(`========== END STEP ${stepNum} ==========\n`);
       }
-      if (step.text) {
-        console.log(`Text: ${step.text.substring(0, 200)}${step.text.length > 200 ? '...' : ''}`);
-      }
-      console.log(`========== END STEP ${stepNum} ==========\n`);
-    } : undefined,
+    },
   };
 }
 
