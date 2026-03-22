@@ -21,21 +21,13 @@ const SKILL_REGISTRY: Skill[] = [
 ];
 
 /**
- * Get skills matching the detected intent.
- * Always includes core skill + matched skills.
- * Falls back to general skill if no specific match.
+ * Get all skills for the prompt.
+ * All skills are always loaded — the model decides what's relevant,
+ * same as the tool selection redesign (all tools available every turn).
+ * Intent parameter kept for backward compatibility (debug context logging).
  */
-export function getSkillsForIntent(intent: string): Skill[] {
-  const matched = SKILL_REGISTRY.filter(skill =>
-    skill.intents.includes(intent)
-  );
-
-  // Always include general skill as fallback if no specific match
-  if (matched.length === 0) {
-    return [coreSkill, generalSkill];
-  }
-
-  return [coreSkill, ...matched];
+export function getSkillsForIntent(_intent: string): Skill[] {
+  return [coreSkill, ...SKILL_REGISTRY];
 }
 
 /**

@@ -30,13 +30,7 @@ JUNIOR COACHING:
 - Same pricing as adult lessons
 - Pro Noon has school program experience (Concordian International)
 
-LESSON PRICING (per hour, simulator usage included):
-- 1 Hour: 1,800 (1 pax) | 2,400 (2 pax) | 2,900 (3-5 pax)
-- 5 Hours: 8,500 / 11,000 / 13,650 (valid 6 months)
-- 10 Hours: 16,000 / 20,500 / 25,500 (valid 12 months)
-- 20 Hours: 31,000 / 39,000 / 49,000 (valid 24 months)
-- Starter Package: 11,000 (1 pax) / 13,500 (2 pax) — 5h coaching + 5h practice + free glove (6 months)
-- All packages include: clubs provided, simulator usage, video analysis
+LESSON PRICING: See PRICING section (loaded dynamically). All packages include clubs, simulator, video analysis.
 
 WHAT'S INCLUDED IN EVERY LESSON:
 - Golf clubs provided (no need to bring own)
