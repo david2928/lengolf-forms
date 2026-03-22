@@ -1,7 +1,7 @@
 # AI Tool Selection Redesign
 
 **Date:** 2026-03-22
-**Status:** Approved
+**Status:** Implemented (2026-03-22)
 **Scope:** Remove intent-based tool filtering, switch model, fix regex classifier
 
 ## Problem

@@ -12,11 +12,13 @@ Evaluate, test, and improve the AI suggestion system that generates staff respon
 ## Architecture Overview
 
 The AI suggestion pipeline:
-1. **Intent Classification** — Two-tier: regex fast-path (0ms) → LLM classifier via GPT-4o-mini (~1s)
+1. **Intent Classification** — Two-tier: regex fast-path (first messages only, 0ms) → LLM classifier via GPT-4o-mini (~1s, all follow-ups)
 2. **Skill Loading** — Intent determines which skill prompts are loaded (core + booking/pricing/facility/coaching/general)
 3. **Context Assembly** — Customer data, conversation history, FAQ matches, similar message embeddings
-4. **Response Generation** — OpenAI with function calling (check_bay_availability, create_booking, cancel_booking, etc.)
+4. **Response Generation** — GPT-4.1-mini with all 12 tools available every turn (model selects which to use). Write tools require staff approval via `requiresApproval` flag.
 5. **Post-processing** — Confidence scoring, management tag extraction, internal note stripping
+
+**Note (March 2026):** Intent-based tool filtering was removed. The classifier still selects skills/prompts but no longer gates which tools the model can see. See `docs/superpowers/specs/2026-03-22-ai-tool-selection-redesign.md` for details.
 
 ### Key Files
 
