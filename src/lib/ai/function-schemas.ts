@@ -13,17 +13,17 @@ import type { SimilarMessage, FAQMatch } from './embedding-service';
 
 const INTENT_TOOLS: Record<string, string[]> = {
   availability_check: ['check_bay_availability', 'get_customer_context', 'search_knowledge'],
-  booking_request: ['check_bay_availability', 'create_booking', 'get_customer_context'],
+  booking_request: ['check_bay_availability', 'get_coaching_availability', 'create_booking', 'get_customer_context'],
   cancellation: ['cancel_booking', 'lookup_booking', 'get_customer_context'],
   modification_request: ['modify_booking', 'lookup_booking', 'get_customer_context'],
-  coaching_inquiry: ['get_coaching_availability', 'get_customer_context', 'search_knowledge'],
-  pricing_inquiry: ['search_knowledge'],
-  promotion_inquiry: ['search_knowledge'],
-  facility_inquiry: ['search_knowledge'],
-  equipment_inquiry: ['search_knowledge'],
+  coaching_inquiry: ['get_coaching_availability', 'create_booking', 'get_customer_context', 'search_knowledge', 'suggest_images'],
+  pricing_inquiry: ['search_knowledge', 'suggest_images'],
+  promotion_inquiry: ['check_bay_availability', 'create_booking', 'get_customer_context', 'search_knowledge', 'suggest_images'],
+  facility_inquiry: ['search_knowledge', 'suggest_images'],
+  equipment_inquiry: ['check_club_availability', 'search_knowledge', 'suggest_images'],
   payment_inquiry: ['search_knowledge'],
-  location_inquiry: ['search_knowledge'],
-  general_inquiry: ['search_knowledge', 'get_customer_context'],
+  location_inquiry: ['search_knowledge', 'get_customer_context', 'suggest_images'],
+  general_inquiry: ['check_bay_availability', 'create_booking', 'get_customer_context', 'search_knowledge', 'suggest_images'],
   greeting: ['get_customer_context'], // Optional — AI can personalize greetings for known customers
   // arrival_notification: no tools
 };
@@ -51,6 +51,19 @@ export interface ToolExecutionState {
   customerContext?: CustomerContext;
   similarMessages?: SimilarMessage[];
   faqMatches?: FAQMatch[];
+  // Set by suggest_images tool — indices into the image catalog
+  suggestedImageSelections?: Array<{ id: string; source: 'curated' | 'promotion'; imageUrl: string; title: string; description: string }>;
+}
+
+/** A single entry in the combined image catalog (curated + promotions) */
+export interface ImageCatalogEntry {
+  index: number;
+  id: string;
+  source: 'curated' | 'promotion';
+  name: string;
+  description: string;
+  imageUrl: string;
+  category?: string;
 }
 
 /**
@@ -228,6 +241,7 @@ export function createAITools(
   state: ToolExecutionState,
   customerId?: string,
   contextProviders?: ContextProviders,
+  imageCatalog?: ImageCatalogEntry[],
 ) {
   // Context tools — only included when providers are available
   const contextTools: Record<string, any> = {};
@@ -298,6 +312,43 @@ Do NOT use for:
     });
   }
 
+  // Image suggestion tool — only included when image catalog is available
+  if (imageCatalog && imageCatalog.length > 0) {
+    contextTools.suggest_images = tool({
+      description: `Select images to send to the customer alongside your text response.
+Call this when an image would help — e.g., pricing cards, coach profiles, facility photos, or active promotions.
+Pick ONLY images directly relevant to the current conversation. Usually 1-2 images max.
+Do NOT call for simple greetings, confirmations, thank-you messages, or booking actions.
+
+AVAILABLE IMAGES:
+${imageCatalog.map(img => `[${img.index}] ${img.name} — ${img.description}`).join('\n')}`,
+      inputSchema: z.object({
+        image_indices: z.array(z.number()).describe('Image numbers from the list above. Only pick relevant ones.'),
+      }),
+      execute: async (args: { image_indices: number[] }) => {
+        const selected: typeof state.suggestedImageSelections = [];
+        for (const idx of args.image_indices) {
+          const entry = imageCatalog.find(img => img.index === idx);
+          if (entry) {
+            selected.push({
+              id: entry.id,
+              source: entry.source,
+              imageUrl: entry.imageUrl,
+              title: entry.name,
+              description: entry.description,
+            });
+          }
+        }
+        state.suggestedImageSelections = selected;
+        state.functionCallHistory.push('suggest_images');
+        if (selected.length === 0) {
+          return 'No valid images selected.';
+        }
+        return `Selected ${selected.length} image(s): ${selected.map(s => s.title).join(', ')}. These will be shown to staff as suggestions.`;
+      },
+    });
+  }
+
   return {
     // On-demand context tools
     ...contextTools,
@@ -343,6 +394,28 @@ Do NOT use when:
         preferred_time: z.string().describe('Preferred time in HH:00 format (e.g., "14:00"). Use empty string "" to show full day availability.'),
       }),
       execute: async (args) => executeAndTrack(state, 'get_coaching_availability', args, customerId),
+    }),
+
+    check_club_availability: tool({
+      description: `Check real-time availability of premium/premium+ club sets for rental.
+
+Use this when:
+- Customer asks to rent clubs for a golf course on a specific date
+- Customer asks if premium/premium+ clubs are available on a date
+- Customer asks "do you have clubs available for [date]?"
+
+Do NOT use when:
+- Customer asks general questions about clubs, pricing, or tiers (answer from skill knowledge)
+- Customer asks about standard clubs (always free, always available for indoor use)
+- Customer only asks about pricing without mentioning a date`,
+      inputSchema: z.object({
+        rental_type: z.enum(['indoor', 'course']).describe('Type of rental: "indoor" for use at Lengolf, "course" for taking to a golf course. Default "course" if customer mentions a golf course.'),
+        date: z.string().describe('Start date in YYYY-MM-DD format.'),
+        end_date: z.string().describe('End date in YYYY-MM-DD for multi-day course rentals. Same as date for 1-day rental. Use empty string "" for indoor.'),
+        start_time: z.string().describe('Start time in HH:mm format for indoor rentals. Use empty string "" for course rentals.'),
+        duration_hours: z.number().describe('Duration in hours for indoor rentals (1-5). Use 0 for course rentals.'),
+      }),
+      execute: async (args) => executeAndTrack(state, 'check_club_availability', args, customerId),
     }),
 
     create_booking: tool({

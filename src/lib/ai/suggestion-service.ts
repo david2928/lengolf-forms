@@ -6,10 +6,11 @@ import { generateText, streamText, stepCountIs } from 'ai';
 import type { ModelMessage } from '@ai-sdk/provider-utils';
 import { generateEmbedding, findSimilarMessages, SimilarMessage, findRelevantFAQs, trackFAQUsage, FAQMatch } from './embedding-service';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
-import { createAITools, getActiveToolsForIntent, createToolExecutionState, stopOnApproval, ContextProviders, ToolExecutionState } from './function-schemas';
+import { createAITools, getActiveToolsForIntent, createToolExecutionState, stopOnApproval, ContextProviders, ToolExecutionState, ImageCatalogEntry } from './function-schemas';
 import { FunctionResult } from './function-executor';
 import { getSkillsForIntent, composeSkillPromptForLanguage } from './skills';
 import { classifyIntent, IntentClassification, regexFullClassify } from './intent-classifier';
+import { formatPricingForAI } from '@/lib/pricing-service';
 
 export interface CustomerContext {
   // Basic info
@@ -114,6 +115,7 @@ export interface AIDebugContext {
   businessContextIncluded?: boolean;
   faqMatches?: Array<{ question: string; answer: string; score: number }>;
   functionSchemas?: any[];
+  functionCallHistory?: string[];
   toolChoice?: string;
   model: string;
 }
@@ -154,11 +156,7 @@ export interface AISuggestion {
 export interface BusinessContext {
   packageTypes?: Array<{ name: string; hours: number; validity_days?: number; description: string; type: string }>;
   coachRates?: Array<{ description: string; rate: number }>;
-  bayPricing?: {
-    socialBay: { hourly: number; description: string };
-    aiBay: { hourly: number; description: string };
-    note: string;
-  };
+  productCatalog?: import('@/lib/pricing-service').PricingCatalog;
   operatingHours?: {
     daily: string;
     note: string;
@@ -172,6 +170,7 @@ export interface BusinessContext {
     promo_type: string;
     badge_en: string | null;
     terms_en: string | null;
+    conditions?: Record<string, boolean>;
   }>;
 }
 
@@ -211,6 +210,7 @@ export interface SuggestionContext {
   modelToUse: string;
   isReasoningModel: boolean;
   debugInfo: { openAIRequests: unknown[]; openAIResponses: unknown[] };
+  imageCatalog: ImageCatalogEntry[];
 }
 
 // Legacy monolithic prompt removed — now using skills-based architecture (src/lib/ai/skills/)
@@ -261,7 +261,22 @@ function generateContextualPrompt(
     .replace(/{TODAY_DAY_OF_WEEK}/g, todayDayOfWeek)
     .replace(/{TOMORROW_DATE}/g, tomorrowDate)
     .replace(/{TOMORROW_DAY_OF_WEEK}/g, tomorrowDayOfWeek)
-    .replace(/{CURRENT_TIME}/g, currentTime) + '\n\n';
+    .replace(/{CURRENT_TIME}/g, currentTime);
+
+  // Replace pricing placeholders with dynamic data from product catalog
+  if (businessContext?.productCatalog) {
+    const formatted = formatPricingForAI(businessContext.productCatalog);
+    contextPrompt = contextPrompt
+      .replace(/{DYNAMIC_PRICING}/g, formatted.pricing)
+      .replace(/{DYNAMIC_CLUB_PRICING}/g, formatted.clubRental);
+  } else {
+    console.warn('[AI] productCatalog unavailable, using fallback text in skill prompts');
+    contextPrompt = contextPrompt
+      .replace(/{DYNAMIC_PRICING}/g, 'Pricing data temporarily unavailable. Flag [NEEDS MANAGEMENT] for pricing questions.')
+      .replace(/{DYNAMIC_CLUB_PRICING}/g, 'Club rental pricing temporarily unavailable. Flag [NEEDS MANAGEMENT].');
+  }
+
+  contextPrompt += '\n\n';
 
   // Add customer context
   if (customerContext) {
@@ -347,7 +362,9 @@ ${needsContactInfo ? `- Phone: ${customerContext.phone || 'Not provided'}\n` : '
   // Only inject DYNAMIC data here: active promotions, operating hours from DB.
   if (businessContext) {
     const msgLower = customerMessage.toLowerCase();
-    const isPricingQuestion = /ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า|โปร|promotion|discount|ส่วนลด|deal|special|package|แพ็ค/i.test(msgLower);
+    // Check both current message and recent conversation for pricing/promo keywords
+    const recentConvoText = (conversationContext?.recentMessages || []).map(m => m.content || '').join(' ').toLowerCase();
+    const isPricingQuestion = /ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า|โปร|promotion|discount|ส่วนลด|deal|special|package|แพ็ค|buy.*get|b1g1|ซื้อ.*แถม/i.test(msgLower + ' ' + recentConvoText);
     const isFacilityQuestion = /เปิด|ปิด|open|close|hour|เวลา|time|อุปกรณ์|equipment|club|ไม้กอล์ฟ|rental|ยืม/i.test(msgLower);
 
     // Operating hours from DB (facility questions only)
@@ -365,6 +382,7 @@ ${needsContactInfo ? `- Phone: ${customerContext.phone || 'Not provided'}\n` : '
         contextPrompt += `${i + 1}. ${promo.title_en}`;
         if (promo.badge_en) contextPrompt += ` [${promo.badge_en}]`;
         contextPrompt += `: ${promo.description_en}`;
+        if (promo.conditions?.new_customer_only) contextPrompt += ' [NEW CUSTOMERS ONLY]';
         if (promo.valid_until) contextPrompt += ` (until ${new Date(promo.valid_until).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })})`;
         contextPrompt += '\n';
       });
@@ -848,8 +866,11 @@ export async function prepareSuggestionContext(params: GenerateSuggestionParams)
       if (anyThaiMessage) langDetectionSource = anyThaiMessage.content!;
     }
   }
-  const currentMessageLanguage = /[\u0E00-\u0E7F]/.test(langDetectionSource) ? 'thai' : 'english';
-  const isThaiMessage = currentMessageLanguage === 'thai';
+  // Detect language: Thai, Chinese/Japanese/Korean, or English/other
+  const isThai = /[\u0E00-\u0E7F]/.test(langDetectionSource);
+  const isCJK = /[\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF]/.test(langDetectionSource);
+  const currentMessageLanguage = isThai ? 'thai' : 'english'; // Skills system uses thai/english for prompt selection
+  const isThaiMessage = isThai;
   const hasNoConversationHistory = !params.conversationContext.recentMessages || params.conversationContext.recentMessages.length <= 1;
 
   // Priority: ALWAYS greet on first message of new conversations
@@ -861,6 +882,10 @@ THAI FIRST MESSAGE: Start with "สวัสดีค่า". If they asked a qu
     userContent = `Customer message: "${params.customerMessage}"
 
 THAI: 5-8 words max. Brief but polite. No greetings, no names, no "ถ้ามีคำถามเพิ่มเติม".`;
+  } else if (isCJK) {
+    userContent = `Customer message: "${params.customerMessage}"
+
+RESPOND IN THE SAME LANGUAGE AS THE CUSTOMER (Chinese/Japanese/Korean). Match their language exactly. 1 to 2 sentences. Do not use Thai or English unless they did.`;
   } else {
     userContent = `Customer message: "${params.customerMessage}"
 
@@ -944,6 +969,15 @@ return `[${dateStr}] ${msg.senderType}: ${content}`;
 - search_knowledge: Search FAQ and past conversations for answers to business questions.
 Do NOT call these for simple greetings or thank-you messages — just respond directly.
 For booking/cancellation/modification: call get_customer_context first, then proceed to the action (create_booking, cancel_booking) without asking the customer to confirm.
+
+`;
+  }
+
+  // Add image suggestion hint for intents that have the suggest_images tool
+  const imageIntents = ['promotion_inquiry', 'pricing_inquiry', 'facility_inquiry', 'equipment_inquiry', 'coaching_inquiry', 'location_inquiry', 'general_inquiry'];
+  if (imageIntents.includes(intent)) {
+    finalContextPrompt += `\nIMAGE SUGGESTIONS:
+When the customer asks about pricing, promotions, facilities, coaches, food/drinks, or events — call suggest_images to attach a relevant image. Customers respond better when they can SEE rate cards, coach profiles, or promotion flyers. Do NOT suggest images for greetings, confirmations, or booking actions.
 
 `;
   }
@@ -1097,10 +1131,64 @@ If you can't understand the image, ask the customer to clarify.`;
     };
   }
 
-  // Tool setup: only send tools relevant to the detected intent
+  // Load combined image catalog (curated images + active promotions) for suggest_images tool
+  let imageCatalog: ImageCatalogEntry[] = [];
   const activeToolNames = getActiveToolsForIntent(intent);
+  if (activeToolNames.includes('suggest_images') && refacSupabaseAdmin) {
+    try {
+      const now = new Date().toISOString();
+      // Load curated images (non-expired)
+      const { data: curatedImages } = await refacSupabaseAdmin
+        .from('line_curated_images')
+        .select('id, name, category, file_url, description')
+        .or(`expires_at.is.null,expires_at.gt.${now}`);
+
+      // Load active promotions (with images)
+      const { data: activePromos } = await refacSupabaseAdmin
+        .from('promotions')
+        .select('id, title_en, description_en, image_url, valid_until')
+        .eq('is_active', true)
+        .eq('is_customer_facing', true)
+        .not('image_url', 'is', null)
+        .or(`valid_until.is.null,valid_until.gt.${now}`);
+
+      let idx = 1;
+      if (curatedImages) {
+        for (const img of curatedImages) {
+          if (!img.description) continue; // Skip images without descriptions
+          imageCatalog.push({
+            index: idx++,
+            id: img.id,
+            source: 'curated',
+            name: img.name,
+            description: img.description,
+            imageUrl: img.file_url,
+            category: img.category,
+          });
+        }
+      }
+      if (activePromos) {
+        for (const promo of activePromos) {
+          imageCatalog.push({
+            index: idx++,
+            id: promo.id,
+            source: 'promotion',
+            name: promo.title_en,
+            description: promo.description_en || promo.title_en,
+            imageUrl: promo.image_url,
+            category: 'Promotion',
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load image catalog:', error);
+      imageCatalog = [];
+    }
+  }
+
+  // Tool setup: only send tools relevant to the detected intent
   const toolState = createToolExecutionState();
-  const allTools = createAITools(toolState, customerIdForTools, contextProviders);
+  const allTools = createAITools(toolState, customerIdForTools, contextProviders, imageCatalog.length > 0 ? imageCatalog : undefined);
 
   // Filter activeToolNames to only include tools that actually exist in allTools
   const validActiveTools = activeToolNames.filter(name => name in allTools);
@@ -1135,6 +1223,7 @@ If you can't understand the image, ask the customer to clarify.`;
     modelToUse,
     isReasoningModel,
     debugInfo,
+    imageCatalog,
   };
 }
 
@@ -1290,12 +1379,15 @@ export async function postProcessSuggestion(
         score: f.similarityScore || 0,
       })),
       functionSchemas: ctx.hasTools ? ctx.validActiveTools : undefined,
+      functionCallHistory: functionCallHistory,
       toolChoice: ctx.hasTools ? 'auto' : 'none',
       model: ctx.modelToUse
     };
   }
 
-  // Extract image suggestions from similar messages
+  // Image suggestions — populated by the suggest_images tool (LLM-driven selection)
+  // The LLM sees the combined image catalog (curated + active promotions) and picks
+  // which images are relevant to the conversation context.
   const suggestedImages: Array<{
     imageId: string;
     imageUrl: string;
@@ -1305,113 +1397,15 @@ export async function postProcessSuggestion(
     similarityScore?: number;
   }> = [];
 
-  const imageIds = new Set<string>();
-  const imageReasons = new Map<string, { score: number; customerQuestion: string }>();
-
-  for (const msg of similarMessages) {
-    if (msg.curatedImageId) {
-      imageIds.add(msg.curatedImageId);
-      if (!imageReasons.has(msg.curatedImageId) ||
-          msg.similarityScore > (imageReasons.get(msg.curatedImageId)?.score || 0)) {
-        imageReasons.set(msg.curatedImageId, {
-          score: msg.similarityScore,
-          customerQuestion: msg.content
-        });
-      }
-    }
-  }
-
-  if (imageIds.size > 0 && refacSupabaseAdmin) {
-    try {
-      const { data: images, error } = await refacSupabaseAdmin
-        .from('line_curated_images')
-        .select('id, name, category, file_url, description')
-        .in('id', Array.from(imageIds));
-
-      if (!error && images) {
-        for (const image of images) {
-          const reasonData = imageReasons.get(image.id);
-          suggestedImages.push({
-            imageId: image.id,
-            imageUrl: image.file_url,
-            title: image.name,
-            description: image.description || `${image.category}: ${image.name}`,
-            reason: `Similar to: "${reasonData?.customerQuestion || 'previous question'}"`,
-            similarityScore: reasonData?.score
-          });
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to fetch curated image details:', error);
-    }
-  }
-
-  if (intent === 'promotion_inquiry' && refacSupabaseAdmin) {
-    try {
-      const existingIds = new Set(suggestedImages.map(img => img.imageId));
-      const { data: promoImages, error } = await refacSupabaseAdmin
-        .from('line_curated_images')
-        .select('id, name, category, file_url, description')
-        .ilike('category', '%promotion%')
-        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
-        .limit(10);
-
-      if (!error && promoImages) {
-        for (const image of promoImages) {
-          if (existingIds.has(image.id)) continue;
-          suggestedImages.push({
-            imageId: image.id,
-            imageUrl: image.file_url,
-            title: image.name,
-            description: image.description || `${image.category}: ${image.name}`,
-            reason: 'Promotion image (customer asked about promotions/deals)',
-            similarityScore: undefined
-          });
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to fetch promotion curated images:', error);
-    }
-  }
-
-  const keywordImageIntents = ['facility_inquiry', 'equipment_inquiry', 'pricing_inquiry', 'coaching_inquiry', 'location_inquiry'];
-  if (keywordImageIntents.includes(intent) && refacSupabaseAdmin) {
-    try {
-      const existingIds = new Set(suggestedImages.map(img => img.imageId));
-      const stopwords = new Set(['what', 'is', 'the', 'a', 'an', 'do', 'you', 'have', 'how', 'much', 'does', 'can', 'i', 'me', 'my', 'about', 'for', 'at', 'to', 'in', 'of', 'and', 'or', 'your', 'this', 'that', 'are', 'was', 'it', 'be']);
-      const keywords = params.customerMessage
-        .toLowerCase()
-        .replace(/[^\w\s\u0E00-\u0E7F]/g, ' ')
-        .split(/\s+/)
-        .filter(w => w.length >= 2 && !stopwords.has(w))
-        .map(kw => kw.replace(/[^a-zA-Z0-9\u0E00-\u0E7F]/g, ''))
-        .filter(kw => kw.length >= 2);
-
-      if (keywords.length > 0) {
-        const nameFilters = keywords.map(kw => `name.ilike.%${kw}%`).join(',');
-        const { data: keywordImages, error } = await refacSupabaseAdmin
-          .from('line_curated_images')
-          .select('id, name, category, file_url, description')
-          .or(nameFilters)
-          .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
-          .limit(5);
-
-        if (!error && keywordImages) {
-          for (const image of keywordImages) {
-            if (existingIds.has(image.id)) continue;
-            suggestedImages.push({
-              imageId: image.id,
-              imageUrl: image.file_url,
-              title: image.name,
-              description: image.description || `${image.category}: ${image.name}`,
-              reason: `Keyword match for "${params.customerMessage.substring(0, 50)}"`,
-              similarityScore: undefined
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to fetch keyword-matched curated images:', error);
+  if (toolState.suggestedImageSelections && toolState.suggestedImageSelections.length > 0) {
+    for (const sel of toolState.suggestedImageSelections) {
+      suggestedImages.push({
+        imageId: sel.id,
+        imageUrl: sel.imageUrl,
+        title: sel.title,
+        description: sel.description,
+        reason: `AI selected (${sel.source})`,
+      });
     }
   }
 

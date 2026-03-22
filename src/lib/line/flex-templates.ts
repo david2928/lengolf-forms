@@ -1010,6 +1010,112 @@ export function createCoachingAvailabilityMessage(coaches: any[], options?: { in
 }
 
 /**
+ * Creates a 9 AM opening survey Flex Message with Yes/No postback buttons
+ */
+export function createEarlyOpeningSurveyMessage(surveyId: string = 'early_opening_2026') {
+  return {
+    type: 'flex',
+    altText: 'LENGOLF - Would you like us to open at 9 AM?',
+    contents: {
+      type: 'bubble',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'LENGOLF',
+            weight: 'bold',
+            color: '#ffffff',
+            size: 'lg',
+            align: 'center'
+          },
+          {
+            type: 'text',
+            text: 'We value your feedback!',
+            size: 'xs',
+            color: '#ffffffcc',
+            align: 'center',
+            margin: 'xs'
+          }
+        ],
+        backgroundColor: '#005a32',
+        paddingAll: '16px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: 'Earlier Opening Hours',
+            weight: 'bold',
+            size: 'lg',
+            color: '#333333'
+          },
+          {
+            type: 'text',
+            text: 'We noticed you often play in the morning and wanted to ask:',
+            size: 'sm',
+            color: '#666666',
+            wrap: true,
+            margin: 'md'
+          },
+          {
+            type: 'text',
+            text: 'Would you be interested if we opened at 9:00 AM instead of 10:00 AM?',
+            weight: 'bold',
+            size: 'md',
+            color: '#333333',
+            wrap: true,
+            margin: 'md'
+          },
+          {
+            type: 'text',
+            text: 'There may be a few minor limitations before 10 AM, but all bays and simulators will be fully operational.',
+            size: 'xs',
+            color: '#999999',
+            wrap: true,
+            margin: 'md'
+          }
+        ],
+        paddingAll: '16px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: '#005a32',
+            flex: 1,
+            action: {
+              type: 'postback',
+              label: 'Yes please!',
+              data: `action=survey_9am&response=yes&survey_id=${surveyId}`
+            }
+          },
+          {
+            type: 'button',
+            style: 'secondary',
+            flex: 1,
+            action: {
+              type: 'postback',
+              label: '10 AM is fine',
+              data: `action=survey_9am&response=no&survey_id=${surveyId}`
+            }
+          }
+        ],
+        paddingAll: '16px'
+      }
+    }
+  };
+}
+
+/**
  * Formats coaching availability as plain text for all channels
  * Matches the coaching assist format exactly with month grouping
  */

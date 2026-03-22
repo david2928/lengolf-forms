@@ -5,6 +5,7 @@
 
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import type { BusinessContext } from '@/lib/ai/suggestion-service';
+import { getPricingCatalog } from '@/lib/pricing-service';
 
 // ─── Request / validation constants ──────────────────────────────────────────
 
@@ -308,7 +309,7 @@ export async function getBusinessContext() {
   try {
     if (!refacSupabaseAdmin) return null;
 
-    const [packageTypesResult, coachRatesResult, promotionsResult] = await Promise.all([
+    const [packageTypesResult, coachRatesResult, promotionsResult, productCatalog] = await Promise.all([
       refacSupabaseAdmin
         .schema('backoffice')
         .from('package_types')
@@ -320,12 +321,16 @@ export async function getBusinessContext() {
         .select('rate_type, rate'),
       refacSupabaseAdmin
         .from('promotions')
-        .select('title_en, title_th, description_en, description_th, valid_until, promo_type, badge_en, terms_en')
+        .select('title_en, title_th, description_en, description_th, valid_until, promo_type, badge_en, terms_en, conditions')
         .eq('is_active', true)
         .eq('is_customer_facing', true)
         .eq('promo_type', 'discount')
         .or(`valid_until.is.null,valid_until.gt.${new Date().toISOString()}`)
-        .order('display_order')
+        .order('display_order'),
+      // Note: getPricingCatalog() has its own 5-min cache (shared with /api/pricing).
+      // This means pricing data is cached in two places (here + pricing-service) but both
+      // use the same TTL so drift is bounded to one cache cycle.
+      getPricingCatalog()
     ]);
 
     const packageTypes = (packageTypesResult.data || []).map((pkg: Record<string, unknown>) => ({
@@ -344,11 +349,7 @@ export async function getBusinessContext() {
     const context: BusinessContext = {
       packageTypes,
       coachRates,
-      bayPricing: {
-        socialBay: { hourly: 500, description: 'Social Bay (up to 5 players): Weekday Morning ฿500/hr, Weekday Afternoon/Evening ฿700/hr, Weekend Morning ฿700/hr, Weekend Afternoon/Evening ฿900/hr' },
-        aiBay: { hourly: 500, description: 'AI Bay (1-2 players, advanced analytics): Same pricing as Social Bay' },
-        note: 'Prices vary by day/time. Standard club rental is FREE. Premium indoor clubs: ฿150/hr (Premium), ฿250/hr (Premium+).'
-      },
+      productCatalog: productCatalog ?? undefined,
       operatingHours: {
         daily: '10:00 - 23:00',
         note: 'Last booking at 22:00. Peak hours 18:00-21:00.'

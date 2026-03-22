@@ -73,12 +73,19 @@ export async function POST(request: NextRequest) {
         return { ...item, label: expected.label, price: expected.price } // enforce server-side price & label
       })
 
-    // Calculate end_date: for course rentals, "1 day" = return next day at same time
+    // For course rentals, compute duration_days from date range
     let end_date = body.end_date || start_date
-    if (rental_type === 'course' && duration_days) {
+    let effective_duration_days = duration_days
+    if (rental_type === 'course' && end_date && end_date !== start_date) {
+      effective_duration_days = Math.max(1, Math.round(
+        (new Date(end_date).getTime() - new Date(start_date).getTime()) / (1000 * 60 * 60 * 24)
+      ))
+    } else if (rental_type === 'course' && duration_days && !body.end_date) {
+      // Fallback: compute end_date from duration_days (legacy support)
       const start = new Date(start_date)
       start.setDate(start.getDate() + duration_days)
       end_date = start.toISOString().split('T')[0]
+      effective_duration_days = duration_days
     }
 
     // Check availability
@@ -88,6 +95,8 @@ export async function POST(request: NextRequest) {
       p_end_date: end_date,
       p_start_time: start_time || null,
       p_duration_hours: duration_hours || null,
+      p_rental_type: rental_type,
+      p_return_time: return_time || null,
     })
 
     if (availError) {
@@ -117,8 +126,8 @@ export async function POST(request: NextRequest) {
     let rental_price = 0
     if (rental_type === 'indoor' && duration_hours) {
       rental_price = getIndoorPrice(clubSet, duration_hours)
-    } else if (rental_type === 'course' && duration_days) {
-      rental_price = getCoursePrice(clubSet, duration_days)
+    } else if (rental_type === 'course' && effective_duration_days) {
+      rental_price = getCoursePrice(clubSet, effective_duration_days)
     }
 
     const add_ons_total = validatedAddOns.reduce((sum: number, item: { price: number }) => sum + item.price, 0)
@@ -163,7 +172,7 @@ export async function POST(request: NextRequest) {
         end_date,
         start_time: start_time || null,
         duration_hours: duration_hours || null,
-        duration_days: duration_days || null,
+        duration_days: effective_duration_days || null,
         rental_price,
         add_ons: validatedAddOns.length > 0 ? validatedAddOns : [],
         add_ons_total,
@@ -191,6 +200,8 @@ export async function POST(request: NextRequest) {
       p_end_date: end_date,
       p_start_time: start_time || null,
       p_duration_hours: duration_hours || null,
+      p_rental_type: rental_type,
+      p_return_time: return_time || null,
     })
     if (postCount !== null && postCount < 0) {
       // Overbooking detected — roll back by deleting the just-created rental
@@ -215,7 +226,7 @@ export async function POST(request: NextRequest) {
         clubSetGender: clubSet.gender,
         startDate: start_date,
         endDate: end_date,
-        durationDays: duration_days || 1,
+        durationDays: effective_duration_days || 1,
         deliveryRequested: delivery_requested,
         deliveryAddress: delivery_address,
         deliveryTime: delivery_time,

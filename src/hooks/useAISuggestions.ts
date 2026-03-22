@@ -286,7 +286,8 @@ export const useAISuggestions = ({
           suggestionId: suggestion.id,
           functionResult: suggestion.functionResult,
           customerId: customerId, // Pass customer ID for existing customers
-          conversationId: conversationId // Pass conversation ID for sending LINE confirmation
+          conversationId: conversationId, // Pass conversation ID for sending LINE confirmation
+          channelType: channelType // Pass channel type for notification formatting
         })
       });
 
@@ -317,7 +318,7 @@ export const useAISuggestions = ({
         error: error instanceof Error ? error.message : 'Failed to approve booking'
       }));
     }
-  }, [sendFeedback, onSuggestionApproved, customerId, conversationId]);
+  }, [sendFeedback, onSuggestionApproved, customerId, conversationId, channelType]);
 
   // Complete edit feedback (called when user sends edited message)
   const completeEditFeedback = useCallback((

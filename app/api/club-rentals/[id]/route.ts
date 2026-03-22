@@ -34,7 +34,7 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await request.json()
-    const { status: newStatus, cancelled_by, cancellation_reason } = body
+    const { status: newStatus, cancelled_by, cancellation_reason, employee_name } = body
 
     if (!newStatus) {
       return NextResponse.json({ error: 'Missing status' }, { status: 400 })
@@ -68,9 +68,15 @@ export async function PATCH(
 
     if (newStatus === 'checked_out') {
       update.checked_out_at = new Date().toISOString()
+      if (employee_name && typeof employee_name === 'string') {
+        update.checked_out_by = employee_name.slice(0, 100)
+      }
     }
     if (newStatus === 'returned') {
       update.returned_at = new Date().toISOString()
+      if (employee_name && typeof employee_name === 'string') {
+        update.returned_by = employee_name.slice(0, 100)
+      }
     }
     if (newStatus === 'cancelled' && cancelled_by && typeof cancelled_by === 'string') {
       const safeName = cancelled_by.slice(0, 100)
@@ -194,6 +200,7 @@ export async function PUT(
           p_duration_hours: null,
           p_exclude_rental_id: id,
           p_rental_type: 'course',
+          p_return_time: newReturnTime || null,
         }
       )
 
@@ -209,6 +216,7 @@ export async function PUT(
             p_start_time: newStartTime || null,
             p_duration_hours: null,
             p_rental_type: 'course',
+            p_return_time: newReturnTime || null,
           }
         )
         if (fallbackError) {

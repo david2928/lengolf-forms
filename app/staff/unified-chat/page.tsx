@@ -72,6 +72,7 @@ export default function UnifiedChatPage() {
 
   // Opportunities modal state
   const [showOpportunities, setShowOpportunities] = useState(false);
+  const [focusOpportunityId, setFocusOpportunityId] = useState<string | null>(null);
   const [opportunityConversationIds, setOpportunityConversationIds] = useState<string[]>([]);
   const [conversationFilter, setConversationFilter] = useState<'all' | 'following' | 'spam' | 'assigned' | 'opportunities'>('all');
   const [currentOpportunity, setCurrentOpportunity] = useState<{
@@ -139,6 +140,7 @@ export default function UnifiedChatPage() {
   // Handle closing the opportunities modal - refresh IDs in case scan was run
   const handleCloseOpportunities = useCallback(() => {
     setShowOpportunities(false);
+    setFocusOpportunityId(null);
     fetchOpportunityIds(); // Refresh in case new opportunities were created
   }, [fetchOpportunityIds]);
 
@@ -388,6 +390,14 @@ export default function UnifiedChatPage() {
     },
     onSuggestionApproved: async (suggestion, bookingResult) => {
       console.log('AI suggestion approved (booking created):', bookingResult);
+      // Send the AI-suggested text response to the customer alongside the booking (only if booking succeeded)
+      if (bookingResult?.booking_id && suggestion.suggestedResponse && suggestion.suggestedResponse.trim()) {
+        try {
+          await chatOps.sendMessage(suggestion.suggestedResponse.trim());
+        } catch (err) {
+          console.error('Failed to send AI response to customer:', err);
+        }
+      }
       // Refresh customer data to show new booking
       if (customerOps && selectedConversationObj?.customer?.id) {
         await customerOps.fetchCustomerDetails(selectedConversationObj.customer.id);
@@ -471,6 +481,18 @@ export default function UnifiedChatPage() {
       window.removeEventListener('resize', checkMobile);
     };
   }, []);
+
+  // Prevent body scroll on mobile to keep chat header sticky
+  useEffect(() => {
+    if (isMobile) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      };
+    }
+  }, [isMobile]);
 
   // Handle new messages from realtime - updated for unified system
   const handleNewMessage = useCallback((message: any) => {
@@ -790,8 +812,12 @@ export default function UnifiedChatPage() {
               onShowLinkModal={() => setShowLinkModal(true)}
               messages={messages}
               onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
+              onSelectCustomerForLink={handleCustomerSelection}
               opportunity={currentOpportunity}
-              onOpenOpportunity={() => setShowOpportunities(true)}
+              onOpenOpportunity={(oppId) => {
+                setFocusOpportunityId(oppId);
+                setShowOpportunities(true);
+              }}
               onRefreshCustomer={handleRefreshCustomer}
             />
           </div>
@@ -822,8 +848,10 @@ export default function UnifiedChatPage() {
                 onShowLinkModal={() => setShowLinkModal(true)}
                 messages={messages}
                 onShowLinkModalWithPrefill={handleShowLinkModalWithPrefill}
+                onSelectCustomerForLink={handleCustomerSelection}
                 opportunity={currentOpportunity}
-                onOpenOpportunity={() => {
+                onOpenOpportunity={(oppId) => {
+                  setFocusOpportunityId(oppId);
                   setShowMobileCustomer(false);
                   setShowOpportunities(true);
                 }}
@@ -844,6 +872,7 @@ export default function UnifiedChatPage() {
           loading={customerOps.linkingCustomer}
           lineUserName={selectedConversationObj?.user?.displayName || ''}
           prefillData={linkModalPrefillData}
+          initialMode={linkModalPrefillData ? 'create' : 'search'}
         />
 
         <CustomerConfirmationModal
@@ -897,6 +926,7 @@ export default function UnifiedChatPage() {
               <OpportunitiesTab
                 onOpenChat={handleOpenChatFromOpportunity}
                 userEmail={currentUserEmail}
+                initialOpportunityId={focusOpportunityId}
               />
             </div>
           </div>

@@ -6,13 +6,18 @@ import { createLineClient } from '@/lib/line-messaging';
 
 interface SendMessageRequest {
   userId: string;
-  message: string;
+  message?: string;
   type?: 'text' | 'flex';
+  flexMessage?: {
+    altText: string;
+    contents: Record<string, unknown>;
+  };
 }
 
 /**
  * Send message to LINE user
  * POST /api/line/send-message
+ * Supports both text and flex messages
  */
 export async function POST(request: NextRequest) {
   const session = await getDevSession(authOptions, request);
@@ -33,12 +38,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Staff access required" }, { status: 403 });
     }
 
-    const { userId, message, type = 'text' }: SendMessageRequest = await request.json();
+    const { userId, message, type = 'text', flexMessage }: SendMessageRequest = await request.json();
 
     // Validate input
-    if (!userId || !message) {
+    if (!userId) {
       return NextResponse.json(
-        { error: 'userId and message are required' },
+        { error: 'userId is required' },
+        { status: 400 }
+      );
+    }
+
+    if (type === 'text' && !message) {
+      return NextResponse.json(
+        { error: 'message is required for text type' },
+        { status: 400 }
+      );
+    }
+
+    if (type === 'flex' && !flexMessage) {
+      return NextResponse.json(
+        { error: 'flexMessage is required for flex type' },
         { status: 400 }
       );
     }
@@ -55,7 +74,11 @@ export async function POST(request: NextRequest) {
     const lineClient = createLineClient(process.env.LINE_CHANNEL_ACCESS_TOKEN);
 
     console.log(`Sending ${type} message to user: ${userId}`);
-    console.log(`Message: ${message}`);
+
+    // Build message payload
+    const messages = type === 'flex' && flexMessage
+      ? [{ type: 'flex', altText: flexMessage.altText, contents: flexMessage.contents }]
+      : [{ type: 'text', text: message }];
 
     // Use push message API to send directly to user
     const response = await fetch('https://api.line.me/v2/bot/message/push', {
@@ -66,12 +89,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         to: userId,
-        messages: [
-          {
-            type: 'text',
-            text: message
-          }
-        ]
+        messages
       })
     });
 

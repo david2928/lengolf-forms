@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/use-toast'
 import { CancelRentalModal } from '@/components/manage-club-rentals/CancelRentalModal'
 import { EditRentalModal } from '@/components/manage-club-rentals/EditRentalModal'
+import { StaffConfirmModal } from '@/components/manage-club-rentals/StaffConfirmModal'
 import {
   Loader2,
   Search,
@@ -103,6 +104,9 @@ export function ManageRentalsClient() {
   const [selectedRentalForCancel, setSelectedRentalForCancel] = useState<ClubRental | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedRentalForEdit, setSelectedRentalForEdit] = useState<ClubRental | null>(null)
+  const [isStaffConfirmOpen, setIsStaffConfirmOpen] = useState(false)
+  const [staffConfirmAction, setStaffConfirmAction] = useState<'checked_out' | 'returned'>('checked_out')
+  const [selectedRentalForAction, setSelectedRentalForAction] = useState<ClubRental | null>(null)
   const { toast } = useToast()
 
   const queryParams = new URLSearchParams()
@@ -124,13 +128,13 @@ export function ManageRentalsClient() {
     setSearch(searchInput.trim())
   }
 
-  const handleStatusChange = async (rentalId: string, newStatus: string) => {
+  const handleStatusChange = async (rentalId: string, newStatus: string, employeeName?: string) => {
     setUpdating(rentalId)
     try {
       const res = await fetch(`/api/club-rentals/${rentalId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, employee_name: employeeName }),
       })
       if (!res.ok) {
         const data = await res.json()
@@ -143,6 +147,16 @@ export function ManageRentalsClient() {
     } finally {
       setUpdating(null)
     }
+  }
+
+  const handleOpenStaffConfirm = (rental: ClubRental, action: 'checked_out' | 'returned') => {
+    setSelectedRentalForAction(rental)
+    setStaffConfirmAction(action)
+    setIsStaffConfirmOpen(true)
+  }
+
+  const handleStaffConfirm = async (rentalId: string, staffName: string) => {
+    await handleStatusChange(rentalId, staffConfirmAction, staffName)
   }
 
   const handleOpenCancelModal = (rental: ClubRental) => {
@@ -185,7 +199,10 @@ export function ManageRentalsClient() {
         changes.push(`Set: ${prevSet?.name || 'N/A'} \u2192 ${newSet?.name || 'N/A'}`)
       }
       if (previous.start_date !== updated.start_date) {
-        changes.push(`Start: ${previous.start_date} \u2192 ${updated.start_date}`)
+        changes.push(`Start: ${formatDate(previous.start_date as string)} \u2192 ${formatDate(updated.start_date)}`)
+      }
+      if (previous.end_date !== updated.end_date) {
+        changes.push(`End: ${formatDate(previous.end_date as string)} \u2192 ${formatDate(updated.end_date)}`)
       }
       if (previous.duration_days !== updated.duration_days) {
         changes.push(`Duration: ${previous.duration_days}d \u2192 ${updated.duration_days}d`)
@@ -247,7 +264,7 @@ export function ManageRentalsClient() {
       const r = rental
       const set = r.rental_club_sets
       try {
-        const lineMessage = `🚫 CLUB RENTAL CANCELLED 🚫\n----------------------------------\n📋 Code: ${r.rental_code}\n👤 Customer: ${r.customer_name}${r.customer_phone ? `\n📞 Phone: ${r.customer_phone}` : ''}\n🏌️ Set: ${set?.name || 'N/A'}\n📅 ${r.start_date} → ${r.end_date}\n💰 Total: ฿${Number(r.total_price).toLocaleString()}\n----------------------------------\n🗑️ Cancelled By: ${employeeName}${reason ? `\n💬 Reason: ${reason}` : ''}`
+        const lineMessage = `🚫 CLUB RENTAL CANCELLED 🚫\n----------------------------------\n📋 Code: ${r.rental_code}\n👤 Customer: ${r.customer_name}${r.customer_phone ? `\n📞 Phone: ${r.customer_phone}` : ''}\n🏌️ Set: ${set?.name || 'N/A'}\n📅 ${formatDate(r.start_date)} → ${formatDate(r.end_date)}\n💰 Total: ฿${Number(r.total_price).toLocaleString()}\n----------------------------------\n🗑️ Cancelled By: ${employeeName}${reason ? `\n💬 Reason: ${reason}` : ''}`
 
         await fetch('/api/notify', {
           method: 'POST',
@@ -351,17 +368,27 @@ export function ManageRentalsClient() {
                   'transition-opacity',
                   isUpdating && 'opacity-50 pointer-events-none'
                 )}>
-                  <CardContent className="pt-4 pb-4">
-                    {/* Top row: code + status */}
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-mono text-sm font-bold text-gray-900">
-                        {rental.rental_code}
-                      </span>
-                      <Badge variant="outline" className={cn('text-xs', statusCfg.className)}>
+                  <CardContent className="p-0">
+                    {/* Header bar: customer + status */}
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 rounded-t-lg border-b border-gray-100">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-900">{rental.customer_name}</span>
+                          {rental.customer_phone && (
+                            <span className="flex items-center gap-1 text-xs text-gray-400">
+                              <Phone className="h-3 w-3" />
+                              {rental.customer_phone}
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-mono text-[11px] text-gray-400">{rental.rental_code}</span>
+                      </div>
+                      <Badge variant="outline" className={cn('text-xs shrink-0', statusCfg.className)}>
                         {statusCfg.label}
                       </Badge>
                     </div>
 
+                    <div className="px-4 pt-3 pb-4">
                     {/* Club set */}
                     {set && (
                       <div className="flex items-center gap-1.5 mb-2">
@@ -374,7 +401,7 @@ export function ManageRentalsClient() {
                           {set.tier === 'premium-plus' ? 'Premium+' : 'Premium'}
                         </Badge>
                         <Badge variant="outline" className="text-xs px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200">
-                          {set.gender === 'mens' ? "Men's" : "Women's"}
+                          {set.gender === 'mens' ? "Men\u2019s" : "Women\u2019s"}
                         </Badge>
                         <span className="text-sm text-gray-700">
                           {set.name.includes(' - ') ? set.name.split(' - ').slice(1).join(' - ') : set.name}
@@ -382,59 +409,39 @@ export function ManageRentalsClient() {
                       </div>
                     )}
 
-                    {/* Date range */}
-                    <div className="text-sm text-gray-600 mb-1">
-                      {formatDate(rental.start_date)}
-                      {rental.start_time && ` ${rental.start_time.slice(0, 5)}`}
-                      {' → '}
-                      {formatDate(rental.end_date)}
-                      {rental.duration_days && ` (${rental.duration_days}d)`}
-                    </div>
-
-                    {/* Customer */}
-                    <div className="flex items-center gap-3 text-sm text-gray-600 mb-1">
-                      <span className="font-medium text-gray-900">{rental.customer_name}</span>
-                      {rental.customer_phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {rental.customer_phone}
-                        </span>
+                    {/* Schedule & transport */}
+                    <div className="bg-gray-50 rounded-md px-3 py-2 mb-2 space-y-1">
+                      <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                        <span className="text-gray-400 text-xs w-14 shrink-0">Pickup</span>
+                        <span>{formatDate(rental.start_date)}{rental.start_time ? ` ${rental.start_time.slice(0, 5)}` : ''}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                        <span className="text-gray-400 text-xs w-14 shrink-0">Return</span>
+                        <span>{formatDate(rental.end_date)}{rental.return_time ? ` ${rental.return_time.slice(0, 5)}` : ''}</span>
+                        {rental.duration_days && (
+                          <span className="text-xs text-gray-400">({rental.duration_days}d)</span>
+                        )}
+                      </div>
+                      {rental.delivery_requested ? (
+                        <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                          <span className="text-gray-400 text-xs w-14 shrink-0 flex items-center gap-0.5"><Truck className="h-3 w-3" /> To</span>
+                          <span>{rental.delivery_address || 'Address pending'}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                          <span className="text-gray-400 text-xs w-14 shrink-0 flex items-center gap-0.5"><MapPin className="h-3 w-3" /> At</span>
+                          <span>LENGOLF</span>
+                        </div>
                       )}
                     </div>
 
-                    {/* Delivery */}
-                    {rental.delivery_requested ? (
-                      <div className="text-xs text-gray-500 mb-1 space-y-0.5">
-                        <div className="flex items-center gap-1">
-                          <Truck className="h-3 w-3" />
-                          Delivery: {rental.delivery_address || 'Address pending'}
-                        </div>
-                        {(rental.delivery_time || rental.return_time) && (
-                          <div className="pl-4 text-gray-400">
-                            {rental.delivery_time && `Pickup: ${rental.delivery_time}`}
-                            {rental.delivery_time && rental.return_time && ' · '}
-                            {rental.return_time && `Return: ${rental.return_time}`}
-                          </div>
+                    {/* Add-ons + Notes (compact) */}
+                    {(rental.add_ons?.length > 0 || rental.notes) && (
+                      <div className="text-xs text-gray-400 mb-1 space-y-0.5">
+                        {rental.add_ons && rental.add_ons.length > 0 && (
+                          <div>Add-ons: {rental.add_ons.map(a => a.label).join(', ')}</div>
                         )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
-                        <MapPin className="h-3 w-3" />
-                        Pickup at LENGOLF
-                      </div>
-                    )}
-
-                    {/* Add-ons */}
-                    {rental.add_ons && rental.add_ons.length > 0 && (
-                      <div className="text-xs text-gray-500 mb-1">
-                        Add-ons: {rental.add_ons.map(a => a.label).join(', ')}
-                      </div>
-                    )}
-
-                    {/* Notes */}
-                    {rental.notes && (
-                      <div className="text-xs text-gray-400 italic mb-2">
-                        {rental.notes}
+                        {rental.notes && <div className="italic">{rental.notes}</div>}
                       </div>
                     )}
 
@@ -496,7 +503,7 @@ export function ManageRentalsClient() {
                               size="sm"
                               variant="outline"
                               className="text-xs h-7 text-orange-700 border-orange-200 hover:bg-orange-50"
-                              onClick={() => handleStatusChange(rental.id, 'checked_out')}
+                              onClick={() => handleOpenStaffConfirm(rental, 'checked_out')}
                               disabled={isUpdating}
                             >
                               <LogOut className="h-3 w-3 mr-1" />
@@ -520,7 +527,7 @@ export function ManageRentalsClient() {
                             size="sm"
                             variant="outline"
                             className="text-xs h-7 text-green-700 border-green-200 hover:bg-green-50"
-                            onClick={() => handleStatusChange(rental.id, 'returned')}
+                            onClick={() => handleOpenStaffConfirm(rental, 'returned')}
                             disabled={isUpdating}
                           >
                             <RotateCcw className="h-3 w-3 mr-1" />
@@ -528,6 +535,7 @@ export function ManageRentalsClient() {
                           </Button>
                         )}
                       </div>
+                    </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -549,6 +557,14 @@ export function ManageRentalsClient() {
         onClose={handleCloseEditModal}
         rental={selectedRentalForEdit}
         onSuccess={handleEditSuccess}
+      />
+
+      <StaffConfirmModal
+        isOpen={isStaffConfirmOpen}
+        onClose={() => { setIsStaffConfirmOpen(false); setSelectedRentalForAction(null) }}
+        action={staffConfirmAction}
+        rental={selectedRentalForAction}
+        onConfirm={handleStaffConfirm}
       />
     </div>
   )

@@ -10,6 +10,7 @@ interface ApproveBookingRequest {
   suggestionId: string;
   customerId?: string; // Customer ID for existing customers
   conversationId?: string; // Conversation ID for sending LINE confirmation
+  channelType?: string; // Channel type (line, website, facebook, etc.)
   functionResult?: {
     success: boolean;
     data?: any;
@@ -57,11 +58,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Execute the approved function based on type
+    const ALLOWED_CHANNELS = ['line', 'website', 'facebook', 'instagram', 'whatsapp'] as const;
+    const validatedChannelType: string | undefined = body.channelType && ALLOWED_CHANNELS.includes(body.channelType as any)
+      ? body.channelType
+      : undefined;
+
     let result;
     if (body.functionResult.functionName === 'create_booking') {
       result = await functionExecutor.executeApprovedBooking(
         body.functionResult.data,
-        body.customerId // Pass customer ID if available
+        body.customerId, // Pass customer ID if available
+        validatedChannelType // Pass validated channel type for notification formatting
       );
     } else if (body.functionResult.functionName === 'cancel_booking') {
       result = await functionExecutor.executeApprovedCancellation(

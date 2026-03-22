@@ -11,12 +11,18 @@ interface EvalRequest {
   sample_count?: number
   batch_size?: number
   run_id?: string
+  date_filter?: string // ISO date string (YYYY-MM-DD) to filter conversations to a specific day
+  label?: string       // Human-readable label for the run (e.g., "post-classifier-fix")
+  version?: string     // Prompt/code version (e.g., "v2026.03.09-abc1234")
+  git_hash?: string    // Git commit hash
 }
 
 interface ConversationMessage {
   content: string
   sender_type: string
   created_at: string
+  content_type?: string
+  file_url?: string
 }
 
 const JUDGE_MODEL = 'gpt-4o-mini'
@@ -29,6 +35,9 @@ The AI generates staff-facing response suggestions. Score the AI's suggested res
 - helpfulness (0.3 weight): Resolves question/request, actionable and complete
 - toneMatch (0.2 weight): Thai premium service tone, warm, professional, polite particles
 - brevity (0.2 weight): Ideal length, concise and complete (1-2 sentences)
+
+IMPORTANT: These are historical conversations replayed for evaluation. Bay availability and booking data are checked against the CURRENT date, not the original conversation date. Do NOT penalize the AI for incorrect availability results, wrong time slots, or "fully booked" responses that differ from what the staff saw. Instead, evaluate whether the AI took the RIGHT APPROACH (checked availability, asked relevant questions, attempted to book) regardless of the specific availability data returned.
+
 Respond in JSON: {"appropriateness":{"score":N,"reasoning":"..."},"helpfulness":{"score":N,"reasoning":"..."},"toneMatch":{"score":N,"reasoning":"..."},"brevity":{"score":N,"reasoning":"..."}}`
 
 serve(async (req: Request) => {
@@ -40,6 +49,7 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const openaiKey = Deno.env.get('OPENAI_API_KEY')!
+    const cronSecret = Deno.env.get('CRON_SECRET') || ''
     const vercelUrl = Deno.env.get('VERCEL_PRODUCTION_URL') || 'https://lengolf-forms.vercel.app'
 
     const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -53,12 +63,15 @@ serve(async (req: Request) => {
     const batch_size = Math.min(Math.max(1, Number(body.batch_size) || 10), 25)
 
     if (action === 'start') {
-      return await handleStart(supabase, supabaseUrl, supabaseKey, openaiKey, vercelUrl, sample_count, batch_size)
+      const label = typeof body.label === 'string' ? body.label.slice(0, 100) : undefined
+      const version = typeof body.version === 'string' ? body.version.slice(0, 50) : undefined
+      const gitHash = typeof body.git_hash === 'string' ? body.git_hash.slice(0, 40) : undefined
+      return await handleStart(supabase, supabaseUrl, supabaseKey, openaiKey, cronSecret, vercelUrl, sample_count, batch_size, body.date_filter, { label, version, gitHash })
     } else if (action === 'continue') {
       if (!body.run_id) {
         return jsonResponse({ error: 'run_id required for continue action' }, 400)
       }
-      return await handleContinue(supabase, supabaseUrl, supabaseKey, openaiKey, vercelUrl, body.run_id, batch_size)
+      return await handleContinue(supabase, supabaseUrl, supabaseKey, openaiKey, cronSecret, vercelUrl, body.run_id, batch_size)
     }
 
     return jsonResponse({ error: 'Invalid action' }, 400)
@@ -73,18 +86,29 @@ async function handleStart(
   supabaseUrl: string,
   supabaseKey: string,
   openaiKey: string,
+  cronSecret: string,
   vercelUrl: string,
   sampleCount: number,
   batchSize: number,
+  dateFilter?: string,
+  meta?: { label?: string; version?: string; gitHash?: string },
 ) {
-  // Fetch random conversation IDs with staff responses (last 60 days)
-  const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
-
-  const { data: conversations, error: convError } = await supabase
+  // Build conversation query — either specific date or last 60 days
+  let query = supabase
     .from('unified_conversations')
     .select('id')
-    .gte('last_message_at', sixtyDaysAgo)
-    .limit(500)
+
+  if (dateFilter && /^\d{4}-\d{2}-\d{2}$/.test(dateFilter)) {
+    // Filter to conversations with messages on the specific date (Bangkok time = UTC+7)
+    const dateStart = `${dateFilter}T00:00:00+07:00`
+    const dateEnd = `${dateFilter}T23:59:59+07:00`
+    query = query.gte('last_message_at', dateStart).lte('last_message_at', dateEnd)
+  } else {
+    const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
+    query = query.gte('last_message_at', sixtyDaysAgo)
+  }
+
+  const { data: conversations, error: convError } = await query.limit(500)
 
   if (convError || !conversations?.length) {
     return jsonResponse({ error: `No conversations found: ${convError?.message || 'empty'}` }, 500)
@@ -94,6 +118,13 @@ async function handleStart(
   const shuffled = conversations.sort(() => Math.random() - 0.5)
   const selected = shuffled.slice(0, sampleCount).map((c: { id: string }) => c.id)
   const totalBatches = Math.ceil(selected.length / batchSize)
+
+  // Auto-generate version if not provided: vYYYY.MM.DD-<hash>
+  const autoVersion = meta?.version || (() => {
+    const d = new Date()
+    const dateStr = `v${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+    return meta?.gitHash ? `${dateStr}-${meta.gitHash.substring(0, 7)}` : dateStr
+  })()
 
   // Create eval run
   const { data: run, error: runError } = await supabase
@@ -107,6 +138,9 @@ async function handleStart(
       batch_current: 0,
       batch_total: totalBatches,
       conversation_ids: selected,
+      prompt_version: autoVersion,
+      prompt_label: meta?.label || null,
+      git_commit_hash: meta?.gitHash || null,
     })
     .select('id')
     .single()
@@ -119,7 +153,7 @@ async function handleStart(
 
   // Process first batch
   const firstBatch = selected.slice(0, batchSize)
-  const { processed } = await processBatch(supabase, openaiKey, vercelUrl, runId, firstBatch)
+  const { processed } = await processBatch(supabase, openaiKey, cronSecret, vercelUrl, runId, firstBatch)
 
   // Update progress
   await supabase
@@ -128,8 +162,11 @@ async function handleStart(
     .update({ batch_current: 1 })
     .eq('id', runId)
 
-  // If more batches, self-invoke
-  if (totalBatches > 1) {
+  // If first batch produced nothing and it's the only batch, fail early
+  if (processed === 0 && totalBatches <= 1) {
+    await finalizeRun(supabase, runId, 'failed', 'No eligible samples found in conversations')
+  } else if (totalBatches > 1) {
+    // If more batches, self-invoke
     selfInvoke(supabaseUrl, supabaseKey, runId, batchSize)
   } else {
     await finalizeRun(supabase, runId, 'completed')
@@ -149,6 +186,7 @@ async function handleContinue(
   supabaseUrl: string,
   supabaseKey: string,
   openaiKey: string,
+  cronSecret: string,
   vercelUrl: string,
   runId: string,
   batchSize: number,
@@ -188,7 +226,7 @@ async function handleContinue(
     return jsonResponse({ success: true, run_id: runId, status: 'completed' })
   }
 
-  const { processed } = await processBatch(supabase, openaiKey, vercelUrl, runId, batchIds)
+  const { processed } = await processBatch(supabase, openaiKey, cronSecret, vercelUrl, runId, batchIds)
   const newBatchCurrent = currentBatch + 1
 
   await supabase
@@ -218,6 +256,7 @@ async function handleContinue(
 async function processBatch(
   supabase: ReturnType<typeof createClient>,
   openaiKey: string,
+  cronSecret: string,
   vercelUrl: string,
   runId: string,
   conversationIds: string[],
@@ -228,13 +267,22 @@ async function processBatch(
   for (const convId of conversationIds) {
     try {
       // Fetch messages for this conversation
-      const { data: messages } = await supabase
+      const { data: rawMessages } = await supabase
         .from('unified_messages')
-        .select('content, sender_type, created_at')
+        .select('content, sender_type, created_at, content_type, channel_metadata')
         .eq('conversation_id', convId)
         .not('content', 'is', null)
         .not('content', 'eq', '')
         .order('created_at', { ascending: true })
+
+      // Flatten channel_metadata.file_url into top-level for storage efficiency
+      const messages = rawMessages?.map((m: Record<string, unknown>) => ({
+        content: m.content as string,
+        sender_type: m.sender_type as string,
+        created_at: m.created_at as string,
+        ...(m.content_type && m.content_type !== 'text' ? { content_type: m.content_type as string } : {}),
+        ...((m.channel_metadata as Record<string, unknown>)?.file_url ? { file_url: (m.channel_metadata as Record<string, unknown>).file_url as string } : {}),
+      })) || null
 
       if (!messages || messages.length < 3) continue
 
@@ -245,10 +293,8 @@ async function processBatch(
         .eq('id', convId)
         .single()
 
-      // Find a customer message with staff response
-      let testMsg: ConversationMessage | null = null
-      let staffResponse: string | null = null
-      let history: ConversationMessage[] = []
+      // Find all eligible customer messages (with staff response after them)
+      const candidates: Array<{ idx: number; msg: ConversationMessage; staffResp: string }> = []
 
       for (let i = 0; i < messages.length; i++) {
         const msg = messages[i]
@@ -256,15 +302,29 @@ async function processBatch(
           // Find next staff response
           for (let j = i + 1; j < messages.length; j++) {
             if (messages[j].sender_type === 'admin' || messages[j].sender_type === 'staff') {
-              testMsg = msg
-              staffResponse = messages[j].content
-              history = messages.slice(0, i)
+              candidates.push({ idx: i, msg, staffResp: messages[j].content })
               break
             }
           }
-          if (testMsg) break
         }
       }
+
+      if (candidates.length === 0) continue
+
+      // Pick a random candidate, preferring later messages (more context, more interesting)
+      // Use weighted random: later messages get higher probability
+      const weights = candidates.map((_, i) => i + 1)
+      const totalWeight = weights.reduce((a, b) => a + b, 0)
+      let rand = Math.random() * totalWeight
+      let chosen = candidates[candidates.length - 1]
+      for (let i = 0; i < candidates.length; i++) {
+        rand -= weights[i]
+        if (rand <= 0) { chosen = candidates[i]; break }
+      }
+
+      let testMsg: ConversationMessage | null = chosen.msg
+      let staffResponse: string | null = chosen.staffResp
+      let history: ConversationMessage[] = messages.slice(0, chosen.idx)
 
       if (!testMsg) continue
 
@@ -272,13 +332,17 @@ async function processBatch(
       const suggestStart = Date.now()
       const suggestResp = await fetch(`${vercelUrl}/api/ai/suggest-response`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(cronSecret && { 'Authorization': `Bearer ${cronSecret}` }),
+        },
         body: JSON.stringify({
           customerMessage: testMsg.content,
           conversationId: convId,
           channelType: conv?.channel_type || 'line',
           customerId: conv?.customer_id || null,
           dryRun: true,
+          includeDebugContext: true,
           conversationContext: history,
         }),
       })

@@ -22,6 +22,11 @@ export interface FunctionResult {
  * Format an ISO date (YYYY-MM-DD) into a natural language string.
  * e.g. "2026-02-26" → "tomorrow (Thursday)" or "Thursday, February 26"
  */
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
 function formatDateNatural(isoDate: string): string {
   const thailandNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
   const today = thailandNow.toISOString().split('T')[0];
@@ -75,6 +80,9 @@ export class AIFunctionExecutor {
 
       case 'modify_booking':
         return await this.prepareModificationForApproval(functionCall.parameters);
+
+      case 'check_club_availability':
+        return await this.checkClubAvailability(functionCall.parameters);
 
       default:
         return {
@@ -167,25 +175,66 @@ export class AIFunctionExecutor {
       const aiBayAvailable = availableBays.includes('Bay 4');
 
       // OPTIMIZATION: Only include detailed slots if checking general availability
-      // For specific time requests, only return yes/no availability
+      // For specific time requests, return yes/no + nearest alternatives when unavailable
       if (start_time) {
-        // Specific time request - minimal response
         // IMPORTANT: Do NOT include internal bay names (Bay 1, Bay 2, Bay 4)
         // AI should only mention "Social bay" or "AI bay" to customers
+        const responseData: Record<string, unknown> = {
+          date: formatDateNatural(date),
+          requested_time: start_time,
+          duration,
+          bay_type,
+          available: availableBays.length > 0,
+          social_bays_available: socialBaysAvailable.length > 0,
+          ai_bay_available: aiBayAvailable,
+          available_bay_count: availableBays.length
+        };
+
+        // When the requested time is unavailable, include nearest alternatives
+        // (both before AND after) so the AI can suggest real nearby options
+        if (availableBays.length === 0) {
+          const allSlots = results
+            .filter(r => r.slots.length > 0)
+            .flatMap(r => {
+              const isSocial = ['Bay 1', 'Bay 2', 'Bay 3'].includes(r.bay);
+              return r.slots
+                .filter((s: any) => s.time !== start_time)
+                .map((s: any) => ({ time: s.time, bayType: isSocial ? 'social' : 'ai' }));
+            });
+
+          // Deduplicate by time
+          const seen = new Set<string>();
+          const unique = allSlots.filter(s => {
+            if (seen.has(s.time)) return false;
+            seen.add(s.time);
+            return true;
+          });
+
+          // Sort by distance from requested time, then take closest 5
+          const nearest = unique
+            .sort((a, b) => {
+              const minutesA = Math.abs(timeToMinutes(a.time) - timeToMinutes(start_time));
+              const minutesB = Math.abs(timeToMinutes(b.time) - timeToMinutes(start_time));
+              return minutesA - minutesB;
+            })
+            .slice(0, 5);
+
+          if (nearest.length > 0) {
+            responseData.nearest_available = nearest
+              .sort((a, b) => a.time.localeCompare(b.time))
+              .map(s =>
+                `${s.time} (${s.bayType === 'social' ? 'Social bay' : 'AI bay'})`
+              );
+          } else {
+            responseData.no_availability_remaining = true;
+            responseData.suggestion = 'No more slots available today. Suggest checking tomorrow.';
+          }
+        }
+
         return {
           success: true,
           functionName: 'check_bay_availability',
-          data: {
-            date: formatDateNatural(date),
-            requested_time: start_time,
-            duration,
-            bay_type,
-            available: availableBays.length > 0,
-            social_bays_available: socialBaysAvailable.length > 0,
-            ai_bay_available: aiBayAvailable,
-            available_bay_count: availableBays.length
-            // Removed: available_bays field - internal bay names should not be exposed to customers
-          }
+          data: responseData
         };
       }
 
@@ -487,6 +536,9 @@ export class AIFunctionExecutor {
         errorMessage += ' Would you like to check availability for a different time?';
       }
 
+      // Include nearest available slots from the availability check so AI doesn't hallucinate
+      const nearestSlots = availabilityCheck.data?.nearest_available;
+
       return {
         success: false,
         error: errorMessage,
@@ -496,7 +548,8 @@ export class AIFunctionExecutor {
           social_bays_available: socialAvailable,
           ai_bay_available: aiAvailable,
           requested_time: params.start_time,
-          requested_date: params.date
+          requested_date: params.date,
+          ...(nearestSlots ? { nearest_available: nearestSlots } : {})
         }
       };
     }
@@ -602,7 +655,7 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
    * Reuses: /api/bookings/create
    * Note: Availability is already checked in prepareBookingForApproval()
    */
-  async executeApprovedBooking(params: any, customerId?: string): Promise<FunctionResult> {
+  async executeApprovedBooking(params: any, customerId?: string, channelType?: string): Promise<FunctionResult> {
     try {
       // Get requested bay type from params (already validated in prepare stage)
       const requestedBayType = params.bay_type || 'social';
@@ -610,6 +663,7 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
       // If customer has packages, try to auto-select one
       let packageId: string | null = null;
       let packageName: string | null = null;
+      let packageNote: string | null = null; // Track why package wasn't applied
 
       if (customerId) {
         try {
@@ -621,8 +675,15 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
           const response = await fetch(`${baseUrl}/api/line/customers/${customerId}/details`);
           if (response.ok) {
             const data = await response.json();
+            // Only use activated packages (status === 'active'), not inactive/unactivated ones
             const activePackages = data.packages?.filter((pkg: any) =>
-              (pkg.remaining_hours !== '0' && pkg.remaining_hours !== 0) || pkg.package_type === 'Unlimited'
+              pkg.status === 'active' &&
+              ((pkg.remaining_hours !== '0' && pkg.remaining_hours !== 0) || pkg.package_type === 'Unlimited')
+            ) || [];
+
+            // Check if there are inactive (not yet activated) packages
+            const inactivePackages = data.packages?.filter((pkg: any) =>
+              pkg.status === 'inactive'
             ) || [];
 
             // Filter packages based on booking type
@@ -651,6 +712,11 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
               console.log(`Auto-selected ${isCoachingBooking ? 'coaching' : 'regular'} package: ${packageName} (${selectedPackage.remaining_hours || selectedPackage.hours_remaining}h remaining)`);
             } else {
               console.log(`No eligible ${isCoachingBooking ? 'coaching' : 'regular'} packages found for customer`);
+              // Add note about why package wasn't applied
+              if (inactivePackages.length > 0) {
+                const inactiveNames = inactivePackages.map((p: any) => p.package_type_name).join(', ');
+                packageNote = `Package not applied: ${inactiveNames} not yet activated`;
+              }
             }
           }
         } catch (error) {
@@ -689,16 +755,25 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
         booking_type: bookingType,
         package_id: packageId, // Auto-selected package
         package_name: packageName, // Auto-selected package name
-        customer_notes: `🤖 AI BOOKING`
+        customer_notes: packageNote || undefined
       };
 
       // If customer ID is provided (existing customer), use it
-      // Otherwise mark as new customer
+      // Otherwise mark as new customer and add Buy 1 Get 1 promotion (same as staff form)
       if (customerId) {
         bookingData.customer_id = customerId;
         bookingData.isNewCustomer = false;
       } else {
         bookingData.isNewCustomer = true; // API will check for duplicates
+        // Auto-add Buy 1 Get 1 to notes for new customers, matching staff form behavior
+        const promoNote = 'Buy 1 Get 1';
+        if (bookingData.customer_notes) {
+          if (!bookingData.customer_notes.includes(promoNote)) {
+            bookingData.customer_notes = `${bookingData.customer_notes}; ${promoNote}`;
+          }
+        } else {
+          bookingData.customer_notes = promoNote;
+        }
       }
 
       // DRY RUN MODE: Return mock success without creating booking
@@ -792,22 +867,38 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
         const bookingTypeDisplay = packageName ? `${bookingType} (${packageName})` : bookingType;
 
         // Build message in exact same format as booking form
+        const isNewCustomerBooking = result.booking?.is_new_customer === true;
+        const customerNameDisplay = isNewCustomerBooking
+          ? `${params.customer_name} (New Customer)`
+          : params.customer_name;
+
         let message = 'Booking Notification';
         if (bookingId) {
           message += ` (ID: ${bookingId})`;
         }
-        message += `\nName: ${params.customer_name}`;
+        message += `\nName: ${customerNameDisplay}`;
         message += `\nPhone: ${params.phone_number}`;
         message += `\nDate: ${formattedDate}`;
         message += `\nTime: ${params.start_time} - ${endTime}`;
         message += `\nBay: ${bayAssigned}`;
         message += `\nType: ${bookingTypeDisplay}`;
         message += `\nPeople: ${params.number_of_people}`;
-        message += `\nChannel: AI Chat`;
+        // Show actual channel (LINE, Website, etc.) - LINE is all-caps
+        const channelDisplayMap: Record<string, string> = {
+          line: 'LINE', website: 'Website', facebook: 'Facebook',
+          instagram: 'Instagram', whatsapp: 'WhatsApp'
+        };
+        const channelDisplay = channelType
+          ? (channelDisplayMap[channelType] || channelType)
+          : 'LINE';
+        message += `\nChannel: ${channelDisplay}`;
         message += `\nCreated by: AI Assistant`;
 
-        // Add notes (AI booking indicator) - /api/notify will append this again, so we skip it here
-        // The customer_notes parameter will be used by /api/notify to append notes
+        // Add package note if applicable
+        if (packageNote) {
+          message += `\nNote: ${packageNote}`;
+        }
+
 
         // Send to LINE staff channel using the same endpoint
         // Note: /api/notify will append customer_notes to the message automatically
@@ -1689,6 +1780,99 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
     } catch (error) {
       console.error('Error in checkAvailabilityExcludingBooking:', error);
       return { success: false, error: 'Failed to check availability', functionName: 'check_bay_availability' };
+    }
+  }
+
+  /**
+   * Check club set availability using the get_available_club_sets RPC
+   */
+  private async checkClubAvailability(params: any): Promise<FunctionResult> {
+    try {
+      const { rental_type, date, end_date, start_time, duration_hours } = params;
+
+      if (!refacSupabaseAdmin) {
+        return {
+          success: false,
+          error: 'Database connection not available',
+          functionName: 'check_club_availability'
+        };
+      }
+
+      const { data, error } = await refacSupabaseAdmin.rpc('get_available_club_sets', {
+        p_rental_type: rental_type,
+        p_start_date: date,
+        p_end_date: end_date && end_date !== '' ? end_date : date,
+        p_start_time: start_time && start_time !== '' ? start_time : null,
+        p_duration_hours: duration_hours && duration_hours > 0 ? duration_hours : null,
+      });
+
+      if (error) {
+        console.error('Error checking club availability:', error);
+        return {
+          success: false,
+          error: `Failed to check club availability: ${error.message}`,
+          functionName: 'check_club_availability'
+        };
+      }
+
+      const sets = data || [];
+      const dateLabel = formatDateNatural(date);
+
+      if (sets.length === 0) {
+        return {
+          success: true,
+          data: {
+            available: false,
+            message: `No club sets available for ${dateLabel}.`,
+            rental_type,
+            date,
+          },
+          functionName: 'check_club_availability'
+        };
+      }
+
+      // Format results for the AI
+      const formatted = sets.map((s: any) => ({
+        name: s.name,
+        tier: s.tier,
+        gender: s.gender,
+        brand: s.brand,
+        model: s.model,
+        available_count: s.available_count,
+        // Include relevant pricing based on rental type
+        ...(rental_type === 'course' ? {
+          price_1d: s.course_price_1d,
+          price_3d: s.course_price_3d,
+          price_7d: s.course_price_7d,
+          price_14d: s.course_price_14d,
+        } : {
+          price_1h: s.indoor_price_1h,
+          price_2h: s.indoor_price_2h,
+          price_4h: s.indoor_price_4h,
+        }),
+      }));
+
+      const availableSets = formatted.filter((s: any) => s.available_count > 0);
+      const unavailableSets = formatted.filter((s: any) => s.available_count === 0);
+
+      return {
+        success: true,
+        data: {
+          available: availableSets.length > 0,
+          date: dateLabel,
+          rental_type,
+          available_sets: availableSets,
+          unavailable_sets: unavailableSets.length > 0 ? unavailableSets.map((s: any) => s.name) : undefined,
+        },
+        functionName: 'check_club_availability'
+      };
+    } catch (error) {
+      console.error('Error checking club availability:', error);
+      return {
+        success: false,
+        error: `Error checking club availability: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        functionName: 'check_club_availability'
+      };
     }
   }
 

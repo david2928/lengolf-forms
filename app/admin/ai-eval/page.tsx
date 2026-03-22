@@ -19,6 +19,7 @@ export default function AiEvalDashboard() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [sampleIntent, setSampleIntent] = useState<string>('');
   const [triggering, setTriggering] = useState(false);
+  const [evalLabel, setEvalLabel] = useState('');
 
   const { runs, isLoading: runsLoading, mutate: mutateRuns } = useEvalRuns({ limit: 30 });
   const { trends, isLoading: trendsLoading } = useEvalTrends(30);
@@ -47,7 +48,11 @@ export default function AiEvalDashboard() {
       const resp = await fetch('/api/ai-eval/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sample_count: 50, batch_size: 10 }),
+        body: JSON.stringify({
+          sample_count: 50,
+          batch_size: 5,
+          ...(evalLabel.trim() && { label: evalLabel.trim() }),
+        }),
       });
       const result = await resp.json();
       if (resp.ok) {
@@ -61,7 +66,7 @@ export default function AiEvalDashboard() {
     } finally {
       setTriggering(false);
     }
-  }, [mutateRuns]);
+  }, [mutateRuns, evalLabel]);
 
   // Get unique intents from selected run for filter
   const intentOptions = selectedRun?.by_intent?.map((i) => i.intent) || [];
@@ -73,7 +78,14 @@ export default function AiEvalDashboard() {
           <h1 className="text-2xl font-bold">AI Eval Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">Track AI suggestion quality across prompt versions</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Label (optional)"
+            value={evalLabel}
+            onChange={(e) => setEvalLabel(e.target.value)}
+            className="border rounded px-2 py-1 text-sm bg-background w-40"
+          />
           <Button variant="outline" size="sm" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh

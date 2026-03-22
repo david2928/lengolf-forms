@@ -36,31 +36,40 @@ const CLASSIFIER_MODEL = process.env.INTENT_CLASSIFIER_MODEL || 'gpt-4o-mini';
 const CLASSIFIER_TIMEOUT_MS = 3000;
 
 // Compact system prompt (~250 tokens) — kept minimal for speed
-const CLASSIFIER_SYSTEM_PROMPT = `Classify the latest customer message for Lengolf, a golf simulator business in Bangkok.
+const CLASSIFIER_SYSTEM_PROMPT = `Classify the OVERALL CONVERSATION TOPIC for Lengolf, a golf simulator business in Bangkok. You will see the full conversation — classify what the conversation is about, not just the last message.
 
 Intents:
 - availability_check: Asking if bays/times are available, or ANY follow-up about availability
 - booking_request: Wants to make a booking, or confirms after seeing availability ("OK book it", "จองเลย")
 - cancellation: Wants to cancel a booking
-- modification_request: Wants to reschedule or change a booking
+- modification_request: Wants to reschedule or change a booking, extend/renew a package, or change package expiry
 - coaching_inquiry: About coaching, lessons, instructors, or "โปร" meaning coach (not promotion)
 - pricing_inquiry: About prices, rates, costs, how much, or asking about price of something discussed earlier
 - promotion_inquiry: About promotions, discounts, deals
 - payment_inquiry: About payment methods, transfer, QR, cards
-- equipment_inquiry: About equipment, clubs, gloves, rentals
-- facility_inquiry: About the facility, bay types, simulators, opening hours, photos, venue (only when NOT asking about price or availability)
-- location_inquiry: About location, directions, parking, address
+- equipment_inquiry: About equipment, clubs, gloves, rentals, renting clubs for indoor or course use, club availability
+- facility_inquiry: About the facility, bay types, simulators, opening hours, photos, venue (only when NOT asking about price or availability). NOT parking — parking is location_inquiry.
+- location_inquiry: About location, directions, how to get there, parking (ที่จอดรถ), which exit, which floor, address
 - arrival_notification: Customer says they arrived or are coming
 - greeting: ONLY for standalone greetings with no other context (Hello, hi, สวัสดี). NOT for follow-up messages.
 - general_inquiry: Thanks, OK, acknowledgement, or anything else
 
 CRITICAL RULES:
-- Follow-up messages MUST be classified based on the conversation topic, not in isolation.
+- Classify the CONVERSATION TOPIC, not just the latest message in isolation.
+- Short follow-up messages (names, phone numbers, locations, "OK", "yes") inherit the conversation topic.
+- Example: customer asks about a lesson → provides name → provides phone → sends "Singapore" → the topic is STILL coaching_inquiry, not location.
+- COACHING STAYS COACHING: If the conversation mentions coaching, lessons, a coach name (Min, Tan, Noon, Boss, Ratchavin, Kru Min), or staff shared coach availability → ALL follow-ups are coaching_inquiry, even time confirmations like "1pm sounds good" or "4pm works". A customer confirming a coaching time is NOT booking_request — it is coaching_inquiry.
+- TOPIC SWITCH OVERRIDES: When the customer explicitly introduces a NEW topic, classify by the new topic, not the old conversation:
+  * "Is there coach tomorrow?" after a bay booking discussion → coaching_inquiry (explicitly asks about coach)
+  * "extend my package" / "renew" / "change expiry" after coaching discussion → modification_request (package change overrides coaching)
+  * "how much is it?" after facility discussion → pricing_inquiry
+- PARKING = location_inquiry: Questions about parking (ที่จอดรถ, parking, จอดรถ) are location_inquiry, not facility_inquiry. Parking relates to getting TO the venue.
 - "แล้วพรุ่งนี้ล่ะ" / "What about tomorrow?" / "How about Saturday?" after availability discussion = availability_check
 - "And the AI bay?" / "แล้ว AI bay ล่ะ" after pricing discussion = pricing_inquiry
 - Short Thai messages like "แล้ว...ล่ะ" are follow-ups, NEVER greetings.
 - When in doubt between facility_inquiry and pricing_inquiry, check if the previous messages discussed prices.
 - "book the rental club" / "rent clubs" / questions about borrowing or renting equipment = equipment_inquiry, NOT booking_request. The word "book" here refers to reserving equipment, not a bay booking.
+- STRUCTURED BOOKING DATA = booking_request: When the conversation contains customer name + phone number + date + duration (often sent as a numbered list like "1. Name 2. Phone 3. Date 4. Hours"), this is ALWAYS a booking_request, even if a follow-up message asks about promotions ("Buy 1 Get 1", "B1G1"). The customer intends to book and is asking about the promotion that applies to their booking.
 
 Respond with JSON only.`;
 
@@ -114,22 +123,32 @@ async function llmClassify(
   recentMessages?: Array<{ content: string; senderType?: string }>,
   signal?: AbortSignal
 ): Promise<{ intent: string; language: 'th' | 'en' }> {
-  // Build conversation context (last 4 messages + current)
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: CLASSIFIER_SYSTEM_PROMPT },
   ];
 
-  if (recentMessages && recentMessages.length > 0) {
-    // Include last 4 messages for context (both user and assistant)
-    const recent = recentMessages.slice(-4);
-    for (const msg of recent) {
-      const role = msg.senderType === 'user' ? 'user' as const : 'assistant' as const;
-      messages.push({ role, content: msg.content });
-    }
+  // Present the conversation as a single user message so the classifier
+  // sees the overall topic, not just the latest short message in isolation.
+  // Cap at last 20 messages to balance context vs cost/latency.
+  const recent = (recentMessages || []).slice(-20);
+  const lines: string[] = recent.map(msg => {
+    const sender = (msg.senderType === 'user' || msg.senderType === 'customer') ? 'Customer' : 'Staff';
+    return `${sender}: ${msg.content}`;
+  });
+
+  // Deduplicate: only append current message if it's not already the last entry
+  const lastMsg = recent[recent.length - 1];
+  const isAlreadyIncluded = lastMsg &&
+    (lastMsg.senderType === 'user' || lastMsg.senderType === 'customer') &&
+    lastMsg.content === customerMessage;
+  if (!isAlreadyIncluded) {
+    lines.push(`Customer: ${customerMessage}`);
   }
 
-  // Add current message as the final user message
-  messages.push({ role: 'user', content: customerMessage });
+  messages.push({
+    role: 'user',
+    content: `CONVERSATION:\n${lines.join('\n')}\n\nClassify the overall conversation topic.`
+  });
 
   const response = await openai.chat.completions.create({
     model: CLASSIFIER_MODEL,
@@ -178,11 +197,11 @@ export function regexFullClassify(message: string): { intent: string; language: 
   if (text.match(/จอง|book|reservation|reserve/)) return { intent: 'booking_request', language: lang };
   if (text.match(/available|ว่าง|มี.*ว่าง|slot/)) return { intent: 'availability_check', language: lang };
   if (text.match(/change|เปลี่ยน|เลื่อน|reschedule/)) return { intent: 'modification_request', language: lang };
-  if (text.match(/coach|โค้ช|โปร(?!โม)|เรียน|lesson|สอน|คลาส|class/)) return { intent: 'coaching_inquiry', language: lang };
+  if (text.match(/coach|โค้ช|โปร(?!โม)|เรียน|lesson|สอน|คลาส|class|ตารางโปร/)) return { intent: 'coaching_inquiry', language: lang };
   if (text.match(/ราคา|price|cost|เท่าไ|how\s*much|rate|ค่า/)) return { intent: 'pricing_inquiry', language: lang };
   if (text.match(/โปรโม|promotion|discount|ส่วนลด|deal|special|แพ็ค|package/)) return { intent: 'promotion_inquiry', language: lang };
   if (text.match(/จ่าย|pay|payment|โอน|transfer|QR|บัตร|card/)) return { intent: 'payment_inquiry', language: lang };
-  if (text.match(/อุปกรณ์|equipment|club|ไม้กอล์ฟ|rental|ยืม|glove|ถุงมือ/)) return { intent: 'equipment_inquiry', language: lang };
+  if (text.match(/อุปกรณ์|equipment|club|ไม้กอล์ฟ|rental|ยืม|glove|ถุงมือ|เช่าไม้|rent.*club|club.*rent|ไม้เช่า|เช่า.*กอล์ฟ|course.*club|club.*course/)) return { intent: 'equipment_inquiry', language: lang };
   if (text.match(/เปิด|ปิด|open|close|hour|เวลา|time|bay|เบย์|simulator|ห้อง/)) return { intent: 'facility_inquiry', language: lang };
   if (text.match(/photo|picture|รูป|ภาพ|venue|สถานที่/)) return { intent: 'facility_inquiry', language: lang };
   if (text.match(/ที่ไหน|where|location|แผนที่|map|parking|จอดรถ/)) return { intent: 'location_inquiry', language: lang };

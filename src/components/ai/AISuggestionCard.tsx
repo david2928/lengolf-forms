@@ -68,7 +68,12 @@ export interface AISuggestion {
     customerData?: any;
     similarMessagesUsed: SimilarMessage[];
     systemPromptExcerpt: string;
+    skillsUsed?: string[];
+    intentDetected?: string;
+    intentSource?: string;
+    intentClassificationMs?: number;
     functionSchemas?: any[];
+    functionCallHistory?: string[];
     toolChoice?: string;
     model: string;
   };
@@ -405,6 +410,63 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
                   </div>
                   <div className="text-blue-800 italic">&ldquo;{suggestion.debugContext.customerMessage}&rdquo;</div>
                 </div>
+
+                {/* Intent Classification */}
+                {suggestion.debugContext.intentDetected && (
+                  <div className="bg-indigo-50 border border-indigo-200 rounded p-2">
+                    <div className="font-semibold text-indigo-900 mb-1 flex items-center space-x-1">
+                      <Brain className="h-3 w-3" />
+                      <span>Intent Classification</span>
+                    </div>
+                    <div className="text-indigo-800 space-y-0.5">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium bg-indigo-100 px-1.5 py-0.5 rounded">
+                          {suggestion.debugContext.intentDetected.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-indigo-600">
+                          via {suggestion.debugContext.intentSource}
+                          {suggestion.debugContext.intentClassificationMs !== undefined && (
+                            <span> ({suggestion.debugContext.intentClassificationMs}ms)</span>
+                          )}
+                        </span>
+                      </div>
+                      {suggestion.debugContext.skillsUsed && suggestion.debugContext.skillsUsed.length > 0 && (
+                        <div className="mt-1">
+                          <span className="text-indigo-600">Skills: </span>
+                          {suggestion.debugContext.skillsUsed.map((skill, idx) => (
+                            <span key={idx} className="inline-block bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded mr-1 mb-0.5">
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {suggestion.debugContext.functionSchemas && suggestion.debugContext.functionSchemas.length > 0 && (
+                        <div className="mt-1">
+                          <span className="text-indigo-600">Available tools: </span>
+                          {suggestion.debugContext.functionSchemas.map((tool: string, idx: number) => (
+                            <span key={idx} className={cn(
+                              'inline-block px-1.5 py-0.5 rounded mr-1 mb-0.5 text-xs',
+                              suggestion.debugContext?.functionCallHistory?.includes(tool)
+                                ? 'bg-green-100 text-green-700 font-medium'
+                                : 'bg-gray-100 text-gray-600'
+                            )}>
+                              {tool.replace(/_/g, ' ')}
+                              {suggestion.debugContext?.functionCallHistory?.includes(tool) && ' ✓'}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {suggestion.debugContext.functionCallHistory && suggestion.debugContext.functionCallHistory.length > 0 && (
+                        <div className="mt-1">
+                          <span className="text-indigo-600">Call sequence: </span>
+                          <span className="font-mono text-indigo-800">
+                            {suggestion.debugContext.functionCallHistory.join(' → ')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Conversation History */}
                 {suggestion.debugContext.conversationHistory && suggestion.debugContext.conversationHistory.length > 0 && (

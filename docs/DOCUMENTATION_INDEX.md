@@ -59,6 +59,10 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 - **[POS Tablet Enhancements](./features/public/pos/POS_TABLET_ENHANCEMENTS.md)** - Touch-optimized interface improvements
 - **[Product Modifier System](./features/public/pos/PRODUCT_MODIFIER_SYSTEM.md)** - Variable pricing with modifiers
 
+### Club Rentals & Used Clubs
+- **[Club Rental System](./features/public/staff-operations/CLUB_RENTAL_SYSTEM.md)** - Indoor simulator and course club rentals with tiered pricing, availability, and POS integration
+- **[Used Clubs Inventory](./features/public/staff-operations/USED_CLUBS_INVENTORY.md)** - Staff/admin used clubs management with image uploads and website integration
+
 ### Staff Operations
 - **[Time Clock System](./features/public/staff-operations/TIME_CLOCK_SYSTEM.md)** - PIN authentication, camera verification, and time tracking
 - **[Staff Scheduling System](./features/public/staff-operations/STAFF_SCHEDULING_SYSTEM.md)** - Staff schedules with conflict detection
@@ -82,6 +86,9 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 - **[Lead Feedback System](./features/admin/analytics/LEAD_FEEDBACK_SYSTEM.md)** - Comprehensive lead processing and OB sales management with Customer Outreach integration
 - **[Google Ads Analytics](./features/admin/analytics/GOOGLE_ADS_ANALYTICS.md)** - Google Ads campaign tracking and ROI analysis
 - **[Referral Analytics System](./features/admin/analytics/REFERRAL_ANALYTICS_SYSTEM.md)** - Customer acquisition tracking and trend analysis
+- **[Traffic Analytics](./features/admin/analytics/TRAFFIC_ANALYTICS.md)** - GA4-powered traffic dashboard with channel filtering and page drill-down
+- **[Google Reviews System](./features/admin/analytics/GOOGLE_REVIEWS_SYSTEM.md)** - Google Reviews management with OAuth, AI draft replies, and sync
+- **[AI Evaluation System](./features/admin/analytics/AI_EVALUATION_SYSTEM.md)** - AI suggestion quality evaluation with judge scoring and trend tracking
 - **[Customer Segmentation Definitions](./features/admin/CUSTOMER_SEGMENTATION_DEFINITIONS.md)** - RFM analysis, segment definitions, and behavioral customer categorization
 
 ### Customer Management
@@ -130,25 +137,14 @@ This documentation covers the entire Lengolf Forms ecosystem, organized by user 
 - **[WhatsApp Business API Setup](./integrations/WHATSAPP_BUSINESS_API_SETUP.md)** - Complete WhatsApp Cloud API setup guide with Meta Business Manager migration
 - **[Coaching System Technical](./technical/COACHING_SYSTEM_TECHNICAL.md)** - Technical architecture and optimization
 - **[Next.js 15 Migration](./technical/NEXTJS_15_MIGRATION.md)** - Complete migration guide from Next.js 14 to 15, including breaking changes and 65 API route updates
+- **[Cron Jobs & Automation](./technical/CRON_JOBS.md)** - All automated jobs: bank reconciliation, weekly reports, welcome back campaigns, POS materialized views
 
 ---
 
 ## 📚 Operational Documentation
 
-### Setup & Deployment
-- **[Development Setup](./development/SETUP.md)** - Local environment configuration
-- **[Deployment Guide](./development/DEPLOYMENT.md)** - Production deployment procedures
-
-### User Guides
-- **[Staff User Manual](./user/STAFF_MANUAL.md)** - Daily operations guide
-- **[Admin User Guide](./user/ADMIN_GUIDE.md)** - Administrative features guide
-- **[Troubleshooting Guide](./user/TROUBLESHOOTING.md)** - Common issues and solutions
-
 ### Procedures
 - **[Adding New Coach](./procedures/ADDING_NEW_COACH.md)** - Coach onboarding process
-
-### Maintenance
-- **[Unused Code Analysis](./maintenance/UNUSED_CODE_ANALYSIS.md)** - Code cleanup and optimization procedures
 
 ---
 
@@ -248,11 +244,4 @@ The following documentation files contain overlapping content and should be cons
 6. **DISCOUNT_MANAGEMENT.md**, **PAYROLL_CALCULATIONS.md** - Map to existing `pos/POS_DISCOUNT_SYSTEM.md`
 7. **Staff-related docs** - Verify mapping to existing STAFF_MANAGEMENT_SYSTEM.md and STAFF_SCHEDULING_SYSTEM.md
 
-### 📝 Missing Operational Documentation
-1. **Development Setup** - Local environment configuration
-2. **Staff User Manual** - Daily operations guide
-3. **Admin User Guide** - Administrative feature guide  
-4. **Deployment Guide** - Production deployment procedures
-5. **Troubleshooting Guide** - Common issues and solutions
-
-**Purpose**: This reorganized documentation structure provides intuitive navigation matching the application's user interface, making it easier for different user types to find relevant information quickly. 
+**Purpose**: This reorganized documentation structure provides intuitive navigation matching the application's user interface, making it easier for different user types to find relevant information quickly.

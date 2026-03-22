@@ -26,7 +26,7 @@ Current, maintained documentation reflecting the live database state:
 
 ## 📊 Schema Documentation
 
-**Quick Reference**: 4 schemas, 102 tables, 245+ functions, 10+ scheduled jobs
+**Quick Reference**: 5 schemas, 111 tables, 250+ functions, 10+ scheduled jobs
 
 ### 1. [Database Overview and Relationships](./DATABASE_OVERVIEW_AND_RELATIONSHIPS.md)
 **Start here** - High-level architecture, cross-schema relationships, and integration points.
@@ -43,7 +43,7 @@ Current, maintained documentation reflecting the live database state:
 ### 2. [Public Schema Documentation](./PUBLIC_SCHEMA_DOCUMENTATION.md)
 Core application tables for bookings, customers, and user-facing features.
 
-**Status**: **Mixed** - 10 active tables, 12 cleanup candidates
+**Status**: **Mixed** - 15 active tables, 12 cleanup candidates
 
 **🔥 Highly Active Tables**:
 - `customers` - **26.9M+ operations** - Core business entity
@@ -51,11 +51,16 @@ Core application tables for bookings, customers, and user-facing features.
 
 **✅ Active Tables**:
 - `bookings` - Customer bookings and reservations
-- `profiles` - User authentication profiles  
+- `profiles` - User authentication profiles
 - `crm_packages` - Customer package holdings
 - `cash_checks` - Staff cash recording system
 - `lead_feedback` - B2C lead management
 - `coach_weekly_schedules` - Coach availability
+- `chat_opportunities` - Sales opportunity recovery from chat conversations
+- `chat_opportunity_logs` - Audit trail for opportunity actions
+- `chat_opportunity_batch_runs` - Batch processing monitoring
+- `rental_club_sets` - Bookable club set inventory (indoor + course)
+- `club_rentals` - Club rental reservations and lifecycle tracking
 
 **❌ Cleanup Candidates (12 tables)**:
 - VIP system tables (never implemented)
@@ -70,7 +75,7 @@ Core application tables for bookings, customers, and user-facing features.
 ### 3. [Backoffice Schema Documentation](./BACKOFFICE_SCHEMA_DOCUMENTATION.md)  
 Administrative and operational tables for staff, payroll, and business management.
 
-**Status**: **EXCELLENT** - All 22 tables active and well-utilized
+**Status**: **EXCELLENT** - All 24 tables active and well-utilized
 
 **🔥 Highly Active Tables**:
 - `staff` - Daily time-clock operations, PIN validations
@@ -85,6 +90,8 @@ Administrative and operational tables for staff, payroll, and business managemen
 - Comprehensive financial management
 - Real-time payroll calculations
 - Complete audit trail
+- Google Business Profile review management (`google_reviews`)
+- Google Business OAuth token management (`google_business_oauth`)
 
 **Usage**: Admin operations, staff management, payroll, financial tracking
 
@@ -143,7 +150,20 @@ Supabase-managed authentication tables (reference only).
 
 ---
 
-### 6. [Database Functions and Automation](./DATABASE_FUNCTIONS_AND_AUTOMATION.md)
+### 6. AI Evaluation Schema (`ai_eval`)
+Schema for AI model evaluation and testing pipelines.
+
+**Status**: **Active** - Used for AI feature evaluation
+
+**Tables (2)**:
+- `eval_runs` - Tracks individual evaluation runs with parameters, model info, and aggregate results
+- `eval_samples` - Stores individual test samples and their evaluation outcomes per run
+
+**Usage**: AI model quality assurance, regression testing, performance benchmarking
+
+---
+
+### 7. [Database Functions and Automation](./DATABASE_FUNCTIONS_AND_AUTOMATION.md)
 Comprehensive coverage of database functions, triggers, and scheduled jobs.
 
 **Key Content**:
@@ -157,7 +177,7 @@ Comprehensive coverage of database functions, triggers, and scheduled jobs.
 
 ---
 
-### 7. [POS Core Tables Documentation](./POS_CORE_TABLES_DOCUMENTATION.md)
+### 8. [POS Core Tables Documentation](./POS_CORE_TABLES_DOCUMENTATION.md)
 Legacy POS system transition documentation (AS-IS state).
 
 **Focus**: Migration from old POS staging to normalized POS tables
@@ -169,22 +189,29 @@ Legacy POS system transition documentation (AS-IS state).
 ### Schema Summary
 | Schema | Purpose | Tables | Functions | Status | Activity Level | Cleanup Opportunities |
 |--------|---------|--------|-----------|--------|----------------|----------------------|
-| `public` | Core application data | 35 | 182 | Mixed | 2 highly active, 8 active, 12 unused | 12 tables for cleanup |
-| `backoffice` | Administrative operations | 22 | 27 | Excellent | All 22 tables active | No cleanup needed |
+| `public` | Core application data | 40 | 187 | Mixed | 2 highly active, 13 active, 12 unused | 12 tables for cleanup |
+| `backoffice` | Administrative operations | 24 | 29 | Excellent | All 24 tables active | No cleanup needed |
 | `pos` | Point of sale system | 29 | 32 | High activity | 15 active, 14 archive/cleanup | 15MB+ storage savings |
 | `auth` | Authentication (Supabase) | 16 | 4 | Excellent | 9 active, 7 enterprise features | Fully utilized |
+| `ai_eval` | AI evaluation & testing | 2 | 0 | Active | Evaluation pipeline | N/A |
 
 ### Critical Relationships
 - `auth.users.id` ↔ `public.profiles.id` (1:1)
 - `public.customers.id` ← `pos.lengolf_sales.customer_id` (1:many)
 - `backoffice.packages.customer_id` → `public.customers.id` (many:1)
 - `pos.table_sessions.id` ← `pos.orders.table_session_id` (1:many)
+- `public.chat_opportunities.id` ← `public.chat_opportunity_logs.opportunity_id` (1:many)
+- `public.rental_club_sets.id` ← `public.club_rentals.rental_club_set_id` (1:many)
+- `public.bookings.id` ← `public.club_rentals.booking_id` (1:many, optional)
 
 ### Data Flow Patterns
 1. **Authentication**: auth → public.profiles → application features
 2. **Customer Journey**: booking → customer record → package purchase → usage tracking
 3. **POS Integration**: External POS → CSV import → pos.lengolf_sales
 4. **Table Management**: zone → table → session → orders → transactions
+5. **Chat Opportunities**: unified_conversations → find_chat_opportunities() → LLM analysis → chat_opportunities → staff follow-up → chat_opportunity_logs
+6. **Club Rentals**: rental_club_sets → club_rentals (linked to bookings for indoor, standalone for course)
+7. **Google Reviews**: Google Business API → google_business_oauth → google_reviews sync
 
 ## Common Use Cases
 
@@ -264,6 +291,7 @@ GROUP BY p.id, pt.display_name, pt.hours;
 - **ETL**: `sync_sales_data()`, `transform_sales_data()`, `update_sales_customer_ids()`
 - **Customer**: `normalize_phone_number()`, `search_customers()`, `create_customer_with_code()`
 - **Packages**: `calculate_expiration_date()`, `get_customer_packages()`
+- **Chat Opportunities**: `find_chat_opportunities()`, `get_chat_opportunities()`, `count_chat_opportunities()`, `get_chat_opportunity_stats()`
 
 ## Maintenance Tasks
 
@@ -305,10 +333,10 @@ GROUP BY p.id, pt.display_name, pt.hours;
 
 ## 📈 Database Statistics & Analysis
 
-### Current State (2025-01-08)
-- **Total Tables**: 102 (35 public, 22 backoffice, 29 pos, 16 auth)
-- **Database Functions**: 245+ (182 public, 27 backoffice, 32 pos, 4 auth)
-- **Scheduled Jobs**: 10+ (ETL, sync, monitoring, calendar, package sync)
+### Current State (2026-03-21)
+- **Total Tables**: 111 (40 public, 24 backoffice, 29 pos, 16 auth, 2 ai_eval)
+- **Database Functions**: 250+ (187 public, 29 backoffice, 32 pos, 4 auth)
+- **Scheduled Jobs**: 10+ (ETL, sync, monitoring, calendar, package sync, chat opportunity batch)
 - **Daily Transactions**: 1000+ (bookings + POS + coaching)
 - **Data Volume**: 1.2M+ POS records, 26.9M+ customer operations
 
@@ -325,6 +353,11 @@ GROUP BY p.id, pt.display_name, pt.hours;
 - **Implementation Status**: 5-week phased cleanup plan ready
 
 ### New Features (Recently Added)
+- **Chat Opportunity Recovery**: LLM-powered sales opportunity identification from chat conversations (`chat_opportunities`, `chat_opportunity_logs`, `chat_opportunity_batch_runs`)
+- **Club Rental System**: Indoor and course club rental reservations with pricing tiers (`rental_club_sets`, `club_rentals`)
+- **Google Reviews**: Synced Google Business Profile reviews for reputation management (`backoffice.google_reviews`)
+- **Google Business OAuth**: Token management for Google Business Profile API access (`backoffice.google_business_oauth`)
+- **AI Evaluation**: Evaluation pipeline for AI model testing (`ai_eval.eval_runs`, `ai_eval.eval_samples`)
 - **Cash Checks**: Staff cash recording system
 - **Lead Feedback**: B2C lead management workflow
 - **Coach Schedules**: Weekly availability patterns
@@ -360,4 +393,4 @@ GROUP BY p.id, pt.display_name, pt.hours;
 - [Backend Documentation](../BACKEND_DOCUMENTATION.md) - Application data layer
 - [Technical Documentation](../technical/) - System architecture
 
-**📊 Analysis Methodology**: This comprehensive analysis used pg_stat_user_tables for activity metrics, code analysis for feature usage, and storage analysis for optimization opportunities. All findings verified against live production data as of 2025-01-08.
+**📊 Analysis Methodology**: This comprehensive analysis used pg_stat_user_tables for activity metrics, code analysis for feature usage, and storage analysis for optimization opportunities. All findings verified against live production data. Last updated: 2026-03-21.

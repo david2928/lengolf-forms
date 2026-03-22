@@ -365,8 +365,9 @@ async function sendBroadcastMessages(
 
   console.log(`Starting broadcast ${campaignId} to ${members.length} recipients`);
 
-  // Fetch coaching availability once for all messages
-  const availability = await getCoachingAvailability();
+  // Only fetch coaching availability if no custom flex_message is stored (legacy coaching campaigns)
+  const isLegacyCoachingFlex = campaign.message_type === 'flex' && !campaign.flex_message;
+  const availability = isLegacyCoachingFlex ? await getCoachingAvailability() : null;
 
   // Send messages in batches with rate limiting (500/min = ~100ms delay)
   for (let i = 0; i < members.length; i++) {
@@ -377,78 +378,96 @@ async function sendBroadcastMessages(
       let message: any;
 
       if (campaign.message_type === 'flex') {
-        // Build the entire Flex message in code (not from database template)
-        const scheduleContents = formatAvailabilityForFlex(availability || []);
+        if (campaign.flex_message) {
+          // Use the campaign's stored flex message with per-recipient variable substitution
+          const variables = {
+            customer_name: member.customer_name || 'valued customer',
+            campaign_id: campaignId,
+            audience_id: campaign.audience_id,
+            coaching_hours: member.coaching_hours,
+          };
 
-        const flexMessage = {
-          type: 'bubble',
-          hero: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [{
-              type: 'text',
-              text: 'Coaching Availability',
-              weight: 'bold',
-              size: 'xl',
-              color: '#FFFFFF'
-            }],
-            backgroundColor: '#17C964',
-            paddingAll: '20px'
-          },
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              {
+          const personalizedFlex = replaceFlexVariables(campaign.flex_message, variables);
+
+          message = {
+            type: 'flex',
+            altText: campaign.name || 'LENGOLF',
+            contents: personalizedFlex
+          };
+        } else {
+          // Legacy: build coaching availability flex in code
+          const scheduleContents = formatAvailabilityForFlex(availability || []);
+
+          const flexMessage = {
+            type: 'bubble',
+            hero: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [{
                 type: 'text',
-                text: 'Available Next 14 Days',
-                size: 'sm',
-                color: '#999999',
-                margin: 'none'
-              },
-              {
-                type: 'separator',
-                margin: 'md'
-              },
-              {
-                type: 'box',
-                layout: 'vertical',
-                margin: 'lg',
-                spacing: 'sm',
-                contents: scheduleContents
-              }
-            ]
-          },
-          footer: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              {
-                type: 'separator',
-                margin: 'md'
-              },
-              {
-                type: 'button',
-                style: 'link',
-                height: 'sm',
-                action: {
-                  type: 'postback',
-                  label: 'Unsubscribe',
-                  data: `action=opt_out&campaign_id=${campaignId}&audience_id=${campaign.audience_id}`
+                text: 'Coaching Availability',
+                weight: 'bold',
+                size: 'xl',
+                color: '#FFFFFF'
+              }],
+              backgroundColor: '#17C964',
+              paddingAll: '20px'
+            },
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'text',
+                  text: 'Available Next 14 Days',
+                  size: 'sm',
+                  color: '#999999',
+                  margin: 'none'
                 },
-                color: '#999999'
-              }
-            ],
-            spacing: 'sm',
-            paddingAll: '8px'
-          }
-        };
+                {
+                  type: 'separator',
+                  margin: 'md'
+                },
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  margin: 'lg',
+                  spacing: 'sm',
+                  contents: scheduleContents
+                }
+              ]
+            },
+            footer: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'separator',
+                  margin: 'md'
+                },
+                {
+                  type: 'button',
+                  style: 'link',
+                  height: 'sm',
+                  action: {
+                    type: 'postback',
+                    label: 'Unsubscribe',
+                    data: `action=opt_out&campaign_id=${campaignId}&audience_id=${campaign.audience_id}`
+                  },
+                  color: '#999999'
+                }
+              ],
+              spacing: 'sm',
+              paddingAll: '8px'
+            }
+          };
 
-        message = {
-          type: 'flex',
-          altText: 'Coaching Availability',
-          contents: flexMessage
-        };
+          message = {
+            type: 'flex',
+            altText: 'Coaching Availability',
+            contents: flexMessage
+          };
+        }
       } else {
         // Plain text message from campaign, optionally with image
         const messages: any[] = [];

@@ -53,6 +53,9 @@ function groupConsecutiveSlots(timeSlots: string[]): string[] {
   return grouped;
 }
 
+// Coaches excluded from "Copy All" but still individually copyable
+const EXCLUDED_FROM_COPY_ALL = ['Ratchavin'];
+
 function formatAvailabilityForClipboard(
   coachGroupedSlots: CoachGroupedSlots,
   selectedCoach: string,
@@ -63,10 +66,15 @@ function formatAvailabilityForClipboard(
 ): string {
   let filteredSlots = Object.entries(coachGroupedSlots)
     .filter(([coachId]) => selectedCoach === 'all' || coachId === selectedCoach)
-    .filter(([, coachData]) => 
-      searchTerm === '' || 
+    .filter(([, coachData]) =>
+      searchTerm === '' ||
       coachData.coach_name.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+  // Exclude phased-out coaches from "Copy All", but allow individual copy
+  if (!singleCoachId) {
+    filteredSlots = filteredSlots.filter(([, coachData]) => !EXCLUDED_FROM_COPY_ALL.includes(coachData.coach_name));
+  }
 
   // If single coach ID is provided, filter to only that coach
   if (singleCoachId) {

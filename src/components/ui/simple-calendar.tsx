@@ -24,6 +24,7 @@ interface SimpleCalendarProps {
   disabled?: (date: Date) => boolean
   className?: string
   mode?: 'single'
+  defaultMonth?: Date
 }
 
 export function SimpleCalendar({
@@ -31,9 +32,10 @@ export function SimpleCalendar({
   onSelect,
   disabled,
   className,
-  mode = 'single'
+  mode = 'single',
+  defaultMonth
 }: SimpleCalendarProps) {
-  const [currentMonth, setCurrentMonth] = React.useState(selected || new Date())
+  const [currentMonth, setCurrentMonth] = React.useState(selected || defaultMonth || new Date())
 
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(monthStart)

@@ -46,23 +46,28 @@ interface AddOn {
   price: number
 }
 
-const DURATION_OPTIONS = [
-  { days: 1, label: '1 Day', description: 'Single round' },
-  { days: 3, label: '3 Days', description: 'Weekend trip' },
-  { days: 7, label: '7 Days', description: 'Full week' },
-  { days: 14, label: '14 Days', description: 'Extended stay' },
-]
-
 const ADD_ON_OPTIONS = [
   { key: 'gloves', label: 'Golf Gloves', price: 600, description: 'Premium leather gloves' },
   { key: 'balls', label: 'Golf Balls (6-pack)', price: 400, description: 'Pro V1 quality balls' },
 ]
 
+/** Optimal combo pricing — finds cheapest combination of 1d/3d/7d/14d packs */
 function getCoursePrice(set: ClubSet, days: number): number {
-  if (days <= 1) return Number(set.course_price_1d)
-  if (days <= 3) return Number(set.course_price_3d)
-  if (days <= 7) return Number(set.course_price_7d)
-  return Number(set.course_price_14d)
+  const prices = [
+    { d: 1, p: Number(set.course_price_1d) },
+    { d: 3, p: Number(set.course_price_3d) },
+    { d: 7, p: Number(set.course_price_7d) },
+    { d: 14, p: Number(set.course_price_14d) },
+  ]
+  const dp = new Array(days + 1).fill(Infinity)
+  dp[0] = 0
+  for (let i = 1; i <= days; i++) {
+    for (const { d, p } of prices) {
+      const prev = Math.max(0, i - d)
+      if (dp[prev] + p < dp[i]) dp[i] = dp[prev] + p
+    }
+  }
+  return dp[days]
 }
 
 // Customer type matching booking form
@@ -91,9 +96,9 @@ export function CourseRentalClient() {
 
   // Dates & Time
   const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [startTime, setStartTime] = useState('')
   const [returnTime, setReturnTime] = useState('')
-  const [durationDays, setDurationDays] = useState(1)
 
   // Delivery
   const [deliveryRequested, setDeliveryRequested] = useState(false)
@@ -153,15 +158,11 @@ export function CourseRentalClient() {
   const [error, setError] = useState('')
 
   // Computed
-  const endDate = startDate
-    ? (() => {
-        const d = new Date(startDate)
-        d.setDate(d.getDate() + durationDays)
-        return d.toISOString().split('T')[0]
-      })()
-    : ''
+  const durationDays = (startDate && endDate)
+    ? Math.max(1, Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)))
+    : 0
 
-  const rentalPrice = selectedSet ? getCoursePrice(selectedSet, durationDays) : 0
+  const rentalPrice = (selectedSet && durationDays > 0) ? getCoursePrice(selectedSet, durationDays) : 0
   const addOnsTotal = addOns.reduce((sum, a) => sum + a.price, 0)
   const deliveryFee = deliveryRequested ? 500 : 0
   const totalPrice = rentalPrice + addOnsTotal + deliveryFee
@@ -173,7 +174,7 @@ export function CourseRentalClient() {
     setSetsLoading(true)
     try {
       const dateParam = startDate || todayStr
-      const ed = startDate ? endDate : dateParam
+      const ed = endDate || dateParam
       let url = `/api/clubs/availability?type=course&date=${dateParam}&end_date=${ed}`
       if (startTime) url += `&start_time=${startTime}`
       const res = await fetch(url)
@@ -203,6 +204,8 @@ export function CourseRentalClient() {
     employeeName &&
     selectedSet &&
     startDate &&
+    endDate &&
+    durationDays > 0 &&
     customerName.trim() &&
     customerPhone.trim() &&
     (!deliveryRequested || deliveryAddress.trim()) &&
@@ -222,7 +225,6 @@ export function CourseRentalClient() {
           start_date: startDate,
           start_time: startTime || undefined,
           end_date: endDate,
-          duration_days: durationDays,
           customer_id: customerId || undefined,
           customer_name: customerName.trim(),
           customer_email: customerEmail.trim() || undefined,
@@ -230,6 +232,7 @@ export function CourseRentalClient() {
           add_ons: addOns,
           delivery_requested: deliveryRequested,
           delivery_address: deliveryRequested ? deliveryAddress.trim() : undefined,
+          return_time: returnTime || undefined,
           notes: notes.trim() || undefined,
           source: 'staff',
         }),
@@ -245,22 +248,28 @@ export function CourseRentalClient() {
 
       // Send LINE notification (non-blocking)
       try {
-        const dateDisplay = new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-        const endDateDisplay = new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        const dateDisplay = new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })
+        const endDateDisplay = new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })
         const pickupDisplay = startTime ? ` ${startTime}` : ''
-        const returnDisplay = returnTime ? ` ${returnTime}` : pickupDisplay
+        const returnDisplay = returnTime ? ` ${returnTime}` : ''
+        const tierLabel = selectedSet.tier === 'premium-plus' ? 'Premium+' : 'Premium'
+        const genderLabel = selectedSet.gender === 'mens' ? "Men's" : "Women's"
 
-        let lineMessage = `Club Rental Booking (${data.rental_code})`
-        lineMessage += `\nSet: ${selectedSet.name}`
-        lineMessage += `\nDates: ${dateDisplay}${pickupDisplay} → ${endDateDisplay}${returnDisplay} (${durationDays}d)`
-        lineMessage += `\n${deliveryRequested ? `Delivery: ${deliveryAddress.trim()}` : 'Pickup at LENGOLF'}`
-        lineMessage += `\nCustomer: ${customerName.trim()}`
-        lineMessage += `\nPhone: ${customerPhone.trim()}`
-        if (addOns.length > 0) {
-          lineMessage += `\nAdd-ons: ${addOns.map(a => a.label).join(', ')}`
-        }
-        lineMessage += `\nTotal: ฿${totalPrice.toLocaleString()}`
-        lineMessage += `\nCreated by: ${employeeName}`
+        const lines = [
+          `Club Rental Notification (${data.rental_code})`,
+          `Customer: ${customerName.trim()}`,
+          `Phone: ${customerPhone.trim()}`,
+          customerEmail?.trim() ? `Email: ${customerEmail.trim()}` : null,
+          `Set: ${selectedSet.name} (${tierLabel}, ${genderLabel})`,
+          `Dates: ${dateDisplay}${pickupDisplay} - ${endDateDisplay}${returnDisplay} (${durationDays}d)`,
+          deliveryRequested ? `Delivery to: ${deliveryAddress.trim()}` : 'Pickup at LENGOLF',
+          addOns.length > 0 ? `Add-ons: ${addOns.map(a => a.label).join(', ')}` : null,
+          `Total: ฿${totalPrice.toLocaleString()}`,
+          `Created by: ${employeeName}`,
+          ``,
+          `Please contact the customer to confirm availability and arrange payment.`,
+        ]
+        const lineMessage = lines.filter(Boolean).join('\n')
 
         await fetch('/api/notify', {
           method: 'POST',
@@ -283,9 +292,9 @@ export function CourseRentalClient() {
     setEmployeeName(null)
     setSelectedSet(null)
     setStartDate('')
+    setEndDate('')
     setStartTime('')
     setReturnTime('')
-    setDurationDays(1)
     setDeliveryRequested(false)
     setDeliveryAddress('')
     setAddOns([])
@@ -337,7 +346,7 @@ export function CourseRentalClient() {
                   <span className="font-medium text-gray-900">
                     {new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     {startTime && ` ${startTime}`}
-                    {durationDays > 1 && ` - ${new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${startTime ? ` ${startTime}` : ''}`}
+                    {durationDays > 1 && ` - ${new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${returnTime ? ` ${returnTime}` : ''}`}
                     {' '}({durationDays}d)
                   </span>
                 </div>
@@ -483,16 +492,34 @@ export function CourseRentalClient() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="start-date">Start Date</Label>
-                <Input
-                  id="start-date"
-                  type="date"
-                  value={startDate}
-                  min={todayStr}
-                  onChange={e => setStartDate(e.target.value)}
-                  className="mt-1"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="start-date">Start Date</Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={startDate}
+                    min={todayStr}
+                    onChange={e => {
+                      setStartDate(e.target.value)
+                      // If end date is before new start date, reset it
+                      if (endDate && e.target.value > endDate) setEndDate('')
+                    }}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="end-date">End Date</Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={endDate}
+                    min={startDate || todayStr}
+                    disabled={!startDate}
+                    onChange={e => setEndDate(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -502,6 +529,8 @@ export function CourseRentalClient() {
                     id="start-time"
                     type="time"
                     step="3600"
+                    min="09:00"
+                    max="23:00"
                     value={startTime}
                     onChange={e => {
                       setStartTime(e.target.value)
@@ -516,6 +545,8 @@ export function CourseRentalClient() {
                     id="return-time"
                     type="time"
                     step="3600"
+                    min="09:00"
+                    max="23:00"
                     value={returnTime}
                     onChange={e => setReturnTime(e.target.value)}
                     className="mt-1"
@@ -523,38 +554,24 @@ export function CourseRentalClient() {
                 </div>
               </div>
 
-              <div>
-                <Label>Duration</Label>
-                <div className="grid grid-cols-4 gap-2 mt-1">
-                  {DURATION_OPTIONS.map(opt => (
-                    <button
-                      key={opt.days}
-                      type="button"
-                      onClick={() => setDurationDays(opt.days)}
-                      className={cn(
-                        'p-2 rounded-lg border-2 text-center transition-all',
-                        durationDays === opt.days
-                          ? 'border-green-600 bg-green-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      )}
-                    >
-                      <p className="text-sm font-medium text-gray-900">{opt.label}</p>
-                      <p className="text-xs font-bold text-green-700 mt-0.5">
-                        ฿{getCoursePrice(selectedSet, opt.days).toLocaleString()}
-                      </p>
-                    </button>
-                  ))}
+              {startDate && endDate && durationDays > 0 && (
+                <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg flex items-center justify-between">
+                  <span>
+                    {new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {startTime && ` ${startTime}`}
+                    {' '}&rarr;{' '}
+                    {new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {returnTime && ` ${returnTime}`}
+                  </span>
+                  <Badge variant="outline" className="text-xs ml-2">
+                    {durationDays} {durationDays === 1 ? 'day' : 'days'}
+                  </Badge>
                 </div>
-              </div>
+              )}
 
-              {startDate && (
-                <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg">
-                  {new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                  {startTime && ` ${startTime}`}
-                  {' '}&rarr;{' '}
-                  {new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                  {returnTime && ` ${returnTime}`}
-                  {' '}({durationDays} {durationDays === 1 ? 'day' : 'days'})
+              {selectedSet && durationDays > 0 && (
+                <div className="text-sm text-green-700 font-medium">
+                  Rental: ฿{rentalPrice.toLocaleString()} ({durationDays} {durationDays === 1 ? 'day' : 'days'})
                 </div>
               )}
 
@@ -574,7 +591,7 @@ export function CourseRentalClient() {
         )}
 
         {/* Section 4: Delivery & Add-ons */}
-        {employeeName && selectedSet && startDate && (
+        {employeeName && selectedSet && startDate && endDate && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -674,7 +691,7 @@ export function CourseRentalClient() {
         )}
 
         {/* Section 5: Customer */}
-        {employeeName && selectedSet && startDate && (
+        {employeeName && selectedSet && startDate && endDate && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -736,7 +753,7 @@ export function CourseRentalClient() {
         )}
 
         {/* Section 6: Summary & Submit */}
-        {employeeName && selectedSet && startDate && customerName.trim() && customerPhone.trim() && (
+        {employeeName && selectedSet && startDate && endDate && customerName.trim() && customerPhone.trim() && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Summary</CardTitle>

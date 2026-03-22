@@ -58,6 +58,29 @@ Return ONLY valid JSON (no markdown, no code blocks):
 If no information found, return null values with 0.0 confidence.`;
 
 /**
+ * Normalize name casing: ALL CAPS or all lowercase → Title Case
+ * Preserves already mixed-case names (e.g., "McDonald", "van der Berg")
+ */
+function normalizeNameCase(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return trimmed;
+
+  // Check if the name is ALL CAPS or all lowercase
+  const isAllUpper = trimmed === trimmed.toUpperCase() && /[A-Za-z\u0E00-\u0E7F]/.test(trimmed);
+  const isAllLower = trimmed === trimmed.toLowerCase() && /[A-Za-z]/.test(trimmed);
+
+  if (!isAllUpper && !isAllLower) {
+    // Already has mixed casing — leave as-is
+    return trimmed;
+  }
+
+  // Convert to title case: capitalize first letter of each word
+  return trimmed
+    .toLowerCase()
+    .replace(/(?:^|\s)\S/g, (char) => char.toUpperCase());
+}
+
+/**
  * Extract customer name, phone number, and email from chat messages
  * @param messages Array of chat messages to analyze
  * @param maxMessages Maximum number of recent messages to analyze (default: 15)
@@ -133,7 +156,7 @@ Return JSON only.`;
       : 0;
 
     const result: ExtractedCustomerInfo = {
-      name: parsed.name || null,
+      name: parsed.name ? normalizeNameCase(parsed.name) : null,
       phone: parsed.phone || null,
       email: parsed.email || null,
       confidence: {

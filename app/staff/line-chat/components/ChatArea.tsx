@@ -286,6 +286,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom when AI suggestion appears
+  useEffect(() => {
+    if (aiSuggestion && messagesContainerRef.current) {
+      const timer = setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [aiSuggestion]);
+
   // Touch gesture state for swipe detection
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
   const [isSwipeDetected, setIsSwipeDetected] = useState(false);
@@ -743,8 +755,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   return (
     <div
-      className="flex-1 flex flex-col h-full min-h-0 overflow-hidden"
-      style={{ height: isMobile ? '100dvh' : undefined }}
+      className={`flex flex-col overflow-hidden ${isMobile ? 'fixed inset-0 z-40' : 'flex-1 h-full min-h-0'}`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -973,7 +984,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       )}
 
       {/* Messages */}
-      <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container min-h-0 ${isMobile ? 'pb-[80px]' : ''}`}>
+      <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container min-h-0 ${isMobile ? 'pb-[80px]' : ''}`} style={{ overscrollBehavior: 'contain' }}>
         {messages.map((message, index) => {
           // Check if we need a date separator before this message
           const showDateSeparator = index === 0 ||

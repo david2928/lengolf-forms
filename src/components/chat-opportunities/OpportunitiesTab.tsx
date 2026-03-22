@@ -58,6 +58,8 @@ interface BatchStatusResponse {
 interface OpportunitiesTabProps {
   onOpenChat: (conversationId: string, channelType: string) => void;
   userEmail?: string;
+  /** If set, auto-select this opportunity when the tab opens */
+  initialOpportunityId?: string | null;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -78,6 +80,7 @@ function formatRelativeTime(dateString: string): string {
 export function OpportunitiesTab({
   onOpenChat,
   userEmail,
+  initialOpportunityId,
 }: OpportunitiesTabProps) {
   const {
     opportunities,
@@ -117,6 +120,58 @@ export function OpportunitiesTab({
   useEffect(() => {
     fetchBatchStatus();
   }, [fetchBatchStatus]);
+
+  // Auto-select opportunity when initialOpportunityId is provided
+  // First try to find it in the loaded list; if not found, fetch it directly by ID
+  useEffect(() => {
+    if (!initialOpportunityId || selectedOpportunity) return;
+    if (opportunities.length === 0) return; // still loading
+
+    const match = opportunities.find(o => o.id === initialOpportunityId);
+    if (match) {
+      setSelectedOpportunity(match);
+    } else {
+      // Opportunity not in current page — fetch it directly and transform to flat format
+      fetch(`/api/chat-opportunities/${initialOpportunityId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.opportunity) {
+            // The /[id] endpoint returns nested conversation/logs; transform to flat format
+            const { conversation: conv, logs: _logs, ...oppFields } = data.opportunity;
+            const flat: ChatOpportunityWithConversation = {
+              ...oppFields,
+              conv_last_message_at: conv?.last_message_at || null,
+              conv_last_message_text: conv?.last_message_text || null,
+              conv_last_message_by: conv?.last_message_by || null,
+              conv_channel_metadata: conv?.channel_metadata || null,
+              days_cold: conv?.last_message_at
+                ? Math.floor((Date.now() - new Date(conv.last_message_at).getTime()) / (1000 * 60 * 60 * 24))
+                : 0,
+            };
+            setSelectedOpportunity(flat);
+          }
+        })
+        .catch(err => console.error('Failed to fetch focused opportunity:', err));
+    }
+  }, [initialOpportunityId, opportunities, selectedOpportunity]);
+
+  // Reset filters when initialOpportunityId changes so the target is in the list
+  useEffect(() => {
+    if (initialOpportunityId) {
+      resetFilters();
+    }
+  }, [initialOpportunityId, resetFilters]);
+
+  // Keep selectedOpportunity in sync when opportunities list refreshes
+  useEffect(() => {
+    if (selectedOpportunity) {
+      const fresh = opportunities.find(o => o.id === selectedOpportunity.id);
+      if (fresh && fresh !== selectedOpportunity) {
+        setSelectedOpportunity(fresh);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opportunities]);
 
   // Handle selecting an opportunity
   const handleSelectOpportunity = useCallback((opportunity: ChatOpportunityWithConversation) => {
@@ -159,8 +214,10 @@ export function OpportunitiesTab({
       contacted_by: userEmail,
     });
 
-    // Close detail view if opportunity was resolved
-    if (status === 'converted' || status === 'lost' || status === 'dismissed') {
+    // Close detail view only if status actually changed to a terminal state
+    const isTerminal = status === 'converted' || status === 'lost' || status === 'dismissed';
+    const statusActuallyChanged = opportunity.status !== status;
+    if (isTerminal && statusActuallyChanged) {
       setSelectedOpportunity(null);
     }
   }, [updateOpportunity, userEmail]);
