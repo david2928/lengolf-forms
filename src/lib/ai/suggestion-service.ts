@@ -756,6 +756,39 @@ async function storeSuggestion(
   }
 }
 
+// Write step-level traces to ai_eval.ai_suggestion_traces (fire-and-forget)
+export async function writeTraces(
+  suggestionId: string,
+  ctx: SuggestionContext
+): Promise<void> {
+  if (!refacSupabaseAdmin || ctx.traceSteps.length === 0) return;
+
+  const rows = ctx.traceSteps.map(step => ({
+    suggestion_id: suggestionId,
+    conversation_id: ctx.params.conversationContext.id,
+    step_number: step.stepNumber,
+    finish_reason: step.finishReason,
+    tool_calls: step.toolCalls,
+    tool_results: step.toolResults,
+    text_output: step.textOutput,
+    prompt_tokens: step.promptTokens,
+    completion_tokens: step.completionTokens,
+    total_tokens: step.totalTokens,
+    model: ctx.modelToUse,
+    channel_type: ctx.params.conversationContext.channelType,
+    intent: ctx.intent,
+  }));
+
+  const { error } = await refacSupabaseAdmin
+    .schema('ai_eval')
+    .from('ai_suggestion_traces')
+    .insert(rows);
+
+  if (error) {
+    console.error('[AI Traces] Insert failed:', error.message);
+  }
+}
+
 // Pre-processing: everything before the LLM call.
 // Produces a SuggestionContext that can be consumed by either generateText or streamText.
 export async function prepareSuggestionContext(params: GenerateSuggestionParams): Promise<SuggestionContext> {
@@ -1454,6 +1487,11 @@ export async function postProcessSuggestion(
     suggestionId = await storeSuggestion(suggestion, paramsForStorage, messageEmbedding);
   }
 
+  // Fire-and-forget trace storage
+  writeTraces(suggestionId, ctx).catch(err =>
+    console.error('[AI Traces] Failed to write:', err)
+  );
+
   return {
     id: suggestionId,
     ...suggestion
@@ -1526,14 +1564,22 @@ function buildLLMOptions(ctx: SuggestionContext) {
 // Main function to generate AI suggestion (non-streaming)
 export async function generateAISuggestion(params: GenerateSuggestionParams): Promise<AISuggestion> {
   const startTime = Date.now();
+  let ctx: SuggestionContext | undefined;
 
   try {
-    const ctx = await prepareSuggestionContext(params);
+    ctx = await prepareSuggestionContext(params);
     const generateResult = await generateText(buildLLMOptions(ctx));
     return await postProcessSuggestion(generateResult.text, ctx);
 
   } catch (error) {
     console.error('Error generating AI suggestion:', error);
+
+    // Write any traces collected before the error
+    if (ctx) {
+      writeTraces(`error-${crypto.randomUUID()}`, ctx).catch(err =>
+        console.error('[AI Traces] Failed to write error traces:', err)
+      );
+    }
 
     // Return a low-confidence fallback suggestion
     const fallbackSuggestion: AISuggestion = {
