@@ -926,7 +926,8 @@ THAI FIRST MESSAGE: Start with "สวัสดีค่า". If they asked a qu
   } else if (isThaiMessage) {
     userContent = `Customer message: "${params.customerMessage}"
 
-THAI: 5-8 words max. Brief but polite. No greetings, no names, no "ถ้ามีคำถามเพิ่มเติม".`;
+THAI: Brief but polite. Simple replies 5-8 words, informational answers up to 15 words. No greetings, no names, no "ถ้ามีคำถามเพิ่มเติม".
+If the customer asks about bays, facilities, pricing, coaches, or promotions — ALWAYS call suggest_images to attach a photo.`;
   } else if (isCJK) {
     userContent = `Customer message: "${params.customerMessage}"
 
@@ -934,7 +935,8 @@ RESPOND IN THE SAME LANGUAGE AS THE CUSTOMER (Chinese/Japanese/Korean). Match th
   } else {
     userContent = `Customer message: "${params.customerMessage}"
 
-ENGLISH ONLY. Do not use Thai. 1 to 2 sentences. If greeting only, greet warmly with their name (if known) and ask how you can help, e.g. "Hi Sebastian! How can we help?" — don't assume intent beyond that.`;
+ENGLISH ONLY. Do not use Thai. Simple replies: 1 sentence. Informational answers: 2-3 sentences. If greeting only, greet warmly with their name (if known) and ask how you can help, e.g. "Hi Sebastian! How can we help?" — don't assume intent beyond that.
+If the customer asks about bays, facilities, pricing, coaches, or promotions — ALWAYS call suggest_images to attach a photo. A picture helps more than words.`;
   }
 
   // 7. Multi-step function calling loop
@@ -1017,14 +1019,13 @@ For booking/cancellation/modification: call get_customer_context first, then pro
 `;
   }
 
-  // Add image suggestion hint for intents that have the suggest_images tool
-  const imageIntents = ['promotion_inquiry', 'pricing_inquiry', 'facility_inquiry', 'equipment_inquiry', 'coaching_inquiry', 'location_inquiry', 'general_inquiry'];
-  if (imageIntents.includes(intent)) {
-    finalContextPrompt += `\nIMAGE SUGGESTIONS:
-When the customer asks about pricing, promotions, facilities, coaches, food/drinks, or events — call suggest_images to attach a relevant image. Customers respond better when they can SEE rate cards, coach profiles, or promotion flyers. Do NOT suggest images for greetings, confirmations, or booking actions.
+  // Image suggestion hint — always included since suggest_images tool is always available.
+  // The hint self-gates: it tells the model when NOT to suggest images.
+  finalContextPrompt += `\nIMAGE SUGGESTIONS — IMPORTANT:
+When the customer asks about pricing, promotions, facilities, bays, coaches, food/drinks, or events — you MUST call suggest_images to attach a relevant image. A picture is worth a thousand words. Customers respond much better when they can SEE bay photos, rate cards, coach profiles, or promotion flyers.
+Do NOT suggest images for greetings, confirmations, thank-you messages, or booking actions.
 
 `;
-  }
 
   // Greeting logic: decide whether to greet based on conversation state
   const shouldGreet = !hasAssistantMessageToday && !hasGreetedToday && !isOngoingConversation;
