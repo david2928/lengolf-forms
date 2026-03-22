@@ -190,6 +190,18 @@ export interface GenerateSuggestionParams {
   getCustomerContextFn?: (customerId: string) => Promise<CustomerContext | undefined>;
 }
 
+// Step-level trace data collected by onStepFinish for production debugging
+interface TraceStep {
+  stepNumber: number;
+  finishReason: string;
+  toolCalls: Array<{ toolCallId: string; toolName: string; args: Record<string, unknown> }> | null;
+  toolResults: Array<{ toolCallId: string; toolName: string; result: unknown }> | null;
+  textOutput: string | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+}
+
 // All pre-processing artifacts needed by both generateText and streamText
 export interface SuggestionContext {
   startTime: number;
@@ -208,6 +220,7 @@ export interface SuggestionContext {
   hasTools: boolean;
   modelToUse: string;
   debugInfo: { openAIRequests: unknown[]; openAIResponses: unknown[] };
+  traceSteps: TraceStep[];
   imageCatalog: ImageCatalogEntry[];
 }
 
@@ -1198,6 +1211,8 @@ If you can't understand the image, ask the customer to clarify.`;
     openAIResponses: []
   };
 
+  const traceSteps: TraceStep[] = [];
+
   return {
     startTime,
     params,
@@ -1215,6 +1230,7 @@ If you can't understand the image, ask the customer to clarify.`;
     hasTools,
     modelToUse,
     debugInfo,
+    traceSteps,
     imageCatalog,
   };
 }
