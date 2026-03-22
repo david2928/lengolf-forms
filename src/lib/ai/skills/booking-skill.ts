@@ -4,7 +4,7 @@
 import { Skill } from './types';
 
 // Shared booking rules (language-neutral)
-const BOOKING_RULES = `BOOKING RULES:
+const BOOKING_RULES = `BOOKING RULES (guides use of check_bay_availability, create_booking, cancel_booking):
 - Social Bays: up to 5 players. AI Bays: 1-2 players with advanced analytics.
 - New customers need: Name (English), phone. Email optional.
 

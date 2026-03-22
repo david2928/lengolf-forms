@@ -328,7 +328,7 @@ ${imageCatalog.map(img => `[${img.index}] ${img.name} — ${img.description}`).j
     check_bay_availability: tool({
       description: `Check real-time bay availability for Social bays (up to 5 players) or AI bay (1-2 players with analytics).
 
-⚠️ CRITICAL: ALWAYS call this function when customer asks about availability, slots, or free times.
+⚠️ CRITICAL: ALWAYS call this function when customer asks about BAY availability, slots, or free times.
 
 Use this when:
 - Customer asks "available?", "ว่างมั้ย", "do you have any slots?", "free tonight?", "open tomorrow?"
@@ -337,6 +337,7 @@ Use this when:
 - NEVER respond conversationally without calling this function for availability questions
 
 Do NOT use when:
+- Conversation is about COACHING or LESSONS — use get_coaching_availability instead. Check the ENTIRE conversation history, not just the latest message. If earlier messages mention coaching, lessons, coach names (Boss, Min, Noon, Ratchavin, โปร, เรียน, สอน), or free trial, this is a coaching conversation.
 - Customer already confirmed booking (e.g., "book it", "3pm please!" after availability shown)
 - Customer is asking general questions about facilities ("Do you have gloves?")`,
       inputSchema: z.object({
@@ -351,13 +352,17 @@ Do NOT use when:
     get_coaching_availability: tool({
       description: `Get coach availability for golf lessons. Returns available time slots for coaches (Boss/Ratchavin, Noon, Min).
 
+⚠️ CONTEXT-AWARE: Check the ENTIRE conversation history, not just the latest message. If the conversation is about coaching/lessons, ALL follow-up messages (times, confirmations, date changes) should use THIS tool, not check_bay_availability.
+
 Use this when:
 - Customer asks about coaching: "โปรว่างมั้ย", "is coach available", "lesson available?"
 - Customer mentions coach names: "Boss", "Min", "Noon", "โค้ช"
 - Customer has coaching pattern in RECENT BOOKINGS and asks about availability
+- Customer gives a time/date and the conversation is about coaching or lessons (e.g., "17.00 ครับ" after discussing Pro Boss)
+- Conversation mentions: เรียน, สอน, lesson, trial, free trial, โปร (as coach), coach, coaching
 
 Do NOT use when:
-- Customer wants regular bay (no coaching mentioned)
+- Customer wants regular bay (no coaching mentioned anywhere in conversation)
 - Customer is asking about pricing only`,
       inputSchema: z.object({
         date: z.string().describe('Date in YYYY-MM-DD format for checking coach availability'),

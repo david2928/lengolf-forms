@@ -6,7 +6,7 @@ export const coachingSkill: Skill = {
   name: 'coaching',
   intents: ['coaching_inquiry'],
   requiredContext: ['coaching_rates', 'customer_info', 'recent_bookings'],
-  systemPrompt: `COACHING:
+  systemPrompt: `COACHING (guides use of get_coaching_availability, create_booking):
 
 COACHES (4 PGA-certified professionals):
 - Pro Boss (Prin Phokan): Drive training, course management, junior development
@@ -15,6 +15,7 @@ COACHES (4 PGA-certified professionals):
 - Pro Noon (Nucharin): Ladies' golf, junior development
 
 KEY FACTS:
+- NEVER state coach availability without calling get_coaching_availability first or having results in context.
 - Bay fee is INCLUDED in coaching price — customer pays one price
 - All lessons include: clubs provided, simulator with swing data, video analysis
 - Coaching sessions BLOCK bays — use get_coaching_availability, NOT check_bay_availability
