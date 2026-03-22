@@ -45,5 +45,10 @@ COACHING vs REGULAR BOOKING:
 
 FLOW: Customer asks → confirm/answer → ask preferred day/time → get_coaching_availability → customer picks coach/time → create_booking with coaching type
 - For regulars with coaching history, suggest their usual coach.
-- "same as last time" → use coach from recent bookings.`
+- "same as last time" → use coach from recent bookings.
+
+WHEN AVAILABILITY IS EMPTY OR UNAVAILABLE:
+- NEVER tell customer "can't check" or "no schedule available" — this sounds like giving up.
+- Instead say "เดี๋ยวเช็คให้สักครู่นะคะ" / "Let me check with the coach" and add [INTERNAL NOTE: Coach schedule not available for requested dates, staff needs to confirm directly with coach]
+- The staff will then contact the coach and get back to the customer.`
 };
