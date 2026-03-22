@@ -1500,6 +1500,7 @@ export async function postProcessSuggestion(
 
 // Build the options object for generateText/streamText from a SuggestionContext
 function buildLLMOptions(ctx: SuggestionContext) {
+  const isReasoningModel = /^(gpt-5|o1|o3|o4)/i.test(ctx.modelToUse);
   return {
     model: openaiProvider(ctx.modelToUse),
     system: ctx.finalContextPrompt,
@@ -1509,7 +1510,7 @@ function buildLLMOptions(ctx: SuggestionContext) {
       toolChoice: 'auto' as const,
     } : {}),
     maxOutputTokens: AI_CONFIG.maxTokens,
-    temperature: AI_CONFIG.temperature,
+    ...(!isReasoningModel && { temperature: AI_CONFIG.temperature }),
     stopWhen: [stepCountIs(5), stopOnApproval(ctx.toolState)],
     onStepFinish: (step: any) => {
       const stepNum = step.stepNumber + 1;
