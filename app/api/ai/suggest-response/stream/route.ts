@@ -3,7 +3,7 @@ import { streamText } from 'ai';
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { validateOpenAIConfig } from '@/lib/ai/openai-client';
-import { prepareStreamingSuggestion, postProcessSuggestion, GenerateSuggestionParams } from '@/lib/ai/suggestion-service';
+import { prepareStreamingSuggestion, postProcessSuggestion, writeTraces, GenerateSuggestionParams } from '@/lib/ai/suggestion-service';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 import {
   ALLOWED_MODELS,
@@ -209,10 +209,7 @@ export async function POST(request: NextRequest) {
     const sseStream = new ReadableStream({
       async start(controller) {
         try {
-          const result = streamText({
-            ...streamTextOptions,
-            onStepFinish: undefined,
-          });
+          const result = streamText(streamTextOptions);
 
           let fullText = '';
 
@@ -261,6 +258,12 @@ export async function POST(request: NextRequest) {
 
         } catch (error) {
           console.error('[AI Suggestion Stream] Error during streaming:', error);
+
+          // Write any traces collected before the error
+          writeTraces(`error-${crypto.randomUUID()}`, ctx).catch(err =>
+            console.error('[AI Traces] Failed to write error traces:', err)
+          );
+
           controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({
             error: error instanceof Error ? error.message : 'Streaming failed',
           })}\n\n`));
