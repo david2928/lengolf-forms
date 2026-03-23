@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getDevSession } from '@/lib/dev-session'
 import { authOptions } from '@/lib/auth-config'
 import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 
@@ -9,10 +9,10 @@ export async function GET(
 ) {
   try {
     const { month } = await params;
-    
+
     // Check admin authentication
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.email?.includes('@lengolf') && !session?.user?.email?.includes('@gmail.com')) {
+    const session = await getDevSession(authOptions, request)
+    if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -64,8 +64,8 @@ export async function POST(
     const { month } = await params;
     
     // Check admin authentication
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.email?.includes('@lengolf') && !session?.user?.email?.includes('@gmail.com')) {
+    const session = await getDevSession(authOptions, request)
+    if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const body = await request.json()
