@@ -7,9 +7,15 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getDevSession(authOptions, request);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Allow internal server-to-server calls (e.g., from AI function executor)
+  const internalSecret = request.headers.get('x-internal-secret');
+  const isInternalCall = internalSecret === process.env.CRON_SECRET;
+
+  if (!isInternalCall) {
+    const session = await getDevSession(authOptions, request);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   try {

@@ -635,7 +635,9 @@ export class AIFunctionExecutor {
         const isCoachingBooking = params.booking_type && params.booking_type.toLowerCase().includes('coaching');
 
         const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-        const response = await fetch(`${baseUrl}/api/line/customers/${customerId}/details`);
+        const response = await fetch(`${baseUrl}/api/line/customers/${customerId}/details`, {
+            headers: { 'x-internal-secret': process.env.CRON_SECRET || '' },
+          });
         if (response.ok) {
           const data = await response.json();
           const activePackages = data.packages?.filter((pkg: any) =>
@@ -740,7 +742,9 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
 
           // Fetch customer's active packages using the correct endpoint
           const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-          const response = await fetch(`${baseUrl}/api/line/customers/${customerId}/details`);
+          const response = await fetch(`${baseUrl}/api/line/customers/${customerId}/details`, {
+            headers: { 'x-internal-secret': process.env.CRON_SECRET || '' },
+          });
           if (response.ok) {
             const data = await response.json();
             // Only use activated packages (status === 'active'), not inactive/unactivated ones
