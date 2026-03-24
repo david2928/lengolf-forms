@@ -2,6 +2,9 @@
 -- Creates backoffice.payroll_snapshots staging table used by the payroll
 -- snapshot integration between lengolf-forms and the accounting app.
 
+-- Ensure backoffice schema exists (required for Supabase preview branch environments)
+CREATE SCHEMA IF NOT EXISTS backoffice;
+
 CREATE TABLE IF NOT EXISTS backoffice.payroll_snapshots (
   id                  SERIAL        PRIMARY KEY,
   period_code         TEXT          NOT NULL,           -- e.g. '2026-02'
