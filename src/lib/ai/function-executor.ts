@@ -360,10 +360,14 @@ export class AIFunctionExecutor {
       toDateObj.setDate(toDateObj.getDate() + 44);
       const toDate = toDateObj.toLocaleDateString('en-CA');
 
-      // Use absolute URL for server-side fetch
+      // Use absolute URL for server-side fetch with internal auth
       const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
       const url = `${baseUrl}/api/coaching-assist/availability?date=${date}&fromDate=${fromDate}&toDate=${toDate}`;
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'x-internal-secret': process.env.CRON_SECRET || '',
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`API returned ${response.status}: ${response.statusText}`);
