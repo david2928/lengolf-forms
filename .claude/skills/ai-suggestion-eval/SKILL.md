@@ -98,6 +98,75 @@ Overall score = weighted average (1-5 scale).
 - Judge scores: judge_overall, judge_appropriateness/helpfulness/tone_match/brevity (1-5)
 - Judge reasoning: judge_reasoning (JSONB), judge_model, judge_latency_ms
 
+## Step 0: Quick Debugging (DB-first, no dev server needed)
+
+When investigating a specific suggestion issue, **start with the database** — don't spin up the dev server or run the sampler. This is faster and gives you the actual production data.
+
+### Find the conversation and recent messages
+
+```sql
+-- Find conversation by customer name
+SELECT c.id, c.channel_type, c.last_message_at, cu.customer_name
+FROM unified_conversations c
+LEFT JOIN customers cu ON cu.id = c.customer_id
+WHERE cu.customer_name ILIKE '%name%'
+ORDER BY c.last_message_at DESC LIMIT 5;
+
+-- Get recent messages for context
+SELECT content, sender_type, created_at
+FROM unified_messages
+WHERE conversation_id = '<conv-id>'
+ORDER BY created_at DESC LIMIT 15;
+```
+
+### Check what the AI actually suggested
+
+```sql
+-- Get AI suggestions (includes accepted/rejected status)
+SELECT customer_message, suggested_response, suggested_response_thai,
+  confidence_score, context_used::text, created_at, was_accepted, was_edited
+FROM ai_suggestions
+WHERE conversation_id = '<conv-id>'
+ORDER BY created_at DESC LIMIT 5;
+```
+
+**Key fields in `context_used`**: Check `contextSummary` for which functions were called, whether customer context was loaded, and similar message count.
+
+### Check tool call traces (args + results)
+
+```sql
+-- Get full trace with tool call arguments and results
+SELECT step_number, tool_calls::jsonb, tool_results::jsonb, text_output
+FROM ai_eval.ai_suggestion_traces
+WHERE conversation_id = '<conv-id>'
+ORDER BY created_at DESC, step_number
+LIMIT 10;
+```
+
+**What to look for in traces:**
+- `tool_calls[].args` — what parameters the AI sent (e.g., coach_name, date)
+- `tool_results[].result` — what data came back (e.g., `success: false`, `has_availability: false`)
+- `text_output` — the AI's final response text
+- If `args`/`result` are null, the trace logging bug may still be present (fixed March 2026 — AI SDK uses `input`/`output` not `args`/`result`)
+
+### Common root causes to check
+
+| Symptom | Check | Root Cause Pattern |
+|---------|-------|--------------------|
+| Tool returned error | `tool_results[].result.success = false` | Auth issue (401), endpoint down, invalid params |
+| Tool returned empty | `result.has_availability = false` | Single-date check missed future availability (fixed: now 45-day window) |
+| No greeting on first message of day | `context_used` shows staff messages | Day-split bug: yesterday's messages counted as "today" (fixed: uses Thailand TZ now) |
+| Wrong language response | Check `customerMessage` language vs response | Language detection in user content prompt |
+| Function not called | No `tool_calls` in trace | Intent classification may have picked wrong intent, or Zod schema validation rejected params |
+
+### Greeting logic debugging
+
+The greeting decision isn't stored in traces. To debug:
+1. Check if staff/assistant messages exist **today (Thailand time)** in the conversation
+2. Check if any of those messages contain greeting content ("สวัสดี", "Hello", "Hi")
+3. The logic: `shouldGreet = !hasAssistantMessageToday && !hasGreetedToday`
+4. Date comparison uses Thailand timezone (fixed March 2026 — previously used UTC which caused off-by-one errors near midnight, and used last-message date instead of current date)
+
 ## Step 1: Run Intent Classifier Eval
 
 Tests the two-tier intent classifier against 65 test cases covering regex fast-path, contextual follow-ups, Thai/English/Chinese messages, and real-world edge cases.
