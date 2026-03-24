@@ -778,6 +778,11 @@ export async function writeTraces(
     model: ctx.modelToUse,
     channel_type: ctx.params.conversationContext.channelType,
     intent: ctx.intent,
+    // Include full prompt only on step 1 to avoid duplication
+    ...(step.stepNumber === 1 ? {
+      system_prompt: ctx.finalContextPrompt,
+      conversation_messages: ctx.conversationMessages,
+    } : {}),
   }));
 
   const { error } = await refacSupabaseAdmin
