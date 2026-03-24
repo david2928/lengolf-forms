@@ -946,17 +946,22 @@ If the customer asks about bays, facilities, pricing, coaches, or promotions —
   // - Messages from TODAY (same day as current conversation) → send as message objects
   // - Messages from previous days → add as text summary in system prompt
 
-  // Find the date of the current conversation (most recent message or now)
-  const conversationDate = params.conversationContext.recentMessages && params.conversationContext.recentMessages.length > 0
-    ? new Date(params.conversationContext.recentMessages[params.conversationContext.recentMessages.length - 1].createdAt || new Date()).toISOString().split('T')[0]
-    : new Date().toISOString().split('T')[0];
+  // Use Thailand's current date as "today" — NOT the last message date.
+  // Using the last message date caused a bug where messages from yesterday
+  // were treated as "today's messages", suppressing the daily greeting.
+  const thailandNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+  const conversationDate = thailandNow.toISOString().split('T')[0];
 
   const todaysMessages: typeof params.conversationContext.recentMessages = [];
   const previousDaysMessages: typeof params.conversationContext.recentMessages = [];
 
   if (params.conversationContext.recentMessages && params.conversationContext.recentMessages.length > 0) {
     for (const msg of params.conversationContext.recentMessages) {
-      const msgDate = msg.createdAt ? new Date(msg.createdAt).toISOString().split('T')[0] : conversationDate;
+      // Convert message timestamp to Thailand date for comparison
+      const msgThailand = msg.createdAt
+        ? new Date(new Date(msg.createdAt).toLocaleString("en-US", {timeZone: "Asia/Bangkok"}))
+        : thailandNow;
+      const msgDate = msgThailand.toISOString().split('T')[0];
       if (msgDate === conversationDate) {
         todaysMessages.push(msg);
       } else {
