@@ -352,17 +352,19 @@ export class AIFunctionExecutor {
    */
   private async getCoachingAvailability(params: any): Promise<FunctionResult> {
     try {
-      const { date, coach_name, preferred_time } = params;
+      const { date, coach_name, preferred_time, view = 'date' } = params;
+      const isScheduleView = view === 'schedule';
 
-      // Fetch 45-day range starting from the requested date
+      // Schedule view: fetch 45-day range. Date view: single date only.
       const fromDate = date;
-      const toDateObj = new Date(date);
-      toDateObj.setDate(toDateObj.getDate() + 44);
-      const toDate = toDateObj.toLocaleDateString('en-CA');
+      const toDate = isScheduleView
+        ? (() => { const d = new Date(date); d.setDate(d.getDate() + 44); return d.toLocaleDateString('en-CA'); })()
+        : date;
 
       // Use absolute URL for server-side fetch with internal auth
       const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-      const url = `${baseUrl}/api/coaching-assist/availability?date=${date}&fromDate=${fromDate}&toDate=${toDate}`;
+      const dateParams = isScheduleView ? `&fromDate=${fromDate}&toDate=${toDate}` : '';
+      const url = `${baseUrl}/api/coaching-assist/availability?date=${date}${dateParams}`;
       const response = await fetch(url, {
         headers: {
           'x-internal-secret': process.env.CRON_SECRET || '',
@@ -540,11 +542,15 @@ export class AIFunctionExecutor {
             coach_name: coach_name || 'any',
             preferred_time,
             has_availability: false,
-            message: `No availability found for ${coach_name || 'any coach'} in the next 45 days (${fromDate} to ${toDate})`
+            message: isScheduleView
+              ? `No availability found for ${coach_name || 'any coach'} in the next 45 days (${fromDate} to ${toDate})`
+              : `No coaches available on ${date}`
           }
         };
       }
 
+      // Date view: compact response with just the requested date
+      // Schedule view: full 45-day upcoming schedule
       return {
         success: true,
         functionName: 'get_coaching_availability',
@@ -555,8 +561,10 @@ export class AIFunctionExecutor {
           preferred_time_available: preferredTimeAvailable,
           has_availability: true,
           today_availability: hasTodayAvailability ? todayAvailableCoaches : null,
-          upcoming_schedule: upcomingSchedule,
-          schedule_range: { from: fromDate, to: toDate }
+          ...(isScheduleView ? {
+            upcoming_schedule: upcomingSchedule,
+            schedule_range: { from: fromDate, to: toDate },
+          } : {}),
         }
       };
     } catch (error) {

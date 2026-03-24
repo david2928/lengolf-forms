@@ -368,6 +368,7 @@ Do NOT use when:
         date: z.string().describe('Date in YYYY-MM-DD format for checking coach availability'),
         coach_name: z.enum(['Boss', 'Ratchavin', 'Noon', 'Min', 'any']).describe('Specific coach name or "any" to show all available coaches. Note: Boss and Ratchavin are the same person.'),
         preferred_time: z.string().describe('Preferred time in HH:00 format (e.g., "14:00"). Use empty string "" to show full day availability.'),
+        view: z.enum(['date', 'schedule']).describe('Use "date" when checking availability for a SPECIFIC date (e.g., "is coach free on March 25?", "book Wednesday 12pm"). Use "schedule" when customer asks for a coach\'s timetable/schedule overview (e.g., "ขอตารางโปร", "when is coach available?", "what days does Pro Min work?"). Default: "date"'),
       }),
       execute: async (args) => executeAndTrack(state, 'get_coaching_availability', args, customerId),
     }),
