@@ -1526,10 +1526,18 @@ function buildLLMOptions(ctx: SuggestionContext) {
         stepNumber: stepNum,
         finishReason: step.finishReason,
         toolCalls: step.toolCalls?.length > 0
-          ? step.toolCalls.map((tc: any) => ({ toolCallId: tc.toolCallId, toolName: tc.toolName, args: tc.args }))
+          ? step.toolCalls.map((tc: any) => ({
+              toolCallId: tc.toolCallId,
+              toolName: tc.toolName,
+              args: tc.input ?? tc.args ?? null,
+            }))
           : null,
         toolResults: step.toolResults?.length > 0
-          ? step.toolResults.map((tr: any) => ({ toolCallId: tr.toolCallId, toolName: tr.toolName, result: tr.result }))
+          ? step.toolResults.map((tr: any) => ({
+              toolCallId: tr.toolCallId,
+              toolName: tr.toolName,
+              result: tr.output ?? tr.result ?? null,
+            }))
           : null,
         textOutput: step.text || null,
         promptTokens: step.usage?.promptTokens ?? null,

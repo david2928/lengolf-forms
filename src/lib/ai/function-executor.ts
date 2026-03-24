@@ -346,15 +346,23 @@ export class AIFunctionExecutor {
   /**
    * Get coaching availability using existing API
    * Reuses: /api/coaching-assist/availability
-   * Returns detailed time slot information similar to bay availability
+   * Returns detailed time slot information similar to bay availability.
+   * Fetches a 45-day window so the AI can show a full schedule overview,
+   * not just a single date (which often returns "no availability").
    */
   private async getCoachingAvailability(params: any): Promise<FunctionResult> {
     try {
       const { date, coach_name, preferred_time } = params;
 
+      // Fetch 45-day range starting from the requested date
+      const fromDate = date;
+      const toDateObj = new Date(date);
+      toDateObj.setDate(toDateObj.getDate() + 44);
+      const toDate = toDateObj.toLocaleDateString('en-CA');
+
       // Use absolute URL for server-side fetch
       const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-      const url = `${baseUrl}/api/coaching-assist/availability?date=${date}`;
+      const url = `${baseUrl}/api/coaching-assist/availability?date=${date}&fromDate=${fromDate}&toDate=${toDate}`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -366,20 +374,23 @@ export class AIFunctionExecutor {
       // Extract coach availability slots and weekly schedule
       let coaches = data.availability_slots || [];
       const weeklyAvailability = data.weekly_availability || {};
-      const daySchedule = weeklyAvailability[date] || {};
 
-      // Filter by specific coach if requested
+      // Build search names for coach filtering
+      let searchNames: string[] | null = null;
       if (coach_name && coach_name !== 'any') {
         // Handle Boss/Ratchavin alias (they are the same person)
-        const searchNames =
+        searchNames =
           (coach_name === 'Boss' || coach_name === 'Ratchavin')
             ? ['Boss', 'Ratchavin', 'Boss - Ratchavin']
             : [coach_name];
 
         coaches = coaches.filter((c: any) =>
-          searchNames.some(name => c.coach_name && c.coach_name.includes(name))
+          searchNames!.some(name => c.coach_name && c.coach_name.includes(name))
         );
       }
+
+      // Get coach IDs that match the filter
+      const matchedCoachIds = coaches.map((c: any) => c.coach_id);
 
       // Helper function to group consecutive time slots into ranges
       const groupIntoRanges = (times: string[]): string => {
@@ -395,9 +406,7 @@ export class AIFunctionExecutor {
           const lastHour = parseInt(lastTime.split(':')[0]);
           const currentHour = parseInt(currentTime.split(':')[0]);
 
-          // Check if times are consecutive (1 hour apart)
           if (currentHour - lastHour > 1) {
-            // Gap detected, close current range
             if (rangeStart === lastTime) {
               ranges.push(rangeStart);
             } else {
@@ -408,7 +417,6 @@ export class AIFunctionExecutor {
           lastTime = currentTime;
         }
 
-        // Close final range
         if (rangeStart === lastTime) {
           ranges.push(rangeStart);
         } else {
@@ -418,13 +426,12 @@ export class AIFunctionExecutor {
         return ranges.join(', ');
       };
 
-      // Build availability response - only include available coaches with time slots
-      const availableCoaches = coaches
-        .filter((c: any) => c.is_available_today) // Only include coaches who are available
+      // Build today's availability (requested date)
+      const daySchedule = weeklyAvailability[date] || {};
+      const todayAvailableCoaches = coaches
+        .filter((c: any) => c.is_available_today)
         .map((c: any) => {
-          // Find the coach's schedule for this specific date
           const coachSchedule = daySchedule[c.coach_id];
-
           let availableTimeSlots: string[] = [];
 
           if (coachSchedule && coachSchedule.status !== 'unavailable') {
@@ -432,17 +439,13 @@ export class AIFunctionExecutor {
             const endHour = parseInt(coachSchedule.end_time?.split(':')[0] || '0');
             const bookedSlots = coachSchedule.bookings || [];
 
-            // Generate available time slots (excluding booked times)
             for (let hour = startHour; hour < endHour; hour++) {
               const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
-
-              // Check if this hour is booked
               const isBooked = bookedSlots.some((booking: any) => {
                 const bookingStart = parseInt(booking.start_time.split(':')[0]);
                 const bookingEnd = bookingStart + (booking.duration || 1);
                 return hour >= bookingStart && hour < bookingEnd;
               });
-
               if (!isBooked) {
                 availableTimeSlots.push(timeSlot);
               }
@@ -454,18 +457,77 @@ export class AIFunctionExecutor {
             availability: groupIntoRanges(availableTimeSlots)
           };
         })
-        .filter((c: any) => c.availability !== 'None'); // Only include coaches with available slots
+        .filter((c: any) => c.availability !== 'None');
 
-      // Check if preferred time is available for any coach
+      // Check if preferred time is available today
       let preferredTimeAvailable = false;
-      if (preferred_time && availableCoaches.length > 0) {
-        preferredTimeAvailable = availableCoaches.some((c: { coach_name: string; availability: string }) =>
+      if (preferred_time && todayAvailableCoaches.length > 0) {
+        preferredTimeAvailable = todayAvailableCoaches.some((c: { coach_name: string; availability: string }) =>
           c.availability.includes(preferred_time)
         );
       }
 
-      // If no coaches are available, return simple response
-      if (availableCoaches.length === 0) {
+      // Build upcoming schedule from weekly_availability (45-day window)
+      // Shows all dates with available slots for the matched coaches
+      const upcomingSchedule: Array<{ date: string; day: string; coaches: Array<{ coach_name: string; available_times: string }> }> = [];
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      const sortedDates = Object.keys(weeklyAvailability).sort();
+      for (const dateKey of sortedDates) {
+        const dayData = weeklyAvailability[dateKey];
+        const coachesForDay: Array<{ coach_name: string; available_times: string }> = [];
+
+        for (const coachId of matchedCoachIds) {
+          const schedule = dayData[coachId];
+          if (!schedule || schedule.status === 'unavailable') continue;
+
+          // Calculate available time slots
+          const startHour = parseInt(schedule.start_time?.split(':')[0] || '0');
+          const endHour = parseInt(schedule.end_time?.split(':')[0] || '0');
+          const bookedSlots = schedule.bookings || [];
+          const blockedPeriods = schedule.blocked_periods || [];
+          const availableSlots: string[] = [];
+
+          for (let hour = startHour; hour < endHour; hour++) {
+            const isBooked = bookedSlots.some((booking: any) => {
+              const bookingStart = parseInt(booking.start_time.split(':')[0]);
+              const bookingEnd = bookingStart + (booking.duration || 1);
+              return hour >= bookingStart && hour < bookingEnd;
+            });
+            const isBlocked = blockedPeriods.some((block: any) => {
+              const blockStart = parseInt(block.start_time.split(':')[0]);
+              const blockEnd = parseInt(block.end_time.split(':')[0]);
+              return hour >= blockStart && hour < blockEnd;
+            });
+
+            if (!isBooked && !isBlocked) {
+              availableSlots.push(`${hour.toString().padStart(2, '0')}:00`);
+            }
+          }
+
+          if (availableSlots.length > 0) {
+            const coachInfo = coaches.find((c: any) => c.coach_id === coachId);
+            coachesForDay.push({
+              coach_name: coachInfo?.coach_name || coachId,
+              available_times: groupIntoRanges(availableSlots)
+            });
+          }
+        }
+
+        if (coachesForDay.length > 0) {
+          const d = new Date(dateKey);
+          upcomingSchedule.push({
+            date: dateKey,
+            day: dayNames[d.getDay()],
+            coaches: coachesForDay
+          });
+        }
+      }
+
+      const hasTodayAvailability = todayAvailableCoaches.length > 0;
+      const hasUpcomingAvailability = upcomingSchedule.length > 0;
+
+      if (!hasTodayAvailability && !hasUpcomingAvailability) {
         return {
           success: true,
           functionName: 'get_coaching_availability',
@@ -474,7 +536,7 @@ export class AIFunctionExecutor {
             coach_name: coach_name || 'any',
             preferred_time,
             has_availability: false,
-            message: `No coaches available on ${date}`
+            message: `No availability found for ${coach_name || 'any coach'} in the next 45 days (${fromDate} to ${toDate})`
           }
         };
       }
@@ -487,8 +549,10 @@ export class AIFunctionExecutor {
           coach_name: coach_name || 'any',
           preferred_time,
           preferred_time_available: preferredTimeAvailable,
-          coaches: availableCoaches,
-          has_availability: true
+          has_availability: true,
+          today_availability: hasTodayAvailability ? todayAvailableCoaches : null,
+          upcoming_schedule: upcomingSchedule,
+          schedule_range: { from: fromDate, to: toDate }
         }
       };
     } catch (error) {
