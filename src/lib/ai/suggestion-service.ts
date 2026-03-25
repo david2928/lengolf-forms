@@ -167,6 +167,12 @@ export interface BusinessContext {
     daily: string;
     note: string;
   };
+  temporaryKnowledge?: Array<{
+    title: string;
+    content: string;
+    category: string;
+    expires_at: string | null;
+  }>;
   promotions?: Array<{
     title_en: string;
     title_th: string;
@@ -405,6 +411,19 @@ ${needsContactInfo ? `- Phone: ${customerContext.phone || 'Not provided'}\n` : '
       });
       contextPrompt += '\n';
     }
+  }
+
+  // Add temporary knowledge (bay closures, events, equipment issues, etc.)
+  if (businessContext?.temporaryKnowledge && businessContext.temporaryKnowledge.length > 0) {
+    contextPrompt += `TEMPORARY NOTICES (override normal rules when relevant):\n`;
+    businessContext.temporaryKnowledge.forEach((tk, i) => {
+      contextPrompt += `${i + 1}. [${tk.category.toUpperCase()}] ${tk.title}: ${tk.content}`;
+      if (tk.expires_at) {
+        contextPrompt += ` (until ${new Date(tk.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' })})`;
+      }
+      contextPrompt += '\n';
+    });
+    contextPrompt += '\n';
   }
 
   // Add FAQ knowledge base matches (placed before similar conversations — higher priority)

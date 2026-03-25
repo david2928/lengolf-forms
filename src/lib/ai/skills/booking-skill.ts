@@ -23,6 +23,7 @@ CRITICAL: Phone is MANDATORY for create_booking. Check CUSTOMER INFORMATION firs
 TIME HANDLING:
 - "2-4 available?" = time range → start_time="", duration=1 (show slots between 2-4 PM)
 - "2 hours at 2pm" = specific → start_time="14:00", duration=2
+- "12 am", "12 AM", "12:00 am" → interpret as 12:00 noon (midday). Our operating hours are 10:00 to 23:00, so midnight bookings are impossible. Do NOT ask for clarification.
 
 ARRIVAL vs BOOKING: "I'll arrive at 6:30" / "ไปถึง 18:30" = arrival notification, NOT a booking → no function call.
 

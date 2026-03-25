@@ -384,10 +384,13 @@ serve(async (req) => {
       }
     }
 
+    // Coaches excluded from broadcasts
+    const excludedCoaches = ['Ratchavin'];
+
     // TEST MODE: Skip audience lookup and send directly to test user
     if (isTestMode) {
       // Fetch coaching availability
-      const coaches = await getCoachingAvailability();
+      const coaches = (await getCoachingAvailability())?.filter(c => !excludedCoaches.includes(c.coach_name)) || null;
 
       if (!coaches || coaches.length === 0) {
         return new Response(
@@ -461,7 +464,8 @@ serve(async (req) => {
     }
 
     // Fetch coaching availability
-    const coaches = await getCoachingAvailability();
+    const allCoaches = await getCoachingAvailability();
+    const coaches = allCoaches?.filter(c => !excludedCoaches.includes(c.coach_name)) || null;
 
     if (!coaches || coaches.length === 0) {
       return new Response(

@@ -314,7 +314,7 @@ export async function getBusinessContext() {
   try {
     if (!refacSupabaseAdmin) return null;
 
-    const [packageTypesResult, coachRatesResult, promotionsResult, productCatalog] = await Promise.all([
+    const [packageTypesResult, coachRatesResult, promotionsResult, productCatalog, tempKnowledgeResult] = await Promise.all([
       refacSupabaseAdmin
         .schema('backoffice')
         .from('package_types')
@@ -335,7 +335,15 @@ export async function getBusinessContext() {
       // Note: getPricingCatalog() has its own 5-min cache (shared with /api/pricing).
       // This means pricing data is cached in two places (here + pricing-service) but both
       // use the same TTL so drift is bounded to one cache cycle.
-      getPricingCatalog()
+      getPricingCatalog(),
+      // Temporary knowledge entries (bay closures, events, equipment issues, etc.)
+      refacSupabaseAdmin
+        .from('ai_temporary_knowledge')
+        .select('title, content, category, expires_at')
+        .eq('is_active', true)
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+        .lte('starts_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
     ]);
 
     const packageTypes = (packageTypesResult.data || []).map((pkg: Record<string, unknown>) => ({
@@ -351,6 +359,13 @@ export async function getBusinessContext() {
       rate: Number(rate.rate),
     }));
 
+    const temporaryKnowledge = (tempKnowledgeResult.data || []).map((tk: Record<string, unknown>) => ({
+      title: tk.title as string,
+      content: tk.content as string,
+      category: tk.category as string,
+      expires_at: tk.expires_at as string | null,
+    }));
+
     const context: BusinessContext = {
       packageTypes,
       coachRates,
@@ -359,6 +374,7 @@ export async function getBusinessContext() {
         daily: '10:00 - 23:00',
         note: 'Last booking at 22:00. Peak hours 18:00-21:00.'
       },
+      temporaryKnowledge: temporaryKnowledge.length > 0 ? temporaryKnowledge : undefined,
       promotions: (promotionsResult.data || []) as NonNullable<BusinessContext['promotions']>
     };
 
