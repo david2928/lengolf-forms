@@ -21,6 +21,7 @@ KEY FACTS:
 - Coaching sessions BLOCK bays — use get_coaching_availability, NOT check_bay_availability
 - "โปร" = coach/pro in this context, NOT promotion
 - Pricing: see PRICING section (loaded dynamically)
+- BAY PREFERENCE: Coaching bookings should use Bay 4 (AI bay) by default. When calling create_booking for coaching, set bay_type to "ai".
 
 FREE TRIAL LESSON:
 - 1-hour complimentary lesson with a PGA coach, no commitment

@@ -27,8 +27,16 @@ export const ImageSuggestionPreview: React.FC<ImageSuggestionPreviewProps> = ({
   onSendWithText,
   suggestedText
 }) => {
-  const [selectedImageId, setSelectedImageId] = React.useState<string | null>(null);
+  // Auto-select first image by default so send buttons are immediately visible
+  const [selectedImageId, setSelectedImageId] = React.useState<string | null>(
+    images.length > 0 ? images[0].imageId : null
+  );
   const [showDetails, setShowDetails] = React.useState<string | null>(null);
+
+  // Sync selection when images prop changes (e.g., new suggestion while component is mounted)
+  React.useEffect(() => {
+    setSelectedImageId(images.length > 0 ? images[0].imageId : null);
+  }, [images]);
 
   if (!images || images.length === 0) {
     return null;

@@ -93,6 +93,10 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
     onSuggestionAccepted: (suggestion, response) => {
       setNewMessage(response);
       setIsAISuggestionActive(true);
+      // Auto-include suggested images when accepting
+      if (suggestion.suggestedImages?.length && onCuratedImagesSelect) {
+        onCuratedImagesSelect(suggestion.suggestedImages.map(img => img.imageId));
+      }
       // Focus textarea for immediate sending
       if (textareaRef.current) {
         textareaRef.current.focus();

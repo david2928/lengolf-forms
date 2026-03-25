@@ -585,7 +585,9 @@ export class AIFunctionExecutor {
    */
   private async prepareBookingForApproval(params: any, customerId?: string): Promise<FunctionResult> {
     // STEP 1: Check bay availability FIRST - don't even create approval if bay not available
-    const requestedBayType = params.bay_type || 'social';
+    // Coaching bookings prefer Bay 4 (AI bay) by default
+    const isCoaching = params.booking_type && params.booking_type.toLowerCase().includes('coaching');
+    const requestedBayType = params.bay_type || (isCoaching ? 'ai' : 'social');
 
     // Check ALL bay types so we can suggest alternatives if requested type is full
     const availabilityCheck = await this.checkBayAvailability({

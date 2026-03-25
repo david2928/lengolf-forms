@@ -12,6 +12,11 @@ import { getSkillsForIntent, composeSkillPromptForLanguage } from './skills';
 import { classifyIntent, IntentClassification, regexFullClassify } from './intent-classifier';
 import { formatPricingForAI } from '@/lib/pricing-service';
 
+/** Check if a senderType represents staff/admin (DB uses 'admin', code also checks 'staff'/'assistant'/'business') */
+function isStaffSender(senderType: string): boolean {
+  return senderType === 'admin' || senderType === 'staff' || senderType === 'assistant' || senderType === 'business';
+}
+
 export interface CustomerContext {
   // Basic info
   id?: string;
@@ -833,7 +838,7 @@ export async function prepareSuggestionContext(params: GenerateSuggestionParams)
   if (isStickerMessage) {
     const recentStaffMsg = (params.conversationContext?.recentMessages || [])
       .filter(m =>
-        (m.senderType === 'staff' || m.senderType === 'assistant') &&
+        isStaffSender(m.senderType) &&
         m.content && m.content.length > 2
       )
       .slice(-1)[0]?.content;
@@ -976,12 +981,8 @@ If the customer asks about bays, facilities, pricing, coaches, or promotions —
   }
 
   // Check if staff has already responded in this conversation session.
-  const hasAssistantMessageToday = todaysMessages.some(msg =>
-    msg.senderType === 'staff' || msg.senderType === 'assistant'
-  );
-  const hasAssistantInPreviousDays = previousDaysMessages.some(msg =>
-    msg.senderType === 'staff' || msg.senderType === 'assistant'
-  );
+  const hasAssistantMessageToday = todaysMessages.some(msg => isStaffSender(msg.senderType));
+  const hasAssistantInPreviousDays = previousDaysMessages.some(msg => isStaffSender(msg.senderType));
 
   // Also check if staff has already greeted (to prevent "Hello! ... Hello! ..." repetition)
   const isGreetingContent = (content: string) => {
@@ -991,7 +992,7 @@ If the customer asks about bays, facilities, pricing, coaches, or promotions —
            c.startsWith('good afternoon') || c.startsWith('good evening');
   };
   const hasGreetedToday = todaysMessages.some(msg => {
-    if (msg.senderType !== 'staff' && msg.senderType !== 'assistant') return false;
+    if (!isStaffSender(msg.senderType)) return false;
     return isGreetingContent(msg.content || '');
   });
 
@@ -1004,7 +1005,7 @@ If the customer asks about bays, facilities, pricing, coaches, or promotions —
     finalContextPrompt += `\nPREVIOUS CONVERSATION HISTORY (for context only):
 ${previousDaysMessages.map(msg => {
 let content = msg.content;
-const prevSender = (msg.senderType === 'staff' || msg.senderType === 'assistant') ? 'Staff' : 'Customer';
+const prevSender = isStaffSender(msg.senderType) ? 'Staff' : 'Customer';
 if (msg.contentType === 'image' || /^sent a photo$/i.test((msg.content || '').trim())) {
   content = `[${prevSender} sent an image]`;
 } else if (msg.contentType === 'sticker' || /^sent a sticker$/i.test((msg.content || '').trim())) {
