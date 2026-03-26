@@ -250,9 +250,30 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
   try {
     
     // 1. Format data SPECIFICALLY for the database insert using the refactored function
-    const dbBookingData = formatBookingData(formData); 
+    const dbBookingData = formatBookingData(formData);
     bookingId = dbBookingData.id;
-    
+
+    // 1.5. Pre-validate club rental availability BEFORE creating booking
+    if (formData.clubRentalSetId && formData.clubRentalSetId !== 'standard' && formData.clubRentalSetId !== 'none') {
+      const durationHours = formData.duration / 60;
+      const startTimeStr = typeof formData.startTime === 'string'
+        ? formData.startTime
+        : formData.startTime ? format(formData.startTime as Date, 'HH:mm') : undefined;
+
+      const availUrl = `/api/clubs/availability?type=indoor&date=${dbBookingData.date}` +
+        (startTimeStr ? `&start_time=${startTimeStr}` : '') +
+        (durationHours ? `&duration=${durationHours}` : '');
+
+      const availRes = await fetch(availUrl);
+      if (availRes.ok) {
+        const availData = await availRes.json();
+        const selectedSet = (availData.sets || []).find((s: { id: string }) => s.id === formData.clubRentalSetId);
+        if (!selectedSet || selectedSet.available_count <= 0) {
+          throw new Error('The selected club set is no longer available for this time slot. Please choose a different option.');
+        }
+      }
+    }
+
     // 2. Create booking record using the NEW API endpoint and NEW client (Update in BKM-T4)
     // IMPORTANT: This fetch call needs updating in BKM-T4 to use the new endpoint 
     // and pass dbBookingData.
@@ -317,10 +338,21 @@ export async function handleFormSubmit(formData: FormData): Promise<SubmitRespon
           const clubResult = await clubReserveRes.json();
           console.log(`[StaffBooking] Club rental created: ${clubResult.rental_code}`);
         } else {
-          console.warn('[StaffBooking] Club rental reservation failed (non-blocking):', await clubReserveRes.text());
+          const errorText = await clubReserveRes.text();
+          console.error('[StaffBooking] Club rental reservation failed:', errorText);
+          // Note: booking was already created but club rental failed.
+          // This shouldn't happen since we pre-validated, but handle the race condition.
+          const errorMsg = clubReserveRes.status === 409
+            ? 'The selected club set was just booked by someone else. Your bay booking was created but without the club rental. Please check with staff.'
+            : 'Failed to reserve the selected club set. Your bay booking was created but without the club rental.';
+          throw new Error(errorMsg);
         }
       } catch (clubErr) {
-        console.warn('[StaffBooking] Club rental reservation error (non-blocking):', clubErr);
+        if (clubErr instanceof Error && (clubErr.message.includes('club set') || clubErr.message.includes('club rental') || clubErr.message.includes('bay booking'))) {
+          throw clubErr; // Re-throw our own club rental errors
+        }
+        console.error('[StaffBooking] Club rental reservation error:', clubErr);
+        throw new Error('Failed to reserve the selected club set. Your bay booking was created but without the club rental.');
       }
     }
 
