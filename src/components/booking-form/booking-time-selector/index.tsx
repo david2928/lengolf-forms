@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label'
 import { DateTime } from 'luxon'
 import { format } from 'date-fns'
 import { useAvailability } from '@/hooks/useAvailability'
+import { getOpeningHour } from '@/lib/opening-hours'
 import { TimeSlot } from '@/lib/availability-subscription'
 import { Button } from '@/components/ui/button'
 
@@ -51,7 +52,7 @@ export function BookingTimeSelector({
     date: format(selectedDate, 'yyyy-MM-dd'),
     bay: selectedBay || undefined,
     duration,
-    startHour: 10,
+    startHour: getOpeningHour(format(selectedDate, 'yyyy-MM-dd')),
     endHour: 22,
     autoRefresh: false
   });
@@ -74,9 +75,9 @@ export function BookingTimeSelector({
     
     let currentTime = DateTime.fromJSDate(selectedDate)
       .setZone('Asia/Bangkok')
-      .set({ hour: 10, minute: 0, second: 0, millisecond: 0 });
+      .set({ hour: getOpeningHour(format(selectedDate, 'yyyy-MM-dd')), minute: 0, second: 0, millisecond: 0 });
 
-    if (currentTime.hasSame(now, 'day') && now.hour >= 10) {
+    if (currentTime.hasSame(now, 'day') && now.hour >= getOpeningHour(format(selectedDate, 'yyyy-MM-dd'))) {
       currentTime = now.set({ minute: now.minute >= 30 ? 60 : 30, second: 0, millisecond: 0 });
     }
 

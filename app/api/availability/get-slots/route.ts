@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDevSession } from '@/lib/dev-session';
 import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
+import { getOpeningHour } from '@/lib/opening-hours';
 
 export async function POST(request: NextRequest) {
   const session = await getDevSession(authOptions, request);
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
       p_date: date,
       p_bay: bay,
       p_duration: duration || 1.0,
-      p_start_hour: startHour || 10,
+      p_start_hour: startHour || getOpeningHour(date),
       p_end_hour: endHour || 22
     });
 

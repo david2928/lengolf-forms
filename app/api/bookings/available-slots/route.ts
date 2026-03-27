@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getOpeningHour } from '@/lib/opening-hours';
 
 // Valid bay names - all 4 bays
 const VALID_BAYS = [
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
     const date = searchParams.get('date');
     const bay = searchParams.get('bay');
     const duration = parseFloat(searchParams.get('duration') || '1');
-    const startHour = parseInt(searchParams.get('startHour') || '10');
+    const startHour = parseInt(searchParams.get('startHour') || String(getOpeningHour(date!)));
     const endHour = parseInt(searchParams.get('endHour') || '22');
 
     // Validate inputs
@@ -85,7 +86,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { date, bay, duration = 1, startHour = 10, endHour = 22 } = await request.json();
+    const { date, bay, duration = 1, startHour: rawStartHour, endHour = 22 } = await request.json();
+    const startHour = rawStartHour ?? getOpeningHour(date);
 
     // Validate inputs
     if (!date || !bay || !VALID_BAYS.includes(bay)) {

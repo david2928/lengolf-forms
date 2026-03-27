@@ -31,7 +31,7 @@ export function useAvailability(options: UseAvailabilityOptions): UseAvailabilit
     date,
     bay,
     duration = 1.0,
-    startHour = 10,
+    startHour = 9,
     endHour = 22,
     autoRefresh = true
   } = options;
@@ -56,7 +56,7 @@ export function useAvailability(options: UseAvailabilityOptions): UseAvailabilit
       // Get all bays availability
       const allBaysAvailability = await availabilityService.checkAllBaysAvailability(
         date,
-        '10:00', // Default time for checking
+        '09:00', // Default time for checking
         duration
       );
       setAvailability(allBaysAvailability);
