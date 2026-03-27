@@ -3,6 +3,7 @@
 
 import { generateBookingId } from '@/lib/booking-utils';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
+import { getOpeningHour } from '@/lib/opening-hours';
 
 export interface FunctionCall {
   name: string;
@@ -118,8 +119,8 @@ export class AIFunctionExecutor {
       const today = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"})).toISOString().split('T')[0];
       const isToday = date === today;
       // Always round up to next hour to avoid showing slots that have already started
-      // Enforce minimum of 10 (opening hour) - never show availability before 10:00 AM
-      const startHour = isToday ? Math.max(currentHour + 1, 10) : 10;
+      const openingHour = getOpeningHour(date);
+      const startHour = isToday ? Math.max(currentHour + 1, openingHour) : openingHour;
 
       // Determine which bays to check based on type
       const bays =

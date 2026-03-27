@@ -9,7 +9,7 @@ export const facilitySkill: Skill = {
   requiredContext: ['operating_hours'],
   systemPrompt: `FACILITY:
 - Location: Mercury Ville, 4th floor, BTS Chidlom (Exit 4). Parking FREE with Lengolf receipt.
-- Hours: 10:00 AM to 11:00 PM daily, last booking 10:00 PM. Peak: 6 to 9 PM.
+- Hours: 9:00 AM to 11:00 PM daily (from April 1, 2026), last booking 10:00 PM. Peak: 6 to 9 PM.
 - Bays: Social (up to 5 players), AI (1-2 players, advanced analytics). Bravo Golf launch monitors.
 - Standard clubs: FREE with any booking. Premium and Premium+ rentals available (see CLUB RENTAL section).
 - Bar with food & drinks on-site. Corporate events available.
