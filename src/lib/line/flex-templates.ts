@@ -1064,7 +1064,7 @@ export function createEarlyOpeningSurveyMessage(surveyId: string = 'early_openin
           },
           {
             type: 'text',
-            text: 'Would you be interested if we opened at 9:00 AM instead of 10:00 AM?',
+            text: 'Starting April 1st, we now open at 9:00 AM! Would mornings work for you?',
             weight: 'bold',
             size: 'md',
             color: '#333333',

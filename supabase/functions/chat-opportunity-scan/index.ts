@@ -11,7 +11,7 @@ const ANALYSIS_SYSTEM_PROMPT = `You are analyzing a customer conversation for Le
 
 BUSINESS CONTEXT:
 - Lengolf offers golf simulator bay rentals (hourly), coaching lessons, and packages
-- Operating hours: 10:00 AM - 10:00 PM
+- Operating hours: 9:00 AM - 11:00 PM
 - Bay types: Social Bay (up to 5 players) and AI Bay (1-2 players with advanced analytics)
 - Services: Bay rentals, coaching (with various coaches), packages (pre-paid bundles)
 - Club rentals are FREE with bay bookings
