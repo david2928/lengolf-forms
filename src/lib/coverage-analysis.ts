@@ -23,10 +23,10 @@ export interface DayCoverage {
   coveragePercentage: number
 }
 
-// Business hours: 10:00 AM to 11:00 PM (13 hours)
-const BUSINESS_START = '10:00'
+// Business hours: 9:00 AM to 11:00 PM (14 hours)
+const BUSINESS_START = '09:00'
 const BUSINESS_END = '23:00'
-const BUSINESS_HOURS_MINUTES = 13 * 60 // 780 minutes
+const BUSINESS_HOURS_MINUTES = 14 * 60 // 840 minutes
 
 /**
  * Convert time string (HH:MM) to minutes since midnight

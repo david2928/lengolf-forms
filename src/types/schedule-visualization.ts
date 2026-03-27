@@ -24,14 +24,14 @@ export interface ProcessedScheduleBlock {
 
 export interface GridPosition {
   dayIndex: number      // 0-6 (Monday to Sunday)
-  startRow: number      // 0-12 (10am to 11pm)
-  endRow: number        // 0-12 (10am to 11pm)
+  startRow: number      // 0-13 (9am to 11pm)
+  endRow: number        // 0-13 (9am to 11pm)
   rowSpan: number       // Number of hour slots to span
 }
 
 export interface VisualizationConfig {
   businessHours: {
-    start: number       // 10 (10am)
+    start: number       // 9 (9am)
     end: number         // 23 (11pm)
   }
   timeSlotHeight: number  // Height of each hour slot in pixels
@@ -157,7 +157,7 @@ export interface ErrorHandlingStrategy {
 // Default configuration
 export const DEFAULT_VISUALIZATION_CONFIG: VisualizationConfig = {
   businessHours: {
-    start: 10,  // 10am
+    start: 9,   // 9am
     end: 23     // 11pm
   },
   timeSlotHeight: 60,

@@ -46,7 +46,7 @@ export function BayBlockingModal({
 }: BayBlockingModalProps) {
   const [selectedBays, setSelectedBays] = useState<string[]>([]);
   const [date, setDate] = useState<Date>(new Date());
-  const [startTime, setStartTime] = useState<string>('10:00');
+  const [startTime, setStartTime] = useState<string>('09:00');
   const [endTime, setEndTime] = useState<string>('12:00');
   const [reason, setReason] = useState<string>('');
   const [localEmployeeName, setLocalEmployeeName] = useState<string>('');
@@ -64,7 +64,7 @@ export function BayBlockingModal({
     if (open) {
       setSelectedBays([]);
       setDate(new Date());
-      setStartTime('10:00');
+      setStartTime('09:00');
       setEndTime('12:00');
       setReason('');
       setLocalEmployeeName(employeeName || ''); // Use provided employeeName or empty
