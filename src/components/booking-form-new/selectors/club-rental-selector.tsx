@@ -18,6 +18,7 @@ interface ClubSet {
   indoor_price_2h: number
   indoor_price_4h: number
   available_count: number
+  quantity: number
 }
 
 export interface ClubRentalSelection {
@@ -51,6 +52,8 @@ export function ClubRentalSelector({
   const [sets, setSets] = useState<ClubSet[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // Availability is only accurate when date + time + duration are all provided
+  const hasFullAvailability = !!(bookingDate && startTime && durationHours)
 
   useEffect(() => {
     if (!bookingDate) return
@@ -131,7 +134,7 @@ export function ClubRentalSelector({
         <div className="flex flex-wrap gap-2">
           {sets.map((set) => {
             const isSelected = value.setId === set.id
-            const isAvailable = set.available_count > 0
+            const isUnavailable = hasFullAvailability && set.available_count === 0
             const price = durationHours ? getPrice(set, durationHours) : getPrice(set, 1)
             const tierColor = set.tier === 'premium-plus'
               ? { gradient: 'from-green-700 to-green-800', bg: 'bg-green-50', border: 'border-green-800' }
@@ -143,13 +146,13 @@ export function ClubRentalSelector({
                 variant={isSelected ? 'default' : 'secondary'}
                 className={cn(
                   'cursor-pointer transition-all duration-200 px-4 py-3 text-sm font-medium',
-                  !isAvailable && 'opacity-40 cursor-not-allowed',
+                  isUnavailable && 'opacity-40 cursor-not-allowed',
                   isSelected
                     ? `bg-gradient-to-r ${tierColor.gradient} text-white scale-105 shadow-md border-0`
                     : `${tierColor.bg} ${tierColor.border} text-gray-700 hover:shadow-sm`
                 )}
                 onClick={() => {
-                  if (!isAvailable) return
+                  if (isUnavailable) return
                   if (isSelected) {
                     handleSelect(null)
                   } else {
@@ -166,8 +169,13 @@ export function ClubRentalSelector({
                       ฿{price.toLocaleString()}
                     </span>
                   )}
-                  {!isAvailable && (
+                  {hasFullAvailability && set.available_count === 0 && (
                     <span className="text-xs text-red-500 font-semibold ml-1">Unavailable</span>
+                  )}
+                  {hasFullAvailability && set.available_count > 0 && set.quantity > 1 && (
+                    <span className={cn('text-xs ml-1', isSelected ? 'text-white/80' : 'text-gray-500')}>
+                      {set.available_count === 1 ? 'Last one!' : `${set.available_count}/${set.quantity}`}
+                    </span>
                   )}
                 </span>
               </Badge>
