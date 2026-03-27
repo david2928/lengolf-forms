@@ -65,7 +65,7 @@ export function WeeklyScheduleManager({ coachId }: WeeklyScheduleManagerProps) {
     const existing = schedules.find(s => s.day_of_week === dayOfWeek);
     return existing || {
       day_of_week: dayOfWeek,
-      start_time: '10:00',
+      start_time: '09:00',
       end_time: '17:00',
       is_available: false
     };
@@ -180,8 +180,8 @@ function WeeklyScheduleRow({ day, schedule, onSave, onDelete, isSaving }: Weekly
 
   const handleSave = useCallback(() => {
     // Validate time range (10:00 to 21:00)
-    if (localSchedule.start_time < '10:00') {
-      toast.error('Start time cannot be earlier than 10:00 AM');
+    if (localSchedule.start_time < '09:00') {
+      toast.error('Start time cannot be earlier than 9:00 AM');
       return;
     }
     if (localSchedule.end_time > '21:00') {
@@ -285,11 +285,11 @@ function WeeklyScheduleRow({ day, schedule, onSave, onDelete, isSaving }: Weekly
                 <Input
                   type="time"
                   value={localSchedule.start_time}
-                  onChange={(e) => 
+                  onChange={(e) =>
                     setLocalSchedule(prev => ({ ...prev, start_time: e.target.value }))
                   }
                   disabled={isSaving}
-                  min="10:00"
+                  min="09:00"
                   max="21:00"
                   className="w-full h-12 text-base"
                 />
