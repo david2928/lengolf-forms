@@ -89,10 +89,11 @@ export function CourseRentalClient() {
   // Staff selection
   const [employeeName, setEmployeeName] = useState<string | null>(null)
 
-  // Club set selection (multi-select)
+  // Club set selection (multi-select with quantity)
   const [sets, setSets] = useState<ClubSet[]>([])
   const [setsLoading, setSetsLoading] = useState(true)
-  const [selectedSets, setSelectedSets] = useState<ClubSet[]>([])
+  // Map of set ID -> quantity selected
+  const [selectedQty, setSelectedQty] = useState<Record<string, number>>({})
 
   // Dates & Time
   const [startDate, setStartDate] = useState('')
@@ -157,13 +158,19 @@ export function CourseRentalClient() {
   const [rentalCodes, setRentalCodes] = useState<{ setName: string; code: string }[]>([])
   const [error, setError] = useState('')
 
+  // Derived: expand selectedQty into a flat list of { set, qty } entries for iteration
+  const selectedEntries = sets
+    .filter(s => (selectedQty[s.id] || 0) > 0)
+    .map(s => ({ set: s, qty: selectedQty[s.id] }))
+  const totalSetsCount = selectedEntries.reduce((sum, e) => sum + e.qty, 0)
+
   // Computed
   const durationDays = (startDate && endDate)
     ? Math.max(1, Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)))
     : 0
 
   const rentalPrice = durationDays > 0
-    ? selectedSets.reduce((sum, s) => sum + getCoursePrice(s, durationDays), 0)
+    ? selectedEntries.reduce((sum, e) => sum + getCoursePrice(e.set, durationDays) * e.qty, 0)
     : 0
   const addOnsTotal = addOns.reduce((sum, a) => sum + a.price, 0)
   const deliveryFee = deliveryRequested ? 500 : 0
@@ -194,12 +201,15 @@ export function CourseRentalClient() {
     fetchSets()
   }, [fetchSets])
 
-  const toggleSet = (set: ClubSet) => {
-    setSelectedSets(prev =>
-      prev.find(s => s.id === set.id)
-        ? prev.filter(s => s.id !== set.id)
-        : [...prev, set]
-    )
+  const setQty = (setId: string, qty: number) => {
+    setSelectedQty(prev => {
+      if (qty <= 0) {
+        const next = { ...prev }
+        delete next[setId]
+        return next
+      }
+      return { ...prev, [setId]: qty }
+    })
   }
 
   const toggleAddOn = (key: string, label: string, price: number) => {
@@ -212,54 +222,54 @@ export function CourseRentalClient() {
 
   const canSubmit =
     employeeName &&
-    selectedSets.length > 0 &&
+    totalSetsCount > 0 &&
     startDate &&
     endDate &&
     durationDays > 0 &&
     customerName.trim() &&
     customerPhone.trim() &&
     (!deliveryRequested || deliveryAddress.trim()) &&
-    selectedSets.every(s => (sets.find(cs => cs.id === s.id)?.available_count ?? 0) > 0)
+    selectedEntries.every(e => e.set.available_count >= e.qty)
 
   const handleSubmit = async () => {
-    if (!canSubmit || selectedSets.length === 0) return
+    if (!canSubmit || totalSetsCount === 0) return
     setSubmitting(true)
     setError('')
     try {
       const results: { setName: string; code: string }[] = []
       const failed: string[] = []
 
-      // Create a rental for each selected set
-      for (const set of selectedSets) {
-        const setPrice = durationDays > 0 ? getCoursePrice(set, durationDays) : 0
-        const setTotal = setPrice + (deliveryRequested ? deliveryFee / selectedSets.length : 0) + addOnsTotal / selectedSets.length
-        const res = await fetch('/api/clubs/reserve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            rental_club_set_id: set.id,
-            rental_type: 'course',
-            start_date: startDate,
-            start_time: startTime || undefined,
-            end_date: endDate,
-            customer_id: customerId || undefined,
-            customer_name: customerName.trim(),
-            customer_email: customerEmail.trim() || undefined,
-            customer_phone: customerPhone.trim(),
-            add_ons: addOns,
-            delivery_requested: deliveryRequested,
-            delivery_address: deliveryRequested ? deliveryAddress.trim() : undefined,
-            return_time: returnTime || undefined,
-            notes: notes.trim() || undefined,
-            source: 'staff',
-          }),
-        })
+      // Create a rental for each selected set x quantity
+      for (const { set, qty } of selectedEntries) {
+        for (let i = 0; i < qty; i++) {
+          const res = await fetch('/api/clubs/reserve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              rental_club_set_id: set.id,
+              rental_type: 'course',
+              start_date: startDate,
+              start_time: startTime || undefined,
+              end_date: endDate,
+              customer_id: customerId || undefined,
+              customer_name: customerName.trim(),
+              customer_email: customerEmail.trim() || undefined,
+              customer_phone: customerPhone.trim(),
+              add_ons: addOns,
+              delivery_requested: deliveryRequested,
+              delivery_address: deliveryRequested ? deliveryAddress.trim() : undefined,
+              return_time: returnTime || undefined,
+              notes: notes.trim() || undefined,
+              source: 'staff',
+            }),
+          })
 
-        const data = await res.json()
-        if (res.ok) {
-          results.push({ setName: set.name, code: data.rental_code })
-        } else {
-          failed.push(`${set.name}: ${data.error || 'Failed'}`)
+          const data = await res.json()
+          if (res.ok) {
+            results.push({ setName: set.name, code: data.rental_code })
+          } else {
+            failed.push(`${set.name}: ${data.error || 'Failed'}`)
+          }
         }
       }
 
@@ -318,7 +328,7 @@ export function CourseRentalClient() {
 
   const handleReset = () => {
     setEmployeeName(null)
-    setSelectedSets([])
+    setSelectedQty({})
     setStartDate('')
     setEndDate('')
     setStartTime('')
@@ -375,9 +385,9 @@ export function CourseRentalClient() {
 
               <div className="bg-gray-50 rounded-lg p-4 text-left space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">{selectedSets.length === 1 ? 'Club Set' : 'Club Sets'}</span>
+                  <span className="text-gray-500">{totalSetsCount === 1 ? 'Club Set' : 'Club Sets'}</span>
                   <span className="font-medium text-gray-900 text-right">
-                    {selectedSets.map(s => s.name).join(', ')}
+                    {selectedEntries.map(e => e.qty > 1 ? `${e.set.name} x${e.qty}` : e.set.name).join(', ')}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -462,7 +472,7 @@ export function CourseRentalClient() {
               <>
                 <div className="space-y-2">
                   {sets.map(set => {
-                    const isSelected = selectedSets.some(s => s.id === set.id)
+                    const qty = selectedQty[set.id] || 0
                     const isAvailable = set.available_count > 0
                     const price1d = getCoursePrice(set, 1)
                     const tierColor = set.tier === 'premium-plus'
@@ -470,18 +480,15 @@ export function CourseRentalClient() {
                       : { bg: 'bg-green-50', border: 'border-green-200' }
 
                     return (
-                      <button
+                      <div
                         key={set.id}
-                        type="button"
-                        disabled={!isAvailable}
-                        onClick={() => toggleSet(set)}
                         className={cn(
                           'w-full text-left p-3 rounded-lg border-2 transition-all',
-                          isSelected
+                          qty > 0
                             ? `${tierColor.border} ${tierColor.bg} shadow-sm`
                             : isAvailable
-                            ? 'border-gray-200 bg-white hover:border-gray-300'
-                            : 'border-gray-100 bg-gray-50 opacity-40 cursor-not-allowed'
+                            ? 'border-gray-200 bg-white'
+                            : 'border-gray-100 bg-gray-50 opacity-40'
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -512,21 +519,46 @@ export function CourseRentalClient() {
                               <p className="text-sm font-bold text-green-700">฿{price1d.toLocaleString()}</p>
                               <p className="text-xs text-gray-400">per day</p>
                             </div>
-                            <div className={cn(
-                              'w-5 h-5 rounded border-2 flex items-center justify-center',
-                              isSelected ? 'bg-green-600 border-green-600' : 'border-gray-300'
-                            )}>
-                              {isSelected && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
-                            </div>
+                            {isAvailable && (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setQty(set.id, qty - 1)}
+                                  disabled={qty === 0}
+                                  className={cn(
+                                    'w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-colors',
+                                    qty > 0
+                                      ? 'bg-green-600 text-white hover:bg-green-700'
+                                      : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                  )}
+                                >
+                                  -
+                                </button>
+                                <span className="w-5 text-center text-sm font-bold text-gray-900">{qty}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setQty(set.id, qty + 1)}
+                                  disabled={qty >= set.available_count}
+                                  className={cn(
+                                    'w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-colors',
+                                    qty < set.available_count
+                                      ? 'bg-green-600 text-white hover:bg-green-700'
+                                      : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                  )}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </button>
+                      </div>
                     )
                   })}
                 </div>
-                {selectedSets.length > 1 && (
+                {totalSetsCount > 0 && (
                   <p className="text-xs text-green-700 font-medium">
-                    {selectedSets.length} sets selected
+                    {totalSetsCount} {totalSetsCount === 1 ? 'set' : 'sets'} selected
                   </p>
                 )}
               </>
@@ -536,7 +568,7 @@ export function CourseRentalClient() {
         )}
 
         {/* Section 3: Dates & Duration */}
-        {employeeName && selectedSets.length > 0 && (
+        {employeeName && totalSetsCount > 0 && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -622,23 +654,24 @@ export function CourseRentalClient() {
                 </div>
               )}
 
-              {selectedSets.length > 0 && durationDays > 0 && (
+              {totalSetsCount > 0 && durationDays > 0 && (
                 <div className="text-sm text-green-700 font-medium">
-                  Rental: ฿{rentalPrice.toLocaleString()} ({selectedSets.length} {selectedSets.length === 1 ? 'set' : 'sets'}, {durationDays} {durationDays === 1 ? 'day' : 'days'})
+                  Rental: ฿{rentalPrice.toLocaleString()} ({totalSetsCount} {totalSetsCount === 1 ? 'set' : 'sets'}, {durationDays} {durationDays === 1 ? 'day' : 'days'})
                 </div>
               )}
 
               {startDate && (() => {
-                const unavailable = selectedSets.filter(s => {
-                  const match = sets.find(cs => cs.id === s.id)
-                  return match && match.available_count <= 0
+                const overbooked = selectedEntries.filter(e => {
+                  const match = sets.find(cs => cs.id === e.set.id)
+                  return match && e.qty > match.available_count
                 })
-                if (unavailable.length > 0) {
+                if (overbooked.length > 0) {
                   return (
                     <div className="text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-200">
-                      {unavailable.length === 1
-                        ? `${unavailable[0].name} is not available for the selected dates.`
-                        : `${unavailable.map(s => s.name).join(', ')} are not available for the selected dates.`}
+                      {overbooked.map(e => {
+                        const avail = sets.find(cs => cs.id === e.set.id)?.available_count ?? 0
+                        return `${e.set.name}: ${e.qty} requested, ${avail} available`
+                      }).join('; ')}
                     </div>
                   )
                 }
@@ -649,7 +682,7 @@ export function CourseRentalClient() {
         )}
 
         {/* Section 4: Delivery & Add-ons */}
-        {employeeName && selectedSets.length > 0 && startDate && endDate && (
+        {employeeName && totalSetsCount > 0 && startDate && endDate && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -749,7 +782,7 @@ export function CourseRentalClient() {
         )}
 
         {/* Section 5: Customer */}
-        {employeeName && selectedSets.length > 0 && startDate && endDate && (
+        {employeeName && totalSetsCount > 0 && startDate && endDate && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -811,7 +844,7 @@ export function CourseRentalClient() {
         )}
 
         {/* Section 6: Summary & Submit */}
-        {employeeName && selectedSets.length > 0 && startDate && endDate && customerName.trim() && customerPhone.trim() && (
+        {employeeName && totalSetsCount > 0 && startDate && endDate && customerName.trim() && customerPhone.trim() && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Summary</CardTitle>
@@ -819,9 +852,9 @@ export function CourseRentalClient() {
             <CardContent className="space-y-3">
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">{selectedSets.length === 1 ? 'Club Set' : 'Club Sets'}</span>
+                  <span className="text-gray-500">{totalSetsCount === 1 ? 'Club Set' : 'Club Sets'}</span>
                   <span className="font-medium text-gray-900 text-right">
-                    {selectedSets.map(s => s.name).join(', ')}
+                    {selectedEntries.map(e => e.qty > 1 ? `${e.set.name} x${e.qty}` : e.set.name).join(', ')}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -854,10 +887,12 @@ export function CourseRentalClient() {
               </div>
 
               <div className="border-t border-gray-200 pt-2 space-y-1 text-sm">
-                {selectedSets.map(s => (
-                  <div key={s.id} className="flex justify-between">
-                    <span className="text-gray-600">{s.name} ({durationDays}d)</span>
-                    <span>฿{(durationDays > 0 ? getCoursePrice(s, durationDays) : 0).toLocaleString()}</span>
+                {selectedEntries.map(e => (
+                  <div key={e.set.id} className="flex justify-between">
+                    <span className="text-gray-600">
+                      {e.set.name} ({durationDays}d){e.qty > 1 ? ` x${e.qty}` : ''}
+                    </span>
+                    <span>฿{(durationDays > 0 ? getCoursePrice(e.set, durationDays) * e.qty : 0).toLocaleString()}</span>
                   </div>
                 ))}
                 {deliveryRequested && (
