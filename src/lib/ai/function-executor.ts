@@ -709,8 +709,8 @@ export class AIFunctionExecutor {
     // Format time range
     const startTime = params.start_time;
     const [hours, minutes] = startTime.split(':');
-    const endHour = parseInt(hours) + params.duration;
-    const endTime = `${String(endHour).padStart(2, '0')}:${minutes}`;
+    const totalMinutes = parseInt(hours) * 60 + parseInt(minutes) + Math.round(params.duration * 60);
+    const endTime = `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
 
     // Build approval message
     const summary = `${params.customer_name}
@@ -948,8 +948,8 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
 
         // Calculate end time
         const [hours, minutes] = params.start_time.split(':');
-        const endHour = parseInt(hours) + params.duration;
-        const endTime = `${String(endHour).padStart(2, '0')}:${minutes}`;
+        const totalMins = parseInt(hours) * 60 + parseInt(minutes) + Math.round(params.duration * 60);
+        const endTime = `${String(Math.floor(totalMins / 60)).padStart(2, '0')}:${String(totalMins % 60).padStart(2, '0')}`;
 
         // Format booking type display (same as booking form)
         const bookingTypeDisplay = packageName ? `${bookingType} (${packageName})` : bookingType;
