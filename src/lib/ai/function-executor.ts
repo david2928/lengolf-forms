@@ -555,6 +555,12 @@ export class AIFunctionExecutor {
 
       // Date view: compact response with just the requested date
       // Schedule view: full 45-day upcoming schedule
+      // When date view has no availability on the requested date, include next available dates
+      // so the AI can suggest alternatives instead of falsely claiming availability
+      const nextAvailableDates = (!hasTodayAvailability && !isScheduleView && upcomingSchedule.length > 0)
+        ? upcomingSchedule.slice(0, 5)
+        : undefined;
+
       return {
         success: true,
         functionName: 'get_coaching_availability',
@@ -563,6 +569,7 @@ export class AIFunctionExecutor {
           coach_name: coach_name || 'any',
           preferred_time,
           preferred_time_available: preferredTimeAvailable,
+          requested_date_available: hasTodayAvailability,
           has_availability: true,
           today_availability: hasTodayAvailability
             ? todayAvailableCoaches.map(({ coach_name, availability }: { coach_name: string; availability: string }) => ({ coach_name, availability }))
@@ -570,6 +577,10 @@ export class AIFunctionExecutor {
           ...(isScheduleView ? {
             upcoming_schedule: upcomingSchedule,
             schedule_range: { from: fromDate, to: toDate },
+          } : {}),
+          ...(nextAvailableDates ? {
+            message: `No coaching available on ${date}, but available on other dates`,
+            next_available_dates: nextAvailableDates,
           } : {}),
         }
       };
