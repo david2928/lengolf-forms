@@ -242,16 +242,18 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
     setError(null)
 
     try {
-      // Determine which set updates the existing rental (first selected entry)
-      const firstEntry = selectedEntries[0]
-      const firstSetId = firstEntry.set.id
+      // The existing rental keeps its original set if still selected;
+      // otherwise it gets reassigned to the first selected set.
+      const originalSetId = rental.rental_club_set_id
+      const originalStillSelected = (selectedQty[originalSetId] || 0) > 0
+      const putSetId = originalStillSelected ? originalSetId : selectedEntries[0].set.id
 
-      // 1. PUT update the existing rental with the first selected set
+      // 1. PUT update the existing rental
       const putRes = await fetch(`/api/club-rentals/${rental.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rental_club_set_id: firstSetId,
+          rental_club_set_id: putSetId,
           start_date: startDate,
           end_date: endDate,
           start_time: startTime || null,
@@ -275,11 +277,11 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
       const failed: string[] = []
 
       // Build list of additional rentals to create:
-      // - First entry qty minus 1 (the existing rental covers 1)
-      // - All other entries at full qty
+      // - The set used for PUT gets qty minus 1 (existing rental covers 1)
+      // - All other sets get their full qty
       const additionalRentals: { set: ClubSet; count: number }[] = []
-      selectedEntries.forEach((entry, idx) => {
-        const count = idx === 0 ? entry.qty - 1 : entry.qty
+      selectedEntries.forEach(entry => {
+        const count = entry.set.id === putSetId ? entry.qty - 1 : entry.qty
         if (count > 0) {
           additionalRentals.push({ set: entry.set, count })
         }
