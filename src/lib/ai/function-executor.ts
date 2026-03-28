@@ -616,9 +616,16 @@ export class AIFunctionExecutor {
 
     const socialAvailable = availabilityCheck.data?.social_bays_available ?? false;
     const aiAvailable = availabilityCheck.data?.ai_bay_available ?? false;
+    let effectiveBayType = requestedBayType;
     const requestedTypeAvailable = requestedBayType === 'ai' ? aiAvailable : socialAvailable;
 
-    if (!availabilityCheck.success || !requestedTypeAvailable) {
+    // For coaching bookings: AI bay is a preference, not a requirement.
+    // Auto-fallback to social bay if AI bay is unavailable.
+    if (!requestedTypeAvailable && isCoaching && requestedBayType === 'ai' && socialAvailable) {
+      console.log(`⚡ AI bay unavailable for coaching at ${params.start_time} on ${params.date}, falling back to social bay`);
+      effectiveBayType = 'social';
+      params.bay_type = 'social';
+    } else if (!availabilityCheck.success || !requestedTypeAvailable) {
 
       let errorMessage = `Sorry, ${requestedBayType === 'social' ? 'social bays are' : 'the AI bay is'} not available at ${params.start_time} on ${params.date}.`;
 
@@ -649,7 +656,7 @@ export class AIFunctionExecutor {
       };
     }
 
-    console.log(`✅ Bay availability confirmed for ${requestedBayType} at ${params.start_time}`);
+    console.log(`✅ Bay availability confirmed for ${effectiveBayType} at ${params.start_time}`);
 
     // STEP 2: Clone params and prepare booking data
     const updatedParams = { ...params };
