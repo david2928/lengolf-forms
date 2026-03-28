@@ -6,7 +6,7 @@ import { refacSupabaseAdmin } from '@/lib/refac-supabase'
 // Server-side add-on price enforcement (synced with reserve endpoint)
 const VALID_ADD_ONS: Record<string, { label: string; price: number }> = {
   gloves: { label: 'Golf Glove', price: 600 },
-  balls: { label: 'Practice Balls (1 bucket)', price: 400 },
+  balls: { label: 'Golf Balls (6-pack)', price: 400 },
 }
 
 function getCoursePrice(set: Record<string, unknown>, durationDays: number): number {
@@ -122,6 +122,7 @@ export async function PUT(
     const {
       rental_club_set_id,
       start_date,
+      end_date: bodyEndDate,
       duration_days,
       start_time,
       return_time,
@@ -157,21 +158,31 @@ export async function PUT(
 
     // Determine new values (fall back to current)
     const newSetId = rental_club_set_id || rental.rental_club_set_id
-    const newDurationDays = (duration_days !== undefined && duration_days !== null)
-      ? duration_days
-      : (rental.duration_days || 1)
     const newStartDate = start_date || rental.start_date
-
-    // Validate duration
-    const ALLOWED_DURATIONS = [1, 3, 7, 14]
-    if (!ALLOWED_DURATIONS.includes(newDurationDays)) {
-      return NextResponse.json({ error: 'Invalid duration. Must be 1, 3, 7, or 14 days.' }, { status: 400 })
-    }
 
     // Validate date format
     if (isNaN(Date.parse(newStartDate))) {
       return NextResponse.json({ error: 'Invalid start date' }, { status: 400 })
     }
+
+    // Calculate end_date: prefer explicit end_date, then duration_days, then fall back to current
+    let newEndDate: string
+    let newDurationDays: number
+    if (bodyEndDate && !isNaN(Date.parse(bodyEndDate))) {
+      newEndDate = bodyEndDate
+      newDurationDays = Math.max(1, Math.round(
+        (new Date(newEndDate).getTime() - new Date(newStartDate).getTime()) / (1000 * 60 * 60 * 24)
+      ))
+    } else if (duration_days !== undefined && duration_days !== null) {
+      newDurationDays = duration_days
+      const startD = new Date(newStartDate)
+      startD.setDate(startD.getDate() + newDurationDays)
+      newEndDate = startD.toISOString().split('T')[0]
+    } else {
+      newDurationDays = rental.duration_days || 1
+      newEndDate = rental.end_date
+    }
+
     const newStartTime = start_time !== undefined ? (start_time || null) : rental.start_time
     const newReturnTime = return_time !== undefined ? (return_time || null) : rental.return_time
     const newDeliveryRequested = delivery_requested !== undefined ? delivery_requested : rental.delivery_requested
@@ -180,14 +191,9 @@ export async function PUT(
       : rental.delivery_address
     const newNotes = notes !== undefined ? (notes || null) : rental.notes
 
-    // Calculate end_date
-    const startD = new Date(newStartDate)
-    startD.setDate(startD.getDate() + newDurationDays)
-    const newEndDate = startD.toISOString().split('T')[0]
-
     // Check availability if set or dates changed (exclude current rental)
     const setChanged = newSetId !== rental.rental_club_set_id
-    const datesChanged = newStartDate !== rental.start_date || newDurationDays !== rental.duration_days
+    const datesChanged = newStartDate !== rental.start_date || newEndDate !== rental.end_date
 
     if (setChanged || datesChanged) {
       const { data: availableCount, error: availError } = await refacSupabaseAdmin.rpc(

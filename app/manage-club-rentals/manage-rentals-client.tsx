@@ -182,11 +182,15 @@ export function ManageRentalsClient() {
   const handleEditSuccess = async (
     updated: ClubRental,
     previous: Record<string, unknown>,
-    employeeName: string
+    employeeName: string,
+    newRentalCodes?: { setName: string; code: string }[]
   ) => {
+    const newCodesText = newRentalCodes && newRentalCodes.length > 0
+      ? ` + ${newRentalCodes.length} new: ${newRentalCodes.map(r => r.code).join(', ')}`
+      : ''
     toast({
       title: 'Rental Updated',
-      description: `Rental ${updated.rental_code} has been updated.`,
+      description: `Rental ${updated.rental_code} has been updated.${newCodesText}`,
     })
     mutate()
 

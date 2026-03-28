@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // Validate add-on prices server-side (synced with website GEAR_UP_ITEMS)
     const VALID_ADD_ONS: Record<string, { label: string; price: number }> = {
       gloves: { label: 'Golf Glove', price: 600 },
-      balls: { label: 'Practice Balls (1 bucket)', price: 400 },
+      balls: { label: 'Golf Balls (6-pack)', price: 400 },
       delivery: { label: 'Delivery Service', price: 500 },
     }
     const validatedAddOns = (add_ons as Array<{ key: string; label: string; price: number }>)

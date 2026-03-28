@@ -43,6 +43,7 @@ interface EditableRental {
   customer_name: string
   customer_phone: string | null
   customer_email: string | null
+  customer_id?: string | null
   rental_type: string
   status: string
   start_date: string
@@ -76,7 +77,7 @@ interface EditRentalModalProps {
   isOpen: boolean
   onClose: () => void
   rental: EditableRental | null
-  onSuccess: (updated: EditableRental, previous: Record<string, unknown>, employeeName: string) => void
+  onSuccess: (updated: EditableRental, previous: Record<string, unknown>, employeeName: string, newRentalCodes?: { setName: string; code: string }[]) => void
 }
 
 const EMPLOYEES_LIST = [
@@ -89,7 +90,7 @@ const EMPLOYEES_LIST = [
 
 const ADD_ON_OPTIONS = [
   { key: 'gloves', label: 'Golf Glove', price: 600 },
-  { key: 'balls', label: 'Practice Balls (1 bucket)', price: 400 },
+  { key: 'balls', label: 'Golf Balls (6-pack)', price: 400 },
 ]
 
 function getCoursePrice(set: ClubSet, days: number): number {
@@ -108,8 +109,8 @@ function formatDateShort(dateStr: string): string {
 }
 
 export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRentalModalProps) {
-  // Form state
-  const [selectedSetId, setSelectedSetId] = useState('')
+  // Form state — multi-select with quantities (like create flow)
+  const [selectedQty, setSelectedQty] = useState<Record<string, number>>({})
   const [startDate, setStartDate] = useState('')
   const [startTime, setStartTime] = useState('')
   const [returnTime, setReturnTime] = useState('')
@@ -131,7 +132,7 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
   // Initialize form when rental changes
   useEffect(() => {
     if (rental && isOpen) {
-      setSelectedSetId(rental.rental_club_set_id)
+      setSelectedQty({ [rental.rental_club_set_id]: 1 })
       setStartDate(rental.start_date)
       setStartTime(rental.start_time ? rental.start_time.slice(0, 5) : '')
       setReturnTime(rental.return_time ? rental.return_time.slice(0, 5) : '')
@@ -150,9 +151,13 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
     ? Math.max(1, Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)))
     : 1
 
+  // Derived: expand selectedQty into a flat list of { set, qty } entries
+  const selectedEntries = sets
+    .filter(s => (selectedQty[s.id] || 0) > 0)
+    .map(s => ({ set: s, qty: selectedQty[s.id] }))
+  const totalSetsCount = selectedEntries.reduce((sum, e) => sum + e.qty, 0)
+
   // Fetch available sets when dates change
-  // The current rental counts against availability in the DB, so we adjust
-  // the count for the original set to account for "our" slot being occupied by us.
   const fetchSets = useCallback(async () => {
     if (!startDate) return
     setSetsLoading(true)
@@ -195,11 +200,22 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
     }
   }, [fetchSets, isOpen, startDate])
 
-  // Selected set object
-  const selectedSet = sets.find(s => s.id === selectedSetId) || null
+  // Quantity helpers
+  const setQty = (setId: string, qty: number) => {
+    setSelectedQty(prev => {
+      if (qty <= 0) {
+        const next = { ...prev }
+        delete next[setId]
+        return next
+      }
+      return { ...prev, [setId]: qty }
+    })
+  }
 
   // Price calculations
-  const rentalPrice = selectedSet ? getCoursePrice(selectedSet, durationDays) : 0
+  const rentalPrice = durationDays > 0
+    ? selectedEntries.reduce((sum, e) => sum + getCoursePrice(e.set, durationDays) * e.qty, 0)
+    : 0
   const addOnsTotal = addOns.reduce((sum, a) => sum + a.price, 0)
   const deliveryFee = deliveryRequested ? 500 : 0
   const totalPrice = rentalPrice + addOnsTotal + deliveryFee
@@ -212,18 +228,11 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
     )
   }
 
-  // Availability for current set selection
-  const currentSetAvailable = selectedSet
-    ? selectedSet.available_count > 0 ||
-      // Current rental's set is always "available" for itself
-      selectedSetId === rental?.rental_club_set_id
-    : false
-
   const canSubmit =
     employeeName &&
-    selectedSetId &&
+    totalSetsCount > 0 &&
     startDate &&
-    currentSetAvailable &&
+    endDate &&
     (!deliveryRequested || deliveryAddress.trim()) &&
     !isSubmitting
 
@@ -233,13 +242,18 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
     setError(null)
 
     try {
-      const res = await fetch(`/api/club-rentals/${rental.id}`, {
+      // Determine which set updates the existing rental (first selected entry)
+      const firstEntry = selectedEntries[0]
+      const firstSetId = firstEntry.set.id
+
+      // 1. PUT update the existing rental with the first selected set
+      const putRes = await fetch(`/api/club-rentals/${rental.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rental_club_set_id: selectedSetId,
+          rental_club_set_id: firstSetId,
           start_date: startDate,
-          duration_days: durationDays,
+          end_date: endDate,
           start_time: startTime || null,
           return_time: returnTime || null,
           delivery_requested: deliveryRequested,
@@ -250,13 +264,73 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
         }),
       })
 
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Failed to update rental')
+      const putData = await putRes.json()
+      if (!putRes.ok) {
+        setError(putData.error || 'Failed to update rental')
         return
       }
 
-      onSuccess(data.rental, data.previous, employeeName)
+      // 2. Create new rentals for additional sets/quantities
+      const newRentalCodes: { setName: string; code: string }[] = []
+      const failed: string[] = []
+
+      // Build list of additional rentals to create:
+      // - First entry qty minus 1 (the existing rental covers 1)
+      // - All other entries at full qty
+      const additionalRentals: { set: ClubSet; count: number }[] = []
+      selectedEntries.forEach((entry, idx) => {
+        const count = idx === 0 ? entry.qty - 1 : entry.qty
+        if (count > 0) {
+          additionalRentals.push({ set: entry.set, count })
+        }
+      })
+
+      for (const { set, count } of additionalRentals) {
+        for (let i = 0; i < count; i++) {
+          const postRes = await fetch('/api/clubs/reserve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              rental_club_set_id: set.id,
+              rental_type: 'course',
+              start_date: startDate,
+              start_time: startTime || undefined,
+              end_date: endDate,
+              customer_name: rental.customer_name,
+              customer_email: rental.customer_email || undefined,
+              customer_phone: rental.customer_phone || undefined,
+              customer_id: rental.customer_id || undefined,
+              add_ons: [],
+              delivery_requested: deliveryRequested,
+              delivery_address: deliveryRequested ? deliveryAddress.trim() : undefined,
+              return_time: returnTime || undefined,
+              notes: notes.trim() || undefined,
+              source: 'staff',
+            }),
+          })
+
+          const postData = await postRes.json()
+          if (postRes.ok) {
+            newRentalCodes.push({ setName: set.name, code: postData.rental_code })
+          } else {
+            failed.push(`${set.name}: ${postData.error || 'Failed'}`)
+          }
+        }
+      }
+
+      if (failed.length > 0) {
+        setError(`Updated original rental but failed to create some new ones: ${failed.join('; ')}`)
+        // Still refresh the list but keep modal open so user sees the error
+        onSuccess(putData.rental, putData.previous, employeeName, newRentalCodes.length > 0 ? newRentalCodes : undefined)
+        return
+      }
+
+      onSuccess(
+        putData.rental,
+        putData.previous,
+        employeeName,
+        newRentalCodes.length > 0 ? newRentalCodes : undefined
+      )
       onClose()
     } catch {
       setError('Something went wrong. Please try again.')
@@ -279,9 +353,9 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          {/* Club Set Selection */}
+          {/* Club Set Selection — multi-select with quantities */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Club Set</Label>
+            <Label className="text-sm font-medium">Club Sets</Label>
             {setsLoading ? (
               <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -292,43 +366,94 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
             ) : (
               <div className="space-y-1.5">
                 {sets.map(set => {
-                  const isSelected = selectedSetId === set.id
-                  const isAvailable = set.available_count > 0 || set.id === rental.rental_club_set_id
+                  const qty = selectedQty[set.id] || 0
+                  // The original set gets +1 availability since current rental occupies a slot
+                  const maxAvailable = set.available_count
+                  const isAvailable = maxAvailable > 0
+                  const price1d = getCoursePrice(set, durationDays)
 
                   return (
-                    <button
+                    <div
                       key={set.id}
-                      type="button"
-                      disabled={!isAvailable}
-                      onClick={() => setSelectedSetId(set.id)}
                       className={cn(
-                        'w-full text-left p-2.5 rounded-lg border-2 transition-all',
-                        isSelected
+                        'w-full p-2.5 rounded-lg border-2 transition-all',
+                        qty > 0
                           ? 'border-green-600 bg-green-50'
                           : isAvailable
-                          ? 'border-gray-200 bg-white hover:border-gray-300'
-                          : 'border-gray-100 bg-gray-50 opacity-40 cursor-not-allowed'
+                          ? 'border-gray-200 bg-white'
+                          : 'border-gray-100 bg-gray-50 opacity-40'
                       )}
                     >
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge variant="outline" className={cn(
-                          'text-xs px-1.5 py-0',
-                          set.tier === 'premium-plus'
-                            ? 'bg-green-800 text-white border-green-800'
-                            : 'bg-green-100 text-green-800 border-green-200'
-                        )}>
-                          {set.tier === 'premium-plus' ? 'Premium+' : 'Premium'}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200">
-                          {set.gender === 'mens' ? "Men's" : "Women's"}
-                        </Badge>
-                        <span className="text-sm text-gray-700">
-                          {set.name.includes(' - ') ? set.name.split(' - ').slice(1).join(' - ') : set.name}
-                        </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge variant="outline" className={cn(
+                              'text-xs px-1.5 py-0',
+                              set.tier === 'premium-plus'
+                                ? 'bg-green-800 text-white border-green-800'
+                                : 'bg-green-100 text-green-800 border-green-200'
+                            )}>
+                              {set.tier === 'premium-plus' ? 'Premium+' : 'Premium'}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200">
+                              {set.gender === 'mens' ? "Men's" : "Women's"}
+                            </Badge>
+                            {!isAvailable && (
+                              <Badge variant="destructive" className="text-xs px-1.5 py-0">
+                                Unavailable
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-sm text-gray-700">
+                            {set.name.includes(' - ') ? set.name.split(' - ').slice(1).join(' - ') : set.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-green-700">&#3647;{price1d.toLocaleString()}</p>
+                            <p className="text-xs text-gray-400">{durationDays}d rate</p>
+                          </div>
+                          {isAvailable && (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setQty(set.id, qty - 1)}
+                                disabled={qty === 0}
+                                className={cn(
+                                  'w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-colors',
+                                  qty > 0
+                                    ? 'bg-green-600 text-white hover:bg-green-700'
+                                    : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                )}
+                              >
+                                -
+                              </button>
+                              <span className="w-5 text-center text-sm font-bold text-gray-900">{qty}</span>
+                              <button
+                                type="button"
+                                onClick={() => setQty(set.id, qty + 1)}
+                                disabled={qty >= maxAvailable}
+                                className={cn(
+                                  'w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-colors',
+                                  qty < maxAvailable
+                                    ? 'bg-green-600 text-white hover:bg-green-700'
+                                    : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                )}
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </button>
+                    </div>
                   )
                 })}
+                {totalSetsCount > 0 && (
+                  <p className="text-xs text-green-700 font-medium">
+                    {totalSetsCount} {totalSetsCount === 1 ? 'set' : 'sets'} selected
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -493,12 +618,17 @@ export function EditRentalModal({ isOpen, onClose, rental, onSuccess }: EditRent
           </div>
 
           {/* Price Summary */}
-          {selectedSet && (
+          {totalSetsCount > 0 && (
             <div className="border-t border-gray-200 pt-3 space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Club rental ({durationDays}d)</span>
-                <span>&#3647;{rentalPrice.toLocaleString()}</span>
-              </div>
+              {selectedEntries.map(({ set, qty }) => (
+                <div key={set.id} className="flex justify-between">
+                  <span className="text-gray-600">
+                    {set.name.includes(' - ') ? set.name.split(' - ').slice(1).join(' - ') : set.name}
+                    {' '}({durationDays}d{qty > 1 ? ` x${qty}` : ''})
+                  </span>
+                  <span>&#3647;{(getCoursePrice(set, durationDays) * qty).toLocaleString()}</span>
+                </div>
+              ))}
               {deliveryRequested && (
                 <div className="flex justify-between">
                   <span className="text-gray-600">Delivery</span>
