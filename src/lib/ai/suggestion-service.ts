@@ -964,7 +964,7 @@ RESPOND IN THE SAME LANGUAGE AS THE CUSTOMER (Chinese/Japanese/Korean). Match th
   } else {
     userContent = `Customer message: "${params.customerMessage}"
 
-ENGLISH ONLY. Do not use Thai. Simple replies: 1 sentence. Informational answers: 2-3 sentences. If greeting only, greet warmly with their name (if known) and ask how you can help, e.g. "Hi Sebastian! How can we help?" — don't assume intent beyond that.
+ENGLISH ONLY. Do not use Thai. Simple replies: 1 sentence. Informational answers: 2-3 sentences. If this is the first message of the day, ALWAYS start with a brief greeting using their name (e.g. "Hi Hamdan!") before answering. If greeting only with no question, greet warmly and ask how you can help.
 If the customer asks about bays, facilities, pricing, coaches, or promotions — ALWAYS call suggest_images to attach a photo. A picture helps more than words.`;
   }
 
