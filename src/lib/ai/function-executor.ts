@@ -461,16 +461,19 @@ export class AIFunctionExecutor {
 
           return {
             coach_name: c.coach_name,
-            availability: groupIntoRanges(availableTimeSlots)
+            availability: groupIntoRanges(availableTimeSlots),
+            _rawSlots: availableTimeSlots
           };
         })
         .filter((c: any) => c.availability !== 'None');
 
       // Check if preferred time is available today
+      // Use raw time slots (not grouped range strings) to avoid substring match bugs
+      // e.g. "13:00-15:00".includes("14:00") is false, but 14:00 IS in the range
       let preferredTimeAvailable = false;
       if (preferred_time && todayAvailableCoaches.length > 0) {
-        preferredTimeAvailable = todayAvailableCoaches.some((c: { coach_name: string; availability: string }) =>
-          c.availability.includes(preferred_time)
+        preferredTimeAvailable = todayAvailableCoaches.some((c: { coach_name: string; availability: string; _rawSlots: string[] }) =>
+          c._rawSlots.includes(preferred_time)
         );
       }
 
@@ -561,7 +564,9 @@ export class AIFunctionExecutor {
           preferred_time,
           preferred_time_available: preferredTimeAvailable,
           has_availability: true,
-          today_availability: hasTodayAvailability ? todayAvailableCoaches : null,
+          today_availability: hasTodayAvailability
+            ? todayAvailableCoaches.map(({ coach_name, availability }: { coach_name: string; availability: string }) => ({ coach_name, availability }))
+            : null,
           ...(isScheduleView ? {
             upcoming_schedule: upcomingSchedule,
             schedule_range: { from: fromDate, to: toDate },
