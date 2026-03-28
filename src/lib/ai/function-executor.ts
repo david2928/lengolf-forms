@@ -627,7 +627,7 @@ export class AIFunctionExecutor {
       params.bay_type = 'social';
     } else if (!availabilityCheck.success || !requestedTypeAvailable) {
 
-      let errorMessage = `Sorry, ${requestedBayType === 'social' ? 'social bays are' : 'the AI bay is'} not available at ${params.start_time} on ${params.date}.`;
+      let errorMessage = `Sorry, ${requestedBayType === 'social' ? 'social bays are' : 'the AI bay is'} not available at ${params.start_time} on ${formatDateNatural(params.date)}.`;
 
       // Suggest alternative bay type if available
       if (requestedBayType === 'ai' && socialAvailable) {
@@ -1754,7 +1754,7 @@ Duration: ${params.duration} ${params.duration === 1 ? 'hour' : 'hours'}${
 
         if (!availCheck.success || !requestedTypeAvailable) {
 
-          let errorMessage = `Sorry, ${newBayType === 'social' ? 'social bays are' : 'the AI bay is'} not available at ${newTime} on ${newDate}.`;
+          let errorMessage = `Sorry, ${newBayType === 'social' ? 'social bays are' : 'the AI bay is'} not available at ${newTime} on ${formatDateNatural(newDate)}.`;
 
           // Suggest alternative bay type if available
           if (newBayType === 'ai' && socialAvailable) {
