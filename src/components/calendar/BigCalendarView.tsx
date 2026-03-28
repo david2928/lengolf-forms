@@ -273,7 +273,7 @@ export function BigCalendarView({
           components={{
             event: EventComponent,
           }}
-          min={new Date(2024, 0, 1, 10, 0)} // 10:00 AM
+          min={new Date(2024, 0, 1, 9, 0)} // 9:00 AM
           max={new Date(2024, 0, 1, 23, 59)} // 11:59 PM
           step={60} // 60-minute intervals
           timeslots={1} // 1 slot per step
