@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,25 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCwIcon, CalendarIcon, DollarSignIcon, UsersIcon, ClockIcon, AlertCircleIcon } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  RefreshCwIcon,
+  CalendarIcon,
+  DollarSignIcon,
+  UsersIcon,
+  ClockIcon,
+  AlertCircleIcon,
+  SendIcon,
+  CheckCircleIcon,
+} from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 interface PayrollSummary {
   total_staff: number;
@@ -47,18 +65,56 @@ interface PayrollData {
   calculated_at: string;
 }
 
+type SnapshotStatus = 'none' | 'pending' | 'imported' | 'superseded';
+
+interface SnapshotMeta {
+  status: SnapshotStatus;
+  staff_count: number;
+  total_payout: number;
+  calculated_at: string | null;
+  calculated_by: string | null;
+}
+
 export default function PayrollCalculationsInterface() {
+  const { toast } = useToast();
   const [payrollData, setPayrollData] = useState<PayrollData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [error, setError] = useState<string>('');
 
+  // Snapshot state
+  const [snapshotMeta, setSnapshotMeta] = useState<SnapshotMeta | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSupersededWarning, setShowSupersededWarning] = useState(false);
+
   useEffect(() => {
-    // Set default month to current month
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     setSelectedMonth(currentMonth);
   }, []);
+
+  const fetchSnapshotStatus = useCallback(async (month: string) => {
+    if (!month) return;
+    try {
+      const res = await fetch(`/api/admin/payroll/${month}/submit`);
+      if (res.ok) {
+        const data: SnapshotMeta = await res.json();
+        setSnapshotMeta(data);
+      } else {
+        setSnapshotMeta(null);
+      }
+    } catch {
+      setSnapshotMeta(null);
+    }
+  }, []);
+
+  // Fetch snapshot status whenever month changes
+  useEffect(() => {
+    if (selectedMonth) {
+      setSnapshotMeta(null);
+      fetchSnapshotStatus(selectedMonth);
+    }
+  }, [selectedMonth, fetchSnapshotStatus]);
 
   const loadPayrollData = async () => {
     if (!selectedMonth) {
@@ -85,10 +141,55 @@ export default function PayrollCalculationsInterface() {
     }
   };
 
+  const doSubmitSnapshot = async () => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/payroll/${selectedMonth}/submit`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to submit payroll snapshot');
+      }
+
+      const monthLabel = new Date(`${selectedMonth}-01`).toLocaleString('en-US', {
+        month: 'long',
+        year: 'numeric',
+      });
+
+      toast({
+        title: 'Payroll submitted to accounting',
+        description: `${monthLabel} payroll submitted (${data.staff_count} staff, ฿${data.total_payout.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} total)`,
+      });
+
+      // Refresh snapshot status
+      await fetchSnapshotStatus(selectedMonth);
+    } catch (err) {
+      toast({
+        title: 'Submission failed',
+        description: err instanceof Error ? err.message : 'Failed to submit payroll snapshot',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitToAccounting = () => {
+    if (snapshotMeta && snapshotMeta.status === 'pending') {
+      // Warn before superseding an existing pending snapshot
+      setShowSupersededWarning(true);
+    } else {
+      doSubmitSnapshot();
+    }
+  };
+
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('th-TH', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'THB',
+      minimumFractionDigits: 2,
     }).format(amount);
   };
 
@@ -98,6 +199,40 @@ export default function PayrollCalculationsInterface() {
     } catch {
       return timestamp;
     }
+  };
+
+  const snapshotBanner = () => {
+    if (!snapshotMeta || snapshotMeta.status === 'none') return null;
+
+    if (snapshotMeta.status === 'pending') {
+      return (
+        <Alert className="border-amber-500 bg-amber-50 text-amber-900">
+          <AlertCircleIcon className="h-4 w-4 text-amber-600" />
+          <AlertDescription>
+            A snapshot already exists for this period — submitted by{' '}
+            <strong>{snapshotMeta.calculated_by}</strong> on{' '}
+            {snapshotMeta.calculated_at ? formatDateTime(snapshotMeta.calculated_at) : ''}
+            {' '}({snapshotMeta.staff_count} staff, {formatCurrency(snapshotMeta.total_payout)}).
+            Submitting again will supersede it.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (snapshotMeta.status === 'imported') {
+      return (
+        <Alert className="border-blue-500 bg-blue-50 text-blue-900">
+          <CheckCircleIcon className="h-4 w-4 text-blue-600" />
+          <AlertDescription>
+            Snapshot imported by accounting on{' '}
+            {snapshotMeta.calculated_at ? formatDateTime(snapshotMeta.calculated_at) : ''} —{' '}
+            {snapshotMeta.staff_count} staff, {formatCurrency(snapshotMeta.total_payout)}.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -129,7 +264,18 @@ export default function PayrollCalculationsInterface() {
               <RefreshCwIcon className="h-4 w-4 mr-2" />
               Refresh
             </Button>
+            <Button
+              onClick={handleSubmitToAccounting}
+              disabled={!payrollData || isSubmitting || snapshotMeta?.status === 'imported'}
+              variant="default"
+              className="bg-green-700 hover:bg-green-800 text-white"
+            >
+              <SendIcon className="h-4 w-4 mr-2" />
+              {isSubmitting ? 'Submitting...' : 'Submit to Accounting'}
+            </Button>
           </div>
+
+          {snapshotBanner()}
 
           {error && (
             <Alert variant="destructive">
@@ -271,6 +417,43 @@ export default function PayrollCalculationsInterface() {
           </Card>
         </>
       )}
+
+      {/* Supersede warning dialog */}
+      <Dialog open={showSupersededWarning} onOpenChange={setShowSupersededWarning}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Snapshot already exists for this period</DialogTitle>
+            <DialogDescription>
+              A payroll snapshot already exists for{' '}
+              <strong>
+                {selectedMonth
+                  ? new Date(`${selectedMonth}-01`).toLocaleString('en-US', { month: 'long', year: 'numeric' })
+                  : selectedMonth}
+              </strong>
+              . Submitting will mark the existing snapshot as superseded and replace it with a
+              fresh calculation. The accounting app will use the new snapshot when creating a run.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowSupersededWarning(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowSupersededWarning(false);
+                doSubmitSnapshot();
+              }}
+              disabled={isSubmitting}
+            >
+              Yes, supersede and resubmit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-} 
+}

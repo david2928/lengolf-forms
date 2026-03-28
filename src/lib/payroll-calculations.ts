@@ -48,7 +48,7 @@ export interface StaffCompensation {
   base_salary: number;
   hourly_rate: number;
   ot_rate_per_hour: number;
-  holiday_rate_per_hour: number;
+  holiday_rate_per_hour?: number; // Deprecated: holiday pay is now auto-calculated at 2× (LPA Section 62)
   is_service_charge_eligible: boolean;
 }
 
@@ -576,7 +576,18 @@ export async function calculatePayrollForMonth(monthYear: string): Promise<Payro
           }
           
           const overtimePay = overtimeHours * compensation.ot_rate_per_hour;
-          const holidayPay = staffHolidayHours * compensation.holiday_rate_per_hour;
+
+          // Holiday pay at 2× effective rate (Thai LPA Section 62):
+          // - Salary staff already receive base pay, so we add +1× (the additional portion owed).
+          //   Effective hourly rate = base_salary / 30 / 8. Total effective = 2×, additional = 1×.
+          // - Hourly staff are paid only for hours worked, so we pay the full 2× hourly rate.
+          let holidayPay = 0;
+          if (compensation.compensation_type === 'salary') {
+            const salaryHourlyRate = (compensation.base_salary || 0) / 30 / 8;
+            holidayPay = staffHolidayHours * salaryHourlyRate; // +1× additional (base salary covers the other 1×)
+          } else if (compensation.compensation_type === 'hourly') {
+            holidayPay = staffHolidayHours * (compensation.hourly_rate || 0) * 2; // full 2× for hourly staff
+          }
           const staffServiceCharge = compensation.is_service_charge_eligible ? serviceChargePerStaff : 0;
           const totalPayout = basePay + allowance + overtimePay + holidayPay + staffServiceCharge;
 
