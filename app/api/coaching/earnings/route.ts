@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end_date');
     const period = searchParams.get('period'); // 'today', 'week', 'month', 'year'
     const rateType = searchParams.get('rate_type') || 'all';
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const limit = parseInt(searchParams.get('limit') || '1000');
     const offset = parseInt(searchParams.get('offset') || '0');
 
     // Calculate date range based on period
