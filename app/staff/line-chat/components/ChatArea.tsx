@@ -32,7 +32,9 @@ import {
   Monitor,
   Smartphone,
   Globe,
-  Clock
+  Clock,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaWhatsapp, FaLine } from 'react-icons/fa';
 import type {
@@ -286,9 +288,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when AI suggestion appears
+  // Auto-scroll to bottom when AI suggestion or loading indicator appears
   useEffect(() => {
-    if (aiSuggestion && messagesContainerRef.current) {
+    if ((aiSuggestion || aiSuggestionLoading) && messagesContainerRef.current) {
       const timer = setTimeout(() => {
         if (messagesContainerRef.current) {
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
@@ -296,7 +298,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [aiSuggestion]);
+  }, [aiSuggestion, aiSuggestionLoading]);
 
   // Touch gesture state for swipe detection
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -1171,6 +1173,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           );
         })}
         <div ref={messagesEndRef} className="messages-end" />
+
+        {/* AI Loading Indicator - Shows in chat while generating */}
+        {enableAISuggestions && aiSuggestionLoading && !aiSuggestion && (
+          <div className="mt-4 mx-3 mb-2">
+            <div className="flex items-center space-x-2 p-3 bg-purple-50 border border-purple-100 rounded-lg">
+              <Loader2 className="h-4 w-4 text-purple-500 animate-spin flex-shrink-0" />
+              <Sparkles className="h-4 w-4 text-purple-400 flex-shrink-0" />
+              <span className="text-sm text-purple-600">Generating AI suggestion...</span>
+            </div>
+          </div>
+        )}
 
         {/* AI Suggestion Card - Inside scrollable container for mobile accessibility */}
         {enableAISuggestions && aiSuggestion && onAcceptSuggestion && onEditSuggestion && onDeclineSuggestion && (
