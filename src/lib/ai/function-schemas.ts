@@ -328,16 +328,14 @@ ${imageCatalog.map(img => `[${img.index}] ${img.name} — ${img.description}`).j
     check_bay_availability: tool({
       description: `Check real-time bay availability for Social bays (up to 5 players) or AI bay (1-2 players with analytics).
 
-⚠️ CRITICAL: ALWAYS call this function when customer asks about BAY availability, slots, or free times.
+⚠️ STOP — CHECK CONVERSATION HISTORY FIRST: Before calling this tool, read ALL previous messages. If ANY earlier message mentions coaching, lessons, free trial, ทดลองเรียน, สนใจเรียน, coach names (Boss, Min, Noon, Ratchavin, โปร, เรียน, สอน), use get_coaching_availability instead. This is the #1 most common mistake.
 
-Use this when:
-- Customer asks "available?", "ว่างมั้ย", "do you have any slots?", "free tonight?", "open tomorrow?"
-- Customer asks "availability for tonight", "any time available", "when are you free"
-- Customer wants to know free time slots without booking yet
-- NEVER respond conversationally without calling this function for availability questions
+Use this ONLY for BAY (non-coaching) availability:
+- Customer asks about bay slots with NO coaching context in conversation history
+- Customer wants to know free time slots for regular play (not lessons)
 
 Do NOT use when:
-- Conversation is about COACHING or LESSONS — use get_coaching_availability instead. Check the ENTIRE conversation history, not just the latest message. If earlier messages mention coaching, lessons, coach names (Boss, Min, Noon, Ratchavin, โปร, เรียน, สอน), or free trial, this is a coaching conversation.
+- Conversation is about COACHING or LESSONS — use get_coaching_availability instead
 - Customer already confirmed booking (e.g., "book it", "3pm please!" after availability shown)
 - Customer is asking general questions about facilities ("Do you have gloves?")`,
       inputSchema: z.object({
@@ -352,23 +350,24 @@ Do NOT use when:
     get_coaching_availability: tool({
       description: `Get coach availability for golf lessons. Returns available time slots for coaches (Boss/Ratchavin, Noon, Min).
 
-⚠️ CONTEXT-AWARE: Check the ENTIRE conversation history, not just the latest message. If the conversation is about coaching/lessons, ALL follow-up messages (times, confirmations, date changes) should use THIS tool, not check_bay_availability.
+⚠️ USE THIS (not check_bay_availability) whenever the conversation involves coaching or lessons — even if the latest message only asks "ว่างมั้ย" (available?) with no coaching keywords. Check the FULL conversation history.
 
 Use this when:
 - Customer asks about coaching: "โปรว่างมั้ย", "is coach available", "lesson available?"
 - Customer mentions coach names: "Boss", "Min", "Noon", "โค้ช"
 - Customer has coaching pattern in RECENT BOOKINGS and asks about availability
 - Customer gives a time/date and the conversation is about coaching or lessons (e.g., "17.00 ครับ" after discussing Pro Boss)
-- Conversation mentions: เรียน, สอน, lesson, trial, free trial, โปร (as coach), coach, coaching
+- ANY earlier message in conversation mentions: เรียน, สอน, ทดลองเรียน, สนใจเรียน, lesson, trial, free trial, โปร (as coach), coach, coaching
+- Customer previously expressed interest in lessons/trial ("สนใจทดลองเรียน") and now asks about a date/time
 
 Do NOT use when:
 - Customer wants regular bay (no coaching mentioned anywhere in conversation)
 - Customer is asking about pricing only`,
       inputSchema: z.object({
         date: z.string().describe('Date in YYYY-MM-DD format for checking coach availability'),
-        coach_name: z.enum(['Boss', 'Ratchavin', 'Noon', 'Min', 'any']).describe('Specific coach name or "any" to show all available coaches. Note: Boss and Ratchavin are the same person.'),
+        coach_name: z.enum(['Boss', 'Ratchavin', 'Noon', 'Min', 'any']).default('any').describe('Specific coach name or "any" to show all available coaches. Default: "any". Note: Boss and Ratchavin are the same person.'),
         preferred_time: z.string().describe('Preferred time in HH:00 format (e.g., "14:00"). Use empty string "" to show full day availability.'),
-        view: z.enum(['date', 'schedule']).describe('Use "date" when checking availability for a SPECIFIC date (e.g., "is coach free on March 25?", "book Wednesday 12pm"). Use "schedule" when customer asks for a coach\'s timetable/schedule overview (e.g., "ขอตารางโปร", "when is coach available?", "what days does Pro Min work?"). Default: "date"'),
+        view: z.enum(['date', 'schedule']).default('date').describe('Use "date" when checking availability for a SPECIFIC date. Use "schedule" for timetable overview. Default: "date"'),
       }),
       execute: async (args) => executeAndTrack(state, 'get_coaching_availability', args, customerId),
     }),

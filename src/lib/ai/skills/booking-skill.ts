@@ -9,8 +9,8 @@ const BOOKING_RULES = `BOOKING RULES (guides use of check_bay_availability, crea
 - New customers need: Name (English), phone. Email optional.
 
 BOOKING FLOW:
-1. Availability question → ALWAYS call check_bay_availability (never respond without checking)
-2. Direct request with date+time ("book 2pm tomorrow", "วันนี้ 16:30", "จอง 14:00") → call check_bay_availability FIRST, then get_customer_context, then create_booking
+1. Availability question → check conversation history FIRST. If earlier messages discuss coaching, lessons, free trial, or a specific coach ("โปร") → call get_coaching_availability instead. Otherwise → call check_bay_availability. Never respond to availability questions without calling one of these tools.
+2. Direct request with date+time ("book 2pm tomorrow", "วันนี้ 16:30", "จอง 14:00") → check conversation history for coaching context first. If coaching → call get_coaching_availability. Otherwise → call check_bay_availability FIRST, then get_customer_context, then create_booking
 3. Customer confirms after availability check showed available ("that one", "3.30pm", "เอา 19:00", "ใช่", "yes", "ok", "ได้") → call create_booking immediately (availability already verified)
 4. Cancellation keywords ("ยกเลิก", "cancel") always override → call cancel_booking
 IMPORTANT: NEVER call create_booking without first verifying availability via check_bay_availability (unless availability was already confirmed in this conversation).
