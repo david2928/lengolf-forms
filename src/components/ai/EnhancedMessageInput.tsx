@@ -182,7 +182,7 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
 
     // Reset textarea height
     if (textareaRef.current) {
-      textareaRef.current.style.height = '80px';
+      textareaRef.current.style.height = isMobile ? '20px' : '80px';
     }
   };
 
@@ -199,7 +199,7 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
   // Handle Enter key
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
-      if (isMobile || !e.shiftKey) {
+      if (!e.shiftKey) {
         e.preventDefault();
         handleSendMessage();
       }
@@ -210,11 +210,12 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNewMessage(e.target.value);
 
-    if (!isMobile && textareaRef.current) {
+    if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const minHeight = 80;
-      textareaRef.current.style.height = `${Math.max(minHeight, scrollHeight)}px`;
+      const minHeight = isMobile ? 36 : 80;
+      const maxHeight = isMobile ? 120 : 300;
+      textareaRef.current.style.height = `${Math.min(maxHeight, Math.max(minHeight, scrollHeight))}px`;
     }
   };
 
@@ -296,7 +297,7 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
       <div className={`${isMobile ? 'bg-gray-100 p-2' : 'bg-white p-4'} border-t`}>
         {/* Mobile Layout */}
         {isMobile ? (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-end space-x-2">
             {/* Plus Button for Mobile Actions */}
             <div className="relative">
               <Button
@@ -358,20 +359,17 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
             </div>
 
             {/* Message Input */}
-            <div className="flex-1 bg-white rounded-full px-3 py-2 border border-gray-300">
-              <input
-                type="text"
+            <div className="flex-1 bg-white rounded-2xl px-3 py-2 border border-gray-300">
+              <textarea
+                ref={textareaRef}
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
+                onChange={handleTextareaChange}
+                onKeyDown={handleKeyDown}
                 placeholder="Type your message..."
                 disabled={disabled}
-                className="w-full bg-transparent border-0 focus:outline-none text-sm"
+                rows={1}
+                className="w-full bg-transparent border-0 focus:outline-none text-sm resize-none overflow-y-auto"
+                style={{ height: '20px', maxHeight: '120px' }}
               />
             </div>
 

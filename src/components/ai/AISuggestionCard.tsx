@@ -261,13 +261,13 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
       {/* Modern single-container design inspired by ChatGPT/Claude */}
       <div className={cn(
         'bg-white border border-gray-200 rounded-lg shadow-sm',
-        // Mobile: Add flex column (height controlled by parent container)
-        isMobile ? 'flex flex-col' : 'space-y-3'
+        // Mobile: Add flex column with max height to prevent overlay
+        isMobile ? 'flex flex-col max-h-[60vh]' : 'space-y-3'
       )}>
         {/* Scrollable content area */}
         <div className={cn(
           // Mobile: Make content scrollable, not the whole card
-          isMobile ? 'overflow-y-auto flex-1 p-3 space-y-3' : 'p-4 space-y-3'
+          isMobile ? 'overflow-y-auto flex-1 min-h-0 p-3 space-y-3' : 'p-4 space-y-3'
         )}>
           {/* Header with AI branding and metadata */}
           <div className="flex items-start justify-between">
@@ -290,7 +290,10 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
 
         {/* Main AI response content - clean typography */}
         <div className="space-y-2">
-          <div className="text-gray-800 text-sm leading-relaxed">
+          <div className={cn(
+            'text-gray-800 text-sm leading-relaxed',
+            isMobile && 'max-h-[25vh] overflow-y-auto'
+          )}>
             {isStreamingOnly ? (
               <>
                 {streamingText}
@@ -609,31 +612,46 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
 
         {/* Feedback input (shown when declining) — requires suggestion */}
         {suggestion && showFeedbackInput && (
-          <div className="border-t pt-3 space-y-2">
-            <div className="text-sm font-medium text-gray-700">
-              Why are you declining this suggestion? (optional)
+          <div className={cn(
+            'border-t space-y-2',
+            isMobile ? 'pt-2' : 'pt-3'
+          )}>
+            <div className={cn(
+              'font-medium text-gray-700',
+              isMobile ? 'text-xs' : 'text-sm'
+            )}>
+              Why are you declining? (optional)
             </div>
             <textarea
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
-              placeholder="e.g., The tone is too formal, Missing important details, Incorrect information..."
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-              rows={3}
+              placeholder="e.g., Too formal, Missing details, Incorrect info..."
+              className={cn(
+                'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none',
+                isMobile ? 'text-xs' : 'text-sm'
+              )}
+              rows={isMobile ? 2 : 3}
               autoFocus
             />
             <div className="flex space-x-2">
               <Button
                 onClick={handleSubmitFeedback}
                 size="sm"
-                className="h-7 text-xs px-3 bg-purple-600 hover:bg-purple-700 text-white"
+                className={cn(
+                  'bg-purple-600 hover:bg-purple-700 text-white',
+                  isMobile ? 'h-9 text-xs px-3' : 'h-7 text-xs px-3'
+                )}
               >
-                Submit Feedback
+                Submit
               </Button>
               <Button
                 onClick={handleSkipFeedback}
                 size="sm"
                 variant="ghost"
-                className="h-7 text-xs px-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                className={cn(
+                  'text-gray-600 hover:text-gray-800 hover:bg-gray-100',
+                  isMobile ? 'h-9 text-xs px-3' : 'h-7 text-xs px-3'
+                )}
               >
                 Skip
               </Button>
