@@ -509,14 +509,14 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       )}
     >
       {/* Date */}
-      <td className={cn(cellBase, 'sticky left-0 bg-inherit z-10 w-[70px]')}>
+      <td className={cn(cellBase, 'sticky left-0 bg-inherit z-10 w-[60px]')}>
         <div>{formatDate(tx.transaction_date)}</div>
         <div className="text-[10px] text-muted-foreground">{tx.transaction_time?.substring(0, 5)}</div>
       </td>
 
       {/* Description */}
       <td
-        className={cn(cellBase, 'sticky left-[70px] bg-inherit z-10 w-[200px]')}
+        className={cn(cellBase, 'sticky left-[60px] bg-inherit z-10 w-[170px]')}
         title={[tx.description, tx.details, tx.category].filter(Boolean).join(' | ')}
       >
         <input
@@ -533,7 +533,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       </td>
 
       {/* Vendor */}
-      <td className={cn(cellBase, 'w-[200px]')}>
+      <td className={cn(cellBase, 'w-[170px]')}>
         <div className="flex items-center gap-0.5">
           <VendorCombobox
             value={vendor}
@@ -560,7 +560,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       </td>
 
       {/* Type - popover with badge toggles */}
-      <td className={cn(cellBase, 'w-[75px] text-center')}>
+      <td className={cn(cellBase, 'w-[60px] text-center')}>
         <Popover open={taxPopoverOpen} onOpenChange={setTaxPopoverOpen}>
           <PopoverTrigger asChild>
             <button
@@ -632,7 +632,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       </td>
 
       {/* Reporting Month */}
-      <td className={cn(cellBase, 'w-[145px]')}>
+      <td className={cn(cellBase, 'w-[115px]')}>
         {hasTax ? (
           <input
             type="month"
@@ -649,12 +649,12 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       </td>
 
       {/* Amount */}
-      <td className={cn(cellBase, 'text-right w-[95px] tabular-nums', isWithdrawal ? 'text-red-600' : 'text-green-600')}>
+      <td className={cn(cellBase, 'text-right w-[90px] tabular-nums', isWithdrawal ? 'text-red-600' : 'text-green-600')}>
         {isWithdrawal ? `-${formatNum(tx.withdrawal)}` : formatNum(tx.deposit)}
       </td>
 
       {/* Tax Base */}
-      <td className={cn(cellBase, 'w-[85px] text-right')}>
+      <td className={cn(cellBase, 'w-[80px] text-right')}>
         {hasTax ? (
           <input
             type="text"
@@ -669,7 +669,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       </td>
 
       {/* WHT Amount */}
-      <td className={cn(cellBase, 'w-[80px] text-right')}>
+      <td className={cn(cellBase, 'w-[70px] text-right')}>
         {whtType !== 'none' ? (
           <input
             type="text"
@@ -685,7 +685,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       </td>
 
       {/* VAT Amount */}
-      <td className={cn(cellBase, 'w-[80px] text-right')}>
+      <td className={cn(cellBase, 'w-[70px] text-right')}>
         {vatType !== 'none' ? (
           <input
             type="text"
@@ -701,7 +701,7 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
       </td>
 
       {/* Running Balance */}
-      <td className={cn(cellBase, 'text-right w-[110px] text-muted-foreground tabular-nums font-mono')}>
+      <td className={cn(cellBase, 'text-right w-[95px] text-muted-foreground tabular-nums font-mono')}>
         {formatNum(tx.balance)}
       </td>
 

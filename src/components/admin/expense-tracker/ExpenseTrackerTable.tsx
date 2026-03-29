@@ -46,19 +46,19 @@ export function ExpenseTrackerTable({
   return (
     <div className="border rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="text-sm table-fixed">
+        <table className="w-full text-sm table-fixed">
           <thead>
             <tr className="bg-muted/50 border-b">
-              <th className={`${th} text-left sticky left-0 bg-muted/50 z-10 w-[70px]`}>Date</th>
-              <th className={`${th} text-left sticky left-[70px] bg-muted/50 z-10 w-[200px]`}>Description</th>
-              <th className={`${th} text-left w-[200px]`}>Vendor</th>
-              <th className={`${th} text-center w-[75px]`}>Type</th>
-              <th className={`${th} text-left w-[145px]`}>Month</th>
-              <th className={`${th} text-right w-[95px]`}>Amount</th>
-              <th className={`${th} text-right w-[85px]`}>Tax Base</th>
-              <th className={`${th} text-right w-[80px]`}>WHT</th>
-              <th className={`${th} text-right w-[80px]`}>VAT</th>
-              <th className={`${th} text-right w-[110px]`}>Balance</th>
+              <th className={`${th} text-left sticky left-0 bg-muted/50 z-10 w-[60px]`}>Date</th>
+              <th className={`${th} text-left sticky left-[60px] bg-muted/50 z-10 w-[170px]`}>Description</th>
+              <th className={`${th} text-left w-[170px]`}>Vendor</th>
+              <th className={`${th} text-center w-[60px]`}>Type</th>
+              <th className={`${th} text-left w-[115px]`}>Month</th>
+              <th className={`${th} text-right w-[90px]`}>Amount</th>
+              <th className={`${th} text-right w-[80px]`}>Tax Base</th>
+              <th className={`${th} text-right w-[70px]`}>WHT</th>
+              <th className={`${th} text-right w-[70px]`}>VAT</th>
+              <th className={`${th} text-right w-[95px]`}>Balance</th>
               <th className={`${th} text-center w-[40px]`}>Doc#</th>
             </tr>
           </thead>
