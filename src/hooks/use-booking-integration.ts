@@ -130,10 +130,14 @@ export function useBookingIntegration() {
                          (booking.bay === bayName);
         
         
+        // Only show confirmed bookings (exclude cancelled)
+        const statusCheck = booking.status !== 'cancelled';
+
         // Only show bookings that:
-        // 1. Are from 2 hours ago onwards (buffer for late arrivals)
-        // 2. Either have no bay assigned OR match the requested bay exactly
-        return timeCheck && bayCheck;
+        // 1. Are confirmed (not cancelled)
+        // 2. Are from 2 hours ago onwards (buffer for late arrivals)
+        // 3. Either have no bay assigned OR match the requested bay exactly
+        return statusCheck && timeCheck && bayCheck;
       })
       .sort((a: any, b: any) => {
         const aTime = new Date(`${a.date}T${a.start_time}`);
