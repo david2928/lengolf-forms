@@ -365,7 +365,7 @@ Do NOT use when:
 - Customer is asking about pricing only`,
       inputSchema: z.object({
         date: z.string().describe('Date in YYYY-MM-DD format for checking coach availability'),
-        coach_name: z.enum(['Boss', 'Ratchavin', 'Noon', 'Min', 'any']).default('any').describe('Specific coach name or "any" to show all available coaches. Default: "any". Note: Boss and Ratchavin are the same person.'),
+        coach_name: z.enum(['Boss', 'Ratchavin', 'Noon', 'Min', 'any']).default('any').describe('Specific coach name or "any" to show all available coaches. Default: "any".'),
         preferred_time: z.string().describe('Preferred time in HH:00 format (e.g., "14:00"). Use empty string "" to show full day availability.'),
         view: z.enum(['date', 'schedule']).default('date').describe('Use "date" when checking availability for a SPECIFIC date. Use "schedule" for timetable overview. Default: "date"'),
       }),

@@ -17,7 +17,9 @@ import {
   FileText,
   Plus,
   CalendarPlus,
-  Sparkles
+  Sparkles,
+  MessageSquare,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -68,6 +70,7 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
   const [showMobileQuickActions, setShowMobileQuickActions] = useState(false);
   const [isAISuggestionActive, setIsAISuggestionActive] = useState(false);
   const [lastSuggestionId, setLastSuggestionId] = useState<string | null>(null);
+  const [pendingFollowUp, setPendingFollowUp] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -90,9 +93,15 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
     conversationId,
     channelType,
     customerId,
-    onSuggestionAccepted: (suggestion, response) => {
+    onSuggestionAccepted: (suggestion, response, options) => {
       setNewMessage(response);
       setIsAISuggestionActive(true);
+      // Store follow-up for sending after main message
+      if (options?.includeFollowUp && suggestion.followUpMessage) {
+        setPendingFollowUp(suggestion.followUpMessage);
+      } else {
+        setPendingFollowUp(null);
+      }
       // Auto-include suggested images when accepting
       if (suggestion.suggestedImages?.length && onCuratedImagesSelect) {
         onCuratedImagesSelect(suggestion.suggestedImages.map(img => img.imageId));
@@ -176,6 +185,13 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
     }
 
     await onSendMessage(messageToSend, 'text');
+
+    // Send follow-up message if pending (e.g., coaching schedule)
+    if (pendingFollowUp) {
+      await onSendMessage(pendingFollowUp, 'text');
+      setPendingFollowUp(null);
+    }
+
     setNewMessage('');
     setIsAISuggestionActive(false);
     setLastSuggestionId(null);
@@ -290,6 +306,23 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
             <div className="text-xs text-gray-500 mb-1">Replying to:</div>
             <div className="text-sm text-gray-700">{replyingToMessage.text}</div>
           </div>
+        </div>
+      )}
+
+      {/* Pending follow-up indicator */}
+      {pendingFollowUp && (
+        <div className="flex items-center justify-between px-3 py-1.5 bg-purple-50 border-t border-purple-100 text-xs text-purple-700">
+          <div className="flex items-center gap-1.5">
+            <MessageSquare className="h-3 w-3" />
+            <span>+1 follow-up message will be sent after your reply</span>
+          </div>
+          <button
+            onClick={() => setPendingFollowUp(null)}
+            className="text-purple-400 hover:text-purple-600 p-0.5"
+            title="Remove follow-up"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
       )}
 

@@ -157,6 +157,8 @@ export interface AISuggestion {
     reason: string; // Why this image is suggested
     similarityScore?: number;
   }>;
+  // Follow-up message (e.g., full coaching schedule sent as a second message)
+  followUpMessage?: string;
 }
 
 export interface BusinessContext {
@@ -523,6 +525,58 @@ async function findMatchingTemplate(customerMessage: string, intent: string, cus
 // Intent detection consolidated into intent-classifier.ts (regexFullClassify + classifyIntent)
 // The old detectMessageIntent function has been removed — use regexFullClassify as fallback
 
+// Format coaching schedule data into a follow-up message for staff to send after the short reply.
+// Mimics what staff does: short reply first, then paste the full schedule overview.
+function formatCoachingScheduleFollowUp(
+  scheduleData: Array<{ date: string; day: string; coaches: Array<{ coach_name: string; available_times: string }> }>,
+  todayAvailability: Array<{ coach_name: string; availability: string }> | null,
+  isThai: boolean
+): string {
+  const thaiDays: Record<string, string> = {
+    'Sun': 'อา.', 'Mon': 'จ.', 'Tue': 'อ.', 'Wed': 'พ.', 'Thu': 'พฤ.', 'Fri': 'ศ.', 'Sat': 'ส.'
+  };
+
+  const lines: string[] = [];
+  lines.push(isThai ? 'ตารางโปรที่ว่าง 📋' : 'Coaching Availability 📋');
+  lines.push('');
+
+  // Include today's availability if present
+  if (todayAvailability && todayAvailability.length > 0) {
+    for (const coach of todayAvailability) {
+      const coachDisplay = coach.coach_name.includes('Min') ? (isThai ? 'โปรมิน' : 'Pro Min')
+        : coach.coach_name.includes('Boss') ? (isThai ? 'โปรบอส' : 'Pro Boss')
+        : coach.coach_name.includes('Ratchavin') ? (isThai ? 'โปรรัชวิน' : 'Pro Ratchavin')
+        : coach.coach_name.includes('Noon') ? (isThai ? 'โปรนุ่น' : 'Pro Noon')
+        : coach.coach_name;
+      lines.push(`📅 ${isThai ? 'วันนี้' : 'Today'}: ${coachDisplay} ${coach.availability}`);
+    }
+  }
+
+  // Show upcoming schedule (cap at 7 days)
+  const upcoming = scheduleData.slice(0, 7);
+  for (const day of upcoming) {
+    const d = new Date(day.date);
+    const dateStr = `${d.getDate()}/${d.getMonth() + 1}`;
+    const dayLabel = isThai ? thaiDays[day.day] || day.day : day.day;
+
+    const coachParts = day.coaches.map(c => {
+      const coachDisplay = c.coach_name.includes('Min') ? (isThai ? 'โปรมิน' : 'Pro Min')
+        : c.coach_name.includes('Boss') ? (isThai ? 'โปรบอส' : 'Pro Boss')
+        : c.coach_name.includes('Ratchavin') ? (isThai ? 'โปรรัชวิน' : 'Pro Ratchavin')
+        : c.coach_name.includes('Noon') ? (isThai ? 'โปรนุ่น' : 'Pro Noon')
+        : c.coach_name;
+      return `${coachDisplay} ${c.available_times}`;
+    });
+
+    lines.push(`📅 ${dayLabel} ${dateStr}: ${coachParts.join(', ')}`);
+  }
+
+  lines.push('');
+  lines.push(isThai ? 'สนใจเวลาไหนบอกได้เลยค่ะ 🙏' : 'Let me know which time works for you! 🙏');
+
+  return lines.join('\n');
+}
+
 // Format function execution results into customer-facing messages
 function formatFunctionResult(functionName: string, result: FunctionResult, customerMessage: string): string {
   const isThaiMessage = /[\u0E00-\u0E7F]/.test(customerMessage);
@@ -765,6 +819,7 @@ async function storeSuggestion(
           contextSummary: suggestion.contextSummary
         },
         suggested_images: suggestion.suggestedImages || null,
+        follow_up_message: suggestion.followUpMessage || null,
         staff_user_email: params.staffUserEmail || null,
       })
       .select('id')
@@ -1499,6 +1554,25 @@ export async function postProcessSuggestion(
     }
   }
 
+  // Generate follow-up message for coaching availability (when preferred time unavailable)
+  let followUpMessage: string | undefined;
+  if (
+    functionCallHistory.includes('get_coaching_availability') &&
+    functionResult?.success &&
+    functionResult.data &&
+    (functionResult.data.preferred_time_available === false || functionResult.data.requested_date_available === false)
+  ) {
+    const nextDates = functionResult.data.next_available_dates;
+    const todayAvail = functionResult.data.today_availability;
+    if ((nextDates && nextDates.length > 0) || (todayAvail && todayAvail.length > 0)) {
+      followUpMessage = formatCoachingScheduleFollowUp(
+        nextDates || [],
+        todayAvail || null,
+        isThaiMessage
+      );
+    }
+  }
+
   // Create suggestion object
   const suggestion: Omit<AISuggestion, 'id'> & { debugInfo?: unknown } = {
     suggestedResponse,
@@ -1517,6 +1591,7 @@ export async function postProcessSuggestion(
     approvalMessage,
     managementNote,
     suggestedImages: suggestedImages.length > 0 ? suggestedImages : undefined,
+    followUpMessage,
     debugContext,
     ...(params.dryRun && { debugInfo: ctx.debugInfo })
   };

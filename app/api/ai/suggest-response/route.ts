@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       const thirtySecondsAgo = new Date(Date.now() - 30_000).toISOString();
 
       // Use separate queries instead of .or() to avoid filter injection risk
-      const selectCols = 'id, suggested_response, suggested_response_thai, confidence_score, response_time_ms, similar_messages_count, context_used, suggested_images';
+      const selectCols = 'id, suggested_response, suggested_response_thai, confidence_score, response_time_ms, similar_messages_count, context_used, suggested_images, follow_up_message';
       const { data: existingLine } = await refacSupabaseAdmin
         .from('ai_suggestions')
         .select(selectCols)
@@ -148,6 +148,7 @@ export async function POST(request: NextRequest) {
             contextSummary: 'Returned cached suggestion (dedup)',
             similarMessagesCount: existing.similar_messages_count || 0,
             suggestedImages: existing.suggested_images,
+            followUpMessage: existing.follow_up_message || null,
           }
         });
       }
@@ -229,6 +230,7 @@ export async function POST(request: NextRequest) {
         requiresApproval: suggestion.requiresApproval,
         approvalMessage: suggestion.approvalMessage,
         managementNote: suggestion.managementNote || null,
+        followUpMessage: suggestion.followUpMessage || null,
         // Full context for transparency (when enabled)
         ...(body.includeDebugContext && suggestion.debugContext && { debugContext: suggestion.debugContext })
       }

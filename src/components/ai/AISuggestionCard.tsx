@@ -48,6 +48,8 @@ export interface AISuggestion {
   approvalMessage?: string;
   // Management escalation note
   managementNote?: string | null;
+  // Follow-up message (e.g., coaching schedule sent as second message)
+  followUpMessage?: string;
   // Image suggestion metadata for multi-modal responses
   suggestedImages?: Array<{
     imageId: string;
@@ -81,7 +83,7 @@ export interface AISuggestion {
 
 interface AISuggestionCardProps {
   suggestion?: AISuggestion | null;
-  onAccept: (suggestion: AISuggestion) => void;
+  onAccept: (suggestion: AISuggestion, options?: { includeFollowUp?: boolean }) => void;
   onEdit: (suggestion: AISuggestion) => void;
   onDecline: (suggestion: AISuggestion, feedback?: string) => void;
   onApprove?: (suggestion: AISuggestion) => void; // For approval-required functions
@@ -151,6 +153,8 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
   const [showFeedbackInput, setShowFeedbackInput] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
   const [isApproving, setIsApproving] = useState(false); // Loading state for approval
+  const [includeFollowUp, setIncludeFollowUp] = useState(true); // Follow-up message toggle
+  const [showFollowUp, setShowFollowUp] = useState(true); // Collapsible follow-up section
 
   // During streaming-only phase (no suggestion yet), show minimal card
   const isStreamingOnly = isStreaming && !suggestion;
@@ -196,7 +200,9 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
       ...suggestion,
       suggestedResponse: cleanedResponse
     };
-    onAccept(cleanedSuggestion);
+    onAccept(cleanedSuggestion, {
+      includeFollowUp: includeFollowUp && !!suggestion.followUpMessage
+    });
   };
 
   const handleEdit = () => {
@@ -382,6 +388,36 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
             }}
             suggestedText={cleanedResponse}
           />
+        )}
+
+        {/* Follow-up message (e.g., coaching schedule) */}
+        {suggestion.followUpMessage && (
+          <div className="border-t pt-2">
+            <div className="flex items-center justify-between mb-1">
+              <button
+                onClick={() => setShowFollowUp(!showFollowUp)}
+                className="flex items-center space-x-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <MessageSquare className="h-3 w-3" />
+                <span className="font-medium">Follow-up Message</span>
+                <span className="text-gray-400">({showFollowUp ? '▼' : '▶'})</span>
+              </button>
+              <label className="flex items-center space-x-1.5 text-xs text-gray-500 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeFollowUp}
+                  onChange={(e) => setIncludeFollowUp(e.target.checked)}
+                  className="h-3 w-3 rounded border-gray-300"
+                />
+                <span>Send with reply</span>
+              </label>
+            </div>
+            {showFollowUp && (
+              <div className="bg-gray-50 border border-gray-200 rounded-md p-2.5 text-sm whitespace-pre-wrap text-gray-700 leading-relaxed">
+                {suggestion.followUpMessage}
+              </div>
+            )}
+          </div>
         )}
 
         {/* AI Context Viewer - Collapsible */}

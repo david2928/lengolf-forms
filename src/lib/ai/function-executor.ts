@@ -385,11 +385,7 @@ export class AIFunctionExecutor {
       // Build search names for coach filtering
       let searchNames: string[] | null = null;
       if (coach_name && coach_name !== 'any') {
-        // Handle Boss/Ratchavin alias (they are the same person)
-        searchNames =
-          (coach_name === 'Boss' || coach_name === 'Ratchavin')
-            ? ['Boss', 'Ratchavin', 'Boss - Ratchavin']
-            : [coach_name];
+        searchNames = [coach_name];
 
         coaches = coaches.filter((c: any) =>
           searchNames!.some(name => c.coach_name && c.coach_name.includes(name))
