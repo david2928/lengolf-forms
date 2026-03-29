@@ -555,10 +555,12 @@ export class AIFunctionExecutor {
 
       // Date view: compact response with just the requested date
       // Schedule view: full 45-day upcoming schedule
-      // When date view has no availability on the requested date, include next available dates
-      // so the AI can suggest alternatives instead of falsely claiming availability
-      const nextAvailableDates = (!hasTodayAvailability && !isScheduleView && upcomingSchedule.length > 0)
-        ? upcomingSchedule.slice(0, 5)
+      // When date view lacks the requested date OR the preferred time isn't available,
+      // include next available dates so the AI can suggest alternatives
+      const needsAlternatives = !isScheduleView && upcomingSchedule.length > 0 &&
+        (!hasTodayAvailability || (preferred_time && !preferredTimeAvailable));
+      const nextAvailableDates = needsAlternatives
+        ? upcomingSchedule.slice(0, 7)
         : undefined;
 
       return {
