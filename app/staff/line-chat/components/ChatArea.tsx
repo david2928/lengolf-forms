@@ -1202,7 +1202,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             <div className={cn(isMobile ? 'overflow-y-auto h-full p-3' : 'p-3')}>
               <AISuggestionCard
                 suggestion={aiSuggestion}
-                onAccept={() => onAcceptSuggestion(aiSuggestion)}
+                onAccept={(_, options) => onAcceptSuggestion(aiSuggestion, options)}
                 onEdit={() => onEditSuggestion(aiSuggestion)}
                 onDecline={() => onDeclineSuggestion(aiSuggestion)}
                 onApprove={onApproveSuggestion ? () => onApproveSuggestion(aiSuggestion) : undefined}

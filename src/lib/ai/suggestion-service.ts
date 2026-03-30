@@ -1562,14 +1562,14 @@ export async function postProcessSuggestion(
     functionResult.data
   ) {
     // Generate follow-up for: schedule view (always), or date view when preferred time unavailable
-    const isScheduleView = !!functionResult.data.upcoming_schedule;
+    const isScheduleView = !!functionResult.data.upcoming_schedule_by_coach;
     const needsFollowUp = isScheduleView ||
       functionResult.data.preferred_time_available === false ||
       functionResult.data.requested_date_available === false;
 
     if (needsFollowUp) {
-      // Use upcoming_schedule (schedule view) or next_available_dates (date view)
-      const scheduleDates = functionResult.data.upcoming_schedule || functionResult.data.next_available_dates || [];
+      // Use internal date-ordered format for follow-up formatting
+      const scheduleDates = functionResult.data._upcoming_schedule_by_date || functionResult.data._next_available_dates_by_date || [];
       const todayAvail = functionResult.data.today_availability;
       console.log(`[AI Follow-up] isScheduleView=${isScheduleView} scheduleDates=${scheduleDates.length} todayAvail=${todayAvail?.length || 0}`);
       if (scheduleDates.length > 0 || (todayAvail && todayAvail.length > 0)) {

@@ -374,10 +374,14 @@ export default function UnifiedChatPage() {
     conversationId: selectedConversation || '',
     channelType: selectedConversationObj?.channelType || 'line',
     customerId: selectedConversationObj?.customer?.id,
-    onSuggestionAccepted: async (suggestion, response) => {
+    onSuggestionAccepted: async (suggestion, response, options) => {
       // Send the AI-suggested message directly
       if (response && response.trim()) {
         await chatOps.sendMessage(response.trim());
+      }
+      // Send follow-up message (e.g., coaching schedule) if included
+      if (options?.includeFollowUp && suggestion.followUpMessage) {
+        await chatOps.sendMessage(suggestion.followUpMessage.trim());
       }
     },
     onSuggestionEdited: (suggestion, originalResponse, editedResponse) => {

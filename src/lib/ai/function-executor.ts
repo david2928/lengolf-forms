@@ -593,14 +593,13 @@ export class AIFunctionExecutor {
             : null,
           ...(isScheduleView ? {
             upcoming_schedule_by_coach: groupByCoach(upcomingSchedule),
-            // Keep date-ordered format for follow-up message formatting
-            upcoming_schedule: upcomingSchedule,
+            _upcoming_schedule_by_date: upcomingSchedule, // Internal: used by follow-up formatter only
             schedule_range: { from: fromDate, to: toDate },
           } : {}),
           ...(nextAvailableDates ? {
             message: `No coaching available on ${date}, but available on other dates`,
             next_available_dates_by_coach: groupByCoach(nextAvailableDates),
-            next_available_dates: nextAvailableDates,
+            _next_available_dates_by_date: nextAvailableDates, // Internal: used by follow-up formatter only
           } : {}),
         }
       };
