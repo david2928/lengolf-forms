@@ -559,6 +559,24 @@ export class AIFunctionExecutor {
         ? upcomingSchedule.slice(0, 7)
         : undefined;
 
+      // Group schedule by coach (instead of by date) for clearer AI responses
+      // Input: [{ date, day, coaches: [{ coach_name, available_times }] }]
+      // Output: { "Min": [{ date, day, available_times }], "Boss": [...] }
+      const groupByCoach = (schedule: typeof upcomingSchedule) => {
+        const byCoach: Record<string, Array<{ date: string; day: string; available_times: string }>> = {};
+        for (const day of schedule) {
+          for (const coach of day.coaches) {
+            if (!byCoach[coach.coach_name]) byCoach[coach.coach_name] = [];
+            byCoach[coach.coach_name].push({
+              date: day.date,
+              day: day.day,
+              available_times: coach.available_times,
+            });
+          }
+        }
+        return byCoach;
+      };
+
       return {
         success: true,
         functionName: 'get_coaching_availability',
@@ -573,11 +591,14 @@ export class AIFunctionExecutor {
             ? todayAvailableCoaches.map(({ coach_name, availability }: { coach_name: string; availability: string }) => ({ coach_name, availability }))
             : null,
           ...(isScheduleView ? {
+            upcoming_schedule_by_coach: groupByCoach(upcomingSchedule),
+            // Keep date-ordered format for follow-up message formatting
             upcoming_schedule: upcomingSchedule,
             schedule_range: { from: fromDate, to: toDate },
           } : {}),
           ...(nextAvailableDates ? {
             message: `No coaching available on ${date}, but available on other dates`,
+            next_available_dates_by_coach: groupByCoach(nextAvailableDates),
             next_available_dates: nextAvailableDates,
           } : {}),
         }
