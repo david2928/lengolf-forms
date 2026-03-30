@@ -8,7 +8,7 @@ interface UseAISuggestionsProps {
   conversationId: string;
   channelType: 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp';
   customerId?: string;
-  onSuggestionAccepted?: (suggestion: AISuggestion, response: string) => void;
+  onSuggestionAccepted?: (suggestion: AISuggestion, response: string, options?: { includeFollowUp?: boolean }) => void;
   onSuggestionEdited?: (suggestion: AISuggestion, originalResponse: string, editedResponse: string) => void;
   onSuggestionDeclined?: (suggestion: AISuggestion) => void;
   onSuggestionApproved?: (suggestion: AISuggestion, bookingResult: any) => void;
@@ -51,6 +51,7 @@ interface GenerateSuggestionResponse {
     requiresApproval?: boolean;
     approvalMessage?: string;
     managementNote?: string | null; // Management escalation note
+    followUpMessage?: string | null; // Follow-up message (e.g., coaching schedule)
     debugContext?: any; // Debug context for transparency
   };
   error?: string;
@@ -177,6 +178,8 @@ export const useAISuggestions = ({
         approvalMessage: data.suggestion.approvalMessage,
         // Management escalation note
         managementNote: data.suggestion.managementNote,
+        // Follow-up message (e.g., coaching schedule)
+        followUpMessage: data.suggestion.followUpMessage || undefined,
         // Debug context (for transparency)
         debugContext: data.suggestion.debugContext
       };
@@ -232,11 +235,11 @@ export const useAISuggestions = ({
   }, []);
 
   // Handle suggestion acceptance
-  const acceptSuggestion = useCallback((suggestion: AISuggestion) => {
+  const acceptSuggestion = useCallback((suggestion: AISuggestion, options?: { includeFollowUp?: boolean }) => {
     sendFeedback(suggestion.id, 'accept', suggestion.suggestedResponse);
 
     if (onSuggestionAccepted) {
-      onSuggestionAccepted(suggestion, suggestion.suggestedResponse);
+      onSuggestionAccepted(suggestion, suggestion.suggestedResponse, options);
     }
 
     setState(prev => ({

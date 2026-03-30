@@ -262,7 +262,7 @@ export interface ChatAreaProps {
   onAIRetrigger?: () => void;
   aiSuggestion?: any; // AISuggestion type from @/components/ai/AISuggestionCard
   aiSuggestionLoading?: boolean;
-  onAcceptSuggestion?: (suggestion: any) => void;
+  onAcceptSuggestion?: (suggestion: any, options?: { includeFollowUp?: boolean }) => void;
   onEditSuggestion?: (suggestion: any) => void;
   onDeclineSuggestion?: (suggestion: any) => void;
   onApproveSuggestion?: (suggestion: any) => void;

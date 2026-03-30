@@ -157,6 +157,8 @@ export interface AISuggestion {
     reason: string; // Why this image is suggested
     similarityScore?: number;
   }>;
+  // Follow-up message (e.g., full coaching schedule sent as a second message)
+  followUpMessage?: string;
 }
 
 export interface BusinessContext {
@@ -523,6 +525,111 @@ async function findMatchingTemplate(customerMessage: string, intent: string, cus
 // Intent detection consolidated into intent-classifier.ts (regexFullClassify + classifyIntent)
 // The old detectMessageIntent function has been removed — use regexFullClassify as fallback
 
+// Format coaching schedule data into a follow-up message for staff to send after the short reply.
+// Mimics what staff does: short reply first, then paste the full schedule overview.
+function coachDisplayName(name: string, isThai: boolean): string {
+  if (name.includes('Min')) return isThai ? 'โปรมิน' : 'Pro Min';
+  if (name.includes('Boss')) return isThai ? 'โปรบอส' : 'Pro Boss';
+  if (name.includes('Ratchavin')) return isThai ? 'โปรรัชวิน' : 'Pro Ratchavin';
+  if (name.includes('Noon')) return isThai ? 'โปรนุ่น' : 'Pro Noon';
+  return name;
+}
+
+/**
+ * Convert available_times string (e.g., "16:00-17:00, 19:00") to staff format
+ * with end times and dots (e.g., "16.00–18.00 / 19.00–20.00")
+ */
+function formatTimesLikeStaff(availableTimes: string): string {
+  // Split on ", " to get individual slots/ranges
+  const parts = availableTimes.split(', ');
+  return parts.map(part => {
+    if (part.includes('-')) {
+      // Range like "16:00-17:00" → start=16, end=17+1=18 → "16.00–18.00"
+      const [start, end] = part.split('-');
+      const endHour = parseInt(end.split(':')[0]) + 1;
+      return `${start.replace(':', '.')}–${endHour.toString().padStart(2, '0')}.00`;
+    } else {
+      // Single slot like "19:00" → "19.00–20.00"
+      const hour = parseInt(part.split(':')[0]);
+      return `${part.replace(':', '.')}–${(hour + 1).toString().padStart(2, '0')}.00`;
+    }
+  }).join(' / ');
+}
+
+/**
+ * Format coaching schedule as a follow-up message matching staff format:
+ * Grouped by coach, with month headers, Thai dot-time notation, and end times.
+ */
+function formatCoachingScheduleFollowUp(
+  scheduleData: Array<{ date: string; day: string; coaches: Array<{ coach_name: string; available_times: string }> }>,
+  todayAvailability: Array<{ coach_name: string; availability: string }> | null,
+  isThai: boolean
+): string {
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+  const thaiMonths = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+  // Group by coach: { "Min": [{ date, day, available_times }] }
+  const byCoach: Record<string, Array<{ date: string; day: string; available_times: string }>> = {};
+
+  // Add today's availability
+  if (todayAvailability) {
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    for (const coach of todayAvailability) {
+      if (!byCoach[coach.coach_name]) byCoach[coach.coach_name] = [];
+      byCoach[coach.coach_name].push({
+        date: todayStr,
+        day: dayNames[today.getDay()],
+        available_times: coach.availability,
+      });
+    }
+  }
+
+  // Add upcoming schedule
+  for (const day of scheduleData) {
+    for (const coach of day.coaches) {
+      if (!byCoach[coach.coach_name]) byCoach[coach.coach_name] = [];
+      byCoach[coach.coach_name].push({
+        date: day.date,
+        day: day.day,
+        available_times: coach.available_times,
+      });
+    }
+  }
+
+  const lines: string[] = [];
+  lines.push(isThai ? 'ตารางโปรที่ว่าง' : 'Coaching Availability Overview');
+  lines.push('');
+
+  for (const [coachName, slots] of Object.entries(byCoach)) {
+    const display = coachDisplayName(coachName, isThai);
+    lines.push(isThai ? `${display}:` : `${display}'s Coaching Availability:`);
+
+    // Group slots by month
+    let currentMonth = -1;
+    for (const slot of slots) {
+      const parts = slot.date.split('-');
+      const month = parseInt(parts[1]) - 1;
+      const dayNum = parseInt(parts[2]);
+
+      if (month !== currentMonth) {
+        currentMonth = month;
+        lines.push(isThai ? thaiMonths[month] : monthNames[month]);
+      }
+
+      const timeDisplay = formatTimesLikeStaff(slot.available_times);
+      lines.push(`• ${slot.day} ${dayNum}: ${timeDisplay}`);
+    }
+
+    lines.push('');
+  }
+
+  return lines.join('\n').trim();
+}
+
 // Format function execution results into customer-facing messages
 function formatFunctionResult(functionName: string, result: FunctionResult, customerMessage: string): string {
   const isThaiMessage = /[\u0E00-\u0E7F]/.test(customerMessage);
@@ -765,6 +872,7 @@ async function storeSuggestion(
           contextSummary: suggestion.contextSummary
         },
         suggested_images: suggestion.suggestedImages || null,
+        follow_up_message: suggestion.followUpMessage || null,
         staff_user_email: params.staffUserEmail || null,
       })
       .select('id')
@@ -1499,6 +1607,37 @@ export async function postProcessSuggestion(
     }
   }
 
+  // Generate follow-up message for coaching availability (when preferred time unavailable)
+  let followUpMessage: string | undefined;
+  if (
+    functionCallHistory.includes('get_coaching_availability') &&
+    functionResult?.success &&
+    functionResult.data
+  ) {
+    // Generate follow-up for: schedule view (always), or date view when preferred time unavailable
+    const isScheduleView = !!functionResult.data.upcoming_schedule_by_coach;
+    const needsFollowUp = isScheduleView ||
+      functionResult.data.preferred_time_available === false ||
+      functionResult.data.requested_date_available === false;
+
+    if (needsFollowUp) {
+      // Use date-ordered schedule data stored on toolState (not sent to model)
+      const scheduleDates = toolState._scheduleByDate || [];
+      const todayAvail = functionResult.data.today_availability;
+      console.log(`[AI Follow-up] isScheduleView=${isScheduleView} scheduleDates=${scheduleDates.length} todayAvail=${todayAvail?.length || 0}`);
+      if (scheduleDates.length > 0 || (todayAvail && todayAvail.length > 0)) {
+        followUpMessage = formatCoachingScheduleFollowUp(
+          scheduleDates,
+          todayAvail || null,
+          isThaiMessage
+        );
+        console.log(`[AI Follow-up] Generated: ${followUpMessage?.slice(0, 80)}...`);
+      }
+    } else {
+      console.log(`[AI Follow-up] Skipped: isScheduleView=${isScheduleView} preferred_time_available=${functionResult.data.preferred_time_available} requested_date_available=${functionResult.data.requested_date_available}`);
+    }
+  }
+
   // Create suggestion object
   const suggestion: Omit<AISuggestion, 'id'> & { debugInfo?: unknown } = {
     suggestedResponse,
@@ -1517,6 +1656,7 @@ export async function postProcessSuggestion(
     approvalMessage,
     managementNote,
     suggestedImages: suggestedImages.length > 0 ? suggestedImages : undefined,
+    followUpMessage,
     debugContext,
     ...(params.dryRun && { debugInfo: ctx.debugInfo })
   };

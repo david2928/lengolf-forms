@@ -356,10 +356,10 @@ export class AIFunctionExecutor {
       const { date, coach_name, preferred_time, view = 'date' } = params;
       const isScheduleView = view === 'schedule';
 
-      // Schedule view: fetch 45-day range. Date view: single date only.
+      // Schedule view: fetch 14-day range. Date view: single date only.
       const fromDate = date;
       const toDate = isScheduleView
-        ? (() => { const d = new Date(date); d.setDate(d.getDate() + 44); return d.toLocaleDateString('en-CA'); })()
+        ? (() => { const d = new Date(date); d.setDate(d.getDate() + 13); return d.toLocaleDateString('en-CA'); })()
         : date;
 
       // Use absolute URL for server-side fetch with internal auth
@@ -382,14 +382,13 @@ export class AIFunctionExecutor {
       let coaches = data.availability_slots || [];
       const weeklyAvailability = data.weekly_availability || {};
 
+      // Exclude Ratchavin from availability suggestions (temporarily disabled)
+      coaches = coaches.filter((c: any) => !c.coach_name?.includes('Ratchavin'));
+
       // Build search names for coach filtering
       let searchNames: string[] | null = null;
       if (coach_name && coach_name !== 'any') {
-        // Handle Boss/Ratchavin alias (they are the same person)
-        searchNames =
-          (coach_name === 'Boss' || coach_name === 'Ratchavin')
-            ? ['Boss', 'Ratchavin', 'Boss - Ratchavin']
-            : [coach_name];
+        searchNames = [coach_name];
 
         coaches = coaches.filter((c: any) =>
           searchNames!.some(name => c.coach_name && c.coach_name.includes(name))
@@ -482,7 +481,8 @@ export class AIFunctionExecutor {
       const upcomingSchedule: Array<{ date: string; day: string; coaches: Array<{ coach_name: string; available_times: string }> }> = [];
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-      const sortedDates = Object.keys(weeklyAvailability).sort();
+      // Exclude today from upcoming schedule — today is in today_availability
+      const sortedDates = Object.keys(weeklyAvailability).sort().filter(d => d !== date);
       for (const dateKey of sortedDates) {
         const dayData = weeklyAvailability[dateKey];
         const coachesForDay: Array<{ coach_name: string; available_times: string }> = [];
@@ -547,7 +547,7 @@ export class AIFunctionExecutor {
             preferred_time,
             has_availability: false,
             message: isScheduleView
-              ? `No availability found for ${coach_name || 'any coach'} in the next 45 days (${fromDate} to ${toDate})`
+              ? `No availability found for ${coach_name || 'any coach'} in the next 14 days (${fromDate} to ${toDate})`
               : `No coaches available on ${date}`
           }
         };
@@ -563,6 +563,24 @@ export class AIFunctionExecutor {
         ? upcomingSchedule.slice(0, 7)
         : undefined;
 
+      // Group schedule by coach (instead of by date) for clearer AI responses
+      // Input: [{ date, day, coaches: [{ coach_name, available_times }] }]
+      // Output: { "Min": [{ date, day, available_times }], "Boss": [...] }
+      const groupByCoach = (schedule: typeof upcomingSchedule) => {
+        const byCoach: Record<string, Array<{ date: string; day: string; available_times: string }>> = {};
+        for (const day of schedule) {
+          for (const coach of day.coaches) {
+            if (!byCoach[coach.coach_name]) byCoach[coach.coach_name] = [];
+            byCoach[coach.coach_name].push({
+              date: day.date,
+              day: day.day,
+              available_times: coach.available_times,
+            });
+          }
+        }
+        return byCoach;
+      };
+
       return {
         success: true,
         functionName: 'get_coaching_availability',
@@ -577,12 +595,14 @@ export class AIFunctionExecutor {
             ? todayAvailableCoaches.map(({ coach_name, availability }: { coach_name: string; availability: string }) => ({ coach_name, availability }))
             : null,
           ...(isScheduleView ? {
-            upcoming_schedule: upcomingSchedule,
+            upcoming_schedule_by_coach: groupByCoach(upcomingSchedule),
+            _upcoming_schedule_by_date: upcomingSchedule, // Internal: used by follow-up formatter only
             schedule_range: { from: fromDate, to: toDate },
           } : {}),
           ...(nextAvailableDates ? {
             message: `No coaching available on ${date}, but available on other dates`,
-            next_available_dates: nextAvailableDates,
+            next_available_dates_by_coach: groupByCoach(nextAvailableDates),
+            _next_available_dates_by_date: nextAvailableDates, // Internal: used by follow-up formatter only
           } : {}),
         }
       };

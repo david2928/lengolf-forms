@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     // Server-side dedup: return cached suggestion as instant SSE burst
     if (body.messageId && UUID_RE.test(body.messageId) && refacSupabaseAdmin) {
       const thirtySecondsAgo = new Date(Date.now() - 30_000).toISOString();
-      const selectCols = 'id, suggested_response, suggested_response_thai, confidence_score, response_time_ms, similar_messages_count, context_used, suggested_images';
+      const selectCols = 'id, suggested_response, suggested_response_thai, confidence_score, response_time_ms, similar_messages_count, context_used, suggested_images, follow_up_message';
 
       const { data: existingLine } = await refacSupabaseAdmin
         .from('ai_suggestions')
@@ -163,6 +163,7 @@ export async function POST(request: NextRequest) {
               contextSummary: 'Returned cached suggestion (dedup)',
               similarMessagesCount: existing.similar_messages_count || 0,
               suggestedImages: existing.suggested_images,
+              followUpMessage: existing.follow_up_message || null,
             })}\n\n`));
             controller.enqueue(encoder.encode('event: done\ndata: {}\n\n'));
             controller.close();
@@ -244,6 +245,7 @@ export async function POST(request: NextRequest) {
             requiresApproval: suggestion.requiresApproval,
             approvalMessage: suggestion.approvalMessage,
             managementNote: suggestion.managementNote || null,
+            followUpMessage: suggestion.followUpMessage || null,
             ...(body.includeDebugContext && suggestion.debugContext && { debugContext: suggestion.debugContext }),
             // If approval-gated, suggestedResponse may differ from streamed text
             ...(suggestion.requiresApproval && {

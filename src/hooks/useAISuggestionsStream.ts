@@ -8,7 +8,7 @@ interface UseAISuggestionsStreamProps {
   conversationId: string;
   channelType: 'line' | 'website' | 'facebook' | 'instagram' | 'whatsapp';
   customerId?: string;
-  onSuggestionAccepted?: (suggestion: AISuggestion, response: string) => void;
+  onSuggestionAccepted?: (suggestion: AISuggestion, response: string, options?: { includeFollowUp?: boolean }) => void;
   onSuggestionEdited?: (suggestion: AISuggestion, originalResponse: string, editedResponse: string) => void;
   onSuggestionDeclined?: (suggestion: AISuggestion) => void;
   onSuggestionApproved?: (suggestion: AISuggestion, bookingResult: Record<string, unknown>) => void;
@@ -58,6 +58,7 @@ interface SSEMetadata {
   requiresApproval?: boolean;
   approvalMessage?: string;
   managementNote?: string | null;
+  followUpMessage?: string | null;
   approvalOverrideText?: string;
   debugContext?: Record<string, unknown>;
 }
@@ -225,6 +226,7 @@ export const useAISuggestionsStream = ({
               requiresApproval: metadata.requiresApproval,
               approvalMessage: metadata.approvalMessage,
               managementNote: metadata.managementNote,
+              followUpMessage: metadata.followUpMessage || undefined,
               debugContext: metadata.debugContext as AISuggestion['debugContext'],
             };
 
@@ -297,10 +299,10 @@ export const useAISuggestionsStream = ({
     }
   }, []);
 
-  const acceptSuggestion = useCallback((suggestion: AISuggestion) => {
+  const acceptSuggestion = useCallback((suggestion: AISuggestion, options?: { includeFollowUp?: boolean }) => {
     sendFeedback(suggestion.id, 'accept', suggestion.suggestedResponse);
     if (onSuggestionAccepted) {
-      onSuggestionAccepted(suggestion, suggestion.suggestedResponse);
+      onSuggestionAccepted(suggestion, suggestion.suggestedResponse, options);
     }
     setState(prev => ({ ...prev, suggestion: null, streamingText: '' }));
   }, [sendFeedback, onSuggestionAccepted]);

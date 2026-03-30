@@ -24,6 +24,8 @@ export interface ToolExecutionState {
   faqMatches?: FAQMatch[];
   // Set by suggest_images tool — indices into the image catalog
   suggestedImageSelections?: Array<{ id: string; source: 'curated' | 'promotion'; imageUrl: string; title: string; description: string }>;
+  // Internal: date-ordered schedule data for follow-up message formatting (not sent to model)
+  _scheduleByDate?: Array<{ date: string; day: string; coaches: Array<{ coach_name: string; available_times: string }> }>;
 }
 
 /** A single entry in the combined image catalog (curated + promotions) */
@@ -82,7 +84,18 @@ async function executeAndTrack(
   );
 
   state.lastFunctionCalled = functionName;
-  state.lastFunctionResult = result;
+  // Strip _internal fields from the stored result (they're on toolState for post-processing)
+  if (result.data) {
+    const cleanData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(result.data)) {
+      if (!key.startsWith('_')) {
+        cleanData[key] = value;
+      }
+    }
+    state.lastFunctionResult = { ...result, data: cleanData };
+  } else {
+    state.lastFunctionResult = result;
+  }
 
   if (result.requiresApproval) {
     state.requiresApproval = true;
@@ -91,8 +104,24 @@ async function executeAndTrack(
 
   console.log(`  ✓ Completed: ${functionName}`, result.success ? 'success' : 'error');
 
+  // Extract internal fields (prefixed with _) before sending to model — saves tokens
+  if (result.data) {
+    const modelData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(result.data)) {
+      if (key.startsWith('_')) {
+        // Store on state for post-processing (e.g., follow-up message formatter)
+        if (key === '_upcoming_schedule_by_date' || key === '_next_available_dates_by_date') {
+          state._scheduleByDate = value as ToolExecutionState['_scheduleByDate'];
+        }
+      } else {
+        modelData[key] = value;
+      }
+    }
+    return JSON.stringify(modelData);
+  }
+
   // Return stringified data for the model (matches legacy behavior)
-  return JSON.stringify(result.data || result.error || {});
+  return JSON.stringify(result.error || {});
 }
 
 // ---------------------------------------------------------------------------
@@ -365,9 +394,9 @@ Do NOT use when:
 - Customer is asking about pricing only`,
       inputSchema: z.object({
         date: z.string().describe('Date in YYYY-MM-DD format for checking coach availability'),
-        coach_name: z.enum(['Boss', 'Ratchavin', 'Noon', 'Min', 'any']).default('any').describe('Specific coach name or "any" to show all available coaches. Default: "any". Note: Boss and Ratchavin are the same person.'),
+        coach_name: z.enum(['Boss', 'Ratchavin', 'Noon', 'Min', 'any']).default('any').describe('Specific coach name or "any" to show all available coaches. Default: "any".'),
         preferred_time: z.string().describe('Preferred time in HH:00 format (e.g., "14:00"). Use empty string "" to show full day availability.'),
-        view: z.enum(['date', 'schedule']).default('date').describe('Use "date" when checking availability for a SPECIFIC date. Use "schedule" for timetable overview. Default: "date"'),
+        view: z.enum(['date', 'schedule']).default('date').describe('Use "date" when customer asks about a SPECIFIC date (e.g., "is coach free March 25?"). Use "schedule" when customer asks general availability, "what slots are available", "this week", "when can I book", or wants to see an overview. When in doubt, use "schedule" — more data is better than too little.'),
       }),
       execute: async (args) => executeAndTrack(state, 'get_coaching_availability', args, customerId),
     }),
