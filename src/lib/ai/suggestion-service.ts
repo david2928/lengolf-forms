@@ -1559,17 +1559,25 @@ export async function postProcessSuggestion(
   if (
     functionCallHistory.includes('get_coaching_availability') &&
     functionResult?.success &&
-    functionResult.data &&
-    (functionResult.data.preferred_time_available === false || functionResult.data.requested_date_available === false)
+    functionResult.data
   ) {
-    const nextDates = functionResult.data.next_available_dates;
-    const todayAvail = functionResult.data.today_availability;
-    if ((nextDates && nextDates.length > 0) || (todayAvail && todayAvail.length > 0)) {
-      followUpMessage = formatCoachingScheduleFollowUp(
-        nextDates || [],
-        todayAvail || null,
-        isThaiMessage
-      );
+    // Generate follow-up for: schedule view (always), or date view when preferred time unavailable
+    const isScheduleView = !!functionResult.data.upcoming_schedule;
+    const needsFollowUp = isScheduleView ||
+      functionResult.data.preferred_time_available === false ||
+      functionResult.data.requested_date_available === false;
+
+    if (needsFollowUp) {
+      // Use upcoming_schedule (schedule view) or next_available_dates (date view)
+      const scheduleDates = functionResult.data.upcoming_schedule || functionResult.data.next_available_dates || [];
+      const todayAvail = functionResult.data.today_availability;
+      if (scheduleDates.length > 0 || (todayAvail && todayAvail.length > 0)) {
+        followUpMessage = formatCoachingScheduleFollowUp(
+          scheduleDates,
+          todayAvail || null,
+          isThaiMessage
+        );
+      }
     }
   }
 

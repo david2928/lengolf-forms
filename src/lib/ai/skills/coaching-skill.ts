@@ -41,10 +41,9 @@ JUNIOR COACHING:
 CONVERSATION FLOW — model after real staff behavior:
 
 1. NEW COACHING INQUIRY (lessons, interested):
-   → Confirm yes warmly + answer their specific question
-   → Ask preferred day/time: "สะดวกวันและเวลาไหนคะ"
+   → If customer asks WHAT is available / what slots exist / show schedule / "ว่างเมื่อไหร่" / "this week" → call get_coaching_availability with view="schedule" immediately. Share the full schedule.
+   → If customer just says interested / wants to learn / สนใจเรียน without asking about specific availability → ask preferred day/time: "สะดวกวันและเวลาไหนคะ"
    → Do NOT mention free trial unless customer asked about it or seems hesitant
-   → Do NOT call get_coaching_availability yet — wait for their preferred day/time first
 
 2. CUSTOMER GIVES PREFERRED DATE/TIME:
    → Call get_coaching_availability for that date range
