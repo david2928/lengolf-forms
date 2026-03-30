@@ -527,6 +527,14 @@ async function findMatchingTemplate(customerMessage: string, intent: string, cus
 
 // Format coaching schedule data into a follow-up message for staff to send after the short reply.
 // Mimics what staff does: short reply first, then paste the full schedule overview.
+function coachDisplayName(name: string, isThai: boolean): string {
+  if (name.includes('Min')) return isThai ? 'โปรมิน' : 'Pro Min';
+  if (name.includes('Boss')) return isThai ? 'โปรบอส' : 'Pro Boss';
+  if (name.includes('Ratchavin')) return isThai ? 'โปรรัชวิน' : 'Pro Ratchavin';
+  if (name.includes('Noon')) return isThai ? 'โปรนุ่น' : 'Pro Noon';
+  return name;
+}
+
 function formatCoachingScheduleFollowUp(
   scheduleData: Array<{ date: string; day: string; coaches: Array<{ coach_name: string; available_times: string }> }>,
   todayAvailability: Array<{ coach_name: string; availability: string }> | null,
@@ -543,11 +551,7 @@ function formatCoachingScheduleFollowUp(
   // Include today's availability if present
   if (todayAvailability && todayAvailability.length > 0) {
     for (const coach of todayAvailability) {
-      const coachDisplay = coach.coach_name.includes('Min') ? (isThai ? 'โปรมิน' : 'Pro Min')
-        : coach.coach_name.includes('Boss') ? (isThai ? 'โปรบอส' : 'Pro Boss')
-        : coach.coach_name.includes('Ratchavin') ? (isThai ? 'โปรรัชวิน' : 'Pro Ratchavin')
-        : coach.coach_name.includes('Noon') ? (isThai ? 'โปรนุ่น' : 'Pro Noon')
-        : coach.coach_name;
+      const coachDisplay = coachDisplayName(coach.coach_name, isThai);
       lines.push(`📅 ${isThai ? 'วันนี้' : 'Today'}: ${coachDisplay} ${coach.availability}`);
     }
   }
@@ -555,16 +559,13 @@ function formatCoachingScheduleFollowUp(
   // Show upcoming schedule (cap at 7 days)
   const upcoming = scheduleData.slice(0, 7);
   for (const day of upcoming) {
-    const d = new Date(day.date);
-    const dateStr = `${d.getDate()}/${d.getMonth() + 1}`;
+    // Parse date string directly to avoid timezone off-by-one (new Date('2026-03-30') is UTC)
+    const parts = day.date.split('-');
+    const dateStr = `${parseInt(parts[2])}/${parseInt(parts[1])}`;
     const dayLabel = isThai ? thaiDays[day.day] || day.day : day.day;
 
     const coachParts = day.coaches.map(c => {
-      const coachDisplay = c.coach_name.includes('Min') ? (isThai ? 'โปรมิน' : 'Pro Min')
-        : c.coach_name.includes('Boss') ? (isThai ? 'โปรบอส' : 'Pro Boss')
-        : c.coach_name.includes('Ratchavin') ? (isThai ? 'โปรรัชวิน' : 'Pro Ratchavin')
-        : c.coach_name.includes('Noon') ? (isThai ? 'โปรนุ่น' : 'Pro Noon')
-        : c.coach_name;
+      const coachDisplay = coachDisplayName(c.coach_name, isThai);
       return `${coachDisplay} ${c.available_times}`;
     });
 
@@ -1568,8 +1569,8 @@ export async function postProcessSuggestion(
       functionResult.data.requested_date_available === false;
 
     if (needsFollowUp) {
-      // Use internal date-ordered format for follow-up formatting
-      const scheduleDates = functionResult.data._upcoming_schedule_by_date || functionResult.data._next_available_dates_by_date || [];
+      // Use date-ordered schedule data stored on toolState (not sent to model)
+      const scheduleDates = toolState._scheduleByDate || [];
       const todayAvail = functionResult.data.today_availability;
       console.log(`[AI Follow-up] isScheduleView=${isScheduleView} scheduleDates=${scheduleDates.length} todayAvail=${todayAvail?.length || 0}`);
       if (scheduleDates.length > 0 || (todayAvail && todayAvail.length > 0)) {
@@ -1581,7 +1582,7 @@ export async function postProcessSuggestion(
         console.log(`[AI Follow-up] Generated: ${followUpMessage?.slice(0, 80)}...`);
       }
     } else {
-      console.log(`[AI Follow-up] Skipped: isScheduleView=${!!functionResult.data.upcoming_schedule} preferred_time_available=${functionResult.data.preferred_time_available} requested_date_available=${functionResult.data.requested_date_available}`);
+      console.log(`[AI Follow-up] Skipped: isScheduleView=${isScheduleView} preferred_time_available=${functionResult.data.preferred_time_available} requested_date_available=${functionResult.data.requested_date_available}`);
     }
   }
 

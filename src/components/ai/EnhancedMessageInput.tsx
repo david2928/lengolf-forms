@@ -115,6 +115,10 @@ export const EnhancedMessageInput: React.FC<EnhancedMessageInputProps> = ({
       setNewMessage(originalResponse);
       setIsAISuggestionActive(true);
       setLastSuggestionId(suggestion.id);
+      // Carry follow-up through edit flow (staff can still dismiss via indicator)
+      if (suggestion.followUpMessage) {
+        setPendingFollowUp(suggestion.followUpMessage);
+      }
       // Focus textarea for editing
       if (textareaRef.current) {
         textareaRef.current.focus();

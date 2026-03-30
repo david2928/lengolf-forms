@@ -24,6 +24,8 @@ export interface ToolExecutionState {
   faqMatches?: FAQMatch[];
   // Set by suggest_images tool — indices into the image catalog
   suggestedImageSelections?: Array<{ id: string; source: 'curated' | 'promotion'; imageUrl: string; title: string; description: string }>;
+  // Internal: date-ordered schedule data for follow-up message formatting (not sent to model)
+  _scheduleByDate?: Array<{ date: string; day: string; coaches: Array<{ coach_name: string; available_times: string }> }>;
 }
 
 /** A single entry in the combined image catalog (curated + promotions) */
@@ -91,8 +93,24 @@ async function executeAndTrack(
 
   console.log(`  ✓ Completed: ${functionName}`, result.success ? 'success' : 'error');
 
+  // Extract internal fields (prefixed with _) before sending to model — saves tokens
+  if (result.data) {
+    const modelData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(result.data)) {
+      if (key.startsWith('_')) {
+        // Store on state for post-processing (e.g., follow-up message formatter)
+        if (key === '_upcoming_schedule_by_date' || key === '_next_available_dates_by_date') {
+          state._scheduleByDate = value as ToolExecutionState['_scheduleByDate'];
+        }
+      } else {
+        modelData[key] = value;
+      }
+    }
+    return JSON.stringify(modelData);
+  }
+
   // Return stringified data for the model (matches legacy behavior)
-  return JSON.stringify(result.data || result.error || {});
+  return JSON.stringify(result.error || {});
 }
 
 // ---------------------------------------------------------------------------
