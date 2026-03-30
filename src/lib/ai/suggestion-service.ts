@@ -1571,13 +1571,17 @@ export async function postProcessSuggestion(
       // Use upcoming_schedule (schedule view) or next_available_dates (date view)
       const scheduleDates = functionResult.data.upcoming_schedule || functionResult.data.next_available_dates || [];
       const todayAvail = functionResult.data.today_availability;
+      console.log(`[AI Follow-up] isScheduleView=${isScheduleView} scheduleDates=${scheduleDates.length} todayAvail=${todayAvail?.length || 0}`);
       if (scheduleDates.length > 0 || (todayAvail && todayAvail.length > 0)) {
         followUpMessage = formatCoachingScheduleFollowUp(
           scheduleDates,
           todayAvail || null,
           isThaiMessage
         );
+        console.log(`[AI Follow-up] Generated: ${followUpMessage?.slice(0, 80)}...`);
       }
+    } else {
+      console.log(`[AI Follow-up] Skipped: isScheduleView=${!!functionResult.data.upcoming_schedule} preferred_time_available=${functionResult.data.preferred_time_available} requested_date_available=${functionResult.data.requested_date_available}`);
     }
   }
 

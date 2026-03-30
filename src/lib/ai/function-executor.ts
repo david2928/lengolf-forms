@@ -356,10 +356,10 @@ export class AIFunctionExecutor {
       const { date, coach_name, preferred_time, view = 'date' } = params;
       const isScheduleView = view === 'schedule';
 
-      // Schedule view: fetch 45-day range. Date view: single date only.
+      // Schedule view: fetch 14-day range. Date view: single date only.
       const fromDate = date;
       const toDate = isScheduleView
-        ? (() => { const d = new Date(date); d.setDate(d.getDate() + 44); return d.toLocaleDateString('en-CA'); })()
+        ? (() => { const d = new Date(date); d.setDate(d.getDate() + 13); return d.toLocaleDateString('en-CA'); })()
         : date;
 
       // Use absolute URL for server-side fetch with internal auth
@@ -478,7 +478,8 @@ export class AIFunctionExecutor {
       const upcomingSchedule: Array<{ date: string; day: string; coaches: Array<{ coach_name: string; available_times: string }> }> = [];
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-      const sortedDates = Object.keys(weeklyAvailability).sort();
+      // Exclude today from upcoming schedule — today is in today_availability
+      const sortedDates = Object.keys(weeklyAvailability).sort().filter(d => d !== date);
       for (const dateKey of sortedDates) {
         const dayData = weeklyAvailability[dateKey];
         const coachesForDay: Array<{ coach_name: string; available_times: string }> = [];
@@ -543,7 +544,7 @@ export class AIFunctionExecutor {
             preferred_time,
             has_availability: false,
             message: isScheduleView
-              ? `No availability found for ${coach_name || 'any coach'} in the next 45 days (${fromDate} to ${toDate})`
+              ? `No availability found for ${coach_name || 'any coach'} in the next 14 days (${fromDate} to ${toDate})`
               : `No coaches available on ${date}`
           }
         };
