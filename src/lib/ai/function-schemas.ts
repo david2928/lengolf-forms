@@ -84,7 +84,18 @@ async function executeAndTrack(
   );
 
   state.lastFunctionCalled = functionName;
-  state.lastFunctionResult = result;
+  // Strip _internal fields from the stored result (they're on toolState for post-processing)
+  if (result.data) {
+    const cleanData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(result.data)) {
+      if (!key.startsWith('_')) {
+        cleanData[key] = value;
+      }
+    }
+    state.lastFunctionResult = { ...result, data: cleanData };
+  } else {
+    state.lastFunctionResult = result;
+  }
 
   if (result.requiresApproval) {
     state.requiresApproval = true;
