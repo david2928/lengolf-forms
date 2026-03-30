@@ -382,6 +382,9 @@ export class AIFunctionExecutor {
       let coaches = data.availability_slots || [];
       const weeklyAvailability = data.weekly_availability || {};
 
+      // Exclude Ratchavin from availability suggestions (temporarily disabled)
+      coaches = coaches.filter((c: any) => !c.coach_name?.includes('Ratchavin'));
+
       // Build search names for coach filtering
       let searchNames: string[] | null = null;
       if (coach_name && coach_name !== 'any') {

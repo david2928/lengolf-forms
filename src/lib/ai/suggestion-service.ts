@@ -535,47 +535,99 @@ function coachDisplayName(name: string, isThai: boolean): string {
   return name;
 }
 
+/**
+ * Convert available_times string (e.g., "16:00-17:00, 19:00") to staff format
+ * with end times and dots (e.g., "16.00–18.00 / 19.00–20.00")
+ */
+function formatTimesLikeStaff(availableTimes: string): string {
+  // Split on ", " to get individual slots/ranges
+  const parts = availableTimes.split(', ');
+  return parts.map(part => {
+    if (part.includes('-')) {
+      // Range like "16:00-17:00" → start=16, end=17+1=18 → "16.00–18.00"
+      const [start, end] = part.split('-');
+      const endHour = parseInt(end.split(':')[0]) + 1;
+      return `${start.replace(':', '.')}–${endHour.toString().padStart(2, '0')}.00`;
+    } else {
+      // Single slot like "19:00" → "19.00–20.00"
+      const hour = parseInt(part.split(':')[0]);
+      return `${part.replace(':', '.')}–${(hour + 1).toString().padStart(2, '0')}.00`;
+    }
+  }).join(' / ');
+}
+
+/**
+ * Format coaching schedule as a follow-up message matching staff format:
+ * Grouped by coach, with month headers, Thai dot-time notation, and end times.
+ */
 function formatCoachingScheduleFollowUp(
   scheduleData: Array<{ date: string; day: string; coaches: Array<{ coach_name: string; available_times: string }> }>,
   todayAvailability: Array<{ coach_name: string; availability: string }> | null,
   isThai: boolean
 ): string {
-  const thaiDays: Record<string, string> = {
-    'Sun': 'อา.', 'Mon': 'จ.', 'Tue': 'อ.', 'Wed': 'พ.', 'Thu': 'พฤ.', 'Fri': 'ศ.', 'Sat': 'ส.'
-  };
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+  const thaiMonths = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 
-  const lines: string[] = [];
-  lines.push(isThai ? 'ตารางโปรที่ว่าง 📋' : 'Coaching Availability 📋');
-  lines.push('');
+  // Group by coach: { "Min": [{ date, day, available_times }] }
+  const byCoach: Record<string, Array<{ date: string; day: string; available_times: string }>> = {};
 
-  // Include today's availability if present
-  if (todayAvailability && todayAvailability.length > 0) {
+  // Add today's availability
+  if (todayAvailability) {
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     for (const coach of todayAvailability) {
-      const coachDisplay = coachDisplayName(coach.coach_name, isThai);
-      lines.push(`📅 ${isThai ? 'วันนี้' : 'Today'}: ${coachDisplay} ${coach.availability}`);
+      if (!byCoach[coach.coach_name]) byCoach[coach.coach_name] = [];
+      byCoach[coach.coach_name].push({
+        date: todayStr,
+        day: dayNames[today.getDay()],
+        available_times: coach.availability,
+      });
     }
   }
 
-  // Show upcoming schedule (cap at 7 days)
-  const upcoming = scheduleData.slice(0, 7);
-  for (const day of upcoming) {
-    // Parse date string directly to avoid timezone off-by-one (new Date('2026-03-30') is UTC)
-    const parts = day.date.split('-');
-    const dateStr = `${parseInt(parts[2])}/${parseInt(parts[1])}`;
-    const dayLabel = isThai ? thaiDays[day.day] || day.day : day.day;
-
-    const coachParts = day.coaches.map(c => {
-      const coachDisplay = coachDisplayName(c.coach_name, isThai);
-      return `${coachDisplay} ${c.available_times}`;
-    });
-
-    lines.push(`📅 ${dayLabel} ${dateStr}: ${coachParts.join(', ')}`);
+  // Add upcoming schedule
+  for (const day of scheduleData) {
+    for (const coach of day.coaches) {
+      if (!byCoach[coach.coach_name]) byCoach[coach.coach_name] = [];
+      byCoach[coach.coach_name].push({
+        date: day.date,
+        day: day.day,
+        available_times: coach.available_times,
+      });
+    }
   }
 
+  const lines: string[] = [];
+  lines.push(isThai ? 'ตารางโปรที่ว่าง' : 'Coaching Availability Overview');
   lines.push('');
-  lines.push(isThai ? 'สนใจเวลาไหนบอกได้เลยค่ะ 🙏' : 'Let me know which time works for you! 🙏');
 
-  return lines.join('\n');
+  for (const [coachName, slots] of Object.entries(byCoach)) {
+    const display = coachDisplayName(coachName, isThai);
+    lines.push(isThai ? `${display}:` : `${display}'s Coaching Availability:`);
+
+    // Group slots by month
+    let currentMonth = -1;
+    for (const slot of slots) {
+      const parts = slot.date.split('-');
+      const month = parseInt(parts[1]) - 1;
+      const dayNum = parseInt(parts[2]);
+
+      if (month !== currentMonth) {
+        currentMonth = month;
+        lines.push(isThai ? thaiMonths[month] : monthNames[month]);
+      }
+
+      const timeDisplay = formatTimesLikeStaff(slot.available_times);
+      lines.push(`• ${slot.day} ${dayNum}: ${timeDisplay}`);
+    }
+
+    lines.push('');
+  }
+
+  return lines.join('\n').trim();
 }
 
 // Format function execution results into customer-facing messages
