@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Chat SLA Tracking System monitors staff response times across all customer communication channels (LINE, Website, Facebook, Instagram, WhatsApp) to ensure 10-minute SLA compliance during business hours (10am-10pm Bangkok Time). The system provides real-time analytics, staff performance metrics, and critical alerts when owner intervention is required.
+The Chat SLA Tracking System monitors staff response times across all customer communication channels (LINE, Website, Facebook, Instagram, WhatsApp) to ensure 10-minute SLA compliance during business hours (9am-10pm Bangkok Time). The system provides real-time analytics, staff performance metrics, and critical alerts when owner intervention is required.
 
 ## Business Requirements
 
@@ -11,7 +11,7 @@ The Chat SLA Tracking System monitors staff response times across all customer c
 **10-Minute Response Target**
 - Staff must respond within 10 minutes of the customer's last message
 - Timer starts from the LAST message in a sequence (messages within 3 minutes = one sequence)
-- Only counted during business hours (10am-10pm Bangkok Time, UTC+7)
+- Only counted during business hours (9am-10pm Bangkok Time, UTC+7)
 
 **Message Sequencing Logic**
 ```
@@ -25,8 +25,8 @@ Staff response: 14:07:00
 ```
 
 **Outside Business Hours Handling**
-- Messages sent outside business hours (before 10am or after 10pm) calculate SLA from when business hours begin
-- Example: Message at 8:28am → SLA timer starts at 10:00am
+- Messages sent outside business hours (before 9am or after 10pm) calculate SLA from when business hours begin
+- Example: Message at 8:28am → SLA timer starts at 9:00am
 
 **Owner Response Rules**
 - Owner emails: `dgeiermann@gmail.com`, `dgeie@gmail.com`, `dev@lengolf.local`
@@ -81,7 +81,7 @@ SLA Compliance % = (Met Messages) / (Met + Breached Messages) × 100
 ```
 
 **Database Functions:**
-1. `is_within_business_hours(timestamp)` - Check if time is 10am-10pm Bangkok
+1. `is_within_business_hours(timestamp)` - Check if time is 9am-10pm Bangkok
 2. `calculate_business_hours_interval(start, end)` - Calculate seconds during business hours
 3. `get_chat_sla_overview(start_date, end_date, channel)` - Overall SLA metrics
 4. `get_chat_sla_by_staff(start_date, end_date, channel)` - Per-staff performance
@@ -184,17 +184,17 @@ END AS is_last_in_sequence
 
 **Outside Hours Handling:**
 ```sql
--- Message at 8:28am → Calculate from 10:00am
-WHEN EXTRACT(HOUR FROM message_time AT TIME ZONE 'Asia/Bangkok') < 10 THEN
+-- Message at 8:28am → Calculate from 9:00am
+WHEN EXTRACT(HOUR FROM message_time AT TIME ZONE 'Asia/Bangkok') < 9 THEN
   calculate_business_hours_interval(
-    (DATE(message_time) || ' 10:00:00')::TIMESTAMP AT TIME ZONE 'Asia/Bangkok',
+    (DATE(message_time) || ' 09:00:00')::TIMESTAMP AT TIME ZONE 'Asia/Bangkok',
     response_time
   )
 
--- Message at 11:00pm → Calculate from 10:00am next day
+-- Message at 11:00pm → Calculate from 9:00am next day
 ELSE
   calculate_business_hours_interval(
-    ((DATE(message_time) + 1) || ' 10:00:00')::TIMESTAMP AT TIME ZONE 'Asia/Bangkok',
+    ((DATE(message_time) + 1) || ' 09:00:00')::TIMESTAMP AT TIME ZONE 'Asia/Bangkok',
     response_time
   )
 ```

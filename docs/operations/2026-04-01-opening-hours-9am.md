@@ -337,16 +337,16 @@ These pull prices dynamically from the `products.products` table via the pricing
 | DB functions (SLA) | ✅ Applied March 27 |
 | DB migration file saved | ✅ `supabase/migrations/20260401000000_update_business_hours_9am.sql` |
 
-### Bay Rate Increase (apply April 1)
+### Bay Rate Increase (applied March 31)
 
 | Item | Status |
 |------|--------|
-| POS database `products.products` | ⬜ Apply SQL on April 1 |
-| Booking app fallback rates (`bay-rates-data.ts`) | ⬜ Deploy April 1 |
-| Website fallback rates (`data/pricing.ts`) | ⬜ Deploy April 1 |
-| Website FAQ text | ⬜ Deploy April 1 |
-| Website golf page alt text | ⬜ Deploy April 1 |
-| Forms app OB sales average rate | ⬜ Deploy April 1 |
+| POS database `products.products` | ✅ Applied March 31 |
+| Booking app fallback rates (`bay-rates-data.ts`) | ✅ Updated March 31 |
+| Website fallback rates (`data/pricing.ts`) | ✅ Updated March 31 |
+| Website FAQ text | ✅ Updated March 31 |
+| Website golf page alt text | ✅ Updated March 31 |
+| Forms app OB sales average rate | ✅ Updated March 31 (700→750) |
 
 ### External (April 1)
 

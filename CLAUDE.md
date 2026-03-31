@@ -20,7 +20,7 @@ Essential instructions for working with the Lengolf Forms codebase.
 5. Packages = Pre-paid bundles of bay hours or coaching sessions
 
 ### Key Business Rules
-- Operating hours: Typically 10:00 AM - 10:00 PM (varies by day)
+- Operating hours: 9:00 AM - 11:00 PM daily
 - Bay types: Standard bays, VIP bays (premium pricing)
 - Customer types: Walk-in, members, package holders
 - Booking durations: 1 hour minimum, typically 1-3 hours

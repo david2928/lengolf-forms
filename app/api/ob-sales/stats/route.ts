@@ -63,8 +63,8 @@ export async function GET() {
 
     // 3. Get sales value from OB Sales bookings
     // We need to calculate based on duration and bay rate
-    // Standard bay rate is approximately 700 THB/hour (excluding VAT)
-    const BAY_RATE_PER_HOUR = 700; // THB excluding VAT
+    // Standard bay rate is approximately 750 THB/hour (excluding VAT)
+    const BAY_RATE_PER_HOUR = 750; // THB excluding VAT
 
     // Today's sales - get booking durations
     const { data: todaySalesData, error: todaySalesError } = await refacSupabaseAdmin

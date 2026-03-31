@@ -325,7 +325,7 @@ Content: Hello {{customer_name}}, welcome to LENGOLF! We're excited to have you 
 
 Title: Business Hours
 Category: Greeting
-Content: Hi {{customer_name}}! Our facility is open Monday-Friday 10am-10pm, Saturday-Sunday 9am-11pm. We look forward to seeing you soon!
+Content: Hi {{customer_name}}! Our facility is open daily 9am-11pm. We look forward to seeing you soon!
 ```
 
 #### Booking Templates
