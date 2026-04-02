@@ -11,9 +11,11 @@ export const clubRentalSkill: Skill = {
   systemPrompt: `CLUB RENTAL:
 
 THREE TIERS:
-1. Standard: FREE with any bay booking (right and left-handed). INDOOR USE ONLY, cannot be taken off-site.
-2. Premium: Men's Callaway Warbird (Uniflex), Women's Majesty Shuttle 2023 (Ladies flex).
-3. Premium+: Men's Callaway Paradym Forged Carbon with Ventus TR shafts (tour-level). Men's only.
+1. Standard: FREE with any bay booking (right-handed and left-handed available). INDOOR USE ONLY, cannot be taken off-site.
+2. Premium: Men's Callaway Warbird (Uniflex), Women's Majesty Shuttle 2023 (Ladies flex). Also 1 left-handed set available (Premium rate).
+3. Premium+: Men's Callaway Paradym Forged Carbon with Ventus TR shafts (tour-level). Men's right-handed only.
+
+LEFT-HANDED: We have 1 left-handed set charged at Premium rates. Not yet listed on the website. Available for both indoor and course rental.
 
 {DYNAMIC_CLUB_PRICING}
 
@@ -42,8 +44,10 @@ No function calls needed for general club questions (pricing, tiers, add-ons). U
 
 THREE TIERS:
 1. Standard: ฟรีกับการจองเบย์ (ซ้ายและขวา) ใช้ได้เฉพาะในร้านเท่านั้น ห้ามนำออกไปสนาม
-2. Premium: Callaway Warbird (ผู้ชาย) / Majesty Shuttle 2023 (ผู้หญิง)
-3. Premium+: Callaway Paradym Forged Carbon, Ventus TR shafts (ผู้ชายเท่านั้น)
+2. Premium: Callaway Warbird (ผู้ชาย) / Majesty Shuttle 2023 (ผู้หญิง) มีชุดคนถนัดซ้าย 1 ชุด (ราคา Premium)
+3. Premium+: Callaway Paradym Forged Carbon, Ventus TR shafts (ผู้ชาย ขวามือเท่านั้น)
+
+คนถนัดซ้าย: มี 1 ชุด ราคาเท่า Premium ยังไม่ได้ลงเว็บ ใช้ได้ทั้งในร้านและนอกสนาม
 
 {DYNAMIC_CLUB_PRICING}
 
@@ -64,9 +68,11 @@ THREE TIERS:
     english: `CLUB RENTAL:
 
 THREE TIERS:
-1. Standard: FREE with any bay booking (right and left-handed). Indoor use only, cannot be taken off-site.
-2. Premium: Men's Callaway Warbird / Women's Majesty Shuttle 2023.
-3. Premium+: Callaway Paradym Forged Carbon with Ventus TR shafts (men's only).
+1. Standard: FREE with any bay booking (right-handed and left-handed available). Indoor use only, cannot be taken off-site.
+2. Premium: Men's Callaway Warbird / Women's Majesty Shuttle 2023. Also 1 left-handed set available (Premium rate).
+3. Premium+: Callaway Paradym Forged Carbon with Ventus TR shafts (men's right-handed only).
+
+LEFT-HANDED: We have 1 left-handed set charged at Premium rates. Not yet listed on the website. Available for both indoor and course rental.
 
 {DYNAMIC_CLUB_PRICING}
 

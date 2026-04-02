@@ -140,25 +140,25 @@
 **Morning (before 2:00 PM):**
 | Day | Rate |
 |-----|------|
-| Weekday | 500 THB/hour |
-| Weekend | 700 THB/hour |
+| Weekday | 550 THB/hour |
+| Weekend | 750 THB/hour |
 
 **Afternoon (2:00 PM - 6:00 PM):**
 | Day | Rate |
 |-----|------|
-| Weekday | 700 THB/hour |
-| Weekend | 900 THB/hour |
+| Weekday | 750 THB/hour |
+| Weekend | 950 THB/hour |
 
 **Evening (6:00 PM onwards):**
 | Day | Rate |
 |-----|------|
-| Weekday | 700 THB/hour |
-| Weekend | 900 THB/hour |
+| Weekday | 750 THB/hour |
+| Weekend | 950 THB/hour |
 
 ### Buy 1 Get 1 Across Rate Periods
 - If a B1G1 booking crosses different rate periods (e.g., 1pm-3pm on weekday), **the higher rate is charged**.
-- Example: 1pm (500 THB) + 2pm (700 THB) = customer pays 700 THB for 2 hours.
-- **Always explain this to the customer**: "If Buy 1 Get 1 crosses different bay rates, the higher rate is charged. Until 2PM our bay rate on weekdays is 500 Baht, afterwards it's 700 Baht."
+- Example: 1pm (550 THB) + 2pm (750 THB) = customer pays 750 THB for 2 hours.
+- **Always explain this to the customer**: "If Buy 1 Get 1 crosses different bay rates, the higher rate is charged. Until 2PM our bay rate on weekdays is 550 Baht, afterwards it's 750 Baht."
 
 ### Coaching Rates (from database)
 
