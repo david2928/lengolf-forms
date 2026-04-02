@@ -264,6 +264,7 @@ export function ExpenseTrackerPage() {
               vendor_receipt_id: annotation.vendor_receipt_id ?? row.annotation?.vendor_receipt_id ?? null,
               transaction_type: annotation.transaction_type ?? row.annotation?.transaction_type ?? null,
               notes: annotation.notes ?? null,
+              has_items: row.annotation?.has_items ?? false,
               flow_completed: row.annotation?.flow_completed ?? false,
               flow_completed_at: row.annotation?.flow_completed_at ?? null,
               created_by: row.annotation?.created_by ?? null,

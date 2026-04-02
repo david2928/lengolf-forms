@@ -65,6 +65,7 @@ export interface TransactionAnnotation {
   vendor_receipt_id: string | null;
   transaction_type: TransactionType | null;
   notes: string | null;
+  has_items: boolean;
   flow_completed: boolean;
   flow_completed_at: string | null;
   created_by: string | null;
@@ -94,6 +95,44 @@ export interface AnnotationUpsert {
   transaction_type?: TransactionType | null;
   notes?: string | null;
   updated_by?: string;
+  items?: AnnotationItemUpsert[];
+}
+
+// ── Annotation Items (multi-invoice support) ───────────────────────────────
+
+export interface AnnotationItem {
+  id: number;
+  annotation_id: number;
+  item_index: number;
+  invoice_ref: string | null;
+  invoice_date: string | null;
+  total_amount: number | null;
+  vat_type: VatType;
+  vat_amount: number | null;
+  wht_type: WhtType;
+  wht_rate: number;
+  wht_amount: number | null;
+  tax_base: number | null;
+  document_url: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnnotationItemUpsert {
+  id?: number;
+  item_index: number;
+  invoice_ref?: string | null;
+  invoice_date?: string | null;
+  total_amount?: number | null;
+  vat_type?: VatType;
+  vat_amount?: number | null;
+  wht_type?: WhtType;
+  wht_rate?: number;
+  wht_amount?: number | null;
+  tax_base?: number | null;
+  document_url?: string | null;
+  notes?: string | null;
 }
 
 // ── Combined row for the UI table ───────────────────────────────────────────
@@ -102,6 +141,7 @@ export interface AnnotatedTransaction {
   transaction: BankTransaction;
   annotation: TransactionAnnotation | null;
   vendor: Vendor | null;
+  items?: AnnotationItem[];
 }
 
 // ── API response types ──────────────────────────────────────────────────────

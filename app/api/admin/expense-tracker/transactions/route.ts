@@ -92,11 +92,33 @@ export async function GET(request: NextRequest) {
       annotationMap[a.bank_transaction_id] = a;
     });
 
+    // Fetch annotation items for annotations that have them
+    const annotationsWithItems = (annotations || []).filter((a: { has_items?: boolean }) => a.has_items);
+    const itemsMap: Record<number, Array<Record<string, unknown>>> = {};
+
+    if (annotationsWithItems.length > 0) {
+      const annIds = annotationsWithItems.map((a: { id: number }) => a.id);
+      const { data: items } = await refacSupabaseAdmin
+        .schema('finance')
+        .from('transaction_annotation_items')
+        .select('*')
+        .in('annotation_id', annIds)
+        .order('item_index', { ascending: true });
+
+      if (items) {
+        items.forEach((item: { annotation_id: number }) => {
+          if (!itemsMap[item.annotation_id]) itemsMap[item.annotation_id] = [];
+          itemsMap[item.annotation_id].push(item);
+        });
+      }
+    }
+
     // Combine
     const combined = transactions.map((tx: { id: number; withdrawal: number; deposit: number }) => {
       const ann = annotationMap[tx.id] || null;
       const vendor = ann?.vendor_id ? vendors[ann.vendor_id] || null : null;
-      return { transaction: tx, annotation: ann, vendor };
+      const items = ann?.id ? itemsMap[ann.id] : undefined;
+      return { transaction: tx, annotation: ann, vendor, ...(items ? { items } : {}) };
     });
 
     // Summary

@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Copy, Tags, ExternalLink, Link2, Unlink } from 'lucide-react';
+import { useState, useCallback, useEffect, useMemo, useRef, Fragment } from 'react';
+import { Copy, Tags, ExternalLink, Link2, Unlink, ChevronRight, ChevronDown, Plus, SplitSquareVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VendorCombobox } from './VendorCombobox';
 import { VendorDetailPopover } from './VendorDetailPopover';
 import { DocumentUploadButton } from './DocumentUploadButton';
 import { ReceiptMatchPopover } from './ReceiptMatchPopover';
+import { AnnotationItemRow } from './AnnotationItemRow';
 import { recalcAll, calcVat, calcWht } from './TaxCalculator';
 import {
   Popover,
@@ -16,6 +17,7 @@ import {
 import debounce from 'lodash/debounce';
 import type {
   AnnotatedTransaction,
+  AnnotationItem,
   Vendor,
   VatType,
   WhtType,
@@ -51,9 +53,14 @@ function formatDate(d: string): string {
 }
 
 export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, receiptMatches, onReceiptLinked, onReceiptUnlinked }: ExpenseTrackerRowProps) {
-  const { transaction: tx, annotation: ann, vendor: initialVendor } = row;
+  const { transaction: tx, annotation: ann, vendor: initialVendor, items: initialItems } = row;
   const amount = Number(tx.withdrawal) || Number(tx.deposit) || 0;
   const isWithdrawal = Number(tx.withdrawal) > 0;
+
+  // Multi-invoice items state
+  const [items, setItems] = useState<AnnotationItem[]>(initialItems || []);
+  const [expanded, setExpanded] = useState(false);
+  const hasItems = items.length > 0;
 
   const [vendor, setVendor] = useState<Vendor | null>(initialVendor);
   const [vendorNameOverride, setVendorNameOverride] = useState(ann?.vendor_name_override || null);
@@ -419,6 +426,89 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
     [buildAnnotation, doSave]
   );
 
+  // ── Multi-invoice item handlers ──────────────────────────────────────────
+
+  /** Apply updated parent annotation totals from API response */
+  const applyParentTotals = useCallback(
+    (parentAnn: Record<string, unknown>) => {
+      if (parentAnn.vat_amount != null) setVatAmount(Number(parentAnn.vat_amount));
+      if (parentAnn.wht_amount != null) setWhtAmount(Number(parentAnn.wht_amount));
+      if (parentAnn.tax_base != null) setTaxBase(Number(parentAnn.tax_base));
+    },
+    []
+  );
+
+  const handleItemSaved = useCallback(
+    (savedItem: AnnotationItem, parentAnn?: Record<string, unknown>) => {
+      setItems(prev => prev.map(i => i.id === savedItem.id ? savedItem : i));
+      if (parentAnn) applyParentTotals(parentAnn);
+    },
+    [applyParentTotals]
+  );
+
+  const handleItemDeleted = useCallback(
+    (itemId: number, parentAnn?: Record<string, unknown>) => {
+      setItems(prev => {
+        const remaining = prev.filter(i => i.id !== itemId);
+        return remaining;
+      });
+      if (parentAnn) applyParentTotals(parentAnn);
+    },
+    [applyParentTotals]
+  );
+
+  const handleAddItem = useCallback(
+    async () => {
+      if (!ann?.id) return;
+      try {
+        const res = await fetch('/api/admin/expense-tracker/annotation-items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ annotation_id: ann.id }),
+        });
+        if (res.ok) {
+          const { item, annotation: parentAnn } = await res.json();
+          setItems(prev => [...prev, item]);
+          setExpanded(true);
+          if (parentAnn) applyParentTotals(parentAnn);
+        }
+      } catch { /* ignore */ }
+    },
+    [ann?.id, applyParentTotals]
+  );
+
+  const handleSplitIntoItems = useCallback(
+    async () => {
+      if (!ann?.id) return;
+      try {
+        const res = await fetch('/api/admin/expense-tracker/annotation-items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            annotation_id: ann.id,
+            invoice_ref: invoiceRef || null,
+            total_amount: amount,
+            vat_type: vatType,
+            vat_amount: vatAmount,
+            wht_type: whtType,
+            wht_rate: whtRate,
+            wht_amount: whtAmount,
+            tax_base: taxBase,
+            document_url: documentUrl,
+            notes: notes || null,
+          }),
+        });
+        if (res.ok) {
+          const { item, annotation: parentAnn } = await res.json();
+          setItems([item]);
+          setExpanded(true);
+          if (parentAnn) applyParentTotals(parentAnn);
+        }
+      } catch { /* ignore */ }
+    },
+    [ann?.id, invoiceRef, amount, vatType, vatAmount, whtType, whtRate, whtAmount, taxBase, documentUrl, notes, applyParentTotals]
+  );
+
   // Mismatch detection: compare stored override values against formula-calculated values
   const vatMismatch = useMemo(() => {
     if (vatType === 'none' || vatAmount == null) return null;
@@ -501,17 +591,38 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
   );
 
   return (
+    <Fragment>
     <tr
       className={cn(
         'border-b hover:bg-muted/30 transition-colors',
         isAnnotated && 'bg-green-50/50',
+        hasItems && 'border-b-0',
         saving && 'opacity-70'
       )}
     >
-      {/* Date */}
+      {/* Date + expand toggle */}
       <td className={cn(cellBase, 'sticky left-0 bg-inherit z-10 w-[60px]')}>
-        <div>{formatDate(tx.transaction_date)}</div>
-        <div className="text-[10px] text-muted-foreground">{tx.transaction_time?.substring(0, 5)}</div>
+        <div className="flex items-center gap-0.5">
+          {(hasItems || ann?.id) ? (
+            <button
+              type="button"
+              onClick={() => setExpanded(!expanded)}
+              className="inline-flex items-center justify-center h-4 w-4 rounded hover:bg-muted/50 text-muted-foreground shrink-0"
+              title={hasItems ? `${items.length} invoice(s)` : 'Split into items'}
+            >
+              {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </button>
+          ) : (
+            <span className="w-4" />
+          )}
+          <div>
+            <div>{formatDate(tx.transaction_date)}</div>
+            <div className="text-[10px] text-muted-foreground">{tx.transaction_time?.substring(0, 5)}</div>
+          </div>
+        </div>
+        {hasItems && (
+          <div className="text-[10px] text-blue-600 ml-4">{items.length} inv.</div>
+        )}
       </td>
 
       {/* Description */}
@@ -655,7 +766,9 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
 
       {/* Tax Base */}
       <td className={cn(cellBase, 'w-[80px] text-right')}>
-        {hasTax ? (
+        {hasItems ? (
+          <span className="text-xs tabular-nums text-muted-foreground" title="Sum of items">{formatNum(taxBase)}</span>
+        ) : hasTax ? (
           <input
             type="text"
             value={formatNum(taxBase)}
@@ -670,7 +783,9 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
 
       {/* WHT Amount */}
       <td className={cn(cellBase, 'w-[70px] text-right')}>
-        {whtType !== 'none' ? (
+        {hasItems ? (
+          <span className="text-xs tabular-nums text-muted-foreground" title="Sum of items">{formatNum(whtAmount)}</span>
+        ) : whtType !== 'none' ? (
           <input
             type="text"
             value={formatNum(whtAmount)}
@@ -686,7 +801,9 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
 
       {/* VAT Amount */}
       <td className={cn(cellBase, 'w-[70px] text-right')}>
-        {vatType !== 'none' ? (
+        {hasItems ? (
+          <span className="text-xs tabular-nums text-muted-foreground" title="Sum of items">{formatNum(vatAmount)}</span>
+        ) : vatType !== 'none' ? (
           <input
             type="text"
             value={formatNum(vatAmount)}
@@ -756,5 +873,51 @@ export function ExpenseTrackerRow({ row, onAnnotationSaved, onVendorUpdated, rec
         </div>
       </td>
     </tr>
+
+    {/* Expanded item sub-rows */}
+    {expanded && (
+      <>
+        {items.map((item) => (
+          <AnnotationItemRow
+            key={item.id}
+            item={item}
+            bankAmount={amount}
+            paymentDate={tx.transaction_date}
+            vendorName={vendor?.name || vendorNameOverride || undefined}
+            vendorId={vendor?.id}
+            onItemSaved={handleItemSaved}
+            onItemDeleted={handleItemDeleted}
+          />
+        ))}
+        {/* Action row: add item / split */}
+        <tr className="border-b bg-blue-50/20">
+          <td colSpan={11} className="px-2 py-1">
+            <div className="flex items-center gap-2 ml-6">
+              {ann?.id && (
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded px-2 py-0.5"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add invoice
+                </button>
+              )}
+              {ann?.id && !hasItems && (
+                <button
+                  type="button"
+                  onClick={handleSplitIntoItems}
+                  className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-2 py-0.5"
+                >
+                  <SplitSquareVertical className="h-3 w-3" />
+                  Split into items
+                </button>
+              )}
+            </div>
+          </td>
+        </tr>
+      </>
+    )}
+    </Fragment>
   );
 }

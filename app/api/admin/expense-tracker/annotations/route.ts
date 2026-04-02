@@ -58,7 +58,86 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Failed to save annotation" }, { status: 500 });
     }
 
-    return NextResponse.json({ annotation: data });
+    // Handle annotation items (multi-invoice support)
+    const { items } = body;
+    let savedItems = undefined;
+
+    if (Array.isArray(items)) {
+      const annotationId = data.id;
+
+      if (items.length > 0) {
+        // Replace all items: delete existing, insert new
+        await refacSupabaseAdmin
+          .schema('finance')
+          .from('transaction_annotation_items')
+          .delete()
+          .eq('annotation_id', annotationId);
+
+        const ITEM_FIELDS = [
+          'item_index', 'invoice_ref', 'invoice_date', 'total_amount',
+          'vat_type', 'vat_amount', 'wht_type', 'wht_rate', 'wht_amount',
+          'tax_base', 'document_url', 'notes',
+        ] as const;
+
+        const itemRows = items.map((item: Record<string, unknown>) => {
+          const row: Record<string, unknown> = { annotation_id: annotationId };
+          for (const key of ITEM_FIELDS) {
+            if (key in item) row[key] = item[key];
+          }
+          return row;
+        });
+
+        const { data: insertedItems, error: itemError } = await refacSupabaseAdmin
+          .schema('finance')
+          .from('transaction_annotation_items')
+          .insert(itemRows)
+          .select();
+
+        if (itemError) {
+          console.error('Item insert error:', itemError);
+          return NextResponse.json({ error: "Failed to save annotation items" }, { status: 500 });
+        }
+        savedItems = insertedItems;
+
+        // Auto-sum parent totals from items
+        const r2 = (n: number) => Math.round(n * 100) / 100;
+        let totalVat = 0, totalWht = 0, totalTaxBase = 0;
+        for (const item of items) {
+          totalVat += Number(item.vat_amount) || 0;
+          totalWht += Number(item.wht_amount) || 0;
+          totalTaxBase += Number(item.tax_base) || 0;
+        }
+
+        await refacSupabaseAdmin
+          .schema('finance')
+          .from('transaction_annotations')
+          .update({
+            has_items: true,
+            vat_amount: r2(totalVat),
+            wht_amount: r2(totalWht),
+            tax_base: r2(totalTaxBase),
+            vat_amount_override: true,
+            wht_amount_override: true,
+            tax_base_override: true,
+          })
+          .eq('id', annotationId);
+      } else {
+        // Empty items array: clear all items
+        await refacSupabaseAdmin
+          .schema('finance')
+          .from('transaction_annotation_items')
+          .delete()
+          .eq('annotation_id', annotationId);
+
+        await refacSupabaseAdmin
+          .schema('finance')
+          .from('transaction_annotations')
+          .update({ has_items: false })
+          .eq('id', annotationId);
+      }
+    }
+
+    return NextResponse.json({ annotation: data, ...(savedItems ? { items: savedItems } : {}) });
   } catch (error) {
     console.error('Annotation save error:', error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
