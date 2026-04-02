@@ -23,7 +23,8 @@ export function EmployeeSelector({
     { value: 'Dolly', label: 'Dolly' },
     { value: 'Net', label: 'Net' },
     { value: 'May', label: 'May' },
-    { value: 'Ashley', label: 'Ashley' }
+    { value: 'Ashley', label: 'Ashley' },
+    { value: 'First', label: 'First' }
   ]
 
   return (
