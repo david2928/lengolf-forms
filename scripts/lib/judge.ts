@@ -20,6 +20,7 @@ export interface JudgeScores {
   helpfulness: DimensionScore;
   toneMatch: DimensionScore;
   brevity: DimensionScore;
+  functionAlignment: DimensionScore;
   overallScore: number;
   judgeModel: string;
   judgeTimestamp: string;
@@ -48,10 +49,11 @@ export interface JudgeableSample {
 // ─── Dimension weights ───────────────────────────────────────────────────────
 
 export const DIMENSION_WEIGHTS = {
-  appropriateness: 0.3,
-  helpfulness: 0.3,
-  toneMatch: 0.2,
-  brevity: 0.2,
+  appropriateness: 0.25,
+  helpfulness: 0.25,
+  toneMatch: 0.15,
+  brevity: 0.15,
+  functionAlignment: 0.2,
 } as const;
 
 // ─── Judge prompt ────────────────────────────────────────────────────────────
@@ -62,33 +64,40 @@ The AI generates staff-facing response suggestions that staff can send to custom
 
 SCORING RUBRIC (1-5 scale):
 
-**Appropriateness** (weight: 0.3)
+**Appropriateness** (weight: 0.25)
 - 5: Perfectly addresses the customer's need, correct language, no hallucinated info
 - 4: Addresses the need with minor imperfections (e.g., slightly awkward phrasing)
 - 3: Mostly appropriate but has a notable issue (e.g., wrong assumption, unnecessary info)
 - 2: Partially misses the mark (e.g., wrong topic, includes fabricated details)
 - 1: Completely inappropriate or fabricates information
 
-**Helpfulness** (weight: 0.3)
+**Helpfulness** (weight: 0.25)
 - 5: Directly resolves the customer's question/request, actionable and complete
 - 4: Very helpful with minor gaps (e.g., could have added one more detail)
 - 3: Somewhat helpful but missing key information or asks unnecessary questions
 - 2: Marginally helpful, mostly filler or off-topic content
 - 1: Not helpful at all, does not address what the customer asked
 
-**Tone Match** (weight: 0.2)
+**Tone Match** (weight: 0.15)
 - 5: Perfect Thai premium service tone - warm, professional, uses polite particles (ค่ะ/ครับ)
 - 4: Good tone with minor issues (e.g., slightly too formal or too casual)
 - 3: Acceptable tone but doesn't match the warm Thai hospitality standard
 - 2: Tone is off (e.g., robotic, overly corporate, rude)
 - 1: Completely wrong tone for customer service
 
-**Brevity** (weight: 0.2)
+**Brevity** (weight: 0.15)
 - 5: Ideal length - concise and complete (1-2 sentences, matching real staff style)
 - 4: Slightly too long or too short but still effective
 - 3: Noticeably too verbose or too terse, could be trimmed/expanded
 - 2: Much too long (paragraph when sentence would do) or too short (missing needed info)
 - 1: Extremely verbose or so brief it's unhelpful
+
+**Function Alignment** (weight: 0.2)
+- 5: Called the right tool with correct parameters (e.g., check_bay_availability for booking, get_coaching_availability for coaching), OR correctly decided no tool was needed
+- 4: Called an appropriate tool but with suboptimal parameters, or called an extra unnecessary tool
+- 3: Called a related but wrong tool (e.g., check_bay_availability instead of get_coaching_availability for coaching inquiry)
+- 2: Called an unrelated tool, or failed to call any tool when one was clearly needed (e.g., customer provides booking details but AI just asks questions)
+- 1: Called a harmful/wrong tool (e.g., cancel_booking when customer wanted to modify), or completely ignored an actionable request
 
 IMPORTANT CONTEXT:
 - LENGOLF is a premium golf simulator venue in Bangkok
@@ -102,7 +111,8 @@ Respond in JSON with this exact structure:
   "appropriateness": { "score": <1-5>, "reasoning": "<brief explanation>" },
   "helpfulness": { "score": <1-5>, "reasoning": "<brief explanation>" },
   "toneMatch": { "score": <1-5>, "reasoning": "<brief explanation>" },
-  "brevity": { "score": <1-5>, "reasoning": "<brief explanation>" }
+  "brevity": { "score": <1-5>, "reasoning": "<brief explanation>" },
+  "functionAlignment": { "score": <1-5>, "reasoning": "<brief explanation>" }
 }`;
 
 // ─── Build user message ──────────────────────────────────────────────────────
@@ -112,6 +122,7 @@ function buildJudgeUserMessage(sample: JudgeableSample): string {
 
   parts.push(`CHANNEL: ${sample.channelType}`);
   parts.push(`DETECTED INTENT: ${sample.intent}`);
+  parts.push(`FUNCTION CALLED: ${sample.functionCalled || '(none)'}`);
 
   if (sample.testPoint.history.length > 0) {
     parts.push('\nCONVERSATION HISTORY:');
@@ -178,8 +189,8 @@ export async function judgeOneSample(sample: JudgeableSample): Promise<JudgeScor
       const latencyMs = Date.now() - startTime;
 
       // Validate scores are in range
-      const dims: Array<'appropriateness' | 'helpfulness' | 'toneMatch' | 'brevity'> = [
-        'appropriateness', 'helpfulness', 'toneMatch', 'brevity',
+      const dims: Array<'appropriateness' | 'helpfulness' | 'toneMatch' | 'brevity' | 'functionAlignment'> = [
+        'appropriateness', 'helpfulness', 'toneMatch', 'brevity', 'functionAlignment',
       ];
       dims.forEach((dim) => {
         if (!parsed[dim] || typeof parsed[dim].score !== 'number') {
@@ -195,7 +206,8 @@ export async function judgeOneSample(sample: JudgeableSample): Promise<JudgeScor
         parsed.appropriateness.score * DIMENSION_WEIGHTS.appropriateness +
         parsed.helpfulness.score * DIMENSION_WEIGHTS.helpfulness +
         parsed.toneMatch.score * DIMENSION_WEIGHTS.toneMatch +
-        parsed.brevity.score * DIMENSION_WEIGHTS.brevity
+        parsed.brevity.score * DIMENSION_WEIGHTS.brevity +
+        parsed.functionAlignment.score * DIMENSION_WEIGHTS.functionAlignment
       ) * 10) / 10;
 
       return {
@@ -203,6 +215,7 @@ export async function judgeOneSample(sample: JudgeableSample): Promise<JudgeScor
         helpfulness: parsed.helpfulness,
         toneMatch: parsed.toneMatch,
         brevity: parsed.brevity,
+        functionAlignment: parsed.functionAlignment,
         overallScore,
         judgeModel: JUDGE_MODEL,
         judgeTimestamp: new Date().toISOString(),
@@ -269,7 +282,7 @@ export async function judgeAllSamples(
     results.set(i, scores);
 
     if (scores) {
-      console.log(`    Score: ${scores.overallScore} (A:${scores.appropriateness.score} H:${scores.helpfulness.score} T:${scores.toneMatch.score} B:${scores.brevity.score}) ${scores.judgeLatencyMs}ms`);
+      console.log(`    Score: ${scores.overallScore} (A:${scores.appropriateness.score} H:${scores.helpfulness.score} T:${scores.toneMatch.score} B:${scores.brevity.score} F:${scores.functionAlignment.score}) ${scores.judgeLatencyMs}ms`);
     }
 
     // Delay between calls to avoid rate limiting

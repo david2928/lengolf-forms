@@ -114,12 +114,14 @@ export async function insertEvalSamples(
       judge_helpfulness: s.judgeScores?.helpfulness.score ?? null,
       judge_tone_match: s.judgeScores?.toneMatch.score ?? null,
       judge_brevity: s.judgeScores?.brevity.score ?? null,
+      judge_function_alignment: s.judgeScores?.functionAlignment.score ?? null,
       judge_reasoning: s.judgeScores
         ? {
             appropriateness: s.judgeScores.appropriateness.reasoning,
             helpfulness: s.judgeScores.helpfulness.reasoning,
             toneMatch: s.judgeScores.toneMatch.reasoning,
             brevity: s.judgeScores.brevity.reasoning,
+            functionAlignment: s.judgeScores.functionAlignment.reasoning,
           }
         : null,
       judge_model: s.judgeScores?.judgeModel ?? null,
@@ -150,7 +152,7 @@ export async function updateRunAggregates(runId: string): Promise<void> {
   const { data: samples, error } = await supabase
     .schema('ai_eval')
     .from('eval_samples')
-    .select('judge_overall, judge_appropriateness, judge_helpfulness, judge_tone_match, judge_brevity, intent, suggestion_latency_ms, judge_latency_ms, actual_staff_response')
+    .select('judge_overall, judge_appropriateness, judge_helpfulness, judge_tone_match, judge_brevity, judge_function_alignment, intent, suggestion_latency_ms, judge_latency_ms, actual_staff_response')
     .eq('run_id', runId);
 
   if (error || !samples) {
@@ -173,6 +175,7 @@ export async function updateRunAggregates(runId: string): Promise<void> {
   const avgHelp = avg(judged.map((s) => s.judge_helpfulness).filter(Boolean) as number[]);
   const avgTone = avg(judged.map((s) => s.judge_tone_match).filter(Boolean) as number[]);
   const avgBrev = avg(judged.map((s) => s.judge_brevity).filter(Boolean) as number[]);
+  const avgFuncAlign = avg(judged.map((s) => s.judge_function_alignment).filter(Boolean) as number[]);
 
   // Score distribution
   const distribution: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
@@ -216,6 +219,7 @@ export async function updateRunAggregates(runId: string): Promise<void> {
       avg_helpfulness: avgHelp,
       avg_tone_match: avgTone,
       avg_brevity: avgBrev,
+      avg_function_alignment: avgFuncAlign,
       score_distribution: distribution,
       by_intent: byIntent,
       avg_suggestion_latency_ms: suggestionLatencies.length > 0

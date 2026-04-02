@@ -56,7 +56,7 @@ function KPICard({ title, value, previousValue, max = 5 }: KPICardProps) {
 
 export function EvalKPICards({ currentRun, previousRun }: EvalKPICardsProps) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       <KPICard
         title="Overall"
         value={currentRun?.avg_overall ?? null}
@@ -81,6 +81,11 @@ export function EvalKPICards({ currentRun, previousRun }: EvalKPICardsProps) {
         title="Brevity"
         value={currentRun?.avg_brevity ?? null}
         previousValue={previousRun?.avg_brevity ?? null}
+      />
+      <KPICard
+        title="Func Alignment"
+        value={currentRun?.avg_function_alignment ?? null}
+        previousValue={previousRun?.avg_function_alignment ?? null}
       />
     </div>
   );

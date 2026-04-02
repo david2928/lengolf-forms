@@ -16,7 +16,8 @@ The AI suggestion pipeline:
 2. **Skill Loading** — Intent determines which skill prompts are loaded (core + booking/pricing/facility/coaching/general)
 3. **Context Assembly** — Customer data, conversation history, FAQ matches, similar message embeddings
 4. **Response Generation** — GPT-4.1-mini with all 12 tools available every turn (model selects which to use). Write tools require staff approval via `requiresApproval` flag.
-5. **Post-processing** — Confidence scoring, management tag extraction, internal note stripping
+5. **Post-processing** — Confidence scoring, management tag extraction, internal note stripping, follow-up message generation (coaching schedules)
+6. **Tool Filtering** — For `coaching_inquiry` intent, `check_bay_availability` and `check_club_availability` are removed from the tool set (GPT-4.1-mini ignores prompt-level instructions)
 
 **Note (March 2026):** Intent-based tool filtering was removed. The classifier still selects skills/prompts but no longer gates which tools the model can see. See `docs/superpowers/specs/2026-03-22-ai-tool-selection-redesign.md` for details.
 
@@ -66,18 +67,19 @@ The system runs an automated weekly evaluation via a Supabase Edge Function + pg
 | Dashboard Components | `src/components/ai-eval/` (7 components) |
 | API Routes | `app/api/ai-eval/` (trigger, runs, runs/[runId], samples, trends) |
 
-**Schedule:** Every Sunday at 04:00 UTC (11:00 AM Bangkok time)
-**Sample size:** 150 conversations, batch size 10
+**Schedule:** Every Monday at 03:00 UTC (10:00 AM Bangkok time)
+**Sample size:** 200 conversations, batch size 10
 **Judge model:** GPT-4o-mini, temperature=0
 
 ### Judge Scoring Dimensions
 
 | Dimension | Weight | What It Measures |
 |-----------|--------|-----------------|
-| **Appropriateness** | 0.30 | Addresses customer need, correct language, no hallucination |
-| **Helpfulness** | 0.30 | Resolves question/request, actionable and complete |
-| **Tone Match** | 0.20 | Thai premium service tone, warm, professional, polite particles |
-| **Brevity** | 0.20 | Ideal length (1-2 sentences, matching staff style) |
+| **Appropriateness** | 0.25 | Addresses customer need, correct language, no hallucination |
+| **Helpfulness** | 0.25 | Resolves question/request, actionable and complete |
+| **Tone Match** | 0.15 | Thai premium service tone, warm, professional, polite particles |
+| **Brevity** | 0.15 | Ideal length (1-2 sentences, matching staff style) |
+| **Function Alignment** | 0.20 | Called the right tool with correct params, or correctly decided no tool was needed |
 
 Overall score = weighted average (1-5 scale).
 
@@ -86,7 +88,7 @@ Overall score = weighted average (1-5 scale).
 **`ai_eval.eval_runs`** — One row per eval run:
 - Metadata: status, trigger_type (cron/manual/ci), timestamps
 - Versioning: prompt_version, prompt_hash, git_commit_hash, prompt_label
-- Aggregates: avg_overall, avg_appropriateness, avg_helpfulness, avg_tone_match, avg_brevity
+- Aggregates: avg_overall, avg_appropriateness, avg_helpfulness, avg_tone_match, avg_brevity, avg_function_alignment
 - Distribution: score_distribution (JSONB), by_intent (JSONB)
 - Batching: batch_current, batch_total, conversation_ids
 - Errors: error_count, error_message
@@ -167,6 +169,22 @@ The greeting decision isn't stored in traces. To debug:
 3. The logic: `shouldGreet = !hasAssistantMessageToday && !hasGreetedToday`
 4. Date comparison uses Thailand timezone (fixed March 2026 — previously used UTC which caused off-by-one errors near midnight, and used last-message date instead of current date)
 
+### Golden Eval Cases (Deterministic Assertions)
+
+The E2E test suite (`scripts/eval-e2e-suggestions.ts`) includes 7 **golden eval cases** with deterministic pass/fail assertions. These run without an LLM judge — they check function calls, word limits, and required/forbidden content directly.
+
+| Golden Case | What It Tests | Key Assertion |
+|------------|---------------|---------------|
+| GOLDEN-1: Booking with full details | AI acts on structured data | `expectedFunction: 'check_bay_availability'`, no asking for info already provided |
+| GOLDEN-2: Coaching correct tool | Coaching → coaching tool | `expectedFunction: 'get_coaching_availability'`, `mustNotCall: ['check_bay_availability']` |
+| GOLDEN-3: Free trial explanation | FAQ answer, no tool needed | `expectedFunction: null`, `mustNotCall: ['check_bay_availability', 'create_booking']` |
+| GOLDEN-4: Thai greeting brevity | Ultra-brief Thai response | `maxWords: 8`, `mustContain: ['ค่ะ']` |
+| GOLDEN-5: Package pricing exactness | Quote exact price, no hedging | `mustNotContain: ['น่าจะ', 'ประมาณ', 'ไม่แน่ใจ']` |
+| GOLDEN-6: Sticker mid-conversation | Use context, don't greet | `mustNotContain: ['สวัสดี', 'Hello', 'Hi!']` |
+| GOLDEN-7: Phone number mid-booking | Continue booking flow | `expectedFunction: 'check_bay_availability'`, `mustNotContain: ['สวัสดี']` |
+
+**Adding new golden cases:** Set `isGolden: true` and use `expectedFunction`, `mustNotCall`, `maxWords`, `mustContain`, `mustNotContain` fields.
+
 ## Step 1: Run Intent Classifier Eval
 
 Tests the two-tier intent classifier against 65 test cases covering regex fast-path, contextual follow-ups, Thai/English/Chinese messages, and real-world edge cases.
@@ -244,7 +262,7 @@ Results are saved to `scripts/e2e-samples/sample-{label}-{timestamp}.json`.
 
 ## Step 2b: LLM-as-a-Judge Scoring
 
-After sampling, score AI responses using GPT-4o-mini as a judge across 4 dimensions.
+After sampling, score AI responses using GPT-4o-mini as a judge across 5 dimensions.
 
 ### Local Judging (CLI)
 
@@ -274,9 +292,9 @@ npx tsx scripts/judge-sample-results.ts --persist --label "v2 tool selection"
 
 ### Automated Weekly Eval
 
-Runs automatically every Sunday at 11:00 AM Bangkok time via pg_cron + Supabase Edge Function:
+Runs automatically every Monday at 10:00 AM Bangkok time via pg_cron + Supabase Edge Function:
 
-1. Edge Function (`ai-eval-run`) samples 150 random conversations from last 60 days
+1. Edge Function (`ai-eval-run`) samples 200 random conversations from last 60 days
 2. For each sample: calls `/api/ai/suggest-response` in dry-run mode, then judges the response
 3. Processes in batches of 10 (self-invoking between batches)
 4. Stores results in `ai_eval.eval_runs` + `ai_eval.eval_samples`
@@ -492,3 +510,49 @@ These are commonly violated by the AI and cause staff to reject suggestions:
 | `message_embeddings` | Message embeddings for similarity search |
 | `ai_eval.eval_runs` | Eval run metadata, aggregates, prompt versioning, batch tracking |
 | `ai_eval.eval_samples` | Individual judged samples with scores, reasoning, and AI output |
+
+## Hard-Won Learnings (from debugging sessions)
+
+### Architecture Gotchas
+
+| Gotcha | Details |
+|--------|---------|
+| **Two separate hooks** | `useAISuggestions.ts` (non-streaming, used by unified-chat) and `useAISuggestionsStream.ts` (streaming, used by EnhancedMessageInput). Any new suggestion field must be added to BOTH or the UI won't render it. Check which hook the page uses before debugging. |
+| **ChatArea wraps onAccept** | `ChatArea.tsx` wraps `onAcceptSuggestion` in a lambda that drops extra args. When adding callback parameters, update the wrapper too (line ~1205). |
+| **Tool result data sent to model** | `executeAndTrack` returns `JSON.stringify(result.data)` to the AI SDK, which sends it as tool result to GPT. Any internal/debug fields in `result.data` waste tokens. Use `toolState` for post-processing data instead of stuffing it in the result. |
+| **`new Date('YYYY-MM-DD')` is UTC** | On Vercel (US timezone), `new Date('2026-03-30').getDate()` returns `29` (previous day). Parse date strings manually: `day.date.split('-')`. |
+| **`lastFunctionResult` is last only** | If multiple tools are called, only the last result is stored. Use `functionCallHistory` (array) to check if a specific function was called. |
+
+### GPT-4.1-mini Behavioral Patterns
+
+| Pattern | Workaround |
+|---------|------------|
+| **Ignores prompt-level tool selection** | When "ว่างมั้ย" (available?) appears, model pattern-matches to `check_bay_availability` regardless of conversation context or explicit instructions. Fix: remove conflicting tools from the tool set at code level (`delete allTools['check_bay_availability']`). |
+| **Picks any "check" tool** | When `check_bay_availability` is removed, model tries `check_club_availability`, then `lookup_customer`. It avoids `get_coaching_availability` if params lack defaults. Fix: add `.default()` to Zod params (coach_name="any", view="date"). |
+| **Lists every slot inline** | Given schedule data, model enumerates "Coach Min at 4pm, Coach Min at 5pm..." instead of summarizing. Fix: explicit negative instruction ("Do NOT list days, Do NOT list times") + provide a good/bad example in the skill. |
+| **Mentions "limited availability"** | Model comments on coaches with few slots. Fix: instruct "do NOT mention coaches with limited availability". |
+| **Uses `view: "date"` for general queries** | "What coaching slots are available?" / "this week?" gets `view: "date"` (today only). Fix: update tool description to clarify "this week", "what slots" → use `view: "schedule"`. |
+
+### Follow-Up Message System (added March 2026)
+
+The AI now generates two messages for coaching availability:
+1. **Main reply** — 1-sentence summary (model-generated)
+2. **Follow-up schedule** — full coaching availability formatted like staff sends it (deterministic, in `postProcessSuggestion`)
+
+Key implementation details:
+- `followUpMessage` field on `AISuggestion` type, stored in `ai_suggestions.follow_up_message` column
+- Generated in `postProcessSuggestion` when `get_coaching_availability` was called and preferred time unavailable or schedule view used
+- Schedule data stored on `toolState._scheduleByDate` (not in function result, to avoid sending to model)
+- `formatCoachingScheduleFollowUp()` produces staff-matching format: grouped by coach, month headers, dot-time with end times
+- UI: `AISuggestionCard` shows collapsible follow-up with "Send with reply" toggle
+- Send: main message first, then follow-up via sequential `await onSendMessage()` calls
+- Works in both unified chat (non-streaming hook) and EnhancedMessageInput (streaming hook)
+
+### Coaching Availability Tool Filtering
+
+When intent is `coaching_inquiry`, `check_bay_availability` and `check_club_availability` are removed from the tool set (in `suggestion-service.ts` prepare phase). This prevents GPT-4.1-mini from pattern-matching availability keywords to the wrong tool. The coaching skill's conversation flow rules are insufficient — code-level filtering is required.
+
+### Coach Facts
+- **4 coaches**: Pro Boss, Pro Min, Pro Noon, Pro Ratchavin — all different people
+- **Ratchavin** is temporarily excluded from availability suggestions (filtered in `function-executor.ts`)
+- Coach display names have Thai variants (โปรมิน, โปรบอส, etc.) — use `coachDisplayName()` helper

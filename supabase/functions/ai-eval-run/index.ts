@@ -30,15 +30,16 @@ const MAX_BATCHES = 30
 const MAX_DURATION_MS = 60 * 60 * 1000 // 1 hour circuit breaker
 
 const JUDGE_SYSTEM_PROMPT = `You are an expert evaluator for a Thai golf simulator business (LENGOLF) AI assistant.
-The AI generates staff-facing response suggestions. Score the AI's suggested response on 4 dimensions (1-5 scale):
-- appropriateness (0.3 weight): Addresses customer need, correct language, no hallucinated info
-- helpfulness (0.3 weight): Resolves question/request, actionable and complete
-- toneMatch (0.2 weight): Thai premium service tone, warm, professional, polite particles
-- brevity (0.2 weight): Ideal length, concise and complete (1-2 sentences)
+The AI generates staff-facing response suggestions. Score the AI's suggested response on 5 dimensions (1-5 scale):
+- appropriateness (0.25 weight): Addresses customer need, correct language, no hallucinated info
+- helpfulness (0.25 weight): Resolves question/request, actionable and complete
+- toneMatch (0.15 weight): Thai premium service tone, warm, professional, polite particles
+- brevity (0.15 weight): Ideal length, concise and complete (1-2 sentences)
+- functionAlignment (0.2 weight): Called the right tool (e.g., check_bay_availability for booking, get_coaching_availability for coaching), or correctly decided no tool was needed. Score 1 if wrong/harmful tool or missed an obvious action.
 
 IMPORTANT: These are historical conversations replayed for evaluation. Bay availability and booking data are checked against the CURRENT date, not the original conversation date. Do NOT penalize the AI for incorrect availability results, wrong time slots, or "fully booked" responses that differ from what the staff saw. Instead, evaluate whether the AI took the RIGHT APPROACH (checked availability, asked relevant questions, attempted to book) regardless of the specific availability data returned.
 
-Respond in JSON: {"appropriateness":{"score":N,"reasoning":"..."},"helpfulness":{"score":N,"reasoning":"..."},"toneMatch":{"score":N,"reasoning":"..."},"brevity":{"score":N,"reasoning":"..."}}`
+Respond in JSON: {"appropriateness":{"score":N,"reasoning":"..."},"helpfulness":{"score":N,"reasoning":"..."},"toneMatch":{"score":N,"reasoning":"..."},"brevity":{"score":N,"reasoning":"..."},"functionAlignment":{"score":N,"reasoning":"..."}}`
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -166,8 +167,8 @@ async function handleStart(
   if (processed === 0 && totalBatches <= 1) {
     await finalizeRun(supabase, runId, 'failed', 'No eligible samples found in conversations')
   } else if (totalBatches > 1) {
-    // If more batches, self-invoke
-    selfInvoke(supabaseUrl, supabaseKey, runId, batchSize)
+    // If more batches, self-invoke via pg_net (survives edge function shutdown)
+    await selfInvoke(supabase, supabaseUrl, supabaseKey, runId, batchSize)
   } else {
     await finalizeRun(supabase, runId, 'completed')
   }
@@ -238,7 +239,7 @@ async function handleContinue(
   // Check if more batches
   const hasMore = (newBatchCurrent * batchSize) < conversationIds.length
   if (hasMore) {
-    selfInvoke(supabaseUrl, supabaseKey, runId, batchSize)
+    await selfInvoke(supabase, supabaseUrl, supabaseKey, runId, batchSize)
   } else {
     await finalizeRun(supabase, runId, 'completed')
   }
@@ -371,7 +372,7 @@ async function processBatch(
 
       // Judge the response
       const judgeStart = Date.now()
-      const judgeResult = await judgeResponse(openaiKey, testMsg.content, aiResponse, staffResponse, history, conv?.channel_type || 'line', debug?.intentDetected || 'unknown')
+      const judgeResult = await judgeResponse(openaiKey, testMsg.content, aiResponse, staffResponse, history, conv?.channel_type || 'line', debug?.intentDetected || 'unknown', suggestion.functionCalled)
       const judgeLatency = Date.now() - judgeStart
 
       // Insert sample
@@ -400,6 +401,7 @@ async function processBatch(
           judge_helpfulness: judgeResult?.helpfulness || null,
           judge_tone_match: judgeResult?.toneMatch || null,
           judge_brevity: judgeResult?.brevity || null,
+          judge_function_alignment: judgeResult?.functionAlignment || null,
           judge_reasoning: judgeResult?.reasoning || null,
           judge_model: JUDGE_MODEL,
           judge_latency_ms: judgeLatency,
@@ -430,6 +432,7 @@ interface JudgeResult {
   helpfulness: number
   toneMatch: number
   brevity: number
+  functionAlignment: number
   reasoning: Record<string, string>
 }
 
@@ -441,10 +444,12 @@ async function judgeResponse(
   history: ConversationMessage[],
   channelType: string,
   intent: string,
+  functionCalled?: string | null,
 ): Promise<JudgeResult | null> {
   const userContent = [
     `CHANNEL: ${channelType}`,
     `INTENT: ${intent}`,
+    `FUNCTION CALLED: ${functionCalled || '(none)'}`,
     history.length > 0 ? `\nCONVERSATION HISTORY:\n${history.slice(-6).map((m) => `  ${m.sender_type === 'user' || m.sender_type === 'customer' ? 'CUSTOMER' : 'STAFF'}: ${m.content}`).join('\n')}` : '',
     `\nCUSTOMER MESSAGE: "${customerMessage}"`,
     `\nAI RESPONSE: "${aiResponse}"`,
@@ -477,8 +482,9 @@ async function judgeResponse(
     const a = Math.max(1, Math.min(5, Math.round(parsed.appropriateness?.score || 3)))
     const h = Math.max(1, Math.min(5, Math.round(parsed.helpfulness?.score || 3)))
     const t = Math.max(1, Math.min(5, Math.round(parsed.toneMatch?.score || 3)))
+    const f = Math.max(1, Math.min(5, Math.round(parsed.functionAlignment?.score || 3)))
     const b = Math.max(1, Math.min(5, Math.round(parsed.brevity?.score || 3)))
-    const overall = Math.round((a * 0.3 + h * 0.3 + t * 0.2 + b * 0.2) * 10) / 10
+    const overall = Math.round((a * 0.25 + h * 0.25 + t * 0.15 + b * 0.15 + f * 0.2) * 10) / 10
 
     return {
       overallScore: overall,
@@ -486,11 +492,13 @@ async function judgeResponse(
       helpfulness: h,
       toneMatch: t,
       brevity: b,
+      functionAlignment: f,
       reasoning: {
         appropriateness: parsed.appropriateness?.reasoning || '',
         helpfulness: parsed.helpfulness?.reasoning || '',
         toneMatch: parsed.toneMatch?.reasoning || '',
         brevity: parsed.brevity?.reasoning || '',
+        functionAlignment: parsed.functionAlignment?.reasoning || '',
       },
     }
   } catch (err) {
@@ -509,7 +517,7 @@ async function finalizeRun(
   const { data: samples } = await supabase
     .schema('ai_eval')
     .from('eval_samples')
-    .select('judge_overall, judge_appropriateness, judge_helpfulness, judge_tone_match, judge_brevity, intent, suggestion_latency_ms, judge_latency_ms, actual_staff_response')
+    .select('judge_overall, judge_appropriateness, judge_helpfulness, judge_tone_match, judge_brevity, judge_function_alignment, intent, suggestion_latency_ms, judge_latency_ms, actual_staff_response')
     .eq('run_id', runId)
 
   if (!samples) {
@@ -535,6 +543,7 @@ async function finalizeRun(
   const avgHelp = avg(judged.map((s: Record<string, unknown>) => s.judge_helpfulness as number).filter(Boolean))
   const avgTone = avg(judged.map((s: Record<string, unknown>) => s.judge_tone_match as number).filter(Boolean))
   const avgBrev = avg(judged.map((s: Record<string, unknown>) => s.judge_brevity as number).filter(Boolean))
+  const avgFuncAlign = avg(judged.map((s: Record<string, unknown>) => s.judge_function_alignment as number).filter(Boolean))
 
   const distribution: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
   judged.forEach((s: Record<string, unknown>) => {
@@ -571,6 +580,7 @@ async function finalizeRun(
     avg_helpfulness: avgHelp,
     avg_tone_match: avgTone,
     avg_brevity: avgBrev,
+    avg_function_alignment: avgFuncAlign,
     score_distribution: distribution,
     by_intent: byIntent,
     avg_suggestion_latency_ms: sugLatencies.length > 0 ? Math.round(sugLatencies.reduce((a: number, b: number) => a + b, 0) / sugLatencies.length) : null,
@@ -579,20 +589,19 @@ async function finalizeRun(
   }).eq('id', runId)
 }
 
-function selfInvoke(supabaseUrl: string, supabaseKey: string, runId: string, batchSize: number) {
-  // Fire and forget — non-blocking self-invocation
-  fetch(`${supabaseUrl}/functions/v1/ai-eval-run`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${supabaseKey}`,
-    },
-    body: JSON.stringify({
-      action: 'continue',
-      run_id: runId,
-      batch_size: batchSize,
-    }),
-  }).catch((err) => console.error('Self-invoke failed:', err))
+async function selfInvoke(supabase: ReturnType<typeof createClient>, supabaseUrl: string, supabaseKey: string, runId: string, batchSize: number) {
+  // Use pg_net (net.http_post) via RPC to schedule continuation from Postgres.
+  // This survives edge function shutdown — pg_net runs async in the DB background worker,
+  // unlike fire-and-forget fetch() which dies when Deno terminates the runtime.
+  const { error } = await supabase.rpc('trigger_edge_function', {
+    function_name: 'ai-eval-run',
+    payload: { action: 'continue', run_id: runId, batch_size: batchSize },
+    auth_key: supabaseKey,
+  })
+
+  if (error) {
+    console.error('selfInvoke via pg_net failed:', error.message)
+  }
 }
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {

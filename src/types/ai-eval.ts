@@ -21,6 +21,7 @@ export interface EvalRun {
   avg_helpfulness: number | null;
   avg_tone_match: number | null;
   avg_brevity: number | null;
+  avg_function_alignment: number | null;
   score_distribution: Record<string, number>;
   by_intent: IntentBreakdown[];
   avg_suggestion_latency_ms: number | null;
@@ -54,6 +55,7 @@ export interface EvalSample {
   judge_helpfulness: number | null;
   judge_tone_match: number | null;
   judge_brevity: number | null;
+  judge_function_alignment: number | null;
   judge_reasoning: JudgeReasoning | null;
   judge_model: string | null;
   judge_latency_ms: number | null;
@@ -64,6 +66,7 @@ export interface JudgeReasoning {
   helpfulness: string;
   toneMatch: string;
   brevity: string;
+  functionAlignment: string;
 }
 
 export interface IntentBreakdown {
@@ -84,6 +87,7 @@ export interface EvalTrendPoint {
   avg_helpfulness: number | null;
   avg_tone_match: number | null;
   avg_brevity: number | null;
+  avg_function_alignment: number | null;
 }
 
 export interface RunListParams {

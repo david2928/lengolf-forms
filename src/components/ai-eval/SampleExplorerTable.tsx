@@ -152,11 +152,12 @@ function SampleDetail({ sample }: { sample: EvalSample }) {
             Overall: {sample.judge_overall?.toFixed(1) ?? '--'}
           </span>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
           <ScorePill label="Appropriateness" score={sample.judge_appropriateness} reasoning={reasoning?.appropriateness} />
           <ScorePill label="Helpfulness" score={sample.judge_helpfulness} reasoning={reasoning?.helpfulness} />
           <ScorePill label="Tone Match" score={sample.judge_tone_match} reasoning={reasoning?.toneMatch} />
           <ScorePill label="Brevity" score={sample.judge_brevity} reasoning={reasoning?.brevity} />
+          <ScorePill label="Func Alignment" score={sample.judge_function_alignment} reasoning={reasoning?.functionAlignment} />
         </div>
       </div>
 
@@ -205,10 +206,13 @@ function SampleRow({ sample }: { sample: EvalSample }) {
         <td className={`py-2 px-3 text-center ${scoreColor(sample.judge_brevity)}`}>
           {sample.judge_brevity ?? '--'}
         </td>
+        <td className={`py-2 px-3 text-center ${scoreColor(sample.judge_function_alignment)}`}>
+          {sample.judge_function_alignment ?? '--'}
+        </td>
       </tr>
       {expanded && (
         <tr className="border-b">
-          <td colSpan={9} className="p-4 bg-muted/20">
+          <td colSpan={10} className="p-4 bg-muted/20">
             <SampleDetail sample={sample} />
           </td>
         </tr>
@@ -240,6 +244,7 @@ export function SampleExplorerTable({ samples, isLoading }: SampleExplorerTableP
             <th className="text-center py-2 px-3 font-medium">H</th>
             <th className="text-center py-2 px-3 font-medium">T</th>
             <th className="text-center py-2 px-3 font-medium">B</th>
+            <th className="text-center py-2 px-3 font-medium">F</th>
           </tr>
         </thead>
         <tbody>

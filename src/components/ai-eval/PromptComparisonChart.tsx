@@ -12,6 +12,7 @@ const DIMENSION_COLORS = {
   Helpfulness: '#9333ea',
   'Tone Match': '#ea580c',
   Brevity: '#0891b2',
+  'Func Alignment': '#dc2626',
 };
 
 export function PromptComparisonChart({ runs }: PromptComparisonChartProps) {
@@ -32,6 +33,7 @@ export function PromptComparisonChart({ runs }: PromptComparisonChartProps) {
     Helpfulness: run.avg_helpfulness,
     'Tone Match': run.avg_tone_match,
     Brevity: run.avg_brevity,
+    'Func Alignment': run.avg_function_alignment,
   }));
 
   return (
@@ -48,6 +50,7 @@ export function PromptComparisonChart({ runs }: PromptComparisonChartProps) {
         <Bar dataKey="Helpfulness" fill={DIMENSION_COLORS.Helpfulness} radius={[2, 2, 0, 0]} />
         <Bar dataKey="Tone Match" fill={DIMENSION_COLORS['Tone Match']} radius={[2, 2, 0, 0]} />
         <Bar dataKey="Brevity" fill={DIMENSION_COLORS.Brevity} radius={[2, 2, 0, 0]} />
+        <Bar dataKey="Func Alignment" fill={DIMENSION_COLORS['Func Alignment']} radius={[2, 2, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

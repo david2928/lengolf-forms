@@ -33,6 +33,7 @@ export interface JudgeSummary {
     helpfulness: DimensionStats;
     toneMatch: DimensionStats;
     brevity: DimensionStats;
+    functionAlignment: DimensionStats;
     overall: DimensionStats;
   };
   byIntent: IntentBreakdown[];
@@ -76,6 +77,7 @@ export function aggregateScores(samples: JudgeableSample[]): JudgeSummary {
   const helpfulness: number[] = [];
   const toneMatch: number[] = [];
   const brevity: number[] = [];
+  const functionAlignment: number[] = [];
   const overall: number[] = [];
 
   // Score distribution for overall (rounded to nearest integer)
@@ -90,6 +92,7 @@ export function aggregateScores(samples: JudgeableSample[]): JudgeSummary {
     helpfulness.push(js.helpfulness.score);
     toneMatch.push(js.toneMatch.score);
     brevity.push(js.brevity.score);
+    functionAlignment.push(js.functionAlignment.score);
     overall.push(js.overallScore);
 
     const bucket = String(Math.max(1, Math.min(5, Math.round(js.overallScore))));
@@ -122,6 +125,7 @@ export function aggregateScores(samples: JudgeableSample[]): JudgeSummary {
       helpfulness: computeStats(helpfulness),
       toneMatch: computeStats(toneMatch),
       brevity: computeStats(brevity),
+      functionAlignment: computeStats(functionAlignment),
       overall: computeStats(overall),
     },
     byIntent,
@@ -146,6 +150,7 @@ export function printSummary(summary: JudgeSummary): void {
     { label: 'Helpfulness', key: 'helpfulness' },
     { label: 'Tone Match', key: 'toneMatch' },
     { label: 'Brevity', key: 'brevity' },
+    { label: 'Func Alignment', key: 'functionAlignment' },
     { label: 'Overall', key: 'overall' },
   ];
 

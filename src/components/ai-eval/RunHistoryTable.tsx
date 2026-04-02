@@ -51,6 +51,7 @@ export function RunHistoryTable({ runs, selectedRunId, onSelectRun }: RunHistory
             <th className="text-center py-2 px-3 font-medium">H</th>
             <th className="text-center py-2 px-3 font-medium">T</th>
             <th className="text-center py-2 px-3 font-medium">B</th>
+            <th className="text-center py-2 px-3 font-medium">F</th>
             <th className="text-center py-2 px-3 font-medium">Status</th>
           </tr>
         </thead>
@@ -76,6 +77,7 @@ export function RunHistoryTable({ runs, selectedRunId, onSelectRun }: RunHistory
                 <td className="py-2 px-3 text-center">{run.avg_helpfulness?.toFixed(1) ?? '--'}</td>
                 <td className="py-2 px-3 text-center">{run.avg_tone_match?.toFixed(1) ?? '--'}</td>
                 <td className="py-2 px-3 text-center">{run.avg_brevity?.toFixed(1) ?? '--'}</td>
+                <td className="py-2 px-3 text-center">{run.avg_function_alignment?.toFixed(1) ?? '--'}</td>
                 <td className="py-2 px-3 text-center">{statusBadge(run.status)}</td>
               </tr>
             );

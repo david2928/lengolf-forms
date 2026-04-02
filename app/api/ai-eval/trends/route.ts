@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await refacSupabaseAdmin
     .schema('ai_eval')
     .from('eval_runs')
-    .select('id, started_at, prompt_version, prompt_label, total_samples, judged_samples, avg_overall, avg_appropriateness, avg_helpfulness, avg_tone_match, avg_brevity')
+    .select('id, started_at, prompt_version, prompt_label, total_samples, judged_samples, avg_overall, avg_appropriateness, avg_helpfulness, avg_tone_match, avg_brevity, avg_function_alignment')
     .eq('status', 'completed')
     .not('avg_overall', 'is', null)
     .order('started_at', { ascending: true })

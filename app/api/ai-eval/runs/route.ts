@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth-config';
 import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 // Columns to select (exclude large conversation_ids JSONB)
-const RUN_COLUMNS = 'id, started_at, completed_at, status, trigger_type, prompt_version, prompt_hash, git_commit_hash, prompt_label, suggestion_model, judge_model, sample_count_requested, total_samples, judged_samples, skipped_no_staff, avg_overall, avg_appropriateness, avg_helpfulness, avg_tone_match, avg_brevity, score_distribution, by_intent, avg_suggestion_latency_ms, avg_judge_latency_ms, batch_current, batch_total, error_count, error_message';
+const RUN_COLUMNS = 'id, started_at, completed_at, status, trigger_type, prompt_version, prompt_hash, git_commit_hash, prompt_label, suggestion_model, judge_model, sample_count_requested, total_samples, judged_samples, skipped_no_staff, avg_overall, avg_appropriateness, avg_helpfulness, avg_tone_match, avg_brevity, avg_function_alignment, score_distribution, by_intent, avg_suggestion_latency_ms, avg_judge_latency_ms, batch_current, batch_total, error_count, error_message';
 
 export async function GET(request: NextRequest) {
   const session = await getDevSession(authOptions, request);

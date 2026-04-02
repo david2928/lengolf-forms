@@ -36,6 +36,18 @@ interface E2ETestCase {
   expectedTopics: string[];
   /** Topics that should NOT appear (hallucination check) */
   forbiddenTopics?: string[];
+  /** Golden eval: expected function call (deterministic assertion) */
+  expectedFunction?: string | null;
+  /** Golden eval: functions that must NOT be called */
+  mustNotCall?: string[];
+  /** Golden eval: max word count for response */
+  maxWords?: number;
+  /** Golden eval: response must contain these substrings */
+  mustContain?: string[];
+  /** Golden eval: response must NOT contain these substrings */
+  mustNotContain?: string[];
+  /** Mark as golden eval case (stricter pass/fail) */
+  isGolden?: boolean;
 }
 
 // =====================================================
@@ -265,6 +277,138 @@ const TEST_CASES: E2ETestCase[] = [
     acceptableIntents: ['pricing_inquiry', 'coaching_inquiry'],
     expectedTopics: ['1800', 'baht', 'hour', 'lesson'],
   },
+
+  // =====================================================
+  // GOLDEN EVAL CASES — Deterministic function alignment
+  // These have stricter pass/fail based on tool usage
+  // =====================================================
+
+  // GOLDEN 1: Booking with full details → should check availability, NOT ask questions
+  {
+    name: 'GOLDEN-1: Booking with full details (TH)',
+    description: 'Customer provides name, phone, date, hours — AI should act, not ask.',
+    customerMessage: 'จองวันเสาร์ 2 ชม. ครับ ชื่อ สมชาย 0891234567',
+    history: [],
+    conversationId: '186c3a9a-6d74-451b-a0e4-0323469abf03',
+    customerId: null,
+    channelType: 'line',
+    actualStaffResponse: 'ได้เลยค่ะ เช็คเบย์ว่างให้สักครู่นะคะ',
+    expectedIntent: 'booking_request',
+    expectedTopics: ['เสาร์'],
+    expectedFunction: 'check_bay_availability',
+    mustNotContain: ['ชื่ออะไร', 'เบอร์โทร', 'กี่ชั่วโมง'],
+    isGolden: true,
+  },
+
+  // GOLDEN 2: Coaching inquiry → must use get_coaching_availability, NOT check_bay_availability
+  {
+    name: 'GOLDEN-2: Coaching inquiry uses correct tool (TH)',
+    description: 'Customer asks about coaching — must call get_coaching_availability.',
+    customerMessage: 'อยากเรียนกอล์ฟค่ะ มีโค้ชว่างวันไหนบ้าง',
+    history: [],
+    conversationId: 'a6a1d5f9-1f36-48f5-a03b-77a0e022cbdd',
+    customerId: null,
+    channelType: 'line',
+    actualStaffResponse: 'สวัสดีค่ะ มีโค้ชว่างหลายวันเลยค่ะ ส่งตารางให้นะคะ',
+    expectedIntent: 'coaching_inquiry',
+    expectedTopics: ['โค้ช'],
+    expectedFunction: 'get_coaching_availability',
+    mustNotCall: ['check_bay_availability', 'check_club_availability'],
+    isGolden: true,
+  },
+
+  // GOLDEN 3: Free trial question → explain process, no tool needed
+  {
+    name: 'GOLDEN-3: Free trial explanation (EN)',
+    description: 'Customer asks about free trial — should explain, NOT check availability.',
+    customerMessage: 'How does the free trial lesson work?',
+    history: [],
+    conversationId: 'f6a4162e-0718-4c43-88f0-4b6d0fa5e962',
+    customerId: null,
+    channelType: 'website',
+    actualStaffResponse: 'The free trial is a complimentary 30-minute session with one of our coaches. No commitment required.',
+    expectedIntent: 'coaching_inquiry',
+    acceptableIntents: ['coaching_inquiry', 'general_inquiry'],
+    expectedTopics: ['trial', 'free'],
+    expectedFunction: null,
+    mustNotCall: ['check_bay_availability', 'create_booking'],
+    isGolden: true,
+  },
+
+  // GOLDEN 4: Thai greeting → ultra-brief, must contain ค่ะ, max 8 words
+  {
+    name: 'GOLDEN-4: Thai greeting brevity (TH)',
+    description: 'Simple Thai greeting — response must be ultra-brief Thai.',
+    customerMessage: 'สวัสดีค่ะ',
+    history: [],
+    conversationId: '9e10b58a-ea7a-455a-837f-f179ae0267de',
+    customerId: null,
+    channelType: 'line',
+    actualStaffResponse: 'สวัสดีค่ะ ยินดีให้บริการค่ะ',
+    expectedIntent: 'greeting',
+    expectedTopics: [],
+    expectedFunction: null,
+    mustContain: ['ค่ะ'],
+    maxWords: 8,
+    isGolden: true,
+  },
+
+  // GOLDEN 5: Package pricing → quote exact price, no hedging
+  {
+    name: 'GOLDEN-5: Package pricing exactness (TH)',
+    description: 'Customer asks package price — must quote exact number.',
+    customerMessage: 'แพ็กเกจ 10 ชั่วโมง ราคาเท่าไหร่คะ',
+    history: [],
+    conversationId: '67960a7a-51dc-463a-944b-f3f7ede80e96',
+    customerId: null,
+    channelType: 'line',
+    actualStaffResponse: 'แพ็กเกจ 10 ชั่วโมง ราคา 6,500 บาทค่ะ',
+    expectedIntent: 'pricing_inquiry',
+    expectedTopics: ['แพ็กเกจ'],
+    mustNotContain: ['น่าจะ', 'ประมาณ', 'ไม่แน่ใจ'],
+    isGolden: true,
+  },
+
+  // GOLDEN 6: Sticker mid-conversation → use context, don't greet
+  {
+    name: 'GOLDEN-6: Sticker uses conversation context (TH)',
+    description: 'Customer sends sticker during booking flow — should continue, not greet.',
+    customerMessage: 'sent a sticker',
+    history: [
+      { content: 'อยากจองวันพรุ่งนี้ค่ะ', senderType: 'user', createdAt: '2026-03-30T06:00:00Z' },
+      { content: 'ได้ค่ะ กี่ชั่วโมงดีคะ', senderType: 'admin', createdAt: '2026-03-30T06:01:00Z' },
+    ],
+    conversationId: '82f58fa5-1d3b-43df-bcf3-1f2aebf31e22',
+    customerId: null,
+    channelType: 'line',
+    actualStaffResponse: 'รอข้อมูลเพิ่มเติมนะคะ ☺️',
+    expectedIntent: 'greeting',
+    acceptableIntents: ['greeting', 'booking_request'],
+    expectedTopics: [],
+    mustNotContain: ['สวัสดี', 'Hello', 'Hi!'],
+    isGolden: true,
+  },
+
+  // GOLDEN 7: Phone number mid-booking → continue flow, don't pivot
+  {
+    name: 'GOLDEN-7: Phone number continues booking flow (TH)',
+    description: 'Customer provides phone after staff asked — should continue booking.',
+    customerMessage: '0891234567',
+    history: [
+      { content: 'จองวันเสาร์ 2 ชม.ค่ะ ชื่อ นุ๊ก', senderType: 'user', createdAt: '2026-03-30T07:00:00Z' },
+      { content: 'ได้ค่ะ ขอเบอร์โทรด้วยนะคะ', senderType: 'admin', createdAt: '2026-03-30T07:01:00Z' },
+    ],
+    conversationId: '82f58fa5-1d3b-43df-bcf3-1f2aebf31e22',
+    customerId: null,
+    channelType: 'line',
+    actualStaffResponse: 'ขอบคุณค่ะ เช็คเบย์ว่างให้สักครู่นะคะ',
+    expectedIntent: 'booking_request',
+    acceptableIntents: ['booking_request', 'general_inquiry'],
+    expectedTopics: [],
+    expectedFunction: 'check_bay_availability',
+    mustNotContain: ['สวัสดี', 'ต้องการอะไร'],
+    isGolden: true,
+  },
 ];
 
 // =====================================================
@@ -286,6 +430,14 @@ interface E2EResult {
   forbiddenFound: string[];
   functionCalled: string | null;
   customerContextIncluded: boolean;
+  isGolden?: boolean;
+  goldenAssertions?: {
+    functionCorrect?: boolean;
+    noForbiddenCalls?: boolean;
+    withinWordLimit?: boolean;
+    containsRequired?: boolean;
+    noForbiddenContent?: boolean;
+  };
   error?: string;
 }
 
@@ -433,14 +585,54 @@ async function runE2E() {
         }
       }
 
-      // Overall pass: intent correct + no forbidden topics
-      const passed = intentCorrect && forbiddenFound.length === 0;
-
       // Customer context check
       const customerContextIncluded = !!debug?.customerData;
 
+      // Golden eval deterministic assertions
+      let goldenAssertions: E2EResult['goldenAssertions'] | undefined;
+      let goldenPassed = true;
+
+      if (tc.isGolden) {
+        goldenAssertions = {};
+
+        // Function alignment check
+        if (tc.expectedFunction !== undefined) {
+          goldenAssertions.functionCorrect = tc.expectedFunction === null
+            ? !s.functionCalled
+            : s.functionCalled === tc.expectedFunction;
+          if (!goldenAssertions.functionCorrect) goldenPassed = false;
+        }
+
+        // Must-not-call check
+        if (tc.mustNotCall && tc.mustNotCall.length > 0) {
+          goldenAssertions.noForbiddenCalls = !tc.mustNotCall.includes(s.functionCalled || '');
+          if (!goldenAssertions.noForbiddenCalls) goldenPassed = false;
+        }
+
+        // Word limit check
+        if (tc.maxWords) {
+          const wordCount = aiResponse.split(/\s+/).filter(Boolean).length;
+          goldenAssertions.withinWordLimit = wordCount <= tc.maxWords;
+          if (!goldenAssertions.withinWordLimit) goldenPassed = false;
+        }
+
+        // Must-contain check
+        if (tc.mustContain && tc.mustContain.length > 0) {
+          goldenAssertions.containsRequired = tc.mustContain.every(s => aiResponse.includes(s));
+          if (!goldenAssertions.containsRequired) goldenPassed = false;
+        }
+
+        // Must-not-contain check
+        if (tc.mustNotContain && tc.mustNotContain.length > 0) {
+          goldenAssertions.noForbiddenContent = !tc.mustNotContain.some(s => aiResponse.includes(s));
+          if (!goldenAssertions.noForbiddenContent) goldenPassed = false;
+        }
+      }
+
+      // Overall pass: intent correct + no forbidden topics + golden assertions
+      const passed = intentCorrect && forbiddenFound.length === 0 && goldenPassed;
+
       // Print results
-      const intentStatus = intentCorrect ? '✅' : '❌';
       const overallStatus = passed ? '✅' : '❌';
       console.log(`  ${overallStatus} Intent: ${detectedIntent} (${intentSource}) ${intentCorrect ? '' : `Expected: ${tc.expectedIntent}`}`);
       console.log(`  ⏱️  Response: ${s.responseTime}ms | Confidence: ${(s.confidenceScore * 100).toFixed(0)}% | Customer ctx: ${customerContextIncluded ? 'Yes' : 'No'}`);
@@ -449,6 +641,32 @@ async function runE2E() {
       }
       if (s.suggestedImages && (s.suggestedImages as unknown[]).length > 0) {
         console.log(`  🖼️  Images: ${(s.suggestedImages as unknown[]).length} suggested`);
+      }
+
+      // Golden assertion results
+      if (tc.isGolden && goldenAssertions) {
+        console.log('  🏆 Golden assertions:');
+        if (goldenAssertions.functionCorrect !== undefined) {
+          const icon = goldenAssertions.functionCorrect ? '✅' : '❌';
+          console.log(`     ${icon} Function: got "${s.functionCalled || '(none)'}", expected "${tc.expectedFunction ?? '(none)'}"`);
+        }
+        if (goldenAssertions.noForbiddenCalls !== undefined) {
+          const icon = goldenAssertions.noForbiddenCalls ? '✅' : '❌';
+          console.log(`     ${icon} No forbidden calls${!goldenAssertions.noForbiddenCalls ? `: called "${s.functionCalled}" (forbidden)` : ''}`);
+        }
+        if (goldenAssertions.withinWordLimit !== undefined) {
+          const wordCount = aiResponse.split(/\s+/).filter(Boolean).length;
+          const icon = goldenAssertions.withinWordLimit ? '✅' : '❌';
+          console.log(`     ${icon} Word limit: ${wordCount}/${tc.maxWords}`);
+        }
+        if (goldenAssertions.containsRequired !== undefined) {
+          const icon = goldenAssertions.containsRequired ? '✅' : '❌';
+          console.log(`     ${icon} Contains required: ${tc.mustContain?.join(', ')}`);
+        }
+        if (goldenAssertions.noForbiddenContent !== undefined) {
+          const icon = goldenAssertions.noForbiddenContent ? '✅' : '❌';
+          console.log(`     ${icon} No forbidden content${!goldenAssertions.noForbiddenContent ? `: found "${tc.mustNotContain?.filter(s => aiResponse.includes(s)).join(', ')}"` : ''}`);
+        }
       }
 
       // Print AI vs Actual comparison
@@ -482,6 +700,8 @@ async function runE2E() {
         forbiddenFound,
         functionCalled: s.functionCalled || null,
         customerContextIncluded,
+        isGolden: tc.isGolden,
+        goldenAssertions,
       });
 
     } catch (error) {
@@ -516,6 +736,10 @@ async function runE2E() {
   const avgTime = Math.round(results.reduce((sum, r) => sum + r.responseTimeMs, 0) / results.length);
   const avgConfidence = (results.reduce((sum, r) => sum + r.confidenceScore, 0) / results.length * 100).toFixed(0);
 
+  // Golden eval stats
+  const goldenResults = results.filter(r => r.isGolden);
+  const goldenPassed = goldenResults.filter(r => r.passed).length;
+
   console.log(`\n\n${'═'.repeat(66)}`);
   console.log('                        RESULTS SUMMARY');
   console.log('═'.repeat(66));
@@ -525,6 +749,21 @@ async function runE2E() {
   console.log(`  Avg confidence:    ${avgConfidence}%`);
   console.log(`  Customer context:  ${withCustomerCtx}/${results.length} had real customer data`);
   console.log(`  Function calls:    ${withFunctions}/${results.length} triggered tool use`);
+
+  if (goldenResults.length > 0) {
+    console.log(`\n  🏆 Golden evals:   ${goldenPassed}/${goldenResults.length} passed (${Math.round(goldenPassed / goldenResults.length * 100)}%)`);
+    goldenResults.forEach(r => {
+      const icon = r.passed ? '✅' : '❌';
+      const failReasons: string[] = [];
+      if (r.goldenAssertions?.functionCorrect === false) failReasons.push('wrong function');
+      if (r.goldenAssertions?.noForbiddenCalls === false) failReasons.push('forbidden call');
+      if (r.goldenAssertions?.withinWordLimit === false) failReasons.push('too long');
+      if (r.goldenAssertions?.containsRequired === false) failReasons.push('missing content');
+      if (r.goldenAssertions?.noForbiddenContent === false) failReasons.push('forbidden content');
+      if (!r.intentCorrect) failReasons.push('wrong intent');
+      console.log(`     ${icon} ${r.name}${failReasons.length > 0 ? ` — ${failReasons.join(', ')}` : ''}`);
+    });
+  }
 
   // List failures
   const failures = results.filter(r => !r.passed);

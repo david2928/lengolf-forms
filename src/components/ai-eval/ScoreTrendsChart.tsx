@@ -13,6 +13,7 @@ const DIMENSION_COLORS = {
   helpfulness: '#9333ea',
   toneMatch: '#ea580c',
   brevity: '#0891b2',
+  functionAlignment: '#dc2626',
 };
 
 export function ScoreTrendsChart({ trends }: ScoreTrendsChartProps) {
@@ -32,6 +33,7 @@ export function ScoreTrendsChart({ trends }: ScoreTrendsChartProps) {
     Helpfulness: t.avg_helpfulness,
     'Tone Match': t.avg_tone_match,
     Brevity: t.avg_brevity,
+    'Func Alignment': t.avg_function_alignment,
   }));
 
   return (
@@ -50,6 +52,7 @@ export function ScoreTrendsChart({ trends }: ScoreTrendsChartProps) {
         <Line type="monotone" dataKey="Helpfulness" stroke={DIMENSION_COLORS.helpfulness} strokeWidth={1.5} dot={{ r: 2 }} />
         <Line type="monotone" dataKey="Tone Match" stroke={DIMENSION_COLORS.toneMatch} strokeWidth={1.5} dot={{ r: 2 }} />
         <Line type="monotone" dataKey="Brevity" stroke={DIMENSION_COLORS.brevity} strokeWidth={1.5} dot={{ r: 2 }} />
+        <Line type="monotone" dataKey="Func Alignment" stroke={DIMENSION_COLORS.functionAlignment} strokeWidth={1.5} dot={{ r: 2 }} />
       </LineChart>
     </ResponsiveContainer>
   );
