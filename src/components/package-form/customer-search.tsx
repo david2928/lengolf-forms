@@ -10,6 +10,8 @@ interface SimpleCustomer {
   customer_name: string;
   contact_number: string | null;
   customer_code?: string; // Add customer code for enhanced search
+  has_active_package?: boolean;
+  customer_status?: string; // Active, Inactive, Dormant, New
 }
 
 interface CustomerSearchProps {
@@ -64,7 +66,25 @@ export function CustomerSearch({
       return (
         <div className="flex items-center justify-between w-full">
           <div className="flex flex-col flex-1 min-w-0">
-            <span className="font-medium truncate">{customer.customer_name}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium truncate">{customer.customer_name}</span>
+              {customer.customer_status && (
+                <span className={cn(
+                  "shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full leading-none",
+                  customer.customer_status === 'Active' && "bg-emerald-100 text-emerald-700",
+                  customer.customer_status === 'Inactive' && "bg-amber-100 text-amber-700",
+                  customer.customer_status === 'Dormant' && "bg-red-100 text-red-600",
+                  customer.customer_status === 'New' && "bg-blue-100 text-blue-700",
+                )}>
+                  {customer.customer_status}
+                </span>
+              )}
+              {customer.has_active_package && (
+                <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full leading-none bg-purple-100 text-purple-700">
+                  PKG
+                </span>
+              )}
+            </div>
             <span className="text-sm text-muted-foreground truncate">
               {customer.contact_number || 'No contact number'}
             </span>

@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { CheckCircle2, Loader2, Clock, Users, Calendar, MapPin, Shield, Flag, ClipboardList } from 'lucide-react';
 
+import { NoteTagChips } from '@/components/booking-form/note-tag-chips';
 import { EnhancedEmployeeSelector } from './selectors/enhanced-employee-selector';
 import { EnhancedCustomerTypeSelector } from './selectors/enhanced-customer-type-selector';
 import { EnhancedContactMethodSelector } from './selectors/enhanced-contact-method-selector';
@@ -125,9 +126,9 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
 
   // Dynamic customer search - will fetch based on search query or show recent customers
   const [searchQuery, setSearchQuery] = useState('');
-  const searchUrl = searchQuery.length >= 2 
-    ? `/api/customers?search=${encodeURIComponent(searchQuery)}&limit=100` 
-    : '/api/customers?limit=100&sortBy=lastVisit&sortOrder=desc';
+  const searchUrl = searchQuery.length >= 2
+    ? `/api/customers?search=${encodeURIComponent(searchQuery)}&limit=100`
+    : '/api/customers?limit=20&sortBy=lastVisit&sortOrder=desc&status=Active';
 
   const { data: customersResponse, mutate: mutateCustomers } = useSWR<{customers: NewCustomer[], pagination: any, kpis: any}>(
     searchUrl,
@@ -370,7 +371,28 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
       const response = await fetch(`/api/packages/by-customer/${customerId}?include_inactive=true`);
       if (!response.ok) throw new Error('Failed to fetch packages');
       const data = await response.json();
-      setAvailablePackages(data || []);
+      const packages: any[] = data || [];
+      setAvailablePackages(packages);
+
+      // Auto-select if customer has exactly one active package
+      const activePackages = packages.filter((pkg: any) => {
+        const notExpired = !pkg.expiration_date || new Date(pkg.expiration_date) >= new Date();
+        const hasHours = pkg.package_type === 'Unlimited' || (pkg.remaining_hours ?? 0) > 0;
+        return notExpired && hasHours;
+      });
+
+      if (activePackages.length === 1) {
+        const pkg = activePackages[0];
+        const packageForAutoDetection: Package = {
+          id: pkg.id,
+          name: pkg.package_type_name || '',
+          type: pkg.package_type_name || '',
+          hours_remaining: pkg.remaining_hours || 0,
+          expires_at: pkg.expiration_date || '',
+          is_unlimited: pkg.package_type === 'Unlimited'
+        };
+        handlePackageSelection(packageForAutoDetection);
+      }
     } catch (error) {
       console.error('Error fetching packages:', error);
       setAvailablePackages([]);
@@ -1068,6 +1090,10 @@ export function BookingFormNew(props: BookingFormNewProps = {}) {
             
             <div>
               <Label htmlFor="notes">Notes (Optional)</Label>
+              <NoteTagChips
+                notes={formData.notes || ''}
+                onChange={(notes) => setFormData(prev => ({ ...prev, notes }))}
+              />
               <Textarea
                 id="notes"
                 placeholder="Any additional notes or special requests..."

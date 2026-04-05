@@ -33,6 +33,10 @@ interface CustomerFilters {
   notVisitedDays?: number;
   // Package history filter: active_packages >=1 (yes) or =0 (no)
   hasPackage?: 'yes' | 'no' | boolean;
+  // Minimum total bookings filter
+  minVisits?: number;
+  // Customer status filter (Active, Inactive, Dormant, New)
+  status?: string;
   sortBy?: 'fullName' | 'customerCode' | 'registrationDate' | 'lastVisit' | 'lifetimeValue' | 'totalBookings';
   sortOrder?: 'asc' | 'desc';
   page?: number;
@@ -60,6 +64,8 @@ export async function GET(request: NextRequest) {
       preferredContactMethod: (searchParams.get('preferredContactMethod') as any) || undefined,
       notVisitedDays: searchParams.get('notVisitedDays') ? parseInt(searchParams.get('notVisitedDays') as string) : undefined,
       hasPackage: searchParams.get('hasPackage') === 'true' ? 'yes' : searchParams.get('hasPackage') === 'false' ? 'no' : (searchParams.get('hasPackage') as any) || undefined,
+      minVisits: searchParams.get('minVisits') ? parseInt(searchParams.get('minVisits') as string) : undefined,
+      status: searchParams.get('status') || undefined,
       sortBy: (searchParams.get('sortBy') as any) || 'fullName',
       sortOrder: (searchParams.get('sortOrder') as any) || 'asc',
       page: parseInt(searchParams.get('page') || '1'),
@@ -210,6 +216,16 @@ export async function GET(request: NextRequest) {
     } else if (filters.hasPackage === 'no') {
       query = query.eq('active_packages', 0);
       countQuery = countQuery.eq('active_packages', 0);
+    }
+
+    if (filters.minVisits) {
+      query = query.gte('total_bookings', filters.minVisits);
+      countQuery = countQuery.gte('total_bookings', filters.minVisits);
+    }
+
+    if (filters.status) {
+      query = query.eq('customer_status', filters.status);
+      countQuery = countQuery.eq('customer_status', filters.status);
     }
 
     // Apply sorting

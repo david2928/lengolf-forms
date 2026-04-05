@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { UserPlus } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { CustomerSelfServiceOverlay, type CustomerSelfServiceData } from './customer-self-service'
 import { toast } from 'sonner'
 // Customer type for the new customer management system
@@ -20,6 +21,7 @@ interface NewCustomer {
   lifetime_spending: string;
   total_bookings: number;
   last_visit_date?: string;
+  active_packages?: number;
   // Legacy compatibility
   stable_hash_id?: string;
 }
@@ -156,7 +158,9 @@ export function CustomerDetails({
     id: customer.id, // Keep as string UUID
     customer_name: customer.customer_name, // Just the name, no code prefix
     contact_number: customer.contact_number || null,
-    customer_code: customer.customer_code // Keep code separate for badge display
+    customer_code: customer.customer_code, // Keep code separate for badge display
+    has_active_package: (customer.active_packages ?? 0) > 0,
+    customer_status: customer.customer_status
   }));
 
   const handleCustomerSelection = (simpleCustomer: { id: string; customer_name: string; contact_number: string | null }) => {
@@ -319,67 +323,55 @@ export function CustomerDetails({
           
           {/* Selected Customer Display Card */}
           {selectedCustomerCache && (
-            <div className="p-3 sm:p-5 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200 rounded-lg shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mb-2">
-                    <h3 className="text-base sm:text-lg font-bold text-blue-900 truncate">
-                      {selectedCustomerCache.customer_name}
-                    </h3>
-                    <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full font-medium self-start">
-                      {selectedCustomerCache.customer_code}
-                    </span>
-                  </div>
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              {/* Header: Name + badges */}
+              <div className="flex items-center gap-2 mb-3">
+                <h3 className="text-base font-semibold text-gray-900 truncate">
+                  {selectedCustomerCache.customer_name}
+                </h3>
+                <span className="text-[10px] font-mono bg-white text-gray-500 px-1.5 py-0.5 rounded border shrink-0">
+                  {selectedCustomerCache.customer_code}
+                </span>
+                <span className={cn(
+                  "shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full leading-none",
+                  selectedCustomerCache.customer_status === 'Active' && "bg-emerald-100 text-emerald-700",
+                  selectedCustomerCache.customer_status === 'Inactive' && "bg-amber-100 text-amber-700",
+                  selectedCustomerCache.customer_status === 'Dormant' && "bg-red-100 text-red-600",
+                  selectedCustomerCache.customer_status === 'New' && "bg-blue-100 text-blue-700",
+                )}>
+                  {selectedCustomerCache.customer_status}
+                </span>
+                {(selectedCustomerCache.active_packages ?? 0) > 0 && (
+                  <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full leading-none bg-purple-100 text-purple-700">
+                    {selectedCustomerCache.active_packages} active pkg
+                  </span>
+                )}
+              </div>
 
-                  <div className="space-y-1 text-xs sm:text-sm">
-                    <div className="flex flex-col sm:flex-row sm:items-center text-blue-700">
-                      <span className="font-medium mr-2 min-w-0">Phone:</span>
-                      <span className="truncate">{selectedCustomerCache.contact_number || 'Not provided'}</span>
-                    </div>
-                    {selectedCustomerCache.email && (
-                      <div className="flex flex-col sm:flex-row sm:items-center text-blue-700">
-                        <span className="font-medium mr-2 min-w-0">Email:</span>
-                        <span className="truncate">{selectedCustomerCache.email}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center text-blue-700">
-                      <span className="font-medium mr-2">Status:</span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        selectedCustomerCache.customer_status === 'Active'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {selectedCustomerCache.customer_status}
-                      </span>
-                    </div>
-                  </div>
+              {/* Stats row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <div className="text-xs text-gray-400">Phone</div>
+                  <div className="font-medium text-gray-700">{selectedCustomerCache.contact_number || '-'}</div>
                 </div>
-
-                <div className="text-left sm:text-right space-y-2 sm:ml-6">
-                  <div className="bg-white bg-opacity-50 rounded-lg p-2 sm:p-3 min-w-0 sm:min-w-[140px]">
-                    <div className="text-xs text-blue-600 font-medium mb-1">ACTIVITY</div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs sm:text-sm">
-                        <span className="text-blue-700">Bookings:</span>
-                        <span className="font-semibold text-blue-900">{selectedCustomerCache.total_bookings}</span>
-                      </div>
-                      <div className="flex justify-between text-xs sm:text-sm">
-                        <span className="text-blue-700">Spent:</span>
-                        <span className="font-semibold text-blue-900">${Math.round(parseFloat(selectedCustomerCache.lifetime_spending) || 0).toLocaleString()}</span>
-                      </div>
-                      {selectedCustomerCache.last_visit_date && selectedCustomerCache.last_visit_date !== 'Never' && (
-                        <div className="text-xs text-blue-600 mt-2">
-                          <div className="font-medium">Last Visit:</div>
-                          <div className="text-blue-700">
-                            {new Date(selectedCustomerCache.last_visit_date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                <div>
+                  <div className="text-xs text-gray-400">Visits</div>
+                  <div className="font-medium text-gray-700">{selectedCustomerCache.total_bookings}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400">Total Spent</div>
+                  <div className="font-medium text-gray-700">{Math.round(parseFloat(selectedCustomerCache.lifetime_spending) || 0).toLocaleString()} THB</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400">Last Visit</div>
+                  <div className="font-medium text-gray-700">
+                    {selectedCustomerCache.last_visit_date && selectedCustomerCache.last_visit_date !== 'Never'
+                      ? new Date(selectedCustomerCache.last_visit_date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })
+                      : '-'}
                   </div>
                 </div>
               </div>

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Package, FileText, Tag, UserCheck } from 'lucide-react';
+import { NoteTagChips } from '@/components/booking-form/note-tag-chips';
 import { EditPackageSelector } from '@/components/booking-form/selectors/edit-package-selector';
 import { SimpleBookingTypeSelector } from '@/components/booking-form/selectors/simple-booking-type-selector';
 import { SimpleReferralSourceSelector } from '@/components/booking-form/selectors/simple-referral-source-selector';
@@ -104,6 +105,10 @@ export function BookingExtrasForm({
           <FileText className="h-4 w-4" />
           Customer Notes
         </Label>
+        <NoteTagChips
+          notes={formData.customer_notes || ''}
+          onChange={(notes) => updateFormField('customer_notes', notes)}
+        />
         <Textarea
           placeholder="Add any special notes or requests..."
           value={formData.customer_notes || ''}
