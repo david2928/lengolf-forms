@@ -11,7 +11,6 @@ import { TimeSlots } from '../../booking-form/time-slots'
 import { BaySelector } from '../../booking-form/bay-selector'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { addHours, addMinutes, format, differenceInMinutes, parse as parseDateFns } from 'date-fns'
 import { DateTime } from 'luxon'
 
@@ -209,14 +208,6 @@ export function TimeSlotStep() {
         error={{ bay: errors.bayNumber }}
       />
 
-      <div className="space-y-2">
-        <Label>Notes (Optional)</Label>
-        <Textarea
-          placeholder="Any special requirements or notes"
-          value={formData.notes || ''}
-          onChange={(e) => setFormValue('notes', e.target.value)}
-        />
-      </div>
     </div>
   );
 }
