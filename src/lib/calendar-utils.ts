@@ -88,7 +88,7 @@ export function formatBookingForCalendar(booking: Booking): CalendarEvent {
     color: getBayColor(booking.bay),
     summary: summary,
     is_new_customer: booking.is_new_customer,
-    referral_source: booking.referral_source || undefined
+    referral_source: booking.referral_source || undefined,
   };
 }
 

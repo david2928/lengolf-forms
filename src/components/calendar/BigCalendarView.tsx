@@ -147,7 +147,7 @@ export function BigCalendarView({
     
     // Check if this is a new customer
     const isNewCustomer = booking.is_new_customer;
-    
+
     if (isCoaching) {
       // Keep the bay color but add distinctive striped pattern and border
       borderStyle = '3px solid #fbbf24'; // thick amber border

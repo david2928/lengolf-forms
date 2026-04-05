@@ -14,6 +14,8 @@ import { ViewBookingModal } from '@/components/calendar/ViewBookingModal';
 import { UnconfirmedBookingsCounter } from '@/components/calendar/UnconfirmedBookingsCounter';
 import { UnconfirmedBookingsModal } from '@/components/calendar/UnconfirmedBookingsModal';
 import { useUnconfirmedBookings } from '@/hooks/use-unconfirmed-bookings';
+import { useCourseRentalsCount } from '@/hooks/use-course-rentals-count';
+import { CourseRentalCounter } from '@/components/calendar/CourseRentalCounter';
 import { useToast } from '@/components/ui/use-toast';
 import { DayPicker } from 'react-day-picker';
 import { format, parse, isValid, subHours, isBefore } from 'date-fns';
@@ -79,6 +81,13 @@ export default function BookingsCalendarPage() {
     refresh: refreshUnconfirmed,
     confirmBooking
   } = useUnconfirmedBookings(currentDateString);
+
+  // Course rentals count for the selected date
+  const {
+    count: courseRentalCount,
+    setNames: courseRentalSetNames,
+    isLoading: isCourseRentalLoading,
+  } = useCourseRentalsCount(currentDateString);
   
   // Check for mobile on mount and window resize
   useEffect(() => {
@@ -412,6 +421,14 @@ export default function BookingsCalendarPage() {
               <Plus className="h-4 w-4 mr-1" />
               {isMobile ? 'New' : 'New Booking'}
             </Button>
+
+            {/* Course Rental Counter */}
+            <CourseRentalCounter
+              count={courseRentalCount}
+              setNames={courseRentalSetNames}
+              isLoading={isCourseRentalLoading}
+              isMobile={isMobile}
+            />
 
             {/* Unconfirmed Bookings Counter */}
             <UnconfirmedBookingsCounter
