@@ -21,5 +21,6 @@ export const EMPLOYEES_LIST: Employee[] = [
   { value: 'Net', label: 'Net' },
   { value: 'May', label: 'May' },
   { value: 'Ashley', label: 'Ashley' },
+  { value: 'First', label: 'First' },
   { value: 'David', label: 'David' },
 ];
