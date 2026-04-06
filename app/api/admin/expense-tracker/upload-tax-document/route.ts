@@ -5,7 +5,7 @@ import { uploadTaxDocument, type TaxFilingType } from '@/lib/google-drive-servic
 
 export const maxDuration = 30; // Google Drive upload
 
-const VALID_FILING_TYPES = new Set<TaxFilingType>(['pp30', 'pp36', 'pnd3', 'pnd53', 'sso']);
+const VALID_FILING_TYPES = new Set<TaxFilingType>(['pp30', 'pp36', 'pnd3', 'pnd53', 'sso', 'sal']);
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 

@@ -307,8 +307,9 @@ export async function uploadCashTransactionReceipt(
 const TAX_FILING_VAT_FOLDER_ID = '1JXze6KczYRbZd4Ufc8OYNtcd2jSxABCK'
 const TAX_FILING_WHT_FOLDER_ID = '16BP5QEzle1uUp5H9ZdzcFsy0nIQMfZOT'
 const TAX_FILING_SSO_FOLDER_ID = '1AdEkRgXy6AsdKvYoPXjqJsyH8biYPfuu'
+const PAYROLL_FOLDER_ID = '1rSNFRFzff8k2LawyxTinGL0GFZrgiDaZ'
 
-export type TaxFilingType = 'pp30' | 'pp36' | 'pnd3' | 'pnd53' | 'sso'
+export type TaxFilingType = 'pp30' | 'pp36' | 'pnd3' | 'pnd53' | 'sso' | 'sal'
 
 /**
  * Upload a document to the tax filing folder structure in Google Drive.
@@ -366,6 +367,13 @@ export async function uploadTaxDocument(
       targetFolderId = TAX_FILING_SSO_FOLDER_ID
       const ssoSuffix = Date.now().toString(36).slice(-4)
       fileName = `${yyyymm}_${ssoSuffix}.${ext}`
+      break
+    }
+    case 'sal': {
+      const salYearFolderId = await findOrCreateFolder(drive, PAYROLL_FOLDER_ID, year)
+      targetFolderId = salYearFolderId
+      // Keep original filename as-is
+      fileName = options.originalFileName || `${yyyymm}_payroll.${ext}`
       break
     }
     default: {

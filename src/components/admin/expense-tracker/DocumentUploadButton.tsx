@@ -12,7 +12,7 @@ import type { InvoiceExtraction, VatType, TransactionType } from '@/types/expens
 
 // ── Tax filing types (extensible — add new types here) ─────────────────────
 
-type FilingType = 'pp30' | 'pp36' | 'pnd3' | 'pnd53' | 'sso';
+type FilingType = 'pp30' | 'pp36' | 'pnd3' | 'pnd53' | 'sso' | 'sal';
 
 const FILING_CONFIG: Record<FilingType, { label: string; color: string; needsDescription: boolean }> = {
   pp30:  { label: 'PP30 (VAT)',  color: 'bg-blue-100 text-blue-700',   needsDescription: true },
@@ -20,6 +20,7 @@ const FILING_CONFIG: Record<FilingType, { label: string; color: string; needsDes
   pnd3:  { label: 'PND3 (WHT)',  color: 'bg-orange-100 text-orange-700', needsDescription: false },
   pnd53: { label: 'PND53 (WHT)', color: 'bg-amber-100 text-amber-700',  needsDescription: false },
   sso:   { label: 'SSO',         color: 'bg-teal-100 text-teal-700',    needsDescription: false },
+  sal:   { label: 'Salary',      color: 'bg-green-100 text-green-700',  needsDescription: false },
 };
 
 function getAvailableFilingTypes(transactionType: TransactionType | null): FilingType[] {
@@ -27,6 +28,7 @@ function getAvailableFilingTypes(transactionType: TransactionType | null): Filin
   // AI will classify the document to determine the specific filing type.
   if (transactionType === 'tax_payment') return ['pp30', 'pp36', 'pnd3', 'pnd53'];
   if (transactionType === 'sso') return ['sso'];
+  if (transactionType === 'salary') return ['sal'];
   return [];
 }
 
@@ -321,7 +323,7 @@ export function DocumentUploadButton({
         <button
           type="button"
           className="inline-flex items-center justify-center h-6 w-6 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-          title={isTaxMode ? 'Upload to tax filing folder' : 'Upload document for auto-extraction'}
+          title={isTaxMode ? `Upload to ${transactionType === 'salary' ? 'payroll' : 'tax filing'} folder` : 'Upload document for auto-extraction'}
         >
           {isTaxMode ? <FolderUp className="h-3.5 w-3.5" /> : <FileUp className="h-3.5 w-3.5" />}
         </button>
