@@ -1,28 +1,22 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { LoadingSpinner } from '@/components/ui/loading-spinner'
-import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
-import { 
-  Clock, 
-  Camera, 
-  Delete, 
-  CheckCircle, 
-  AlertTriangle, 
-  Loader2,
-  User,
+import {
+  Clock,
+  Camera,
+  Delete,
+  CheckCircle,
+  AlertTriangle,
+  Lock,
   LogIn,
   LogOut,
-  Lock,
-  Eye,
-  EyeOff
+  AlertCircle,
 } from 'lucide-react'
+
+// ==========================================
+// Types
+// ==========================================
 
 interface TimeClockState {
   pin: string
@@ -37,12 +31,214 @@ interface TimeClockState {
   } | null
   staffInfo: {
     name: string
-    currentlyClocked: boolean
+    staffId: number
     action: 'clock_in' | 'clock_out'
   } | null
   cameraStream: MediaStream | null
   photoData: string | null
+  // Double-tap confirmation
+  confirmationNeeded: {
+    message: string
+    pin: string
+    photoData: string | null
+  } | null
 }
+
+interface HistoryData {
+  shifts: { clock_in: string; clock_out: string | null; hours: number | null }[]
+  total_hours: number
+  scheduled_shift: {
+    start_time: string
+    end_time: string
+    location: string | null
+    scheduled_hours: number | null
+  } | null
+  entries: { id: number; action: string; time: string }[]
+}
+
+type ViewMode = 'pin' | 'history'
+
+// ==========================================
+// History View Component
+// ==========================================
+
+function HistoryView({
+  staffName,
+  action,
+  history,
+  onDone,
+  autoResetSeconds,
+}: {
+  staffName: string
+  action: 'clock_in' | 'clock_out'
+  history: HistoryData | null
+  onDone: () => void
+  autoResetSeconds: number
+}) {
+  const [countdown, setCountdown] = useState(autoResetSeconds)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown(prev => prev - 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (countdown <= 0) onDone()
+  }, [countdown, onDone])
+
+  const formatScheduleTime = (time: string) => {
+    const [h, m] = time.split(':').map(Number)
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h
+    return m === 0 ? `${displayH} ${ampm}` : `${displayH}:${String(m).padStart(2, '0')} ${ampm}`
+  }
+
+  const isShortShift = history?.scheduled_shift?.scheduled_hours && history.total_hours > 0
+    && history.total_hours < (history.scheduled_shift.scheduled_hours * 0.7)
+
+  return (
+    <div className="fixed inset-0 z-50 bg-gradient-to-br from-[#265020] via-green-800 to-[#265020]">
+      <div className="h-full flex flex-col items-center justify-center p-4">
+        <div className="max-w-sm w-full">
+          {/* Success Header */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 mb-3">
+              {action === 'clock_in' ? (
+                <LogIn className="h-8 w-8 text-green-200" />
+              ) : (
+                <LogOut className="h-8 w-8 text-green-200" />
+              )}
+            </div>
+            <h2 className="text-xl font-bold text-white">
+              {action === 'clock_in' ? 'Clocked In' : 'Clocked Out'}
+            </h2>
+            <p className="text-green-100 text-sm mt-1">{staffName}</p>
+          </div>
+
+          {/* Today's Shifts */}
+          {history && (
+            <div className="bg-white/10 rounded-xl p-4 mb-4 border border-white/20">
+              <h3 className="text-sm font-semibold text-green-100 mb-3 flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Today&apos;s Hours
+              </h3>
+
+              {history.shifts.length > 0 ? (
+                <div className="space-y-2">
+                  {history.shifts.map((shift, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 text-white">
+                        <span className="font-mono">{shift.clock_in}</span>
+                        <span className="text-green-300">→</span>
+                        <span className="font-mono">{shift.clock_out || '...'}</span>
+                      </div>
+                      {shift.hours !== null && (
+                        <span className="text-green-200 text-xs">
+                          {shift.hours.toFixed(1)}h
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-green-200/60 text-sm">No entries yet</p>
+              )}
+
+              {/* Total */}
+              <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
+                <span className="text-sm text-green-100 font-medium">Total</span>
+                <span className="text-white font-bold">
+                  {history.total_hours.toFixed(1)} hrs
+                </span>
+              </div>
+
+              {/* Scheduled shift comparison */}
+              {history.scheduled_shift && (
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-green-200/70">
+                    Scheduled: {formatScheduleTime(history.scheduled_shift.start_time)} – {formatScheduleTime(history.scheduled_shift.end_time)}
+                    {history.scheduled_shift.scheduled_hours && ` (${history.scheduled_shift.scheduled_hours}h)`}
+                  </span>
+                </div>
+              )}
+
+              {/* Short shift warning */}
+              {isShortShift && (
+                <div className="mt-2 flex items-center gap-2 text-amber-200 text-xs bg-amber-500/20 rounded-lg p-2">
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>Hours look shorter than scheduled. If this is a mistake, please let admin know.</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Done Button */}
+          <button
+            onClick={onDone}
+            className="w-full py-3 px-6 rounded-full bg-white/90 hover:bg-white text-[#265020] font-bold text-base hover:scale-105 active:scale-95 transition-all"
+          >
+            Done
+          </button>
+          <p className="text-center text-green-200/50 text-xs mt-2">
+            Auto-closing in {countdown}s
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ==========================================
+// Confirmation Dialog Component
+// ==========================================
+
+function ConfirmationDialog({
+  message,
+  onConfirm,
+  onCancel,
+  loading,
+}: {
+  message: string
+  onConfirm: () => void
+  onCancel: () => void
+  loading: boolean
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">Quick Punch?</h3>
+        </div>
+        <p className="text-slate-600 text-sm mb-6">{message}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 py-2.5 px-4 rounded-lg border border-slate-300 text-slate-700 font-medium text-sm hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 py-2.5 px-4 rounded-lg bg-[#265020] text-white font-medium text-sm hover:bg-[#1d3d18] transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Processing...' : 'Yes, Continue'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ==========================================
+// Main Component
+// ==========================================
 
 export function TimeClockInterface() {
   const [state, setState] = useState<TimeClockState>({
@@ -54,14 +250,19 @@ export function TimeClockInterface() {
     lockoutInfo: null,
     staffInfo: null,
     cameraStream: null,
-    photoData: null
+    photoData: null,
+    confirmationNeeded: null,
   })
+
+  const [viewMode, setViewMode] = useState<ViewMode>('pin')
+  const [historyData, setHistoryData] = useState<HistoryData | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const lockoutTimerRef = useRef<NodeJS.Timeout>()
+  const cameraStreamRef = useRef<MediaStream | null>(null)
 
-  // HYDRATION FIX: Format time display without causing server/client mismatch
+  // HYDRATION FIX
   const getCurrentTime = () => {
     return new Date().toLocaleString('en-US', {
       timeZone: 'Asia/Bangkok',
@@ -75,23 +276,18 @@ export function TimeClockInterface() {
     })
   }
 
-  // HYDRATION FIX: Start with empty time to prevent server/client mismatch
   const [currentTime, setCurrentTime] = useState('')
   const [isClient, setIsClient] = useState(false)
 
-  // HYDRATION FIX: Only set time after component mounts on client
   useEffect(() => {
     setIsClient(true)
     setCurrentTime(getCurrentTime())
-    
     const timer = setInterval(() => {
       setCurrentTime(getCurrentTime())
     }, 1000)
-
     return () => clearInterval(timer)
   }, [])
 
-  // Emergency fallback - force isClient to true after 3 seconds if hydration seems stuck
   useEffect(() => {
     const fallbackTimer = setTimeout(() => {
       if (!isClient) {
@@ -99,130 +295,72 @@ export function TimeClockInterface() {
         setCurrentTime(getCurrentTime())
       }
     }, 3000)
-
     return () => clearTimeout(fallbackTimer)
   }, [isClient])
 
-  // Ref to track current camera stream for cleanup
-  const cameraStreamRef = useRef<MediaStream | null>(null)
-
-  // Initialize camera when component mounts
+  // Camera initialization
   useEffect(() => {
     initializeCamera()
     return () => {
-      // Cleanup camera on unmount
-      if (cameraStreamRef.current) {
-        cameraStreamRef.current.getTracks().forEach(track => {
-          track.stop()
-        })
-        cameraStreamRef.current = null
-      }
-    }
-  }, []) // Empty dependency array - only run once on mount
-
-  // Additional cleanup when navigating away from page
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (cameraStreamRef.current) {
-        cameraStreamRef.current.getTracks().forEach(track => {
-          track.stop()
-        })
-      }
-    }
-
-    const handleVisibilityChange = () => {
-      if (document.hidden && cameraStreamRef.current) {
-        cameraStreamRef.current.getTracks().forEach(track => {
-          track.stop()
-        })
-        cameraStreamRef.current = null
-        setState(prev => ({ ...prev, cameraStream: null }))
-      }
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, []) // Empty dependency array - only run once on mount
-
-  const initializeCamera = async () => {
-    try {
-      // Check if navigator.mediaDevices is available
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.error('initializeCamera: navigator.mediaDevices not available')
-        setState(prev => ({
-          ...prev,
-          cameraStream: null,
-          error: 'Camera not supported in this browser.'
-        }))
-        return
-      }
-
-      // Stop any existing stream first
       if (cameraStreamRef.current) {
         cameraStreamRef.current.getTracks().forEach(track => track.stop())
         cameraStreamRef.current = null
       }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: 320, 
-          height: 240,
-          facingMode: 'user' 
-        } 
-      })
-      
-      // Store in ref for cleanup
-      cameraStreamRef.current = stream
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-      }
-      
-      setState(prev => ({ ...prev, cameraStream: stream, error: null }))
-    } catch (error) {
-      console.error('Camera initialization failed:', error)
-      cameraStreamRef.current = null
-      
-      // Provide more specific error messages
-      let errorMessage = 'Camera access denied. Please allow camera permissions and refresh the page.'
-      if (error instanceof Error) {
-        if (error.name === 'NotFoundError') {
-          errorMessage = 'No camera found on this device.'
-        } else if (error.name === 'NotAllowedError') {
-          errorMessage = 'Camera access denied. Please allow camera permissions and refresh the page.'
-        } else if (error.name === 'NotReadableError') {
-          errorMessage = 'Camera is already in use by another application.'
-        }
-      }
-      
-      setState(prev => ({
-        ...prev,
-        cameraStream: null,
-        error: errorMessage
-      }))
-    }
-  }
-
-  // Function to stop camera stream
-  const stopCamera = useCallback(() => {
-    if (cameraStreamRef.current) {
-      cameraStreamRef.current.getTracks().forEach(track => {
-        track.stop()
-      })
-      if (videoRef.current) {
-        videoRef.current.srcObject = null
-      }
-      cameraStreamRef.current = null
-      setState(prev => ({ ...prev, cameraStream: null }))
     }
   }, [])
 
-  // Handle lockout countdown
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(track => track.stop())
+      }
+    }
+    const handleVisibilityChange = () => {
+      if (document.hidden && cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(track => track.stop())
+        cameraStreamRef.current = null
+        setState(prev => ({ ...prev, cameraStream: null }))
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
+
+  const initializeCamera = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setState(prev => ({ ...prev, cameraStream: null, error: 'Camera not supported in this browser.' }))
+        return
+      }
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(track => track.stop())
+        cameraStreamRef.current = null
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 320, height: 240, facingMode: 'user' }
+      })
+      cameraStreamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+      setState(prev => ({ ...prev, cameraStream: stream, error: null }))
+    } catch (error) {
+      cameraStreamRef.current = null
+      let errorMessage = 'Camera access denied. Please allow camera permissions and refresh the page.'
+      if (error instanceof Error) {
+        if (error.name === 'NotFoundError') errorMessage = 'No camera found on this device.'
+        else if (error.name === 'NotAllowedError') errorMessage = 'Camera access denied. Please allow camera permissions and refresh the page.'
+        else if (error.name === 'NotReadableError') errorMessage = 'Camera is already in use by another application.'
+      }
+      setState(prev => ({ ...prev, cameraStream: null, error: errorMessage }))
+    }
+  }
+
+  // Lockout countdown
   useEffect(() => {
     if (state.lockoutInfo?.isLocked && state.lockoutInfo.timeRemaining > 0) {
       lockoutTimerRef.current = setTimeout(() => {
@@ -237,124 +375,121 @@ export function TimeClockInterface() {
     } else if (state.lockoutInfo?.isLocked && state.lockoutInfo.timeRemaining <= 0) {
       setState(prev => ({ ...prev, lockoutInfo: null }))
     }
-
     return () => {
-      if (lockoutTimerRef.current) {
-        clearTimeout(lockoutTimerRef.current)
-      }
+      if (lockoutTimerRef.current) clearTimeout(lockoutTimerRef.current)
     }
   }, [state.lockoutInfo])
 
-  const resetState = useCallback(() => {
+  const resetToPin = useCallback(() => {
     setState(prev => ({
       ...prev,
       pin: '',
       error: null,
       success: null,
       staffInfo: null,
-      photoData: null
+      photoData: null,
+      confirmationNeeded: null,
     }))
+    setViewMode('pin')
+    setHistoryData(null)
   }, [])
 
   const handlePinDigit = useCallback((digit: string) => {
     if (state.loading || state.lockoutInfo?.isLocked) return
-    if (state.pin.length >= 6) return // Limit to 6 digits
-    
-    setState(prev => ({
-      ...prev,
-      pin: prev.pin + digit,
-      error: null
-    }))
+    if (state.pin.length >= 6) return
+    setState(prev => ({ ...prev, pin: prev.pin + digit, error: null }))
   }, [state.loading, state.lockoutInfo, state.pin.length])
 
   const handleBackspace = useCallback(() => {
     if (state.loading) return
-    
-    setState(prev => ({
-      ...prev,
-      pin: prev.pin.slice(0, -1),
-      error: null
-    }))
+    setState(prev => ({ ...prev, pin: prev.pin.slice(0, -1), error: null }))
   }, [state.loading])
 
   const handleClear = useCallback(() => {
     if (state.loading) return
-    setState(prev => ({
-      ...prev,
-      pin: '',
-      error: null
-    }))
+    setState(prev => ({ ...prev, pin: '', error: null }))
   }, [state.loading])
 
   const capturePhoto = (): string | null => {
     if (!videoRef.current || !canvasRef.current) return null
-
     const canvas = canvasRef.current
     const video = videoRef.current
     const context = canvas.getContext('2d')
-    
     if (!context) return null
-
-    // Phase 4: Ultra-compressed photo settings for maximum performance
-    const targetWidth = 240  // Reduced from 320
-    const targetHeight = 180 // Reduced from 240 (maintains 4:3 aspect ratio)
-    
+    const targetWidth = 240
+    const targetHeight = 180
     canvas.width = targetWidth
     canvas.height = targetHeight
-    
-    // Draw video to canvas with consistent sizing
     context.drawImage(video, 0, 0, targetWidth, targetHeight)
-    
-    // Phase 4: Further reduced quality (30% vs 50%) for smaller files
-    // Still adequate for staff identification while significantly reducing file size
     return canvas.toDataURL('image/jpeg', 0.3)
   }
 
-  const handleClockInOut = async () => {
-    // First validate PIN
-    if (!state.pin || state.pin.length !== 6) {
-      setState(prev => ({
-        ...prev,
-        error: 'PIN must be exactly 6 digits'
-      }))
+  const fetchHistory = async (staffId: number) => {
+    try {
+      const res = await fetch(`/api/time-clock/history?staff_id=${staffId}`)
+      const data = await res.json()
+      if (data.success) {
+        setHistoryData({
+          shifts: data.shifts,
+          total_hours: data.total_hours,
+          scheduled_shift: data.scheduled_shift,
+          entries: data.entries,
+        })
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err)
+    }
+  }
+
+  const handleClockInOut = async (confirmDoubleTap = false) => {
+    const pin = confirmDoubleTap && state.confirmationNeeded ? state.confirmationNeeded.pin : state.pin
+
+    if (!pin || pin.length !== 6) {
+      setState(prev => ({ ...prev, error: 'PIN must be exactly 6 digits' }))
       return
     }
 
-    // Capture photo automatically with compression validation
-    const photoData = capturePhoto()
+    const photoData = confirmDoubleTap && state.confirmationNeeded
+      ? state.confirmationNeeded.photoData
+      : capturePhoto()
+
     if (!photoData) {
-      setState(prev => ({
-        ...prev,
-        error: 'Failed to capture photo. Please ensure camera is working.'
-      }))
+      setState(prev => ({ ...prev, error: 'Failed to capture photo. Please ensure camera is working.' }))
       return
     }
-
-    // Phase 5.5: Skip photo size validation for maximum performance
 
     try {
-      setState(prev => ({ ...prev, loading: true, error: null }))
+      setState(prev => ({ ...prev, loading: true, error: null, confirmationNeeded: null }))
 
-      // Direct punch API call - eliminates redundant status check
       const punchResponse = await fetch('/api/time-clock/punch', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pin: state.pin,
+          pin,
           photo_data: photoData,
-          // Phase 5.5: Minimal device info for performance
-          device_info: {
-            timestamp: new Date().toISOString()
-          }
+          device_info: { timestamp: new Date().toISOString() },
+          confirm_double_tap: confirmDoubleTap,
         }),
       })
 
       const punchData = await punchResponse.json()
-      
+
       if (!punchResponse.ok) {
-        // Handle lockout scenarios
+        // Double-tap confirmation needed
+        if (punchData.needs_confirmation) {
+          setState(prev => ({
+            ...prev,
+            loading: false,
+            confirmationNeeded: {
+              message: punchData.message,
+              pin,
+              photoData,
+            },
+          }))
+          return
+        }
+
+        // Handle lockout
         if (punchData.is_locked || punchData.lock_expires_at) {
           setState(prev => ({
             ...prev,
@@ -362,46 +497,37 @@ export function TimeClockInterface() {
             error: punchData.message,
             lockoutInfo: {
               isLocked: true,
-              timeRemaining: punchData.lock_expires_at ? 
-                Math.max(0, Math.floor((new Date(punchData.lock_expires_at).getTime() - Date.now()) / 1000)) : 0,
+              timeRemaining: punchData.lock_expires_at
+                ? Math.max(0, Math.floor((new Date(punchData.lock_expires_at).getTime() - Date.now()) / 1000))
+                : 0,
               attempts: 0
             }
           }))
         } else {
-          setState(prev => ({
-            ...prev,
-            loading: false,
-            error: punchData.message || 'Clock in/out failed'
-          }))
+          setState(prev => ({ ...prev, loading: false, error: punchData.message || 'Clock in/out failed' }))
         }
         return
       }
 
-      // Success!
+      // Success — fetch history and show it
       setState(prev => ({
         ...prev,
         loading: false,
-        success: `${punchData.staff_name} successfully ${punchData.action === 'clock_in' ? 'clocked in' : 'clocked out'} at ${new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok' })}`,
+        staffInfo: {
+          name: punchData.staff_name,
+          staffId: punchData.staff_id,
+          action: punchData.action,
+        },
         pin: '',
-        photoData: photoData
+        photoData,
       }))
 
-      // Reset after 3 seconds
-      setTimeout(() => {
-        setState(prev => ({
-          ...prev,
-          success: null,
-          photoData: null
-        }))
-      }, 3000)
+      await fetchHistory(punchData.staff_id)
+      setViewMode('history')
 
     } catch (error) {
       console.error('Clock in/out error:', error)
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Network error. Please try again.'
-      }))
+      setState(prev => ({ ...prev, loading: false, error: 'Network error. Please try again.' }))
     }
   }
 
@@ -411,101 +537,66 @@ export function TimeClockInterface() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 
+  // ==========================================
+  // Render
+  // ==========================================
+
+  // Show history view after successful punch
+  if (viewMode === 'history' && state.staffInfo) {
+    return (
+      <ErrorBoundary showTechnicalDetails={process.env.NODE_ENV === 'development'}>
+        <HistoryView
+          staffName={state.staffInfo.name}
+          action={state.staffInfo.action}
+          history={historyData}
+          onDone={resetToPin}
+          autoResetSeconds={60}
+        />
+      </ErrorBoundary>
+    )
+  }
 
   return (
     <ErrorBoundary showTechnicalDetails={process.env.NODE_ENV === 'development'}>
       <>
+        {/* Double-tap confirmation dialog */}
+        {state.confirmationNeeded && (
+          <ConfirmationDialog
+            message={state.confirmationNeeded.message}
+            onConfirm={() => handleClockInOut(true)}
+            onCancel={() => setState(prev => ({ ...prev, confirmationNeeded: null }))}
+            loading={state.loading}
+          />
+        )}
+
         <style jsx>{`
           @media (min-width: 686px) and (max-width: 991px) {
-            .tablet-modal-container {
-              max-width: 36rem !important;
-            }
-            .tablet-logo-outer {
-              width: 6rem !important;
-              height: 6rem !important;
-            }
-            .tablet-logo-inner {
-              width: 5rem !important;
-              height: 5rem !important;
-            }
-            .tablet-logo-icon {
-              width: 2.5rem !important;
-              height: 2.5rem !important;
-            }
-            .tablet-title {
-              font-size: 1.875rem !important;
-            }
-            .tablet-subtitle {
-              font-size: 1rem !important;
-            }
-            .tablet-pin-circle {
-              width: 1.25rem !important;
-              height: 1.25rem !important;
-            }
-            .tablet-pin-gap {
-              gap: 0.75rem !important;
-            }
-            .tablet-keypad-container {
-              max-width: 24rem !important;
-            }
-            .tablet-keypad-gap {
-              gap: 1rem !important;
-              margin-bottom: 1rem !important;
-            }
-            .tablet-keypad-button {
-              width: 4rem !important;
-              height: 4rem !important;
-              font-size: 1.25rem !important;
-            }
-            .tablet-camera-container {
-              max-width: 20rem !important;
-            }
+            .tablet-modal-container { max-width: 36rem !important; }
+            .tablet-logo-outer { width: 6rem !important; height: 6rem !important; }
+            .tablet-logo-inner { width: 5rem !important; height: 5rem !important; }
+            .tablet-logo-icon { width: 2.5rem !important; height: 2.5rem !important; }
+            .tablet-title { font-size: 1.875rem !important; }
+            .tablet-subtitle { font-size: 1rem !important; }
+            .tablet-pin-circle { width: 1.25rem !important; height: 1.25rem !important; }
+            .tablet-pin-gap { gap: 0.75rem !important; }
+            .tablet-keypad-container { max-width: 24rem !important; }
+            .tablet-keypad-gap { gap: 1rem !important; margin-bottom: 1rem !important; }
+            .tablet-keypad-button { width: 4rem !important; height: 4rem !important; font-size: 1.25rem !important; }
+            .tablet-camera-container { max-width: 20rem !important; }
           }
-          
           @media (max-width: 685px) {
-            .mobile-modal-container {
-              max-width: 20rem !important;
-            }
-            .mobile-logo-outer {
-              width: 4rem !important;
-              height: 4rem !important;
-            }
-            .mobile-logo-inner {
-              width: 3.5rem !important;
-              height: 3.5rem !important;
-            }
-            .mobile-logo-icon {
-              width: 2rem !important;
-              height: 2rem !important;
-            }
-            .mobile-title {
-              font-size: 1.5rem !important;
-            }
-            .mobile-subtitle {
-              font-size: 0.875rem !important;
-            }
-            .mobile-pin-circle {
-              width: 1rem !important;
-              height: 1rem !important;
-            }
-            .mobile-pin-gap {
-              gap: 0.5rem !important;
-            }
-            .mobile-keypad-container {
-              max-width: 18rem !important;
-            }
-            .mobile-keypad-gap {
-              gap: 0.75rem !important;
-              margin-bottom: 0.75rem !important;
-            }
-            .mobile-keypad-button {
-              width: 3.5rem !important;
-              height: 3.5rem !important;
-              font-size: 1.125rem !important;
-            }
-            .mobile-camera-container {
-              max-width: 16rem !important;
-            }
+            .mobile-modal-container { max-width: 20rem !important; }
+            .mobile-logo-outer { width: 4rem !important; height: 4rem !important; }
+            .mobile-logo-inner { width: 3.5rem !important; height: 3.5rem !important; }
+            .mobile-logo-icon { width: 2rem !important; height: 2rem !important; }
+            .mobile-title { font-size: 1.5rem !important; }
+            .mobile-subtitle { font-size: 0.875rem !important; }
+            .mobile-pin-circle { width: 1rem !important; height: 1rem !important; }
+            .mobile-pin-gap { gap: 0.5rem !important; }
+            .mobile-keypad-container { max-width: 18rem !important; }
+            .mobile-keypad-gap { gap: 0.75rem !important; margin-bottom: 0.75rem !important; }
+            .mobile-keypad-button { width: 3.5rem !important; height: 3.5rem !important; font-size: 1.125rem !important; }
+            .mobile-camera-container { max-width: 16rem !important; }
           }
         `}</style>
         <div className="fixed inset-0 z-50 bg-gradient-to-br from-[#265020] via-green-800 to-[#265020]">
@@ -517,26 +608,16 @@ export function TimeClockInterface() {
                   <Clock className="tablet-logo-icon mobile-logo-icon h-8 sm:h-10 md:h-12 w-8 sm:w-10 md:w-12 text-white" />
                 </div>
               </div>
-              
+
               <h1 className="tablet-title mobile-title text-xl sm:text-2xl font-bold text-white mb-1 sm:mb-2">Staff Time Clock</h1>
-              {/* HYDRATION FIX: Only show time after client-side render */}
               <p className="tablet-subtitle mobile-subtitle text-green-100 mb-4 sm:mb-6 md:mb-8 text-sm sm:text-base">{isClient ? currentTime : 'Loading...'}</p>
 
               {/* Camera Section */}
               <div className="mb-3 sm:mb-4 md:mb-6 flex flex-col items-center">
                 <div className="relative tablet-camera-container mobile-camera-container w-full max-w-sm mx-auto">
                   <div className="aspect-video bg-white/10 rounded-lg overflow-hidden border-2 border-white/20 mb-2 sm:mb-3 md:mb-4">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover"
-                    />
-                    <canvas
-                      ref={canvasRef}
-                      className="hidden"
-                    />
+                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                    <canvas ref={canvasRef} className="hidden" />
                     {!state.cameraStream && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/5">
                         <Camera className="h-8 sm:h-10 md:h-12 w-8 sm:w-10 md:w-12 text-white/40" />
@@ -554,7 +635,7 @@ export function TimeClockInterface() {
               {state.error && (
                 <div className="mb-3 sm:mb-4 md:mb-6 bg-red-500/20 border border-red-300/30 rounded-lg p-2 sm:p-3">
                   <p className="text-red-100 text-xs sm:text-sm flex items-center gap-2">
-                    <AlertTriangle className="h-3 sm:h-4 w-3 sm:w-4" />
+                    <AlertTriangle className="h-3 sm:h-4 w-3 sm:w-4 flex-shrink-0" />
                     {state.error}
                   </p>
                 </div>
@@ -563,7 +644,7 @@ export function TimeClockInterface() {
               {state.success && (
                 <div className="mb-3 sm:mb-4 md:mb-6 bg-green-500/20 border border-green-300/30 rounded-lg p-2 sm:p-3">
                   <p className="text-green-100 text-xs sm:text-sm flex items-center gap-2">
-                    <CheckCircle className="h-3 sm:h-4 w-3 sm:w-4" />
+                    <CheckCircle className="h-3 sm:h-4 w-3 sm:w-4 flex-shrink-0" />
                     {state.success}
                   </p>
                 </div>
@@ -573,7 +654,7 @@ export function TimeClockInterface() {
               {state.lockoutInfo?.isLocked && (
                 <div className="mb-3 sm:mb-4 md:mb-6 bg-red-500/20 border border-red-300/30 rounded-lg p-2 sm:p-3">
                   <p className="text-red-100 text-xs sm:text-sm flex items-center gap-2">
-                    <Lock className="h-3 sm:h-4 w-3 sm:w-4" />
+                    <Lock className="h-3 sm:h-4 w-3 sm:w-4 flex-shrink-0" />
                     Account locked due to failed attempts. Please wait {formatLockoutTime(state.lockoutInfo.timeRemaining)} before trying again.
                   </p>
                 </div>
@@ -583,8 +664,7 @@ export function TimeClockInterface() {
               <div className="mb-3 sm:mb-4 md:mb-6">
                 <div className="text-center">
                   <label className="text-xs sm:text-sm font-medium mb-2 sm:mb-3 block text-green-100">Enter Your 6-Digit PIN</label>
-                  
-                  {/* Custom PIN Display with 6 circles like POS */}
+
                   <div className="tablet-pin-gap mobile-pin-gap flex items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6 md:mb-8">
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div
@@ -599,12 +679,7 @@ export function TimeClockInterface() {
 
                 {/* Keypad */}
                 <div className="tablet-keypad-container mobile-keypad-container max-w-xs mx-auto">
-                  {/* Rows 1-3 */}
-                  {[
-                    [1, 2, 3],
-                    [4, 5, 6], 
-                    [7, 8, 9]
-                  ].map((row, i) => (
+                  {[[1, 2, 3], [4, 5, 6], [7, 8, 9]].map((row, i) => (
                     <div key={i} className="tablet-keypad-gap mobile-keypad-gap flex gap-3 sm:gap-4 mb-3 sm:mb-4 justify-center">
                       {row.map(digit => (
                         <button
@@ -618,8 +693,7 @@ export function TimeClockInterface() {
                       ))}
                     </div>
                   ))}
-                  
-                  {/* Row 4: Clear, 0, Backspace */}
+
                   <div className="tablet-keypad-gap mobile-keypad-gap flex gap-3 sm:gap-4 mb-3 sm:mb-4 justify-center">
                     <button
                       onClick={handleClear}
@@ -647,7 +721,7 @@ export function TimeClockInterface() {
 
                 {/* Clock In/Out Button */}
                 <button
-                  onClick={handleClockInOut}
+                  onClick={() => handleClockInOut(false)}
                   disabled={state.loading || !state.pin || state.pin.length !== 6 || !!state.lockoutInfo?.isLocked}
                   className="w-full mt-3 sm:mt-4 md:mt-6 py-2 sm:py-3 px-4 sm:px-6 rounded-full bg-white/90 hover:bg-white text-[#265020] font-bold text-sm sm:text-base md:text-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -667,4 +741,4 @@ export function TimeClockInterface() {
       </>
     </ErrorBoundary>
   )
-} 
+}

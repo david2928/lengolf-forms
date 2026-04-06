@@ -5,6 +5,7 @@ import { TimeClockPunchRequest, TimeClockPunchResponse } from '@/types/staff';
 import { DateTime } from 'luxon';
 import { timeClockRateLimit } from '@/lib/rate-limiter';
 import { logger, logApi, logError, logUserAction } from '@/lib/logger';
+import { refacSupabaseAdmin } from '@/lib/refac-supabase';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request body
-    const body: TimeClockPunchRequest = await request.json();
+    const body: TimeClockPunchRequest & { confirm_double_tap?: boolean } = await request.json();
     const { pin, photo_data, device_info } = body;
 
     // Validate required fields
@@ -143,6 +144,38 @@ export async function POST(request: NextRequest) {
     const action = pinVerification.currently_clocked_in ? 'clock_out' : 'clock_in';
     const currentTime = DateTime.now().setZone('Asia/Bangkok');
     const timeString = currentTime.toFormat('h:mm a');
+
+    // Double-tap prevention: check if last entry was < 2 minutes ago
+    const confirmBypass = body.confirm_double_tap === true;
+    if (!confirmBypass) {
+      const { data: recentEntry } = await refacSupabaseAdmin
+        .schema('backoffice')
+        .from('time_entries')
+        .select('action, timestamp')
+        .eq('staff_id', pinVerification.staff_id!)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (recentEntry) {
+        const lastEntryTime = DateTime.fromISO(recentEntry.timestamp).setZone('Asia/Bangkok');
+        const minutesSinceLast = currentTime.diff(lastEntryTime, 'minutes').minutes;
+
+        if (minutesSinceLast >= 0 && minutesSinceLast < 2) {
+          const lastAction = recentEntry.action === 'clock_in' ? 'clocked in' : 'clocked out';
+          const agoSeconds = Math.round(minutesSinceLast * 60);
+          return NextResponse.json({
+            success: false,
+            needs_confirmation: true,
+            staff_id: pinVerification.staff_id,
+            staff_name: pinVerification.staff_name,
+            message: `You just ${lastAction} ${agoSeconds} seconds ago. Are you sure you want to ${action === 'clock_in' ? 'clock in' : 'clock out'} again?`,
+            last_action: recentEntry.action,
+            last_action_ago_seconds: agoSeconds,
+          } as TimeClockPunchResponse & { needs_confirmation: boolean; last_action: string; last_action_ago_seconds: number }, { status: 409 });
+        }
+      }
+    }
     
     // Prepare photo information for async processing
     let photoUrl: string | undefined;
