@@ -8,14 +8,12 @@ interface CourseRentalCounterProps {
   count: number;
   setNames: string[];
   isLoading: boolean;
-  isMobile?: boolean;
 }
 
 export function CourseRentalCounter({
   count,
   setNames,
   isLoading,
-  isMobile = false
 }: CourseRentalCounterProps) {
   const router = useRouter();
 
@@ -34,28 +32,22 @@ export function CourseRentalCounter({
   return (
     <Button
       variant="outline"
-      size={isMobile ? 'sm' : 'default'}
+      size="sm"
       onClick={handleClick}
       disabled={isLoading || count === 0}
       title={tooltip}
       className={`
-        relative flex items-center gap-2
+        relative flex items-center gap-1.5 px-2.5
         ${count > 0 ? 'border-cyan-500 bg-cyan-50 hover:bg-cyan-100 text-cyan-700' : ''}
-        ${isMobile ? 'px-2' : 'px-3'}
       `}
     >
       <span className="text-base leading-none">🏌️</span>
       {isLoading ? (
-        <span className={isMobile ? 'text-xs' : 'text-sm'}>...</span>
+        <span className="text-xs">...</span>
       ) : (
-        <>
-          <span className={`font-semibold ${isMobile ? 'text-xs' : 'text-sm'}`}>
-            {count}
-          </span>
-          {!isMobile && (
-            <span className="text-sm">club rental{count !== 1 ? 's' : ''}</span>
-          )}
-        </>
+        <span className="font-semibold text-sm">
+          {count}
+        </span>
       )}
     </Button>
   );

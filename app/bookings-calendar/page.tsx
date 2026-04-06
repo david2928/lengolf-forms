@@ -409,7 +409,7 @@ export default function BookingsCalendarPage() {
       <div className="flex-shrink-0 container mx-auto px-4 py-3">
         <div className={`flex justify-between items-center ${isMobile ? 'flex-col space-y-3' : ''}`}>
           <h1 className={`font-bold ${isMobile ? 'text-2xl' : 'text-3xl'}`}>
-            {isMobile ? 'Calendar' : 'Bookings Calendar'}
+            Calendar
           </h1>
           
           <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-4'}`}>
@@ -427,7 +427,6 @@ export default function BookingsCalendarPage() {
               count={courseRentalCount}
               setNames={courseRentalSetNames}
               isLoading={isCourseRentalLoading}
-              isMobile={isMobile}
             />
 
             {/* Unconfirmed Bookings Counter */}
